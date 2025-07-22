@@ -8,3 +8,6 @@ node_modules
 # MkDocs documentation
 site*/
 .cache
+
+# Deployment Configuration
+packages/cdk/cdk.json
