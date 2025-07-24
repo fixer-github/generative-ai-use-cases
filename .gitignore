@@ -11,3 +11,4 @@ site*/
 
 # Deployment Configuration
 packages/cdk/cdk.json
+packages/cdk/tenant-config.json
