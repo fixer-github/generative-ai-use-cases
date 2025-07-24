@@ -1,24 +1,24 @@
-# Tenant IAM Role with AssumeRoleWithWebIdentity
+# AssumeRoleWithWebIdentityを使用したテナントIAMロール
 
-Simple IAM role creation for multi-tenant access using JWT tokens.
+JWTトークンを使用したマルチテナントアクセス用のシンプルなIAMロール作成。
 
-## Quick Start
+## クイックスタート
 
 ```bash
-# For Cognito User Pool
+# Cognito User Poolの場合
 ./scripts/create-tenant-iam-role.sh \
   -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
   -a your-client-id
 
-# For custom OIDC provider
+# カスタムOIDCプロバイダーの場合
 ./scripts/create-tenant-iam-role.sh \
   -p arn:aws:iam::123456789012:oidc-provider/example.com \
   -a my-app-id
 ```
 
-## CDK Usage
+## CDKの使用方法
 
-### Basic Role Creation
+### 基本的なロール作成
 
 ```typescript
 import { TenantIamRole } from './construct/tenant-iam-role';
@@ -26,28 +26,28 @@ import { TenantIamRole } from './construct/tenant-iam-role';
 const role = new TenantIamRole(this, 'MyTenantRole', {
   identityProviderArn: 'arn:aws:cognito-idp:us-east-1:123456789012:userpool/pool-id',
   audience: 'client-id',
-  tenantIdClaim: 'custom:tenant_id', // optional, this is the default
-  roleName: 'MyTenantAccessRole', // optional
-  maxSessionDuration: cdk.Duration.hours(2), // optional, default is 1 hour
+  tenantIdClaim: 'custom:tenant_id', // オプション、デフォルト値
+  roleName: 'MyTenantAccessRole', // オプション
+  maxSessionDuration: cdk.Duration.hours(2), // オプション、デフォルトは1時間
 });
 ```
 
-### Adding Policies
+### ポリシーの追加
 
 ```typescript
-// Add custom policy statement
+// カスタムポリシーステートメントの追加
 role.addToPolicy(new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
   actions: ['s3:ListBucket'],
   resources: ['arn:aws:s3:::my-bucket'],
 }));
 
-// Add managed policy
+// マネージドポリシーのアタッチ
 role.attachManagedPolicy(
   iam.ManagedPolicy.fromAwsManagedPolicyName('ReadOnlyAccess')
 );
 
-// Use helper methods for common patterns
+// 一般的なパターン用のヘルパーメソッドの使用
 const dynamoStatement = role.createDynamoDbPolicyStatement(
   'arn:aws:dynamodb:us-east-1:123456789012:table/MyTable'
 );
@@ -59,9 +59,9 @@ const s3Statements = role.createS3PolicyStatement(
 s3Statements.forEach(stmt => role.addToPolicy(stmt));
 ```
 
-## Trust Policy
+## 信頼ポリシー
 
-The role automatically creates a trust policy like:
+ロールは自動的に以下のような信頼ポリシーを作成します：
 
 ```json
 {
@@ -81,13 +81,13 @@ The role automatically creates a trust policy like:
 }
 ```
 
-## Client Usage
+## クライアントでの使用方法
 
 ```javascript
-// Get JWT token from your identity provider
+// IDプロバイダーからJWTトークンを取得
 const idToken = await getIdToken();
 
-// Exchange for AWS credentials
+// AWS認証情報と交換
 const sts = new AWS.STS();
 const credentials = await sts.assumeRoleWithWebIdentity({
   RoleArn: 'arn:aws:iam::123456789012:role/TenantRole',
@@ -96,7 +96,7 @@ const credentials = await sts.assumeRoleWithWebIdentity({
   DurationSeconds: 3600,
 }).promise();
 
-// Use credentials
+// 認証情報を使用
 const s3 = new AWS.S3({
   credentials: {
     accessKeyId: credentials.Credentials.AccessKeyId,
@@ -106,25 +106,25 @@ const s3 = new AWS.S3({
 });
 ```
 
-## Script Options
+## スクリプトオプション
 
 ```bash
-./scripts/create-tenant-iam-role.sh [OPTIONS]
+./scripts/create-tenant-iam-role.sh [オプション]
 
-Options:
-  -p, --provider-arn ARN       Identity provider ARN (required)
-  -a, --audience ID            Audience/Client ID (required)
-  -c, --claim NAME             Tenant ID claim name (default: custom:tenant_id)
-  -n, --role-name NAME         IAM role name (optional)
-  -s, --stack-name NAME        CloudFormation stack name (default: TenantIamRoleStack)
-  -r, --region REGION          AWS region (default: current region)
-  -h, --help                   Show help message
+オプション:
+  -p, --provider-arn ARN       IDプロバイダーARN（必須）
+  -a, --audience ID            オーディエンス/クライアントID（必須）
+  -c, --claim NAME             テナントIDクレーム名（デフォルト: custom:tenant_id）
+  -n, --role-name NAME         IAMロール名（オプション）
+  -s, --stack-name NAME        CloudFormationスタック名（デフォルト: TenantIamRoleStack）
+  -r, --region REGION          AWSリージョン（デフォルト: 現在のリージョン）
+  -h, --help                   ヘルプメッセージを表示
 ```
 
-## Outputs
+## 出力
 
-After deployment, the stack outputs:
-- **RoleArn**: The ARN of the created IAM role
-- **RoleName**: The name of the created IAM role
+デプロイ後、スタックは以下を出力します：
+- **RoleArn**: 作成されたIAMロールのARN
+- **RoleName**: 作成されたIAMロールの名前
 
-The script also creates `tenant-iam-role-config.json` with all configuration details.
+スクリプトは設定の詳細を含む`tenant-iam-role-config.json`も作成します。
