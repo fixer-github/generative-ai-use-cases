@@ -84,7 +84,7 @@ if (!params.providerArn || !params.audience) {
 
 // Build CDK command
 const stackName = params.stackName || 'TenantIamRoleStack';
-let cdkCommand = `cdk deploy ${stackName}`;
+let cdkCommand = `npm run cdk -- deploy ${stackName}`;
 
 // Add parameters
 cdkCommand += ` --parameters IdentityProviderArn="${params.providerArn}"`;
