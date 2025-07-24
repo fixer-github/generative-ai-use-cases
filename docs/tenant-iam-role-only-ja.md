@@ -4,6 +4,26 @@ JWTトークンを使用したマルチテナントアクセス用のシンプ�
 
 ## クイックスタート
 
+### NPMスクリプトを使用（推奨）
+
+```bash
+# プロジェクトルートから実行
+npm run cdk:deploy:tenant -- -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX -a your-client-id
+
+# カスタムロール名を指定
+npm run cdk:deploy:tenant -- -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX -a your-client-id -n MyTenantRole
+
+# 全てのオプションを指定
+npm run cdk:deploy:tenant -- \
+  -p arn:aws:cognito-idp:ap-northeast-1:123456789012:userpool/ap-northeast-1_ABC123 \
+  -a my-client-id \
+  -n MyTenantRole \
+  -c custom:tenant_id \
+  -r ap-northeast-1
+```
+
+### シェルスクリプトを使用
+
 ```bash
 # Cognito User Poolの場合
 ./scripts/create-tenant-iam-role.sh \

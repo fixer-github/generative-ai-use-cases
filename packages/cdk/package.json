@@ -7,6 +7,7 @@
     "test": "jest",
     "test:lambda:watch": "jest lambda --watchAll",
     "cdk": "cdk",
+    "cdk:deploy:tenant": "node scripts/deploy-tenant-role.js",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
     "postinstall": "npm ci --prefix custom-resources"
