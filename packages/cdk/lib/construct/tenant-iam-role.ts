@@ -1,0 +1,157 @@
+import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import { Construct } from 'constructs';
+
+export interface TenantIamRoleProps {
+  /**
+   * The identity provider ARN (e.g., OIDC provider ARN)
+   */
+  readonly identityProviderArn: string;
+
+  /**
+   * The audience/client ID for the identity provider
+   */
+  readonly audience: string;
+
+  /**
+   * The tenant identifier claim in the JWT token
+   * @default 'custom:tenant_id'
+   */
+  readonly tenantIdClaim?: string;
+
+  /**
+   * Role name
+   * @default - AWS CloudFormation generates a unique name
+   */
+  readonly roleName?: string;
+
+  /**
+   * Description for the role
+   * @default 'Role for multi-tenant access with tenant isolation'
+   */
+  readonly description?: string;
+
+  /**
+   * Maximum session duration
+   * @default Duration.hours(1)
+   */
+  readonly maxSessionDuration?: cdk.Duration;
+}
+
+export class TenantIamRole extends Construct {
+  /**
+   * The IAM role that can be assumed by authenticated users
+   */
+  public readonly role: iam.Role;
+
+  /**
+   * The tenant ID claim used in policies
+   */
+  public readonly tenantIdClaim: string;
+
+  constructor(scope: Construct, id: string, props: TenantIamRoleProps) {
+    super(scope, id);
+
+    this.tenantIdClaim = props.tenantIdClaim || 'custom:tenant_id';
+
+    // Create the IAM role with AssumeRoleWithWebIdentity trust policy
+    this.role = new iam.Role(this, 'Role', {
+      roleName: props.roleName,
+      assumedBy: new iam.WebIdentityPrincipal(props.identityProviderArn, {
+        'StringEquals': {
+          [`${props.identityProviderArn}:aud`]: props.audience,
+        },
+      }),
+      description: props.description || 'Role for multi-tenant access with tenant isolation',
+      maxSessionDuration: props.maxSessionDuration || cdk.Duration.hours(1),
+    });
+
+    // Output the role ARN
+    new cdk.CfnOutput(this, 'RoleArn', {
+      value: this.role.roleArn,
+      description: 'ARN of the tenant access role',
+    });
+
+    new cdk.CfnOutput(this, 'RoleName', {
+      value: this.role.roleName,
+      description: 'Name of the tenant access role',
+    });
+  }
+
+  /**
+   * Add a policy statement to the role
+   */
+  public addToPolicy(statement: iam.PolicyStatement): void {
+    this.role.addToPolicy(statement);
+  }
+
+  /**
+   * Attach a managed policy to the role
+   */
+  public attachManagedPolicy(managedPolicy: iam.IManagedPolicy): void {
+    this.role.addManagedPolicy(managedPolicy);
+  }
+
+  /**
+   * Create a policy statement for DynamoDB with tenant isolation
+   */
+  public createDynamoDbPolicyStatement(tableArn: string, actions?: string[]): iam.PolicyStatement {
+    const defaultActions = [
+      'dynamodb:GetItem',
+      'dynamodb:PutItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:DeleteItem',
+      'dynamodb:Query',
+      'dynamodb:BatchGetItem',
+      'dynamodb:BatchWriteItem',
+    ];
+
+    return new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultActions,
+      resources: [tableArn, `${tableArn}/index/*`],
+      conditions: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': [`$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}`],
+        },
+      },
+    });
+  }
+
+  /**
+   * Create a policy statement for S3 with tenant isolation
+   */
+  public createS3PolicyStatement(bucketArn: string, actions?: string[]): iam.PolicyStatement[] {
+    const statements: iam.PolicyStatement[] = [];
+
+    // List objects in tenant-specific prefix
+    statements.push(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['s3:ListBucket'],
+      resources: [bucketArn],
+      conditions: {
+        'StringLike': {
+          's3:prefix': [`tenants/$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}/*`],
+        },
+      },
+    }));
+
+    // CRUD operations on tenant-specific objects
+    const defaultObjectActions = [
+      's3:GetObject',
+      's3:PutObject',
+      's3:DeleteObject',
+      's3:GetObjectVersion',
+      's3:GetObjectTagging',
+      's3:PutObjectTagging',
+    ];
+
+    statements.push(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultObjectActions,
+      resources: [`${bucketArn}/tenants/$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}/*`],
+    }));
+
+    return statements;
+  }
+}
