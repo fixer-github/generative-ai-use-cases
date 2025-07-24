@@ -6,28 +6,31 @@ import * as readline from 'readline';
 
 const TENANT_CONFIG_FILE = path.join(__dirname, '../tenant-config.json');
 
+type DynamoDBModel = 'silo' | 'pool';
+
 interface TenantConfig {
   tenants: {
     [tenantId: string]: {
       name: string;
       createdAt: string;
       stackName: string;
+      dynamoDBModel?: DynamoDBModel;
     };
   };
 }
 
-function loadTenantConfig(): TenantConfig {
+const loadTenantConfig = (): TenantConfig => {
   if (!fs.existsSync(TENANT_CONFIG_FILE)) {
     return { tenants: {} };
   }
   return JSON.parse(fs.readFileSync(TENANT_CONFIG_FILE, 'utf-8'));
-}
+};
 
-function saveTenantConfig(config: TenantConfig): void {
+const saveTenantConfig = (config: TenantConfig): void => {
   fs.writeFileSync(TENANT_CONFIG_FILE, JSON.stringify(config, null, 2));
-}
+};
 
-async function askConfirmation(question: string): Promise<boolean> {
+const askConfirmation = async (question: string): Promise<boolean> => {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -39,9 +42,9 @@ async function askConfirmation(question: string): Promise<boolean> {
       resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
     });
   });
-}
+};
 
-async function main() {
+const main = async () => {
   const args = process.argv.slice(2);
   if (args.length !== 1) {
     console.error('Usage: npm run cdk:tenant:remove <tenantId>');
@@ -64,6 +67,7 @@ async function main() {
   console.log(`Tenant to remove: ${tenantId}`);
   console.log(`  Stack: ${tenant.stackName}`);
   console.log(`  Created: ${new Date(tenant.createdAt).toLocaleString()}`);
+  console.log(`  DynamoDB Model: ${tenant.dynamoDBModel || 'Not specified'}`);
 
   const confirmed = await askConfirmation('\nAre you sure you want to remove this tenant? (y/N): ');
   
@@ -75,7 +79,7 @@ async function main() {
   console.log(`\nRemoving tenant resources for: ${tenantId}`);
 
   try {
-    // Destroy the tenant IAM stack
+    // Destroy the tenant DynamoDB stack
     const cdkCommand = `npx cdk destroy ${tenant.stackName} --force`;
     console.log(`Running: ${cdkCommand}`);
     
@@ -94,6 +98,6 @@ async function main() {
     console.error(`\nError destroying tenant resources:`, error);
     process.exit(1);
   }
-}
+};
 
 main();

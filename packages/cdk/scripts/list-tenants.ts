@@ -4,24 +4,27 @@ import * as path from 'path';
 
 const TENANT_CONFIG_FILE = path.join(__dirname, '../tenant-config.json');
 
+type DynamoDBModel = 'silo' | 'pool';
+
 interface TenantConfig {
   tenants: {
     [tenantId: string]: {
       name: string;
       createdAt: string;
       stackName: string;
+      dynamoDBModel?: DynamoDBModel; // Optional for backward compatibility
     };
   };
 }
 
-function loadTenantConfig(): TenantConfig {
+const loadTenantConfig = (): TenantConfig => {
   if (!fs.existsSync(TENANT_CONFIG_FILE)) {
     return { tenants: {} };
   }
   return JSON.parse(fs.readFileSync(TENANT_CONFIG_FILE, 'utf-8'));
-}
+};
 
-function main() {
+const main = () => {
   const config = loadTenantConfig();
   const tenantIds = Object.keys(config.tenants);
 
@@ -40,6 +43,7 @@ function main() {
     console.log(`  Name: ${tenant.name}`);
     console.log(`  Created: ${new Date(tenant.createdAt).toLocaleString()}`);
     console.log(`  Stack: ${tenant.stackName}`);
+    console.log(`  DynamoDB Model: ${tenant.dynamoDBModel || 'Not specified'}`);
   });
 
   console.log('\n\nTenant Management Commands:');
@@ -47,6 +51,6 @@ function main() {
   console.log('- Remove tenant: npm run cdk:tenant:remove <tenantId>');
   console.log('\nTo get role ARN for a tenant:');
   console.log('aws cloudformation describe-stacks --stack-name <stackName> --query "Stacks[0].Outputs[?OutputKey==\'TenantRoleArn\'].OutputValue" --output text');
-}
+};
 
 main();
