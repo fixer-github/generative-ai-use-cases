@@ -49,10 +49,16 @@ export class TenantIamRole extends Construct {
    */
   public readonly tenantIdClaim: string;
 
+  /**
+   * The identity provider ARN
+   */
+  private readonly identityProviderArn: string;
+
   constructor(scope: Construct, id: string, props: TenantIamRoleProps) {
     super(scope, id);
 
     this.tenantIdClaim = props.tenantIdClaim || 'custom:tenant_id';
+    this.identityProviderArn = props.identityProviderArn;
 
     // Create the IAM role with AssumeRoleWithWebIdentity trust policy
     this.role = new iam.Role(this, 'Role', {
@@ -112,7 +118,7 @@ export class TenantIamRole extends Construct {
       resources: [tableArn, `${tableArn}/index/*`],
       conditions: {
         'ForAllValues:StringEquals': {
-          'dynamodb:LeadingKeys': [`$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}`],
+          'dynamodb:LeadingKeys': [`$\{${this.identityProviderArn}:${this.tenantIdClaim}}`],
         },
       },
     });
@@ -131,7 +137,7 @@ export class TenantIamRole extends Construct {
       resources: [bucketArn],
       conditions: {
         'StringLike': {
-          's3:prefix': [`tenants/$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}/*`],
+          's3:prefix': [`tenants/$\{${this.identityProviderArn}:${this.tenantIdClaim}}/*`],
         },
       },
     }));
@@ -149,7 +155,7 @@ export class TenantIamRole extends Construct {
     statements.push(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: actions || defaultObjectActions,
-      resources: [`${bucketArn}/tenants/$\{${this.role.assumeRoleAssumeRolePrincipal}:${this.tenantIdClaim}}/*`],
+      resources: [`${bucketArn}/tenants/$\{${this.identityProviderArn}:${this.tenantIdClaim}}/*`],
     }));
 
     return statements;

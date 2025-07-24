@@ -4,36 +4,53 @@ JWTトークンを使用したマルチテナントアクセス用のシンプ�
 
 ## クイックスタート
 
-### NPMスクリプトを使用（推奨）
+### CDKコンテキストを使用（推奨）
 
 ```bash
-# プロジェクトルートから実行
-npm run cdk:deploy:tenant -- -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX -a your-client-id
+# packages/cdkディレクトリから実行
+cd packages/cdk
+
+# 基本的な使用方法
+npx cdk deploy TenantIamRoleStack \
+  -c tenantIamRoleEnabled=true \
+  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
+  -c tenantAudience=your-client-id
 
 # カスタムロール名を指定
-npm run cdk:deploy:tenant -- -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX -a your-client-id -n MyTenantRole
+npx cdk deploy TenantIamRoleStack \
+  -c tenantIamRoleEnabled=true \
+  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
+  -c tenantAudience=your-client-id \
+  -c tenantRoleName=MyTenantRole
 
 # 全てのオプションを指定
-npm run cdk:deploy:tenant -- \
-  -p arn:aws:cognito-idp:ap-northeast-1:123456789012:userpool/ap-northeast-1_ABC123 \
-  -a my-client-id \
-  -n MyTenantRole \
-  -c custom:tenant_id \
-  -r ap-northeast-1
+npx cdk deploy TenantIamRoleStack \
+  -c tenantIamRoleEnabled=true \
+  -c tenantIdentityProviderArn=arn:aws:cognito-idp:ap-northeast-1:123456789012:userpool/ap-northeast-1_ABC123 \
+  -c tenantAudience=my-client-id \
+  -c tenantRoleName=MyTenantRole \
+  -c tenantIdClaim=custom:tenant_id
 ```
 
-### シェルスクリプトを使用
+### cdk.jsonに設定を追加
 
+永続的な設定の場合は、`packages/cdk/cdk.json`の`context`セクションに追加：
+
+```json
+{
+  "context": {
+    "tenantIamRoleEnabled": true,
+    "tenantIdentityProviderArn": "arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX",
+    "tenantAudience": "your-client-id",
+    "tenantRoleName": "MyTenantRole",
+    "tenantIdClaim": "custom:tenant_id"
+  }
+}
+```
+
+その後、単純に実行：
 ```bash
-# Cognito User Poolの場合
-./scripts/create-tenant-iam-role.sh \
-  -p arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
-  -a your-client-id
-
-# カスタムOIDCプロバイダーの場合
-./scripts/create-tenant-iam-role.sh \
-  -p arn:aws:iam::123456789012:oidc-provider/example.com \
-  -a my-app-id
+npx cdk deploy TenantIamRoleStack
 ```
 
 ## CDKの使用方法

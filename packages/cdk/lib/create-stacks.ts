@@ -8,6 +8,7 @@ import { RagKnowledgeBaseStack } from './rag-knowledge-base-stack';
 import { GuardrailStack } from './guardrail-stack';
 import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './video-tmp-bucket-stack';
+import { TenantIamRoleStack } from './tenant-iam-role-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -161,6 +162,20 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       )
     : null;
 
+  // Tenant IAM Role Stack - only create if enabled via context
+  const tenantIamRoleStack = app.node.tryGetContext('tenantIamRoleEnabled')
+    ? new TenantIamRoleStack(app, `TenantIamRoleStack${params.env}`, {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        identityProviderArn: app.node.tryGetContext('tenantIdentityProviderArn'),
+        audience: app.node.tryGetContext('tenantAudience'),
+        tenantIdClaim: app.node.tryGetContext('tenantIdClaim'),
+        roleName: app.node.tryGetContext('tenantRoleName'),
+      })
+    : null;
+
   return {
     cloudFrontWafStack,
     ragKnowledgeBaseStack,
@@ -168,5 +183,6 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     guardrail,
     generativeAiUseCasesStack,
     dashboardStack,
+    tenantIamRoleStack,
   };
 };
