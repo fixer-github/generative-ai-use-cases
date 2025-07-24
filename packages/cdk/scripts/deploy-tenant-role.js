@@ -114,10 +114,6 @@ if (params.region) console.log(`  Region: ${params.region}`);
 console.log('');
 
 try {
-  // Build TypeScript first
-  console.log('Building TypeScript...');
-  execSync('npm run build', { stdio: 'inherit' });
-
   // Deploy with CDK
   console.log('Deploying stack...');
   execSync(cdkCommand, { stdio: 'inherit' });
