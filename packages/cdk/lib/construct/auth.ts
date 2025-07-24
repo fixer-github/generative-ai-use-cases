@@ -3,6 +3,7 @@ import {
   UserPool,
   UserPoolClient,
   UserPoolOperation,
+  StringAttribute,
 } from 'aws-cdk-lib/aws-cognito';
 import {
   IdentityPool,
@@ -43,6 +44,13 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
+      },
+      customAttributes: {
+        tenant_id: new StringAttribute({
+          minLen: 1,
+          maxLen: 50,
+          mutable: true,
+        }),
       },
     });
 
@@ -123,6 +131,22 @@ export class Auth extends Construct {
         checkEmailDomainFunction
       );
     }
+
+    // Pre Token Generation Lambda for adding custom claims
+    const preTokenGenerationFunction = new NodejsFunction(
+      this,
+      'PreTokenGeneration',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/preTokenGeneration.ts',
+        timeout: Duration.seconds(5),
+      }
+    );
+
+    userPool.addTrigger(
+      UserPoolOperation.PRE_TOKEN_GENERATION,
+      preTokenGenerationFunction
+    );
 
     this.client = client;
     this.userPool = userPool;
