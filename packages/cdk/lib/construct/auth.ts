@@ -51,6 +51,11 @@ export class Auth extends Construct {
           maxLen: 50,
           mutable: true,
         }),
+        tenant_id2: new StringAttribute({
+          minLen: 1,
+          maxLen: 100,
+          mutable: true,
+        }),
       },
     });
 
