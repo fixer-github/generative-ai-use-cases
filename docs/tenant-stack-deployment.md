@@ -88,7 +88,7 @@ npm run cdk:deploy:tenant -- \
 npm run cdk:deploy:tenant
 
 # Deploy a specific tenant stack
-npm run cdk:deploy:tenant -- TenantIamRoleStack-tenant123
+npm run cdk:deploy:tenant -- TenantStack-tenant123
 
 # Destroy all tenant stacks
 npm run cdk:destroy:tenant
@@ -102,7 +102,6 @@ npm run cdk:destroy:tenant
 - `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
 - `roleName`: Custom role name (default: GenUTenantRole-{tenantId})
-- `stackNamePrefix`: Prefix for the CloudFormation stack name (default: "TenantIamRoleStack")
 
 ### Using CDK CLI Directly
 
@@ -115,7 +114,7 @@ npx cdk deploy \
   --context tenantId=tenant123 \
   --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
   --context audience=your-client-id \
-  TenantIamRoleStack-tenant123
+  TenantStack-tenant123
 ```
 
 ## Stack Outputs

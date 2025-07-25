@@ -88,7 +88,7 @@ npm run cdk:deploy:tenant -- \
 npm run cdk:deploy:tenant
 
 # 特定のテナントスタックをデプロイ
-npm run cdk:deploy:tenant -- TenantIamRoleStack-tenant123
+npm run cdk:deploy:tenant -- TenantStack-tenant123
 
 # すべてのテナントスタックを削除
 npm run cdk:destroy:tenant
@@ -102,7 +102,6 @@ npm run cdk:destroy:tenant
 - `tenantIdClaim`：テナントIDを含むJWTクレーム（デフォルト："custom:tenant_id"）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
 - `roleName`：カスタムロール名（デフォルト：GenUTenantRole-{tenantId}）
-- `stackNamePrefix`：CloudFormationスタック名のプレフィックス（デフォルト："TenantIamRoleStack"）
 
 ### CDK CLIの直接使用
 
@@ -115,7 +114,7 @@ npx cdk deploy \
   --context tenantId=tenant123 \
   --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
   --context audience=your-client-id \
-  TenantIamRoleStack-tenant123
+  TenantStack-tenant123
 ```
 
 ## スタックの出力
