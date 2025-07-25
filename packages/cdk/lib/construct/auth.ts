@@ -1,5 +1,6 @@
 import { Duration } from 'aws-cdk-lib';
 import {
+  LambdaVersion,
   StringAttribute,
   UserPool,
   UserPoolClient,
@@ -145,8 +146,9 @@ export class Auth extends Construct {
     );
 
     userPool.addTrigger(
-      UserPoolOperation.PRE_TOKEN_GENERATION,
-      preTokenGenerationFunction
+      UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
+      preTokenGenerationFunction,
+      LambdaVersion.V2_0
     );
 
     this.client = client;
