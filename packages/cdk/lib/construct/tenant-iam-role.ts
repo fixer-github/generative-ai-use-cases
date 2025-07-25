@@ -62,25 +62,32 @@ export class TenantIamRole extends Construct {
 
     // Extract the domain from the identity provider ARN
     let identityProviderDomain: string;
+    let federatedPrincipal: string;
     
-    // Check if this is a Cognito User Pool ARN
-    if (props.identityProviderArn.includes(':userpool/')) {
-      // For Cognito User Pool, use cognito-identity.amazonaws.com
+    // Check if this is a Cognito Identity Pool ARN
+    if (props.identityProviderArn.includes(':identitypool/')) {
+      // For Cognito Identity Pool, use cognito-identity.amazonaws.com as both principal and domain
+      federatedPrincipal = 'cognito-identity.amazonaws.com';
+      identityProviderDomain = 'cognito-identity.amazonaws.com';
+    } else if (props.identityProviderArn.includes(':userpool/')) {
+      // For Cognito User Pool (shouldn't be used directly, but handle it)
+      federatedPrincipal = 'cognito-identity.amazonaws.com';
       identityProviderDomain = 'cognito-identity.amazonaws.com';
     } else if (props.identityProviderArn.includes('oidc-provider/')) {
-      // For OIDC providers, extract the domain from the ARN
-      // Example: arn:aws:iam::123456789012:oidc-provider/oidc.example.com
+      // For OIDC providers, use the ARN as principal and extract domain
+      federatedPrincipal = props.identityProviderArn;
       const arnParts = props.identityProviderArn.split('/');
       identityProviderDomain = arnParts[arnParts.length - 1];
     } else {
-      // Default to using the full ARN as the domain
+      // Default to using the ARN
+      federatedPrincipal = props.identityProviderArn;
       identityProviderDomain = props.identityProviderArn;
     }
 
     // Create the IAM role with AssumeRoleWithWebIdentity trust policy
     this.role = new iam.Role(this, 'Role', {
       roleName: props.roleName,
-      assumedBy: new iam.WebIdentityPrincipal(props.identityProviderArn, {
+      assumedBy: new iam.WebIdentityPrincipal(federatedPrincipal, {
         'StringEquals': {
           [`${identityProviderDomain}:aud`]: props.audience,
         },
