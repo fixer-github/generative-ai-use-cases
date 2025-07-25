@@ -1,6 +1,5 @@
 *.js
 !jest.config.js
-!cdk-tenant.js
 *.d.ts
 node_modules
 **/__pycache__/**

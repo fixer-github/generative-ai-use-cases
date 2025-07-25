@@ -19,15 +19,6 @@ The application uses separate CDK configuration files for different deployment t
 
 This separation allows you to maintain different environment settings for common and tenant deployments.
 
-### How It Works
-
-Since AWS CDK only reads from `cdk.json` in the current directory, we use a wrapper script (`packages/cdk/cdk-tenant.js`) that:
-1. Temporarily swaps `cdk.json` with `cdk.tenant.json`
-2. Runs the CDK command with tenant configuration
-3. Restores the original `cdk.json`
-
-This approach ensures complete isolation between common and tenant stack configurations while working within CDK's constraints.
-
 To get started with tenant deployments:
 1. Copy `cdk.tenant.example.json` to `cdk.tenant.json`
 2. Update the values with your tenant-specific configuration
