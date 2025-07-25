@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import AuthWithUserpool from './components/AuthWithUserpool';
 import AuthWithSAML from './components/AuthWithSAML';
+import AuthWithMultipleIdPs from './components/AuthWithMultipleIdPs';
 import './index.css';
 import {
   RouterProvider,
@@ -50,6 +51,20 @@ const ragKnowledgeBaseEnabled: boolean =
   import.meta.env.VITE_APP_RAG_KNOWLEDGE_BASE_ENABLED === 'true';
 const samlAuthEnabled: boolean =
   import.meta.env.VITE_APP_SAMLAUTH_ENABLED === 'true';
+interface FederatedIdentityProvider {
+  enabled: boolean;
+}
+
+interface AuthProviders {
+  cognitoUserPool?: {
+    enabled: boolean;
+  };
+  federatedIdentityProviders?: FederatedIdentityProvider[];
+}
+
+const authProviders: AuthProviders | null = import.meta.env.VITE_APP_AUTH_PROVIDERS ? 
+  JSON.parse(import.meta.env.VITE_APP_AUTH_PROVIDERS) : null;
+const useNewAuthConfig = authProviders !== null;
 const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
@@ -236,33 +251,48 @@ const useCaseBuilderRoutes: RouteObject[] = [
   },
 ].flatMap((r) => (r !== null ? [r] : []));
 
+// Determine which auth component to use
+const getAuthComponent = (children: React.ReactNode) => {
+  if (useNewAuthConfig) {
+    // Use new multi-IdP auth component
+    const cognitoEnabled = authProviders?.cognitoUserPool?.enabled ?? true;
+    const hasFederatedProviders = authProviders?.federatedIdentityProviders?.some((idp) => idp.enabled) ?? false;
+    
+    if (cognitoEnabled && !hasFederatedProviders) {
+      // Only Cognito User Pool enabled
+      return <AuthWithUserpool>{children}</AuthWithUserpool>;
+    } else if (!cognitoEnabled && hasFederatedProviders) {
+      // Only federated providers enabled
+      return <AuthWithMultipleIdPs>{children}</AuthWithMultipleIdPs>;
+    } else {
+      // Mixed mode - both Cognito and federated providers
+      return (
+        <AuthWithUserpool>
+          <AuthWithMultipleIdPs>{children}</AuthWithMultipleIdPs>
+        </AuthWithUserpool>
+      );
+    }
+  } else {
+    // Use legacy auth configuration
+    return samlAuthEnabled ? (
+      <AuthWithSAML>{children}</AuthWithSAML>
+    ) : (
+      <AuthWithUserpool>{children}</AuthWithUserpool>
+    );
+  }
+};
+
 const router = createBrowserRouter([
   {
     path: '/',
-    element: samlAuthEnabled ? (
-      <AuthWithSAML>
-        <App />
-      </AuthWithSAML>
-    ) : (
-      <AuthWithUserpool>
-        <App />
-      </AuthWithUserpool>
-    ),
+    element: getAuthComponent(<App />),
     children: routes,
   },
   ...(useCaseBuilderEnabled
     ? [
         {
           path: '/use-case-builder',
-          element: samlAuthEnabled ? (
-            <AuthWithSAML>
-              <UseCaseBuilderRoot />
-            </AuthWithSAML>
-          ) : (
-            <AuthWithUserpool>
-              <UseCaseBuilderRoot />
-            </AuthWithUserpool>
-          ),
+          element: getAuthComponent(<UseCaseBuilderRoot />),
           children: useCaseBuilderRoutes,
         },
       ]

@@ -21,6 +21,7 @@ import {
   HiddenUseCases,
   ModelConfiguration,
 } from 'generative-ai-use-cases';
+import { AuthProviders } from './auth';
 import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 
 export interface WebProps {
@@ -45,6 +46,10 @@ export interface WebProps {
   readonly samlAuthEnabled: boolean;
   readonly samlCognitoDomainName?: string | null;
   readonly samlCognitoFederatedIdentityProviderName?: string | null;
+  // New auth configuration
+  readonly authProviders?: AuthProviders | null;
+  readonly cognitoDomainPrefix?: string | null;
+  readonly cognitoDomainUrl?: string | null;
   readonly agentNames: string[];
   readonly inlineAgents: boolean;
   readonly cert?: ICertificate;
@@ -251,6 +256,10 @@ export class Web extends Construct {
         VITE_APP_SAML_COGNITO_DOMAIN_NAME: props.samlCognitoDomainName ?? '',
         VITE_APP_SAML_COGNITO_FEDERATED_IDENTITY_PROVIDER_NAME:
           props.samlCognitoFederatedIdentityProviderName ?? '',
+        // New auth configuration
+        VITE_APP_AUTH_PROVIDERS: JSON.stringify(props.authProviders || null),
+        VITE_APP_COGNITO_DOMAIN_PREFIX: props.cognitoDomainPrefix ?? '',
+        VITE_APP_COGNITO_DOMAIN_URL: props.cognitoDomainUrl ?? '',
         VITE_APP_AGENT_NAMES: JSON.stringify(props.agentNames),
         VITE_APP_INLINE_AGENTS: props.inlineAgents.toString(),
         VITE_APP_USE_CASE_BUILDER_ENABLED:

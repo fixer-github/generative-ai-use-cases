@@ -61,6 +61,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
       samlAuthEnabled: params.samlAuthEnabled,
+      authProviders: params.authProviders,
+      cognitoDomainPrefix: params.cognitoDomainPrefix,
     });
 
     // Database
@@ -144,6 +146,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlCognitoDomainName: params.samlCognitoDomainName,
       samlCognitoFederatedIdentityProviderName:
         params.samlCognitoFederatedIdentityProviderName,
+      // New auth configuration
+      authProviders: params.authProviders,
+      cognitoDomainPrefix: params.cognitoDomainPrefix,
+      cognitoDomainUrl: auth.userPoolDomain?.domainName,
       // Backend
       apiEndpointUrl: api.api.url,
       predictStreamFunctionArn: api.predictStreamFunction.functionArn,

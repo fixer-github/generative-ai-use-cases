@@ -37,6 +37,15 @@
     "samlAuthEnabled": false,
     "samlCognitoDomainName": "",
     "samlCognitoFederatedIdentityProviderName": "",
+    "authProviders": {
+      "cognitoUserPool": {
+        "enabled": true,
+        "selfSignUpEnabled": true,
+        "allowedSignUpEmailDomains": null
+      },
+      "federatedIdentityProviders": []
+    },
+    "cognitoDomainPrefix": null,
     "hiddenUseCases": {},
     "modelRegion": "us-east-1",
     "modelIds": [
