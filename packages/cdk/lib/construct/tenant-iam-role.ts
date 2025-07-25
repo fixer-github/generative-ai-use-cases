@@ -99,65 +99,32 @@ export class TenantIamRole extends Construct {
   }
 
   /**
-   * Create a policy statement for DynamoDB with tenant isolation
+   * Create a policy statement for DynamoDB per-tenant table access
+   * This allows access to tables with naming pattern: <baseTableName>-<tenantId>
    */
-  public createDynamoDbPolicyStatement(tableArn: string, actions?: string[]): iam.PolicyStatement {
+  public createDynamoDbTenantTablePolicyStatement(baseTableName: string, actions?: string[]): iam.PolicyStatement {
     const defaultActions = [
       'dynamodb:GetItem',
       'dynamodb:PutItem',
       'dynamodb:UpdateItem',
       'dynamodb:DeleteItem',
       'dynamodb:Query',
+      'dynamodb:Scan',
       'dynamodb:BatchGetItem',
       'dynamodb:BatchWriteItem',
+      'dynamodb:DescribeTable',
+      'dynamodb:DescribeTimeToLive',
     ];
 
+    // Allow access to table named: baseTableName-<tenantId>
     return new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: actions || defaultActions,
-      resources: [tableArn, `${tableArn}/index/*`],
-      conditions: {
-        'ForAllValues:StringEquals': {
-          'dynamodb:LeadingKeys': [`$\{${this.identityProviderArn}:${this.tenantIdClaim}}`],
-        },
-      },
+      resources: [
+        `arn:aws:dynamodb:*:*:table/${baseTableName}-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+        `arn:aws:dynamodb:*:*:table/${baseTableName}-$\{${this.identityProviderArn}:${this.tenantIdClaim}}/index/*`
+      ],
     });
   }
 
-  /**
-   * Create a policy statement for S3 with tenant isolation
-   */
-  public createS3PolicyStatement(bucketArn: string, actions?: string[]): iam.PolicyStatement[] {
-    const statements: iam.PolicyStatement[] = [];
-
-    // List objects in tenant-specific prefix
-    statements.push(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ['s3:ListBucket'],
-      resources: [bucketArn],
-      conditions: {
-        'StringLike': {
-          's3:prefix': [`tenants/$\{${this.identityProviderArn}:${this.tenantIdClaim}}/*`],
-        },
-      },
-    }));
-
-    // CRUD operations on tenant-specific objects
-    const defaultObjectActions = [
-      's3:GetObject',
-      's3:PutObject',
-      's3:DeleteObject',
-      's3:GetObjectVersion',
-      's3:GetObjectTagging',
-      's3:PutObjectTagging',
-    ];
-
-    statements.push(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: actions || defaultObjectActions,
-      resources: [`${bucketArn}/tenants/$\{${this.identityProviderArn}:${this.tenantIdClaim}}/*`],
-    }));
-
-    return statements;
-  }
 }

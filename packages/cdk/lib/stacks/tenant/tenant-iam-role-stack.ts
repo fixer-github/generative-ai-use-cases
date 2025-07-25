@@ -50,7 +50,8 @@ export class TenantIamRoleStack extends cdk.Stack {
       description: 'IAM role for multi-tenant access using AssumeRoleWithWebIdentity',
     });
 
-    // Example: Add a basic policy for CloudWatch Logs
+    // Example: Add policies for tenant-specific resources
+    // CloudWatch Logs policy
     this.tenantIamRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
       effect: cdk.aws_iam.Effect.ALLOW,
       actions: [
@@ -60,6 +61,11 @@ export class TenantIamRoleStack extends cdk.Stack {
       ],
       resources: [`arn:aws:logs:${this.region}:${this.account}:log-group:/aws/tenant/*`],
     }));
+
+    // DynamoDB policy for per-tenant tables
+    // Example: Allow access to tables like 'ChatHistory-<tenantId>', 'UserData-<tenantId>', etc.
+    const dynamoDbPolicy = this.tenantIamRole.createDynamoDbTenantTablePolicyStatement('ChatHistory');
+    this.tenantIamRole.addToPolicy(dynamoDbPolicy);
 
     // Stack description
     this.templateOptions.description = 'Creates an IAM role that can be assumed using AssumeRoleWithWebIdentity for multi-tenant access';

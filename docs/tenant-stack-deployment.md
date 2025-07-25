@@ -92,9 +92,25 @@ To add more tenant-specific stacks:
 2. Import and instantiate it in `packages/cdk/lib/create-tenant-stacks.ts`
 3. Deploy using the same pattern as above
 
+## IAM Policy Configuration
+
+The tenant IAM role includes helper methods for creating tenant-isolated policies:
+
+### DynamoDB Per-Tenant Tables
+The role supports access to per-tenant DynamoDB tables with naming pattern: `<BaseTableName>-<TenantId>`
+
+```typescript
+// Example: Allow access to 'ChatHistory-tenant123' table
+const dynamoPolicy = tenantIamRole.createDynamoDbTenantTablePolicyStatement('ChatHistory');
+tenantIamRole.addToPolicy(dynamoPolicy);
+```
+
+This policy allows tenants to access only their own tables based on the tenant ID claim in their JWT token.
+
 ## Best Practices
 
 1. **Naming Convention**: Use consistent naming for tenant resources (e.g., include tenant ID in stack names)
-2. **Isolation**: Keep tenant resources separate from common resources
-3. **Documentation**: Document any tenant-specific configurations or requirements
-4. **Testing**: Test tenant stack deployments in a development environment first
+2. **Table Naming**: Follow the pattern `<BaseTableName>-<TenantId>` for DynamoDB tables
+3. **Isolation**: Keep tenant resources separate from common resources
+4. **Documentation**: Document any tenant-specific configurations or requirements
+5. **Testing**: Test tenant stack deployments in a development environment first
