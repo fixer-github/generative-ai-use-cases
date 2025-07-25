@@ -1,5 +1,6 @@
 import { Duration } from 'aws-cdk-lib';
 import {
+  StringAttribute,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -43,6 +44,13 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
+      },
+      customAttributes: {
+        tenant_id: new StringAttribute({
+          minLen: 1,
+          maxLen: 50,
+          mutable: true,
+        }),
       },
     });
 
