@@ -1,6 +1,25 @@
 #!/usr/bin/env node
 
-// Simple wrapper to temporarily swap cdk.json configs for tenant deployments
+/**
+ * CDK Tenant Deployment Wrapper
+ * 
+ * This script enables separate CDK configurations for tenant-specific deployments.
+ * 
+ * Why this wrapper is needed:
+ * - CDK only reads configuration from 'cdk.json' in the current directory
+ * - We need different contexts and app entry points for common vs tenant stacks
+ * - CDK doesn't support specifying alternate config files (like --config flag)
+ * 
+ * How it works:
+ * 1. Temporarily backs up the original cdk.json
+ * 2. Replaces it with cdk.tenant.json
+ * 3. Runs the CDK command with tenant configuration
+ * 4. Restores the original cdk.json
+ * 
+ * This allows us to maintain separate configurations:
+ * - cdk.json: For common/main application stacks
+ * - cdk.tenant.json: For tenant-specific stacks
+ */
 const fs = require('fs');
 const { execSync } = require('child_process');
 const path = require('path');
