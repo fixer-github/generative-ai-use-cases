@@ -14,9 +14,15 @@ The CDK application now supports deploying tenant-specific infrastructure separa
 The application uses separate CDK configuration files for different deployment types:
 
 - `cdk.json` - Configuration for common stacks (main application)
-- `cdk.tenant.json` - Configuration for tenant-specific stacks
+- `cdk.tenant.json` - Configuration for tenant-specific stacks (gitignored)
+- `cdk.tenant.example.json` - Example template for tenant configuration
 
 This separation allows you to maintain different environment settings for common and tenant deployments.
+
+To get started with tenant deployments:
+1. Copy `cdk.tenant.example.json` to `cdk.tenant.json`
+2. Update the values with your tenant-specific configuration
+3. Run `npm run cdk:deploy:tenant`
 
 ## Deployment Commands
 
