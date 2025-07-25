@@ -56,27 +56,8 @@ packages/cdk/lib/
 
 ### 設定
 
-テナントデプロイメントは3つの方法で設定できます：
+`cdk.tenant.json`ファイルを作成してテナントデプロイメントを設定します：
 
-1. **CDKコンテキストを使用**（クイックデプロイメントに推奨）：
-```bash
-cd packages/cdk
-
-# 基本的な使用方法
-npx cdk deploy TenantIamRoleStack \
-  -c tenantIamRoleEnabled=true \
-  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
-  -c tenantAudience=your-client-id
-
-# カスタムロール名を指定
-npx cdk deploy TenantIamRoleStack \
-  -c tenantIamRoleEnabled=true \
-  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
-  -c tenantAudience=your-client-id \
-  -c tenantRoleName=MyTenantRole
-```
-
-2. **cdk.tenant.jsonを使用**（永続的な設定に推奨）：
 ```json
 {
   "app": "npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts",
@@ -91,29 +72,13 @@ npx cdk deploy TenantIamRoleStack \
 }
 ```
 
-その後、次のコマンドでデプロイ：
-```bash
-npm run cdk:deploy:tenant
-```
-
-3. **テナントアプリでコマンドラインコンテキストを使用**：
-```bash
-npm run cdk:deploy:tenant -- \
-  --context tenantId=tenant123 \
-  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
-  --context audience=your-client-id
-```
-
-### デプロイメントの例
+### デプロイメントコマンド
 
 ```bash
-# CDKコンテキストでデプロイ（メインアプリ）
-npx cdk deploy TenantIamRoleStack -c tenantIamRoleEnabled=true -c tenantIdentityProviderArn=<ARN> -c tenantAudience=<CLIENT_ID>
-
-# すべてのテナントスタックをデプロイ（テナントアプリ）
+# すべてのテナントスタックをデプロイ
 npm run cdk:deploy:tenant
 
-# 特定のテナントスタックをデプロイ（テナントアプリ）
+# 特定のテナントスタックをデプロイ
 npm run cdk:deploy:tenant -- TenantStack-tenant123
 
 # すべてのテナントスタックを削除
@@ -122,33 +87,12 @@ npm run cdk:destroy:tenant
 
 ### 設定オプション
 
-**CDKコンテキスト方式（メインアプリ）の場合：**
-- `tenantIamRoleEnabled`（必須）：テナントIAMロール作成を有効化
-- `tenantIdentityProviderArn`（必須）：IDプロバイダーのARN
-- `tenantAudience`（必須）：IDプロバイダーのオーディエンス/クライアントID
-- `tenantRoleName`：カスタムロール名（オプション）
-
-**テナントアプリ方式の場合：**
 - `tenantId`（必須）：テナントの一意の識別子
 - `identityProviderArn`（必須）：IDプロバイダー（Cognito User PoolまたはOIDCプロバイダー）のARN
 - `audience`（必須）：IDプロバイダーのオーディエンス/クライアントID
 - `tenantIdClaim`：テナントIDを含むJWTクレーム（デフォルト："custom:tenant_id"）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
 - `roleName`：カスタムロール名（デフォルト：TenantRole-{tenantId}）
-
-### CDK CLIの直接使用
-
-テナントアプリでより詳細な制御が必要な場合：
-
-```bash
-cd packages/cdk
-npx cdk deploy \
-  --app "npx ts-node bin/generative-ai-use-cases-tenant.ts" \
-  --context tenantId=tenant123 \
-  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
-  --context audience=your-client-id \
-  TenantStack-tenant123
-```
 
 ## スタックの出力
 

@@ -56,27 +56,8 @@ packages/cdk/lib/
 
 ### Configuration
 
-You can configure tenant deployments in three ways:
+Configure tenant deployments by creating a `cdk.tenant.json` file:
 
-1. **Using CDK context** (Recommended for quick deployments):
-```bash
-cd packages/cdk
-
-# Basic usage
-npx cdk deploy TenantIamRoleStack \
-  -c tenantIamRoleEnabled=true \
-  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
-  -c tenantAudience=your-client-id
-
-# With custom role name
-npx cdk deploy TenantIamRoleStack \
-  -c tenantIamRoleEnabled=true \
-  -c tenantIdentityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXXX \
-  -c tenantAudience=your-client-id \
-  -c tenantRoleName=MyTenantRole
-```
-
-2. **Using cdk.tenant.json** (Recommended for persistent settings):
 ```json
 {
   "app": "npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts",
@@ -91,29 +72,13 @@ npx cdk deploy TenantIamRoleStack \
 }
 ```
 
-Then deploy with:
-```bash
-npm run cdk:deploy:tenant
-```
-
-3. **Using command-line context with tenant app**:
-```bash
-npm run cdk:deploy:tenant -- \
-  --context tenantId=tenant123 \
-  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
-  --context audience=your-client-id
-```
-
-### Deployment Examples
+### Deployment Commands
 
 ```bash
-# Deploy with CDK context (main app)
-npx cdk deploy TenantIamRoleStack -c tenantIamRoleEnabled=true -c tenantIdentityProviderArn=<ARN> -c tenantAudience=<CLIENT_ID>
-
-# Deploy all tenant stacks (tenant app)
+# Deploy all tenant stacks
 npm run cdk:deploy:tenant
 
-# Deploy a specific tenant stack (tenant app)
+# Deploy a specific tenant stack
 npm run cdk:deploy:tenant -- TenantStack-tenant123
 
 # Destroy all tenant stacks
@@ -122,33 +87,12 @@ npm run cdk:destroy:tenant
 
 ### Configuration Options
 
-**For CDK context approach (main app):**
-- `tenantIamRoleEnabled` (required): Enable tenant IAM role creation
-- `tenantIdentityProviderArn` (required): ARN of the identity provider
-- `tenantAudience` (required): Audience/Client ID for the identity provider
-- `tenantRoleName`: Custom role name (optional)
-
-**For tenant app approach:**
 - `tenantId` (required): Unique identifier for the tenant
 - `identityProviderArn` (required): ARN of the identity provider (Cognito User Pool or OIDC provider)
 - `audience` (required): Audience/Client ID for the identity provider
 - `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
 - `roleName`: Custom role name (default: TenantRole-{tenantId})
-
-### Using CDK CLI Directly
-
-For more control with the tenant app:
-
-```bash
-cd packages/cdk
-npx cdk deploy \
-  --app "npx ts-node bin/generative-ai-use-cases-tenant.ts" \
-  --context tenantId=tenant123 \
-  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
-  --context audience=your-client-id \
-  TenantStack-tenant123
-```
 
 ## Stack Outputs
 
