@@ -60,12 +60,29 @@ export class TenantIamRole extends Construct {
     this.tenantIdClaim = props.tenantIdClaim || 'custom:tenant_id';
     this.identityProviderArn = props.identityProviderArn;
 
+    // Extract the domain from the identity provider ARN
+    let identityProviderDomain: string;
+    
+    // Check if this is a Cognito User Pool ARN
+    if (props.identityProviderArn.includes(':userpool/')) {
+      // For Cognito User Pool, use cognito-identity.amazonaws.com
+      identityProviderDomain = 'cognito-identity.amazonaws.com';
+    } else if (props.identityProviderArn.includes('oidc-provider/')) {
+      // For OIDC providers, extract the domain from the ARN
+      // Example: arn:aws:iam::123456789012:oidc-provider/oidc.example.com
+      const arnParts = props.identityProviderArn.split('/');
+      identityProviderDomain = arnParts[arnParts.length - 1];
+    } else {
+      // Default to using the full ARN as the domain
+      identityProviderDomain = props.identityProviderArn;
+    }
+
     // Create the IAM role with AssumeRoleWithWebIdentity trust policy
     this.role = new iam.Role(this, 'Role', {
       roleName: props.roleName,
       assumedBy: new iam.WebIdentityPrincipal(props.identityProviderArn, {
         'StringEquals': {
-          [`${props.identityProviderArn}:aud`]: props.audience,
+          [`${identityProviderDomain}:aud`]: props.audience,
         },
       }),
       description: props.description || 'Role for multi-tenant access with tenant isolation',
