@@ -9,12 +9,23 @@ The CDK application now supports deploying tenant-specific infrastructure separa
 - Manage tenant resources independently
 - Scale tenant infrastructure as needed
 
+## Configuration Files
+
+The application uses separate CDK configuration files for different deployment types:
+
+- `cdk.json` - Configuration for common stacks (main application)
+- `cdk.tenant.json` - Configuration for tenant-specific stacks
+
+This separation allows you to maintain different environment settings for common and tenant deployments.
+
 ## Deployment Commands
 
 The application provides separate deployment commands for common and tenant stacks:
 
-- `npm run cdk:deploy` - Deploys all common stacks (main application)
-- `npm run cdk:deploy:tenant` - Deploys tenant-specific stacks
+- `npm run cdk:deploy` - Deploys all common stacks using `cdk.json`
+- `npm run cdk:deploy:tenant` - Deploys tenant-specific stacks using `cdk.tenant.json`
+- `npm run cdk:destroy` - Destroys all common stacks
+- `npm run cdk:destroy:tenant` - Destroys all tenant stacks
 
 ## Directory Structure
 
@@ -37,26 +48,48 @@ packages/cdk/lib/
 
 ## Deploying Tenant IAM Role Stack
 
-### Using npm Command
+### Configuration
 
-To deploy all tenant stacks:
+You can configure tenant deployments in two ways:
 
+1. **Using cdk.tenant.json** (Recommended for persistent settings):
+```json
+{
+  "app": "npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts",
+  "context": {
+    "tenantId": "tenant123",
+    "identityProviderArn": "arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX",
+    "audience": "your-client-id",
+    "tenantIdClaim": "custom:tenant_id",
+    "tenantRegion": "us-east-1",
+    "roleName": "CustomTenantRole"
+  }
+}
+```
+
+2. **Using command-line context** (For one-time deployments):
 ```bash
-# Deploy all tenant stacks
 npm run cdk:deploy:tenant -- \
   --context tenantId=tenant123 \
   --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
   --context audience=your-client-id
-
-# Deploy a specific tenant stack
-npm run cdk:deploy:tenant -- \
-  --context tenantId=tenant123 \
-  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
-  --context audience=your-client-id \
-  TenantIamRoleStack-tenant123
 ```
 
-Options:
+### Deployment Examples
+
+```bash
+# Deploy all tenant stacks
+npm run cdk:deploy:tenant
+
+# Deploy a specific tenant stack
+npm run cdk:deploy:tenant -- TenantIamRoleStack-tenant123
+
+# Destroy all tenant stacks
+npm run cdk:destroy:tenant
+```
+
+### Configuration Options
+
 - `tenantId` (required): Unique identifier for the tenant
 - `identityProviderArn` (required): ARN of the identity provider (Cognito User Pool or OIDC provider)
 - `audience` (required): Audience/Client ID for the identity provider
