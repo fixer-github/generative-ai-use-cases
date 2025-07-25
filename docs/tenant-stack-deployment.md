@@ -9,6 +9,13 @@ The CDK application now supports deploying tenant-specific infrastructure separa
 - Manage tenant resources independently
 - Scale tenant infrastructure as needed
 
+## Deployment Commands
+
+The application provides separate deployment commands for common and tenant stacks:
+
+- `npm run cdk:deploy` - Deploys all common stacks (main application)
+- `npm run cdk:deploy:tenant` - Deploys tenant-specific stacks
+
 ## Directory Structure
 
 ```
@@ -30,38 +37,32 @@ packages/cdk/lib/
 
 ## Deploying Tenant IAM Role Stack
 
-### Using the Helper Script
-
-The easiest way to deploy a tenant IAM role is using the helper script:
-
-```bash
-node scripts/deploy-tenant-role.js \
-  --tenant-id "tenant123" \
-  --identity-provider-arn "arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX" \
-  --audience "your-client-id" \
-  --region "us-east-1"
-```
-
-Options:
-- `--tenant-id` (required): Unique identifier for the tenant
-- `--identity-provider-arn` (required): ARN of the identity provider (Cognito User Pool or OIDC provider)
-- `--audience` (required): Audience/Client ID for the identity provider
-- `--tenant-id-claim`: JWT claim containing tenant ID (default: "custom:tenant_id")
-- `--region`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
-- `--role-name`: Custom role name (default: GenUTenantRole-{tenantId})
-- `--dry-run`: Show the CDK command without executing
-
 ### Using npm Command
 
-You can also use the npm command directly:
+To deploy all tenant stacks:
 
 ```bash
+# Deploy all tenant stacks
+npm run cdk:deploy:tenant -- \
+  --context tenantId=tenant123 \
+  --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
+  --context audience=your-client-id
+
+# Deploy a specific tenant stack
 npm run cdk:deploy:tenant -- \
   --context tenantId=tenant123 \
   --context identityProviderArn=arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX \
   --context audience=your-client-id \
   TenantIamRoleStack-tenant123
 ```
+
+Options:
+- `tenantId` (required): Unique identifier for the tenant
+- `identityProviderArn` (required): ARN of the identity provider (Cognito User Pool or OIDC provider)
+- `audience` (required): Audience/Client ID for the identity provider
+- `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
+- `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
+- `roleName`: Custom role name (default: GenUTenantRole-{tenantId})
 
 ### Using CDK CLI Directly
 
