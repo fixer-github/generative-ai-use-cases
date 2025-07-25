@@ -1,14 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
-import { GenerativeAiUseCasesStack } from './generative-ai-use-cases-stack';
-import { CloudFrontWafStack } from './cloud-front-waf-stack';
-import { DashboardStack } from './dashboard-stack';
-import { AgentStack } from './agent-stack';
-import { RagKnowledgeBaseStack } from './rag-knowledge-base-stack';
-import { GuardrailStack } from './guardrail-stack';
+import { GenerativeAiUseCasesStack } from './stacks/common/generative-ai-use-cases-stack';
+import { CloudFrontWafStack } from './stacks/common/cloud-front-waf-stack';
+import { DashboardStack } from './stacks/common/dashboard-stack';
+import { AgentStack } from './stacks/common/agent-stack';
+import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack';
+import { GuardrailStack } from './stacks/common/guardrail-stack';
 import { ProcessedStackInput } from './stack-input';
-import { VideoTmpBucketStack } from './video-tmp-bucket-stack';
-import { TenantIamRoleStack } from './tenant-iam-role-stack';
+import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
+import { TenantIamRoleStack } from './stacks/tenant/tenant-iam-role-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}

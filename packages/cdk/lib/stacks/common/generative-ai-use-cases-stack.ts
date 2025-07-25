@@ -11,14 +11,14 @@ import {
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
-} from './construct';
+} from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent } from 'generative-ai-use-cases';
-import { UseCaseBuilder } from './construct/use-case-builder';
-import { ProcessedStackInput } from './stack-input';
-import { allowS3AccessWithSourceIpCondition } from './utils/s3-access-policy';
+import { UseCaseBuilder } from '../../construct/use-case-builder';
+import { ProcessedStackInput } from '../../stack-input';
+import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;

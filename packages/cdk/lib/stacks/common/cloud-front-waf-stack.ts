@@ -6,8 +6,8 @@ import {
 } from 'aws-cdk-lib/aws-certificatemanager';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
-import { CommonWebAcl } from './construct/common-web-acl';
-import { ProcessedStackInput } from './stack-input';
+import { CommonWebAcl } from '../../construct/common-web-acl';
+import { ProcessedStackInput } from '../../stack-input';
 
 interface CloudFrontWafStackProps extends StackProps {
   readonly params: ProcessedStackInput;

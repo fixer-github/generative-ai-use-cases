@@ -1,6 +1,6 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Guardrail } from './construct';
+import { Guardrail } from '../../construct';
 
 interface GuardrailStackProps extends StackProps {}
 
