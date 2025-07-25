@@ -134,7 +134,7 @@ npm run cdk:destroy:tenant
 - `audience` (required): Audience/Client ID for the identity provider
 - `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
-- `roleName`: Custom role name (default: GenUTenantRole-{tenantId})
+- `roleName`: Custom role name (default: TenantRole-{tenantId})
 
 ### Using CDK CLI Directly
 

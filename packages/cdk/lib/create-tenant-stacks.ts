@@ -21,7 +21,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     identityProviderArn: params.identityProviderArn,
     audience: params.audience,
     tenantIdClaim: params.tenantIdClaim,
-    roleName: params.roleName || `GenUTenantRole-${params.tenantId}`,
+    roleName: params.roleName || `TenantRole-${params.tenantId}`,
   });
 
   return {
