@@ -13,6 +13,7 @@ import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
@@ -133,12 +134,12 @@ export class Auth extends Construct {
     }
 
     // Pre Token Generation Lambda for adding custom claims
-    const preTokenGenerationFunction = new NodejsFunction(
+    const preTokenGenerationFunction = new PythonFunction(
       this,
       'PreTokenGeneration',
       {
         runtime: LAMBDA_RUNTIME_PYTHON,
-        entry: './lambda/pre_token_generation.py',
+        entry: './lambda/pre_token_generation',
         timeout: Duration.seconds(5),
       }
     );
