@@ -3,7 +3,6 @@ import {
   UserPool,
   UserPoolClient,
   UserPoolOperation,
-  StringAttribute,
 } from 'aws-cdk-lib/aws-cognito';
 import {
   IdentityPool,
@@ -12,7 +11,7 @@ import {
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
@@ -44,18 +43,6 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
-      },
-      customAttributes: {
-        tenant_id: new StringAttribute({
-          minLen: 1,
-          maxLen: 50,
-          mutable: true,
-        }),
-        tenant_id2: new StringAttribute({
-          minLen: 1,
-          maxLen: 100,
-          mutable: true,
-        }),
       },
     });
 
@@ -142,8 +129,8 @@ export class Auth extends Construct {
       this,
       'PreTokenGeneration',
       {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/preTokenGeneration.ts',
+        runtime: LAMBDA_RUNTIME_PYTHON,
+        entry: './lambda/pre_token_generation.py',
         timeout: Duration.seconds(5),
       }
     );
