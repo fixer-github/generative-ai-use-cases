@@ -13,6 +13,41 @@ const baseStackInputSchema = z.object({
   samlAuthEnabled: z.boolean().default(false),
   samlCognitoDomainName: z.string().nullish(),
   samlCognitoFederatedIdentityProviderName: z.string().nullish(),
+  // New auth configuration
+  authProviders: z.object({
+    cognitoUserPool: z.object({
+      enabled: z.boolean().default(true),
+      selfSignUpEnabled: z.boolean().default(true),
+      allowedSignUpEmailDomains: z.array(z.string()).nullish(),
+    }).optional(),
+    federatedIdentityProviders: z.array(z.discriminatedUnion('type', [
+      z.object({
+        name: z.string(),
+        type: z.literal('SAML'),
+        enabled: z.boolean().default(true),
+        metadataUrl: z.string().optional(),
+        metadataDocument: z.string().optional(),
+        attributeMapping: z.record(z.string()).default({
+          email: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'
+        }),
+      }),
+      z.object({
+        name: z.string(),
+        type: z.literal('OIDC'),
+        enabled: z.boolean().default(true),
+        clientId: z.string(),
+        clientSecret: z.string(),
+        issuerUrl: z.string(),
+        scopes: z.array(z.string()).default(['openid', 'email', 'profile']),
+        attributeMapping: z.record(z.string()).default({
+          email: 'email',
+          name: 'name',
+          picture: 'picture',
+        }),
+      }),
+    ])).default([]),
+  }).nullish(),
+  cognitoDomainPrefix: z.string().nullish(),
   // Frontend
   hiddenUseCases: z
     .object({
@@ -177,6 +212,27 @@ export const stackInputSchema = baseStackInputSchema.refine(
   {
     message: 'searchEngine is required when searchApiKey is provided',
     path: ['searchEngine'],
+  }
+).refine(
+  (data) => {
+    // Validate at least one auth method is enabled
+    // Check legacy configuration
+    const legacyAuthEnabled = data.selfSignUpEnabled || data.samlAuthEnabled;
+    
+    // Check new configuration
+    let newAuthEnabled = false;
+    if (data.authProviders) {
+      const cognitoEnabled = data.authProviders.cognitoUserPool?.enabled ?? false;
+      const federatedEnabled = data.authProviders.federatedIdentityProviders.some(idp => idp.enabled);
+      newAuthEnabled = cognitoEnabled || federatedEnabled;
+    }
+    
+    // At least one auth method must be enabled
+    return legacyAuthEnabled || newAuthEnabled;
+  },
+  {
+    message: 'At least one authentication method must be enabled',
+    path: ['authProviders'],
   }
 );
 
