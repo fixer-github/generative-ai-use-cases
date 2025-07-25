@@ -35,6 +35,7 @@ const params = {
   audience: context.audience,
   tenantIdClaim: context.tenantIdClaim,
   roleName: context.roleName,
+  stackNamePrefix: context.stackNamePrefix,
 };
 
 createTenantStacks(app, params);

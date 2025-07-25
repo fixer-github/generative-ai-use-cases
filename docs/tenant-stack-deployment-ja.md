@@ -102,6 +102,7 @@ npm run cdk:destroy:tenant
 - `tenantIdClaim`：テナントIDを含むJWTクレーム（デフォルト："custom:tenant_id"）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
 - `roleName`：カスタムロール名（デフォルト：GenUTenantRole-{tenantId}）
+- `stackNamePrefix`：CloudFormationスタック名のプレフィックス（デフォルト："TenantIamRoleStack"）
 
 ### CDK CLIの直接使用
 

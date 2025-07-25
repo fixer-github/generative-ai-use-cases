@@ -102,6 +102,7 @@ npm run cdk:destroy:tenant
 - `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
 - `roleName`: Custom role name (default: GenUTenantRole-{tenantId})
+- `stackNamePrefix`: Prefix for the CloudFormation stack name (default: "TenantIamRoleStack")
 
 ### Using CDK CLI Directly
 

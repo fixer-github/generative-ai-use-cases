@@ -6,6 +6,7 @@
     "tenantIdClaim": "custom:tenant_id",
     "tenantRegion": "us-east-1",
     "roleName": "GenUTenantRole-tenant123",
+    "stackNamePrefix": "TenantIamRoleStack",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [

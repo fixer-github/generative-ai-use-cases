@@ -9,11 +9,13 @@ export interface TenantStackInput {
   audience?: string;
   tenantIdClaim?: string;
   roleName?: string;
+  stackNamePrefix?: string;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
   // Tenant IAM Role Stack
-  const tenantIamRoleStack = new TenantIamRoleStack(app, `TenantIamRoleStack-${params.tenantId}`, {
+  const stackNamePrefix = params.stackNamePrefix || 'TenantIamRoleStack';
+  const tenantIamRoleStack = new TenantIamRoleStack(app, `${stackNamePrefix}-${params.tenantId}`, {
     env: {
       account: params.account,
       region: params.region,
