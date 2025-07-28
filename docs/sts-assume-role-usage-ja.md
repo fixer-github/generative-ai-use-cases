@@ -198,6 +198,7 @@ npx cdk deploy GenerativeAiUseCasesStack
 #### 設定の優先順位
 
 設定は以下の順序で解決されます（優先度が高い順）：
+
 1. CDKコンテキスト（コマンドライン: `--context` または `cdk.json`）
 2. 環境変数（`ENABLE_STS_ASSUME_ROLE`、`TENANT_ROLE_ARN`）
 3. デフォルト値（STSはデフォルトで有効）

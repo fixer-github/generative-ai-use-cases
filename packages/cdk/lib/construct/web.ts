@@ -266,6 +266,9 @@ export class Web extends Construct {
         VITE_APP_MCP_ENABLED: props.mcpEnabled.toString(),
         VITE_APP_MCP_ENDPOINT: props.mcpEndpoint ?? '',
         VITE_APP_TENANT_ROLE_ARN: props.tenantRoleArn ?? '',
+        VITE_APP_USE_STS_TEMP_CREDENTIALS: props.tenantRoleArn
+          ? 'true'
+          : 'false',
       },
     });
     // Enhance computing resources

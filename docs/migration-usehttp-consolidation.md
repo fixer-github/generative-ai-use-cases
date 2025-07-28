@@ -41,7 +41,7 @@ const http = useHttp({
 ### How STS Authentication Works
 
 1. **Automatic Multi-tenant Role Creation**:
-   
+
    The system automatically creates a multi-tenant IAM role when you deploy the stack. This role enables secure tenant isolation using STS AssumeRoleWithWebIdentity.
 
 2. **Deploy the stack**:
