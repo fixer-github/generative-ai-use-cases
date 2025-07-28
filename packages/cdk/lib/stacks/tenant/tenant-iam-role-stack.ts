@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { TenantIamRole } from '../../construct/tenant-iam-role';
+import { Role } from 'aws-cdk-lib/aws-iam';
 
 export interface TenantIamRoleStackProps extends cdk.StackProps {
   /**
@@ -88,7 +89,7 @@ export class TenantIamRoleStack extends cdk.Stack {
       );
 
       this.tenantIamRole = {
-        role: importedRole,
+        role: importedRole as Role,
         tenantIdClaim: props?.tenantIdClaim || 'custom:tenant_id',
         addToPolicy: (statement: cdk.aws_iam.PolicyStatement) => {
           new cdk.aws_iam.Policy(this, `Policy-${Date.now()}`, {
@@ -130,7 +131,7 @@ export class TenantIamRoleStack extends cdk.Stack {
             ],
           });
         },
-      } as any;
+      };
 
       // Outputs
       new cdk.CfnOutput(this, 'RoleArn', {
