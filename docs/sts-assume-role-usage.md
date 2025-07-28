@@ -109,6 +109,29 @@ A single IAM role can securely serve all tenants because:
 2. `${aws:PrincipalTag/TenantID}` is evaluated at runtime for each request
 3. Each session is isolated based on the JWT claims
 
+### How Simultaneous Multi-Tenant Access Works
+
+Multiple tenants can use the same IAM role **simultaneously** without any security issues:
+
+```
+Time 10:00:00 - User from Tenant-123 accesses system
+                ↓ AssumeRoleWithWebIdentity (same role ARN)
+                ↓ Creates session: PrincipalTag/TenantID = "tenant-123"
+                ↓ DynamoDB access: ChatHistory-tenant-123 ✓
+                
+Time 10:00:00 - User from Tenant-456 accesses at the same moment
+                ↓ AssumeRoleWithWebIdentity (same role ARN)
+                ↓ Creates session: PrincipalTag/TenantID = "tenant-456"
+                ↓ DynamoDB access: ChatHistory-tenant-456 ✓
+```
+
+**Key Points**:
+- Same IAM role ARN is used by all tenants
+- Each AssumeRole creates an independent session
+- `${aws:PrincipalTag/TenantID}` is dynamically evaluated per request
+- Complete isolation - no cross-tenant access possible
+- Scales to thousands of concurrent tenants
+
 ## IAM Policy Examples
 
 ### Per-Tenant DynamoDB Table Access

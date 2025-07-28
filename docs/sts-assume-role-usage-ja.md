@@ -84,6 +84,27 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 ### 単一ロールでマルチテナント対応
 1つのIAMロールで全てのテナントに対応できます。各テナントのセッションは、JWTクレームから取得したテナントIDに基づいて自動的に分離されます。
 
+#### 同時アクセスの仕組み
+複数のテナントが同じロールを**同時に**使用しても安全です：
+
+```
+時刻 10:00:00 - テナント123のユーザーがアクセス
+                ↓ AssumeRoleWithWebIdentity (同じロールARN)
+                ↓ セッション作成: PrincipalTag/TenantID = "tenant-123"
+                ↓ DynamoDBアクセス: ChatHistory-tenant-123 ✓
+                
+時刻 10:00:00 - テナント456のユーザーが同時にアクセス
+                ↓ AssumeRoleWithWebIdentity (同じロールARN)
+                ↓ セッション作成: PrincipalTag/TenantID = "tenant-456"
+                ↓ DynamoDBアクセス: ChatHistory-tenant-456 ✓
+```
+
+**重要なポイント**：
+- 同じIAMロールを使用
+- 各AssumeRoleで独立したセッションが作成される
+- `${aws:PrincipalTag/TenantID}`はリクエスト時に動的に評価
+- テナント間のデータアクセスは不可能
+
 ### 信頼ポリシー（Trust Policy）
 ```json
 {
