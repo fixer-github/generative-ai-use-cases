@@ -27,6 +27,10 @@ import useFileApi from './useFileApi';
 
 type GenerationMode = 'normal' | 'continue' | 'retry' | 'edit';
 
+// Create a context to store the API functions
+let chatApiInstance: ReturnType<typeof useChatApi> | null = null;
+let fileApiInstance: ReturnType<typeof useFileApi> | null = null;
+
 const useChatState = create<{
   chats: {
     [id: string]: {
@@ -134,15 +138,6 @@ const useChatState = create<{
   replaceMessages: (id: string, messages: RecordedMessage[]) => void;
   setPredictedTitle: (id: string) => Promise<void>;
 }>((set, get) => {
-  const {
-    createChat,
-    createMessages,
-    updateFeedback,
-    predictStream,
-    predictTitle,
-  } = useChatApi();
-  const { getS3Uri } = useFileApi();
-
   const getModelId = (id: string) => {
     return get().modelIds[id] || '';
   };
@@ -219,11 +214,16 @@ const useChatState = create<{
     const currentTitle = get().chats[id].chat?.title;
     if (currentTitle && currentTitle.length > 0) return;
 
+    if (!chatApiInstance) {
+      console.error('Chat API not initialized');
+      return;
+    }
+
     // If the title is an empty string, predict the title and set it
     const modelId = getModelId(id);
     const model = findModelByModelId(modelId)!;
     const prompter = getPrompter(modelId);
-    const title = await predictTitle({
+    const title = await chatApiInstance.predictTitle({
       model,
       chat: get().chats[id].chat!,
       prompt: prompter.setTitlePrompt({
@@ -241,7 +241,11 @@ const useChatState = create<{
       return chat.chatId;
     }
 
-    const { chat: newChat } = await createChat();
+    if (!chatApiInstance) {
+      throw new Error('Chat API not initialized');
+    }
+
+    const { chat: newChat } = await chatApiInstance.createChat();
 
     set((state) => {
       const newChats = produce(state.chats, (draft) => {
@@ -321,7 +325,8 @@ const useChatState = create<{
           if (data.type === 'video') {
             // Send S3 location for video
             // Convert https://  format S3 URL to s3:// format S3 URI
-            const s3Uri = getS3Uri(data.source.data ?? '');
+            const s3Uri =
+              fileApiInstance?.getS3Uri(data.source.data ?? '') ?? '';
             return {
               type: data.type,
               name: data.name,
@@ -470,6 +475,11 @@ const useChatState = create<{
       | AdditionalModelRequestFields
       | undefined = undefined
   ) => {
+    if (!chatApiInstance) {
+      console.error('Chat API not initialized');
+      return;
+    }
+
     const modelId = get().modelIds[id];
 
     if (!modelId) {
@@ -563,7 +573,7 @@ const useChatState = create<{
       base64Cache
     );
 
-    const stream = predictStream({
+    const stream = chatApiInstance.predictStream({
       model: model,
       messages: formattedMessages,
       id: id,
@@ -697,7 +707,7 @@ const useChatState = create<{
       toBeRecordedMessages.push(updatedAssistantMessage);
     }
 
-    const { messages } = await createMessages(chatId, {
+    const { messages } = await chatApiInstance.createMessages(chatId, {
       messages: toBeRecordedMessages,
     });
 
@@ -927,8 +937,11 @@ const useChatState = create<{
     sendFeedback: async (id: string, feedbackData: UpdateFeedbackRequest) => {
       const chat = get().chats[id].chat;
 
-      if (chat) {
-        const { message } = await updateFeedback(chat.chatId, feedbackData);
+      if (chat && chatApiInstance) {
+        const { message } = await chatApiInstance.updateFeedback(
+          chat.chatId,
+          feedbackData
+        );
         replaceMessages(id, [message]);
       }
     },
@@ -979,10 +992,21 @@ const useChat = (id: string, chatId?: string) => {
     replaceMessages,
     setPredictedTitle,
   } = useChatState();
+
+  // Initialize API instances
+  const chatApi = useChatApi();
+  const fileApi = useFileApi();
+
+  // Store API instances for use in the store
+  useEffect(() => {
+    chatApiInstance = chatApi;
+    fileApiInstance = fileApi;
+  }, [chatApi, fileApi]);
+
   const { data: messagesData, isLoading: isLoadingMessage } =
-    useChatApi().listMessages(chatId);
+    chatApi.listMessages(chatId);
   const { data: chatData, isLoading: isLoadingChat } =
-    useChatApi().findChatById(chatId);
+    chatApi.findChatById(chatId);
   const { mutate: mutateChatList } = useChatList();
 
   useEffect(() => {
