@@ -20,52 +20,45 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 ### 1. Multi-tenant IAM Role Setup
 
-#### Automatic Role Creation (Default)
+#### Important: Understanding the Multi-tenant Role
 
-**The system automatically creates a multi-tenant IAM role for secure tenant isolation.** This role uses STS AssumeRoleWithWebIdentity to provide temporary credentials based on the tenant ID in your JWT token.
+**The system ALWAYS creates a shared multi-tenant IAM role** that is used by ALL tenants. This is NOT a per-tenant role, but a single role that provides tenant isolation through JWT claims and IAM policy conditions.
 
-##### Using Environment Variables
+- **One role for all tenants**: A single `MultiTenantAccessRole` is created automatically
+- **Tenant isolation via JWT**: Each user's JWT contains their `tenant_id` as a principal tag
+- **Dynamic permissions**: IAM policies use `${aws:PrincipalTag/TenantID}` to restrict access at runtime
 
-You can optionally specify a custom tenant role ARN using environment variables:
+#### Default Configuration (Recommended)
 
-```bash
-# Optionally specify a custom tenant role ARN
-export TENANT_ROLE_ARN=arn:aws:iam::123456789012:role/CustomTenantRole
-
-# Deploy with environment variables
-npx cdk deploy GenerativeAiUseCasesStack
-```
-
-##### Using CDK Context
-
-Alternatively, you can configure it in `cdk.json`:
+Simply leave `tenantRoleArn` as `null` in your `cdk.json`:
 
 ```json
 {
   "context": {
-    // Leave empty to auto-create the multi-tenant role
-    // Or specify a custom role ARN if needed
-    "tenantRoleArn": null
+    "tenantRoleArn": null // System will create the role automatically
   }
 }
 ```
 
-```bash
-# Deploy the common stack (includes automatic IAM role creation)
-npx cdk deploy GenerativeAiUseCasesStack
-```
+When you deploy, the CDK will:
 
-#### Using a Custom Role
+1. Create a `MultiTenantAccessRole` with proper trust policies
+2. Configure permissions that dynamically evaluate based on JWT tenant claims
+3. Pass the created role ARN to the frontend automatically
 
-If you need custom IAM policies, create your own role and specify it:
+#### Advanced: Using a Custom Role (Optional)
+
+The `tenantRoleArn` parameter is ONLY needed if you want to use your own pre-existing IAM role instead of the auto-created one:
 
 ```json
 {
   "context": {
-    "tenantRoleArn": "arn:aws:iam::123456789012:role/CustomTenantRole"
+    "tenantRoleArn": "arn:aws:iam::123456789012:role/YourCustomRole"
   }
 }
 ```
+
+**Note**: Custom roles must be configured with appropriate trust policies and permissions. Most users should use the default auto-created role.
 
 ### 2. Frontend Usage
 
@@ -150,6 +143,54 @@ Time 10:00:00 - User from Tenant-456 accesses at the same moment
 - `${aws:PrincipalTag/TenantID}` is dynamically evaluated per request
 - Complete isolation - no cross-tenant access possible
 - Scales to thousands of concurrent tenants
+
+## Configuring Tenant IDs for Users
+
+### Prerequisites
+
+Each Cognito user MUST have a `custom:tenant_id` attribute set. This is what enables the multi-tenant isolation.
+
+### Setting Tenant ID During User Registration
+
+When creating new users, include the tenant ID:
+
+```javascript
+// Using AWS SDK
+await cognito.adminCreateUser({
+  UserPoolId: userPoolId,
+  Username: 'user@example.com',
+  UserAttributes: [
+    { Name: 'email', Value: 'user@example.com' },
+    { Name: 'custom:tenant_id', Value: 'tenant-123' }, // Required for multi-tenant access
+  ],
+});
+```
+
+### Updating Existing Users
+
+For existing users, update their attributes:
+
+```javascript
+await cognito.adminUpdateUserAttributes({
+  UserPoolId: userPoolId,
+  Username: 'user@example.com',
+  UserAttributes: [{ Name: 'custom:tenant_id', Value: 'tenant-456' }],
+});
+```
+
+### Via AWS Console
+
+1. Navigate to your Cognito User Pool in AWS Console
+2. Go to "Users" tab
+3. Select a user
+4. Click "Edit user attributes"
+5. Set `custom:tenant_id` to the appropriate tenant identifier (e.g., "tenant-123")
+
+### Important Notes
+
+- **Tenant ID Format**: Use consistent naming (e.g., "tenant-123", "org-acme", "company-xyz")
+- **Resource Naming**: All resources must follow the pattern `ResourceName-{TenantID}`
+- **No Tenant ID = No Access**: Users without `custom:tenant_id` cannot access tenant-isolated resources
 
 ## IAM Policy Examples
 

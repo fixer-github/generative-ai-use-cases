@@ -82,6 +82,89 @@ const result = await dynamoClient.send(
 );
 ```
 
+## 設定
+
+### 重要：マルチテナントロールの理解
+
+**システムは常に全テナント共通のマルチテナントIAMロールを作成します。** これはテナントごとのロールではなく、JWTクレームとIAMポリシー条件を通じてテナント分離を実現する単一のロールです。
+
+- **全テナントで1つのロール**: 単一の`MultiTenantAccessRole`が自動的に作成されます
+- **JWTによるテナント分離**: 各ユーザーのJWTには`tenant_id`がプリンシパルタグとして含まれます
+- **動的な権限**: IAMポリシーは実行時に`${aws:PrincipalTag/TenantID}`を使用してアクセスを制限します
+
+### デフォルト設定（推奨）
+
+`cdk.json`で`tenantRoleArn`を`null`のままにしてください：
+
+```json
+{
+  "context": {
+    "tenantRoleArn": null // システムが自動的にロールを作成します
+  }
+}
+```
+
+デプロイ時、CDKは以下を実行します：
+
+1. 適切な信頼ポリシーを持つ`MultiTenantAccessRole`を作成
+2. JWTテナントクレームに基づいて動的に評価される権限を設定
+3. 作成されたロールARNをフロントエンドに自動的に渡す
+
+### 上級者向け：カスタムロールの使用（オプション）
+
+`tenantRoleArn`パラメータは、自動作成されるロールの代わりに既存のIAMロールを使用したい場合にのみ必要です：
+
+```json
+{
+  "context": {
+    "tenantRoleArn": "arn:aws:iam::123456789012:role/YourCustomRole"
+  }
+}
+```
+
+**注意**: カスタムロールには適切な信頼ポリシーと権限の設定が必要です。ほとんどのユーザーはデフォルトの自動作成ロールを使用すべきです。
+
+### ユーザーへのテナントID設定
+
+各Cognitoユーザーには`custom:tenant_id`属性を設定する必要があります：
+
+#### 新規ユーザー登録時
+
+```javascript
+await cognito.adminCreateUser({
+  UserPoolId: userPoolId,
+  Username: 'user@example.com',
+  UserAttributes: [
+    { Name: 'email', Value: 'user@example.com' },
+    { Name: 'custom:tenant_id', Value: 'tenant-123' }, // マルチテナントアクセスに必須
+  ],
+});
+```
+
+#### 既存ユーザーの更新
+
+```javascript
+await cognito.adminUpdateUserAttributes({
+  UserPoolId: userPoolId,
+  Username: 'user@example.com',
+  UserAttributes: [{ Name: 'custom:tenant_id', Value: 'tenant-456' }],
+});
+```
+
+#### AWSコンソール経由
+
+1. AWSコンソールでCognito User Poolに移動
+2. 「ユーザー」タブに移動
+3. ユーザーを選択
+4. 「ユーザー属性を編集」をクリック
+5. `custom:tenant_id`に適切なテナント識別子を設定（例：「tenant-123」）
+
+### 重要な注意事項
+
+- **テナントIDの形式**: 一貫した命名規則を使用（例：「tenant-123」、「org-acme」、「company-xyz」）
+- **リソース命名**: すべてのリソースは`ResourceName-{TenantID}`パターンに従う必要があります
+- **テナントIDなし = アクセスなし**: `custom:tenant_id`のないユーザーはテナント分離されたリソースにアクセスできません
+
 ## IAMロールの設定
 
 ### 重要: セッションタグの仕組み
