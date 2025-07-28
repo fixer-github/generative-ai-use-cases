@@ -52,7 +52,7 @@ export class TenantIamRole extends Construct {
   /**
    * The identity provider ARN
    */
-  private readonly identityProviderArn: string;
+  public readonly identityProviderArn: string;
 
   constructor(scope: Construct, id: string, props: TenantIamRoleProps) {
     super(scope, id);

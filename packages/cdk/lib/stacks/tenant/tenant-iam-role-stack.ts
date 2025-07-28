@@ -91,11 +91,15 @@ export class TenantIamRoleStack extends cdk.Stack {
       this.tenantIamRole = {
         role: importedRole as Role,
         tenantIdClaim: props?.tenantIdClaim || 'custom:tenant_id',
+        node: importedRole.node,
         addToPolicy: (statement: cdk.aws_iam.PolicyStatement) => {
           new cdk.aws_iam.Policy(this, `Policy-${Date.now()}`, {
             statements: [statement],
             roles: [importedRole],
           });
+        },
+        attachManagedPolicy: (managedPolicy: cdk.aws_iam.IManagedPolicy) => {
+          (importedRole as cdk.aws_iam.Role).addManagedPolicy(managedPolicy);
         },
         createDynamoDbTenantTablePolicyStatement: (baseTableName: string) => {
           const tenantIdClaim = props?.tenantIdClaim || 'custom:tenant_id';
@@ -131,6 +135,7 @@ export class TenantIamRoleStack extends cdk.Stack {
             ],
           });
         },
+        identityProviderArn: identityProviderArn,
       };
 
       // Outputs
