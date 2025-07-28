@@ -40,17 +40,17 @@ const useHttp = (config?: HttpConfig) => {
     baseURL: import.meta.env.VITE_APP_API_ENDPOINT,
   }) : sharedApi;
   
-  // Only initialize STS when needed
-  const stsHook = config?.useStsTempCredentials ? useSts({
-    roleArn: config?.roleArn,
-    autoRefresh: config?.autoRefreshCredentials,
-  }) : null;
+  // Always call the hook but configure it based on needs
+  const stsHook = useSts({
+    roleArn: config?.useStsTempCredentials ? config?.roleArn : undefined,
+    autoRefresh: config?.useStsTempCredentials ? config?.autoRefreshCredentials : false,
+  });
 
   // Request interceptor to add authentication (only for new instances)
   if (config) {
     api.interceptors.request.use(async (axiosConfig: InternalAxiosRequestConfig) => {
     try {
-      if (config?.useStsTempCredentials && config?.roleArn && stsHook) {
+      if (config?.useStsTempCredentials && config?.roleArn) {
         // Use STS temporary credentials
         const stsCredentials = await stsHook.getValidCredentials();
         
@@ -108,7 +108,7 @@ const useHttp = (config?: HttpConfig) => {
 
   return {
     api,
-    credentials: stsHook?.credentials,
+    credentials: config?.useStsTempCredentials ? stsHook.credentials : undefined,
     /**
      * GET Request
      * Implemented with SWR

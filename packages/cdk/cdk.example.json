@@ -37,6 +37,8 @@
     "samlAuthEnabled": false,
     "samlCognitoDomainName": "",
     "samlCognitoFederatedIdentityProviderName": "",
+    "enableStsAssumeRole": false,
+    "tenantRoleArn": null,
     "hiddenUseCases": {},
     "modelRegion": "us-east-1",
     "modelIds": [
