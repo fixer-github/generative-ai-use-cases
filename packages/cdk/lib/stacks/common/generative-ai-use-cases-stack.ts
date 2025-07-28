@@ -374,6 +374,14 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'IdPoolId', { value: auth.idPool.identityPoolId });
 
+    new CfnOutput(this, 'TenantRoleArn', {
+      value: multiTenantRoleArn || '',
+    });
+
+    new CfnOutput(this, 'UseStsTempCredentials', {
+      value: multiTenantRoleArn ? 'true' : 'false',
+    });
+
     new CfnOutput(this, 'PredictStreamFunctionArn', {
       value: api.predictStreamFunction.functionArn,
     });

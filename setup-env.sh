@@ -52,3 +52,5 @@ export VITE_APP_SPEECH_TO_SPEECH_EVENT_API_ENDPOINT=$(extract_value "$stack_outp
 export VITE_APP_SPEECH_TO_SPEECH_MODEL_IDS=$(extract_value "$stack_output" SpeechToSpeechModelIds)
 export VITE_APP_MCP_ENABLED=$(extract_value "$stack_output" McpEnabled)
 export VITE_APP_MCP_ENDPOINT=$(extract_value "$stack_output" McpEndpoint)
+export VITE_APP_TENANT_ROLE_ARN=$(extract_value "$stack_output" TenantRoleArn)
+export VITE_APP_USE_STS_TEMP_CREDENTIALS=$(extract_value "$stack_output" UseStsTempCredentials)
