@@ -21,6 +21,7 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 ### 1. Enable STS Assume Role in CDK
 
 #### Option A: Automatic Role Creation (Recommended)
+
 Simply enable STS in your `cdk.json` and the role will be created automatically:
 
 ```json
@@ -38,6 +39,7 @@ npx cdk deploy GenerativeAiUseCasesStack
 ```
 
 #### Option B: Use Custom Role
+
 If you need custom IAM policies, create your own role and specify it:
 
 ```json
@@ -51,7 +53,29 @@ If you need custom IAM policies, create your own role and specify it:
 
 ### 2. Frontend Usage
 
-#### Using the STS Hook
+The application automatically uses STS authentication when enabled in the CDK configuration.
+
+#### Using the HTTP Hook
+
+```typescript
+import useHttp from './hooks/useHttp';
+
+function MyComponent() {
+  // The hook automatically detects if STS is enabled and uses the appropriate auth method
+  const http = useHttp();
+
+  // Make API calls - authentication is handled transparently
+  const { data, error } = http.get('/api/tenant-data');
+
+  const sendData = async () => {
+    await http.post('/api/data', { content: 'example' });
+  };
+}
+```
+
+#### Advanced: Direct STS Hook Usage
+
+If you need direct access to STS credentials:
 
 ```typescript
 import { useSts } from './hooks/useSts';
@@ -60,15 +84,9 @@ function MyComponent() {
   const { assumeRole, credentials, isLoading, error } = useSts({
     roleArn: import.meta.env.VITE_APP_TENANT_ROLE_ARN,
     autoRefresh: true,
-    refreshBuffer: 5, // refresh 5 minutes before expiration
   });
 
-  // Assume role on component mount
-  useEffect(() => {
-    assumeRole();
-  }, [assumeRole]);
-
-  // Use credentials for AWS SDK operations
+  // Use credentials for direct AWS SDK operations
   if (credentials) {
     const dynamoClient = new DynamoDBClient({
       credentials: {
@@ -81,23 +99,6 @@ function MyComponent() {
 }
 ```
 
-#### Using the Enhanced HTTP Hook
-
-```typescript
-import useHttpWithSts from './hooks/useHttpWithSts';
-
-function MyComponent() {
-  const http = useHttpWithSts({
-    useStsTempCredentials: true,
-    roleArn: import.meta.env.VITE_APP_TENANT_ROLE_ARN,
-    autoRefreshCredentials: true,
-  });
-
-  // Make API calls with STS credentials
-  const { data, error } = http.get('/api/tenant-data');
-}
-```
-
 ## Important: How Session Tags Work with AssumeRoleWithWebIdentity
 
 Unlike the standard AssumeRole API, AssumeRoleWithWebIdentity **cannot** accept session tags as API parameters. Instead, session tags must be **embedded in the JWT token** by the identity provider (Cognito). This is a critical distinction for understanding how multi-tenant isolation works.
@@ -105,6 +106,7 @@ Unlike the standard AssumeRole API, AssumeRoleWithWebIdentity **cannot** accept 
 ## Single Role for All Tenants
 
 A single IAM role can securely serve all tenants because:
+
 1. Each JWT contains the tenant ID as a principal tag
 2. `${aws:PrincipalTag/TenantID}` is evaluated at runtime for each request
 3. Each session is isolated based on the JWT claims
@@ -118,7 +120,7 @@ Time 10:00:00 - User from Tenant-123 accesses system
                 ↓ AssumeRoleWithWebIdentity (same role ARN)
                 ↓ Creates session: PrincipalTag/TenantID = "tenant-123"
                 ↓ DynamoDB access: ChatHistory-tenant-123 ✓
-                
+
 Time 10:00:00 - User from Tenant-456 accesses at the same moment
                 ↓ AssumeRoleWithWebIdentity (same role ARN)
                 ↓ Creates session: PrincipalTag/TenantID = "tenant-456"
@@ -126,6 +128,7 @@ Time 10:00:00 - User from Tenant-456 accesses at the same moment
 ```
 
 **Key Points**:
+
 - Same IAM role ARN is used by all tenants
 - Each AssumeRole creates an independent session
 - `${aws:PrincipalTag/TenantID}` is dynamically evaluated per request
@@ -139,14 +142,16 @@ Time 10:00:00 - User from Tenant-456 accesses at the same moment
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["dynamodb:*"],
-    "Resource": [
-      "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}",
-      "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}/index/*"
-    ]
-  }]
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:*"],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}",
+        "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}/index/*"
+      ]
+    }
+  ]
 }
 ```
 
@@ -157,25 +162,27 @@ The `${aws:PrincipalTag/TenantID}` variable is replaced at runtime with the tena
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["s3:*"],
-    "Resource": [
-      "arn:aws:s3:::tenant-data-${aws:PrincipalTag/TenantID}",
-      "arn:aws:s3:::tenant-data-${aws:PrincipalTag/TenantID}/*"
-    ]
-  }]
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:*"],
+      "Resource": [
+        "arn:aws:s3:::tenant-data-${aws:PrincipalTag/TenantID}",
+        "arn:aws:s3:::tenant-data-${aws:PrincipalTag/TenantID}/*"
+      ]
+    }
+  ]
 }
 ```
 
 ## API Gateway Configuration
 
-The API Gateway supports both authentication methods:
+When STS is enabled, the API Gateway is configured to use IAM authentication:
 
-1. **Cognito Token**: Traditional authentication using Cognito ID tokens
-2. **IAM Authentication**: Using STS temporary credentials with AWS Signature V4
+- **Without STS**: Uses Cognito User Pool authorizer (default)
+- **With STS**: Uses IAM authentication with AWS Signature V4 signing
 
-The custom authorizer automatically detects and validates both authentication types.
+This ensures that temporary credentials from AssumeRoleWithWebIdentity are properly validated by AWS IAM.
 
 ## Security Considerations
 
@@ -202,11 +209,26 @@ localStorage.setItem('STS_DEBUG', 'true');
 
 ## Migration Guide
 
-To migrate existing applications:
+To migrate existing applications to STS authentication:
 
-1. Deploy the tenant IAM role
-2. Update CDK configuration to enable STS
-3. Update frontend to use `useHttpWithSts` instead of `useHttp`
+1. Update CDK configuration:
+
+   ```json
+   {
+     "context": {
+       "enableStsAssumeRole": true
+     }
+   }
+   ```
+
+2. Deploy the stack (IAM role is created automatically):
+
+   ```bash
+   npx cdk deploy GenerativeAiUseCasesStack
+   ```
+
+3. Frontend code requires no changes - the `useHttp` hook automatically detects and uses STS when enabled
+
 4. Test thoroughly with different tenant scenarios
 
 ## Best Practices
@@ -222,14 +244,12 @@ To migrate existing applications:
 ```typescript
 // Frontend component
 function TenantChat() {
-  const http = useHttpWithSts({
-    useStsTempCredentials: true,
-    roleArn: process.env.VITE_APP_TENANT_ROLE_ARN,
-  });
+  // When STS is enabled, the hook automatically uses IAM authentication
+  const http = useHttp();
 
   const sendMessage = async (message: string) => {
     // API call automatically uses tenant-scoped credentials
-    await http.post('/api/messages', { 
+    await http.post('/api/messages', {
       content: message,
       // tenant_id is extracted from JWT claims in the backend
     });

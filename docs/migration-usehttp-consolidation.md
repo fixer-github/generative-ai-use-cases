@@ -1,79 +1,85 @@
-# useHttp Hook Consolidation
+# useHttp Hook - STS Authentication Support
 
-This document describes the consolidation of `useHttp` and `useHttpWithSts` hooks into a single `useHttp` hook.
+This document describes how the `useHttp` hook supports STS authentication.
 
 ## Summary
 
-The `useHttpWithSts` hook has been merged into `useHttp` to eliminate code duplication and simplify maintenance. The consolidated hook supports both authentication methods:
-- **Default**: Cognito ID token authentication (backward compatible)
-- **Optional**: STS temporary credentials with AWS Signature V4
+The `useHttp` hook automatically detects the authentication method based on environment configuration:
 
-## Key Changes
+- **When STS is disabled** (default): Uses Cognito ID token authentication
+- **When STS is enabled**: Uses STS temporary credentials with AWS Signature V4
 
-1. **Removed**: `useHttpWithSts.ts` file
-2. **Updated**: `useHttp.ts` now includes all STS functionality
-3. **Backward Compatible**: Existing code using `useHttp()` continues to work without changes
+## Key Features
+
+1. **Automatic Detection**: The hook checks environment variables to determine authentication method
+2. **Zero Code Changes**: Existing code using `useHttp()` automatically uses STS when enabled
+3. **Backward Compatible**: Works seamlessly with existing Cognito-based authentication
 
 ## Usage
 
-### Basic Usage (Cognito Auth - No Changes Required)
+### Basic Usage (Automatic Detection)
+
 ```typescript
-// Existing code continues to work
+// The hook automatically uses the right authentication method
 const http = useHttp();
 const { data } = http.get('/api/endpoint');
 ```
 
-### STS Authentication
-```typescript
-// Option 1: Manual configuration
-const http = useHttp({
-  useStsTempCredentials: true,
-  roleArn: 'arn:aws:iam::123456789012:role/TenantRole',
-  autoRefreshCredentials: true
-});
+### Manual Override (Advanced)
 
-// Option 2: Use environment configuration
-import { getStsConfig } from '@/hooks/useHttp';
-const http = useHttp(getStsConfig());
+```typescript
+// Force specific authentication method
+const http = useHttp({
+  useStsTempCredentials: true, // Force STS even if env says otherwise
+  roleArn: 'arn:aws:iam::123456789012:role/TenantRole',
+  autoRefreshCredentials: true,
+});
 ```
 
 ## Migration Guide
 
-### For Existing Code
-No migration needed. All existing code using `useHttp()` continues to work as before.
+### Enabling STS Authentication
 
-### For New STS-Enabled Features
-Instead of importing a separate `useHttpWithSts`, use the consolidated `useHttp` with configuration:
+1. **Update CDK configuration**:
 
-```typescript
-// Before (would have been):
-import useHttpWithSts from '@/hooks/useHttpWithSts';
-const http = useHttpWithSts({ roleArn: '...' });
+   ```json
+   {
+     "context": {
+       "enableStsAssumeRole": true
+     }
+   }
+   ```
 
-// After:
-import useHttp from '@/hooks/useHttp';
-const http = useHttp({ 
-  useStsTempCredentials: true,
-  roleArn: '...' 
-});
-```
+2. **Deploy the stack**:
+
+   ```bash
+   npx cdk deploy GenerativeAiUseCasesStack
+   ```
+
+3. **That's it!** The frontend automatically uses STS authentication. No code changes required.
 
 ## Environment Variables
 
 When STS is enabled via CDK configuration, these environment variables are set:
+
 - `VITE_APP_USE_STS_TEMP_CREDENTIALS`: 'true' when STS is enabled
 - `VITE_APP_TENANT_ROLE_ARN`: The ARN of the tenant role to assume
 
 ## Technical Details
 
-### Shared Instance
-- When no config is provided, a shared axios instance is used (backward compatibility)
-- The shared instance has Cognito auth interceptor pre-configured
+### Authentication Detection
 
-### New Instances
-- When any config is provided, a new axios instance is created
-- Interceptors are configured based on the provided config
+- The hook checks `VITE_APP_USE_STS_TEMP_CREDENTIALS` environment variable
+- When `true`, automatically configures STS authentication
+- When `false` or unset, uses Cognito authentication
+
+### Axios Instance Management
+
+- **Cognito mode**: Uses a shared axios instance with pre-configured Cognito interceptor
+- **STS mode**: Creates a new axios instance with AWS Signature V4 signing
 
 ### STS Integration
-- STS hook (`useSts`) is only initialized when `useStsTempCredentials` is true
-- Credentials are automatically refreshed when `autoRefreshCredentials` is true
+
+- STS credentials are obtained via `AssumeRoleWithWebIdentity`
+- Credentials are automatically refreshed before expiration
+- All API requests are signed with AWS Signature V4

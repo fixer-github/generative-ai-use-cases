@@ -15,6 +15,7 @@ STS AssumeRoleWithWebIdentity機能は、Cognitoトークン（テナントIDを
 ### 2. ステップごとの詳細
 
 #### ステップ1: Cognitoでユーザー認証
+
 ```typescript
 // ユーザーがログイン
 const session = await fetchAuthSession();
@@ -22,20 +23,22 @@ const idToken = session.tokens?.idToken;
 ```
 
 #### ステップ2: JWTトークンの構造
+
 ```json
 {
   "sub": "user-id",
   "email": "user@example.com",
-  "custom:tenant_id": "tenant-123",  // カスタム属性としてテナントID
+  "custom:tenant_id": "tenant-123", // カスタム属性としてテナントID
   "https://aws.amazon.com/tags": {
     "principal_tags": {
-      "TenantID": ["tenant-123"]      // IAMポリシーで参照可能
+      "TenantID": ["tenant-123"] // IAMポリシーで参照可能
     }
   }
 }
 ```
 
 #### ステップ3: STSでJWTを一時クレデンシャルに変換
+
 ```typescript
 // JWTからテナントIDを抽出
 const payload = session.tokens?.idToken?.payload;
@@ -44,9 +47,9 @@ const tenantId = payload?.['custom:tenant_id'] as string;
 // STSを呼び出して一時クレデンシャルを取得
 const stsClient = new STSClient({});
 const command = new AssumeRoleWithWebIdentityCommand({
-  RoleArn: "arn:aws:iam::123456789012:role/TenantAccessRole",
+  RoleArn: 'arn:aws:iam::123456789012:role/TenantAccessRole',
   RoleSessionName: `tenant-${tenantId}-session`,
-  WebIdentityToken: idToken,  // テナントIDを含むJWT
+  WebIdentityToken: idToken, // テナントIDを含むJWT
 });
 
 const response = await stsClient.send(command);
@@ -54,37 +57,43 @@ const credentials = {
   accessKeyId: response.Credentials.AccessKeyId,
   secretAccessKey: response.Credentials.SecretAccessKey,
   sessionToken: response.Credentials.SessionToken,
-  expiration: response.Credentials.Expiration
+  expiration: response.Credentials.Expiration,
 };
 ```
 
 #### ステップ4: 一時クレデンシャルでAWSリソースにアクセス
+
 ```typescript
 // テナント固有のDynamoDBテーブルにアクセス
 const dynamoClient = new DynamoDBClient({
   credentials: {
     accessKeyId: credentials.accessKeyId,
     secretAccessKey: credentials.secretAccessKey,
-    sessionToken: credentials.sessionToken
-  }
+    sessionToken: credentials.sessionToken,
+  },
 });
 
 // tenant-123のデータのみアクセス可能
-const result = await dynamoClient.send(new GetItemCommand({
-  TableName: 'ChatHistory-tenant-123',  // IAMポリシーで制限
-  Key: { id: { S: 'item-id' } }
-}));
+const result = await dynamoClient.send(
+  new GetItemCommand({
+    TableName: 'ChatHistory-tenant-123', // IAMポリシーで制限
+    Key: { id: { S: 'item-id' } },
+  })
+);
 ```
 
 ## IAMロールの設定
 
 ### 重要: セッションタグの仕組み
+
 AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータとして渡すことができません。代わりに、**JWTトークン内に埋め込まれている必要があります**。これが通常のAssumeRoleとの大きな違いです。
 
 ### 単一ロールでマルチテナント対応
+
 1つのIAMロールで全てのテナントに対応できます。各テナントのセッションは、JWTクレームから取得したテナントIDに基づいて自動的に分離されます。
 
 #### 同時アクセスの仕組み
+
 複数のテナントが同じロールを**同時に**使用しても安全です：
 
 ```
@@ -92,7 +101,7 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
                 ↓ AssumeRoleWithWebIdentity (同じロールARN)
                 ↓ セッション作成: PrincipalTag/TenantID = "tenant-123"
                 ↓ DynamoDBアクセス: ChatHistory-tenant-123 ✓
-                
+
 時刻 10:00:00 - テナント456のユーザーが同時にアクセス
                 ↓ AssumeRoleWithWebIdentity (同じロールARN)
                 ↓ セッション作成: PrincipalTag/TenantID = "tenant-456"
@@ -100,42 +109,49 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 ```
 
 **重要なポイント**：
+
 - 同じIAMロールを使用
 - 各AssumeRoleで独立したセッションが作成される
 - `${aws:PrincipalTag/TenantID}`はリクエスト時に動的に評価
 - テナント間のデータアクセスは不可能
 
 ### 信頼ポリシー（Trust Policy）
+
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": {
-      "Federated": "arn:aws:cognito-identity:region:account:identitypool/pool-id"
-    },
-    "Action": "sts:AssumeRoleWithWebIdentity",
-    "Condition": {
-      "StringEquals": {
-        "cognito-identity.amazonaws.com:aud": "identity-pool-id"
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:cognito-identity:region:account:identitypool/pool-id"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "cognito-identity.amazonaws.com:aud": "identity-pool-id"
+        }
       }
     }
-  }]
+  ]
 }
 ```
 
 ### アクセス許可ポリシー（Permissions Policy）
+
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["dynamodb:*"],
-    "Resource": [
-      "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}",
-      "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}/index/*"
-    ]
-  }]
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:*"],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}",
+        "arn:aws:dynamodb:*:*:table/ChatHistory-${aws:PrincipalTag/TenantID}/index/*"
+      ]
+    }
+  ]
 }
 ```
 
@@ -144,6 +160,7 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 ## CDKでのデプロイ
 
 ### 自動作成（推奨）
+
 `enableStsAssumeRole`をtrueに設定すると、共通スタックデプロイ時に自動的にマルチテナント用IAMロールが作成されます：
 
 ```json
@@ -162,6 +179,7 @@ npx cdk deploy GenerativeAiUseCasesStack
 ```
 
 ### 手動作成（高度な設定が必要な場合）
+
 独自のIAMポリシーが必要な場合は、別途ロールを作成して指定できます：
 
 ```json
@@ -176,14 +194,35 @@ npx cdk deploy GenerativeAiUseCasesStack
 
 ## フロントエンドでの実装
 
-### useStsフックの使用
+アプリケーションはCDK設定でSTSが有効になっている場合、自動的にSTS認証を使用します。
+
+### useHttpフックの使用
+
+```typescript
+import useHttp from './hooks/useHttp';
+
+function TenantChat() {
+  // フックは自動的にSTSが有効かどうかを検出し、適切な認証方式を使用
+  const http = useHttp();
+
+  // APIコールは透過的に認証を処理
+  const { data: messages } = http.get('/api/messages');
+
+  const sendMessage = async (content: string) => {
+    await http.post('/api/messages', { content });
+  };
+}
+```
+
+### 高度な使用法：直接STSフックを使用
+
 ```typescript
 import { useSts } from './hooks/useSts';
 
 function TenantDashboard() {
   const { assumeRole, credentials, isLoading } = useSts({
     roleArn: import.meta.env.VITE_APP_TENANT_ROLE_ARN,
-    autoRefresh: true,  // 期限切れ前に自動更新
+    autoRefresh: true, // 期限切れ前に自動更新
   });
 
   useEffect(() => {
@@ -192,29 +231,15 @@ function TenantDashboard() {
   }, [assumeRole]);
 
   if (credentials) {
-    // テナント固有のリソースにアクセス
-    console.log('テナント専用クレデンシャル取得完了');
+    // AWS SDKで直接使用
+    const dynamoClient = new DynamoDBClient({
+      credentials: {
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken,
+      },
+    });
   }
-}
-```
-
-### useHttpWithStsフックの使用
-```typescript
-import useHttpWithSts from './hooks/useHttpWithSts';
-
-function TenantChat() {
-  const http = useHttpWithSts({
-    useStsTempCredentials: true,
-    roleArn: import.meta.env.VITE_APP_TENANT_ROLE_ARN,
-    autoRefreshCredentials: true,
-  });
-
-  // APIコールは自動的にSTS署名を使用
-  const { data: messages } = http.get('/api/messages');
-  
-  const sendMessage = async (content: string) => {
-    await http.post('/api/messages', { content });
-  };
 }
 ```
 
@@ -230,9 +255,11 @@ function TenantChat() {
 ### よくあるエラー
 
 1. **"No tenant ID found in token"**
+
    - Cognitoユーザーに`custom:tenant_id`属性が設定されているか確認
 
 2. **"Access Denied"**
+
    - IAMロールの信頼ポリシーを確認
    - リソース名にテナントIDが正しく含まれているか確認
 
@@ -241,6 +268,7 @@ function TenantChat() {
    - `refreshBuffer`を調整（デフォルト5分前）
 
 ### デバッグモード
+
 ```javascript
 // ブラウザコンソールでデバッグログを有効化
 localStorage.setItem('STS_DEBUG', 'true');

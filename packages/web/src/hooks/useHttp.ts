@@ -1,5 +1,9 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
-import axios, { AxiosResponse, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosResponse,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
 import { sign } from 'aws4';
 import useSWR, { SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
@@ -30,76 +34,85 @@ sharedApi.interceptors.request.use(async (config) => {
 });
 
 /**
- * HTTP hook that supports both Cognito tokens and STS temporary credentials
- * - By default, uses Cognito ID tokens (backward compatible)
- * - Can optionally use STS temporary credentials when configured
+ * HTTP hook that uses either Cognito tokens or STS temporary credentials based on configuration
+ * - If STS is enabled in environment, uses STS temporary credentials
+ * - Otherwise, uses Cognito ID tokens (backward compatible)
  */
 const useHttp = (config?: HttpConfig) => {
-  // Use shared instance when no config provided (backward compatibility)
-  const api = config ? axios.create({
-    baseURL: import.meta.env.VITE_APP_API_ENDPOINT,
-  }) : sharedApi;
-  
-  // Always call the hook but configure it based on needs
+  // Check if STS is enabled in environment
+  const stsEnabled =
+    import.meta.env.VITE_APP_USE_STS_TEMP_CREDENTIALS === 'true';
+  const envRoleArn = import.meta.env.VITE_APP_TENANT_ROLE_ARN;
+
+  // Determine if we should use STS based on environment or config
+  const shouldUseSts = stsEnabled || config?.useStsTempCredentials;
+  const roleArn = config?.roleArn || envRoleArn;
+
+  // Create a new axios instance when using STS
+  const api = shouldUseSts
+    ? axios.create({
+        baseURL: import.meta.env.VITE_APP_API_ENDPOINT,
+      })
+    : sharedApi;
+
+  // Only initialize STS hook when needed
   const stsHook = useSts({
-    roleArn: config?.useStsTempCredentials ? config?.roleArn : undefined,
-    autoRefresh: config?.useStsTempCredentials ? config?.autoRefreshCredentials : false,
+    roleArn: shouldUseSts ? roleArn : undefined,
+    autoRefresh: shouldUseSts
+      ? (config?.autoRefreshCredentials ?? true)
+      : false,
   });
 
-  // Request interceptor to add authentication (only for new instances)
-  if (config) {
-    api.interceptors.request.use(async (axiosConfig: InternalAxiosRequestConfig) => {
-    try {
-      if (config?.useStsTempCredentials && config?.roleArn) {
-        // Use STS temporary credentials
-        const stsCredentials = await stsHook.getValidCredentials();
-        
-        if (stsCredentials) {
-          // Parse the API endpoint to get host and path
-          const url = new URL(axiosConfig.url || '', axiosConfig.baseURL);
-          const service = 'execute-api';
-          const region = import.meta.env.VITE_APP_REGION || 'us-east-1';
+  // Request interceptor to add authentication (only for STS instances)
+  if (shouldUseSts) {
+    api.interceptors.request.use(
+      async (axiosConfig: InternalAxiosRequestConfig) => {
+        try {
+          // Use STS temporary credentials
+          const stsCredentials = await stsHook.getValidCredentials();
 
-          // Prepare the request for signing
-          const request = {
-            host: url.hostname,
-            method: axiosConfig.method?.toUpperCase() || 'GET',
-            url: url.pathname + url.search,
-            path: url.pathname + url.search,
-            headers: {
-              ...axiosConfig.headers,
-              'Content-Type': 'application/json',
-            },
-            body: axiosConfig.data ? JSON.stringify(axiosConfig.data) : undefined,
-            service,
-            region,
-          };
+          if (stsCredentials) {
+            // Parse the API endpoint to get host and path
+            const url = new URL(axiosConfig.url || '', axiosConfig.baseURL);
+            const service = 'execute-api';
+            const region = import.meta.env.VITE_APP_REGION || 'us-east-1';
 
-          // Sign the request with AWS Signature V4
-          const signedRequest = sign(request, {
-            accessKeyId: stsCredentials.accessKeyId,
-            secretAccessKey: stsCredentials.secretAccessKey,
-            sessionToken: stsCredentials.sessionToken,
-          });
+            // Prepare the request for signing
+            const request = {
+              host: url.hostname,
+              method: axiosConfig.method?.toUpperCase() || 'GET',
+              url: url.pathname + url.search,
+              path: url.pathname + url.search,
+              headers: {
+                ...axiosConfig.headers,
+                'Content-Type': 'application/json',
+              },
+              body: axiosConfig.data
+                ? JSON.stringify(axiosConfig.data)
+                : undefined,
+              service,
+              region,
+            };
 
-          // Apply the signed headers
-          Object.assign(axiosConfig.headers, signedRequest.headers);
-        }
-      } else {
-        // Use Cognito ID token (existing behavior)
-        const token = (await fetchAuthSession()).tokens?.idToken?.toString();
-        if (token) {
-          axiosConfig.headers['Authorization'] = token;
+            // Sign the request with AWS Signature V4
+            const signedRequest = sign(request, {
+              accessKeyId: stsCredentials.accessKeyId,
+              secretAccessKey: stsCredentials.secretAccessKey,
+              sessionToken: stsCredentials.sessionToken,
+            });
+
+            // Apply the signed headers
+            Object.assign(axiosConfig.headers, signedRequest.headers);
+          }
+
+          axiosConfig.headers['Content-Type'] = 'application/json';
+          return axiosConfig;
+        } catch (error) {
+          console.error('Error in request interceptor:', error);
+          throw error;
         }
       }
-
-      axiosConfig.headers['Content-Type'] = 'application/json';
-      return axiosConfig;
-    } catch (error) {
-      console.error('Error in request interceptor:', error);
-      throw error;
-    }
-  });
+    );
   }
 
   const fetcher = (url: string) => {
@@ -108,7 +121,7 @@ const useHttp = (config?: HttpConfig) => {
 
   return {
     api,
-    credentials: config?.useStsTempCredentials ? stsHook.credentials : undefined,
+    credentials: shouldUseSts ? stsHook.credentials : undefined,
     /**
      * GET Request
      * Implemented with SWR
@@ -222,9 +235,10 @@ const useHttp = (config?: HttpConfig) => {
  * Get STS configuration from environment variables
  */
 export const getStsConfig = (): HttpConfig | undefined => {
-  const useStsTempCredentials = import.meta.env.VITE_APP_USE_STS_TEMP_CREDENTIALS === 'true';
+  const useStsTempCredentials =
+    import.meta.env.VITE_APP_USE_STS_TEMP_CREDENTIALS === 'true';
   const roleArn = import.meta.env.VITE_APP_TENANT_ROLE_ARN;
-  
+
   if (useStsTempCredentials && roleArn) {
     return {
       useStsTempCredentials: true,
@@ -232,7 +246,7 @@ export const getStsConfig = (): HttpConfig | undefined => {
       autoRefreshCredentials: true,
     };
   }
-  
+
   return undefined;
 };
 
