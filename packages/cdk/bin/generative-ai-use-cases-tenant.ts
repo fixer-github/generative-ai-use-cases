@@ -19,12 +19,14 @@ if (fs.existsSync(tenantConfigPath)) {
 // Merge with any context passed via command line (command line takes precedence)
 const context = {
   ...tenantConfig,
-  ...app.node.getAllContext()
+  ...app.node.getAllContext(),
 };
 
 const tenantId = context.tenantId;
 if (!tenantId) {
-  throw new Error('tenantId must be provided via context (--context tenantId=<value> or in cdk.tenant.json)');
+  throw new Error(
+    'tenantId must be provided via context (--context tenantId=<value> or in cdk.tenant.json)'
+  );
 }
 
 const params = {
