@@ -12,6 +12,7 @@ import {
   SpeechToSpeech,
   McpApi,
 } from '../../construct';
+import { ApiAuthorizer } from '../../construct/api-with-iam-auth';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -65,6 +66,15 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     // Database
     const database = new Database(this, 'Database');
+
+    // API Authorizer
+    const apiAuthorizer = params.enableStsAssumeRole ? new ApiAuthorizer(this, 'ApiAuthorizer', {
+      userPool: auth.userPool,
+      userPoolClientId: auth.client.userPoolClientId,
+      identityPoolId: auth.idPool.identityPoolId,
+      enableIamAuth: true,
+      tenantRoleArn: params.tenantRoleArn,
+    }) : undefined;
 
     // API
     const api = new Api(this, 'API', {
@@ -144,6 +154,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlCognitoDomainName: params.samlCognitoDomainName,
       samlCognitoFederatedIdentityProviderName:
         params.samlCognitoFederatedIdentityProviderName,
+      enableStsAssumeRole: params.enableStsAssumeRole,
+      tenantRoleArn: params.tenantRoleArn,
       // Backend
       apiEndpointUrl: api.api.url,
       predictStreamFunctionArn: api.predictStreamFunction.functionArn,

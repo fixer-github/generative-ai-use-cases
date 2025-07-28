@@ -32,6 +32,8 @@ interface ImportMetaEnv {
   readonly VITE_APP_SPEECH_TO_SPEECH_MODEL_IDS: string;
   readonly VITE_APP_MCP_ENABLED: string;
   readonly VITE_APP_MCP_ENDPOINT: string;
+  readonly VITE_APP_TENANT_ROLE_ARN?: string;
+  readonly VITE_APP_USE_STS_TEMP_CREDENTIALS?: string;
 }
 
 interface ImportMeta {
