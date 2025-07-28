@@ -55,9 +55,7 @@ export interface BackendApiProps {
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
-
-  // Authentication
-  readonly enableStsAssumeRole?: boolean;
+  readonly tenantRoleArn?: string | null;
 }
 
 export class Api extends Construct {
@@ -721,21 +719,10 @@ export class Api extends Construct {
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
 
-    // API Gateway
-    const authorizer = props.enableStsAssumeRole
-      ? undefined
-      : new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
-          cognitoUserPools: [userPool],
-        });
-
-    const commonAuthorizerProps = props.enableStsAssumeRole
-      ? {
-          authorizationType: AuthorizationType.IAM,
-        }
-      : {
-          authorizationType: AuthorizationType.COGNITO,
-          authorizer: authorizer!,
-        };
+    // API Gateway - Always use IAM auth for multi-tenant security
+    const commonAuthorizerProps = {
+      authorizationType: AuthorizationType.IAM,
+    };
 
     const api = new RestApi(this, 'Api', {
       deployOptions: {

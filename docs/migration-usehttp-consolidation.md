@@ -38,17 +38,11 @@ const http = useHttp({
 
 ## Migration Guide
 
-### Enabling STS Authentication
+### How STS Authentication Works
 
-1. **Update CDK configuration**:
-
-   ```json
-   {
-     "context": {
-       "enableStsAssumeRole": true
-     }
-   }
-   ```
+1. **Automatic Multi-tenant Role Creation**:
+   
+   The system automatically creates a multi-tenant IAM role when you deploy the stack. This role enables secure tenant isolation using STS AssumeRoleWithWebIdentity.
 
 2. **Deploy the stack**:
 
@@ -56,7 +50,7 @@ const http = useHttp({
    npx cdk deploy GenerativeAiUseCasesStack
    ```
 
-3. **That's it!** The frontend automatically uses STS authentication. No code changes required.
+3. **That's it!** The frontend automatically uses STS authentication for tenant-isolated resources. No code changes required.
 
 ## Environment Variables
 

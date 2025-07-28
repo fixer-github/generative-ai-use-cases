@@ -235,11 +235,10 @@ const useHttp = (config?: HttpConfig) => {
  * Get STS configuration from environment variables
  */
 export const getStsConfig = (): HttpConfig | undefined => {
-  const useStsTempCredentials =
-    import.meta.env.VITE_APP_USE_STS_TEMP_CREDENTIALS === 'true';
   const roleArn = import.meta.env.VITE_APP_TENANT_ROLE_ARN;
 
-  if (useStsTempCredentials && roleArn) {
+  // Always use STS when tenant role ARN is available
+  if (roleArn) {
     return {
       useStsTempCredentials: true,
       roleArn,

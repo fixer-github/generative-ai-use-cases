@@ -18,20 +18,17 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 ## Configuration
 
-### 1. Enable STS Assume Role in CDK
+### 1. Multi-tenant IAM Role Setup
 
-#### Option A: Automatic Role Creation (Default - Recommended)
+#### Automatic Role Creation (Default)
 
-**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy. If you're using the default configuration, no changes are needed.
+**The system automatically creates a multi-tenant IAM role for secure tenant isolation.** This role uses STS AssumeRoleWithWebIdentity to provide temporary credentials based on the tenant ID in your JWT token.
 
 ##### Using Environment Variables
 
-You can configure STS authentication using environment variables without modifying any configuration files:
+You can optionally specify a custom tenant role ARN using environment variables:
 
 ```bash
-# Enable STS Assume Role (default is true if not set)
-export ENABLE_STS_ASSUME_ROLE=true
-
 # Optionally specify a custom tenant role ARN
 export TENANT_ROLE_ARN=arn:aws:iam::123456789012:role/CustomTenantRole
 
@@ -46,25 +43,9 @@ Alternatively, you can configure it in `cdk.json`:
 ```json
 {
   "context": {
-    // enableStsAssumeRole defaults to true - no need to specify
-    // No tenantRoleArn needed - role is created automatically
-  }
-}
-```
-
-To explicitly disable STS Assume Role (not recommended), set it to false:
-
-```bash
-# Using environment variable
-export ENABLE_STS_ASSUME_ROLE=false
-```
-
-Or in `cdk.json`:
-
-```json
-{
-  "context": {
-    "enableStsAssumeRole": false  // Explicitly disable STS authentication
+    // Leave empty to auto-create the multi-tenant role
+    // Or specify a custom role ARN if needed
+    "tenantRoleArn": null
   }
 }
 ```
@@ -74,21 +55,13 @@ Or in `cdk.json`:
 npx cdk deploy GenerativeAiUseCasesStack
 ```
 
-##### Configuration Precedence
-
-The configuration is resolved in the following order (highest to lowest priority):
-1. CDK Context (command line: `--context` or `cdk.json`)
-2. Environment variables (`ENABLE_STS_ASSUME_ROLE`, `TENANT_ROLE_ARN`)
-3. Default values (STS enabled by default)
-
-#### Option B: Use Custom Role
+#### Using a Custom Role
 
 If you need custom IAM policies, create your own role and specify it:
 
 ```json
 {
   "context": {
-    "enableStsAssumeRole": true,
     "tenantRoleArn": "arn:aws:iam::123456789012:role/CustomTenantRole"
   }
 }
@@ -96,7 +69,7 @@ If you need custom IAM policies, create your own role and specify it:
 
 ### 2. Frontend Usage
 
-The application automatically uses STS authentication when enabled in the CDK configuration.
+The application automatically uses STS authentication for accessing tenant-isolated resources.
 
 #### Using the HTTP Hook
 

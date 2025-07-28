@@ -67,9 +67,9 @@ export class GenerativeAiUseCasesStack extends Stack {
     // Database
     const database = new Database(this, 'Database');
 
-    // Multi-tenant IAM Role (created automatically when STS is enabled)
+    // Multi-tenant IAM Role (always created for tenant isolation)
     let multiTenantRoleArn = params.tenantRoleArn;
-    if (params.enableStsAssumeRole && !params.tenantRoleArn) {
+    if (!params.tenantRoleArn) {
       // Create the multi-tenant access role automatically
       const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
         assumedBy: new iam.WebIdentityPrincipal(auth.idPool.identityPoolArn, {
@@ -175,7 +175,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       agents: props.agents,
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
-      enableStsAssumeRole: params.enableStsAssumeRole,
+      tenantRoleArn: multiTenantRoleArn,
     });
 
     // WAF
@@ -231,7 +231,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlCognitoDomainName: params.samlCognitoDomainName,
       samlCognitoFederatedIdentityProviderName:
         params.samlCognitoFederatedIdentityProviderName,
-      enableStsAssumeRole: params.enableStsAssumeRole,
       tenantRoleArn: multiTenantRoleArn,
       // Backend
       apiEndpointUrl: api.api.url,

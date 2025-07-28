@@ -159,18 +159,15 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 ## CDKでのデプロイ
 
-### 自動作成（デフォルト・推奨）
+### 自動作成（デフォルト）
 
-**STS AssumeRoleは現在デフォルトで有効になっています。** デプロイ時に自動的にマルチテナント用IAMロールが作成されます。デフォルト設定を使用している場合、変更は不要です。
+**システムは安全なテナント分離のために、マルチテナントIAMロールを自動的に作成します。** このロールは、JWTトークン内のテナントIDに基づいて一時的なクレデンシャルを提供するSTS AssumeRoleWithWebIdentityを使用します。
 
 #### 環境変数を使用する方法
 
-設定ファイルを変更せずに、環境変数を使用してSTS認証を設定できます：
+環境変数を使用してカスタムテナントロールARNを指定できます（オプション）：
 
 ```bash
-# STS AssumeRoleを有効化（設定しない場合のデフォルトはtrue）
-export ENABLE_STS_ASSUME_ROLE=true
-
 # カスタムテナントロールARNを指定（オプション）
 export TENANT_ROLE_ARN=arn:aws:iam::123456789012:role/CustomTenantRole
 
@@ -186,25 +183,9 @@ npx cdk deploy GenerativeAiUseCasesStack
 // cdk.json
 {
   "context": {
-    // enableStsAssumeRoleはデフォルトでtrue - 指定不要
-    // tenantRoleArnを指定しない場合、自動的にロールが作成されます
-  }
-}
-```
-
-STS AssumeRoleを明示的に無効化する場合（非推奨）は、falseを設定してください：
-
-```bash
-# 環境変数を使用
-export ENABLE_STS_ASSUME_ROLE=false
-```
-
-または`cdk.json`で：
-
-```json
-{
-  "context": {
-    "enableStsAssumeRole": false  // STS認証を明示的に無効化
+    // 空のままにしてマルチテナントロールを自動作成
+    // または必要に応じてカスタムロールARNを指定
+    "tenantRoleArn": null
   }
 }
 ```
@@ -221,7 +202,7 @@ npx cdk deploy GenerativeAiUseCasesStack
 2. 環境変数（`ENABLE_STS_ASSUME_ROLE`、`TENANT_ROLE_ARN`）
 3. デフォルト値（STSはデフォルトで有効）
 
-### 手動作成（高度な設定が必要な場合）
+### カスタムロールの使用
 
 独自のIAMポリシーが必要な場合は、別途ロールを作成して指定できます：
 
@@ -229,7 +210,6 @@ npx cdk deploy GenerativeAiUseCasesStack
 // cdk.json
 {
   "context": {
-    "enableStsAssumeRole": true,
     "tenantRoleArn": "arn:aws:iam::123456789012:role/CustomTenantRole"
   }
 }
@@ -237,7 +217,7 @@ npx cdk deploy GenerativeAiUseCasesStack
 
 ## フロントエンドでの実装
 
-アプリケーションはCDK設定でSTSが有効になっている場合、自動的にSTS認証を使用します。
+アプリケーションはテナント分離されたリソースにアクセスする際、自動的にSTS認証を使用します。
 
 ### useHttpフックの使用
 
