@@ -22,23 +22,23 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 #### Option A: Automatic Role Creation (Default - Recommended)
 
-**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy:
+**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy. If you're using the default configuration, no changes are needed:
 
 ```json
 {
   "context": {
-    "enableStsAssumeRole": true // Default value - no need to specify unless disabling
+    // enableStsAssumeRole defaults to true - no need to specify
     // No tenantRoleArn needed - role is created automatically
   }
 }
 ```
 
-To disable STS Assume Role (not recommended), explicitly set it to false:
+To explicitly disable STS Assume Role (not recommended), set it to false:
 
 ```json
 {
   "context": {
-    "enableStsAssumeRole": false // Explicitly disable STS authentication
+    "enableStsAssumeRole": false  // Explicitly disable STS authentication
   }
 }
 ```
@@ -225,9 +225,9 @@ STS authentication is now enabled by default. No additional configuration is nee
 
 ### For Existing Applications
 
-If you have an existing deployment without STS authentication:
+If you're upgrading from a version where STS was not the default:
 
-1. **No CDK configuration change needed** - STS is now the default
+1. **No CDK configuration change needed** - STS is now enabled by default
 
 2. Deploy the stack (IAM role is created automatically):
 

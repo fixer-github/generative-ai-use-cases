@@ -161,24 +161,24 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 ### 自動作成（デフォルト・推奨）
 
-**STS AssumeRoleは現在デフォルトで有効になっています。** 共通スタックデプロイ時に自動的にマルチテナント用IAMロールが作成されます：
+**STS AssumeRoleは現在デフォルトで有効になっています。** デプロイ時に自動的にマルチテナント用IAMロールが作成されます。デフォルト設定を使用している場合、変更は不要です：
 
 ```json
 // cdk.json
 {
   "context": {
-    "enableStsAssumeRole": true // デフォルト値 - 無効化する場合以外は指定不要
+    // enableStsAssumeRoleはデフォルトでtrue - 指定不要
     // tenantRoleArnを指定しない場合、自動的にロールが作成されます
   }
 }
 ```
 
-STS AssumeRoleを無効化する場合（非推奨）は、明示的にfalseを設定してください：
+STS AssumeRoleを明示的に無効化する場合（非推奨）は、falseを設定してください：
 
 ```json
 {
   "context": {
-    "enableStsAssumeRole": false // STS認証を明示的に無効化
+    "enableStsAssumeRole": false  // STS認証を明示的に無効化
   }
 }
 ```
@@ -282,6 +282,40 @@ function TenantDashboard() {
 ```javascript
 // ブラウザコンソールでデバッグログを有効化
 localStorage.setItem('STS_DEBUG', 'true');
+```
+
+## マイグレーションガイド
+
+### 新規デプロイの場合
+
+STS認証は現在デフォルトで有効になっています。追加の設定は必要ありません。
+
+### 既存アプリケーションの場合
+
+STSがデフォルトでなかったバージョンからアップグレードする場合：
+
+1. **CDK設定の変更は不要** - STSは現在デフォルトで有効
+
+2. スタックをデプロイ（IAMロールは自動作成）：
+
+   ```bash
+   npx cdk deploy GenerativeAiUseCasesStack
+   ```
+
+3. フロントエンドコードの変更は不要 - `useHttp`フックがSTSを自動的に検出して使用
+
+4. 異なるテナントシナリオで十分にテスト
+
+### レガシー認証を維持する場合
+
+レガシーのCognito専用認証を維持する必要がある場合（非推奨）：
+
+```json
+{
+  "context": {
+    "enableStsAssumeRole": false
+  }
+}
 ```
 
 ## ベストプラクティス

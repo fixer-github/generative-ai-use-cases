@@ -13,7 +13,7 @@ const baseStackInputSchema = z.object({
   samlAuthEnabled: z.boolean().default(false),
   samlCognitoDomainName: z.string().nullish(),
   samlCognitoFederatedIdentityProviderName: z.string().nullish(),
-  enableStsAssumeRole: z.boolean().default(false),
+  enableStsAssumeRole: z.boolean().default(true),
   tenantRoleArn: z.string().nullish(),
   // Frontend
   hiddenUseCases: z
