@@ -90,6 +90,17 @@ function MyComponent() {
 }
 ```
 
+## Important: How Session Tags Work with AssumeRoleWithWebIdentity
+
+Unlike the standard AssumeRole API, AssumeRoleWithWebIdentity **cannot** accept session tags as API parameters. Instead, session tags must be **embedded in the JWT token** by the identity provider (Cognito). This is a critical distinction for understanding how multi-tenant isolation works.
+
+## Single Role for All Tenants
+
+A single IAM role can securely serve all tenants because:
+1. Each JWT contains the tenant ID as a principal tag
+2. `${aws:PrincipalTag/TenantID}` is evaluated at runtime for each request
+3. Each session is isolated based on the JWT claims
+
 ## IAM Policy Examples
 
 ### Per-Tenant DynamoDB Table Access
@@ -107,6 +118,8 @@ function MyComponent() {
   }]
 }
 ```
+
+The `${aws:PrincipalTag/TenantID}` variable is replaced at runtime with the tenant ID from the JWT, ensuring each tenant can only access their own tables.
 
 ### Per-Tenant S3 Bucket Access
 

@@ -78,6 +78,12 @@ const result = await dynamoClient.send(new GetItemCommand({
 
 ## IAMロールの設定
 
+### 重要: セッションタグの仕組み
+AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータとして渡すことができません。代わりに、**JWTトークン内に埋め込まれている必要があります**。これが通常のAssumeRoleとの大きな違いです。
+
+### 単一ロールでマルチテナント対応
+1つのIAMロールで全てのテナントに対応できます。各テナントのセッションは、JWTクレームから取得したテナントIDに基づいて自動的に分離されます。
+
 ### 信頼ポリシー（Trust Policy）
 ```json
 {
@@ -111,6 +117,8 @@ const result = await dynamoClient.send(new GetItemCommand({
   }]
 }
 ```
+
+`${aws:PrincipalTag/TenantID}`は実行時に評価され、JWTから取得したテナントIDに置き換えられます。
 
 ## CDKでのデプロイ
 
