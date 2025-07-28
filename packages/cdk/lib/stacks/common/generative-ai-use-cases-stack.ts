@@ -12,7 +12,7 @@ import {
   SpeechToSpeech,
   McpApi,
 } from '../../construct';
-import { ApiAuthorizer } from '../../construct/api-with-iam-auth';
+// import { ApiAuthorizer } from '../../construct/api-with-iam-auth'; // TODO: Integrate with API construct
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -138,13 +138,14 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // API Authorizer
-    const apiAuthorizer = params.enableStsAssumeRole ? new ApiAuthorizer(this, 'ApiAuthorizer', {
-      userPool: auth.userPool,
-      userPoolClientId: auth.client.userPoolClientId,
-      identityPoolId: auth.idPool.identityPoolId,
-      enableIamAuth: true,
-      tenantRoleArn: multiTenantRoleArn,
-    }) : undefined;
+    // TODO: Update API construct to use custom authorizer when STS is enabled
+    // const apiAuthorizer = params.enableStsAssumeRole ? new ApiAuthorizer(this, 'ApiAuthorizer', {
+    //   userPool: auth.userPool,
+    //   userPoolClientId: auth.client.userPoolClientId,
+    //   identityPoolId: auth.idPool.identityPoolId,
+    //   enableIamAuth: true,
+    //   tenantRoleArn: multiTenantRoleArn,
+    // }) : undefined;
 
     // API
     const api = new Api(this, 'API', {

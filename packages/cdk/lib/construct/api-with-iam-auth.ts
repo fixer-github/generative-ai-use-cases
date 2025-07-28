@@ -4,7 +4,6 @@ import {
   IAuthorizer,
   MethodOptions,
   RequestAuthorizer,
-  TokenAuthorizer,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';

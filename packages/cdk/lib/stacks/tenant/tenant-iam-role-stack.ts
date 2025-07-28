@@ -82,14 +82,11 @@ export class TenantIamRoleStack extends cdk.Stack {
 
       // Create a wrapper to mimic the TenantIamRole interface
       const roleArn = role.attrArn;
-      const importedRole = cdk.aws_iam.Role.fromRoleArn(
-        this,
-        'ImportedRole',
-        roleArn
-      );
-
-      this.tenantIamRole = {
-        role: importedRole as Role,
+      const importedRole = cdk.aws_iam.Role.fromRoleArn(this, 'ImportedRole', roleArn);
+      
+      // Create an object that implements a subset of TenantIamRole interface
+      const tenantIamRoleCompat = {
+        role: importedRole,
         tenantIdClaim: props?.tenantIdClaim || 'custom:tenant_id',
         node: importedRole.node,
         addToPolicy: (statement: cdk.aws_iam.PolicyStatement) => {
@@ -135,8 +132,9 @@ export class TenantIamRoleStack extends cdk.Stack {
             ],
           });
         },
-        identityProviderArn: identityProviderArn,
       };
+      
+      this.tenantIamRole = tenantIamRoleCompat as TenantIamRole;
 
       // Outputs
       new cdk.CfnOutput(this, 'RoleArn', {

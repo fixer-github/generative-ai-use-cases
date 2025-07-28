@@ -1,11 +1,9 @@
 import { APIGatewayAuthorizerResult, APIGatewayRequestAuthorizerEvent } from 'aws-lambda';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
-import { STSClient, AssumeRoleWithWebIdentityCommand } from '@aws-sdk/client-sts';
 
 // Environment variables
 const USER_POOL_ID = process.env.USER_POOL_ID || '';
 const USER_POOL_CLIENT_ID = process.env.USER_POOL_CLIENT_ID || '';
-const TENANT_ROLE_ARN = process.env.TENANT_ROLE_ARN || '';
 
 // JWT verifier
 const verifier = CognitoJwtVerifier.create({
@@ -70,7 +68,7 @@ function generatePolicy(
   principalId: string,
   effect: 'Allow' | 'Deny',
   resource: string,
-  context?: Record<string, any>
+  context?: Record<string, string | number | boolean>
 ): APIGatewayAuthorizerResult {
   const authResponse: APIGatewayAuthorizerResult = {
     principalId,
