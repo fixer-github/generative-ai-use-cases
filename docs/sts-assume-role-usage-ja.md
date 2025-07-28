@@ -159,16 +159,26 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 ## CDKでのデプロイ
 
-### 自動作成（推奨）
+### 自動作成（デフォルト・推奨）
 
-`enableStsAssumeRole`をtrueに設定すると、共通スタックデプロイ時に自動的にマルチテナント用IAMロールが作成されます：
+**STS AssumeRoleは現在デフォルトで有効になっています。** 共通スタックデプロイ時に自動的にマルチテナント用IAMロールが作成されます：
 
 ```json
 // cdk.json
 {
   "context": {
-    "enableStsAssumeRole": true
+    "enableStsAssumeRole": true // デフォルト値 - 無効化する場合以外は指定不要
     // tenantRoleArnを指定しない場合、自動的にロールが作成されます
+  }
+}
+```
+
+STS AssumeRoleを無効化する場合（非推奨）は、明示的にfalseを設定してください：
+
+```json
+{
+  "context": {
+    "enableStsAssumeRole": false // STS認証を明示的に無効化
   }
 }
 ```

@@ -1,4 +1,7 @@
-import { STSClient, AssumeRoleWithWebIdentityCommand } from '@aws-sdk/client-sts';
+import {
+  STSClient,
+  AssumeRoleWithWebIdentityCommand,
+} from '@aws-sdk/client-sts';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
@@ -37,7 +40,7 @@ export const useSts = (config?: UseStsConfig) => {
       // Get the current Cognito ID token
       const session = await fetchAuthSession();
       const idToken = session.tokens?.idToken?.toString();
-      
+
       if (!idToken) {
         throw new Error('No ID token available');
       }
@@ -45,7 +48,7 @@ export const useSts = (config?: UseStsConfig) => {
       // Get user attributes to extract tenant ID
       const payload = session.tokens?.idToken?.payload;
       const tenantId = payload?.['custom:tenant_id'] as string;
-      
+
       if (!tenantId) {
         throw new Error('No tenant ID found in token');
       }
@@ -81,8 +84,10 @@ export const useSts = (config?: UseStsConfig) => {
 
       // Schedule refresh if auto-refresh is enabled
       if (config.autoRefresh) {
-        const refreshBuffer = (config.refreshBuffer || DEFAULT_REFRESH_BUFFER) * 60 * 1000;
-        const timeUntilExpiration = stsCredentials.expiration.getTime() - Date.now();
+        const refreshBuffer =
+          (config.refreshBuffer || DEFAULT_REFRESH_BUFFER) * 60 * 1000;
+        const timeUntilExpiration =
+          stsCredentials.expiration.getTime() - Date.now();
         const refreshTime = timeUntilExpiration - refreshBuffer;
 
         if (refreshTime > 0) {

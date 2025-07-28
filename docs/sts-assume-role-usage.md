@@ -20,15 +20,25 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 ### 1. Enable STS Assume Role in CDK
 
-#### Option A: Automatic Role Creation (Recommended)
+#### Option A: Automatic Role Creation (Default - Recommended)
 
-Simply enable STS in your `cdk.json` and the role will be created automatically:
+**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy:
 
 ```json
 {
   "context": {
-    "enableStsAssumeRole": true
+    "enableStsAssumeRole": true // Default value - no need to specify unless disabling
     // No tenantRoleArn needed - role is created automatically
+  }
+}
+```
+
+To disable STS Assume Role (not recommended), explicitly set it to false:
+
+```json
+{
+  "context": {
+    "enableStsAssumeRole": false // Explicitly disable STS authentication
   }
 }
 ```
@@ -209,17 +219,15 @@ localStorage.setItem('STS_DEBUG', 'true');
 
 ## Migration Guide
 
-To migrate existing applications to STS authentication:
+### For New Deployments
 
-1. Update CDK configuration:
+STS authentication is now enabled by default. No additional configuration is needed.
 
-   ```json
-   {
-     "context": {
-       "enableStsAssumeRole": true
-     }
-   }
-   ```
+### For Existing Applications
+
+If you have an existing deployment without STS authentication:
+
+1. **No CDK configuration change needed** - STS is now the default
 
 2. Deploy the stack (IAM role is created automatically):
 
@@ -227,9 +235,21 @@ To migrate existing applications to STS authentication:
    npx cdk deploy GenerativeAiUseCasesStack
    ```
 
-3. Frontend code requires no changes - the `useHttp` hook automatically detects and uses STS when enabled
+3. Frontend code requires no changes - the `useHttp` hook automatically detects and uses STS
 
 4. Test thoroughly with different tenant scenarios
+
+### To Keep Legacy Authentication
+
+If you need to maintain the legacy Cognito-only authentication (not recommended):
+
+```json
+{
+  "context": {
+    "enableStsAssumeRole": false
+  }
+}
+```
 
 ## Best Practices
 
