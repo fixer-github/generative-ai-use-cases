@@ -1,7 +1,6 @@
 import { Stack, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import {
   AuthorizationType,
-  CognitoUserPoolsAuthorizer,
   Cors,
   LambdaIntegration,
   RestApi,

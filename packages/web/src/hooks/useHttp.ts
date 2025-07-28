@@ -77,6 +77,14 @@ const useHttp = (config?: HttpConfig) => {
             const service = 'execute-api';
             const region = import.meta.env.VITE_APP_REGION || 'us-east-1';
 
+            // Clean headers to remove null values
+            const cleanHeaders: Record<string, string> = {};
+            for (const [key, value] of Object.entries(axiosConfig.headers)) {
+              if (value !== null && value !== undefined) {
+                cleanHeaders[key] = String(value);
+              }
+            }
+
             // Prepare the request for signing
             const request = {
               host: url.hostname,
@@ -84,7 +92,7 @@ const useHttp = (config?: HttpConfig) => {
               url: url.pathname + url.search,
               path: url.pathname + url.search,
               headers: {
-                ...axiosConfig.headers,
+                ...cleanHeaders,
                 'Content-Type': 'application/json',
               },
               body: axiosConfig.data

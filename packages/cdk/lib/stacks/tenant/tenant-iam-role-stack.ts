@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { TenantIamRole } from '../../construct/tenant-iam-role';
-import { Role } from 'aws-cdk-lib/aws-iam';
 
 export interface TenantIamRoleStackProps extends cdk.StackProps {
   /**
