@@ -72,11 +72,14 @@ export class GenerativeAiUseCasesStack extends Stack {
     if (!params.tenantRoleArn) {
       // Create the multi-tenant access role automatically
       const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
-        assumedBy: new iam.WebIdentityPrincipal(auth.idPool.identityPoolArn, {
-          StringEquals: {
-            'cognito-identity.amazonaws.com:aud': auth.idPool.identityPoolId,
-          },
-        }),
+        assumedBy: new iam.WebIdentityPrincipal(
+          'cognito-identity.amazonaws.com',
+          {
+            StringEquals: {
+              'cognito-identity.amazonaws.com:aud': auth.idPool.identityPoolId,
+            },
+          }
+        ),
         roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
         description:
           'Shared role for multi-tenant access with dynamic permissions based on JWT claims',
