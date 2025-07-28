@@ -122,20 +122,33 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 ## CDKでのデプロイ
 
-### 1. テナントIAMロールのデプロイ
-```bash
-npx cdk deploy TenantIamRoleStack \
-  --parameters IdentityProviderArn=arn:aws:cognito-identity:region:account:identitypool/pool-id \
-  --parameters Audience=your-cognito-client-id
+### 自動作成（推奨）
+`enableStsAssumeRole`をtrueに設定すると、共通スタックデプロイ時に自動的にマルチテナント用IAMロールが作成されます：
+
+```json
+// cdk.json
+{
+  "context": {
+    "enableStsAssumeRole": true
+    // tenantRoleArnを指定しない場合、自動的にロールが作成されます
+  }
+}
 ```
 
-### 2. メインスタックの設定
+```bash
+# 共通スタックをデプロイ（IAMロールも自動作成）
+npx cdk deploy GenerativeAiUseCasesStack
+```
+
+### 手動作成（高度な設定が必要な場合）
+独自のIAMポリシーが必要な場合は、別途ロールを作成して指定できます：
+
 ```json
 // cdk.json
 {
   "context": {
     "enableStsAssumeRole": true,
-    "tenantRoleArn": "arn:aws:iam::123456789012:role/TenantAccessRole"
+    "tenantRoleArn": "arn:aws:iam::123456789012:role/CustomTenantRole"
   }
 }
 ```

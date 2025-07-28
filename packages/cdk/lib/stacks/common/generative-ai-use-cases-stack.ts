@@ -13,6 +13,7 @@ import {
   McpApi,
 } from '../../construct';
 import { ApiAuthorizer } from '../../construct/api-with-iam-auth';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -67,13 +68,82 @@ export class GenerativeAiUseCasesStack extends Stack {
     // Database
     const database = new Database(this, 'Database');
 
+    // Multi-tenant IAM Role (created automatically when STS is enabled)
+    let multiTenantRoleArn = params.tenantRoleArn;
+    if (params.enableStsAssumeRole && !params.tenantRoleArn) {
+      // Create the multi-tenant access role automatically
+      const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
+        assumedBy: new iam.WebIdentityPrincipal(
+          auth.idPool.identityPoolArn,
+          {
+            'StringEquals': {
+              'cognito-identity.amazonaws.com:aud': auth.idPool.identityPoolId,
+            },
+          }
+        ),
+        roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
+        description: 'Shared role for multi-tenant access with dynamic permissions based on JWT claims',
+      });
+
+      // Add basic permissions for tenant-isolated resources
+      // DynamoDB tables with pattern: TableName-TenantID
+      multiTenantRole.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query',
+          'dynamodb:Scan',
+          'dynamodb:BatchGetItem',
+          'dynamodb:BatchWriteItem',
+        ],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/*-\${aws:PrincipalTag/TenantID}`,
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/*-\${aws:PrincipalTag/TenantID}/index/*`
+        ],
+      }));
+
+      // S3 buckets with pattern: bucket-name-TenantID
+      multiTenantRole.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:*'],
+        resources: [
+          `arn:aws:s3:::*-\${aws:PrincipalTag/TenantID}`,
+          `arn:aws:s3:::*-\${aws:PrincipalTag/TenantID}/*`
+        ],
+      }));
+
+      // CloudWatch Logs for tenant-specific logging
+      multiTenantRole.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'logs:CreateLogGroup',
+          'logs:CreateLogStream',
+          'logs:PutLogEvents',
+        ],
+        resources: [
+          `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/tenant/\${aws:PrincipalTag/TenantID}/*`
+        ],
+      }));
+
+      multiTenantRoleArn = multiTenantRole.roleArn;
+
+      // Output the role ARN
+      new CfnOutput(this, 'MultiTenantRoleArn', {
+        value: multiTenantRole.roleArn,
+        description: 'ARN of the automatically created multi-tenant access role',
+      });
+    }
+
     // API Authorizer
     const apiAuthorizer = params.enableStsAssumeRole ? new ApiAuthorizer(this, 'ApiAuthorizer', {
       userPool: auth.userPool,
       userPoolClientId: auth.client.userPoolClientId,
       identityPoolId: auth.idPool.identityPoolId,
       enableIamAuth: true,
-      tenantRoleArn: params.tenantRoleArn,
+      tenantRoleArn: multiTenantRoleArn,
     }) : undefined;
 
     // API
@@ -155,7 +225,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlCognitoFederatedIdentityProviderName:
         params.samlCognitoFederatedIdentityProviderName,
       enableStsAssumeRole: params.enableStsAssumeRole,
-      tenantRoleArn: params.tenantRoleArn,
+      tenantRoleArn: multiTenantRoleArn,
       // Backend
       apiEndpointUrl: api.api.url,
       predictStreamFunctionArn: api.predictStreamFunction.functionArn,

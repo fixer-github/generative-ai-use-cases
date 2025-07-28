@@ -20,28 +20,36 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 ### 1. Enable STS Assume Role in CDK
 
-Add the following to your `cdk.json`:
+#### Option A: Automatic Role Creation (Recommended)
+Simply enable STS in your `cdk.json` and the role will be created automatically:
+
+```json
+{
+  "context": {
+    "enableStsAssumeRole": true
+    // No tenantRoleArn needed - role is created automatically
+  }
+}
+```
+
+```bash
+# Deploy the common stack (includes automatic IAM role creation)
+npx cdk deploy GenerativeAiUseCasesStack
+```
+
+#### Option B: Use Custom Role
+If you need custom IAM policies, create your own role and specify it:
 
 ```json
 {
   "context": {
     "enableStsAssumeRole": true,
-    "tenantRoleArn": "arn:aws:iam::123456789012:role/TenantAccessRole"
+    "tenantRoleArn": "arn:aws:iam::123456789012:role/CustomTenantRole"
   }
 }
 ```
 
-### 2. Create Tenant IAM Role
-
-Deploy the tenant IAM role stack:
-
-```bash
-npx cdk deploy TenantIamRoleStack \
-  --parameters IdentityProviderArn=arn:aws:cognito-identity:region:account:identitypool/pool-id \
-  --parameters Audience=your-cognito-client-id
-```
-
-### 3. Frontend Usage
+### 2. Frontend Usage
 
 #### Using the STS Hook
 
