@@ -13,6 +13,7 @@ interface HttpConfig {
   useStsTempCredentials?: boolean;
   roleArn?: string;
   autoRefreshCredentials?: boolean;
+  disableSts?: boolean; // Temporary flag to disable STS in stores
 }
 
 // Create a shared axios instance for backward compatibility
@@ -44,8 +45,13 @@ const useHttp = (config?: HttpConfig) => {
     import.meta.env.VITE_APP_USE_STS_TEMP_CREDENTIALS === 'true';
   const envRoleArn = import.meta.env.VITE_APP_TENANT_ROLE_ARN;
 
+  // For now, disable STS when used in stores (zustand initialization)
+  // TODO: Refactor store initialization to not use hooks
+  const isInStore = config?.disableSts || false;
+
   // Determine if we should use STS based on environment or config
-  const shouldUseSts = stsEnabled || config?.useStsTempCredentials;
+  const shouldUseSts =
+    !isInStore && (stsEnabled || config?.useStsTempCredentials);
   const roleArn = config?.roleArn || envRoleArn;
 
   // Create a new axios instance when using STS
@@ -55,12 +61,14 @@ const useHttp = (config?: HttpConfig) => {
       })
     : sharedApi;
 
-  // Only initialize STS hook when needed
+  // Always call the hook to satisfy React rules, but configure it based on usage
   const stsHook = useSts({
-    roleArn: shouldUseSts ? roleArn : undefined,
+    roleArn: roleArn || '',
     autoRefresh: shouldUseSts
       ? (config?.autoRefreshCredentials ?? true)
       : false,
+    // Pass a flag to indicate if STS should actually be used
+    enabled: shouldUseSts,
   });
 
   // Request interceptor to add authentication (only for STS instances)
@@ -69,7 +77,7 @@ const useHttp = (config?: HttpConfig) => {
       async (axiosConfig: InternalAxiosRequestConfig) => {
         try {
           // Use STS temporary credentials
-          const stsCredentials = await stsHook.getValidCredentials();
+          const stsCredentials = await stsHook?.getValidCredentials();
 
           if (stsCredentials) {
             // Parse the API endpoint to get host and path
@@ -129,7 +137,7 @@ const useHttp = (config?: HttpConfig) => {
 
   return {
     api,
-    credentials: shouldUseSts ? stsHook.credentials : undefined,
+    credentials: shouldUseSts ? stsHook?.credentials : undefined,
     /**
      * GET Request
      * Implemented with SWR

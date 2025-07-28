@@ -17,6 +17,7 @@ interface UseStsConfig {
   sessionDuration?: number;
   autoRefresh?: boolean;
   refreshBuffer?: number; // minutes before expiration to refresh
+  enabled?: boolean; // Whether STS should be used at all
 }
 
 const DEFAULT_SESSION_DURATION = 3600; // 1 hour
@@ -29,7 +30,7 @@ export const useSts = (config?: UseStsConfig) => {
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
 
   const assumeRole = useCallback(async () => {
-    if (!config?.roleArn) {
+    if (!config?.roleArn || config?.enabled === false) {
       return null;
     }
 
@@ -122,11 +123,14 @@ export const useSts = (config?: UseStsConfig) => {
 
   // Get valid credentials (refresh if expired)
   const getValidCredentials = useCallback(async () => {
+    if (config?.enabled === false) {
+      return null;
+    }
     if (!credentials || isExpired()) {
       return await assumeRole();
     }
     return credentials;
-  }, [credentials, isExpired, assumeRole]);
+  }, [credentials, isExpired, assumeRole, config?.enabled]);
 
   // Clear credentials
   const clearCredentials = useCallback(() => {
