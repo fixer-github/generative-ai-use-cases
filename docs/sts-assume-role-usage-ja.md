@@ -161,7 +161,26 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 ### 自動作成（デフォルト・推奨）
 
-**STS AssumeRoleは現在デフォルトで有効になっています。** デプロイ時に自動的にマルチテナント用IAMロールが作成されます。デフォルト設定を使用している場合、変更は不要です：
+**STS AssumeRoleは現在デフォルトで有効になっています。** デプロイ時に自動的にマルチテナント用IAMロールが作成されます。デフォルト設定を使用している場合、変更は不要です。
+
+#### 環境変数を使用する方法
+
+設定ファイルを変更せずに、環境変数を使用してSTS認証を設定できます：
+
+```bash
+# STS AssumeRoleを有効化（設定しない場合のデフォルトはtrue）
+export ENABLE_STS_ASSUME_ROLE=true
+
+# カスタムテナントロールARNを指定（オプション）
+export TENANT_ROLE_ARN=arn:aws:iam::123456789012:role/CustomTenantRole
+
+# 環境変数を使用してデプロイ
+npx cdk deploy GenerativeAiUseCasesStack
+```
+
+#### CDKコンテキストを使用する方法
+
+または、`cdk.json`で設定することもできます：
 
 ```json
 // cdk.json
@@ -175,6 +194,13 @@ AssumeRoleWithWebIdentityでは、セッションタグはAPIパラメータと�
 
 STS AssumeRoleを明示的に無効化する場合（非推奨）は、falseを設定してください：
 
+```bash
+# 環境変数を使用
+export ENABLE_STS_ASSUME_ROLE=false
+```
+
+または`cdk.json`で：
+
 ```json
 {
   "context": {
@@ -187,6 +213,13 @@ STS AssumeRoleを明示的に無効化する場合（非推奨）は、falseを�
 # 共通スタックをデプロイ（IAMロールも自動作成）
 npx cdk deploy GenerativeAiUseCasesStack
 ```
+
+#### 設定の優先順位
+
+設定は以下の順序で解決されます（優先度が高い順）：
+1. CDKコンテキスト（コマンドライン: `--context` または `cdk.json`）
+2. 環境変数（`ENABLE_STS_ASSUME_ROLE`、`TENANT_ROLE_ARN`）
+3. デフォルト値（STSはデフォルトで有効）
 
 ### 手動作成（高度な設定が必要な場合）
 

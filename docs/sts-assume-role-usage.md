@@ -22,7 +22,26 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 
 #### Option A: Automatic Role Creation (Default - Recommended)
 
-**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy. If you're using the default configuration, no changes are needed:
+**STS Assume Role is now enabled by default.** The IAM role will be created automatically when you deploy. If you're using the default configuration, no changes are needed.
+
+##### Using Environment Variables
+
+You can configure STS authentication using environment variables without modifying any configuration files:
+
+```bash
+# Enable STS Assume Role (default is true if not set)
+export ENABLE_STS_ASSUME_ROLE=true
+
+# Optionally specify a custom tenant role ARN
+export TENANT_ROLE_ARN=arn:aws:iam::123456789012:role/CustomTenantRole
+
+# Deploy with environment variables
+npx cdk deploy GenerativeAiUseCasesStack
+```
+
+##### Using CDK Context
+
+Alternatively, you can configure it in `cdk.json`:
 
 ```json
 {
@@ -34,6 +53,13 @@ User → Cognito → ID Token → STS AssumeRoleWithWebIdentity → Temporary Cr
 ```
 
 To explicitly disable STS Assume Role (not recommended), set it to false:
+
+```bash
+# Using environment variable
+export ENABLE_STS_ASSUME_ROLE=false
+```
+
+Or in `cdk.json`:
 
 ```json
 {
@@ -47,6 +73,13 @@ To explicitly disable STS Assume Role (not recommended), set it to false:
 # Deploy the common stack (includes automatic IAM role creation)
 npx cdk deploy GenerativeAiUseCasesStack
 ```
+
+##### Configuration Precedence
+
+The configuration is resolved in the following order (highest to lowest priority):
+1. CDK Context (command line: `--context` or `cdk.json`)
+2. Environment variables (`ENABLE_STS_ASSUME_ROLE`, `TENANT_ROLE_ARN`)
+3. Default values (STS enabled by default)
 
 #### Option B: Use Custom Role
 
