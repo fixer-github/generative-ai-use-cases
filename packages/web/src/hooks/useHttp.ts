@@ -6,31 +6,20 @@ import axios, {
 import { sign } from 'aws4';
 import useSWR, { SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { useSts } from './useSts';
+import { useTenantStsCredentials } from './useTenantStsCredentials';
 
 /**
  * HTTP hook that uses STS temporary credentials for authentication
- * All API calls are authenticated using AssumeRoleWithWebIdentity
+ * Credentials are obtained from Lambda via ID token claims
  */
 const useHttp = () => {
-  const roleArn = import.meta.env.VITE_APP_TENANT_ROLE_ARN;
-
-  if (!roleArn) {
-    throw new Error(
-      'VITE_APP_TENANT_ROLE_ARN environment variable is required'
-    );
-  }
-
   // Create axios instance
   const api = axios.create({
     baseURL: import.meta.env.VITE_APP_API_ENDPOINT,
   });
 
-  // Use STS hook for authentication
-  const stsHook = useSts({
-    roleArn,
-    autoRefresh: true,
-  });
+  // Use tenant STS credentials from ID token
+  const stsHook = useTenantStsCredentials();
 
   // Request interceptor to add STS authentication
   api.interceptors.request.use(

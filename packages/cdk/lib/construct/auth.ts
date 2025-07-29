@@ -22,12 +22,14 @@ export interface AuthProps {
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly allowedSignUpEmailDomains?: string[] | null;
   readonly samlAuthEnabled: boolean;
+  readonly multiTenantRoleArn?: string;
 }
 
 export class Auth extends Construct {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
+  readonly preTokenGenerationFunction?: PythonFunction;
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
@@ -141,9 +143,25 @@ export class Auth extends Construct {
       {
         runtime: LAMBDA_RUNTIME_PYTHON,
         entry: './lambda/pre_token_generation',
-        timeout: Duration.seconds(5),
+        timeout: Duration.seconds(10), // Increased timeout for STS call
+        environment: props.multiTenantRoleArn
+          ? {
+              MULTI_TENANT_ROLE_ARN: props.multiTenantRoleArn,
+            }
+          : {},
       }
     );
+
+    // Add permissions to assume the multi-tenant role if configured
+    if (props.multiTenantRoleArn) {
+      preTokenGenerationFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole', 'sts:TagSession'],
+          resources: [props.multiTenantRoleArn],
+        })
+      );
+    }
 
     userPool.addTrigger(
       UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
@@ -154,5 +172,6 @@ export class Auth extends Construct {
     this.client = client;
     this.userPool = userPool;
     this.idPool = idPool;
+    this.preTokenGenerationFunction = preTokenGenerationFunction;
   }
 }

@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput, CfnJson } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   Auth,
@@ -55,51 +55,32 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     const params = props.params;
 
-    // Auth
-    const auth = new Auth(this, 'Auth', {
-      selfSignUpEnabled: params.selfSignUpEnabled,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
-      samlAuthEnabled: params.samlAuthEnabled,
-    });
-
-    // Database
-    const database = new Database(this, 'Database');
-
-    // Multi-tenant IAM Role (always created for tenant isolation)
+    // Create the multi-tenant role first (if not provided)
     let multiTenantRoleArn = params.tenantRoleArn;
+    let multiTenantRole: iam.Role | undefined;
+
     if (!params.tenantRoleArn) {
-      // Create the multi-tenant access role automatically
-      // Use Cognito Identity Pool as the identity provider for web identity federation
-
-      // Create the condition object using CfnJson to handle dynamic keys
-      const conditionKey = `cognito-identity.amazonaws.com:aud`;
-      const conditionObject = new CfnJson(
-        this,
-        'MultiTenantAssumeRoleCondition',
-        {
-          value: {
-            [conditionKey]: auth.idPool.identityPoolId,
-          },
-        }
-      );
-
-      const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
-        assumedBy: new iam.FederatedPrincipal(
-          'cognito-identity.amazonaws.com',
-          {
-            StringEquals: conditionObject,
-            'ForAnyValue:StringLike': {
-              'cognito-identity.amazonaws.com:amr': 'authenticated',
-            },
-          },
-          'sts:AssumeRoleWithWebIdentity'
-        ),
+      // Create the multi-tenant access role that will be assumed by Lambda
+      multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
+        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
         roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
         description:
           'Shared role for multi-tenant access with dynamic permissions based on JWT claims',
       });
+
+      // Allow session tags to be passed when assuming this role
+      multiTenantRole.assumeRolePolicy?.addStatements(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.ServicePrincipal('lambda.amazonaws.com')],
+          actions: ['sts:AssumeRole', 'sts:TagSession'],
+          conditions: {
+            StringEquals: {
+              'sts:ExternalId': 'multi-tenant-access',
+            },
+          },
+        })
+      );
 
       // Add basic permissions for tenant-isolated resources
       // DynamoDB tables with pattern: TableName-TenantID
@@ -170,6 +151,32 @@ export class GenerativeAiUseCasesStack extends Stack {
           'ARN of the automatically created multi-tenant access role',
       });
     }
+
+    // Auth
+    const auth = new Auth(this, 'Auth', {
+      selfSignUpEnabled: params.selfSignUpEnabled,
+      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
+      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
+      samlAuthEnabled: params.samlAuthEnabled,
+      multiTenantRoleArn: multiTenantRoleArn || undefined,
+    });
+
+    // If we created the multi-tenant role, update its trust policy to allow the Pre Token Generation Lambda to assume it
+    if (multiTenantRole && auth.preTokenGenerationFunction) {
+      multiTenantRole.assumeRolePolicy?.addStatements(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          principals: [
+            new iam.ArnPrincipal(auth.preTokenGenerationFunction.role!.roleArn),
+          ],
+          actions: ['sts:AssumeRole', 'sts:TagSession'],
+        })
+      );
+    }
+
+    // Database
+    const database = new Database(this, 'Database');
 
     // API
     const api = new Api(this, 'API', {
