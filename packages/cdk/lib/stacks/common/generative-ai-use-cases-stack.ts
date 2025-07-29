@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput, CfnJson } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   Auth,
@@ -71,14 +71,27 @@ export class GenerativeAiUseCasesStack extends Stack {
     let multiTenantRoleArn = params.tenantRoleArn;
     if (!params.tenantRoleArn) {
       // Create the multi-tenant access role automatically
+      // Use Cognito User Pool as the identity provider for direct token usage
+
+      // Create the condition object using CfnJson to handle dynamic keys
+      const conditionKey = `cognito-idp.${this.region}.amazonaws.com/${auth.userPool.userPoolId}:aud`;
+      const conditionObject = new CfnJson(
+        this,
+        'MultiTenantAssumeRoleCondition',
+        {
+          value: {
+            [conditionKey]: auth.client.userPoolClientId,
+          },
+        }
+      );
+
       const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
-        assumedBy: new iam.WebIdentityPrincipal(
-          'cognito-identity.amazonaws.com',
+        assumedBy: new iam.FederatedPrincipal(
+          `cognito-idp.${this.region}.amazonaws.com/${auth.userPool.userPoolId}`,
           {
-            StringEquals: {
-              'cognito-identity.amazonaws.com:aud': auth.idPool.identityPoolId,
-            },
-          }
+            StringEquals: conditionObject,
+          },
+          'sts:AssumeRoleWithWebIdentity'
         ),
         roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
         description:
@@ -376,10 +389,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'TenantRoleArn', {
       value: multiTenantRoleArn || '',
-    });
-
-    new CfnOutput(this, 'UseStsTempCredentials', {
-      value: multiTenantRoleArn ? 'true' : 'false',
     });
 
     new CfnOutput(this, 'PredictStreamFunctionArn', {

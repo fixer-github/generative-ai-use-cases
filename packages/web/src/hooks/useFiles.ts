@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import useFileApi from './useFileApi';
 import { FileLimit, UploadedFileType } from 'generative-ai-use-cases';
 import { produce } from 'immer';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import i18next from 'i18next';
 import {
@@ -16,6 +16,7 @@ export const extractBaseURL = (url: string) => {
 };
 
 const useFilesState = create<{
+  setApi: (api: ReturnType<typeof useFileApi>) => void;
   uploadFiles: (
     id: string,
     files: File[],
@@ -42,7 +43,16 @@ const useFilesState = create<{
     cacheBase64?: boolean
   ) => Promise<string>;
 }>((set, get) => {
-  const api = useFileApi();
+  // API will be provided when methods are called
+  let apiInstance: ReturnType<typeof useFileApi> | null = null;
+  const getApi = () => {
+    if (!apiInstance) {
+      throw new Error(
+        'File API not initialized. This method must be called from within a React component.'
+      );
+    }
+    return apiInstance;
+  };
 
   const clear = (id: string) => {
     set((state) => ({
@@ -303,7 +313,7 @@ const useFilesState = create<{
       const mediaFormat = uploadedFile.file.name.split('.').pop() as string;
 
       // Get signed URL (execute in parallel without await to improve UX)
-      api
+      getApi()
         .getSignedUrl({
           filename: uploadedFile.file.name,
           mediaFormat: mediaFormat,
@@ -312,21 +322,23 @@ const useFilesState = create<{
           const signedUrl = signedUrlRes.data;
           const fileUrl = extractBaseURL(signedUrl); // Remove query parameters from signed URL
           // Upload file
-          api.uploadFile(signedUrl, { file: uploadedFile.file }).then(() => {
-            const currentIdx = get().uploadedFilesDict[id].findIndex(
-              (file) => file.id === uploadedFile.id
-            ); // If the previous file is deleted during upload, the idx changes
-            set(
-              produce((state) => {
-                state.uploadedFilesDict[id][currentIdx].uploading = false;
-                state.uploadedFilesDict[id][currentIdx].s3Url = fileUrl;
-                state.base64Cache = {
-                  ...state.base64Cache,
-                  [fileUrl]: reader.result?.toString() ?? '',
-                };
-              })
-            );
-          });
+          getApi()
+            .uploadFile(signedUrl, { file: uploadedFile.file })
+            .then(() => {
+              const currentIdx = get().uploadedFilesDict[id].findIndex(
+                (file) => file.id === uploadedFile.id
+              ); // If the previous file is deleted during upload, the idx changes
+              set(
+                produce((state) => {
+                  state.uploadedFilesDict[id][currentIdx].uploading = false;
+                  state.uploadedFilesDict[id][currentIdx].s3Url = fileUrl;
+                  state.base64Cache = {
+                    ...state.base64Cache,
+                    [fileUrl]: reader.result?.toString() ?? '',
+                  };
+                })
+              );
+            });
         });
     });
   };
@@ -357,7 +369,7 @@ const useFilesState = create<{
           })
         );
 
-        await api.deleteUploadedFile(fileName);
+        await getApi().deleteUploadedFile(fileName);
 
         // If other images are deleted during deletion processing, the index shifts, so get it again
         targetIndex = findTargetIndex();
@@ -381,7 +393,7 @@ const useFilesState = create<{
     s3Url: string,
     cacheBase64?: boolean
   ) => {
-    const url = await api.getFileDownloadSignedUrl(s3Url);
+    const url = await getApi().getFileDownloadSignedUrl(s3Url);
 
     // If Base64 cache is requested
     if (cacheBase64) {
@@ -411,6 +423,9 @@ const useFilesState = create<{
   };
 
   return {
+    setApi: (api: ReturnType<typeof useFileApi>) => {
+      apiInstance = api;
+    },
     clear,
     uploadedFilesDict: {},
     errorMessagesDict: {},
@@ -424,6 +439,7 @@ const useFilesState = create<{
 
 const useFiles = (id: string) => {
   const {
+    setApi,
     uploadFiles,
     checkFiles,
     clear,
@@ -433,6 +449,13 @@ const useFiles = (id: string) => {
     base64Cache,
     getFileDownloadSignedUrl,
   } = useFilesState();
+
+  const api = useFileApi();
+
+  // Initialize the API instance in the store
+  useEffect(() => {
+    setApi(api);
+  }, [api, setApi]);
 
   return {
     uploadFiles: (files: File[], fileLimit: FileLimit, accept: string[]) =>

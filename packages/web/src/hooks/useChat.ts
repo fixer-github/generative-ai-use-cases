@@ -325,8 +325,9 @@ const useChatState = create<{
           if (data.type === 'video') {
             // Send S3 location for video
             // Convert https://  format S3 URL to s3:// format S3 URI
-            const s3Uri =
-              fileApiInstance?.getS3Uri(data.source.data ?? '') ?? '';
+            const s3Uri = fileApiInstance
+              ? fileApiInstance.getS3Uri(data.source.data ?? '')
+              : '';
             return {
               type: data.type,
               name: data.name,

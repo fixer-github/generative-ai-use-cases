@@ -31,7 +31,7 @@ import { AxiosResponse } from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
 const useChatApi = () => {
-  const http = useHttp({ disableSts: true });
+  const http = useHttp();
 
   return {
     createChat: async (): Promise<CreateChatResponse> => {

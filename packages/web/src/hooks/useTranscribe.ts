@@ -7,6 +7,7 @@ const useTranscribeState = create<{
   file: File | null;
   setFile: (file: File) => void;
   transcribe: (
+    api: ReturnType<typeof useTranscribeApi>,
     speakerLabel?: boolean,
     maxSpakers?: number,
     languageCode?: string
@@ -16,8 +17,6 @@ const useTranscribeState = create<{
   setStatus: (status: string) => void;
   clear: () => void;
 }>((set, get) => {
-  const api = useTranscribeApi();
-
   const setFile = (file: File) => {
     set(() => ({
       file: file,
@@ -40,6 +39,7 @@ const useTranscribeState = create<{
   };
 
   const transcribe = async (
+    api: ReturnType<typeof useTranscribeApi>,
     speakerLabel = false,
     maxSpeakers = 1,
     languageCode?: string
@@ -96,7 +96,8 @@ const useTranscribe = () => {
     setStatus,
     clear,
   } = useTranscribeState();
-  const { data: transcriptData } = useTranscribeApi().getTranscription(
+  const api = useTranscribeApi();
+  const { data: transcriptData } = api.getTranscription(
     jobName,
     status,
     setStatus
@@ -106,7 +107,11 @@ const useTranscribe = () => {
     transcriptData,
     file,
     setFile,
-    transcribe,
+    transcribe: (
+      speakerLabel?: boolean,
+      maxSpeakers?: number,
+      languageCode?: string
+    ) => transcribe(api, speakerLabel, maxSpeakers, languageCode),
     clear,
   };
 };

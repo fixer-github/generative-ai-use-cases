@@ -28,6 +28,9 @@
     "experimentalDecorators": true,
     "esModuleInterop": true,
 
+    // Skip type checking of declaration files to avoid dependency conflicts
+    "skipLibCheck": true,
+
     // Type definition file settings
     "typeRoots": ["../../node_modules/@types"],
     "types": ["jest", "node"]

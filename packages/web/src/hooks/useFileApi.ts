@@ -11,7 +11,7 @@ import useHttp from './useHttp';
 import axios from 'axios';
 
 const useFileApi = () => {
-  const http = useHttp({ disableSts: true });
+  const http = useHttp();
   const parseS3Url = (s3Url: string) => {
     let result = /^s3:\/\/(?<bucketName>.+?)\/(?<prefix>.+)/.exec(s3Url);
 

@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => ({
       strategies: 'generateSW',
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
       injectRegister: 'auto',
       workbox: {
