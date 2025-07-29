@@ -71,25 +71,28 @@ export class GenerativeAiUseCasesStack extends Stack {
     let multiTenantRoleArn = params.tenantRoleArn;
     if (!params.tenantRoleArn) {
       // Create the multi-tenant access role automatically
-      // Use Cognito User Pool as the identity provider for direct token usage
+      // Use Cognito Identity Pool as the identity provider for web identity federation
 
       // Create the condition object using CfnJson to handle dynamic keys
-      const conditionKey = `cognito-idp.${this.region}.amazonaws.com/${auth.userPool.userPoolId}:aud`;
+      const conditionKey = `cognito-identity.amazonaws.com:aud`;
       const conditionObject = new CfnJson(
         this,
         'MultiTenantAssumeRoleCondition',
         {
           value: {
-            [conditionKey]: auth.client.userPoolClientId,
+            [conditionKey]: auth.idPool.identityPoolId,
           },
         }
       );
 
       const multiTenantRole = new iam.Role(this, 'MultiTenantAccessRole', {
         assumedBy: new iam.FederatedPrincipal(
-          `cognito-idp.${this.region}.amazonaws.com/${auth.userPool.userPoolId}`,
+          'cognito-identity.amazonaws.com',
           {
             StringEquals: conditionObject,
+            'ForAnyValue:StringLike': {
+              'cognito-identity.amazonaws.com:amr': 'authenticated',
+            },
           },
           'sts:AssumeRoleWithWebIdentity'
         ),
