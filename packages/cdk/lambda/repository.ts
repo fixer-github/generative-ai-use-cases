@@ -21,13 +21,15 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { APIGatewayProxyEvent } from 'aws-lambda';
+import { getTableNameForTenant } from './utils/tenantUtils';
 
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
-export const createChat = async (_userId: string): Promise<Chat> => {
+export const createChat = async (_userId: string, event: APIGatewayProxyEvent): Promise<Chat> => {
   const userId = `user#${_userId}`;
   const chatId = `chat#${crypto.randomUUID()}`;
   const item = {
@@ -39,9 +41,11 @@ export const createChat = async (_userId: string): Promise<Chat> => {
     updatedDate: '',
   };
 
+  const tableName = getTableNameForTenant('TABLE_NAME', event);
+
   await dynamoDbDocument.send(
     new PutCommand({
-      TableName: TABLE_NAME,
+      TableName: tableName,
       Item: item,
     })
   );
