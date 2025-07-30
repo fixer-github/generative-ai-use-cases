@@ -64,28 +64,67 @@ export class MultiTenantRole extends Construct {
       })
     );
 
-    // Add S3 access policy for tenant-specific buckets
-    // Assumes bucket naming pattern: <prefix>-tenant-<tenant-id>
-    this.role.addToPolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: [
-          's3:GetObject',
-          's3:PutObject',
-          's3:DeleteObject',
-          's3:ListBucket',
-        ],
-        resources: [
-          // Bucket-level permissions
-          `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}`,
-          // Object-level permissions
-          `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
-        ],
-      })
-    );
+    // NOTE: PrincipalTag-based policies require session tags to be set during AssumeRoleWithWebIdentity.
+    // This requires configuring Cognito to include tags in the JWT token with the claim key
+    // "https://aws.amazon.com/tags" and mapping them in the trust policy.
+    // 
+    // For now, tenant isolation is handled at the Lambda function level by:
+    // 1. Extracting tenant ID from JWT claims (custom:tenant_id)
+    // 2. Using the tenant ID to construct tenant-specific resource names
+    // 3. Granting broad permissions here and relying on application-level isolation
+    //
+    // TODO: To enable true ABAC with PrincipalTag/TenantID:
+    // 1. Configure Cognito to include tenant ID in the tags claim
+    // 2. Update the trust policy to map the tags
+    // 3. Uncomment the policies below
 
-    // Add DynamoDB access policy for tenant-specific tables
-    // Assumes table naming pattern: <prefix>-tenant-<tenant-id>
+    // // Add S3 access policy for tenant-specific buckets
+    // // Assumes bucket naming pattern: <prefix>-tenant-<tenant-id>
+    // this.role.addToPolicy(
+    //   new PolicyStatement({
+    //     effect: Effect.ALLOW,
+    //     actions: [
+    //       's3:GetObject',
+    //       's3:PutObject',
+    //       's3:DeleteObject',
+    //       's3:ListBucket',
+    //     ],
+    //     resources: [
+    //       // Bucket-level permissions
+    //       `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}`,
+    //       // Object-level permissions
+    //       `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
+    //     ],
+    //   })
+    // );
+
+    // // Add DynamoDB access policy for tenant-specific tables
+    // // Assumes table naming pattern: <prefix>-tenant-<tenant-id>
+    // this.role.addToPolicy(
+    //   new PolicyStatement({
+    //     effect: Effect.ALLOW,
+    //     actions: [
+    //       'dynamodb:GetItem',
+    //       'dynamodb:PutItem',
+    //       'dynamodb:UpdateItem',
+    //       'dynamodb:DeleteItem',
+    //       'dynamodb:Query',
+    //       'dynamodb:Scan',
+    //       'dynamodb:BatchGetItem',
+    //       'dynamodb:BatchWriteItem',
+    //       'dynamodb:DescribeTable',
+    //       'dynamodb:DescribeTimeToLive',
+    //     ],
+    //     resources: [
+    //       // Allow access to tables with tenant-specific naming pattern
+    //       `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}`,
+    //       `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
+    //     ],
+    //   })
+    // );
+
+    // For now, grant broader permissions to all tenant tables
+    // The actual tenant isolation happens in the Lambda functions
     this.role.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -102,9 +141,9 @@ export class MultiTenantRole extends Construct {
           'dynamodb:DescribeTimeToLive',
         ],
         resources: [
-          // Allow access to tables with tenant-specific naming pattern
-          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}`,
-          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
+          // Allow access to all tenant-specific tables
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*`,
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*/index/*`,
         ],
       })
     );

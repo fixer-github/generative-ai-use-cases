@@ -29,7 +29,10 @@ export const handler = async (
     const sessionName = `session-${Date.now()}`.substring(0, 64); // Max 64 chars
 
     // Assume role with web identity
-    // STS will validate the token with Cognito and extract the claims including tenant ID
+    // Note: Session tags must be configured in the OIDC provider (Cognito) and mapped
+    // through the IAM role's trust policy. Direct session tagging via API is not supported
+    // with AssumeRoleWithWebIdentity. The tenant ID should be extracted from JWT claims
+    // in the Lambda functions instead.
     const command = new AssumeRoleWithWebIdentityCommand({
       RoleArn: process.env.MULTI_TENANT_ROLE_ARN!,
       RoleSessionName: sessionName,
