@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useHttp } from './useHttp';
+import useHttp from './useHttp';
 
 interface STSCredentials {
   accessKeyId: string;
