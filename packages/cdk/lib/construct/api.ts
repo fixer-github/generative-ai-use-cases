@@ -13,7 +13,7 @@ import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Effect, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import {
   BlockPublicAccess,
   Bucket,
@@ -50,6 +50,7 @@ export interface BackendApiProps {
 
   // Resource
   readonly userPool: UserPool;
+  readonly multiTenantRole: Role;
   readonly idPool: IdentityPool;
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
@@ -736,6 +737,26 @@ export class Api extends Construct {
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
 
+    // Lambda function for STS AssumeRoleWithWebIdentity
+    const assumeRoleForTenantFunction = new NodejsFunction(this, 'AssumeRoleForTenant', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/assumeRoleForTenant.ts',
+      timeout: Duration.minutes(1),
+      environment: {
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        USER_POOL_ID: userPool.userPoolId,
+        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+      },
+    });
+    // Grant permission to assume the multi-tenant role
+    assumeRoleForTenantFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: [props.multiTenantRole.roleArn],
+      })
+    );
+
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
       cognitoUserPools: [userPool],
@@ -771,6 +792,17 @@ export class Api extends Construct {
         'Access-Control-Allow-Origin': "'*'",
       },
     });
+
+    // Auth resource for STS operations
+    const authResource = api.root.addResource('auth');
+    const assumeRoleResource = authResource.addResource('assume-role');
+    
+    // POST: /auth/assume-role
+    assumeRoleResource.addMethod(
+      'POST',
+      new LambdaIntegration(assumeRoleForTenantFunction),
+      commonAuthorizerProps
+    );
 
     const predictResource = api.root.addResource('predict');
 
