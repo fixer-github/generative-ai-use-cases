@@ -720,16 +720,20 @@ export class Api extends Construct {
     props.statsTable.grantReadData(getTokenUsageFunction);
 
     // Lambda function for STS AssumeRoleWithWebIdentity
-    const assumeRoleForTenantFunction = new NodejsFunction(this, 'AssumeRoleForTenant', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/assumeRoleForTenant.ts',
-      timeout: Duration.minutes(1),
-      environment: {
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-        USER_POOL_ID: userPool.userPoolId,
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-      },
-    });
+    const assumeRoleForTenantFunction = new NodejsFunction(
+      this,
+      'AssumeRoleForTenant',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/assumeRoleForTenant.ts',
+        timeout: Duration.minutes(1),
+        environment: {
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          USER_POOL_ID: userPool.userPoolId,
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        },
+      }
+    );
     // Grant permission to assume the multi-tenant role
     assumeRoleForTenantFunction.addToRolePolicy(
       new PolicyStatement({
@@ -778,7 +782,7 @@ export class Api extends Construct {
     // Auth resource for STS operations
     const authResource = api.root.addResource('auth');
     const assumeRoleResource = authResource.addResource('assume-role');
-    
+
     // POST: /auth/assume-role
     assumeRoleResource.addMethod(
       'POST',
