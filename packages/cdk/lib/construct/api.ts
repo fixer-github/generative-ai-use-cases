@@ -729,8 +729,6 @@ export class Api extends Construct {
         timeout: Duration.minutes(1),
         environment: {
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          USER_POOL_ID: userPool.userPoolId,
-          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
         },
       }
     );
