@@ -14,7 +14,6 @@ interface STSResponse {
     arn: string;
     assumedRoleId: string;
   };
-  tenantId: string;
 }
 
 export const useSTSCredentials = () => {
