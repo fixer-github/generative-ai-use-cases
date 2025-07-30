@@ -55,22 +55,28 @@ export class MultiTenantRole extends Construct {
       })
     );
 
-    // Add a sample policy that demonstrates tenant-based resource access
-    // This will be expanded based on specific resource requirements
+    // Add S3 access policy for tenant-specific buckets
+    // Assumes bucket naming pattern: <prefix>-tenant-<tenant-id>
     this.role.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ['s3:GetObject', 's3:PutObject'],
-        resources: [`arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}/*`],
-        conditions: {
-          StringEquals: {
-            'aws:PrincipalTag/TenantID': '${aws:PrincipalTag/TenantID}',
-          },
-        },
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:DeleteObject',
+          's3:ListBucket',
+        ],
+        resources: [
+          // Bucket-level permissions
+          `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}`,
+          // Object-level permissions
+          `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
+        ],
       })
     );
 
-    // Add DynamoDB access policy with tenant isolation
+    // Add DynamoDB access policy for tenant-specific tables
+    // Assumes table naming pattern: <prefix>-tenant-<tenant-id>
     this.role.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -80,13 +86,17 @@ export class MultiTenantRole extends Construct {
           'dynamodb:UpdateItem',
           'dynamodb:DeleteItem',
           'dynamodb:Query',
+          'dynamodb:Scan',
+          'dynamodb:BatchGetItem',
+          'dynamodb:BatchWriteItem',
+          'dynamodb:DescribeTable',
+          'dynamodb:DescribeTimeToLive',
         ],
-        resources: ['*'],
-        conditions: {
-          'ForAllValues:StringEquals': {
-            'dynamodb:LeadingKeys': ['${aws:PrincipalTag/TenantID}'],
-          },
-        },
+        resources: [
+          // Allow access to tables with tenant-specific naming pattern
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}`,
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
+        ],
       })
     );
 
