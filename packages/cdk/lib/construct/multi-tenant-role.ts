@@ -43,6 +43,7 @@ export class MultiTenantRole extends Construct {
 
     // Create the single role for multi-tenant access
     this.role = new Role(this, 'MultiTenantAccessRole', {
+      roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
       assumedBy: new FederatedPrincipal(
         oidcProviderArn,
         {
