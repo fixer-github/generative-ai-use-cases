@@ -1,5 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { STSClient, AssumeRoleWithWebIdentityCommand } from '@aws-sdk/client-sts';
+import {
+  STSClient,
+  AssumeRoleWithWebIdentityCommand,
+} from '@aws-sdk/client-sts';
 import { verifyToken } from './utils/auth';
 
 const stsClient = new STSClient({});
@@ -40,7 +43,7 @@ export const handler = async (
     // Extract tenant ID from custom claims
     const customClaims = payload['https://aws.amazon.com/tags'] as any;
     const tenantId = customClaims?.principal_tags?.TenantID?.[0];
-    
+
     if (!tenantId) {
       return {
         statusCode: 400,
@@ -68,7 +71,7 @@ export const handler = async (
     });
 
     const response = await stsClient.send(command);
-    
+
     if (!response.Credentials) {
       throw new Error('Failed to obtain credentials from STS');
     }
@@ -108,3 +111,4 @@ export const handler = async (
     };
   }
 };
+

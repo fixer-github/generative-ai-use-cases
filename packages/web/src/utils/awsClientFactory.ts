@@ -50,3 +50,4 @@ export const createDynamoDBClient = (
 
   return new DynamoDBClient(config);
 };
+
