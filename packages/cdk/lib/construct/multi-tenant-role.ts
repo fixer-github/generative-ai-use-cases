@@ -108,22 +108,5 @@ export class MultiTenantRole extends Construct {
         ],
       })
     );
-
-    // Add Bedrock access with tenant context
-    this.role.addToPolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: [
-          'bedrock:InvokeModel',
-          'bedrock:InvokeModelWithResponseStream',
-        ],
-        resources: ['*'],
-        conditions: {
-          StringEquals: {
-            'aws:RequestTag/TenantID': '${aws:PrincipalTag/TenantID}',
-          },
-        },
-      })
-    );
   }
 }
