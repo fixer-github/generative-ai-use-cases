@@ -55,14 +55,8 @@ export class MultiTenantRole extends Construct {
         'Single role for multi-tenant resource access with dynamic tenant ID',
     });
 
-    // Grant the ability to tag sessions
-    this.role.assumeRolePolicy?.addStatements(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        principals: [new WebIdentityPrincipal(oidcProviderArn)],
-        actions: ['sts:TagSession'],
-      })
-    );
+    // Zero-trust approach: No session tagging needed
+    // All tenant isolation is handled at the application layer
 
     // NOTE: PrincipalTag-based policies require session tags to be set during AssumeRoleWithWebIdentity.
     // This requires configuring Cognito to include tags in the JWT token with the claim key

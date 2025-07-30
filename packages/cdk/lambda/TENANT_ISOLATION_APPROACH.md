@@ -1,8 +1,8 @@
-# Multi-Tenant Isolation Approach
+# Multi-Tenant Isolation Approach - Zero Trust Model
 
 ## Current Implementation
 
-The current multi-tenant implementation uses a **hybrid approach** that combines STS AssumeRoleWithWebIdentity with application-level tenant isolation:
+The current multi-tenant implementation uses a **zero-trust approach** that combines STS AssumeRoleWithWebIdentity with strict application-level tenant isolation:
 
 ### 1. Authentication & Authorization Flow
 1. User authenticates with Cognito and receives a JWT token
@@ -26,12 +26,16 @@ The current multi-tenant implementation uses a **hybrid approach** that combines
 - Session tags must be configured in the OIDC provider (Cognito) using the `https://aws.amazon.com/tags` claim
 - This requires additional Cognito configuration that's not trivial to implement
 
-## Benefits of Current Approach
+## Benefits of Zero-Trust Approach
 
-1. **Simplicity**: No complex Cognito configuration required
-2. **Flexibility**: Easy to add new tenant-specific logic in Lambda functions
-3. **Compatibility**: Works with existing Cognito setup without modifications
-4. **Debugging**: Easier to trace and debug tenant access patterns
+1. **No Implicit Trust**: Even with valid STS credentials, direct access to tenant resources is not possible
+2. **Explicit Validation**: Every request must be validated at the application layer
+3. **Defense in Depth**: Multiple layers of security (Cognito → STS → Lambda → Resource)
+4. **Audit Trail**: Complete application-level logging of all tenant access
+5. **Business Logic Integration**: Easy to add rate limiting, feature flags, or custom rules per tenant
+6. **Simpler Security Model**: No complex IAM policy conditions or tag mappings to maintain
+7. **Better Error Handling**: Application can provide meaningful error messages
+8. **Testability**: Tenant isolation logic can be unit tested
 
 ## Limitations
 
@@ -81,6 +85,17 @@ To migrate to true ABAC in the future:
 
 ## Security Considerations
 
-1. **Current State**: Secure for Lambda-mediated access, but direct SDK usage has broader permissions
-2. **Recommendation**: Use this approach for internal tools or trusted environments
-3. **For Production**: Implement true ABAC or use separate roles per tenant
+1. **Zero-Trust Principle**: No resource access without explicit application validation
+2. **Lambda-Only Access**: Resources should only be accessed through Lambda functions, never directly
+3. **Credential Scope**: STS credentials grant potential access to all tenant resources, but Lambda functions enforce actual access
+4. **Best Practice**: This zero-trust approach is recommended for production environments
+5. **Monitoring**: Implement CloudWatch alarms for any direct resource access attempts (outside Lambda)
+
+## Why Zero-Trust is Better Than Tag-Based ABAC
+
+1. **Simpler**: No complex Cognito/IAM configuration
+2. **More Secure**: Explicit validation at every step
+3. **More Flexible**: Can implement complex business rules
+4. **Easier to Audit**: Application logs show intent and context
+5. **No Configuration Drift**: No risk of tag mappings getting out of sync
+6. **Better DevEx**: Easier to debug and test locally
