@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3';
-import { QueryCommand } from '@aws-sdk/client-dynamodb';
+import { QueryCommand, AttributeValue } from '@aws-sdk/client-dynamodb';
 import { useSTSCredentials } from './useSTSCredentials';
 import {
   createS3Client,
@@ -112,7 +112,7 @@ export const useTenantResources = () => {
       tablePrefix: string,
       tenantId: string,
       keyConditionExpression: string,
-      expressionAttributeValues: Record<string, unknown>
+      expressionAttributeValues: Record<string, AttributeValue>
     ) => {
       if (!credentials) {
         throw new Error('No credentials available');
