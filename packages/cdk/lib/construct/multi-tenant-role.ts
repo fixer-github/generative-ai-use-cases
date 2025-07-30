@@ -4,8 +4,9 @@ import {
   WebIdentityPrincipal,
   PolicyStatement,
   Effect,
+  FederatedPrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import { Stack } from 'aws-cdk-lib';
+import { Stack, CfnJson } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 
 export interface MultiTenantRoleProps {
@@ -30,18 +31,25 @@ export class MultiTenantRole extends Construct {
       resourceName: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
     });
 
+    // Create CfnJson to handle dynamic condition keys
+    const trustConditions = new CfnJson(this, 'TrustConditions', {
+      value: {
+        [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
+          props.userPoolClient.userPoolClientId,
+        [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
+          'authenticated',
+      },
+    });
+
     // Create the single role for multi-tenant access
     this.role = new Role(this, 'MultiTenantAccessRole', {
-      assumedBy: new WebIdentityPrincipal(oidcProviderArn, {
-        StringEquals: {
-          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
-            props.userPoolClient.userPoolClientId,
+      assumedBy: new FederatedPrincipal(
+        oidcProviderArn,
+        {
+          StringEquals: trustConditions,
         },
-        'ForAnyValue:StringLike': {
-          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
-            'authenticated',
-        },
-      }),
+        'sts:AssumeRoleWithWebIdentity'
+      ),
       description:
         'Single role for multi-tenant resource access with dynamic tenant ID',
     });
