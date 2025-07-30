@@ -1,0 +1,48 @@
+import { APIGatewayProxyEvent } from 'aws-lambda';
+
+/**
+ * Extract tenant ID from the JWT claims in the API Gateway event
+ */
+export const getTenantId = (event: APIGatewayProxyEvent): string => {
+  // Try to get tenant ID from authorizer claims (API Gateway Lambda authorizer)
+  const tenantId = 
+    event.requestContext?.authorizer?.claims?.['custom:tenant_id'] ||
+    event.requestContext?.authorizer?.['custom:tenant_id'] ||
+    // Fallback to a default tenant for backwards compatibility
+    process.env.DEFAULT_TENANT_ID ||
+    'default';
+  
+  if (!tenantId || tenantId === 'default') {
+    console.warn('No tenant ID found in request, using default tenant');
+  }
+  
+  return tenantId;
+};
+
+/**
+ * Generate tenant-specific table name
+ */
+export const getTenantTableName = (baseTableName: string, tenantId: string): string => {
+  // For backwards compatibility, if no tenant ID or default tenant, use base table name
+  if (!tenantId || tenantId === 'default') {
+    return baseTableName;
+  }
+  
+  // Remove any existing tenant suffix to get the base name
+  const tablePrefix = baseTableName.replace(/-tenant-.*$/, '');
+  
+  return `${tablePrefix}-tenant-${tenantId}`;
+};
+
+/**
+ * Get table name from environment variable and tenant ID
+ */
+export const getTableNameForTenant = (envVarName: string, event: APIGatewayProxyEvent): string => {
+  const baseTableName = process.env[envVarName];
+  if (!baseTableName) {
+    throw new Error(`Environment variable ${envVarName} is not set`);
+  }
+  
+  const tenantId = getTenantId(event);
+  return getTenantTableName(baseTableName, tenantId);
+};

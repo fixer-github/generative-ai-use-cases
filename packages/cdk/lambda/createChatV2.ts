@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { createChat } from './repository';
+import { createTenantRepository } from './repositoryV2';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -7,7 +7,10 @@ export const handler = async (
   try {
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
-    const chat = await createChat(userId, event);
+    
+    // Create repository with tenant context
+    const repository = createTenantRepository(event);
+    const chat = await repository.createChat(userId);
 
     return {
       statusCode: 200,
