@@ -10,11 +10,12 @@ This guide explains how to deploy tenant-specific stacks using the CDK tenant de
 
 ## Tenant CDK Commands
 
-The following npm scripts are available for tenant stack management:
+The following npm scripts are available for tenant stack management from the **repository root**:
 
 ### Deploy Tenant Stacks
 
 ```bash
+# Run from repository root
 npm run cdk:tenant:deploy -- --context tenantId=<tenant-id>
 ```
 
@@ -60,9 +61,10 @@ npm run cdk:tenant:destroy -- --context tenantId=<tenant-id>
 
 ## Using Configuration File
 
-Instead of passing context via command line, you can create a `cdk.tenant.json` file:
+Instead of passing context via command line, you can create a `cdk.tenant.json` file in the `packages/cdk` directory:
 
 ```json
+// packages/cdk/cdk.tenant.json
 {
   "context": {
     "tenantId": "acme-corp",
@@ -75,7 +77,7 @@ Instead of passing context via command line, you can create a `cdk.tenant.json` 
 }
 ```
 
-Then run commands without context parameters:
+Then run commands without context parameters from the repository root:
 ```bash
 npm run cdk:tenant:deploy
 ```
