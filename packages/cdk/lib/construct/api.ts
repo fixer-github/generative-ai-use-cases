@@ -141,6 +141,31 @@ export class Api extends Construct {
       };
     }
 
+    // Base table names for multi-tenant access
+    const TABLE_BASE_NAME = 'ChatHistory';
+    const STATS_TABLE_BASE_NAME = 'TokenUsageStats';
+    const DEFAULT_TENANT_ID = 'default';
+
+    // IAM policy for tenant-specific table access
+    const tenantTablePolicy = new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: [
+        'dynamodb:PutItem',
+        'dynamodb:GetItem',
+        'dynamodb:Query',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:BatchWriteItem',
+        'dynamodb:BatchGetItem',
+        'dynamodb:DescribeTable',
+        'dynamodb:DescribeTimeToLive'
+      ],
+      resources: [
+        `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-*`,
+        `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-*/index/*`
+      ]
+    });
+
     // S3 (File Bucket)
     const fileBucket = new Bucket(this, 'FileBucket', {
       encryption: BucketEncryption.S3_MANAGED,
@@ -243,7 +268,8 @@ export class Api extends Construct {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -258,6 +284,7 @@ export class Api extends Construct {
       },
     });
     table.grantWriteData(predictTitleFunction);
+    predictTitleFunction.addToRolePolicy(tenantTablePolicy);
 
     const generateImageFunction = new NodejsFunction(this, 'GenerateImage', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -289,7 +316,8 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
       },
       bundling: {
@@ -310,6 +338,7 @@ export class Api extends Construct {
       );
     }
     table.grantWriteData(generateVideoFunction);
+    generateVideoFunction.addToRolePolicy(tenantTablePolicy);
 
     const copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -324,7 +353,8 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -345,6 +375,7 @@ export class Api extends Construct {
     }
     fileBucket.grantWrite(copyVideoJob);
     table.grantWriteData(copyVideoJob);
+    copyVideoJob.addToRolePolicy(tenantTablePolicy);
 
     const listVideoJobs = new NodejsFunction(this, 'ListVideoJobs', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -358,7 +389,8 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
       },
       bundling: {
@@ -366,6 +398,7 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(listVideoJobs);
+    listVideoJobs.addToRolePolicy(tenantTablePolicy);
     copyVideoJob.grantInvoke(listVideoJobs);
 
     const deleteVideoJob = new NodejsFunction(this, 'DeleteVideoJob', {
@@ -376,10 +409,12 @@ export class Api extends Construct {
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantWriteData(deleteVideoJob);
+    deleteVideoJob.addToRolePolicy(tenantTablePolicy);
 
     const optimizePromptFunction = new NodejsFunction(
       this,
@@ -531,33 +566,39 @@ export class Api extends Construct {
       entry: './lambda/createChat.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantWriteData(createChatFunction);
+    createChatFunction.addToRolePolicy(tenantTablePolicy);
 
     const deleteChatFunction = new NodejsFunction(this, 'DeleteChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteChat.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadWriteData(deleteChatFunction);
+    deleteChatFunction.addToRolePolicy(tenantTablePolicy);
 
     const createMessagesFunction = new NodejsFunction(this, 'CreateMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createMessages.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
-        STATS_TABLE_NAME: props.statsTable.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         BUCKET_NAME: fileBucket.bucketName,
       },
     });
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
+    createMessagesFunction.addToRolePolicy(tenantTablePolicy);
 
     const updateChatTitleFunction = new NodejsFunction(
       this,
@@ -567,51 +608,61 @@ export class Api extends Construct {
         entry: './lambda/updateTitle.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TABLE_NAME: table.tableName,
+          TABLE_NAME: TABLE_BASE_NAME,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         },
       }
     );
     table.grantReadWriteData(updateChatTitleFunction);
+    updateChatTitleFunction.addToRolePolicy(tenantTablePolicy);
 
     const listChatsFunction = new NodejsFunction(this, 'ListChats', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listChats.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadData(listChatsFunction);
+    listChatsFunction.addToRolePolicy(tenantTablePolicy);
 
     const findChatbyIdFunction = new NodejsFunction(this, 'FindChatbyId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findChatById.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadData(findChatbyIdFunction);
+    findChatbyIdFunction.addToRolePolicy(tenantTablePolicy);
 
     const listMessagesFunction = new NodejsFunction(this, 'ListMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listMessages.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadData(listMessagesFunction);
+    listMessagesFunction.addToRolePolicy(tenantTablePolicy);
 
     const updateFeedbackFunction = new NodejsFunction(this, 'UpdateFeedback', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/updateFeedback.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadWriteData(updateFeedbackFunction);
+    updateFeedbackFunction.addToRolePolicy(tenantTablePolicy);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -624,40 +675,48 @@ export class Api extends Construct {
       entry: './lambda/createShareId.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadWriteData(createShareId);
+    createShareId.addToRolePolicy(tenantTablePolicy);
 
     const getSharedChat = new NodejsFunction(this, 'GetSharedChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getSharedChat.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadData(getSharedChat);
+    getSharedChat.addToRolePolicy(tenantTablePolicy);
 
     const findShareId = new NodejsFunction(this, 'FindShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findShareId.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadData(findShareId);
+    findShareId.addToRolePolicy(tenantTablePolicy);
 
     const deleteShareId = new NodejsFunction(this, 'DeleteShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteShareId.ts',
       timeout: Duration.minutes(15),
       environment: {
-        TABLE_NAME: table.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
       },
     });
     table.grantReadWriteData(deleteShareId);
+    deleteShareId.addToRolePolicy(tenantTablePolicy);
 
     const listSystemContextsFunction = new NodejsFunction(
       this,
@@ -667,11 +726,13 @@ export class Api extends Construct {
         entry: './lambda/listSystemContexts.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TABLE_NAME: table.tableName,
+          TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         },
       }
     );
     table.grantReadData(listSystemContextsFunction);
+    listSystemContextsFunction.addToRolePolicy(tenantTablePolicy);
 
     const createSystemContextFunction = new NodejsFunction(
       this,
@@ -681,11 +742,13 @@ export class Api extends Construct {
         entry: './lambda/createSystemContext.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TABLE_NAME: table.tableName,
+          TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         },
       }
     );
     table.grantWriteData(createSystemContextFunction);
+    createSystemContextFunction.addToRolePolicy(tenantTablePolicy);
 
     const updateSystemContextTitleFunction = new NodejsFunction(
       this,
@@ -695,11 +758,13 @@ export class Api extends Construct {
         entry: './lambda/updateSystemContextTitle.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TABLE_NAME: table.tableName,
+          TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         },
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
+    updateSystemContextTitleFunction.addToRolePolicy(tenantTablePolicy);
 
     const deleteSystemContextFunction = new NodejsFunction(
       this,
@@ -709,11 +774,13 @@ export class Api extends Construct {
         entry: './lambda/deleteSystemContext.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TABLE_NAME: table.tableName,
+          TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         },
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);
+    deleteSystemContextFunction.addToRolePolicy(tenantTablePolicy);
 
     const deleteFileFunction = new NodejsFunction(this, 'DeleteFileFunction', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -730,12 +797,14 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getTokenUsage.ts',
       environment: {
-        TABLE_NAME: table.tableName,
-        STATS_TABLE_NAME: props.statsTable.tableName,
+        TABLE_NAME: TABLE_BASE_NAME,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
       },
     });
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
+    getTokenUsageFunction.addToRolePolicy(tenantTablePolicy);
 
     // Lambda function for STS AssumeRoleWithWebIdentity
     const assumeRoleForTenantFunction = new NodejsFunction(
