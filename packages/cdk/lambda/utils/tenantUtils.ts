@@ -1,9 +1,7 @@
-import { APIGatewayProxyEvent } from 'aws-lambda';
-
 /**
  * Extract tenant ID from the JWT claims in the API Gateway event
  */
-export const getTenantId = (event: APIGatewayProxyEvent): string => {
+export const getTenantId = (event) => {
   // Try to get tenant ID from authorizer claims (API Gateway Lambda authorizer)
   const tenantId = 
     event.requestContext?.authorizer?.claims?.['custom:tenant_id'] ||
@@ -22,7 +20,7 @@ export const getTenantId = (event: APIGatewayProxyEvent): string => {
 /**
  * Generate tenant-specific table name
  */
-export const getTenantTableName = (baseTableName: string, tenantId: string): string => {
+export const getTenantTableName = (baseTableName, tenantId) => {
   // For backwards compatibility, if no tenant ID or default tenant, use base table name
   if (!tenantId || tenantId === 'default') {
     return baseTableName;
@@ -37,7 +35,7 @@ export const getTenantTableName = (baseTableName: string, tenantId: string): str
 /**
  * Get table name from environment variable and tenant ID
  */
-export const getTableNameForTenant = (envVarName: string, event: APIGatewayProxyEvent): string => {
+export const getTableNameForTenant = (envVarName, event) => {
   const baseTableName = process.env[envVarName];
   if (!baseTableName) {
     throw new Error(`Environment variable ${envVarName} is not set`);

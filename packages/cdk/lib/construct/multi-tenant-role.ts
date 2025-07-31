@@ -9,17 +9,8 @@ import {
 import { Stack } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 
-export interface MultiTenantRoleProps {
-  readonly userPool: UserPool;
-  readonly userPoolClient: UserPoolClient;
-  readonly region: string;
-  readonly account: string;
-}
-
 export class MultiTenantRole extends Construct {
-  readonly role: Role;
-
-  constructor(scope: Construct, id: string, props: MultiTenantRoleProps) {
+  constructor(scope, id, props) {
     super(scope, id);
 
     // Get the OIDC provider ARN from the user pool
@@ -77,7 +68,7 @@ export class MultiTenantRole extends Construct {
 
     // Add tag mapping to the trust relationship
     // This maps the tenant ID from JWT claims to a session tag
-    const trustRelationship = this.role.assumeRolePolicy!;
+    const trustRelationship = this.role.assumeRolePolicy;
     trustRelationship.addStatements(
       new PolicyStatement({
         sid: 'AllowPassSessionTagsFromJWT',
