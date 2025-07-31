@@ -56,25 +56,24 @@ cd packages/cdk
 # Install dependencies
 npm install
 
-# Deploy tables for a specific tenant
-cdk deploy TenantDynamoDB-acme-corp \
-  --context tenantId=acme-corp
+# Deploy all tenant stacks (IAM role + DynamoDB tables)
+npm run cdk:tenant:deploy -- --context tenantId=acme-corp
+
+# Or deploy with additional context parameters
+npm run cdk:tenant:deploy -- \
+  --context tenantId=acme-corp \
+  --context identityProviderArn=arn:aws:iam::123456789012:oidc-provider/example.com \
+  --context audience=client-123 \
+  --context tenantRegion=us-west-2
+
+# Check what will be deployed
+npm run cdk:tenant:diff -- --context tenantId=acme-corp
+
+# List tenant stacks
+npm run cdk:tenant:list -- --context tenantId=acme-corp
 ```
 
-### Method 3: Using the Provisioning Script
-
-A TypeScript script is provided for batch provisioning:
-
-```bash
-# Navigate to the CDK directory
-cd packages/cdk
-
-# Run the provisioning script
-npm run provision-tenant -- --tenant-id acme-corp --region us-east-1
-
-# With AWS profile
-npm run provision-tenant -- --tenant-id acme-corp --profile production
-```
+**Note**: The `cdk:tenant:deploy` command deploys both the IAM role stack and DynamoDB stack together.
 
 ## Tenant ID Requirements
 
