@@ -1,101 +1,140 @@
-# Multi-Tenant Isolation Approach - Zero Trust Model
+# Multi-Tenant Isolation Approach - Tag-Based ABAC
 
 ## Current Implementation
 
-The current multi-tenant implementation uses a **zero-trust approach** that combines STS AssumeRoleWithWebIdentity with strict application-level tenant isolation:
+The current multi-tenant implementation uses **tag-based Attribute-Based Access Control (ABAC)** that combines STS AssumeRoleWithWebIdentity with IAM policy conditions based on session tags:
 
 ### 1. Authentication & Authorization Flow
 1. User authenticates with Cognito and receives a JWT token
 2. JWT token includes `custom:tenant_id` claim with the user's tenant ID
-3. Frontend calls the `assumeRoleForTenant` API with the JWT token
-4. STS validates the token and returns temporary AWS credentials
-5. Frontend uses these credentials to directly access AWS services
+3. Cognito Pre-Token Generation trigger adds `https://aws.amazon.com/tags` claim with tenant ID
+4. Frontend calls the `assumeRoleForTenant` API with the JWT token
+5. STS validates the token and maps the tenant ID to a `TenantID` session tag
+6. IAM policies use `aws:PrincipalTag/TenantID` to restrict access to tenant-specific resources
 
 ### 2. Tenant Isolation Mechanism
 
-**Application-Level Isolation** (Currently Implemented):
-- Lambda functions extract tenant ID from JWT claims using `getTenantId()`
-- Tenant ID is used to construct tenant-specific resource names:
-  - DynamoDB tables: `<BaseTableName>-tenant-<TenantID>`
-  - S3 buckets: `<BucketPrefix>-tenant-<TenantID>`
-- IAM role has broad permissions to access all tenant resources (`*-tenant-*`)
-- Actual isolation is enforced by the application logic
+**Tag-Based ABAC** (Implemented):
+- Cognito Pre-Token Generation Lambda adds session tags to the JWT
+- STS AssumeRoleWithWebIdentity maps these tags to the session
+- IAM policies use `${aws:PrincipalTag/TenantID}` for dynamic resource access
+- Resources must follow naming pattern: `<resource-prefix>-tenant-<TenantID>`
 
-**Why Not PrincipalTag-Based ABAC?**
-- `AssumeRoleWithWebIdentity` doesn't support passing custom session tags via API
-- Session tags must be configured in the OIDC provider (Cognito) using the `https://aws.amazon.com/tags` claim
-- This requires additional Cognito configuration that's not trivial to implement
+**How It Works**:
+```json
+// JWT claim added by Cognito
+"https://aws.amazon.com/tags": {
+  "principal_tags": {
+    "TenantID": ["tenant-123"]
+  },
+  "transitive_tag_keys": ["TenantID"]
+}
+```
 
-## Benefits of Zero-Trust Approach
+```typescript
+// IAM policy with dynamic tenant access
+{
+  "Effect": "Allow",
+  "Action": ["dynamodb:*"],
+  "Resource": "arn:aws:dynamodb:*:*:table/*-tenant-${aws:PrincipalTag/TenantID}"
+}
+```
 
-1. **No Implicit Trust**: Even with valid STS credentials, direct access to tenant resources is not possible
-2. **Explicit Validation**: Every request must be validated at the application layer
-3. **Defense in Depth**: Multiple layers of security (Cognito → STS → Lambda → Resource)
-4. **Audit Trail**: Complete application-level logging of all tenant access
-5. **Business Logic Integration**: Easy to add rate limiting, feature flags, or custom rules per tenant
-6. **Simpler Security Model**: No complex IAM policy conditions or tag mappings to maintain
-7. **Better Error Handling**: Application can provide meaningful error messages
-8. **Testability**: Tenant isolation logic can be unit tested
+## Benefits of Tag-Based ABAC
 
-## Limitations
+1. **True IAM-Level Isolation**: AWS enforces tenant boundaries, not application code
+2. **Dynamic Access Control**: Single role serves all tenants with automatic isolation
+3. **Direct SDK Access**: Clients can use AWS SDKs directly with proper isolation
+4. **Reduced Lambda Overhead**: No need for Lambda functions to validate tenant access
+5. **Audit Trail**: CloudTrail logs show tenant context via session tags
+6. **Scalability**: No need to create separate roles per tenant
+7. **Compliance**: Meets security requirements for multi-tenant SaaS
 
-1. **Trust Boundary**: Relies on Lambda functions to enforce tenant isolation
-2. **Direct Access**: If using STS credentials directly (not through Lambda), broader permissions apply
-3. **No True ABAC**: Cannot use AWS IAM policies for fine-grained tenant isolation
+## Implementation Details
 
-## Future Improvements
+### Cognito Pre-Token Generation
+- Lambda trigger adds `https://aws.amazon.com/tags` claim to JWT
+- Includes both `principal_tags` and `transitive_tag_keys`
+- Tags are passed through to STS during AssumeRoleWithWebIdentity
 
-### Option 1: Implement True ABAC (Recommended for Production)
-1. Configure Cognito to include tenant ID in the `https://aws.amazon.com/tags` claim
-2. Update IAM role trust policy to map tags from JWT to session tags
-3. Use `PrincipalTag/TenantID` in IAM policies for resource-level isolation
-4. Remove application-level tenant ID extraction (no longer needed)
+### IAM Role Configuration
+- Trust policy allows `sts:TagSession` action
+- Resource policies use `${aws:PrincipalTag/TenantID}` for dynamic access
+- Deny policy ensures TenantID tag is always present
 
-### Option 2: Enhanced Application-Level Isolation
-1. Create a centralized tenant context service
-2. Implement stricter validation in all Lambda functions
-3. Add monitoring and alerting for cross-tenant access attempts
-4. Use AWS CloudTrail for audit logging
-
-### Option 3: Separate Roles Per Tenant
-1. Create individual IAM roles for each tenant
-2. Use JWT claims to determine which role to assume
-3. More complex but provides strongest isolation
-4. Suitable for high-security environments
-
-## Migration Path
-
-To migrate to true ABAC in the future:
-
-1. **Phase 1**: Configure Cognito
-   - Add Lambda trigger to include tenant ID in tags claim
-   - Test with a subset of users
-
-2. **Phase 2**: Update IAM Policies
-   - Uncomment the PrincipalTag-based policies in `multi-tenant-role.ts`
-   - Test thoroughly in staging environment
-
-3. **Phase 3**: Remove Application Logic
-   - Remove `getTenantId()` calls from Lambda functions
-   - Let IAM policies handle tenant isolation
-
-4. **Phase 4**: Monitoring
-   - Set up CloudWatch alarms for access denied errors
-   - Monitor for any cross-tenant access attempts
+### Resource Naming Convention
+- DynamoDB tables: `<TableName>-tenant-<TenantID>`
+- S3 buckets: `<BucketPrefix>-tenant-<TenantID>`
+- Must match the pattern expected by IAM policies
 
 ## Security Considerations
 
-1. **Zero-Trust Principle**: No resource access without explicit application validation
-2. **Lambda-Only Access**: Resources should only be accessed through Lambda functions, never directly
-3. **Credential Scope**: STS credentials grant potential access to all tenant resources, but Lambda functions enforce actual access
-4. **Best Practice**: This zero-trust approach is recommended for production environments
-5. **Monitoring**: Implement CloudWatch alarms for any direct resource access attempts (outside Lambda)
+1. **Tag Validation**: IAM denies access if TenantID tag is missing
+2. **Immutable Tags**: Once set during AssumeRole, tags cannot be modified
+3. **Transitive Tags**: Tags are passed to subsequent role assumptions
+4. **CloudTrail**: All actions are logged with tenant context
+5. **No Cross-Tenant Access**: IAM policies prevent accessing other tenants' resources
 
-## Why Zero-Trust is Better Than Tag-Based ABAC
+## Testing ABAC
 
-1. **Simpler**: No complex Cognito/IAM configuration
-2. **More Secure**: Explicit validation at every step
-3. **More Flexible**: Can implement complex business rules
-4. **Easier to Audit**: Application logs show intent and context
-5. **No Configuration Drift**: No risk of tag mappings getting out of sync
-6. **Better DevEx**: Easier to debug and test locally
+To test the implementation:
+
+1. **Verify JWT Claims**:
+   ```bash
+   # Decode the ID token and check for https://aws.amazon.com/tags claim
+   jwt decode <id-token>
+   ```
+
+2. **Check Session Tags**:
+   ```bash
+   # After AssumeRoleWithWebIdentity, use AWS CLI
+   aws sts get-caller-identity
+   # The session name should include the tenant context
+   ```
+
+3. **Test Resource Access**:
+   ```bash
+   # Try accessing tenant-specific resources
+   aws dynamodb get-item --table-name MyTable-tenant-${TENANT_ID} --key '{"id":{"S":"test"}}'
+   ```
+
+## Troubleshooting
+
+1. **"Access Denied" Errors**:
+   - Check if TenantID tag is present in the session
+   - Verify resource naming matches the pattern
+   - Ensure Cognito trigger is adding tags claim
+
+2. **Missing Tags**:
+   - Verify Pre-Token Generation Lambda is configured
+   - Check Lambda logs for any errors
+   - Ensure user has `custom:tenant_id` attribute
+
+3. **Invalid Tag Format**:
+   - Tags claim must be a JSON string, not object
+   - Include both principal_tags and transitive_tag_keys
+
+## Migration from App-Level to ABAC
+
+If migrating from application-level isolation:
+
+1. **Phase 1**: Deploy Cognito trigger and IAM role updates
+2. **Phase 2**: Test with a subset of users
+3. **Phase 3**: Update client code to use direct SDK access
+4. **Phase 4**: Remove application-level tenant validation
+5. **Phase 5**: Monitor CloudTrail for any access anomalies
+
+## Hybrid Approach (Optional)
+
+You can also use a hybrid approach where:
+- IAM policies provide the security boundary (tag-based ABAC)
+- Lambda functions still extract tenant ID for business logic
+- This provides defense in depth with both IAM and application validation
+
+## Best Practices
+
+1. **Resource Naming**: Always follow the tenant naming convention
+2. **Tag Validation**: Ensure all users have tenant_id attribute
+3. **Monitoring**: Set up CloudWatch alarms for access patterns
+4. **Testing**: Test with multiple tenants to verify isolation
+5. **Documentation**: Keep tenant ID mapping documented
