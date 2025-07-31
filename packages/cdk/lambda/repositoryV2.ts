@@ -2,23 +2,17 @@ import {
   Chat,
   RecordedMessage,
   ToBeRecordedMessage,
-  ShareId,
-  UserIdAndChatId,
-  SystemContext,
   UpdateFeedbackRequest,
   ListChatsResponse,
-  TokenUsageStats,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  BatchGetCommand,
   BatchWriteCommand,
   DeleteCommand,
   DynamoDBDocumentClient,
   PutCommand,
   QueryCommand,
-  TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
@@ -140,20 +134,6 @@ export class TenantRepository {
           return item.chatId.startsWith('chat#');
         }) as Chat[])
       : [];
-    const systemContexts: SystemContext[] = res.Items
-      ? res.Items.filter((item) => {
-          return item.chatId.startsWith('systemContext#');
-        }).map((item) => {
-          return {
-            id: item.id,
-            createdDate: item.createdDate,
-            systemContextId: item.chatId,
-            systemContext: item.systemContext,
-            systemContextTitle: item.systemContextTitle,
-          } as SystemContext;
-        })
-      : [];
-
     // Return in the format of ListChatsResponse (Pagination<Chat>)
     return {
       data: chats,
@@ -266,7 +246,7 @@ export class TenantRepository {
   ): Promise<void> {
     const userId = `user#${_userId}`;
     
-    const res = await dynamoDbDocument.send(
+    await dynamoDbDocument.send(
       new UpdateCommand({
         TableName: this.getTableName(),
         Key: {
@@ -281,8 +261,6 @@ export class TenantRepository {
         },
       })
     );
-    
-    return;
   }
 
   async updateTitle(
@@ -293,7 +271,7 @@ export class TenantRepository {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     
-    const res = await dynamoDbDocument.send(
+    await dynamoDbDocument.send(
       new UpdateCommand({
         TableName: this.getTableName(),
         Key: {
@@ -306,14 +284,9 @@ export class TenantRepository {
         },
       })
     );
-    
-    return;
   }
 
   async deleteChat(_userId: string, _chatId: string): Promise<void> {
-    const userId = `user#${_userId}`;
-    const chatId = `chat#${_chatId}`;
-    
     const chatItem = await this.findChatById(_userId, _chatId);
     const messageItems = await this.findMessagesByChatId(_userId, _chatId);
 

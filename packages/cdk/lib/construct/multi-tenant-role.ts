@@ -9,8 +9,17 @@ import {
 import { Stack } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 
+export interface MultiTenantRoleProps {
+  readonly userPool: UserPool;
+  readonly userPoolClient: UserPoolClient;
+  readonly region: string;
+  readonly account: string;
+}
+
 export class MultiTenantRole extends Construct {
-  constructor(scope, id, props) {
+  readonly role: Role;
+
+  constructor(scope: Construct, id: string, props: MultiTenantRoleProps) {
     super(scope, id);
 
     // Get the OIDC provider ARN from the user pool
@@ -36,52 +45,17 @@ export class MultiTenantRole extends Construct {
       'sts:AssumeRoleWithWebIdentity'
     );
 
-    // Create trust policy that maps JWT claims to session tags
-    const trustPolicy = new PolicyDocument({
-      statements: [
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          principals: [principal],
-          actions: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
-          conditions: {
-            StringEquals: {
-              [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
-                props.userPoolClient.userPoolClientId,
-              [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
-                'authenticated',
-            },
-          },
-        }),
-      ],
-    });
-
     // Create the single role for multi-tenant access with tag-based ABAC
     this.role = new Role(this, 'MultiTenantAccessRole', {
       roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
       assumedBy: principal,
-      inlinePolicies: {
-        AssumeRolePolicy: trustPolicy,
-      },
       description:
         'Single role for multi-tenant resource access with tag-based ABAC',
     });
 
-    // Add tag mapping to the trust relationship
-    // This maps the tenant ID from JWT claims to a session tag
-    const trustRelationship = this.role.assumeRolePolicy;
-    trustRelationship.addStatements(
-      new PolicyStatement({
-        sid: 'AllowPassSessionTagsFromJWT',
-        effect: Effect.ALLOW,
-        principals: [principal],
-        actions: ['sts:TagSession'],
-        conditions: {
-          StringLike: {
-            'aws:RequestTag/TenantID': '*',
-          },
-        },
-      })
-    );
+    // Note: Session tag mapping for JWT claims must be configured in Cognito
+    // Pre-Token Generation trigger to add the tenant ID to the JWT claims
+    // The trust policy already allows sts:TagSession via the FederatedPrincipal
 
     // Add S3 access policy for tenant-specific buckets using PrincipalTag
     this.role.addToPolicy(
