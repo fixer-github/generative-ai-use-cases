@@ -50,11 +50,7 @@ curl -X GET https://your-api-gateway-url/tenants/acme-corp \
 For manual provisioning or testing, you can use the CDK directly:
 
 ```bash
-# Navigate to the CDK directory
-cd packages/cdk
-
-# Install dependencies
-npm install
+# From repository root - no need to navigate to packages/cdk
 
 # Deploy all tenant stacks (IAM role + DynamoDB tables)
 npm run cdk:tenant:deploy -- --context tenantId=acme-corp
