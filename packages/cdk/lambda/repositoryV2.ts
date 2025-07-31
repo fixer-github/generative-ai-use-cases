@@ -27,6 +27,24 @@ import { getTenantId, getTenantTableName } from './utils/tenantUtils';
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
+// Interface for message items stored in DynamoDB
+interface MessageItem {
+  id: string;
+  createdDate: string;
+  messageId: string;
+  role: string;
+  model: string;
+  content: string;
+  chatId: string;
+  userId: string;
+  feedback: string;
+  system?: string;
+  usedChunks?: string[];
+  inputTokenCount: number;
+  outputTokenCount: number;
+  totalTokenCount: number;
+}
+
 /**
  * Repository class that handles tenant-specific table access
  */
@@ -127,16 +145,21 @@ export class TenantRepository {
           return item.chatId.startsWith('systemContext#');
         }).map((item) => {
           return {
+            id: item.id,
+            createdDate: item.createdDate,
             systemContextId: item.chatId,
             systemContext: item.systemContext,
             systemContextTitle: item.systemContextTitle,
-          };
+          } as SystemContext;
         })
       : [];
 
+    // Return in the format of ListChatsResponse (Pagination<Chat>)
     return {
-      chats,
-      systemContexts,
+      data: chats,
+      lastEvaluatedKey: res.LastEvaluatedKey
+        ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+        : undefined,
     };
   }
 
@@ -147,25 +170,22 @@ export class TenantRepository {
   ) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
-    const items = messages.map((message) => {
+    const items: MessageItem[] = messages.map((message) => {
       const createdDate = Date.now();
-      const messageId = `${createdDate}-${crypto.randomUUID()}`;
-      const item = {
+      const messageId = message.messageId || `${createdDate}-${crypto.randomUUID()}`;
+      const item: MessageItem = {
         id: userId,
         createdDate: `${createdDate}`,
         messageId,
         role: message.role,
-        model: message.model,
+        model: '', // Will need to be set from somewhere else
         content: message.content,
         chatId,
-        userId,
+        userId: _userId,
         feedback: '',
-        system: message.system,
-        usedChunks: message.usedChunks,
-        // Omit token count because in streaming, token count is not returned
-        inputTokenCount: message.inputTokenCount ?? 0,
-        outputTokenCount: message.outputTokenCount ?? 0,
-        totalTokenCount: message.totalTokenCount ?? 0,
+        inputTokenCount: message.metadata?.usage?.inputTokens ?? 0,
+        outputTokenCount: message.metadata?.usage?.outputTokens ?? 0,
+        totalTokenCount: message.metadata?.usage?.totalTokens ?? 0,
       };
       return item;
     });
@@ -254,9 +274,6 @@ export class TenantRepository {
           createdDate: _messageId.split('-')[0],
         },
         UpdateExpression: 'set feedback = :feedback',
-        ExpressionAttributeValues: {
-          ':feedback': feedback.feedback,
-        },
         ConditionExpression: 'begins_with(messageId, :messageId)',
         ExpressionAttributeValues: {
           ':feedback': feedback.feedback,
@@ -329,7 +346,7 @@ export class TenantRepository {
   }
 
   // Token usage stats methods
-  private async updateTokenUsage(items: any[]): Promise<void> {
+  private async updateTokenUsage(items: MessageItem[]): Promise<void> {
     const today = new Date();
     const dateStr = today.toISOString().split('T')[0];
     const modelUsageUpdates: { [model: string]: { input: number; output: number } } = {};

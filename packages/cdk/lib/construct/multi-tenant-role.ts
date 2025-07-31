@@ -4,7 +4,7 @@ import {
   PolicyStatement,
   Effect,
   PolicyDocument,
-  PrincipalBase,
+  FederatedPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Stack } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
@@ -31,18 +31,19 @@ export class MultiTenantRole extends Construct {
       resourceName: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
     });
 
-    // Create custom principal with tag mapping
-    const principal = new PrincipalBase() as any;
-    principal.federated = oidcProviderArn;
-    principal.conditions = {
-      StringEquals: {
-        [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
-          props.userPoolClient.userPoolClientId,
-        [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
-          'authenticated',
+    // Create federated principal for Cognito OIDC provider
+    const principal = new FederatedPrincipal(
+      oidcProviderArn,
+      {
+        StringEquals: {
+          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
+            props.userPoolClient.userPoolClientId,
+          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
+            'authenticated',
+        },
       },
-    };
-    principal.assumeRoleAction = 'sts:AssumeRoleWithWebIdentity';
+      'sts:AssumeRoleWithWebIdentity'
+    );
 
     // Create trust policy that maps JWT claims to session tags
     const trustPolicy = new PolicyDocument({
