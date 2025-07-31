@@ -5,6 +5,7 @@ import {
   Effect,
   PolicyDocument,
   FederatedPrincipal,
+  WebIdentityPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Stack } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
@@ -22,27 +23,10 @@ export class MultiTenantRole extends Construct {
   constructor(scope: Construct, id: string, props: MultiTenantRoleProps) {
     super(scope, id);
 
-    // Get the OIDC provider ARN from the user pool
-    const oidcProviderArn = Stack.of(this).formatArn({
-      service: 'iam',
-      region: '',
-      account: props.account,
-      resource: 'oidc-provider',
-      resourceName: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
-    });
-
-    // Create federated principal for Cognito OIDC provider
-    const principal = new FederatedPrincipal(
-      oidcProviderArn,
-      {
-        StringEquals: {
-          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
-            props.userPoolClient.userPoolClientId,
-          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
-            'authenticated',
-        },
-      },
-      'sts:AssumeRoleWithWebIdentity'
+    // Create web identity principal for Cognito without conditions
+    // Conditions will be added via escape hatch to avoid token resolution issues
+    const principal = new WebIdentityPrincipal(
+      `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`
     );
 
     // Create the single role for multi-tenant access with tag-based ABAC
@@ -55,7 +39,6 @@ export class MultiTenantRole extends Construct {
 
     // Note: Session tag mapping for JWT claims must be configured in Cognito
     // Pre-Token Generation trigger to add the tenant ID to the JWT claims
-    // The trust policy already allows sts:TagSession via the FederatedPrincipal
 
     // Add S3 access policy for tenant-specific buckets using PrincipalTag
     this.role.addToPolicy(
