@@ -1,4 +1,3 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   STSClient,
   AssumeRoleWithWebIdentityCommand,
@@ -6,9 +5,7 @@ import {
 
 const stsClient = new STSClient({});
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+export const handler = async (event) => {
   try {
     const token = event.headers['Authorization'];
     if (!token) {
@@ -34,7 +31,7 @@ export const handler = async (
     // with AssumeRoleWithWebIdentity. The tenant ID should be extracted from JWT claims
     // in the Lambda functions instead.
     const command = new AssumeRoleWithWebIdentityCommand({
-      RoleArn: process.env.MULTI_TENANT_ROLE_ARN!,
+      RoleArn: process.env.MULTI_TENANT_ROLE_ARN,
       RoleSessionName: sessionName,
       WebIdentityToken: token,
       DurationSeconds: 3600, // 1 hour
@@ -80,4 +77,3 @@ export const handler = async (
     };
   }
 };
-

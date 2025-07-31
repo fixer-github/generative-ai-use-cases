@@ -1,14 +1,3 @@
-import {
-  Chat,
-  RecordedMessage,
-  ToBeRecordedMessage,
-  ShareId,
-  UserIdAndChatId,
-  SystemContext,
-  UpdateFeedbackRequest,
-  ListChatsResponse,
-  TokenUsageStats,
-} from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -21,7 +10,6 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId, getTenantTableName } from './utils/tenantUtils';
 
 const dynamoDb = new DynamoDBClient({});
@@ -31,26 +19,22 @@ const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
  * Repository class that handles tenant-specific table access
  */
 export class TenantRepository {
-  private tenantId: string;
-  private tablePrefix: string;
-  private statsTablePrefix: string;
-
-  constructor(event: APIGatewayProxyEvent) {
+  constructor(event) {
     this.tenantId = getTenantId(event);
     // Extract base table name without tenant suffix
-    this.tablePrefix = process.env.TABLE_NAME!.replace(/-tenant-.*$/, '');
-    this.statsTablePrefix = process.env.STATS_TABLE_NAME!.replace(/-tenant-.*$/, '');
+    this.tablePrefix = process.env.TABLE_NAME.replace(/-tenant-.*$/, '');
+    this.statsTablePrefix = process.env.STATS_TABLE_NAME.replace(/-tenant-.*$/, '');
   }
 
-  private getTableName(): string {
+  getTableName() {
     return getTenantTableName(this.tablePrefix, this.tenantId);
   }
 
-  private getStatsTableName(): string {
+  getStatsTableName() {
     return getTenantTableName(this.statsTablePrefix, this.tenantId);
   }
 
-  async createChat(_userId: string): Promise<Chat> {
+  async createChat(_userId) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${crypto.randomUUID()}`;
     const item = {
@@ -72,10 +56,7 @@ export class TenantRepository {
     return item;
   }
 
-  async findChatById(
-    _userId: string,
-    _chatId: string
-  ): Promise<Chat | null> {
+  async findChatById(_userId, _chatId) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     const res = await dynamoDbDocument.send(
@@ -98,10 +79,10 @@ export class TenantRepository {
     if (!chat) {
       return null;
     }
-    return chat as Chat;
+    return chat;
   }
 
-  async listChats(_userId: string): Promise<ListChatsResponse> {
+  async listChats(_userId) {
     const userId = `user#${_userId}`;
     const res = await dynamoDbDocument.send(
       new QueryCommand({
@@ -117,12 +98,12 @@ export class TenantRepository {
       })
     );
 
-    const chats: Chat[] = res.Items
-      ? (res.Items.filter((item) => {
+    const chats = res.Items
+      ? res.Items.filter((item) => {
           return item.chatId.startsWith('chat#');
-        }) as Chat[])
+        })
       : [];
-    const systemContexts: SystemContext[] = res.Items
+    const systemContexts = res.Items
       ? res.Items.filter((item) => {
           return item.chatId.startsWith('systemContext#');
         }).map((item) => {
@@ -140,11 +121,7 @@ export class TenantRepository {
     };
   }
 
-  async createMessages(
-    _userId: string,
-    _chatId: string,
-    messages: ToBeRecordedMessage[]
-  ) {
+  async createMessages(_userId, _chatId, messages) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     const items = messages.map((message) => {
@@ -152,55 +129,60 @@ export class TenantRepository {
       const messageId = `${createdDate}-${crypto.randomUUID()}`;
       const item = {
         id: userId,
-        createdDate: `${createdDate}`,
-        messageId,
+        createdDate: String(createdDate),
         role: message.role,
-        model: message.model,
         content: message.content,
-        chatId,
-        userId,
+        model: message.model,
+        chatId: chatId,
+        userId: _userId,
         feedback: '',
-        system: message.system,
-        usedChunks: message.usedChunks,
-        // Omit token count because in streaming, token count is not returned
-        inputTokenCount: message.inputTokenCount ?? 0,
-        outputTokenCount: message.outputTokenCount ?? 0,
-        totalTokenCount: message.totalTokenCount ?? 0,
+        usecase: message.usecase,
+        messageId,
+        inputTokenCount: message.inputTokenCount,
+        outputTokenCount: message.outputTokenCount,
+        totalTokenCount: message.totalTokenCount,
+        stopReason: message.stopReason,
       };
+      if (message.systemContext) {
+        item.systemContext = message.systemContext;
+      }
+      if (message.messageId) {
+        item.parent = message.messageId;
+      }
       return item;
     });
 
-    // Add token usage stats
-    await this.updateTokenUsage(items);
-
-    // Atomic Conditional Check and Write
-    const existCheckRes = await dynamoDbDocument.send(
-      new QueryCommand({
-        TableName: this.getTableName(),
-        KeyConditionExpression: '#id = :id',
-        FilterExpression: '#chatId = :chatId',
-        ExpressionAttributeNames: {
-          '#id': 'id',
-          '#chatId': 'chatId',
-        },
-        ExpressionAttributeValues: {
-          ':id': userId,
-          ':chatId': chatId,
-        },
-      })
-    );
-
-    if (existCheckRes.Items && existCheckRes.Items.length > 0) {
+    if (items.length > 0) {
       await dynamoDbDocument.send(
         new BatchWriteCommand({
           RequestItems: {
-            [this.getTableName()]: items.map((m) => {
-              return {
-                PutRequest: {
-                  Item: m,
-                },
-              };
-            }),
+            [this.getTableName()]: items.map((item) => ({
+              PutRequest: {
+                Item: item,
+              },
+            })),
+          },
+        })
+      );
+
+      // Update token usage stats
+      await this.updateTokenUsage(items);
+
+      // Update chat updated time
+      const chatItem = await this.findChatById(_userId, _chatId);
+      await dynamoDbDocument.send(
+        new UpdateCommand({
+          TableName: this.getTableName(),
+          Key: {
+            id: userId,
+            createdDate: chatItem.createdDate,
+          },
+          UpdateExpression: 'SET #updatedDate = :updatedDate',
+          ExpressionAttributeNames: {
+            '#updatedDate': 'updatedDate',
+          },
+          ExpressionAttributeValues: {
+            ':updatedDate': String(Date.now()),
           },
         })
       );
@@ -209,10 +191,7 @@ export class TenantRepository {
     }
   }
 
-  async findMessagesByChatId(
-    _userId: string,
-    _chatId: string
-  ): Promise<RecordedMessage[]> {
+  async findMessagesByChatId(_userId, _chatId) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     const res = await dynamoDbDocument.send(
@@ -231,19 +210,15 @@ export class TenantRepository {
       })
     );
 
-    const messages: RecordedMessage[] = res.Items
-      ? (res.Items.filter((item) => {
+    const messages = res.Items
+      ? res.Items.filter((item) => {
           return item.role && item.model;
-        }) as RecordedMessage[])
+        })
       : [];
     return messages;
   }
 
-  async updateFeedback(
-    _userId: string,
-    _messageId: string,
-    feedback: UpdateFeedbackRequest
-  ): Promise<void> {
+  async updateFeedback(_userId, _messageId, feedback) {
     const userId = `user#${_userId}`;
     
     const res = await dynamoDbDocument.send(
@@ -253,14 +228,12 @@ export class TenantRepository {
           id: userId,
           createdDate: _messageId.split('-')[0],
         },
-        UpdateExpression: 'set feedback = :feedback',
-        ExpressionAttributeValues: {
-          ':feedback': feedback.feedback,
+        UpdateExpression: 'SET #feedback = :feedback',
+        ExpressionAttributeNames: {
+          '#feedback': 'feedback',
         },
-        ConditionExpression: 'begins_with(messageId, :messageId)',
         ExpressionAttributeValues: {
-          ':feedback': feedback.feedback,
-          ':messageId': _messageId,
+          ':feedback': feedback,
         },
       })
     );
@@ -268,11 +241,7 @@ export class TenantRepository {
     return;
   }
 
-  async updateTitle(
-    _userId: string,
-    _chatId: string,
-    title: string
-  ): Promise<void> {
+  async updateTitle(_userId, _chatId, title) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     
@@ -281,9 +250,12 @@ export class TenantRepository {
         TableName: this.getTableName(),
         Key: {
           id: userId,
-          createdDate: chatId.split('#')[1],
+          createdDate: (await this.findChatById(_userId, _chatId)).createdDate,
         },
-        UpdateExpression: 'set title = :title',
+        UpdateExpression: 'SET #title = :title',
+        ExpressionAttributeNames: {
+          '#title': 'title',
+        },
         ExpressionAttributeValues: {
           ':title': title,
         },
@@ -293,7 +265,7 @@ export class TenantRepository {
     return;
   }
 
-  async deleteChat(_userId: string, _chatId: string): Promise<void> {
+  async deleteChat(_userId, _chatId) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     
@@ -304,35 +276,37 @@ export class TenantRepository {
       new DeleteCommand({
         TableName: this.getTableName(),
         Key: {
-          id: chatItem?.id,
-          createdDate: chatItem?.createdDate,
+          id: userId,
+          createdDate: chatItem.createdDate,
         },
       })
     );
 
-    await dynamoDbDocument.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [this.getTableName()]: messageItems.map((m) => {
-            return {
-              DeleteRequest: {
-                Key: {
-                  id: m.id,
-                  createdDate: m.createdDate,
+    if (messageItems.length > 0) {
+      await dynamoDbDocument.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [this.getTableName()]: messageItems.map((item) => {
+              return {
+                DeleteRequest: {
+                  Key: {
+                    id: userId,
+                    createdDate: item.createdDate,
+                  },
                 },
-              },
-            };
-          }),
-        },
-      })
-    );
+              };
+            }),
+          },
+        })
+      );
+    }
   }
 
   // Token usage stats methods
-  private async updateTokenUsage(items: any[]): Promise<void> {
+  async updateTokenUsage(items) {
     const today = new Date();
     const dateStr = today.toISOString().split('T')[0];
-    const modelUsageUpdates: { [model: string]: { input: number; output: number } } = {};
+    const modelUsageUpdates = {};
 
     // Aggregate token counts by model
     items.forEach((item) => {
@@ -345,40 +319,241 @@ export class TenantRepository {
       }
     });
 
-    // Update stats table for each model
+    // Update stats for each model
     for (const [model, usage] of Object.entries(modelUsageUpdates)) {
+      await this.updateModelUsage(dateStr, model, usage);
+    }
+  }
+
+  async updateModelUsage(dateStr, model, usage) {
+    const statsId = `stats#${dateStr}`;
+    const modelKey = `model#${model}`;
+
+    try {
+      // Try to update existing record
       await dynamoDbDocument.send(
         new UpdateCommand({
           TableName: this.getStatsTableName(),
           Key: {
-            id: `stats#${dateStr}`,
-            model: model,
+            id: statsId,
+            sortKey: modelKey,
           },
-          UpdateExpression: 
-            'SET #date = :date, #month = :month ' +
-            'ADD inputTokens :inputTokens, outputTokens :outputTokens, totalTokens :totalTokens',
+          UpdateExpression: 'ADD #inputTokens :inputTokens, #outputTokens :outputTokens',
           ExpressionAttributeNames: {
-            '#date': 'date',
-            '#month': 'month',
+            '#inputTokens': 'inputTokens',
+            '#outputTokens': 'outputTokens',
           },
           ExpressionAttributeValues: {
-            ':date': dateStr,
-            ':month': dateStr.substring(0, 7),
             ':inputTokens': usage.input,
             ':outputTokens': usage.output,
-            ':totalTokens': usage.input + usage.output,
           },
         })
       );
+    } catch (error) {
+      // If record doesn't exist, create it
+      if (error.name === 'ValidationException') {
+        await dynamoDbDocument.send(
+          new PutCommand({
+            TableName: this.getStatsTableName(),
+            Item: {
+              id: statsId,
+              sortKey: modelKey,
+              date: dateStr,
+              model: model,
+              inputTokens: usage.input,
+              outputTokens: usage.output,
+              totalTokens: usage.input + usage.output,
+            },
+          })
+        );
+      } else {
+        throw error;
+      }
     }
   }
 
-  // Add other methods as needed...
-}
+  async getTokenUsageStats(startDate, endDate) {
+    const results = [];
+    const currentDate = new Date(startDate);
+    const endDateObj = new Date(endDate);
 
-/**
- * Factory function to create a repository instance
- */
-export const createTenantRepository = (event: APIGatewayProxyEvent): TenantRepository => {
-  return new TenantRepository(event);
-};
+    while (currentDate <= endDateObj) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const statsId = `stats#${dateStr}`;
+
+      const res = await dynamoDbDocument.send(
+        new QueryCommand({
+          TableName: this.getStatsTableName(),
+          KeyConditionExpression: '#id = :id',
+          ExpressionAttributeNames: {
+            '#id': 'id',
+          },
+          ExpressionAttributeValues: {
+            ':id': statsId,
+          },
+        })
+      );
+
+      if (res.Items && res.Items.length > 0) {
+        results.push(...res.Items);
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return results;
+  }
+
+  // Share functionality
+  async createShareId(_userId, chatId) {
+    const userId = `user#${_userId}`;
+    const res = await this.findMessagesByChatId(_userId, chatId);
+    const shareId = crypto.randomUUID();
+
+    const items = [
+      // Share metadata
+      {
+        id: `share#${shareId}`,
+        chatId,
+        userId,
+        createdDate: String(Date.now()),
+        messages: JSON.stringify(res),
+      },
+    ];
+
+    await dynamoDbDocument.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [this.getTableName()]: items.map((item) => ({
+            PutRequest: {
+              Item: item,
+            },
+          })),
+        },
+      })
+    );
+
+    return {
+      shareId,
+    };
+  }
+
+  async findShareById(shareId) {
+    const res = await dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        KeyConditionExpression: '#id = :id',
+        ExpressionAttributeNames: {
+          '#id': 'id',
+        },
+        ExpressionAttributeValues: {
+          ':id': `share#${shareId}`,
+        },
+      })
+    );
+
+    const share = res.Items ? res.Items[0] : null;
+    if (!share) {
+      return null;
+    }
+
+    const userIdFromShareData = share.userId;
+    const userPK = `user#${userIdFromShareData}`;
+    
+    const userRes = await dynamoDbDocument.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [this.getTableName()]: {
+            Keys: [
+              {
+                id: userPK,
+                createdDate: share.chatId.split('#')[1],
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    const chat = userRes.Responses[this.getTableName()][0];
+    return {
+      shareId: share.id,
+      chatId: share.chatId,
+      userId: share.userId,
+      createdDate: share.createdDate,
+      messages: JSON.parse(share.messages),
+      title: chat?.title || '',
+    };
+  }
+
+  // System context
+  async findSystemContextById(_userId, systemContextId) {
+    const userId = `user#${_userId}`;
+    const res = await dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        KeyConditionExpression: '#id = :id',
+        FilterExpression: '#chatId = :chatId',
+        ExpressionAttributeNames: {
+          '#id': 'id',
+          '#chatId': 'chatId',
+        },
+        ExpressionAttributeValues: {
+          ':id': userId,
+          ':chatId': systemContextId,
+        },
+      })
+    );
+
+    const systemContext = res.Items ? res.Items[0] : null;
+    if (!systemContext) {
+      return null;
+    }
+    return systemContext;
+  }
+
+  async createSystemContext(_userId, systemContext) {
+    const userId = `user#${_userId}`;
+    const systemContextId = `systemContext#${crypto.randomUUID()}`;
+    const item = {
+      id: userId,
+      createdDate: `${Date.now()}`,
+      chatId: systemContextId,
+      systemContext: systemContext.systemContext,
+      systemContextTitle: systemContext.systemContextTitle,
+    };
+
+    await dynamoDbDocument.send(
+      new PutCommand({
+        TableName: this.getTableName(),
+        Item: item,
+      })
+    );
+
+    return {
+      systemContext: item.systemContext,
+      systemContextId: item.chatId,
+      systemContextTitle: item.systemContextTitle,
+    };
+  }
+
+  async deleteSystemContext(_userId, systemContextId) {
+    const userId = `user#${_userId}`;
+    const systemContext = await this.findSystemContextById(
+      _userId,
+      systemContextId
+    );
+    if (!systemContext) {
+      throw new Error('System context not found');
+    }
+    await dynamoDbDocument.send(
+      new DeleteCommand({
+        TableName: this.getTableName(),
+        Key: {
+          id: userId,
+          createdDate: systemContext.createdDate,
+        },
+      })
+    );
+  }
+}
