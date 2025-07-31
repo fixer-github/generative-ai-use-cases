@@ -1,12 +1,12 @@
 import { Construct } from 'constructs';
 import {
   Role,
-  WebIdentityPrincipal,
   PolicyStatement,
   Effect,
-  FederatedPrincipal,
+  PolicyDocument,
+  PrincipalBase,
 } from 'aws-cdk-lib/aws-iam';
-import { Stack, CfnJson } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 
 export interface MultiTenantRoleProps {
@@ -31,96 +31,90 @@ export class MultiTenantRole extends Construct {
       resourceName: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
     });
 
-    // Create CfnJson to handle dynamic condition keys
-    const trustConditions = new CfnJson(this, 'TrustConditions', {
-      value: {
+    // Create custom principal with tag mapping
+    const principal = new PrincipalBase() as any;
+    principal.federated = oidcProviderArn;
+    principal.conditions = {
+      StringEquals: {
         [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
           props.userPoolClient.userPoolClientId,
         [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
           'authenticated',
       },
+    };
+    principal.assumeRoleAction = 'sts:AssumeRoleWithWebIdentity';
+
+    // Create trust policy that maps JWT claims to session tags
+    const trustPolicy = new PolicyDocument({
+      statements: [
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          principals: [principal],
+          actions: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
+          conditions: {
+            StringEquals: {
+              [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]:
+                props.userPoolClient.userPoolClientId,
+              [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:amr`]:
+                'authenticated',
+            },
+          },
+        }),
+      ],
     });
 
-    // Create the single role for multi-tenant access
+    // Create the single role for multi-tenant access with tag-based ABAC
     this.role = new Role(this, 'MultiTenantAccessRole', {
       roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
-      assumedBy: new FederatedPrincipal(
-        oidcProviderArn,
-        {
-          StringEquals: trustConditions,
-        },
-        'sts:AssumeRoleWithWebIdentity'
-      ),
+      assumedBy: principal,
+      inlinePolicies: {
+        AssumeRolePolicy: trustPolicy,
+      },
       description:
-        'Single role for multi-tenant resource access with dynamic tenant ID',
+        'Single role for multi-tenant resource access with tag-based ABAC',
     });
 
-    // Zero-trust approach: No session tagging needed
-    // All tenant isolation is handled at the application layer
+    // Add tag mapping to the trust relationship
+    // This maps the tenant ID from JWT claims to a session tag
+    const trustRelationship = this.role.assumeRolePolicy!;
+    trustRelationship.addStatements(
+      new PolicyStatement({
+        sid: 'AllowPassSessionTagsFromJWT',
+        effect: Effect.ALLOW,
+        principals: [principal],
+        actions: ['sts:TagSession'],
+        conditions: {
+          StringLike: {
+            'aws:RequestTag/TenantID': '*',
+          },
+        },
+      })
+    );
 
-    // NOTE: PrincipalTag-based policies require session tags to be set during AssumeRoleWithWebIdentity.
-    // This requires configuring Cognito to include tags in the JWT token with the claim key
-    // "https://aws.amazon.com/tags" and mapping them in the trust policy.
-    // 
-    // For now, tenant isolation is handled at the Lambda function level by:
-    // 1. Extracting tenant ID from JWT claims (custom:tenant_id)
-    // 2. Using the tenant ID to construct tenant-specific resource names
-    // 3. Granting broad permissions here and relying on application-level isolation
-    //
-    // TODO: To enable true ABAC with PrincipalTag/TenantID:
-    // 1. Configure Cognito to include tenant ID in the tags claim
-    // 2. Update the trust policy to map the tags
-    // 3. Uncomment the policies below
-
-    // // Add S3 access policy for tenant-specific buckets
-    // // Assumes bucket naming pattern: <prefix>-tenant-<tenant-id>
-    // this.role.addToPolicy(
-    //   new PolicyStatement({
-    //     effect: Effect.ALLOW,
-    //     actions: [
-    //       's3:GetObject',
-    //       's3:PutObject',
-    //       's3:DeleteObject',
-    //       's3:ListBucket',
-    //     ],
-    //     resources: [
-    //       // Bucket-level permissions
-    //       `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}`,
-    //       // Object-level permissions
-    //       `arn:aws:s3:::*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
-    //     ],
-    //   })
-    // );
-
-    // // Add DynamoDB access policy for tenant-specific tables
-    // // Assumes table naming pattern: <prefix>-tenant-<tenant-id>
-    // this.role.addToPolicy(
-    //   new PolicyStatement({
-    //     effect: Effect.ALLOW,
-    //     actions: [
-    //       'dynamodb:GetItem',
-    //       'dynamodb:PutItem',
-    //       'dynamodb:UpdateItem',
-    //       'dynamodb:DeleteItem',
-    //       'dynamodb:Query',
-    //       'dynamodb:Scan',
-    //       'dynamodb:BatchGetItem',
-    //       'dynamodb:BatchWriteItem',
-    //       'dynamodb:DescribeTable',
-    //       'dynamodb:DescribeTimeToLive',
-    //     ],
-    //     resources: [
-    //       // Allow access to tables with tenant-specific naming pattern
-    //       `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}`,
-    //       `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-$\{aws:PrincipalTag/TenantID}/*`,
-    //     ],
-    //   })
-    // );
-
-    // For now, grant broader permissions to all tenant tables
-    // The actual tenant isolation happens in the Lambda functions
+    // Add S3 access policy for tenant-specific buckets using PrincipalTag
     this.role.addToPolicy(
       new PolicyStatement({
+        sid: 'S3TenantAccess',
+        effect: Effect.ALLOW,
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:DeleteObject',
+          's3:ListBucket',
+        ],
+        resources: [
+          // Bucket-level permissions
+          `arn:aws:s3:::*-tenant-\${aws:PrincipalTag/TenantID}`,
+          // Object-level permissions
+          `arn:aws:s3:::*-tenant-\${aws:PrincipalTag/TenantID}/*`,
+        ],
+      })
+    );
+
+    // Add DynamoDB access policy for tenant-specific tables using PrincipalTag
+    this.role.addToPolicy(
+      new PolicyStatement({
+        sid: 'DynamoDBTenantAccess',
         effect: Effect.ALLOW,
         actions: [
           'dynamodb:GetItem',
@@ -135,9 +129,40 @@ export class MultiTenantRole extends Construct {
           'dynamodb:DescribeTimeToLive',
         ],
         resources: [
-          // Allow access to all tenant-specific tables
-          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*`,
-          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*/index/*`,
+          // Allow access to tables with tenant-specific naming pattern
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-\${aws:PrincipalTag/TenantID}`,
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-\${aws:PrincipalTag/TenantID}/index/*`,
+        ],
+      })
+    );
+
+    // Add a condition to ensure TenantID tag is always present
+    this.role.addToPolicy(
+      new PolicyStatement({
+        sid: 'DenyAccessWithoutTenantTag',
+        effect: Effect.DENY,
+        actions: ['*'],
+        resources: ['*'],
+        conditions: {
+          'Null': {
+            'aws:PrincipalTag/TenantID': 'true',
+          },
+        },
+      })
+    );
+
+    // Add CloudWatch Logs access for debugging
+    this.role.addToPolicy(
+      new PolicyStatement({
+        sid: 'CloudWatchLogsAccess',
+        effect: Effect.ALLOW,
+        actions: [
+          'logs:CreateLogGroup',
+          'logs:CreateLogStream',
+          'logs:PutLogEvents',
+        ],
+        resources: [
+          `arn:aws:logs:${props.region}:${props.account}:log-group:/aws/lambda/*`,
         ],
       })
     );
