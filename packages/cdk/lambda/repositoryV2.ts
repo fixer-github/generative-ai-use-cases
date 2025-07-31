@@ -1,13 +1,18 @@
+import {
+  Chat,
+  RecordedMessage,
+  ToBeRecordedMessage,
+  UpdateFeedbackRequest,
+  ListChatsResponse,
+} from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  BatchGetCommand,
   BatchWriteCommand,
   DeleteCommand,
   DynamoDBDocumentClient,
   PutCommand,
   QueryCommand,
-  TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { getTenantId, getTenantTableName } from './utils/tenantUtils';
@@ -121,20 +126,6 @@ export class TenantRepository {
           return item.chatId.startsWith('chat#');
         })
       : [];
-    const systemContexts = res.Items
-      ? res.Items.filter((item) => {
-          return item.chatId.startsWith('systemContext#');
-        }).map((item) => {
-          return {
-            id: item.id,
-            createdDate: item.createdDate,
-            systemContextId: item.chatId,
-            systemContext: item.systemContext,
-            systemContextTitle: item.systemContextTitle,
-          } as SystemContext;
-        })
-      : [];
-
     // Return in the format of ListChatsResponse (Pagination<Chat>)
     return {
       data: chats,
@@ -244,7 +235,7 @@ export class TenantRepository {
   async updateFeedback(_userId, _messageId, feedback) {
     const userId = `user#${_userId}`;
     
-    const res = await dynamoDbDocument.send(
+    await dynamoDbDocument.send(
       new UpdateCommand({
         TableName: this.getTableName(),
         Key: {
@@ -260,15 +251,13 @@ export class TenantRepository {
         },
       })
     );
-    
-    return;
   }
 
   async updateTitle(_userId, _chatId, title) {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     
-    const res = await dynamoDbDocument.send(
+    await dynamoDbDocument.send(
       new UpdateCommand({
         TableName: this.getTableName(),
         Key: {
@@ -284,11 +273,9 @@ export class TenantRepository {
         },
       })
     );
-    
-    return;
   }
 
-  async deleteChat(_userId, _chatId) {
+  async deleteChat(_userId: string, _chatId: string): Promise<void> {
     const userId = `user#${_userId}`;
     const chatId = `chat#${_chatId}`;
     

@@ -1,3 +1,4 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   STSClient,
   AssumeRoleWithWebIdentityCommand,
@@ -5,7 +6,9 @@ import {
 
 const stsClient = new STSClient({});
 
-export const handler = async (event) => {
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   try {
     const token = event.headers['Authorization'];
     if (!token) {
