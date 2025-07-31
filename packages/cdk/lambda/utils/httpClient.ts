@@ -1,76 +1,66 @@
-class HttpClient {
-  private readonly baseAddress: string;
-  public Headers: Record<string, string>;
-
-  constructor(baseAddress: string, headers?: Record<string, string>) {
-    this.baseAddress = baseAddress;
-    this.Headers = headers ?? {};
-
-    this.Headers['Content-Type'] = 'application/json';
-  }
-
-  private async parseResponseAsync<TResponse>(
-    response: Response
-  ): Promise<TResponse> {
-    const body = await response.text();
-    const parsedResponse: TResponse = JSON.parse(body);
-
-    return parsedResponse;
-  }
-
-  async PostAsync<TRequest, TResponse>(
-    endPoint: string,
-    request: TRequest
-  ): Promise<TResponse> {
-    const body = JSON.stringify(request);
-
-    const response = await fetch(`${this.baseAddress}/${endPoint}`, {
-      method: 'POST',
-      headers: this.Headers,
-      body: body,
-    });
-
-    return this.parseResponseAsync<TResponse>(response);
-  }
-
-  async GetAsync<TResponse>(endPoint: string): Promise<TResponse> {
-    const response = await fetch(`${this.baseAddress}/${endPoint}`, {
-      method: 'GET',
-      headers: this.Headers,
-    });
-
-    return this.parseResponseAsync<TResponse>(response);
-  }
-
-  async PutAsync<TRequest, TResponse>(
-    endPoint: string,
-    request: TRequest
-  ): Promise<TResponse> {
-    const body = JSON.stringify(request);
-
-    const response = await fetch(`${this.baseAddress}/${endPoint}`, {
-      method: 'PUT',
-      headers: this.Headers,
-      body: body,
-    });
-
-    return this.parseResponseAsync<TResponse>(response);
-  }
-
-  async DeleteAsync<TRequest, TResponse>(
-    endPoint: string,
-    request: TRequest
-  ): Promise<TResponse> {
-    const body = JSON.stringify(request);
-
-    const response = await fetch(`${this.baseAddress}/${endPoint}`, {
-      method: 'DELETE',
-      headers: this.Headers,
-      body: body,
-    });
-
-    return this.parseResponseAsync<TResponse>(response);
-  }
+async function parseResponseAsync<TResponse>(
+  response: Response
+): Promise<TResponse> {
+  const text = await response.text();
+  return JSON.parse(text);
 }
 
-export default HttpClient;
+export async function httpPostAsync<TRequest, TResponse>(
+  url: string,
+  request: TRequest,
+  headers: Record<string, string> = {}
+): Promise<TResponse> {
+  const body = JSON.stringify(request);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: headers,
+    body: body,
+  });
+
+  return await parseResponseAsync(response);
+}
+
+export async function httpGetAsync<TResponse>(
+  url: string,
+  headers: Record<string, string>
+): Promise<TResponse> {
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: headers,
+  });
+
+  return await parseResponseAsync(response);
+}
+
+export async function httpPutAsync<TRequest, TResponse>(
+  url: string,
+  request: TRequest,
+  headers: Record<string, string> = {}
+): Promise<TResponse> {
+  const body = JSON.stringify(request);
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: headers,
+    body: body,
+  });
+
+  return await parseResponseAsync(response);
+}
+
+export async function httpDeleteAsync<TRequest, TResponse>(
+  url: string,
+  request: TRequest,
+  headers: Record<string, string> = {}
+): Promise<TResponse> {
+  const body = JSON.stringify(request);
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: headers,
+    body: body,
+  });
+
+  return await parseResponseAsync(response);
+}
