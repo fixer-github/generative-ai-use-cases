@@ -1,12 +1,25 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { TenantDynamoDB } from '../../construct/tenant-dynamodb';
 
 export interface TenantDynamoDBStackProps extends cdk.StackProps {
   /**
    * The tenant identifier
    */
-  readonly tenantId: string;
+  readonly tenantId?: string;
+
+  /**
+   * Base name for the chat history table
+   * @default 'ChatHistory'
+   */
+  readonly chatHistoryTableBaseName?: string;
+
+  /**
+   * Base name for the token usage stats table
+   * @default 'TokenUsageStats'
+   */
+  readonly tokenUsageStatsTableBaseName?: string;
 
   /**
    * Description for the stack
@@ -38,112 +51,76 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
  */
 export class TenantDynamoDBStack extends cdk.Stack {
   /**
+   * The tenant DynamoDB construct
+   */
+  public readonly tenantDynamoDB: TenantDynamoDB;
+
+  /**
    * The chat history table for the tenant
    */
-  public readonly chatHistoryTable: dynamodb.Table;
+  public get chatHistoryTable(): dynamodb.Table {
+    return this.tenantDynamoDB.chatHistoryTable;
+  }
 
   /**
    * The token usage statistics table for the tenant
    */
-  public readonly tokenUsageStatsTable: dynamodb.Table;
+  public get tokenUsageStatsTable(): dynamodb.Table {
+    return this.tenantDynamoDB.tokenUsageStatsTable;
+  }
 
-  constructor(scope: Construct, id: string, props: TenantDynamoDBStackProps) {
+  constructor(scope: Construct, id: string, props?: TenantDynamoDBStackProps) {
     super(scope, id, props);
 
-    const { tenantId } = props;
+    // Create parameter if tenant ID not provided
+    const tenantId = props?.tenantId || new cdk.CfnParameter(this, 'TenantId', {
+      description: 'The tenant identifier for the DynamoDB tables',
+      type: 'String',
+      allowedPattern: '^[a-zA-Z0-9-]+$',
+      constraintDescription: 'Tenant ID must contain only alphanumeric characters and hyphens',
+    }).valueAsString;
 
-    // Validate tenant ID
-    if (!tenantId || tenantId.trim() === '') {
-      throw new Error('Tenant ID is required');
-    }
-
-    // Sanitize tenant ID for use in resource names
-    const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
-
-    // Chat History Table
-    this.chatHistoryTable = new dynamodb.Table(this, 'ChatHistoryTable', {
-      tableName: `ChatHistory-tenant-${sanitizedTenantId}`,
-      partitionKey: {
-        name: 'id',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdDate',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecovery: props.pointInTimeRecovery !== false,
-      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+    // Create the tenant DynamoDB construct
+    this.tenantDynamoDB = new TenantDynamoDB(this, 'TenantDynamoDB', {
+      tenantId,
+      chatHistoryTableBaseName: props?.chatHistoryTableBaseName,
+      tokenUsageStatsTableBaseName: props?.tokenUsageStatsTableBaseName,
+      billingMode: props?.billingMode,
+      pointInTimeRecovery: props?.pointInTimeRecovery,
+      removalPolicy: props?.removalPolicy,
     });
 
-    // Add feedback index
-    this.chatHistoryTable.addGlobalSecondaryIndex({
-      indexName: 'FeedbackIndex',
-      partitionKey: {
-        name: 'feedback',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Token Usage Stats Table
-    this.tokenUsageStatsTable = new dynamodb.Table(this, 'TokenUsageStatsTable', {
-      tableName: `TokenUsageStats-tenant-${sanitizedTenantId}`,
-      partitionKey: {
-        name: 'id',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecovery: props.pointInTimeRecovery !== false,
-      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-    });
-
-    // Add month index for usage stats
-    this.tokenUsageStatsTable.addGlobalSecondaryIndex({
-      indexName: 'MonthIndex',
-      partitionKey: {
-        name: 'month',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Output table ARNs
-    new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
-      value: this.chatHistoryTable.tableArn,
+    // Add stack-level outputs with export names
+    new cdk.CfnOutput(this, 'StackChatHistoryTableArn', {
+      value: this.tenantDynamoDB.chatHistoryTable.tableArn,
       description: `ARN of the chat history table for tenant ${tenantId}`,
       exportName: `${this.stackName}-ChatHistoryTableArn`,
     });
 
-    new cdk.CfnOutput(this, 'TokenUsageStatsTableArn', {
-      value: this.tokenUsageStatsTable.tableArn,
+    new cdk.CfnOutput(this, 'StackTokenUsageStatsTableArn', {
+      value: this.tenantDynamoDB.tokenUsageStatsTable.tableArn,
       description: `ARN of the token usage stats table for tenant ${tenantId}`,
       exportName: `${this.stackName}-TokenUsageStatsTableArn`,
     });
 
-    // Output table names
-    new cdk.CfnOutput(this, 'ChatHistoryTableName', {
-      value: this.chatHistoryTable.tableName,
+    new cdk.CfnOutput(this, 'StackChatHistoryTableName', {
+      value: this.tenantDynamoDB.chatHistoryTable.tableName,
       description: `Name of the chat history table for tenant ${tenantId}`,
       exportName: `${this.stackName}-ChatHistoryTableName`,
     });
 
-    new cdk.CfnOutput(this, 'TokenUsageStatsTableName', {
-      value: this.tokenUsageStatsTable.tableName,
+    new cdk.CfnOutput(this, 'StackTokenUsageStatsTableName', {
+      value: this.tenantDynamoDB.tokenUsageStatsTable.tableName,
       description: `Name of the token usage stats table for tenant ${tenantId}`,
       exportName: `${this.stackName}-TokenUsageStatsTableName`,
     });
 
     // Add tags
-    cdk.Tags.of(this).add('TenantId', tenantId);
+    cdk.Tags.of(this).add('TenantId', tenantId.toString());
     cdk.Tags.of(this).add('Purpose', 'TenantDynamoDBTables');
+
+    // Set stack description
+    this.templateOptions.description = props?.description || 
+      'Creates tenant-specific DynamoDB tables for multi-tenant application';
   }
 }

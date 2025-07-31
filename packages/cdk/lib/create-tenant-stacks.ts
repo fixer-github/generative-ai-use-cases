@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { TenantIamRoleStack } from './stacks/tenant/tenant-iam-role-stack';
+import { TenantDynamoDBStack } from './stacks/tenant/tenant-dynamodb-stack';
 
 export interface TenantStackInput {
   account?: string;
@@ -28,7 +29,21 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     }
   );
 
+  // Tenant DynamoDB Stack
+  const tenantDynamoDBStack = new TenantDynamoDBStack(
+    app,
+    `TenantDynamoDBStack-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+    }
+  );
+
   return {
     tenantIamRoleStack,
+    tenantDynamoDBStack,
   };
 };
