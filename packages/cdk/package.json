@@ -9,6 +9,7 @@
     "cdk": "cdk",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
+    "provision-tenant": "ts-node scripts/provision-tenant.ts",
     "postinstall": "npm ci --prefix custom-resources"
   },
   "devDependencies": {

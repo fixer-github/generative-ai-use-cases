@@ -29,6 +29,7 @@ import {
 } from '@generative-ai-use-cases/common';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { TenantManagement } from './tenant-management';
 
 export interface BackendApiProps {
   // Context Params
@@ -1078,6 +1079,13 @@ export class Api extends Construct {
       new LambdaIntegration(getTokenUsageFunction),
       commonAuthorizerProps
     );
+
+    // Add tenant management endpoints
+    new TenantManagement(this, 'TenantManagement', {
+      api,
+      userPool,
+      authorizer,
+    });
 
     this.api = api;
     this.predictStreamFunction = predictStreamFunction;
