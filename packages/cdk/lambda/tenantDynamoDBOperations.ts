@@ -61,25 +61,20 @@ export const handler = async (
 
     const dynamoClient = await getDynamoDBClientForTenant(token);
     const operation = event.pathParameters?.operation;
-    const tableName = process.env.TABLE_NAME!;
+    const tablePrefix = process.env.TABLE_PREFIX || 'chats';
     
     // Extract tenant ID from the token claims
     const tenantId = event.requestContext.authorizer?.claims?.['custom:tenantId'] || 'default';
+    const tableName = `${tablePrefix}-tenant-${tenantId}`;
 
     switch (operation) {
       case 'query': {
         const { keyConditionExpression, expressionAttributeValues, expressionAttributeNames } = JSON.parse(event.body || '{}');
         
-        // Add tenant ID to the query
-        const enhancedValues = {
-          ...expressionAttributeValues,
-          ':tenantId': { S: tenantId },
-        };
-        
         const command = new QueryCommand({
           TableName: tableName,
-          KeyConditionExpression: `tenantId = :tenantId${keyConditionExpression ? ` AND ${keyConditionExpression}` : ''}`,
-          ExpressionAttributeValues: enhancedValues,
+          KeyConditionExpression: keyConditionExpression,
+          ExpressionAttributeValues: expressionAttributeValues,
           ExpressionAttributeNames: expressionAttributeNames,
         });
         
@@ -101,20 +96,10 @@ export const handler = async (
       case 'scan': {
         const { filterExpression, expressionAttributeValues, expressionAttributeNames } = JSON.parse(event.body || '{}');
         
-        // Add tenant ID to the filter
-        const enhancedValues = {
-          ...expressionAttributeValues,
-          ':tenantId': { S: tenantId },
-        };
-        
-        const enhancedFilter = filterExpression 
-          ? `tenantId = :tenantId AND ${filterExpression}`
-          : 'tenantId = :tenantId';
-        
         const command = new ScanCommand({
           TableName: tableName,
-          FilterExpression: enhancedFilter,
-          ExpressionAttributeValues: enhancedValues,
+          FilterExpression: filterExpression,
+          ExpressionAttributeValues: expressionAttributeValues,
           ExpressionAttributeNames: expressionAttributeNames,
         });
         
@@ -148,7 +133,7 @@ export const handler = async (
 
         const command = new GetItemCommand({
           TableName: tableName,
-          Key: marshall({ ...key, tenantId }),
+          Key: marshall(key),
         });
         
         const response = await dynamoClient.send(command);
@@ -178,12 +163,9 @@ export const handler = async (
           };
         }
 
-        // Add tenant ID to the item
-        const itemWithTenant = { ...item, tenantId };
-
         const command = new PutItemCommand({
           TableName: tableName,
-          Item: marshall(itemWithTenant),
+          Item: marshall(item),
         });
         
         await dynamoClient.send(command);
@@ -213,7 +195,7 @@ export const handler = async (
 
         const command = new UpdateItemCommand({
           TableName: tableName,
-          Key: marshall({ ...key, tenantId }),
+          Key: marshall(key),
           UpdateExpression: updateExpression,
           ExpressionAttributeValues: expressionAttributeValues ? marshall(expressionAttributeValues) : undefined,
           ExpressionAttributeNames: expressionAttributeNames,
@@ -246,7 +228,7 @@ export const handler = async (
 
         const command = new DeleteItemCommand({
           TableName: tableName,
-          Key: marshall({ ...key, tenantId }),
+          Key: marshall(key),
         });
         
         await dynamoClient.send(command);

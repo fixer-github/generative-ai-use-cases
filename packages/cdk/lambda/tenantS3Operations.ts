@@ -59,16 +59,15 @@ export const handler = async (
 
     const s3Client = await getS3ClientForTenant(token);
     const operation = event.pathParameters?.operation;
-    const bucketName = process.env.BUCKET_NAME!;
+    const bucketPrefix = process.env.BUCKET_PREFIX || 'files';
     
     // Extract tenant ID from the token claims
-    // In a real implementation, you would decode the JWT to get the tenant ID
-    // For now, we'll use a placeholder
     const tenantId = event.requestContext.authorizer?.claims?.['custom:tenantId'] || 'default';
-    const prefix = `tenant/${tenantId}/`;
+    const bucketName = `${bucketPrefix}-tenant-${tenantId}`;
 
     switch (operation) {
       case 'list': {
+        const prefix = event.queryStringParameters?.prefix || '';
         const command = new ListObjectsV2Command({
           Bucket: bucketName,
           Prefix: prefix,
@@ -83,7 +82,7 @@ export const handler = async (
           },
           body: JSON.stringify({
             objects: response.Contents?.map(obj => ({
-              key: obj.Key?.replace(prefix, ''),
+              key: obj.Key,
               size: obj.Size,
               lastModified: obj.LastModified,
             })) || [],
@@ -106,7 +105,7 @@ export const handler = async (
 
         const command = new PutObjectCommand({
           Bucket: bucketName,
-          Key: `${prefix}${key}`,
+          Key: key,
           ContentType: contentType,
         });
 
@@ -137,7 +136,7 @@ export const handler = async (
 
         const command = new GetObjectCommand({
           Bucket: bucketName,
-          Key: `${prefix}${key}`,
+          Key: key,
         });
 
         const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
@@ -167,7 +166,7 @@ export const handler = async (
 
         const command = new DeleteObjectCommand({
           Bucket: bucketName,
-          Key: `${prefix}${key}`,
+          Key: key,
         });
 
         await s3Client.send(command);
