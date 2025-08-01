@@ -1,36 +1,37 @@
 import {
-  ConverseInferenceParams,
+  ApiInterface,
+  GenerateImageParams,
+  GenerateVideoParams,
   Model,
   UnrecordedMessage,
-  UsecaseConverseInferenceParams,
 } from 'generative-ai-use-cases';
 
-class NotImplementedError extends Error {
-  constructor() {
-    super('Not implemented');
-  }
-}
-
-export const Invoke = async (
-  model: Model,
-  messages: UnrecordedMessage[],
-  id: string
-): Promise<string> => {
-  throw new NotImplementedError();
+const liteLlmClient: ApiInterface = {
+  invoke: async function (
+    model: Model,
+    messages: UnrecordedMessage[],
+    id: string
+  ): Promise<string> {
+    throw new Error('Function not implemented.');
+  },
+  invokeStream: function (
+    model: Model,
+    messages: UnrecordedMessage[],
+    id: string,
+    idToken?: string | undefined
+  ): AsyncIterable<string> {
+    throw new Error('Function not implemented.');
+  },
+  generateImage: function (
+    model: Model,
+    params: GenerateImageParams
+  ): Promise<string> {
+    throw new Error('Function not implemented.');
+  },
+  generateVideo: function (
+    model: Model,
+    params: GenerateVideoParams
+  ): Promise<string> {
+    throw new Error('Function not implemented.');
+  },
 };
-
-async function CreateConverseCommandInput(
-  messages: UnrecordedMessage[],
-  id: string,
-  model: Model,
-  defaultConverseInferenceParams: ConverseInferenceParams,
-  usecaseConverseInferenceParams: UsecaseConverseInferenceParams
-) {
-  throw new NotImplementedError();
-}
-
-class LiteLlmClient {
-  constructor() {
-    //
-  }
-}

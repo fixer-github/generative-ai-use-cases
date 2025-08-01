@@ -2,7 +2,7 @@ import { defineConfig } from 'orval';
 
 export default defineConfig({
   litellm: {
-    input: 'https://litellm-api.up.railway.app/openapi.json',
+    input: './lambda/utils/liteLlm/openai_openapi.yml',
     output: {
       mode: 'tags-split',
       target: './lambda/utils/liteLlm',
