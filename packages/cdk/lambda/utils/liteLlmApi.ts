@@ -42,7 +42,7 @@ const convertFinishReason = (
   }
 };
 
-const liteLlmClient: ApiInterface = {
+const liteLlmApi: ApiInterface = {
   invoke: async function (
     model: Model,
     messages: UnrecordedMessage[],
@@ -107,3 +107,5 @@ const liteLlmClient: ApiInterface = {
     throw new Error('Function not implemented.');
   },
 };
+
+export default liteLlmApi;
