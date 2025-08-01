@@ -769,7 +769,7 @@ export class Api extends Construct {
         timeout: Duration.minutes(5),
         environment: {
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          BUCKET_NAME: fileBucket.bucketName,
+          BUCKET_PREFIX: 'files',
         },
       }
     );
@@ -793,7 +793,7 @@ export class Api extends Construct {
         timeout: Duration.minutes(5),
         environment: {
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          TABLE_NAME: table.tableName,
+          TABLE_PREFIX: 'chats',
         },
       }
     );
