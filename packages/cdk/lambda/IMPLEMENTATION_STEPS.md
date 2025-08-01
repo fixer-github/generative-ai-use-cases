@@ -1,3 +1,22 @@
+# Multi-Tenant Implementation Guide
+
+## Recommended Approach: Unified Architecture
+
+This implementation combines the security of IAM-level isolation with the simplicity of normal API endpoints. Lambda functions automatically handle STS credentials internally, providing both security and ease of use.
+
+### Key Benefits:
+- **Frontend**: Uses normal API endpoints (no credential management)
+- **Security**: IAM enforces tenant boundaries at AWS level
+- **Performance**: Credential caching minimizes STS overhead
+- **Audit**: Full CloudTrail logging with tenant context
+
+### Implementation Files:
+- `utils/unifiedTenantClient.ts` - STS credential caching
+- `repositoryUnified.ts` - IAM-secured repository functions
+- `createChatUnified.ts` - Example handler implementation
+
+---
+
 # Multi-Tenant Implementation - Remaining Steps
 
 ## 1. Update CDK Infrastructure
