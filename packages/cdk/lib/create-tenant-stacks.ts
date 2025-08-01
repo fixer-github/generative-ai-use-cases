@@ -10,24 +10,32 @@ export interface TenantStackInput {
   audience?: string;
   tenantIdClaim?: string;
   roleName?: string;
+  createIamRole?: boolean;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
-  // Tenant IAM Role Stack
-  const tenantIamRoleStack = new TenantIamRoleStack(
-    app,
-    `TenantStack-${params.tenantId}`,
-    {
-      env: {
-        account: params.account,
-        region: params.region,
-      },
-      identityProviderArn: params.identityProviderArn,
-      audience: params.audience,
-      tenantIdClaim: params.tenantIdClaim,
-      roleName: params.roleName || `TenantRole-${params.tenantId}`,
-    }
-  );
+  // Default to true for backward compatibility
+  const shouldCreateIamRole = params.createIamRole !== false;
+
+  let tenantIamRoleStack: TenantIamRoleStack | undefined;
+
+  // Conditionally create Tenant IAM Role Stack
+  if (shouldCreateIamRole) {
+    tenantIamRoleStack = new TenantIamRoleStack(
+      app,
+      `TenantStack-${params.tenantId}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        identityProviderArn: params.identityProviderArn,
+        audience: params.audience,
+        tenantIdClaim: params.tenantIdClaim,
+        roleName: params.roleName || `TenantRole-${params.tenantId}`,
+      }
+    );
+  }
 
   // Tenant DynamoDB Stack
   const tenantDynamoDBStack = new TenantDynamoDBStack(
