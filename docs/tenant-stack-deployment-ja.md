@@ -69,7 +69,8 @@ packages/cdk/lib/
     "audience": "your-client-id",
     "tenantIdClaim": "custom:tenant_id",
     "tenantRegion": "us-east-1",
-    "roleName": "CustomTenantRole"
+    "roleName": "CustomTenantRole",
+    "createIamRole": true
   }
 }
 ```
@@ -90,18 +91,39 @@ npm run cdk:destroy:tenant
 ### 設定オプション
 
 - `tenantId`（必須）：テナントの一意の識別子
-- `identityProviderArn`（必須）：IDプロバイダー（Cognito User PoolまたはOIDCプロバイダー）のARN
-- `audience`（必須）：IDプロバイダーのオーディエンス/クライアントID
+- `identityProviderArn`（必須*）：IDプロバイダー（Cognito User PoolまたはOIDCプロバイダー）のARN - *`createIamRole`がtrueの場合のみ必須
+- `audience`（必須*）：IDプロバイダーのオーディエンス/クライアントID - *`createIamRole`がtrueの場合のみ必須
 - `tenantIdClaim`：テナントIDを含むJWTクレーム（デフォルト："custom:tenant_id"）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
 - `roleName`：カスタムロール名（デフォルト：TenantRole-{tenantId}）
+- `createIamRole`：IAMロールスタックを作成するかどうか（デフォルト：true）
 
 ## スタックの出力
 
 デプロイ後、スタックは以下を出力します：
 
-- **RoleArn**：作成されたIAMロールのARN
-- **RoleName**：作成されたIAMロールの名前
+- **RoleArn**：作成されたIAMロールのARN（`createIamRole`がtrueの場合のみ）
+- **RoleName**：作成されたIAMロールの名前（`createIamRole`がtrueの場合のみ）
+
+## DynamoDBスタックのみをデプロイする
+
+IAMロールを作成せずにDynamoDBスタックのみをデプロイするには、設定で`createIamRole`を`false`に設定します：
+
+```json
+{
+  "context": {
+    "tenantId": "tenant123",
+    "tenantRegion": "us-east-1",
+    "createIamRole": false
+  }
+}
+```
+
+これは以下の場合に便利です：
+
+- IAMロールが別途管理されている、またはすでに存在する場合
+- テナント固有のDynamoDBテーブルのみをプロビジョニングする必要がある場合
+- IAMロールが不要なテストまたは開発環境
 
 ## さらなるテナントスタックの追加
 

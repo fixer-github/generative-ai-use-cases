@@ -69,7 +69,8 @@ Configure tenant deployments by creating a `cdk.tenant.json` file:
     "audience": "your-client-id",
     "tenantIdClaim": "custom:tenant_id",
     "tenantRegion": "us-east-1",
-    "roleName": "CustomTenantRole"
+    "roleName": "CustomTenantRole",
+    "createIamRole": true
   }
 }
 ```
@@ -90,18 +91,39 @@ npm run cdk:destroy:tenant
 ### Configuration Options
 
 - `tenantId` (required): Unique identifier for the tenant
-- `identityProviderArn` (required): ARN of the identity provider (Cognito User Pool or OIDC provider)
-- `audience` (required): Audience/Client ID for the identity provider
+- `identityProviderArn` (required*): ARN of the identity provider (Cognito User Pool or OIDC provider) - *Required only when `createIamRole` is true
+- `audience` (required*): Audience/Client ID for the identity provider - *Required only when `createIamRole` is true
 - `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
 - `roleName`: Custom role name (default: TenantRole-{tenantId})
+- `createIamRole`: Whether to create the IAM role stack (default: true)
 
 ## Stack Outputs
 
 After deployment, the stack will output:
 
-- **RoleArn**: The ARN of the created IAM role
-- **RoleName**: The name of the created IAM role
+- **RoleArn**: The ARN of the created IAM role (only when `createIamRole` is true)
+- **RoleName**: The name of the created IAM role (only when `createIamRole` is true)
+
+## Deploying Only DynamoDB Stacks
+
+To deploy only the DynamoDB stacks without creating IAM roles, set `createIamRole` to `false` in your configuration:
+
+```json
+{
+  "context": {
+    "tenantId": "tenant123",
+    "tenantRegion": "us-east-1",
+    "createIamRole": false
+  }
+}
+```
+
+This is useful when:
+
+- IAM roles are managed separately or already exist
+- You only need to provision tenant-specific DynamoDB tables
+- Testing or development environments where IAM roles are not needed
 
 ## Adding More Tenant Stacks
 
