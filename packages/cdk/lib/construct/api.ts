@@ -759,6 +759,54 @@ export class Api extends Construct {
       })
     );
 
+    // Lambda function for S3 operations using STS
+    const tenantS3OperationsFunction = new NodejsFunction(
+      this,
+      'TenantS3Operations',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/tenantS3Operations.ts',
+        timeout: Duration.minutes(5),
+        environment: {
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          BUCKET_NAME: fileBucket.bucketName,
+        },
+      }
+    );
+    
+    // Grant permission to assume the multi-tenant role
+    tenantS3OperationsFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: [props.multiTenantRole.roleArn],
+      })
+    );
+
+    // Lambda function for DynamoDB operations using STS
+    const tenantDynamoDBOperationsFunction = new NodejsFunction(
+      this,
+      'TenantDynamoDBOperations',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/tenantDynamoDBOperations.ts',
+        timeout: Duration.minutes(5),
+        environment: {
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          TABLE_NAME: table.tableName,
+        },
+      }
+    );
+    
+    // Grant permission to assume the multi-tenant role
+    tenantDynamoDBOperationsFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: [props.multiTenantRole.roleArn],
+      })
+    );
+
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
       cognitoUserPools: [userPool],
@@ -803,6 +851,38 @@ export class Api extends Construct {
     assumeRoleResource.addMethod(
       'POST',
       new LambdaIntegration(assumeRoleForTenantFunction),
+      commonAuthorizerProps
+    );
+
+    // Tenant resource for multi-tenant operations
+    const tenantResource = api.root.addResource('tenant');
+    
+    // S3 operations
+    const s3Resource = tenantResource.addResource('s3');
+    const s3OperationResource = s3Resource.addResource('{operation}');
+    
+    // GET: /tenant/s3/{operation} (for list)
+    s3OperationResource.addMethod(
+      'GET',
+      new LambdaIntegration(tenantS3OperationsFunction),
+      commonAuthorizerProps
+    );
+    
+    // POST: /tenant/s3/{operation} (for upload-url, download-url, delete)
+    s3OperationResource.addMethod(
+      'POST',
+      new LambdaIntegration(tenantS3OperationsFunction),
+      commonAuthorizerProps
+    );
+    
+    // DynamoDB operations
+    const dynamoDBResource = tenantResource.addResource('dynamodb');
+    const dynamoDBOperationResource = dynamoDBResource.addResource('{operation}');
+    
+    // POST: /tenant/dynamodb/{operation} (for all operations)
+    dynamoDBOperationResource.addMethod(
+      'POST',
+      new LambdaIntegration(tenantDynamoDBOperationsFunction),
       commonAuthorizerProps
     );
 
