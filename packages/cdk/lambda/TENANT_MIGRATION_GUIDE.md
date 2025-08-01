@@ -11,30 +11,24 @@ The multi-tenant architecture creates separate DynamoDB tables for each tenant f
 
 ### 1. Update Repository Pattern
 
-Instead of directly updating all repository functions, we've created a new `TenantRepository` class that encapsulates tenant-specific logic.
+All repository functions in `repository.ts` have been updated to support tenant-specific tables.
 
-#### Old Pattern (repository.ts):
+#### Updated Pattern (repository.ts):
 ```typescript
 import { createChat, listChats } from './repository';
 
 export const handler = async (event: APIGatewayProxyEvent) => {
   const userId = event.requestContext.authorizer!.claims['cognito:username'];
-  const chat = await createChat(userId);
+  // The event parameter is now required for all repository functions
+  const chat = await createChat(userId, event);
   // ...
 };
 ```
 
-#### New Pattern (repositoryV2.ts):
-```typescript
-import { createTenantRepository } from './repositoryV2';
-
-export const handler = async (event: APIGatewayProxyEvent) => {
-  const userId = event.requestContext.authorizer!.claims['cognito:username'];
-  const repository = createTenantRepository(event);
-  const chat = await repository.createChat(userId);
-  // ...
-};
-```
+All repository functions now:
+- Accept an `event: APIGatewayProxyEvent` parameter
+- Automatically extract the tenant ID from the JWT claims
+- Use tenant-specific table names
 
 ### 2. Update Environment Variables
 
@@ -116,4 +110,4 @@ aws dynamodb create-table \
 
 ## Example Migration
 
-See `createChatV2.ts` for a complete example of a migrated handler.
+See `createChat.ts` for a complete example of a tenant-aware handler that uses the updated repository functions.

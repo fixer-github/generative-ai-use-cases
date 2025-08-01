@@ -52,28 +52,28 @@ createChatFunction.addToRolePolicy(tenantTablePolicy);
 ### 2.1 Handlers to Migrate
 
 #### Chat Management
-- [ ] `createChat.ts` → Use `repositoryV2.ts`
-- [ ] `deleteChat.ts` → Use `repositoryV2.ts`
-- [ ] `listChats.ts` → Use `repositoryV2.ts`
-- [ ] `findChatById.ts` → Use `repositoryV2.ts`
-- [ ] `updateTitle.ts` → Use `repositoryV2.ts`
+- [ ] `createChat.ts` → Update to pass `event` parameter to repository functions
+- [ ] `deleteChat.ts` → Update to pass `event` parameter to repository functions
+- [ ] `listChats.ts` → Update to pass `event` parameter to repository functions
+- [ ] `findChatById.ts` → Update to pass `event` parameter to repository functions
+- [ ] `updateTitle.ts` → Update to pass `event` parameter to repository functions
 
 #### Message Management
-- [ ] `createMessages.ts` → Use `repositoryV2.ts`
-- [ ] `listMessages.ts` → Use `repositoryV2.ts`
-- [ ] `updateFeedback.ts` → Use `repositoryV2.ts`
+- [ ] `createMessages.ts` → Update to pass `event` parameter to repository functions
+- [ ] `listMessages.ts` → Update to pass `event` parameter to repository functions
+- [ ] `updateFeedback.ts` → Update to pass `event` parameter to repository functions
 
 #### System Context
-- [ ] `createSystemContext.ts` → Use `repositoryV2.ts`
-- [ ] `listSystemContexts.ts` → Use `repositoryV2.ts`
-- [ ] `updateSystemContextTitle.ts` → Use `repositoryV2.ts`
-- [ ] `deleteSystemContext.ts` → Use `repositoryV2.ts`
+- [ ] `createSystemContext.ts` → Update to pass `event` parameter to repository functions
+- [ ] `listSystemContexts.ts` → Update to pass `event` parameter to repository functions
+- [ ] `updateSystemContextTitle.ts` → Update to pass `event` parameter to repository functions
+- [ ] `deleteSystemContext.ts` → Update to pass `event` parameter to repository functions
 
 #### Sharing
-- [ ] `createShareId.ts` → Use `repositoryV2.ts`
-- [ ] `findShareId.ts` → Use `repositoryV2.ts`
-- [ ] `deleteShareId.ts` → Use `repositoryV2.ts`
-- [ ] `getSharedChat.ts` → Use `repositoryV2.ts`
+- [ ] `createShareId.ts` → Update to pass `event` parameter to repository functions
+- [ ] `findShareId.ts` → Update to pass `event` parameter to repository functions
+- [ ] `deleteShareId.ts` → Update to pass `event` parameter to repository functions
+- [ ] `getSharedChat.ts` → Update to pass `event` parameter to repository functions
 
 #### Video Jobs
 - [ ] `generateVideo.ts` → Update `repositoryVideoJob.ts`
@@ -96,12 +96,11 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   // ...
 };
 
-// New pattern
-import { createTenantRepository } from './repositoryV2';
+// Updated pattern - just add event parameter
+import { someFunction } from './repository';
 
 export const handler = async (event: APIGatewayProxyEvent) => {
-  const repository = createTenantRepository(event);
-  const result = await repository.someFunction(param1, param2);
+  const result = await someFunction(param1, param2, event);
   // ...
 };
 ```
