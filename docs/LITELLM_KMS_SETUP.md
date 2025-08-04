@@ -167,22 +167,29 @@ const config = await LiteLLMConfigGenerator.generateProxyConfig();
 
 After deployment, store your API keys in AWS Secrets Manager:
 
+**IMPORTANT**: Store only the plain API key string, not JSON or any other format.
+
 ```bash
-# Store OpenAI API key
+# Store OpenAI API key (just the key, no JSON wrapper)
 aws secretsmanager put-secret-value \
   --secret-id litellm/openai/api-key \
-  --secret-string "sk-your-openai-api-key"
+  --secret-string "sk-proj-abcd1234..."  # ✅ Plain key only
 
-# Store Anthropic API key
+# Store Anthropic API key  
 aws secretsmanager put-secret-value \
   --secret-id litellm/anthropic/api-key \
-  --secret-string "sk-ant-your-anthropic-api-key"
+  --secret-string "sk-ant-api03-abcd1234..."  # ✅ Plain key only
 
 # For Azure OpenAI (if enabled)
 aws secretsmanager put-secret-value \
   --secret-id litellm/azure/api-key \
-  --secret-string "your-azure-api-key"
+  --secret-string "1234567890abcdef..."  # ✅ Plain key only
+
+# ❌ DON'T store as JSON like this:
+# --secret-string '{"api_key": "sk-..."}' # Wrong format!
 ```
+
+**Note**: AWS Secrets Manager automatically encrypts these keys using the KMS key we created.
 
 ### 5. Deploy the Stack
 
