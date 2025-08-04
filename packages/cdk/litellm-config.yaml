@@ -1,0 +1,162 @@
+# LiteLLM Configuration for AWS KMS Integration
+# This file is used as a template for LiteLLM proxy configuration
+
+general_settings:
+  # Use AWS KMS for key management
+  key_management_system: "aws_kms"
+  
+  # KMS configuration
+  key_management_settings:
+    # List of keys that should be managed by KMS
+    hosted_keys: ["LITELLM_MASTER_KEY"]
+    
+    # Access mode for key management
+    # Options: "read_only", "write_only", "read_and_write"
+    access_mode: "read_and_write"
+    
+    # Store virtual keys in KMS
+    store_virtual_keys: true
+    
+    # Prefix for stored virtual keys
+    prefix_for_stored_virtual_keys: "litellm_vk_"
+
+# Model configurations
+# These will be dynamically populated from AWS Secrets Manager
+model_list:
+  # OpenAI models
+  - model_name: "gpt-4"
+    litellm_params:
+      model: "openai/gpt-4"
+      api_key: "encrypted:OPENAI_API_KEY"
+      
+  - model_name: "gpt-3.5-turbo"
+    litellm_params:
+      model: "openai/gpt-3.5-turbo"
+      api_key: "encrypted:OPENAI_API_KEY"
+      
+  # Anthropic models
+  - model_name: "claude-3-opus"
+    litellm_params:
+      model: "anthropic/claude-3-opus-20240229"
+      api_key: "encrypted:ANTHROPIC_API_KEY"
+      
+  - model_name: "claude-3-sonnet"
+    litellm_params:
+      model: "anthropic/claude-3-sonnet-20240229"
+      api_key: "encrypted:ANTHROPIC_API_KEY"
+      
+  # AWS Bedrock models (using IAM role authentication)
+  - model_name: "bedrock-claude-3"
+    litellm_params:
+      model: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
+      aws_region_name: "us-east-1"
+      
+  # Azure OpenAI models (if configured)
+  - model_name: "azure-gpt-4"
+    litellm_params:
+      model: "azure/gpt-4"
+      api_key: "encrypted:AZURE_API_KEY"
+      api_base: "encrypted:AZURE_ENDPOINT"
+      api_version: "2024-02-01"
+
+# Router settings for load balancing and fallbacks
+router_settings:
+  # Routing strategy
+  routing_strategy: "least-cost"
+  
+  # Enable fallbacks
+  enable_fallbacks: true
+  
+  # Fallback order
+  fallback_models:
+    - "gpt-4"
+    - "claude-3-opus"
+    - "bedrock-claude-3"
+    
+  # Model-specific settings
+  model_group_config:
+    gpt-4:
+      rpm: 10000  # Requests per minute
+      tpm: 1000000  # Tokens per minute
+      
+    claude-3-opus:
+      rpm: 5000
+      tpm: 500000
+
+# Caching configuration
+litellm_settings:
+  # Enable response caching
+  cache: true
+  
+  # Cache backend
+  cache_backend: "redis"
+  
+  # Cache TTL in seconds
+  cache_ttl: 3600
+  
+  # Success callback for logging
+  success_callback: ["langfuse", "custom_logger"]
+  
+  # Failure callback
+  failure_callback: ["custom_logger"]
+  
+  # Request timeout
+  request_timeout: 600
+  
+  # Max retries
+  max_retries: 3
+  
+  # Retry delay
+  retry_after: 5
+
+# Virtual key settings
+virtual_key_settings:
+  # Enable virtual key generation
+  enable_virtual_keys: true
+  
+  # Default expiry for virtual keys (in seconds)
+  default_key_expiry: 2592000  # 30 days
+  
+  # Max keys per user
+  max_keys_per_user: 10
+  
+  # Key naming pattern
+  key_pattern: "{prefix}{user_id}_{timestamp}"
+
+# Monitoring and alerting
+monitoring:
+  # Enable CloudWatch metrics
+  enable_cloudwatch: true
+  
+  # Metric namespace
+  metric_namespace: "LiteLLM/Proxy"
+  
+  # Alert thresholds
+  alerts:
+    high_error_rate:
+      threshold: 0.05  # 5% error rate
+      period: 300  # 5 minutes
+      
+    high_latency:
+      threshold: 5000  # 5 seconds
+      period: 300
+
+# Security settings
+security:
+  # Enable request validation
+  validate_requests: true
+  
+  # Allowed IP ranges (CIDR notation)
+  allowed_ips: []
+  
+  # Enable rate limiting
+  rate_limiting:
+    enabled: true
+    default_rpm: 1000
+    default_tpm: 100000
+    
+  # Content filtering
+  content_filtering:
+    enabled: true
+    block_prompts_containing: []
+    block_responses_containing: []

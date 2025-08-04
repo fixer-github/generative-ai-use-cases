@@ -75,6 +75,65 @@
     "crossAccountBedrockRoleArn": "",
     "useCaseBuilderEnabled": true,
     "litellmProxyEnabled": false,
+    "litellm": {
+      "enabled": false,
+      "kms": {
+        "keyAlias": "alias/litellm-master",
+        "enableKeyRotation": true,
+        "pendingWindowInDays": 7,
+        "enableAuditLog": true,
+        "secretRotationDays": 90
+      },
+      "providers": {
+        "openai": {
+          "enabled": false,
+          "secretKey": "OPENAI_API_KEY",
+          "modelPrefix": "openai"
+        },
+        "anthropic": {
+          "enabled": false,
+          "secretKey": "ANTHROPIC_API_KEY", 
+          "modelPrefix": "anthropic"
+        },
+        "bedrock": {
+          "enabled": true,
+          "useIAMRole": true,
+          "modelPrefix": "bedrock"
+        },
+        "azure": {
+          "enabled": false,
+          "secretKey": "AZURE_API_KEY",
+          "modelPrefix": "azure",
+          "endpoint": "https://your-resource.openai.azure.com/"
+        },
+        "google": {
+          "enabled": false,
+          "secretKey": "GOOGLE_API_KEY",
+          "modelPrefix": "google"
+        },
+        "cohere": {
+          "enabled": false,
+          "secretKey": "COHERE_API_KEY",
+          "modelPrefix": "cohere"
+        }
+      },
+      "virtualKeys": {
+        "enabled": false,
+        "prefix": "litellm_vk_",
+        "defaultExpiry": 2592000,
+        "maxKeysPerUser": 10
+      },
+      "routing": {
+        "strategy": "least-cost",
+        "enableFallbacks": true,
+        "defaultProvider": "openai"
+      },
+      "monitoring": {
+        "enableCloudWatch": true,
+        "metricNamespace": "LiteLLM/Proxy",
+        "enableAlerts": true
+      }
+    },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
