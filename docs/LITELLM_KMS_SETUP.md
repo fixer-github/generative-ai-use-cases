@@ -1,6 +1,6 @@
 # LiteLLM KMS Secret Management Setup Guide
 
-This guide explains how to set up and use LiteLLM with AWS Key Management Service (KMS) for secure API key management in the Generative AI Use Cases application.
+This guide explains how to set up and use LiteLLM with AWS Key Management Service (KMS) for secure API key management in the Generative AI Use Cases application. This feature integrates with the LiteLLM Proxy Server to provide dynamic, secure configuration management.
 
 ## Overview
 
@@ -16,21 +16,34 @@ LiteLLM secret management with AWS KMS V1 provides:
 
 ## Architecture
 
+The KMS integration works seamlessly with the LiteLLM Proxy Server:
+
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Lambda Func   │────▶│   AWS KMS       │────▶│ Secrets Manager │
-│  (LiteLLM)      │     │   (Encryption)  │     │  (Storage)      │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                                │
-        └───────────────────────────────────────────────┘
-                    Decrypted API Keys
-                            │
-                            ▼
-                ┌─────────────────────┐
-                │  Config Generator   │
-                │  (Dynamic YAML)     │
-                └─────────────────────┘
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   cdk.json  │────▶│     KMS      │────▶│ Secrets Manager │────▶│ Config Loader   │
+└─────────────┘     └──────────────┘     └─────────────────┘     └─────────────────┘
+                                                                            │
+                                                                            ▼
+┌─────────────────────────────────────────────────────────────┐  ┌─────────────────┐
+│                  LiteLLM Proxy Server (Lambda)               │◀─│   config.yaml   │
+│                                                              │  │   (Generated)   │
+│  • Lambda Web Adapter                                        │  └─────────────────┘
+│  • Dynamic configuration loading                             │
+│  • OpenAI-compatible API                                     │
+│  • Multi-provider support                                    │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+## How It Works
+
+1. **Configuration**: Define providers and settings in `cdk.json`
+2. **Deployment**: CDK creates KMS keys, Secrets Manager entries, and the LiteLLM Proxy Server
+3. **Runtime**: When the proxy server starts:
+   - Checks `USE_DYNAMIC_CONFIG` environment variable
+   - If enabled, `config_loader.py` retrieves secrets from AWS
+   - Generates `config.yaml` with decrypted API keys
+   - Starts LiteLLM with the dynamic configuration
+4. **API Access**: Use the OpenAI-compatible API with secure key management
 
 ## Prerequisites
 
@@ -38,18 +51,20 @@ LiteLLM secret management with AWS KMS V1 provides:
 - AWS CLI configured with appropriate credentials
 - Node.js 18.x or later
 - TypeScript 5.x or later
+- LiteLLM Proxy Server enabled (requires `litellmProxyEnabled: true`)
 
 ## Configuration
 
-### 1. Enable LiteLLM in CDK Context
+### 1. Enable LiteLLM Proxy Server and KMS Integration
 
-Update your `cdk.json` file to enable LiteLLM:
+Update your `cdk.json` file to enable both the proxy server and KMS integration:
 
 ```json
 {
   "context": {
+    "litellmProxyEnabled": true,  // Enable the LiteLLM Proxy Server
     "litellm": {
-      "enabled": true,
+      "enabled": true,           // Enable KMS integration
       "kms": {
         "keyAlias": "alias/litellm-master",
         "enableKeyRotation": true,
@@ -209,26 +224,36 @@ Deploy the LiteLLM KMS stack:
 npm run cdk:deploy
 ```
 
-## Dynamic Configuration Generation
+## Using the LiteLLM Proxy Server
 
-Unlike traditional approaches that require static YAML files, our implementation generates LiteLLM configuration dynamically:
+After deployment, the LiteLLM Proxy Server provides an OpenAI-compatible API endpoint:
 
-### Generate Configuration Endpoint
+### Access the API
 
-```typescript
-// GET /litellm/config?format=yaml
-// Returns dynamically generated YAML configuration
+```bash
+# Get the endpoint URL from CloudFormation outputs
+LITELLM_ENDPOINT=$(aws cloudformation describe-stacks \
+  --stack-name GenerativeAiUseCasesStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`LitellmProxyEndpoint`].OutputValue' \
+  --output text)
 
-// GET /litellm/config?format=json
-// Returns JSON configuration
+# Use the API (requires AWS IAM authentication)
+curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  --aws-sigv4 "aws:amz:${AWS_REGION}:lambda" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
 ```
 
-This approach:
+### Dynamic Configuration
 
-- ✅ No static config files to maintain
-- ✅ No redeployment when changing providers
-- ✅ Configuration always in sync with secrets
-- ✅ Single source of truth (cdk.json)
+The proxy server automatically:
+- ✅ Loads API keys from Secrets Manager at startup
+- ✅ Generates configuration without static files
+- ✅ Updates when secrets change (no redeployment needed)
+- ✅ Routes requests to the appropriate provider
 
 ## Usage in Lambda Functions
 

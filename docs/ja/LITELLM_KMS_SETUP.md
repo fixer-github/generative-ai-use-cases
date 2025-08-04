@@ -1,6 +1,6 @@
 # LiteLLM KMSシークレット管理セットアップガイド
 
-このガイドでは、Generative AI Use CasesアプリケーションでAWS Key Management Service (KMS)を使用してLiteLLMのAPIキーを安全に管理する方法を説明します。
+このガイドでは、Generative AI Use CasesアプリケーションでAWS Key Management Service (KMS)を使用してLiteLLMのAPIキーを安全に管理する方法を説明します。この機能はLiteLLM Proxy Serverと統合され、動的で安全な設定管理を提供します。
 
 ## 概要
 
@@ -16,21 +16,34 @@ AWS KMS V1を使用したLiteLLMシークレット管理は以下を提供しま
 
 ## アーキテクチャ
 
+KMS統合はLiteLLM Proxy Serverとシームレスに連携します：
+
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Lambda関数     │────▶│   AWS KMS       │────▶│ Secrets Manager │
-│  (LiteLLM)      │     │   (暗号化)       │     │  (保存)         │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                                │
-        └───────────────────────────────────────────────┘
-                    復号化されたAPIキー
-                            │
-                            ▼
-                ┌─────────────────────┐
-                │  設定ジェネレーター   │
-                │  (動的YAML生成)      │
-                └─────────────────────┘
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   cdk.json  │────▶│     KMS      │────▶│ Secrets Manager │────▶│ Config Loader   │
+└─────────────┘     └──────────────┘     └─────────────────┘     └─────────────────┘
+                                                                            │
+                                                                            ▼
+┌─────────────────────────────────────────────────────────────┐  ┌─────────────────┐
+│                  LiteLLM Proxy Server (Lambda)               │◀─│   config.yaml   │
+│                                                              │  │   (生成済み)     │
+│  • Lambda Web Adapter                                        │  └─────────────────┘
+│  • 動的設定ローディング                                        │
+│  • OpenAI互換API                                             │
+│  • マルチプロバイダー対応                                      │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+## 動作の仕組み
+
+1. **設定**: `cdk.json`でプロバイダーと設定を定義
+2. **デプロイ**: CDKがKMSキー、Secrets Managerエントリー、LiteLLM Proxy Serverを作成
+3. **実行時**: プロキシサーバー起動時：
+   - `USE_DYNAMIC_CONFIG`環境変数をチェック
+   - 有効な場合、`config_loader.py`がAWSからシークレットを取得
+   - 復号化されたAPIキーで`config.yaml`を生成
+   - 動的設定でLiteLLMを起動
+4. **APIアクセス**: 安全なキー管理でOpenAI互換APIを使用
 
 ## 前提条件
 
@@ -38,18 +51,20 @@ AWS KMS V1を使用したLiteLLMシークレット管理は以下を提供しま
 - AWS CLI 設定済み（適切な認証情報付き）
 - Node.js 18.x 以降
 - TypeScript 5.x 以降
+- LiteLLM Proxy Server有効化（`litellmProxyEnabled: true`が必要）
 
 ## 設定
 
-### 1. CDKコンテキストでLiteLLMを有効化
+### 1. LiteLLM Proxy ServerとKMS統合を有効化
 
-`cdk.json`ファイルを更新してLiteLLMを有効にします：
+`cdk.json`ファイルを更新してプロキシサーバーとKMS統合の両方を有効にします：
 
 ```json
 {
   "context": {
+    "litellmProxyEnabled": true,  // LiteLLM Proxy Serverを有効化
     "litellm": {
-      "enabled": true,
+      "enabled": true,           // KMS統合を有効化
       "kms": {
         "keyAlias": "alias/litellm-master",
         "enableKeyRotation": true,
@@ -209,26 +224,36 @@ LiteLLM KMSスタックをデプロイします：
 npm run cdk:deploy
 ```
 
-## 動的設定生成
+## LiteLLM Proxy Serverの使用
 
-従来の静的YAMLファイルが必要なアプローチとは異なり、私たちの実装はLiteLLM設定を動的に生成します：
+デプロイ後、LiteLLM Proxy ServerはOpenAI互換のAPIエンドポイントを提供します：
 
-### 設定生成エンドポイント
+### APIへのアクセス
 
-```typescript
-// GET /litellm/config?format=yaml
-// 動的に生成されたYAML設定を返します
+```bash
+# CloudFormationアウトプットからエンドポイントURLを取得
+LITELLM_ENDPOINT=$(aws cloudformation describe-stacks \
+  --stack-name GenerativeAiUseCasesStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`LitellmProxyEndpoint`].OutputValue' \
+  --output text)
 
-// GET /litellm/config?format=json
-// JSON設定を返します
+# APIを使用（AWS IAM認証が必要）
+curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  --aws-sigv4 "aws:amz:${AWS_REGION}:lambda" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "こんにちは！"}]
+  }'
 ```
 
-このアプローチの利点：
+### 動的設定
 
-- ✅ 維持する静的設定ファイルがない
-- ✅ プロバイダー変更時の再デプロイ不要
-- ✅ 設定が常にシークレットと同期
-- ✅ 単一の信頼できる情報源（cdk.json）
+プロキシサーバーは自動的に：
+- ✅ 起動時にSecrets ManagerからAPIキーをロード
+- ✅ 静的ファイルなしで設定を生成
+- ✅ シークレット変更時に更新（再デプロイ不要）
+- ✅ 適切なプロバイダーにリクエストをルーティング
 
 ## Lambda関数での使用方法
 
