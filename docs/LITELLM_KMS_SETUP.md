@@ -88,7 +88,82 @@ Update your `cdk.json` file to enable LiteLLM:
 }
 ```
 
-### 2. Store API Keys in AWS Secrets Manager
+### 2. Environment Variables - What NOT to Configure
+
+**IMPORTANT**: With our KMS integration, you should NEVER set these environment variables directly:
+
+❌ **DO NOT SET THESE**:
+```bash
+# API Keys - These are managed by KMS/Secrets Manager
+export OPENAI_API_KEY="sk-..."           # ❌ Never set directly
+export ANTHROPIC_API_KEY="sk-ant-..."    # ❌ Never set directly
+export AZURE_API_KEY="..."               # ❌ Never set directly
+export GOOGLE_API_KEY="..."              # ❌ Never set directly
+
+# LiteLLM Config - These are auto-configured
+export LITELLM_MASTER_KEY="..."          # ❌ Auto-generated
+export LITELLM_CONFIG_PATH="..."         # ❌ Dynamic generation
+export LITELLM_KEY_MANAGEMENT_SYSTEM="..." # ❌ Set to aws_kms automatically
+```
+
+✅ **AUTOMATICALLY CONFIGURED**:
+```bash
+# These are set automatically by the CDK construct:
+LITELLM_MASTER_KEY=<encrypted>           # ✅ Encrypted by KMS
+LITELLM_KEY_MANAGEMENT_SYSTEM=aws_kms    # ✅ Auto-configured
+KMS_KEY_ID=arn:aws:kms:...              # ✅ From CDK deployment
+LITELLM_CONFIG_SECRET_ARN=arn:aws:...   # ✅ Config location
+AWS_REGION_NAME=us-east-1               # ✅ From AWS environment
+```
+
+✅ **OPTIONAL ENVIRONMENT VARIABLES YOU CAN SET**:
+```bash
+# Debug and logging
+export LITELLM_DEBUG=true               # Enable debug logging
+export LITELLM_LOG_LEVEL=INFO          # Log level (DEBUG, INFO, WARN, ERROR)
+
+# Cache settings (if not using defaults)
+export LITELLM_CACHE_TTL=7200          # Cache TTL in seconds (default: 3600)
+export LITELLM_CACHE_BACKEND=redis     # Cache backend (default: in-memory)
+```
+
+### 3. Common Mistakes to Avoid
+
+#### ❌ **WRONG: Setting API keys in Lambda environment variables**
+```typescript
+// DON'T DO THIS
+new lambda.Function(this, 'MyFunction', {
+  environment: {
+    OPENAI_API_KEY: 'sk-...',  // ❌ Exposed in CloudFormation
+    ANTHROPIC_API_KEY: 'sk-ant-...' // ❌ Visible in console
+  }
+});
+```
+
+#### ✅ **CORRECT: Use LiteLLM KMS construct**
+```typescript
+// DO THIS INSTEAD
+const litellmKms = new LiteLLMKms(this, 'LiteLLM', {
+  kmsKey: kmsStack.kmsKey,
+  providers: { /* config */ }
+});
+
+litellmKms.grantRead(myFunction); // ✅ Secure access
+```
+
+#### ❌ **WRONG: Hardcoding config file path**
+```bash
+# DON'T DO THIS
+export LITELLM_CONFIG_PATH="/path/to/config.yaml"  # ❌ Static file
+```
+
+#### ✅ **CORRECT: Use dynamic configuration**
+```typescript
+// Configuration is generated dynamically
+const config = await LiteLLMConfigGenerator.generateProxyConfig();
+```
+
+### 4. Store API Keys in AWS Secrets Manager
 
 After deployment, store your API keys in AWS Secrets Manager:
 
@@ -109,7 +184,7 @@ aws secretsmanager put-secret-value \
   --secret-string "your-azure-api-key"
 ```
 
-### 3. Deploy the Stack
+### 5. Deploy the Stack
 
 Deploy the LiteLLM KMS stack:
 
@@ -204,6 +279,21 @@ const virtualKey = await createVirtualKey({
   }
 });
 ```
+
+## Security Comparison
+
+### Traditional Approach vs KMS Approach
+
+| Aspect | Traditional (❌) | KMS Integration (✅) |
+|--------|-----------------|---------------------|
+| **API Key Storage** | Environment variables or config files | Encrypted in AWS Secrets Manager |
+| **Key Visibility** | Visible in CloudFormation, Lambda console | Never exposed, only encrypted references |
+| **Key Rotation** | Manual process, requires redeployment | Automatic rotation without redeployment |
+| **Access Control** | All-or-nothing Lambda access | Fine-grained IAM policies per key |
+| **Audit Trail** | Limited or none | Full CloudTrail logging |
+| **Configuration Updates** | Requires code changes and deployment | Dynamic updates via Secrets Manager |
+| **Multi-Provider Keys** | Scattered across multiple env vars | Centralized management |
+| **Cost** | Free but insecure | ~$1.30/month for enterprise security |
 
 ## Security Best Practices
 
