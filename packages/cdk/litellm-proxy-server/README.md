@@ -1,6 +1,6 @@
 # LiteLLM Proxy Server for AWS Lambda with KMS Integration
 
-This directory contains the implementation of a LiteLLM proxy server that runs on AWS Lambda using the Lambda Web Adapter. The proxy provides a unified OpenAI-compatible API interface for various AI models with optional AWS KMS integration for secure API key management.
+This directory contains the implementation of a LiteLLM proxy server that runs on AWS Lambda using the Lambda Web Adapter. The proxy provides a unified OpenAI-compatible API interface for various AI models with AWS KMS integration for secure API key management.
 
 ## Overview
 
@@ -10,21 +10,27 @@ The LiteLLM proxy server is deployed as a Docker container on AWS Lambda with th
 - **Function URL with IAM Authentication**: Provides secure internal service access
 - **Multi-Provider Support**: Supports AWS Bedrock, OpenAI, Azure OpenAI, Google Vertex AI, Anthropic, Cohere, and more
 - **OpenAI-Compatible API**: Standard chat completions endpoint for easy integration
-- **Configuration-Based Setup**: All models and settings managed through config.yaml
-- **KMS Integration**: Optional secure API key management using AWS KMS and Secrets Manager
-- **Dynamic Configuration**: Automatically loads API keys from encrypted secrets when KMS is enabled
+- **Fully Dynamic Configuration**: No hardcoded models - everything configured through CDK
+- **KMS Integration**: Secure API key management using AWS KMS and Secrets Manager
+- **Zero Hardcoding**: Models and providers defined entirely in cdk.json
 
 ## Files
 
 - `Dockerfile`: Container configuration with Lambda Web Adapter
-- `config.yaml`: Central configuration file for all LiteLLM settings and model definitions
-- `startup.py`: Python startup script that launches the proxy with optional KMS support
-- `config_loader.py`: Dynamic configuration loader for KMS-encrypted secrets
+- `startup.py`: Python startup script that launches the proxy
+- `config_loader.py`: Dynamic configuration loader that reads from environment and Secrets Manager
 - `README.md`: This documentation file
+- `HOW_TO_CONFIGURE_MODELS.md`: Detailed guide on configuring models
+- `CONFIGURATION.md`: Configuration format reference
 
-## Configuration
+## How It Works
 
-### Environment Variables
+1. **Configuration**: Models and providers are defined in `cdk.json`
+2. **Deployment**: CDK passes configuration via `LITELLM_CONFIG` environment variable
+3. **Startup**: `config_loader.py` reads the configuration and fetches API keys from Secrets Manager
+4. **Runtime**: LiteLLM proxy serves requests using the dynamic configuration
+
+## Environment Variables
 
 The following environment variables are set by the CDK deployment:
 
@@ -33,183 +39,118 @@ The following environment variables are set by the CDK deployment:
 - `AWS_LWA_INVOKE_MODE=RESPONSE_STREAM`: Enable streaming responses
 - `BEDROCK_REGION`: AWS region for Bedrock access (default: us-east-1)
 - `LITELLM_LOG=INFO`: Logging level
-- `USE_DYNAMIC_CONFIG`: Enable KMS integration for dynamic configuration (default: false)
-- `KMS_KEY_ARN`: ARN of the KMS key for decrypting secrets (when KMS is enabled)
+- `KMS_KEY_ARN`: ARN of the KMS key for decrypting secrets
 - `SECRETS_PREFIX`: Prefix for secrets in Secrets Manager (default: litellm/)
-- `LITELLM_CONFIG`: JSON configuration for enabled providers
+- `LITELLM_CONFIG`: JSON configuration containing providers and models (REQUIRED)
 
-### Model Configuration (config.yaml)
+## Model Configuration
 
-All model configurations are managed in the `config.yaml` file. The configuration supports multiple providers:
+All models are configured through the `litellm` section in your `cdk.json`. See [HOW_TO_CONFIGURE_MODELS.md](./HOW_TO_CONFIGURE_MODELS.md) for detailed examples.
 
-#### AWS Bedrock (Default)
+### Quick Example
 
-```yaml
-- model_name: claude-3-5-sonnet
-  litellm_params:
-    model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
-    aws_region_name: us-east-1
-    aws_access_key_id: null # Uses IAM role
-    aws_secret_access_key: null # Uses IAM role
-```
-
-#### OpenAI
-
-```yaml
-- model_name: gpt-4
-  litellm_params:
-    model: gpt-4
-    api_key: sk-your-openai-api-key-here
-```
-
-#### Azure OpenAI
-
-```yaml
-- model_name: azure-gpt-4
-  litellm_params:
-    model: azure/your-deployment-name
-    api_base: https://your-resource.openai.azure.com
-    api_key: your-azure-api-key
-    api_version: 2023-05-15
-```
-
-#### Google Vertex AI
-
-```yaml
-- model_name: gemini-pro
-  litellm_params:
-    model: vertex_ai/gemini-pro
-    vertex_project: your-gcp-project-id
-    vertex_location: us-central1
-    vertex_credentials: |
-      {
-        "type": "service_account",
-        "project_id": "your-project-id",
-        ...
-      }
-```
-
-### Master Key Configuration
-
-The master key for admin access is configured in `config.yaml`:
-
-```yaml
-general_settings:
-  master_key: sk-litellm-master-key # Change this to your secure key
-```
-
-## Usage
-
-### Direct API Access
-
-The proxy provides OpenAI-compatible endpoints:
-
-```bash
-# Get available models
-curl -X GET "${LITELLM_ENDPOINT}/v1/models" \
-  -H "Authorization: Bearer ${MASTER_KEY}"
-
-# Chat completion
-curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${MASTER_KEY}" \
-  -d '{
-    "model": "claude-3-5-sonnet",
-    "messages": [
-      {"role": "user", "content": "Hello, how are you?"}
-    ],
-    "temperature": 0.7,
-    "max_tokens": 1000
-  }'
-```
-
-### Lambda Function Integration
-
-When integrating with other Lambda functions, use IAM authentication to access the Function URL. The Lambda execution role will need the `lambda:InvokeFunctionUrl` permission.
-
-## KMS Integration (Optional)
-
-The LiteLLM proxy server supports secure API key management using AWS KMS and Secrets Manager. When enabled, API keys are stored encrypted and retrieved dynamically at runtime.
-
-### Enable KMS Integration
-
-Add the following to your CDK configuration:
+In your `cdk.json`:
 
 ```json
 {
-  "litellmProxyEnabled": true,
-  "litellm": {
-    "enabled": true,
-    "kms": {
-      "keyAlias": "alias/litellm-master",
-      "enableKeyRotation": true,
-      "pendingWindowInDays": 7,
-      "enableAuditLog": true,
-      "secretRotationDays": 90
-    },
-    "providers": {
-      "openai": {
-        "enabled": true,
-        "secretKey": "OPENAI_API_KEY",
-        "modelPrefix": "openai"
-      },
-      "anthropic": {
-        "enabled": true,
-        "secretKey": "ANTHROPIC_API_KEY",
-        "modelPrefix": "anthropic"
+  "context": {
+    "litellmProxyEnabled": true,
+    "litellm": {
+      "enabled": true,
+      "providers": {
+        "bedrock": {
+          "enabled": true,
+          "region": "us-east-1",
+          "models": [
+            {
+              "name": "claude-3-5-sonnet",
+              "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0"
+            }
+          ]
+        },
+        "openai": {
+          "enabled": true,
+          "useSecretKey": true,
+          "models": [
+            {
+              "name": "gpt-4",
+              "model": "gpt-4"
+            }
+          ]
+        }
       }
     }
   }
 }
 ```
 
-### Store API Keys in Secrets Manager
+## API Usage
+
+The proxy provides an OpenAI-compatible API:
+
+```bash
+# Get the endpoint URL from CloudFormation outputs
+LITELLM_ENDPOINT="https://your-function-url.lambda-url.region.on.aws"
+
+# Create AWS signature for IAM authentication
+curl "$LITELLM_ENDPOINT/chat/completions" \
+  --aws-sigv4 "aws:amz:region:lambda" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+## KMS Integration
+
+The proxy always uses KMS integration for secure API key management:
+
+1. **API keys are stored encrypted** in AWS Secrets Manager
+2. **Keys are decrypted at runtime** using KMS
+3. **No keys in environment variables** or configuration files
+4. **Automatic key rotation** support
+
+### Storing API Keys
 
 After deployment, store your API keys:
 
 ```bash
-# Store OpenAI API key
-aws secretsmanager put-secret-value \
-  --secret-id litellm/openai/api-key \
-  --secret-string "sk-proj-your-openai-key"
-
-# Store Anthropic API key
-aws secretsmanager put-secret-value \
-  --secret-id litellm/anthropic/api-key \
-  --secret-string "sk-ant-your-anthropic-key"
-
 # Store master key for LiteLLM admin access
 aws secretsmanager put-secret-value \
   --secret-id litellm/master-key \
   --secret-string "sk-litellm-your-secure-master-key"
+
+# Store provider API keys
+aws secretsmanager put-secret-value \
+  --secret-id litellm/openai/api-key \
+  --secret-string "sk-proj-your-openai-api-key"
 ```
 
-### How KMS Integration Works
-
-1. **At Startup**: The proxy checks if `USE_DYNAMIC_CONFIG=true`
-2. **If Enabled**: The `config_loader.py` retrieves encrypted API keys from Secrets Manager
-3. **Configuration Generation**: A new `config.yaml` is generated with decrypted keys
-4. **Security**: Keys are never exposed in environment variables or CloudFormation
-
-**Note**: The configuration format is now fully flexible and data-driven. See [CONFIGURATION.md](./CONFIGURATION.md) for detailed examples of how to configure providers and models without any hardcoding.
-
-### Benefits of KMS Integration
+## Benefits of Dynamic Configuration
 
 - **No Hardcoded Keys**: API keys are never stored in code or configuration files
+- **No Hardcoded Models**: Add new models without changing code
 - **Automatic Rotation**: Support for automatic key rotation every 90 days
 - **Audit Trail**: CloudTrail logs all key access for compliance
 - **Fine-Grained Access**: IAM policies control who can access which keys
-- **Zero Downtime Updates**: Change API keys without redeploying
+- **Zero Downtime Updates**: Change API keys or add models without redeploying
 
 ## Deployment
 
 ### Enable in CDK Configuration
 
-Add the following to your CDK context or parameter configuration:
+Add the following to your CDK context:
 
 ```json
 {
-  "litellmProxyEnabled": true
+  "litellmProxyEnabled": true,
+  "litellm": {
+    "enabled": true,
+    "providers": {
+      // Your provider configurations
+    }
+  }
 }
 ```
 
@@ -222,114 +163,60 @@ npm run cdk deploy
 
 ### Verify Deployment
 
-After deployment, check the CloudFormation outputs for:
-
+Check the CloudFormation outputs for:
 - `LitellmProxyEnabled`: Should be `true`
 - `LitellmProxyEndpoint`: The Function URL endpoint
 
 Test the health endpoint:
-
 ```bash
-curl -X GET "${LITELLM_ENDPOINT}/health"
+curl https://your-function-url.lambda-url.region.on.aws/health
 ```
 
-## Adding New Models
+## Architecture
 
-To add support for additional models, simply edit the `config.yaml` file:
-
-1. Add your model configuration to the `model_list` section
-2. Include any required API keys or credentials
-3. Redeploy the stack to apply changes
-
-Example:
-
-```yaml
-model_list:
-  # Your existing models...
-
-  # Add a new model
-  - model_name: mixtral-8x7b
-    litellm_params:
-      model: together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1
-      api_key: your-together-ai-key
+```
+┌─────────────┐     ┌─────────────┐     ┌──────────────┐
+│   Client    │────▶│   Lambda    │────▶│   LiteLLM    │
+│             │     │  Function   │     │    Proxy     │
+└─────────────┘     └─────────────┘     └──────────────┘
+                            │                     │
+                            ▼                     ▼
+                    ┌─────────────┐     ┌──────────────┐
+                    │   Secrets   │     │   Bedrock/   │
+                    │   Manager   │     │   OpenAI/    │
+                    └─────────────┘     │   Claude     │
+                            │           └──────────────┘
+                            ▼
+                    ┌─────────────┐
+                    │     KMS     │
+                    └─────────────┘
 ```
 
-## Advanced Configuration
+## Security Best Practices
 
-### Load Balancing
+1. **Function URL with IAM Auth**: Ensures only authenticated AWS principals can access
+2. **Encrypted Secrets**: All API keys stored encrypted in Secrets Manager
+3. **Least Privilege IAM**: Lambda role has minimal required permissions
+4. **No Public Access**: Function URL requires AWS signature authentication
+5. **Audit Logging**: All key access logged via CloudTrail
 
-Configure router settings for load balancing across multiple models:
+## Troubleshooting
 
-```yaml
-router_settings:
-  routing_strategy: simple-shuffle # Options: simple-shuffle, least-busy, usage-based-routing
-  cooldown_time: 60 # Time in seconds to cooldown a model if it fails
-  num_retries: 2 # Number of retries for failed requests
-  allowed_fails: 3 # Number of allowed fails before cooldown
-```
+1. **Configuration Errors**: Check CloudWatch logs for the Lambda function
+2. **Missing API Keys**: Ensure secrets are created in Secrets Manager
+3. **IAM Permissions**: Verify Lambda role has access to Secrets Manager and KMS
+4. **Model Not Found**: Check that the model is configured in cdk.json
 
-### Model Aliases
+## Cost Considerations
 
-Create aliases to redirect requests:
+- **Lambda Costs**: Based on requests and duration
+- **KMS Costs**: ~$1/month for the KMS key
+- **Secrets Manager**: $0.40/month per secret
+- **Model Costs**: Vary by provider (Bedrock, OpenAI, etc.)
 
-```yaml
-model_alias:
-  'gpt-4': 'claude-3-5-sonnet' # Redirect gpt-4 requests to Claude
-```
+## Further Reading
 
-### Spend Tracking
-
-Enable budget controls:
-
-```yaml
-litellm_settings:
-  max_budget: 100 # Maximum budget in USD
-  budget_duration: 30d # Budget duration (e.g., 30d, 1m, 1y)
-```
-
-## Security Considerations
-
-1. **Master Key**: Always use a strong, unique master key in production
-2. **API Keys**: Store sensitive API keys securely and rotate them regularly
-3. **IAM Authentication**: The Function URL uses IAM authentication for internal service access
-4. **Network Isolation**: Consider deploying in a VPC for additional security
-5. **Access Logging**: Monitor CloudWatch logs for security auditing
-
-## Monitoring and Troubleshooting
-
-### CloudWatch Logs
-
-Monitor the Lambda function logs in CloudWatch:
-
-- Function execution logs
-- LiteLLM proxy application logs
-- AWS Lambda Web Adapter logs
-
-### Health Check
-
-The proxy includes a health check endpoint at `/health`:
-
-```bash
-curl -X GET "${LITELLM_ENDPOINT}/health"
-```
-
-### Common Issues
-
-1. **Cold Start Delays**: The first request may take longer due to container initialization
-2. **Memory Issues**: Increase memory allocation if experiencing out-of-memory errors
-3. **Timeout Issues**: Adjust Lambda timeout for long-running model calls
-4. **Permission Issues**: Ensure the Lambda execution role has proper permissions for the services you're using
-
-## Cost Optimization
-
-1. **Reserved Concurrency**: Set reserved concurrency to control costs
-2. **Memory Allocation**: Optimize memory allocation based on usage patterns
-3. **Provisioned Concurrency**: Consider for high-traffic scenarios
-4. **Timeout Configuration**: Set appropriate timeout values to avoid unnecessary charges
-
-## Support and Maintenance
-
-- **LiteLLM Version**: Currently using v1.55.6
-- **Lambda Web Adapter**: Using v0.9.1
-- **Python Runtime**: Python 3.11 slim base image
-- **Configuration Updates**: Simply modify config.yaml and redeploy to update settings
+- [How to Configure Models](./HOW_TO_CONFIGURE_MODELS.md)
+- [Configuration Format Reference](./CONFIGURATION.md)
+- [LiteLLM Documentation](https://docs.litellm.ai/)
+- [AWS Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter)

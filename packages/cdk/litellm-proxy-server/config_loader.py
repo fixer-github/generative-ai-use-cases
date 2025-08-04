@@ -1,87 +1,102 @@
 #!/usr/bin/env python3
 """
 Dynamic configuration loader for LiteLLM Proxy Server with KMS/Secrets Manager integration.
+This loader ONLY supports dynamic configuration from environment variables and AWS Secrets Manager.
 """
 
 import os
 import json
 import yaml
 import boto3
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 
 class ConfigLoader:
-    """Loads LiteLLM configuration dynamically from KMS-encrypted secrets."""
+    """Loads LiteLLM configuration dynamically from environment variables and KMS-encrypted secrets."""
     
     def __init__(self):
-        self.use_dynamic_config = os.environ.get('USE_DYNAMIC_CONFIG', 'false').lower() == 'true'
         self.kms_key_arn = os.environ.get('KMS_KEY_ARN', '')
         self.secrets_prefix = os.environ.get('SECRETS_PREFIX', 'litellm/')
         self.litellm_config = os.environ.get('LITELLM_CONFIG', '')
         self.region = os.environ.get('AWS_REGION', 'us-east-1')
         
-        if self.use_dynamic_config:
-            self.secrets_client = boto3.client('secretsmanager', region_name=self.region)
+        # Always initialize secrets client for dynamic configuration
+        self.secrets_client = boto3.client('secretsmanager', region_name=self.region)
+        
+        # Validate that LITELLM_CONFIG is provided
+        if not self.litellm_config:
+            raise ValueError(
+                "LITELLM_CONFIG environment variable is required. "
+                "Please provide a JSON configuration with providers and models."
+            )
     
     def load_config(self) -> Dict[str, Any]:
-        """Load configuration from either static file or dynamic secrets."""
-        if not self.use_dynamic_config:
-            # Load static configuration from config.yaml
-            with open('config.yaml', 'r') as f:
-                return yaml.safe_load(f)
-        
-        # Load dynamic configuration
+        """Load configuration dynamically from environment variables and secrets."""
+        # Start with base configuration
         config = self._get_base_config()
         
-        # Load provider configuration from LITELLM_CONFIG
-        if self.litellm_config:
+        # Parse LITELLM_CONFIG environment variable
+        try:
             config_data = json.loads(self.litellm_config)
-            
-            # Process providers and their models
-            providers = config_data.get('providers', {})
-            model_list = []
-            
-            for provider_name, provider_config in providers.items():
-                if not provider_config.get('enabled', False):
-                    continue
-                
-                # Get models configuration from provider config
-                models = provider_config.get('models', [])
-                
-                # Get API key from Secrets Manager if needed
-                api_key = None
-                if provider_config.get('useSecretKey', False) and provider_name != 'bedrock':
-                    secret_key = provider_config.get('secretKey', f"{self.secrets_prefix}{provider_name}/api-key")
-                    api_key = self._get_secret(secret_key)
-                
-                # Process each model configuration
-                for model in models:
-                    model_config = self._process_model_config(model, provider_name, api_key, provider_config)
-                    if model_config:
-                        model_list.append(model_config)
-            
-            config['model_list'] = model_list
-            
-            # Load general settings if provided
-            if 'general_settings' in config_data:
-                config['general_settings'].update(config_data['general_settings'])
-            
-            # Load litellm settings if provided
-            if 'litellm_settings' in config_data:
-                config['litellm_settings'].update(config_data['litellm_settings'])
-            
-            # Load router settings if provided
-            if 'router_settings' in config_data:
-                config['router_settings'] = config_data['router_settings']
-            
-            # Load model aliases if provided
-            if 'model_alias' in config_data:
-                config['model_alias'] = config_data['model_alias']
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in LITELLM_CONFIG: {e}")
         
-        # Get master key from Secrets Manager
+        # Process providers and their models
+        providers = config_data.get('providers', {})
+        if not providers:
+            raise ValueError("No providers configured in LITELLM_CONFIG")
+        
+        model_list = []
+        
+        for provider_name, provider_config in providers.items():
+            if not provider_config.get('enabled', False):
+                continue
+            
+            # Get models configuration from provider config
+            models = provider_config.get('models', [])
+            if not models:
+                print(f"Warning: Provider {provider_name} is enabled but has no models configured")
+                continue
+            
+            # Get API key from Secrets Manager if needed
+            api_key = None
+            if provider_config.get('useSecretKey', False) and provider_name != 'bedrock':
+                secret_key = provider_config.get('secretKey', f"{self.secrets_prefix}{provider_name}/api-key")
+                api_key = self._get_secret(secret_key)
+                if not api_key:
+                    print(f"Warning: Could not retrieve API key for {provider_name}, skipping provider")
+                    continue
+            
+            # Process each model configuration
+            for model in models:
+                model_config = self._process_model_config(model, provider_name, api_key, provider_config)
+                if model_config:
+                    model_list.append(model_config)
+        
+        if not model_list:
+            raise ValueError("No models were configured. Please check your LITELLM_CONFIG.")
+        
+        config['model_list'] = model_list
+        
+        # Load additional settings if provided
+        if 'general_settings' in config_data:
+            config['general_settings'].update(config_data['general_settings'])
+        
+        if 'litellm_settings' in config_data:
+            config['litellm_settings'].update(config_data['litellm_settings'])
+        
+        if 'router_settings' in config_data:
+            config['router_settings'] = config_data['router_settings']
+        
+        if 'model_alias' in config_data:
+            config['model_alias'] = config_data['model_alias']
+        
+        # Get master key from Secrets Manager (required)
         master_key = self._get_secret(f"{self.secrets_prefix}master-key")
         if master_key:
             config['general_settings']['master_key'] = master_key
+        else:
+            print("Warning: Could not retrieve master key from Secrets Manager, using default")
         
         return config
     
@@ -90,7 +105,7 @@ class ConfigLoader:
         return {
             'model_list': [],
             'general_settings': {
-                'master_key': 'sk-litellm-master-key',  # Default, will be overridden
+                'master_key': 'sk-litellm-master-key',  # Default, should be overridden
                 'database_url': None,
             },
             'litellm_settings': {
@@ -167,20 +182,22 @@ class ConfigLoader:
             return None
     
     def save_config(self, config: Dict[str, Any], filepath: str = 'config.yaml'):
-        """Save configuration to file."""
+        """Save configuration to file for debugging purposes."""
         with open(filepath, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         print(f"Configuration saved to {filepath}")
 
 
 if __name__ == "__main__":
-    # Load and save configuration
-    loader = ConfigLoader()
-    config = loader.load_config()
-    
-    if loader.use_dynamic_config:
-        # Save the dynamically loaded configuration
+    # Load configuration
+    try:
+        loader = ConfigLoader()
+        config = loader.load_config()
+        
+        # Save the dynamically loaded configuration for debugging
         loader.save_config(config)
         print("Dynamic configuration loaded and saved successfully")
-    else:
-        print("Using static configuration")
+        print(f"Configured {len(config['model_list'])} models")
+    except Exception as e:
+        print(f"Error loading configuration: {e}")
+        exit(1)

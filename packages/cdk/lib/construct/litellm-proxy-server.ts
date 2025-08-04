@@ -51,7 +51,6 @@ export class LitellmProxyServer extends Construct {
         LITELLM_CONFIG: props.litellmConfig
           ? JSON.stringify(props.litellmConfig)
           : '',
-        USE_DYNAMIC_CONFIG: props.kmsKeyArn ? 'true' : 'false',
       },
     });
 

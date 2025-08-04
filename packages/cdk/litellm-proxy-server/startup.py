@@ -1,57 +1,71 @@
 #!/usr/bin/env python3
 
 import os
-import subprocess
-import sys
+import asyncio
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from config_loader import ConfigLoader
 
 
-def main():
+def create_health_check_app():
+    """Create a simple health check endpoint"""
+    app = FastAPI()
+    
+    @app.get("/health")
+    async def health_check():
+        return JSONResponse({
+            "status": "healthy",
+            "service": "litellm-proxy-server",
+            "version": "1.0.0",
+            "configuration": "dynamic"
+        })
+    
+    return app
+
+
+async def main():
     """Main startup function"""
     print("Starting LiteLLM Proxy Server...")
     
-    # Load configuration dynamically if KMS is enabled
-    use_dynamic_config = os.environ.get("USE_DYNAMIC_CONFIG", "false").lower() == "true"
-    
-    if use_dynamic_config:
-        print("Loading dynamic configuration from KMS/Secrets Manager...")
+    # Always load configuration dynamically from environment and secrets
+    print("Loading dynamic configuration from environment and KMS/Secrets Manager...")
+    try:
         loader = ConfigLoader()
         config = loader.load_config()
         loader.save_config(config)
-        print("Dynamic configuration loaded successfully")
-    else:
-        print("Using static configuration from config.yaml")
+        print(f"Dynamic configuration loaded successfully with {len(config.get('model_list', []))} models")
+    except Exception as e:
+        print(f"Failed to load configuration: {e}")
+        raise
     
     # Set environment variables for LiteLLM
     os.environ["LITELLM_LOG"] = os.environ.get("LITELLM_LOG", "INFO")
     
-    # Get port from Lambda Web Adapter
-    port = os.environ.get("AWS_LWA_PORT", "8000")
+    # Start the proxy server
+    port = int(os.environ.get("AWS_LWA_PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
     
-    print(f"Starting LiteLLM server on {host}:{port}")
-    print(f"Using config file: ./config.yaml")
+    print(f"Starting server on {host}:{port}")
+    print(f"Health check available at: http://{host}:{port}/health")
     
-    # Start LiteLLM proxy server using the CLI command
-    cmd = [
-        "litellm",
-        "--port", port,
-        "--host", host,
-        "--config", "./config.yaml"
-    ]
+    # Configure uvicorn
+    config = uvicorn.Config(
+        "litellm:app",
+        host=host,
+        port=port,
+        log_level="info",
+        access_log=True,
+        workers=1
+    )
     
-    print(f"Running command: {' '.join(cmd)}")
-    
-    # Run the command
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error starting LiteLLM proxy server: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        sys.exit(1)
+    server = uvicorn.Server(config)
+    await server.serve()
 
 
 if __name__ == "__main__":
-    main()
+    # Create health check endpoint
+    health_app = create_health_check_app()
+    
+    # Run the main server
+    asyncio.run(main())
