@@ -16,7 +16,7 @@ export const handler = async (
     if (format === 'yaml') {
       // Generate YAML configuration
       const yamlConfig = await LiteLLMConfigGenerator.generateYamlConfig();
-      
+
       return {
         statusCode: 200,
         headers: {
@@ -27,7 +27,7 @@ export const handler = async (
     } else {
       // Generate JSON configuration
       const jsonConfig = await LiteLLMConfigGenerator.generateProxyConfig();
-      
+
       return {
         statusCode: 200,
         headers: {

@@ -1,8 +1,4 @@
-import {
-  KMSClient,
-  DecryptCommand,
-  EncryptCommand,
-} from '@aws-sdk/client-kms';
+import { KMSClient, DecryptCommand, EncryptCommand } from '@aws-sdk/client-kms';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
@@ -39,7 +35,8 @@ class LiteLLMKmsClient {
   private readonly cacheDuration = 3600000; // 1 hour in milliseconds
 
   constructor() {
-    const region = process.env.AWS_REGION_NAME || process.env.AWS_REGION || 'us-east-1';
+    const region =
+      process.env.AWS_REGION_NAME || process.env.AWS_REGION || 'us-east-1';
     this.kmsClient = new KMSClient({ region });
     this.secretsClient = new SecretsManagerClient({ region });
   }
@@ -102,8 +99,14 @@ class LiteLLMKmsClient {
     for (const [providerName, providerConfig] of Object.entries(
       this.cachedConfig.providers
     )) {
-      if (providerConfig.enabled && providerConfig.secretArn && !providerConfig.useIAMRole) {
-        decryptPromises.push(this.decryptProviderSecret(providerName, providerConfig));
+      if (
+        providerConfig.enabled &&
+        providerConfig.secretArn &&
+        !providerConfig.useIAMRole
+      ) {
+        decryptPromises.push(
+          this.decryptProviderSecret(providerName, providerConfig)
+        );
       }
     }
 
@@ -210,14 +213,16 @@ class LiteLLMKmsClient {
   /**
    * Build LiteLLM model configuration with decrypted API keys
    */
-  async buildModelConfig(): Promise<Array<{
-    model_name: string;
-    litellm_params: {
-      model: string;
-      api_key?: string;
-      api_base?: string;
-    };
-  }>> {
+  async buildModelConfig(): Promise<
+    Array<{
+      model_name: string;
+      litellm_params: {
+        model: string;
+        api_key?: string;
+        api_base?: string;
+      };
+    }>
+  > {
     const config = await this.getConfiguration();
     const models: Array<{
       model_name: string;
@@ -228,7 +233,9 @@ class LiteLLMKmsClient {
       };
     }> = [];
 
-    for (const [providerName, providerConfig] of Object.entries(config.providers)) {
+    for (const [providerName, providerConfig] of Object.entries(
+      config.providers
+    )) {
       if (providerConfig.enabled) {
         const baseConfig = {
           model_name: `${providerConfig.modelPrefix}/*`,

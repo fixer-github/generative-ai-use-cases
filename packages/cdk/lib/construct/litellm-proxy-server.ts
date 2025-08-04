@@ -17,6 +17,9 @@ export interface LitellmProxyServerProps {
   readonly isSageMakerStudio: boolean;
   readonly modelRegion?: string;
   readonly crossAccountBedrockRoleArn?: string;
+  readonly kmsKeyArn?: string;
+  readonly secretsPrefix?: string;
+  readonly litellmConfig?: Record<string, unknown>;
 }
 
 export class LitellmProxyServer extends Construct {
@@ -43,6 +46,12 @@ export class LitellmProxyServer extends Construct {
         AWS_LWA_READINESS_CHECK_PATH: '/health',
         BEDROCK_REGION: props.modelRegion || 'us-east-1',
         LITELLM_LOG: 'INFO',
+        KMS_KEY_ARN: props.kmsKeyArn || '',
+        SECRETS_PREFIX: props.secretsPrefix || 'litellm/',
+        LITELLM_CONFIG: props.litellmConfig
+          ? JSON.stringify(props.litellmConfig)
+          : '',
+        USE_DYNAMIC_CONFIG: props.kmsKeyArn ? 'true' : 'false',
       },
     });
 
@@ -67,6 +76,38 @@ export class LitellmProxyServer extends Construct {
           effect: Effect.ALLOW,
           actions: ['sts:AssumeRole'],
           resources: [props.crossAccountBedrockRoleArn],
+        })
+      );
+    }
+
+    // Grant access to KMS and Secrets Manager if KMS integration is enabled
+    if (props.kmsKeyArn) {
+      // KMS permissions
+      this.function.role?.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'kms:Decrypt',
+            'kms:DescribeKey',
+            'kms:GetKeyPolicy',
+            'kms:GetKeyRotationStatus',
+          ],
+          resources: [props.kmsKeyArn],
+        })
+      );
+
+      // Secrets Manager permissions
+      this.function.role?.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'secretsmanager:GetSecretValue',
+            'secretsmanager:DescribeSecret',
+            'secretsmanager:ListSecrets',
+          ],
+          resources: [
+            `arn:aws:secretsmanager:*:*:secret:${props.secretsPrefix}*`,
+          ],
         })
       );
     }

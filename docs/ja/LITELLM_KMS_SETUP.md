@@ -5,6 +5,7 @@
 ## 概要
 
 AWS KMS V1を使用したLiteLLMシークレット管理は以下を提供します：
+
 - APIキーの一元的な暗号化と保存
 - 動的な設定生成（静的な設定ファイル不要）
 - 自動キーローテーション機能
@@ -93,6 +94,7 @@ AWS KMS V1を使用したLiteLLMシークレット管理は以下を提供しま
 **重要**: KMS統合を使用する場合、以下の環境変数を直接設定してはいけません：
 
 ❌ **設定してはいけない環境変数**:
+
 ```bash
 # APIキー - KMS/Secrets Managerで管理されます
 export OPENAI_API_KEY="sk-..."           # ❌ 直接設定しない
@@ -107,6 +109,7 @@ export LITELLM_KEY_MANAGEMENT_SYSTEM="..." # ❌ aws_kmsに自動設定
 ```
 
 ✅ **自動的に設定される環境変数**:
+
 ```bash
 # これらはCDKコンストラクトによって自動的に設定されます：
 LITELLM_MASTER_KEY=<encrypted>           # ✅ KMSで暗号化
@@ -117,6 +120,7 @@ AWS_REGION_NAME=us-east-1               # ✅ AWS環境から
 ```
 
 ✅ **設定可能なオプション環境変数**:
+
 ```bash
 # デバッグとログ
 export LITELLM_DEBUG=true               # デバッグログを有効化
@@ -130,34 +134,40 @@ export LITELLM_CACHE_BACKEND=redis     # キャッシュバックエンド（デ
 ### 3. よくある間違いを避ける
 
 #### ❌ **間違い: Lambda環境変数にAPIキーを設定**
+
 ```typescript
 // これはやってはいけません
 new lambda.Function(this, 'MyFunction', {
   environment: {
-    OPENAI_API_KEY: 'sk-...',  // ❌ CloudFormationで露出
-    ANTHROPIC_API_KEY: 'sk-ant-...' // ❌ コンソールで表示
-  }
+    OPENAI_API_KEY: 'sk-...', // ❌ CloudFormationで露出
+    ANTHROPIC_API_KEY: 'sk-ant-...', // ❌ コンソールで表示
+  },
 });
 ```
 
 #### ✅ **正解: LiteLLM KMSコンストラクトを使用**
+
 ```typescript
 // 代わりにこうします
 const litellmKms = new LiteLLMKms(this, 'LiteLLM', {
   kmsKey: kmsStack.kmsKey,
-  providers: { /* 設定 */ }
+  providers: {
+    /* 設定 */
+  },
 });
 
 litellmKms.grantRead(myFunction); // ✅ セキュアなアクセス
 ```
 
 #### ❌ **間違い: 設定ファイルパスをハードコード**
+
 ```bash
 # これはやってはいけません
 export LITELLM_CONFIG_PATH="/path/to/config.yaml"  # ❌ 静的ファイル
 ```
 
 #### ✅ **正解: 動的設定を使用**
+
 ```typescript
 // 設定は動的に生成されます
 const config = await LiteLLMConfigGenerator.generateProxyConfig();
@@ -175,7 +185,7 @@ aws secretsmanager put-secret-value \
   --secret-id litellm/openai/api-key \
   --secret-string "sk-proj-abcd1234..."  # ✅ プレーンキーのみ
 
-# Anthropic APIキーを保存  
+# Anthropic APIキーを保存
 aws secretsmanager put-secret-value \
   --secret-id litellm/anthropic/api-key \
   --secret-string "sk-ant-api03-abcd1234..."  # ✅ プレーンキーのみ
@@ -214,6 +224,7 @@ npm run cdk:deploy
 ```
 
 このアプローチの利点：
+
 - ✅ 維持する静的設定ファイルがない
 - ✅ プロバイダー変更時の再デプロイ不要
 - ✅ 設定が常にシークレットと同期
@@ -229,16 +240,16 @@ import { getLiteLLMKmsClient } from './utils/litellmKmsClient';
 export const handler = async (event: any) => {
   // LiteLLM KMSクライアントを初期化
   const litellmClient = await getLiteLLMKmsClient();
-  
+
   // プロバイダーの復号化されたAPIキーを取得
   const openaiKey = await litellmClient.getProviderApiKey('openai');
-  
+
   // 完全な設定を取得
   const config = await litellmClient.getConfiguration();
-  
+
   // LiteLLMプロキシ用のモデル設定を構築
   const models = await litellmClient.buildModelConfig();
-  
+
   // LiteLLMで使用
   // ... あなたのLiteLLMコードをここに
 };
@@ -282,8 +293,8 @@ const virtualKey = await createVirtualKey({
   models: ['gpt-4', 'claude-3'],
   metadata: {
     department: 'engineering',
-    project: 'chatbot'
-  }
+    project: 'chatbot',
+  },
 });
 ```
 
@@ -291,16 +302,16 @@ const virtualKey = await createVirtualKey({
 
 ### 従来のアプローチ vs KMSアプローチ
 
-| 側面 | 従来 (❌) | KMS統合 (✅) |
-|--------|-----------------|---------------------|
-| **APIキーの保存** | 環境変数や設定ファイル | AWS Secrets Managerで暗号化 |
-| **キーの可視性** | CloudFormation、Lambdaコンソールで表示 | 露出なし、暗号化された参照のみ |
-| **キーローテーション** | 手動プロセス、再デプロイが必要 | 再デプロイなしで自動ローテーション |
-| **アクセス制御** | Lambda全体へのアクセス | キーごとの細かいIAMポリシー |
-| **監査証跡** | 限定的またはなし | 完全なCloudTrailログ |
-| **設定更新** | コード変更とデプロイが必要 | Secrets Manager経由で動的更新 |
-| **マルチプロバイダーキー** | 複数の環境変数に分散 | 一元管理 |
-| **コスト** | 無料だが安全でない | エンタープライズセキュリティで月額約$1.30 |
+| 側面                       | 従来 (❌)                              | KMS統合 (✅)                              |
+| -------------------------- | -------------------------------------- | ----------------------------------------- |
+| **APIキーの保存**          | 環境変数や設定ファイル                 | AWS Secrets Managerで暗号化               |
+| **キーの可視性**           | CloudFormation、Lambdaコンソールで表示 | 露出なし、暗号化された参照のみ            |
+| **キーローテーション**     | 手動プロセス、再デプロイが必要         | 再デプロイなしで自動ローテーション        |
+| **アクセス制御**           | Lambda全体へのアクセス                 | キーごとの細かいIAMポリシー               |
+| **監査証跡**               | 限定的またはなし                       | 完全なCloudTrailログ                      |
+| **設定更新**               | コード変更とデプロイが必要             | Secrets Manager経由で動的更新             |
+| **マルチプロバイダーキー** | 複数の環境変数に分散                   | 一元管理                                  |
+| **コスト**                 | 無料だが安全でない                     | エンタープライズセキュリティで月額約$1.30 |
 
 ## セキュリティベストプラクティス
 
@@ -313,6 +324,7 @@ const virtualKey = await createVirtualKey({
 ## モニタリングとアラート
 
 スタックは以下のCloudWatchアラームを自動的に作成します：
+
 - KMS復号化失敗の試行（しきい値：5分間に10回）
 - APIコールの高エラー率
 - 異常な使用パターン
@@ -330,10 +342,12 @@ CloudWatchの`LiteLLM/Proxy`ネームスペースでメトリクスを表示し�
 ### よくある問題
 
 1. **KMSアクセス拒否**
+
    - Lambda実行ロールに`kms:Decrypt`権限があることを確認
    - KMSキーポリシーがLambdaロールを許可していることを確認
 
 2. **シークレットが見つからない**
+
    - Secrets Managerにシークレットが存在することを確認
    - シークレット名が設定と一致していることを確認
 
@@ -376,6 +390,7 @@ aws cloudtrail lookup-events \
 ## サポート
 
 問題や質問がある場合：
+
 - 詳細なエラーメッセージはCloudWatchログを確認
 - [LiteLLMドキュメント](https://docs.litellm.ai/)を参照
 - プロジェクトリポジトリでissueを作成

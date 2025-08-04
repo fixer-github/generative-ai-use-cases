@@ -5,6 +5,7 @@ This guide explains how to set up and use LiteLLM with AWS Key Management Servic
 ## Overview
 
 LiteLLM secret management with AWS KMS V1 provides:
+
 - Centralized encryption and storage of API keys
 - Dynamic configuration generation (no static config files)
 - Automatic key rotation capabilities
@@ -93,6 +94,7 @@ Update your `cdk.json` file to enable LiteLLM:
 **IMPORTANT**: With our KMS integration, you should NEVER set these environment variables directly:
 
 ❌ **DO NOT SET THESE**:
+
 ```bash
 # API Keys - These are managed by KMS/Secrets Manager
 export OPENAI_API_KEY="sk-..."           # ❌ Never set directly
@@ -107,6 +109,7 @@ export LITELLM_KEY_MANAGEMENT_SYSTEM="..." # ❌ Set to aws_kms automatically
 ```
 
 ✅ **AUTOMATICALLY CONFIGURED**:
+
 ```bash
 # These are set automatically by the CDK construct:
 LITELLM_MASTER_KEY=<encrypted>           # ✅ Encrypted by KMS
@@ -117,6 +120,7 @@ AWS_REGION_NAME=us-east-1               # ✅ From AWS environment
 ```
 
 ✅ **OPTIONAL ENVIRONMENT VARIABLES YOU CAN SET**:
+
 ```bash
 # Debug and logging
 export LITELLM_DEBUG=true               # Enable debug logging
@@ -130,34 +134,40 @@ export LITELLM_CACHE_BACKEND=redis     # Cache backend (default: in-memory)
 ### 3. Common Mistakes to Avoid
 
 #### ❌ **WRONG: Setting API keys in Lambda environment variables**
+
 ```typescript
 // DON'T DO THIS
 new lambda.Function(this, 'MyFunction', {
   environment: {
-    OPENAI_API_KEY: 'sk-...',  // ❌ Exposed in CloudFormation
-    ANTHROPIC_API_KEY: 'sk-ant-...' // ❌ Visible in console
-  }
+    OPENAI_API_KEY: 'sk-...', // ❌ Exposed in CloudFormation
+    ANTHROPIC_API_KEY: 'sk-ant-...', // ❌ Visible in console
+  },
 });
 ```
 
 #### ✅ **CORRECT: Use LiteLLM KMS construct**
+
 ```typescript
 // DO THIS INSTEAD
 const litellmKms = new LiteLLMKms(this, 'LiteLLM', {
   kmsKey: kmsStack.kmsKey,
-  providers: { /* config */ }
+  providers: {
+    /* config */
+  },
 });
 
 litellmKms.grantRead(myFunction); // ✅ Secure access
 ```
 
 #### ❌ **WRONG: Hardcoding config file path**
+
 ```bash
 # DON'T DO THIS
 export LITELLM_CONFIG_PATH="/path/to/config.yaml"  # ❌ Static file
 ```
 
 #### ✅ **CORRECT: Use dynamic configuration**
+
 ```typescript
 // Configuration is generated dynamically
 const config = await LiteLLMConfigGenerator.generateProxyConfig();
@@ -175,7 +185,7 @@ aws secretsmanager put-secret-value \
   --secret-id litellm/openai/api-key \
   --secret-string "sk-proj-abcd1234..."  # ✅ Plain key only
 
-# Store Anthropic API key  
+# Store Anthropic API key
 aws secretsmanager put-secret-value \
   --secret-id litellm/anthropic/api-key \
   --secret-string "sk-ant-api03-abcd1234..."  # ✅ Plain key only
@@ -214,6 +224,7 @@ Unlike traditional approaches that require static YAML files, our implementation
 ```
 
 This approach:
+
 - ✅ No static config files to maintain
 - ✅ No redeployment when changing providers
 - ✅ Configuration always in sync with secrets
@@ -229,16 +240,16 @@ import { getLiteLLMKmsClient } from './utils/litellmKmsClient';
 export const handler = async (event: any) => {
   // Initialize LiteLLM KMS client
   const litellmClient = await getLiteLLMKmsClient();
-  
+
   // Get decrypted API key for a provider
   const openaiKey = await litellmClient.getProviderApiKey('openai');
-  
+
   // Get full configuration
   const config = await litellmClient.getConfiguration();
-  
+
   // Build model configuration for LiteLLM proxy
   const models = await litellmClient.buildModelConfig();
-  
+
   // Use with LiteLLM
   // ... your LiteLLM code here
 };
@@ -282,8 +293,8 @@ const virtualKey = await createVirtualKey({
   models: ['gpt-4', 'claude-3'],
   metadata: {
     department: 'engineering',
-    project: 'chatbot'
-  }
+    project: 'chatbot',
+  },
 });
 ```
 
@@ -291,16 +302,16 @@ const virtualKey = await createVirtualKey({
 
 ### Traditional Approach vs KMS Approach
 
-| Aspect | Traditional (❌) | KMS Integration (✅) |
-|--------|-----------------|---------------------|
-| **API Key Storage** | Environment variables or config files | Encrypted in AWS Secrets Manager |
-| **Key Visibility** | Visible in CloudFormation, Lambda console | Never exposed, only encrypted references |
-| **Key Rotation** | Manual process, requires redeployment | Automatic rotation without redeployment |
-| **Access Control** | All-or-nothing Lambda access | Fine-grained IAM policies per key |
-| **Audit Trail** | Limited or none | Full CloudTrail logging |
-| **Configuration Updates** | Requires code changes and deployment | Dynamic updates via Secrets Manager |
-| **Multi-Provider Keys** | Scattered across multiple env vars | Centralized management |
-| **Cost** | Free but insecure | ~$1.30/month for enterprise security |
+| Aspect                    | Traditional (❌)                          | KMS Integration (✅)                     |
+| ------------------------- | ----------------------------------------- | ---------------------------------------- |
+| **API Key Storage**       | Environment variables or config files     | Encrypted in AWS Secrets Manager         |
+| **Key Visibility**        | Visible in CloudFormation, Lambda console | Never exposed, only encrypted references |
+| **Key Rotation**          | Manual process, requires redeployment     | Automatic rotation without redeployment  |
+| **Access Control**        | All-or-nothing Lambda access              | Fine-grained IAM policies per key        |
+| **Audit Trail**           | Limited or none                           | Full CloudTrail logging                  |
+| **Configuration Updates** | Requires code changes and deployment      | Dynamic updates via Secrets Manager      |
+| **Multi-Provider Keys**   | Scattered across multiple env vars        | Centralized management                   |
+| **Cost**                  | Free but insecure                         | ~$1.30/month for enterprise security     |
 
 ## Security Best Practices
 
@@ -313,6 +324,7 @@ const virtualKey = await createVirtualKey({
 ## Monitoring and Alerts
 
 The stack automatically creates CloudWatch alarms for:
+
 - Failed KMS decryption attempts (threshold: 10 in 5 minutes)
 - High error rates in API calls
 - Unusual usage patterns
@@ -330,10 +342,12 @@ View metrics in CloudWatch under the `LiteLLM/Proxy` namespace.
 ### Common Issues
 
 1. **KMS Access Denied**
+
    - Check Lambda execution role has `kms:Decrypt` permission
    - Verify KMS key policy allows the Lambda role
 
 2. **Secret Not Found**
+
    - Ensure secret exists in Secrets Manager
    - Check secret name matches configuration
 
@@ -376,6 +390,7 @@ aws cloudtrail lookup-events \
 ## Support
 
 For issues or questions:
+
 - Check CloudWatch logs for detailed error messages
 - Review the [LiteLLM documentation](https://docs.litellm.ai/)
 - Open an issue in the project repository

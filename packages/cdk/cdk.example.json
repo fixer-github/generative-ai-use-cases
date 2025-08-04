@@ -92,7 +92,7 @@
         },
         "anthropic": {
           "enabled": false,
-          "secretKey": "ANTHROPIC_API_KEY", 
+          "secretKey": "ANTHROPIC_API_KEY",
           "modelPrefix": "anthropic"
         },
         "bedrock": {

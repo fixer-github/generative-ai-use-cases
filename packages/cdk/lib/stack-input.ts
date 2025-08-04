@@ -141,6 +141,46 @@ const baseStackInputSchema = z.object({
   mcpEnabled: z.boolean().default(false),
   // LiteLLM Proxy Server
   litellmProxyEnabled: z.boolean().default(false),
+  // LiteLLM KMS Integration
+  litellm: z
+    .object({
+      enabled: z.boolean().default(false),
+      kms: z.object({
+        keyAlias: z.string().default('alias/litellm-master'),
+        enableKeyRotation: z.boolean().default(true),
+        pendingWindowInDays: z.number().default(7),
+        enableAuditLog: z.boolean().default(true),
+        secretRotationDays: z.number().default(90),
+      }),
+      providers: z.record(
+        z.object({
+          enabled: z.boolean().default(false),
+          secretKey: z.string().optional(),
+          modelPrefix: z.string(),
+          endpoint: z.string().optional(),
+          useIAMRole: z.boolean().optional(),
+        })
+      ),
+      virtualKeys: z.object({
+        enabled: z.boolean().default(false),
+        prefix: z.string().default('litellm_vk_'),
+        defaultExpiry: z.number().default(2592000),
+        maxKeysPerUser: z.number().default(10),
+      }),
+      routing: z
+        .object({
+          strategy: z.string().default('least-cost'),
+          enableFallbacks: z.boolean().default(true),
+          defaultProvider: z.string().default('openai'),
+        })
+        .optional(),
+      monitoring: z.object({
+        enableCloudWatch: z.boolean().default(true),
+        metricNamespace: z.string().default('LiteLLM/Proxy'),
+        enableAlerts: z.boolean().default(true),
+      }),
+    })
+    .optional(),
   // Guardrail
   guardrailEnabled: z.boolean().default(false),
   // Usecase builder

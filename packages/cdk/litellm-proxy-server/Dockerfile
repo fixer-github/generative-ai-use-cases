@@ -22,11 +22,14 @@ RUN pip install --no-cache-dir \
     litellm[proxy]==1.74.8 \
     google-auth \
     google-auth-oauthlib \
-    google-auth-httplib2
+    google-auth-httplib2 \
+    boto3==1.35.81 \
+    pyyaml==6.0.2
 
 # Copy configuration and startup script
 COPY config.yaml ./
 COPY startup.py ./
+COPY config_loader.py ./
 
 # Create a simple health check endpoint
 RUN echo 'from fastapi import FastAPI; from fastapi.responses import JSONResponse; app = FastAPI(); @app.get("/health"); def health(): return JSONResponse({"status": "healthy"})' > health_check.py

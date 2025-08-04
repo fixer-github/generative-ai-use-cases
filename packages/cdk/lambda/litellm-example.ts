@@ -67,7 +67,9 @@ export const handler = async (
             content: `This is a mock response from the LiteLLM KMS integration example. 
                      In a real implementation, this would call the LiteLLM proxy with your decrypted API keys.
                      
-                     Available providers: ${Object.keys(config.providers).filter(p => config.providers[p].enabled).join(', ')}
+                     Available providers: ${Object.keys(config.providers)
+                       .filter((p) => config.providers[p].enabled)
+                       .join(', ')}
                      Default provider: ${config.defaultProvider}
                      Routing strategy: ${config.routing?.strategy || 'round-robin'}`,
           },
@@ -95,7 +97,8 @@ export const handler = async (
       statusCode: 500,
       body: JSON.stringify({
         error: {
-          message: error instanceof Error ? error.message : 'Internal server error',
+          message:
+            error instanceof Error ? error.message : 'Internal server error',
           type: 'internal_error',
         },
       }),
@@ -141,7 +144,10 @@ export const createVirtualKeyHandler = async (
     );
 
     // Store encrypted key (in real implementation, store in DynamoDB/Secrets Manager)
-    console.log('Encrypted virtual key:', encryptedKey.substring(0, 50) + '...');
+    console.log(
+      'Encrypted virtual key:',
+      encryptedKey.substring(0, 50) + '...'
+    );
 
     // In a real implementation, you would store this in DynamoDB or Secrets Manager
     console.log('Created virtual key:', virtualKey.key);
@@ -160,7 +166,10 @@ export const createVirtualKeyHandler = async (
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to create virtual key',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create virtual key',
       }),
     };
   }

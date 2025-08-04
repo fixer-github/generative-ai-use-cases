@@ -13,6 +13,7 @@ import {
   McpApi,
   LitellmProxyServer,
   MultiTenantRole,
+  LitellmKms,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -161,6 +162,38 @@ export class GenerativeAiUseCasesStack extends Stack {
       mcpEndpoint = mcpApi.endpoint;
     }
 
+    // LiteLLM KMS (if enabled)
+    let litellmKms: LitellmKms | undefined;
+    if (params.litellm?.enabled) {
+      litellmKms = new LitellmKms(this, 'LitellmKms', {
+        kmsConfig: params.litellm.kms,
+        providers: params.litellm.providers,
+        virtualKeys: params.litellm.virtualKeys,
+        monitoring: params.litellm.monitoring,
+      });
+    }
+
+    // LiteLLM Proxy Server
+    let litellmEndpoint: string | null = null;
+    if (params.litellmProxyEnabled) {
+      const litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
+        idPool: auth.idPool,
+        isSageMakerStudio: props.isSageMakerStudio,
+        modelRegion: params.modelRegion,
+        crossAccountBedrockRoleArn:
+          params.crossAccountBedrockRoleArn || undefined,
+        // Pass KMS configuration if available
+        kmsKeyArn: litellmKms?.masterKey.keyArn,
+        secretsPrefix: 'litellm/',
+        litellmConfig: params.litellm,
+      });
+      litellmEndpoint = litellmProxy.endpoint;
+
+      // Grant KMS permissions to the proxy server if KMS is enabled
+      if (litellmKms) {
+        litellmKms.grantRead(litellmProxy.function);
+      }
+    }
     // Web Frontend
     const web = new Web(this, 'Api', {
       // Auth

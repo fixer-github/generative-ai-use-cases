@@ -73,7 +73,11 @@ export interface LiteLLMModelInfo {
 }
 
 export interface LiteLLMRouterSettings {
-  routing_strategy: 'least-cost' | 'least-latency' | 'round-robin' | 'usage-based';
+  routing_strategy:
+    | 'least-cost'
+    | 'least-latency'
+    | 'round-robin'
+    | 'usage-based';
   enable_fallbacks: boolean;
   fallback_models: string[];
   model_group_config?: Record<string, LiteLLMModelGroupConfig>;

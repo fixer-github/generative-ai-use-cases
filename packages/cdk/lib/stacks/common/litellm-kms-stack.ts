@@ -1,4 +1,10 @@
-import { Stack, StackProps, RemovalPolicy, Duration, CfnOutput } from 'aws-cdk-lib';
+import {
+  Stack,
+  StackProps,
+  RemovalPolicy,
+  Duration,
+  CfnOutput,
+} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -29,10 +35,10 @@ export class LiteLLMKmsStack extends Stack {
     });
 
     // Create an alias for easier reference
-    const aliasName = props?.envSuffix 
+    const aliasName = props?.envSuffix
       ? `alias/litellm-master-${props.envSuffix}`
       : 'alias/litellm-master';
-    
+
     this.kmsKeyAlias = new kms.Alias(this, 'LiteLLMKeyAlias', {
       aliasName,
       targetKey: this.kmsKey,

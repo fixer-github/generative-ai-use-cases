@@ -1,6 +1,6 @@
-# LiteLLM Proxy Server for AWS Lambda
+# LiteLLM Proxy Server for AWS Lambda with KMS Integration
 
-This directory contains the implementation of a LiteLLM proxy server that runs on AWS Lambda using the Lambda Web Adapter. The proxy provides a unified OpenAI-compatible API interface for various AI models.
+This directory contains the implementation of a LiteLLM proxy server that runs on AWS Lambda using the Lambda Web Adapter. The proxy provides a unified OpenAI-compatible API interface for various AI models with optional AWS KMS integration for secure API key management.
 
 ## Overview
 
@@ -11,12 +11,15 @@ The LiteLLM proxy server is deployed as a Docker container on AWS Lambda with th
 - **Multi-Provider Support**: Supports AWS Bedrock, OpenAI, Azure OpenAI, Google Vertex AI, Anthropic, Cohere, and more
 - **OpenAI-Compatible API**: Standard chat completions endpoint for easy integration
 - **Configuration-Based Setup**: All models and settings managed through config.yaml
+- **KMS Integration**: Optional secure API key management using AWS KMS and Secrets Manager
+- **Dynamic Configuration**: Automatically loads API keys from encrypted secrets when KMS is enabled
 
 ## Files
 
 - `Dockerfile`: Container configuration with Lambda Web Adapter
 - `config.yaml`: Central configuration file for all LiteLLM settings and model definitions
-- `startup.py`: Simple Python startup script that launches the proxy
+- `startup.py`: Python startup script that launches the proxy with optional KMS support
+- `config_loader.py`: Dynamic configuration loader for KMS-encrypted secrets
 - `README.md`: This documentation file
 
 ## Configuration
@@ -30,6 +33,10 @@ The following environment variables are set by the CDK deployment:
 - `AWS_LWA_INVOKE_MODE=RESPONSE_STREAM`: Enable streaming responses
 - `BEDROCK_REGION`: AWS region for Bedrock access (default: us-east-1)
 - `LITELLM_LOG=INFO`: Logging level
+- `USE_DYNAMIC_CONFIG`: Enable KMS integration for dynamic configuration (default: false)
+- `KMS_KEY_ARN`: ARN of the KMS key for decrypting secrets (when KMS is enabled)
+- `SECRETS_PREFIX`: Prefix for secrets in Secrets Manager (default: litellm/)
+- `LITELLM_CONFIG`: JSON configuration for enabled providers
 
 ### Model Configuration (config.yaml)
 
@@ -119,6 +126,78 @@ curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
 ### Lambda Function Integration
 
 When integrating with other Lambda functions, use IAM authentication to access the Function URL. The Lambda execution role will need the `lambda:InvokeFunctionUrl` permission.
+
+## KMS Integration (Optional)
+
+The LiteLLM proxy server supports secure API key management using AWS KMS and Secrets Manager. When enabled, API keys are stored encrypted and retrieved dynamically at runtime.
+
+### Enable KMS Integration
+
+Add the following to your CDK configuration:
+
+```json
+{
+  "litellmProxyEnabled": true,
+  "litellm": {
+    "enabled": true,
+    "kms": {
+      "keyAlias": "alias/litellm-master",
+      "enableKeyRotation": true,
+      "pendingWindowInDays": 7,
+      "enableAuditLog": true,
+      "secretRotationDays": 90
+    },
+    "providers": {
+      "openai": {
+        "enabled": true,
+        "secretKey": "OPENAI_API_KEY",
+        "modelPrefix": "openai"
+      },
+      "anthropic": {
+        "enabled": true,
+        "secretKey": "ANTHROPIC_API_KEY",
+        "modelPrefix": "anthropic"
+      }
+    }
+  }
+}
+```
+
+### Store API Keys in Secrets Manager
+
+After deployment, store your API keys:
+
+```bash
+# Store OpenAI API key
+aws secretsmanager put-secret-value \
+  --secret-id litellm/openai/api-key \
+  --secret-string "sk-proj-your-openai-key"
+
+# Store Anthropic API key
+aws secretsmanager put-secret-value \
+  --secret-id litellm/anthropic/api-key \
+  --secret-string "sk-ant-your-anthropic-key"
+
+# Store master key for LiteLLM admin access
+aws secretsmanager put-secret-value \
+  --secret-id litellm/master-key \
+  --secret-string "sk-litellm-your-secure-master-key"
+```
+
+### How KMS Integration Works
+
+1. **At Startup**: The proxy checks if `USE_DYNAMIC_CONFIG=true`
+2. **If Enabled**: The `config_loader.py` retrieves encrypted API keys from Secrets Manager
+3. **Configuration Generation**: A new `config.yaml` is generated with decrypted keys
+4. **Security**: Keys are never exposed in environment variables or CloudFormation
+
+### Benefits of KMS Integration
+
+- **No Hardcoded Keys**: API keys are never stored in code or configuration files
+- **Automatic Rotation**: Support for automatic key rotation every 90 days
+- **Audit Trail**: CloudTrail logs all key access for compliance
+- **Fine-Grained Access**: IAM policies control who can access which keys
+- **Zero Downtime Updates**: Change API keys without redeploying
 
 ## Deployment
 

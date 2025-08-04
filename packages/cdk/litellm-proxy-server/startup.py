@@ -3,11 +3,24 @@
 import os
 import subprocess
 import sys
+from config_loader import ConfigLoader
 
 
 def main():
     """Main startup function"""
     print("Starting LiteLLM Proxy Server...")
+    
+    # Load configuration dynamically if KMS is enabled
+    use_dynamic_config = os.environ.get("USE_DYNAMIC_CONFIG", "false").lower() == "true"
+    
+    if use_dynamic_config:
+        print("Loading dynamic configuration from KMS/Secrets Manager...")
+        loader = ConfigLoader()
+        config = loader.load_config()
+        loader.save_config(config)
+        print("Dynamic configuration loaded successfully")
+    else:
+        print("Using static configuration from config.yaml")
     
     # Set environment variables for LiteLLM
     os.environ["LITELLM_LOG"] = os.environ.get("LITELLM_LOG", "INFO")

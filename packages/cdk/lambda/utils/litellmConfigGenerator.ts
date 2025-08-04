@@ -1,4 +1,8 @@
-import { getLiteLLMKmsClient, LiteLLMConfig, LiteLLMKmsClient } from './litellmKmsClient';
+import {
+  getLiteLLMKmsClient,
+  LiteLLMConfig,
+  LiteLLMKmsClient,
+} from './litellmKmsClient';
 
 export interface LiteLLMProxyConfig {
   general_settings: {
@@ -24,10 +28,13 @@ export interface LiteLLMProxyConfig {
     routing_strategy?: string;
     enable_fallbacks?: boolean;
     fallback_models?: string[];
-    model_group_config?: Record<string, {
-      rpm?: number;
-      tpm?: number;
-    }>;
+    model_group_config?: Record<
+      string,
+      {
+        rpm?: number;
+        tpm?: number;
+      }
+    >;
   };
   litellm_settings?: {
     cache?: boolean;
@@ -67,7 +74,8 @@ export class LiteLLMConfigGenerator {
           hosted_keys: ['LITELLM_MASTER_KEY'],
           access_mode: 'read_and_write',
           store_virtual_keys: config.virtualKeys?.enabled || false,
-          prefix_for_stored_virtual_keys: config.virtualKeys?.prefix || 'litellm_vk_',
+          prefix_for_stored_virtual_keys:
+            config.virtualKeys?.prefix || 'litellm_vk_',
         },
       },
       model_list: modelList,
@@ -152,7 +160,10 @@ export class LiteLLMConfigGenerator {
     }
 
     // AWS Bedrock models (using IAM role)
-    if (config.providers.bedrock?.enabled && config.providers.bedrock.useIAMRole) {
+    if (
+      config.providers.bedrock?.enabled &&
+      config.providers.bedrock.useIAMRole
+    ) {
       models.push(
         {
           model_name: 'bedrock-claude-3',
@@ -247,7 +258,7 @@ export class LiteLLMConfigGenerator {
    */
   static async generateYamlConfig(): Promise<string> {
     const config = await this.generateProxyConfig();
-    
+
     // Convert to YAML format (simplified version)
     // In production, use a proper YAML library like js-yaml
     return this.toYaml(config);
@@ -256,7 +267,10 @@ export class LiteLLMConfigGenerator {
   /**
    * Simple object to YAML converter
    */
-  private static toYaml(obj: Record<string, unknown> | unknown, indent = 0): string {
+  private static toYaml(
+    obj: Record<string, unknown> | unknown,
+    indent = 0
+  ): string {
     let yaml = '';
     const spaces = ' '.repeat(indent);
 
