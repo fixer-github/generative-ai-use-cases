@@ -22,6 +22,7 @@ export interface LiteLLMKmsProps {
   readonly defaultProvider?: string;
   readonly enableCaching?: boolean;
   readonly secretRotationDays?: number;
+  readonly envSuffix?: string;
 }
 
 export class LiteLLMKms extends Construct {
@@ -48,10 +49,14 @@ export class LiteLLMKms extends Construct {
     // Create secrets for each enabled provider
     Object.entries(props.providers).forEach(([providerName, provider]) => {
       if (provider.enabled && !provider.useIAMRole) {
+        const secretName = props.envSuffix 
+          ? `litellm-${props.envSuffix}/${providerName}/api-key`
+          : `litellm/${providerName}/api-key`;
+        
         const secret = new secretsmanager.Secret(this, `${providerName}Secret`, {
           description: `API key for ${providerName} provider`,
           encryptionKey: props.kmsKey,
-          secretName: `litellm/${providerName}/api-key`,
+          secretName,
           removalPolicy: RemovalPolicy.RETAIN,
         });
 
@@ -92,10 +97,14 @@ export class LiteLLMKms extends Construct {
       }
     });
 
+    const configSecretName = props.envSuffix
+      ? `litellm-${props.envSuffix}/config`
+      : 'litellm/config';
+    
     this.configSecret = new secretsmanager.Secret(this, 'ConfigSecret', {
       description: 'LiteLLM configuration',
       encryptionKey: props.kmsKey,
-      secretName: 'litellm/config',
+      secretName: configSecretName,
       secretStringValue: {
         secretString: JSON.stringify(configData),
       },

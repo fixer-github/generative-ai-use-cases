@@ -8,6 +8,7 @@ export interface LiteLLMKmsStackProps extends StackProps {
   readonly allowedPrincipals?: iam.IPrincipal[];
   readonly enableKeyRotation?: boolean;
   readonly pendingWindowInDays?: number;
+  readonly envSuffix?: string;
 }
 
 export class LiteLLMKmsStack extends Stack {
@@ -28,8 +29,12 @@ export class LiteLLMKmsStack extends Stack {
     });
 
     // Create an alias for easier reference
+    const aliasName = props?.envSuffix 
+      ? `alias/litellm-master-${props.envSuffix}`
+      : 'alias/litellm-master';
+    
     this.kmsKeyAlias = new kms.Alias(this, 'LiteLLMKeyAlias', {
-      aliasName: 'alias/litellm-master',
+      aliasName,
       targetKey: this.kmsKey,
     });
 
