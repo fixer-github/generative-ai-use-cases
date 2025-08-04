@@ -6,10 +6,12 @@ This guide explains how to set up and use LiteLLM with AWS Key Management Servic
 
 LiteLLM secret management with AWS KMS V1 provides:
 - Centralized encryption and storage of API keys
+- Dynamic configuration generation (no static config files)
 - Automatic key rotation capabilities
 - Multi-provider support (OpenAI, Anthropic, Azure, etc.)
 - Virtual key generation for temporary access
 - Audit logging and monitoring
+- No redeployment needed for configuration changes
 
 ## Architecture
 
@@ -21,6 +23,12 @@ LiteLLM secret management with AWS KMS V1 provides:
         │                                                │
         └───────────────────────────────────────────────┘
                     Decrypted API Keys
+                            │
+                            ▼
+                ┌─────────────────────┐
+                │  Config Generator   │
+                │  (Dynamic YAML)     │
+                └─────────────────────┘
 ```
 
 ## Prerequisites
@@ -64,6 +72,16 @@ Update your `cdk.json` file to enable LiteLLM:
           "useIAMRole": true,
           "modelPrefix": "bedrock"
         }
+      },
+      "virtualKeys": {
+        "enabled": true,
+        "prefix": "litellm_vk_",
+        "defaultExpiry": 2592000
+      },
+      "routing": {
+        "strategy": "least-cost",
+        "enableFallbacks": true,
+        "defaultProvider": "openai"
       }
     }
   }
@@ -98,6 +116,26 @@ Deploy the LiteLLM KMS stack:
 ```bash
 npm run cdk:deploy
 ```
+
+## Dynamic Configuration Generation
+
+Unlike traditional approaches that require static YAML files, our implementation generates LiteLLM configuration dynamically:
+
+### Generate Configuration Endpoint
+
+```typescript
+// GET /litellm/config?format=yaml
+// Returns dynamically generated YAML configuration
+
+// GET /litellm/config?format=json
+// Returns JSON configuration
+```
+
+This approach:
+- ✅ No static config files to maintain
+- ✅ No redeployment when changing providers
+- ✅ Configuration always in sync with secrets
+- ✅ Single source of truth (cdk.json)
 
 ## Usage in Lambda Functions
 

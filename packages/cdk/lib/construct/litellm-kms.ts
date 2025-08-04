@@ -22,6 +22,8 @@ export interface LiteLLMKmsProps {
   readonly defaultProvider?: string;
   readonly enableCaching?: boolean;
   readonly secretRotationDays?: number;
+  readonly routingStrategy?: string;
+  readonly enableFallbacks?: boolean;
   readonly envSuffix?: string;
 }
 
@@ -79,6 +81,18 @@ export class LiteLLMKms extends Construct {
       virtualKeys: {
         enabled: props.enableVirtualKeys ?? false,
         prefix: props.virtualKeyPrefix || 'litellm_vk_',
+        defaultExpiry: 2592000,
+        maxKeysPerUser: 10,
+      },
+      routing: {
+        strategy: props.routingStrategy || 'least-cost',
+        enableFallbacks: props.enableFallbacks ?? true,
+        defaultProvider: props.defaultProvider || 'openai',
+      },
+      monitoring: {
+        enableCloudWatch: true,
+        metricNamespace: 'LiteLLM/Proxy',
+        enableAlerts: true,
       },
     };
 
