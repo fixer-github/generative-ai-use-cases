@@ -156,9 +156,23 @@ const baseStackInputSchema = z.object({
         z.object({
           enabled: z.boolean().default(false),
           secretKey: z.string().optional(),
-          modelPrefix: z.string(),
+          useSecretKey: z.boolean().optional(),
+          modelPrefix: z.string().optional(),
           endpoint: z.string().optional(),
           useIAMRole: z.boolean().optional(),
+          region: z.string().optional(),
+          api_version: z.string().optional(),
+          vertex_config: z.object({
+            project: z.string().optional(),
+            location: z.string().optional(),
+          }).optional(),
+          models: z.array(
+            z.object({
+              name: z.string(),
+              model: z.string().optional(),
+              litellm_params: z.record(z.any()).optional(),
+            })
+          ).optional(),
         })
       ),
       virtualKeys: z.object({
@@ -174,6 +188,10 @@ const baseStackInputSchema = z.object({
           defaultProvider: z.string().default('openai'),
         })
         .optional(),
+      general_settings: z.record(z.any()).optional(),
+      litellm_settings: z.record(z.any()).optional(),
+      router_settings: z.record(z.any()).optional(),
+      model_alias: z.record(z.string()).optional(),
       monitoring: z.object({
         enableCloudWatch: z.boolean().default(true),
         metricNamespace: z.string().default('LiteLLM/Proxy'),

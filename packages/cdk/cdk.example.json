@@ -87,34 +87,56 @@
       "providers": {
         "openai": {
           "enabled": false,
-          "secretKey": "OPENAI_API_KEY",
-          "modelPrefix": "openai"
+          "useSecretKey": true,
+          "secretKey": "litellm/openai/api-key",
+          "models": [
+            { "name": "gpt-4", "model": "gpt-4" },
+            { "name": "gpt-3.5-turbo", "model": "gpt-3.5-turbo" }
+          ]
         },
         "anthropic": {
           "enabled": false,
-          "secretKey": "ANTHROPIC_API_KEY",
-          "modelPrefix": "anthropic"
+          "useSecretKey": true,
+          "models": [
+            { "name": "claude-3-opus", "model": "claude-3-opus-20240229" },
+            { "name": "claude-3-sonnet", "model": "claude-3-sonnet-20240229" }
+          ]
         },
         "bedrock": {
           "enabled": true,
-          "useIAMRole": true,
-          "modelPrefix": "bedrock"
+          "region": "us-east-1",
+          "models": [
+            { "name": "claude-3-5-sonnet", "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0" },
+            { "name": "claude-3-5-haiku", "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0" },
+            { "name": "nova-pro", "model": "bedrock/amazon.nova-pro-v1:0" }
+          ]
         },
         "azure": {
           "enabled": false,
-          "secretKey": "AZURE_API_KEY",
-          "modelPrefix": "azure",
-          "endpoint": "https://your-resource.openai.azure.com/"
+          "useSecretKey": true,
+          "endpoint": "https://your-resource.openai.azure.com",
+          "api_version": "2024-02-15-preview",
+          "models": [
+            { "name": "azure-gpt-4", "model": "azure/your-deployment-name" }
+          ]
         },
         "google": {
           "enabled": false,
-          "secretKey": "GOOGLE_API_KEY",
-          "modelPrefix": "google"
+          "useSecretKey": true,
+          "vertex_config": {
+            "project": "your-gcp-project",
+            "location": "us-central1"
+          },
+          "models": [
+            { "name": "gemini-pro", "model": "gemini-pro" }
+          ]
         },
         "cohere": {
           "enabled": false,
-          "secretKey": "COHERE_API_KEY",
-          "modelPrefix": "cohere"
+          "useSecretKey": true,
+          "models": [
+            { "name": "command-r-plus", "model": "cohere/command-r-plus" }
+          ]
         }
       },
       "virtualKeys": {

@@ -7,7 +7,7 @@ import os
 import json
 import yaml
 import boto3
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 class ConfigLoader:
@@ -33,24 +33,50 @@ class ConfigLoader:
         # Load dynamic configuration
         config = self._get_base_config()
         
-        # Load provider secrets and update model list
-        model_list = []
-        providers = self._get_enabled_providers()
-        
-        for provider_name, provider_config in providers.items():
-            if not provider_config.get('enabled', False):
-                continue
+        # Load provider configuration from LITELLM_CONFIG
+        if self.litellm_config:
+            config_data = json.loads(self.litellm_config)
             
-            # Get API key from Secrets Manager if needed
-            api_key = None
-            if 'secretKey' in provider_config and provider_name != 'bedrock':
-                api_key = self._get_secret(f"{self.secrets_prefix}{provider_name}/api-key")
+            # Process providers and their models
+            providers = config_data.get('providers', {})
+            model_list = []
             
-            # Add models for this provider
-            models = self._get_provider_models(provider_name, provider_config, api_key)
-            model_list.extend(models)
-        
-        config['model_list'] = model_list
+            for provider_name, provider_config in providers.items():
+                if not provider_config.get('enabled', False):
+                    continue
+                
+                # Get models configuration from provider config
+                models = provider_config.get('models', [])
+                
+                # Get API key from Secrets Manager if needed
+                api_key = None
+                if provider_config.get('useSecretKey', False) and provider_name != 'bedrock':
+                    secret_key = provider_config.get('secretKey', f"{self.secrets_prefix}{provider_name}/api-key")
+                    api_key = self._get_secret(secret_key)
+                
+                # Process each model configuration
+                for model in models:
+                    model_config = self._process_model_config(model, provider_name, api_key, provider_config)
+                    if model_config:
+                        model_list.append(model_config)
+            
+            config['model_list'] = model_list
+            
+            # Load general settings if provided
+            if 'general_settings' in config_data:
+                config['general_settings'].update(config_data['general_settings'])
+            
+            # Load litellm settings if provided
+            if 'litellm_settings' in config_data:
+                config['litellm_settings'].update(config_data['litellm_settings'])
+            
+            # Load router settings if provided
+            if 'router_settings' in config_data:
+                config['router_settings'] = config_data['router_settings']
+            
+            # Load model aliases if provided
+            if 'model_alias' in config_data:
+                config['model_alias'] = config_data['model_alias']
         
         # Get master key from Secrets Manager
         master_key = self._get_secret(f"{self.secrets_prefix}master-key")
@@ -77,117 +103,59 @@ class ConfigLoader:
             'health_check': True,
         }
     
-    def _get_enabled_providers(self) -> Dict[str, Any]:
-        """Get enabled providers from environment configuration."""
-        if self.litellm_config:
-            config = json.loads(self.litellm_config)
-            return config.get('providers', {})
-        return {}
-    
-    def _get_provider_models(self, provider_name: str, provider_config: Dict[str, Any], api_key: Optional[str]) -> list:
-        """Generate model configurations for a provider."""
-        models = []
+    def _process_model_config(
+        self, 
+        model: Dict[str, Any], 
+        provider_name: str, 
+        api_key: Optional[str],
+        provider_config: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Process a single model configuration."""
+        model_config = {
+            'model_name': model.get('name'),
+            'litellm_params': {}
+        }
         
-        if provider_name == 'openai' and api_key:
-            models.extend([
-                {
-                    'model_name': 'gpt-4',
-                    'litellm_params': {
-                        'model': 'gpt-4',
-                        'api_key': api_key,
-                    }
-                },
-                {
-                    'model_name': 'gpt-3.5-turbo',
-                    'litellm_params': {
-                        'model': 'gpt-3.5-turbo',
-                        'api_key': api_key,
-                    }
-                }
-            ])
+        # Copy litellm_params if provided
+        if 'litellm_params' in model:
+            model_config['litellm_params'].update(model['litellm_params'])
         
-        elif provider_name == 'anthropic' and api_key:
-            models.extend([
-                {
-                    'model_name': 'claude-3-opus',
-                    'litellm_params': {
-                        'model': 'claude-3-opus-20240229',
-                        'api_key': api_key,
-                    }
-                },
-                {
-                    'model_name': 'claude-3-sonnet',
-                    'litellm_params': {
-                        'model': 'claude-3-sonnet-20240229',
-                        'api_key': api_key,
-                    }
-                }
-            ])
+        # Set model if not already set
+        if 'model' not in model_config['litellm_params']:
+            model_config['litellm_params']['model'] = model.get('model', model.get('name'))
         
-        elif provider_name == 'bedrock':
+        # Add API key for non-bedrock providers
+        if api_key and provider_name != 'bedrock':
+            model_config['litellm_params']['api_key'] = api_key
+        
+        # Add provider-specific settings
+        if provider_name == 'bedrock':
             # Bedrock uses IAM authentication
-            models.extend([
-                {
-                    'model_name': 'claude-3-5-sonnet',
-                    'litellm_params': {
-                        'model': 'bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0',
-                        'aws_region_name': self.region,
-                        'aws_access_key_id': None,
-                        'aws_secret_access_key': None,
-                    }
-                },
-                {
-                    'model_name': 'claude-3-5-haiku',
-                    'litellm_params': {
-                        'model': 'bedrock/anthropic.claude-3-5-haiku-20241022-v1:0',
-                        'aws_region_name': self.region,
-                        'aws_access_key_id': None,
-                        'aws_secret_access_key': None,
-                    }
-                },
-                {
-                    'model_name': 'nova-pro',
-                    'litellm_params': {
-                        'model': 'bedrock/amazon.nova-pro-v1:0',
-                        'aws_region_name': self.region,
-                        'aws_access_key_id': None,
-                        'aws_secret_access_key': None,
-                    }
-                }
-            ])
-        
-        elif provider_name == 'azure' and api_key:
-            endpoint = provider_config.get('endpoint', '')
-            if endpoint:
-                models.append({
-                    'model_name': 'azure-gpt-4',
-                    'litellm_params': {
-                        'model': 'azure/gpt-4',
-                        'api_base': endpoint,
-                        'api_key': api_key,
-                        'api_version': '2023-05-15',
-                    }
-                })
-        
-        elif provider_name == 'google' and api_key:
-            models.append({
-                'model_name': 'gemini-pro',
-                'litellm_params': {
-                    'model': 'gemini-pro',
-                    'api_key': api_key,
-                }
+            model_config['litellm_params'].update({
+                'aws_region_name': provider_config.get('region', self.region),
+                'aws_access_key_id': None,
+                'aws_secret_access_key': None,
+            })
+        elif provider_name == 'azure':
+            # Azure needs endpoint
+            if 'endpoint' in provider_config:
+                model_config['litellm_params']['api_base'] = provider_config['endpoint']
+            if 'api_version' in provider_config:
+                model_config['litellm_params']['api_version'] = provider_config['api_version']
+        elif provider_name == 'google' and 'vertex_config' in provider_config:
+            # Google Vertex AI configuration
+            vertex_config = provider_config['vertex_config']
+            model_config['litellm_params'].update({
+                'vertex_project': vertex_config.get('project'),
+                'vertex_location': vertex_config.get('location', 'us-central1'),
             })
         
-        elif provider_name == 'cohere' and api_key:
-            models.append({
-                'model_name': 'command-r-plus',
-                'litellm_params': {
-                    'model': 'cohere/command-r-plus',
-                    'api_key': api_key,
-                }
-            })
+        # Copy any additional parameters from model config
+        for key, value in model.items():
+            if key not in ['name', 'model', 'litellm_params']:
+                model_config[key] = value
         
-        return models
+        return model_config
     
     def _get_secret(self, secret_id: str) -> Optional[str]:
         """Retrieve a secret from AWS Secrets Manager."""

@@ -191,6 +191,8 @@ aws secretsmanager put-secret-value \
 3. **Configuration Generation**: A new `config.yaml` is generated with decrypted keys
 4. **Security**: Keys are never exposed in environment variables or CloudFormation
 
+**Note**: The configuration format is now fully flexible and data-driven. See [CONFIGURATION.md](./CONFIGURATION.md) for detailed examples of how to configure providers and models without any hardcoding.
+
 ### Benefits of KMS Integration
 
 - **No Hardcoded Keys**: API keys are never stored in code or configuration files
