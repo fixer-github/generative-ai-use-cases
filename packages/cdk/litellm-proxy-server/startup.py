@@ -27,11 +27,11 @@ async def main():
     print("Starting LiteLLM Proxy Server...")
     
     # Set environment variables for LiteLLM
-    os.environ['LITELLM_LOG'] = os.environ.get('LITELLM_LOG', 'INFO')
+    os.environ["LITELLM_LOG"] = os.environ.get("LITELLM_LOG", "INFO")
     
     # Start the proxy server
-    port = int(os.environ.get('AWS_LWA_PORT', 8000))
-    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get("AWS_LWA_PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
     
     print(f"Starting server on {host}:{port}")
     print(f"Health check available at: http://{host}:{port}/health")
