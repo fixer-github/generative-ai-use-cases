@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 def get_secret_value(secret_name: str, region: str = None) -> Dict[str, Any]:
     """Retrieve secret from AWS Secrets Manager"""
     if region is None:
-        region = os.environ.get('AWS_REGION', 'us-east-1')
+        region = os.environ.get('BEDROCK_REGION', 'us-east-1')
     
     session = boto3.session.Session()
     client = session.client('secretsmanager', region_name=region)
@@ -68,7 +68,7 @@ def update_config_with_secrets():
             config['model_list'].extend(openai_models)
     
     # Update AWS region if specified
-    aws_region = os.environ.get('AWS_REGION', 'us-east-1')
+    aws_region = os.environ.get('BEDROCK_REGION', 'us-east-1')
     for model in config['model_list']:
         if 'bedrock/' in model['litellm_params']['model']:
             model['litellm_params']['aws_region_name'] = aws_region

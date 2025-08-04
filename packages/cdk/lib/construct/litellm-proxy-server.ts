@@ -58,7 +58,7 @@ export class LitellmProxyServer extends Construct {
         AWS_LWA_INVOKE_MODE: 'RESPONSE_STREAM',
         AWS_LWA_PORT: '8000',
         AWS_LWA_READINESS_CHECK_PATH: '/health',
-        AWS_REGION: props.modelRegion || 'us-east-1',
+        BEDROCK_REGION: props.modelRegion || 'us-east-1',
         LITELLM_SECRET_NAME: this.secret.secretName,
         LITELLM_LOG: 'INFO',
       },

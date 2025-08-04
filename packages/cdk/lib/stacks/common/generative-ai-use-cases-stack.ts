@@ -190,8 +190,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       speechToSpeechModelIds: params.speechToSpeechModelIds,
       mcpEnabled: params.mcpEnabled,
       mcpEndpoint,
-      litellmProxyEnabled: params.litellmProxyEnabled,
-      litellmEndpoint: litellmEndpoint || undefined,
       // Frontend
       hiddenUseCases: params.hiddenUseCases,
       // Custom Domain

@@ -20,10 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install litellm and required dependencies
 RUN pip install --no-cache-dir \
-    litellm[proxy]==1.55.6 \
-    uvicorn==0.25.0 \
-    boto3==1.35.0 \
-    fastapi==0.108.0
+    litellm[proxy]==1.74.8
 
 # Copy configuration and startup script
 COPY config.yaml ./
