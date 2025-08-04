@@ -174,21 +174,27 @@ curl https://your-function-url.lambda-url.region.on.aws/health
 ## Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌──────────────┐
-│   Client    │────▶│   Lambda    │────▶│   LiteLLM    │
-│             │     │  Function   │     │    Proxy     │
-└─────────────┘     └─────────────┘     └──────────────┘
-                            │                     │
-                            ▼                     ▼
-                    ┌─────────────┐     ┌──────────────┐
-                    │   Secrets   │     │   Bedrock/   │
-                    │   Manager   │     │   OpenAI/    │
-                    └─────────────┘     │   Claude     │
-                            │           └──────────────┘
-                            ▼
-                    ┌─────────────┐
-                    │     KMS     │
-                    └─────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+│   cdk.json  │────▶│     CDK     │────▶│     Lambda      │
+│  (config)   │     │   Deploy    │     │   Environment   │
+└─────────────┘     └─────────────┘     └─────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────┐     ┌──────────────────────────────────────┐     ┌─────────────────┐
+│   Client    │────▶│     LiteLLM Proxy Server (Lambda)    │────▶│ Secrets Manager │
+│   (API)     │     │                                      │     │  (API Keys)     │
+└─────────────┘     │  1. Read LITELLM_CONFIG env var      │     │                 │
+                    │  2. Fetch API keys from Secrets Mgr  │◀────┤  ┌───────────┐  │
+                    │  3. Generate runtime configuration   │     │  │    KMS    │  │
+                    │  4. Serve OpenAI-compatible API      │     │  │(Encryption)│  │
+                    └──────────────────────────────────────┘     │  └───────────┘  │
+                                    │                            └─────────────────┘
+                                    ▼
+                            ┌──────────────┐
+                            │   Bedrock/   │
+                            │   OpenAI/    │
+                            │   Claude     │
+                            └──────────────┘
 ```
 
 ## Security Best Practices

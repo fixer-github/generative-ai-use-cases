@@ -19,29 +19,37 @@ LiteLLM secret management with AWS KMS V1 provides:
 The KMS integration works seamlessly with the LiteLLM Proxy Server:
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   cdk.json  │────▶│     KMS      │────▶│ Secrets Manager │────▶│ Config Loader   │
-└─────────────┘     └──────────────┘     └─────────────────┘     └─────────────────┘
-                                                                            │
-                                                                            ▼
-┌─────────────────────────────────────────────────────────────┐  ┌─────────────────┐
-│                  LiteLLM Proxy Server (Lambda)               │◀─│   config.yaml   │
-│                                                              │  │   (Generated)   │
-│  • Lambda Web Adapter                                        │  └─────────────────┘
-│  • Dynamic configuration loading                             │
-│  • OpenAI-compatible API                                     │
-│  • Multi-provider support                                    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+│   cdk.json  │────▶│     CDK     │────▶│     Lambda      │
+│  (config)   │     │   Deploy    │     │   Environment   │
+└─────────────┘     └─────────────┘     └─────────────────┘
+                                                 │
+                                                 ▼
+┌──────────────────────────────────────┐ ┌─────────────────┐
+│     LiteLLM Proxy Server (Lambda)    │ │ Secrets Manager │
+│                                      │ │  (API Keys)     │
+│  1. Read LITELLM_CONFIG env var      │◀┤                 │
+│  2. Fetch API keys from Secrets Mgr  │ │  ┌───────────┐  │
+│  3. Generate runtime configuration   │ │  │    KMS    │  │
+│  4. Serve OpenAI-compatible API      │ │  │(Encryption)│  │
+└──────────────────────────────────────┘ │  └───────────┘  │
+                    │                    └─────────────────┘
+                    ▼
+            ┌──────────────┐
+            │   Bedrock/   │
+            │   OpenAI/    │
+            │   Claude     │
+            └──────────────┘
 ```
 
 ## How It Works
 
-1. **Configuration**: Define providers and settings in `cdk.json`
+1. **Configuration**: Define providers and models in `cdk.json`
 2. **Deployment**: CDK creates KMS keys, Secrets Manager entries, and the LiteLLM Proxy Server
 3. **Runtime**: When the proxy server starts:
-   - Checks `USE_DYNAMIC_CONFIG` environment variable
-   - If enabled, `config_loader.py` retrieves secrets from AWS
-   - Generates `config.yaml` with decrypted API keys
+   - Reads configuration from `LITELLM_CONFIG` environment variable
+   - `config_loader.py` fetches API keys from AWS Secrets Manager
+   - Generates runtime configuration dynamically (no files)
    - Starts LiteLLM with the dynamic configuration
 4. **API Access**: Use the OpenAI-compatible API with secure key management
 
