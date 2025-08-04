@@ -21,7 +21,6 @@ The LiteLLM proxy server is deployed as a Docker container on AWS Lambda with th
 - `config_loader.py`: Dynamic configuration loader that reads from environment and Secrets Manager
 - `README.md`: This documentation file
 - `HOW_TO_CONFIGURE_MODELS.md`: Detailed guide on configuring models
-- `CONFIGURATION.md`: Configuration format reference
 
 ## How It Works
 
@@ -217,6 +216,5 @@ curl https://your-function-url.lambda-url.region.on.aws/health
 ## Further Reading
 
 - [How to Configure Models](./HOW_TO_CONFIGURE_MODELS.md)
-- [Configuration Format Reference](./CONFIGURATION.md)
 - [LiteLLM Documentation](https://docs.litellm.ai/)
 - [AWS Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter)
