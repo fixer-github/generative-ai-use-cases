@@ -9,8 +9,7 @@
     "cdk": "cdk",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
-    "postinstall": "npm ci --prefix custom-resources",
-    "orval:generate": "orval"
+    "postinstall": "npm ci --prefix custom-resources"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.137",
