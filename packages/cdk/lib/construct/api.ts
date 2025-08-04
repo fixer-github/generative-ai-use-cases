@@ -166,6 +166,13 @@ export class Api extends Construct {
       ]
     });
 
+    // IAM policy for assuming multi-tenant role with web identity
+    const multiTenantAssumeRolePolicy = new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['sts:AssumeRoleWithWebIdentity'],
+      resources: [props.multiTenantRole.roleArn]
+    });
+
     // S3 (File Bucket)
     const fileBucket = new Bucket(this, 'FileBucket', {
       encryption: BucketEncryption.S3_MANAGED,
@@ -270,6 +277,7 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -285,6 +293,7 @@ export class Api extends Construct {
     });
     table.grantWriteData(predictTitleFunction);
     predictTitleFunction.addToRolePolicy(tenantTablePolicy);
+    predictTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const generateImageFunction = new NodejsFunction(this, 'GenerateImage', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -319,6 +328,7 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -339,6 +349,7 @@ export class Api extends Construct {
     }
     table.grantWriteData(generateVideoFunction);
     generateVideoFunction.addToRolePolicy(tenantTablePolicy);
+    generateVideoFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -355,6 +366,7 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -376,6 +388,7 @@ export class Api extends Construct {
     fileBucket.grantWrite(copyVideoJob);
     table.grantWriteData(copyVideoJob);
     copyVideoJob.addToRolePolicy(tenantTablePolicy);
+    copyVideoJob.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listVideoJobs = new NodejsFunction(this, 'ListVideoJobs', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -391,6 +404,7 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
       },
       bundling: {
@@ -399,6 +413,7 @@ export class Api extends Construct {
     });
     table.grantReadWriteData(listVideoJobs);
     listVideoJobs.addToRolePolicy(tenantTablePolicy);
+    listVideoJobs.addToRolePolicy(multiTenantAssumeRolePolicy);
     copyVideoJob.grantInvoke(listVideoJobs);
 
     const deleteVideoJob = new NodejsFunction(this, 'DeleteVideoJob', {
@@ -411,10 +426,12 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantWriteData(deleteVideoJob);
     deleteVideoJob.addToRolePolicy(tenantTablePolicy);
+    deleteVideoJob.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const optimizePromptFunction = new NodejsFunction(
       this,
@@ -568,10 +585,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantWriteData(createChatFunction);
     createChatFunction.addToRolePolicy(tenantTablePolicy);
+    createChatFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteChatFunction = new NodejsFunction(this, 'DeleteChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -580,10 +599,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadWriteData(deleteChatFunction);
     deleteChatFunction.addToRolePolicy(tenantTablePolicy);
+    deleteChatFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const createMessagesFunction = new NodejsFunction(this, 'CreateMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -593,12 +614,14 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         BUCKET_NAME: fileBucket.bucketName,
       },
     });
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
     createMessagesFunction.addToRolePolicy(tenantTablePolicy);
+    createMessagesFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateChatTitleFunction = new NodejsFunction(
       this,
@@ -615,6 +638,7 @@ export class Api extends Construct {
     );
     table.grantReadWriteData(updateChatTitleFunction);
     updateChatTitleFunction.addToRolePolicy(tenantTablePolicy);
+    updateChatTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listChatsFunction = new NodejsFunction(this, 'ListChats', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -623,10 +647,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(listChatsFunction);
     listChatsFunction.addToRolePolicy(tenantTablePolicy);
+    listChatsFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const findChatbyIdFunction = new NodejsFunction(this, 'FindChatbyId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -635,10 +661,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(findChatbyIdFunction);
     findChatbyIdFunction.addToRolePolicy(tenantTablePolicy);
+    findChatbyIdFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listMessagesFunction = new NodejsFunction(this, 'ListMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -647,10 +675,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(listMessagesFunction);
     listMessagesFunction.addToRolePolicy(tenantTablePolicy);
+    listMessagesFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateFeedbackFunction = new NodejsFunction(this, 'UpdateFeedback', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -659,10 +689,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadWriteData(updateFeedbackFunction);
     updateFeedbackFunction.addToRolePolicy(tenantTablePolicy);
+    updateFeedbackFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -677,10 +709,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadWriteData(createShareId);
     createShareId.addToRolePolicy(tenantTablePolicy);
+    createShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const getSharedChat = new NodejsFunction(this, 'GetSharedChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -689,10 +723,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(getSharedChat);
     getSharedChat.addToRolePolicy(tenantTablePolicy);
+    getSharedChat.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const findShareId = new NodejsFunction(this, 'FindShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -701,10 +737,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(findShareId);
     findShareId.addToRolePolicy(tenantTablePolicy);
+    findShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteShareId = new NodejsFunction(this, 'DeleteShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -713,10 +751,12 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadWriteData(deleteShareId);
     deleteShareId.addToRolePolicy(tenantTablePolicy);
+    deleteShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listSystemContextsFunction = new NodejsFunction(
       this,
@@ -728,11 +768,13 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
     table.grantReadData(listSystemContextsFunction);
     listSystemContextsFunction.addToRolePolicy(tenantTablePolicy);
+    listSystemContextsFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const createSystemContextFunction = new NodejsFunction(
       this,
@@ -744,11 +786,13 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
     table.grantWriteData(createSystemContextFunction);
     createSystemContextFunction.addToRolePolicy(tenantTablePolicy);
+    createSystemContextFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateSystemContextTitleFunction = new NodejsFunction(
       this,
@@ -760,11 +804,13 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
     updateSystemContextTitleFunction.addToRolePolicy(tenantTablePolicy);
+    updateSystemContextTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteSystemContextFunction = new NodejsFunction(
       this,
@@ -776,11 +822,13 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);
     deleteSystemContextFunction.addToRolePolicy(tenantTablePolicy);
+    deleteSystemContextFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteFileFunction = new NodejsFunction(this, 'DeleteFileFunction', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -800,11 +848,13 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
       },
     });
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
     getTokenUsageFunction.addToRolePolicy(tenantTablePolicy);
+    getTokenUsageFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     // Lambda function for STS AssumeRoleWithWebIdentity
     const assumeRoleForTenantFunction = new NodejsFunction(

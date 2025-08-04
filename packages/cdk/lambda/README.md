@@ -4,35 +4,20 @@
 
 This codebase implements a multi-tenant architecture with complete data isolation between tenants. Each tenant has dedicated DynamoDB tables and S3 buckets following the naming pattern: `ResourceName-tenant-{tenantId}`
 
-## Architecture Approaches
+## Architecture
 
-### 1. Unified Approach (Recommended) ✅
-Combines IAM-level security with simple API endpoints. Lambda functions handle STS credentials internally.
-
-**Files:**
-- `utils/unifiedTenantClient.ts` - Credential management with caching
-- `repositoryUnified.ts` - Tenant-aware repository functions
-- `createChatUnified.ts` - Example implementation
-
-**Benefits:**
-- Frontend uses normal APIs (no credential management)
-- IAM enforces tenant boundaries
-- Credential caching for performance
-- Full audit trail in CloudTrail
-
-### 2. Application-Level (Current - PR#16)
-Repository functions extract tenant ID from JWT and route to correct tables.
+### Application-Level Multi-Tenancy
+Repository functions extract tenant ID from JWT and route to correct tenant-specific tables.
 
 **Files:**
-- `repository.ts` - Updated with tenant support
-- `utils/tenantUtils.ts` - Tenant ID extraction
+- `repository.ts` - Repository functions with tenant support
+- `utils/tenantUtils.ts` - Tenant ID extraction from JWT
 
-### 3. Direct STS Access (PR#15)
-Frontend gets STS credentials for direct AWS SDK access.
-
-**Files:**
-- `tenantDynamoDBOperations.ts` - Generic DynamoDB operations
-- `tenantS3Operations.ts` - S3 operations with STS
+**How it works:**
+1. User's JWT contains `custom:tenant_id` claim
+2. Repository functions extract tenant ID from API Gateway event
+3. Table names are dynamically generated: `{BaseTableName}-tenant-{tenantId}`
+4. Each tenant's data is isolated in separate DynamoDB tables
 
 ## Quick Start
 
@@ -55,10 +40,10 @@ aws dynamodb create-table \
 aws s3 mb s3://uploads-tenant-company-a
 ```
 
-### 3. Use in Lambda (Unified Approach)
+### 3. Use in Lambda
 ```typescript
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { createChat } from './repositoryUnified';
+import { createChat } from './repository';
 
 export const handler = async (event: APIGatewayProxyEvent) => {
   const userId = event.requestContext.authorizer.claims['cognito:username'];
@@ -90,7 +75,7 @@ All tenant resources MUST follow this pattern:
 
 - [ ] Add `custom:tenant_id` to all users
 - [ ] Create tenant-specific tables/buckets
-- [ ] Update Lambda functions to use unified repository
+- [ ] Update Lambda functions to pass event parameter
 - [ ] Test with multiple tenants
 - [ ] Monitor CloudWatch for access errors
 
