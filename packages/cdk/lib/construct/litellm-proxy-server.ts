@@ -108,7 +108,7 @@ export class LitellmProxyServer extends Construct {
    * Grant Function URL invoke permissions to a specific IAM principal
    */
   public grantInvokeUrl(grantee: IGrantable) {
-    // Note: The function URL is created in the constructor, 
+    // Note: The function URL is created in the constructor,
     // so this method can be used to grant additional permissions if needed
     return this.function.grantInvoke(grantee);
   }

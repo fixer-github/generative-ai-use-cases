@@ -4,22 +4,22 @@ model_list:
     litellm_params:
       model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
       aws_region_name: us-east-1
-      aws_access_key_id: null  # Will use IAM role
-      aws_secret_access_key: null  # Will use IAM role
-  
+      aws_access_key_id: null # Will use IAM role
+      aws_secret_access_key: null # Will use IAM role
+
   - model_name: claude-3-5-haiku
     litellm_params:
       model: bedrock/anthropic.claude-3-5-haiku-20241022-v1:0
       aws_region_name: us-east-1
-      aws_access_key_id: null  # Will use IAM role
-      aws_secret_access_key: null  # Will use IAM role
+      aws_access_key_id: null # Will use IAM role
+      aws_secret_access_key: null # Will use IAM role
 
   - model_name: nova-pro
     litellm_params:
       model: bedrock/amazon.nova-pro-v1:0
       aws_region_name: us-east-1
-      aws_access_key_id: null  # Will use IAM role
-      aws_secret_access_key: null  # Will use IAM role
+      aws_access_key_id: null # Will use IAM role
+      aws_secret_access_key: null # Will use IAM role
 
   # OpenAI models example
   # - model_name: gpt-4
@@ -46,7 +46,7 @@ model_list:
   #     model: vertex_ai/gemini-pro
   #     vertex_project: your-gcp-project-id
   #     vertex_location: us-central1
-  #     vertex_credentials: | 
+  #     vertex_credentials: |
   #       {
   #         "type": "service_account",
   #         "project_id": "your-project-id",
@@ -74,9 +74,9 @@ model_list:
 
 # General settings
 general_settings:
-  master_key: sk-litellm-master-key  # Master key for LiteLLM admin access
-  database_url: null  # Optional - can be added for logging/analytics
-  
+  master_key: sk-litellm-master-key # Master key for LiteLLM admin access
+  database_url: null # Optional - can be added for logging/analytics
+
 # Proxy settings
 litellm_settings:
   success_callback: []
@@ -84,10 +84,9 @@ litellm_settings:
   cache: false
   cache_params: null
   default_team_settings: null
-  
+
 # Health check settings
 health_check: true
-
 # Optional: Router settings for load balancing
 # router_settings:
 #   routing_strategy: simple-shuffle  # Options: simple-shuffle, least-busy, usage-based-routing

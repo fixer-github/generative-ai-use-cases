@@ -150,7 +150,8 @@ export class GenerativeAiUseCasesStack extends Stack {
         idPool: auth.idPool,
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
-        crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn || undefined,
+        crossAccountBedrockRoleArn:
+          params.crossAccountBedrockRoleArn || undefined,
       });
       litellmEndpoint = litellmProxy.endpoint;
     }

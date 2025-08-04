@@ -42,8 +42,8 @@ All model configurations are managed in the `config.yaml` file. The configuratio
   litellm_params:
     model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
     aws_region_name: us-east-1
-    aws_access_key_id: null  # Uses IAM role
-    aws_secret_access_key: null  # Uses IAM role
+    aws_access_key_id: null # Uses IAM role
+    aws_secret_access_key: null # Uses IAM role
 ```
 
 #### OpenAI
@@ -88,7 +88,7 @@ The master key for admin access is configured in `config.yaml`:
 
 ```yaml
 general_settings:
-  master_key: sk-litellm-master-key  # Change this to your secure key
+  master_key: sk-litellm-master-key # Change this to your secure key
 ```
 
 ## Usage
@@ -165,7 +165,7 @@ Example:
 ```yaml
 model_list:
   # Your existing models...
-  
+
   # Add a new model
   - model_name: mixtral-8x7b
     litellm_params:
@@ -181,10 +181,10 @@ Configure router settings for load balancing across multiple models:
 
 ```yaml
 router_settings:
-  routing_strategy: simple-shuffle  # Options: simple-shuffle, least-busy, usage-based-routing
-  cooldown_time: 60  # Time in seconds to cooldown a model if it fails
-  num_retries: 2  # Number of retries for failed requests
-  allowed_fails: 3  # Number of allowed fails before cooldown
+  routing_strategy: simple-shuffle # Options: simple-shuffle, least-busy, usage-based-routing
+  cooldown_time: 60 # Time in seconds to cooldown a model if it fails
+  num_retries: 2 # Number of retries for failed requests
+  allowed_fails: 3 # Number of allowed fails before cooldown
 ```
 
 ### Model Aliases
@@ -193,7 +193,7 @@ Create aliases to redirect requests:
 
 ```yaml
 model_alias:
-  "gpt-4": "claude-3-5-sonnet"  # Redirect gpt-4 requests to Claude
+  'gpt-4': 'claude-3-5-sonnet' # Redirect gpt-4 requests to Claude
 ```
 
 ### Spend Tracking
@@ -202,8 +202,8 @@ Enable budget controls:
 
 ```yaml
 litellm_settings:
-  max_budget: 100  # Maximum budget in USD
-  budget_duration: 30d  # Budget duration (e.g., 30d, 1m, 1y)
+  max_budget: 100 # Maximum budget in USD
+  budget_duration: 30d # Budget duration (e.g., 30d, 1m, 1y)
 ```
 
 ## Security Considerations
