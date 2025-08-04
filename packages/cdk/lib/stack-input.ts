@@ -140,7 +140,6 @@ const baseStackInputSchema = z.object({
   mcpEnabled: z.boolean().default(false),
   // LiteLLM Proxy Server
   litellmProxyEnabled: z.boolean().default(false),
-  litellmProxyMasterKeySecretName: z.string().nullish(),
   // Guardrail
   guardrailEnabled: z.boolean().default(false),
   // Usecase builder

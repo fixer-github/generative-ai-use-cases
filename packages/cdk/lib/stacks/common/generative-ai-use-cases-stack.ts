@@ -151,7 +151,6 @@ export class GenerativeAiUseCasesStack extends Stack {
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
         crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn || undefined,
-        masterKeySecretName: params.litellmProxyMasterKeySecretName || undefined,
       });
       litellmEndpoint = litellmProxy.endpoint;
     }

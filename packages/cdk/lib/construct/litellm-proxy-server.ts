@@ -11,37 +11,20 @@ import {
 import { PolicyStatement, Effect, IGrantable } from 'aws-cdk-lib/aws-iam';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { NetworkMode } from 'aws-cdk-lib/aws-ecr-assets';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 export interface LitellmProxyServerProps {
   readonly idPool: IdentityPool;
   readonly isSageMakerStudio: boolean;
   readonly modelRegion?: string;
   readonly crossAccountBedrockRoleArn?: string;
-  readonly masterKeySecretName?: string;
 }
 
 export class LitellmProxyServer extends Construct {
   public readonly endpoint: string;
   public readonly function: DockerImageFunction;
-  public readonly secret: Secret;
 
   constructor(scope: Construct, id: string, props: LitellmProxyServerProps) {
     super(scope, id);
-
-    // Create secret for LiteLLM configuration
-    this.secret = new Secret(this, 'LitellmSecret', {
-      secretName: props.masterKeySecretName || `litellm-proxy-${this.node.addr}`,
-      description: 'Configuration secrets for LiteLLM Proxy Server',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({
-          master_key: '',
-          openai_api_key: '',
-        }),
-        generateStringKey: 'master_key',
-        excludeCharacters: '"@/\\',
-      },
-    });
 
     // Create the LiteLLM Proxy Server function
     this.function = new DockerImageFunction(this, 'LitellmProxyFunction', {
@@ -59,7 +42,6 @@ export class LitellmProxyServer extends Construct {
         AWS_LWA_PORT: '8000',
         AWS_LWA_READINESS_CHECK_PATH: '/health',
         BEDROCK_REGION: props.modelRegion || 'us-east-1',
-        LITELLM_SECRET_NAME: this.secret.secretName,
         LITELLM_LOG: 'INFO',
       },
     });
@@ -88,9 +70,6 @@ export class LitellmProxyServer extends Construct {
         })
       );
     }
-
-    // Grant access to read the secrets
-    this.secret.grantRead(this.function);
 
     // Create Function URL with IAM authentication for internal access
     const litellmEndpoint = this.function.addFunctionUrl({
