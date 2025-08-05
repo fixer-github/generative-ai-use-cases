@@ -736,6 +736,20 @@ export class Api extends Construct {
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
 
+    // Lambda function for getting model list
+    const getAvailableModelsFunction = new NodejsFunction(
+      this,
+      'GetAvailableModels',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/getAvailableModels.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MODEL_IDS: JSON.stringify(modelIds),
+        },
+      }
+    );
+
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
       cognitoUserPools: [userPool],
@@ -991,6 +1005,14 @@ export class Api extends Construct {
     tokenUsageResource.addMethod(
       'GET',
       new LambdaIntegration(getTokenUsageFunction),
+      commonAuthorizerProps
+    );
+
+    // GET: /models
+    const modelResource = api.root.addResource('models');
+    modelResource.addMethod(
+      'GET',
+      new LambdaIntegration(getAvailableModelsFunction),
       commonAuthorizerProps
     );
 
