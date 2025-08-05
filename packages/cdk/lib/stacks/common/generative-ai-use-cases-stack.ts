@@ -13,11 +13,13 @@ import {
   McpApi,
   LitellmProxyServer,
   MultiTenantRole,
-  LitellmKms,
+  LiteLLMKms,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
@@ -163,13 +165,53 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // LiteLLM KMS (if enabled)
-    let litellmKms: LitellmKms | undefined;
+    let litellmKms: LiteLLMKms | undefined;
+    let litellmKmsKey: kms.Key | undefined;
     if (params.litellm?.enabled) {
-      litellmKms = new LitellmKms(this, 'LitellmKms', {
-        kmsConfig: params.litellm.kms,
-        providers: params.litellm.providers,
-        virtualKeys: params.litellm.virtualKeys,
-        monitoring: params.litellm.monitoring,
+      // Create KMS key for LiteLLM secrets encryption
+      litellmKmsKey = new kms.Key(this, 'LiteLLMKey', {
+        description: 'KMS key for encrypting LiteLLM API keys and secrets',
+        enableKeyRotation: params.litellm.kms?.enableKeyRotation ?? true,
+        pendingWindow: Duration.days(params.litellm.kms?.pendingWindowInDays ?? 7),
+        removalPolicy: RemovalPolicy.RETAIN,
+        keyUsage: kms.KeyUsage.ENCRYPT_DECRYPT,
+        keySpec: kms.KeySpec.SYMMETRIC_DEFAULT,
+      });
+
+      // Create an alias for easier reference
+      // KMS key alias is not affected by envSuffix to maintain consistency across environments
+      const aliasName = 'alias/litellm-master';
+      new kms.Alias(this, 'LiteLLMKeyAlias', {
+        aliasName,
+        targetKey: litellmKmsKey,
+      });
+
+      // Configure providers based on params
+      const providers: Record<string, any> = {};
+      if (params.litellm.providers) {
+        Object.entries(params.litellm.providers).forEach(([name, config]) => {
+          if (config.enabled) {
+            providers[name] = {
+              enabled: true,
+              secretKey: config.secretKey || `${name.toUpperCase()}_API_KEY`,
+              modelPrefix: config.modelPrefix || name,
+              ...(config.endpoint && { endpoint: config.endpoint }),
+              ...(config.useIAMRole && { useIAMRole: true }),
+            };
+          }
+        });
+      }
+
+      litellmKms = new LiteLLMKms(this, 'LitellmKms', {
+        kmsKey: litellmKmsKey,
+        providers,
+        enableVirtualKeys: params.litellm.virtualKeys?.enabled,
+        virtualKeyPrefix: params.litellm.virtualKeys?.prefix,
+        defaultProvider: params.litellm.routing?.defaultProvider,
+        enableCaching: true,  // Default to true for caching
+        secretRotationDays: params.litellm.kms?.secretRotationDays,
+        routingStrategy: params.litellm.routing?.strategy,
+        enableFallbacks: params.litellm.routing?.enableFallbacks,
       });
     }
 
@@ -183,7 +225,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         crossAccountBedrockRoleArn:
           params.crossAccountBedrockRoleArn || undefined,
         // Pass KMS configuration if available
-        kmsKeyArn: litellmKms?.masterKey.keyArn,
+        kmsKeyArn: litellmKmsKey?.keyArn,
         secretsPrefix: 'litellm/',
         litellmConfig: params.litellm,
       });

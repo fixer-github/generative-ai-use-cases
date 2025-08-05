@@ -13,3 +13,4 @@ export * from './mcp-api';
 export * from './litellm-proxy-server';
 export * from './tenant-iam-role';
 export * from './multi-tenant-role';
+export * from './litellm-kms';

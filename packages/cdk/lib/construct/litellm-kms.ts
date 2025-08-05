@@ -67,11 +67,9 @@ export class LiteLLMKms extends Construct {
         );
 
         // Enable automatic rotation if specified
-        if (props.secretRotationDays) {
-          secret.addRotationSchedule(`${providerName}Rotation`, {
-            automaticallyAfter: Duration.days(props.secretRotationDays),
-          });
-        }
+        // Note: Secret rotation requires a Lambda function to perform the rotation
+        // This is typically handled by AWS managed rotation for specific services
+        // For custom API keys, rotation would need custom implementation
 
         this.secrets[providerName] = secret;
       }
