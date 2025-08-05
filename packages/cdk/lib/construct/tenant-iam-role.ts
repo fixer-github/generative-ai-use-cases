@@ -145,13 +145,126 @@ export class TenantIamRole extends Construct {
       'dynamodb:DescribeTimeToLive',
     ];
 
-    // Allow access to table named: baseTableName-<tenantId>
+    // Allow access to table named: baseTableName-tenant-<tenantId>
     return new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: actions || defaultActions,
       resources: [
-        `arn:aws:dynamodb:*:*:table/${baseTableName}-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
-        `arn:aws:dynamodb:*:*:table/${baseTableName}-$\{${this.identityProviderArn}:${this.tenantIdClaim}}/index/*`,
+        `arn:aws:dynamodb:*:*:table/${baseTableName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+        `arn:aws:dynamodb:*:*:table/${baseTableName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}/index/*`,
+      ],
+    });
+  }
+
+  /**
+   * Create a policy statement for S3 per-tenant bucket access
+   * This allows access to buckets with naming pattern: <baseBucketName>-tenant-<tenantId>
+   */
+  public createS3TenantBucketPolicyStatement(
+    baseBucketName: string,
+    actions?: string[]
+  ): iam.PolicyStatement {
+    const defaultActions = [
+      's3:GetObject',
+      's3:PutObject',
+      's3:DeleteObject',
+      's3:ListBucket',
+      's3:GetBucketLocation',
+      's3:GetBucketVersioning',
+      's3:ListBucketVersions',
+      's3:ListBucketMultipartUploads',
+      's3:ListMultipartUploadParts',
+      's3:AbortMultipartUpload',
+    ];
+
+    // Allow access to bucket named: baseBucketName-tenant-<tenantId>
+    return new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultActions,
+      resources: [
+        `arn:aws:s3:::${baseBucketName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+        `arn:aws:s3:::${baseBucketName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}/*`,
+      ],
+    });
+  }
+
+  /**
+   * Create a policy statement for SQS per-tenant queue access
+   * This allows access to queues with naming pattern: <baseQueueName>-tenant-<tenantId>
+   */
+  public createSqsTenantQueuePolicyStatement(
+    baseQueueName: string,
+    actions?: string[]
+  ): iam.PolicyStatement {
+    const defaultActions = [
+      'sqs:SendMessage',
+      'sqs:ReceiveMessage',
+      'sqs:DeleteMessage',
+      'sqs:GetQueueAttributes',
+      'sqs:GetQueueUrl',
+      'sqs:ChangeMessageVisibility',
+      'sqs:PurgeQueue',
+    ];
+
+    // Allow access to queue named: baseQueueName-tenant-<tenantId>
+    return new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultActions,
+      resources: [
+        `arn:aws:sqs:*:*:${baseQueueName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+      ],
+    });
+  }
+
+  /**
+   * Create a policy statement for SNS per-tenant topic access
+   * This allows access to topics with naming pattern: <baseTopicName>-tenant-<tenantId>
+   */
+  public createSnsTenantTopicPolicyStatement(
+    baseTopicName: string,
+    actions?: string[]
+  ): iam.PolicyStatement {
+    const defaultActions = [
+      'sns:Publish',
+      'sns:Subscribe',
+      'sns:Unsubscribe',
+      'sns:GetTopicAttributes',
+      'sns:SetTopicAttributes',
+      'sns:ListSubscriptionsByTopic',
+    ];
+
+    // Allow access to topic named: baseTopicName-tenant-<tenantId>
+    return new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultActions,
+      resources: [
+        `arn:aws:sns:*:*:${baseTopicName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+      ],
+    });
+  }
+
+  /**
+   * Create a policy statement for Lambda per-tenant function access
+   * This allows access to functions with naming pattern: <baseFunctionName>-tenant-<tenantId>
+   */
+  public createLambdaTenantFunctionPolicyStatement(
+    baseFunctionName: string,
+    actions?: string[]
+  ): iam.PolicyStatement {
+    const defaultActions = [
+      'lambda:InvokeFunction',
+      'lambda:InvokeAsync',
+      'lambda:GetFunction',
+      'lambda:GetFunctionConfiguration',
+    ];
+
+    // Allow access to function named: baseFunctionName-tenant-<tenantId>
+    return new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: actions || defaultActions,
+      resources: [
+        `arn:aws:lambda:*:*:function:${baseFunctionName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}`,
+        `arn:aws:lambda:*:*:function:${baseFunctionName}-tenant-$\{${this.identityProviderArn}:${this.tenantIdClaim}}:*`,
       ],
     });
   }
