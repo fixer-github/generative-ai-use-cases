@@ -32,6 +32,7 @@ import {
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
+import useModelApi from '../hooks/useModelApi';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -84,6 +85,8 @@ const useChatPageState = create<StateType>((set) => {
 });
 
 const ChatPage: React.FC = () => {
+  const { getAvailableModels } = useModelApi();
+
   const {
     content,
     inputSystemContext,
@@ -423,6 +426,12 @@ const ChatPage: React.FC = () => {
     setForceExpandPromptList(null);
   }, [pathname, setForceExpandPromptList]);
 
+  const availableModelIds = useMemo(() => {
+    const models = getAvailableModels();
+
+    return models;
+  }, []);
+
   return (
     <>
       <div
@@ -447,7 +456,7 @@ const ChatPage: React.FC = () => {
           <Select
             value={modelId}
             onChange={setModelId}
-            options={availableModels.map((m) => {
+            options={availableModelIds.map((m) => {
               return { value: m, label: modelDisplayName(m) };
             })}
           />
