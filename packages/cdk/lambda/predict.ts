@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { PredictRequest } from 'generative-ai-use-cases';
 import { defaultModel } from './utils/models';
-import { Invoke } from './utils/liteLlmClient';
+import api from './utils/api';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -9,7 +9,7 @@ export const handler = async (
   try {
     const req: PredictRequest = JSON.parse(event.body!);
     const model = req.model || defaultModel;
-    const response = await Invoke(model, req.messages, req.id);
+    const response = await api[model.type].invoke(model, req.messages, req.id);
 
     return {
       statusCode: 200,
