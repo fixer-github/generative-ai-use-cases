@@ -56,6 +56,8 @@ async function getTenantDynamoDBDocument(
 
 /**
  * Get tenant-specific table name
+ * Note: Tenant ID extraction is only for constructing the correct table name.
+ * Security/isolation is enforced by IAM policies using session tags from the JWT.
  */
 function getTableName(baseTableName: string, event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);

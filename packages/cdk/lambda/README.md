@@ -6,21 +6,27 @@ This codebase implements a multi-tenant architecture with complete data isolatio
 
 ## Architecture
 
-### Application-Level Multi-Tenancy
-Repository functions extract tenant ID from JWT and route to correct tenant-specific resources.
+### Tag-Based Access Control (ABAC)
+Tenant isolation is enforced through AWS IAM policies using session tags from the JWT token.
+
+**Key Components:**
+- **IAM Policies**: Use `${aws:PrincipalTag/TenantID}` to dynamically restrict access to tenant-specific resources
+- **Session Tags**: JWT's `custom:tenant_id` claim is automatically passed as a session tag during AssumeRoleWithWebIdentity
+- **Resource Naming**: Resources follow the pattern `{BaseResourceName}-tenant-{tenantId}`
 
 **Files:**
-- `repository.ts` - Repository functions with tenant support
-- `utils/tenantUtils.ts` - Tenant ID extraction from JWT
-- `utils/tenantDynamoDBClient.ts` - DynamoDB client with tenant isolation
-- `utils/tenantCredentials.ts` - Shared credentials management for tenant access
+- `repository.ts` - Repository functions that construct tenant-specific table names
+- `utils/tenantUtils.ts` - Tenant ID extraction (only for resource naming, not security)
+- `utils/tenantDynamoDBClient.ts` - DynamoDB client with assumed role credentials
+- `utils/tenantCredentials.ts` - Handles AssumeRoleWithWebIdentity for obtaining credentials
 
 **How it works:**
 1. User's JWT contains `custom:tenant_id` claim
-2. Repository functions extract tenant ID from API Gateway event
-3. AssumeRoleWithWebIdentity is used to get tenant-specific credentials
-4. Resource names are dynamically generated: `{BaseResourceName}-tenant-{tenantId}`
-5. Each tenant's data is isolated in separate resources
+2. Cognito Pre-Token Generation Lambda formats tenant ID as AWS session tag
+3. AssumeRoleWithWebIdentity passes session tags to the assumed role
+4. IAM policies use `${aws:PrincipalTag/TenantID}` to enforce access control
+5. Lambda functions extract tenant ID only to construct correct resource names
+6. AWS enforces tenant isolation at the IAM level - no manual security checks needed
 
 ## Quick Start
 
@@ -70,10 +76,11 @@ All tenant resources MUST follow this pattern:
 
 ## Security
 
-- Each tenant's data is completely isolated
-- IAM policies prevent cross-tenant access
-- JWT token must contain `custom:tenant_id` claim
-- CloudTrail logs all access with tenant context
+- **IAM-based isolation**: AWS enforces tenant boundaries through `${aws:PrincipalTag/TenantID}` in policies
+- **No manual security checks**: The Lambda code doesn't need to verify tenant access - IAM handles it
+- **JWT requirements**: Token must contain `custom:tenant_id` claim for session tags
+- **CloudTrail logging**: All access is logged with tenant context for auditing
+- **Fail-safe design**: Without proper tenant tag, access is denied by default
 
 ## Migration Checklist
 
