@@ -18,12 +18,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install litellm and required dependencies
+# Note: litellm[proxy]==1.74.8 requires boto3==1.34.34
 RUN pip install --no-cache-dir \
     litellm[proxy]==1.74.8 \
     google-auth \
     google-auth-oauthlib \
     google-auth-httplib2 \
-    boto3==1.35.81 \
     pyyaml==6.0.2
 
 # Copy configuration and startup script
