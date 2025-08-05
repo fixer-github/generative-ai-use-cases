@@ -2,25 +2,25 @@
 
 ## Overview
 
-This codebase implements a multi-tenant architecture with complete data isolation between tenants. Each tenant has dedicated AWS resources (DynamoDB tables, S3 buckets, SQS queues, SNS topics, Lambda functions) following the naming pattern: `ResourceName-tenant-{tenantId}`
+This codebase implements a multi-tenant architecture with complete data isolation between tenants. Each tenant has dedicated resources following the naming pattern: `ResourceName-tenant-{tenantId}`
 
 ## Architecture
 
 ### Application-Level Multi-Tenancy
-The tenant client factory provides unified access to all AWS services with automatic tenant isolation.
+Repository functions extract tenant ID from JWT and route to correct tenant-specific resources.
 
-**Core Files:**
-- `utils/tenantClientFactory.ts` - Central factory for all AWS service clients with tenant isolation
-- `utils/tenantUtils.ts` - Tenant ID extraction from JWT
+**Files:**
 - `repository.ts` - Repository functions with tenant support
+- `utils/tenantUtils.ts` - Tenant ID extraction from JWT
+- `utils/tenantDynamoDBClient.ts` - DynamoDB client with tenant isolation
+- `utils/tenantCredentials.ts` - Shared credentials management for tenant access
 
 **How it works:**
 1. User's JWT contains `custom:tenant_id` claim
-2. Tenant client factory extracts tenant ID from API Gateway event
+2. Repository functions extract tenant ID from API Gateway event
 3. AssumeRoleWithWebIdentity is used to get tenant-specific credentials
-4. Service clients are created with tenant credentials and cached
-5. Resource names are dynamically generated: `{BaseResourceName}-tenant-{tenantId}`
-6. Each tenant's resources are completely isolated
+4. Resource names are dynamically generated: `{BaseResourceName}-tenant-{tenantId}`
+5. Each tenant's data is isolated in separate resources
 
 ## Quick Start
 
@@ -41,20 +41,9 @@ aws dynamodb create-table \
 
 # S3 bucket  
 aws s3 mb s3://uploads-tenant-company-a
-
-# SQS queue
-aws sqs create-queue --queue-name notifications-tenant-company-a
-
-# SNS topic
-aws sns create-topic --name alerts-tenant-company-a
-
-# Lambda function
-# Deploy tenant-specific Lambda functions with naming pattern
 ```
 
 ### 3. Use in Lambda
-
-#### DynamoDB Operations
 ```typescript
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { createChat } from './repository';
@@ -72,62 +61,12 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 };
 ```
 
-#### S3 Operations
-```typescript
-import { APIGatewayProxyEvent } from 'aws-lambda';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { createTenantS3Client, getTenantResourceName } from './utils/tenantClientFactory';
-
-export const handler = async (event: APIGatewayProxyEvent) => {
-  // Get S3 client with tenant credentials
-  const s3Client = await createTenantS3Client(event);
-  
-  // Get tenant-specific bucket name
-  const bucketName = getTenantResourceName('uploads', event);
-  
-  // Upload file to tenant bucket
-  await s3Client.send(new PutObjectCommand({
-    Bucket: bucketName,
-    Key: 'document.pdf',
-    Body: Buffer.from(event.body, 'base64'),
-  }));
-  
-  return { statusCode: 200 };
-};
-```
-
-#### SQS Operations
-```typescript
-import { APIGatewayProxyEvent } from 'aws-lambda';
-import { SendMessageCommand } from '@aws-sdk/client-sqs';
-import { createTenantSQSClient, getTenantResourceName } from './utils/tenantClientFactory';
-
-export const handler = async (event: APIGatewayProxyEvent) => {
-  // Get SQS client with tenant credentials
-  const sqsClient = await createTenantSQSClient(event);
-  
-  // Get tenant-specific queue URL
-  const queueName = getTenantResourceName('notifications', event);
-  const queueUrl = `https://sqs.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_ACCOUNT_ID}/${queueName}`;
-  
-  // Send message to tenant queue
-  await sqsClient.send(new SendMessageCommand({
-    QueueUrl: queueUrl,
-    MessageBody: JSON.stringify({ message: 'Hello tenant!' }),
-  }));
-  
-  return { statusCode: 200 };
-};
-```
-
 ## Resource Naming
 
 All tenant resources MUST follow this pattern:
 - DynamoDB: `{TableName}-tenant-{tenantId}`
 - S3: `{BucketPrefix}-tenant-{tenantId}`
-- SQS: `{QueueName}-tenant-{tenantId}`
-- SNS: `{TopicName}-tenant-{tenantId}`
-- Lambda: `{FunctionName}-tenant-{tenantId}`
+- Other AWS resources: `{ResourceName}-tenant-{tenantId}`
 
 ## Security
 
@@ -151,9 +90,6 @@ TABLE_NAME: ChatHistory  # Base name (without tenant suffix)
 STATS_TABLE_NAME: TokenUsageStats
 MULTI_TENANT_ROLE_ARN: arn:aws:iam::123456789:role/MultiTenantAccessRole
 DEFAULT_TENANT_ID: default  # For backwards compatibility
-BASE_BUCKET_NAME: uploads  # Base name for S3 buckets
-BASE_QUEUE_NAME: notifications  # Base name for SQS queues
-BASE_TOPIC_NAME: alerts  # Base name for SNS topics
 ```
 
 ## Troubleshooting
