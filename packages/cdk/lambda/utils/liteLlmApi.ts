@@ -42,8 +42,8 @@ const convertFinishReason = (
 const createSignedRequest = async (endpoint: string, body: any) => {
   const url = new URL(endpoint);
   const hostname = url.hostname;
-  const pathname = url.pathname.endsWith('/') 
-    ? url.pathname + 'chat/completions' 
+  const pathname = url.pathname.endsWith('/')
+    ? url.pathname + 'chat/completions'
     : url.pathname + '/chat/completions';
 
   const request = new HttpRequest({
@@ -81,7 +81,7 @@ const liteLlmApi: ApiInterface = {
     _id: string
   ): Promise<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
-    
+
     if (!litellmEndpoint) {
       throw new Error('LITELLM_ENDPOINT environment variable is not set');
     }
@@ -93,12 +93,15 @@ const liteLlmApi: ApiInterface = {
       stream: false,
     };
 
-    const signedRequest = await createSignedRequest(litellmEndpoint, requestBody);
+    const signedRequest = await createSignedRequest(
+      litellmEndpoint,
+      requestBody
+    );
 
-    const fullUrl = litellmEndpoint.endsWith('/') 
-      ? litellmEndpoint + 'chat/completions' 
+    const fullUrl = litellmEndpoint.endsWith('/')
+      ? litellmEndpoint + 'chat/completions'
       : litellmEndpoint + '/chat/completions';
-    
+
     const response = await fetch(fullUrl, {
       method: signedRequest.method,
       headers: signedRequest.headers,
@@ -107,7 +110,9 @@ const liteLlmApi: ApiInterface = {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`LiteLLM API request failed: ${response.status} - ${errorText}`);
+      throw new Error(
+        `LiteLLM API request failed: ${response.status} - ${errorText}`
+      );
     }
 
     const completion = await response.json();
@@ -122,7 +127,7 @@ const liteLlmApi: ApiInterface = {
     _idToken?: string | undefined
   ): AsyncIterable<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
-    
+
     if (!litellmEndpoint) {
       throw new Error('LITELLM_ENDPOINT environment variable is not set');
     }
@@ -134,12 +139,15 @@ const liteLlmApi: ApiInterface = {
       stream: true,
     };
 
-    const signedRequest = await createSignedRequest(litellmEndpoint, requestBody);
+    const signedRequest = await createSignedRequest(
+      litellmEndpoint,
+      requestBody
+    );
 
-    const fullUrl = litellmEndpoint.endsWith('/') 
-      ? litellmEndpoint + 'chat/completions' 
+    const fullUrl = litellmEndpoint.endsWith('/')
+      ? litellmEndpoint + 'chat/completions'
       : litellmEndpoint + '/chat/completions';
-    
+
     const response = await fetch(fullUrl, {
       method: signedRequest.method,
       headers: signedRequest.headers,
@@ -148,7 +156,9 @@ const liteLlmApi: ApiInterface = {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`LiteLLM API request failed: ${response.status} - ${errorText}`);
+      throw new Error(
+        `LiteLLM API request failed: ${response.status} - ${errorText}`
+      );
     }
 
     const reader = response.body?.getReader();
@@ -162,7 +172,7 @@ const liteLlmApi: ApiInterface = {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           break;
         }
@@ -175,10 +185,10 @@ const liteLlmApi: ApiInterface = {
 
           for (const line of lines) {
             if (line.trim() === '') continue;
-            
+
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
-              
+
               if (data === '[DONE]') {
                 yield streamingChunk({
                   text: '',
@@ -190,7 +200,7 @@ const liteLlmApi: ApiInterface = {
               try {
                 const parsed = JSON.parse(data);
                 const choice = parsed.choices?.[0];
-                
+
                 if (choice?.finish_reason) {
                   const stopReason = convertFinishReason(choice.finish_reason);
                   yield streamingChunk({

@@ -465,19 +465,8 @@ export class Api extends Construct {
       invokeFlowFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
     }
 
-
-
     // Grant permissions to access LiteLLM proxy if it's enabled
     if (props.litellmProxy) {
-      // props.litellmProxy.grantInvoke(predictStreamFunction);
-      // props.litellmProxy.grantInvoke(predictFunction);
-      // props.litellmProxy.grantInvoke(predictTitleFunction);
-      // props.litellmProxy.grantInvoke(generateImageFunction);
-      // props.litellmProxy.grantInvoke(generateVideoFunction);
-      // props.litellmProxy.grantInvoke(listVideoJobs);
-      // props.litellmProxy.grantInvoke(invokeFlowFunction);
-      
-      // Grant Function URL invoke permissions
       props.litellmProxy.grantInvokeUrl(predictStreamFunction);
       props.litellmProxy.grantInvokeUrl(predictFunction);
       props.litellmProxy.grantInvokeUrl(predictTitleFunction);
