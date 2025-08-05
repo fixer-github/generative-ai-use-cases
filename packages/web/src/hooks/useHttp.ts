@@ -12,7 +12,10 @@ api.interceptors.request.use(async (config) => {
   // If Authenticated, append ID Token to Request Header
   const token = (await fetchAuthSession()).tokens?.idToken?.toString();
   if (token) {
+    throw new Error('got Authorization header');
     config.headers['Authorization'] = token;
+  } else {
+    throw new Error('no Authorization header');
   }
 
   config.headers['Content-Type'] = 'application/json';
