@@ -39,7 +39,16 @@ const convertFinishReason = (
   }
 };
 
-const createSignedRequest = async (endpoint: string, body: any) => {
+interface ChatCompletionRequest {
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+  stream: boolean;
+}
+
+const createSignedRequest = async (
+  endpoint: string,
+  body: ChatCompletionRequest
+) => {
   const url = new URL(endpoint);
   const hostname = url.hostname;
   const pathname = url.pathname.endsWith('/')
@@ -57,20 +66,16 @@ const createSignedRequest = async (endpoint: string, body: any) => {
     body: JSON.stringify(body),
   });
 
-  try {
-    const credentials = await defaultProvider()();
-    const signer = new SignatureV4({
-      credentials,
-      region: process.env.AWS_REGION || 'us-east-1',
-      service: 'lambda',
-      sha256: Sha256,
-    });
+  const credentials = await defaultProvider()();
+  const signer = new SignatureV4({
+    credentials,
+    region: process.env.AWS_REGION || 'us-east-1',
+    service: 'lambda',
+    sha256: Sha256,
+  });
 
-    const signedRequest = await signer.sign(request);
-    return signedRequest;
-  } catch (error) {
-    throw error;
-  }
+  const signedRequest = await signer.sign(request);
+  return signedRequest;
 };
 
 const liteLlmApi: ApiInterface = {
@@ -78,7 +83,7 @@ const liteLlmApi: ApiInterface = {
     model: Model,
     messages: UnrecordedMessage[],
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _id: string
+    id: string
   ): Promise<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
 
@@ -122,9 +127,9 @@ const liteLlmApi: ApiInterface = {
     model: Model,
     messages: UnrecordedMessage[],
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _id: string,
+    id: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _idToken?: string | undefined
+    idToken?: string | undefined
   ): AsyncIterable<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
 
@@ -219,25 +224,23 @@ const liteLlmApi: ApiInterface = {
           }
         }
       }
-    } catch (error) {
-      throw error;
     } finally {
       reader.releaseLock();
     }
   },
   generateImage: function (
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _model: Model,
+    model: Model,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _params: GenerateImageParams
+    params: GenerateImageParams
   ): Promise<string> {
     throw new Error('Function not implemented.');
   },
   generateVideo: function (
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _model: Model,
+    model: Model,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _params: GenerateVideoParams
+    params: GenerateVideoParams
   ): Promise<string> {
     throw new Error('Function not implemented.');
   },
