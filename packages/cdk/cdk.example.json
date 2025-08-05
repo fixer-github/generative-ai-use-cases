@@ -82,7 +82,8 @@
         "enableKeyRotation": true,
         "pendingWindowInDays": 7,
         "enableAuditLog": true,
-        "secretRotationDays": 90
+        "secretRotationDays": 90,
+        "_comment": "KMS key alias and secret names are not affected by envSuffix to maintain consistency across environments"
       },
       "providers": {
         "openai": {

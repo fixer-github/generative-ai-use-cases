@@ -3,6 +3,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as cdk from 'aws-cdk-lib';
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 
 export interface LiteLLMProvider {
@@ -51,9 +52,8 @@ export class LiteLLMKms extends Construct {
     // Create secrets for each enabled provider
     Object.entries(props.providers).forEach(([providerName, provider]) => {
       if (provider.enabled && !provider.useIAMRole) {
-        const secretName = props.envSuffix
-          ? `litellm-${props.envSuffix}/${providerName}/api-key`
-          : `litellm/${providerName}/api-key`;
+        // Secret names are not affected by envSuffix to maintain consistency across environments
+        const secretName = `litellm/${providerName}/api-key`;
 
         const secret = new secretsmanager.Secret(
           this,
@@ -78,7 +78,29 @@ export class LiteLLMKms extends Construct {
     });
 
     // Create configuration secret containing all provider settings
-    const configData: Record<string, unknown> = {
+    interface ConfigData {
+      providers: Record<string, unknown>;
+      defaultProvider: string;
+      enableCaching: boolean;
+      virtualKeys: {
+        enabled: boolean;
+        prefix: string;
+        defaultExpiry: number;
+        maxKeysPerUser: number;
+      };
+      routing: {
+        strategy: string;
+        enableFallbacks: boolean;
+        defaultProvider: string;
+      };
+      monitoring: {
+        enableCloudWatch: boolean;
+        metricNamespace: string;
+        enableAlerts: boolean;
+      };
+    }
+    
+    const configData: ConfigData = {
       providers: {},
       defaultProvider: props.defaultProvider || 'openai',
       enableCaching: props.enableCaching ?? true,
@@ -115,17 +137,16 @@ export class LiteLLMKms extends Construct {
       }
     });
 
-    const configSecretName = props.envSuffix
-      ? `litellm-${props.envSuffix}/config`
-      : 'litellm/config';
+    // Config secret name is not affected by envSuffix to maintain consistency across environments
+    const configSecretName = 'litellm/config';
 
     this.configSecret = new secretsmanager.Secret(this, 'ConfigSecret', {
       description: 'LiteLLM configuration',
       encryptionKey: props.kmsKey,
       secretName: configSecretName,
-      secretStringValue: {
-        secretString: JSON.stringify(configData),
-      },
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        JSON.stringify(configData)
+      ),
       removalPolicy: RemovalPolicy.RETAIN,
     });
 

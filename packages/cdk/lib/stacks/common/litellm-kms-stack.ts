@@ -35,9 +35,8 @@ export class LiteLLMKmsStack extends Stack {
     });
 
     // Create an alias for easier reference
-    const aliasName = props?.envSuffix
-      ? `alias/litellm-master-${props.envSuffix}`
-      : 'alias/litellm-master';
+    // KMS key alias is not affected by envSuffix to maintain consistency across environments
+    const aliasName = 'alias/litellm-master';
 
     this.kmsKeyAlias = new kms.Alias(this, 'LiteLLMKeyAlias', {
       aliasName,
