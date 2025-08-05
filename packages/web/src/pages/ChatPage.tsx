@@ -426,12 +426,6 @@ const ChatPage: React.FC = () => {
     setForceExpandPromptList(null);
   }, [pathname, setForceExpandPromptList]);
 
-  const availableModelIds = useMemo(() => {
-    const models = getAvailableModels();
-
-    return models;
-  }, []);
-
   return (
     <>
       <div
@@ -456,7 +450,7 @@ const ChatPage: React.FC = () => {
           <Select
             value={modelId}
             onChange={setModelId}
-            options={availableModelIds.map((m) => {
+            options={getAvailableModels().map((m) => {
               return { value: m, label: modelDisplayName(m) };
             })}
           />
