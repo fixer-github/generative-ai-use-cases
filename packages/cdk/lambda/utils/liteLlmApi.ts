@@ -66,7 +66,7 @@ const createSignedRequest = async (
     body: JSON.stringify(body),
   });
 
-  const credentials = await defaultProvider()();
+  const credentials = await defaultProvider();
   const signer = new SignatureV4({
     credentials,
     region: process.env.AWS_REGION || 'us-east-1',
