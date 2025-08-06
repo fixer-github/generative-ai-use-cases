@@ -10,6 +10,7 @@ import {
   TokenUsageStats,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   BatchGetCommand,
@@ -32,11 +33,24 @@ const clientCache = new Map<string, DynamoDBDocumentClient>();
 
 /**
  * Get or create a tenant-specific DynamoDB document client
+ * Falls back to default client if tenant-specific access fails
  */
 async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent
 ): Promise<DynamoDBDocumentClient> {
   const tenantId = getTenantId(event);
+  
+  // For default tenant, use standard DynamoDB client
+  if (!tenantId || tenantId === 'default') {
+    const defaultClient = clientCache.get('default');
+    if (defaultClient) {
+      return defaultClient;
+    }
+    // Create standard DynamoDB client without AssumeRole
+    const standardClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+    clientCache.set('default', standardClient);
+    return standardClient;
+  }
   
   // Check if we already have a client for this tenant
   let client = clientCache.get(tenantId);
@@ -44,14 +58,22 @@ async function getTenantDynamoDBDocument(
     return client;
   }
 
-  // Create new client with tenant credentials
-  const dynamoDb = await createTenantDynamoDBClient(event);
-  client = DynamoDBDocumentClient.from(dynamoDb);
-  
-  // Cache for future use
-  clientCache.set(tenantId, client);
-  
-  return client;
+  try {
+    // Try to create client with tenant credentials
+    const dynamoDb = await createTenantDynamoDBClient(event);
+    client = DynamoDBDocumentClient.from(dynamoDb);
+    
+    // Cache for future use
+    clientCache.set(tenantId, client);
+    
+    return client;
+  } catch (error) {
+    console.error('Failed to assume role for tenant access, falling back to default:', error);
+    // Fall back to standard DynamoDB client
+    const fallbackClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+    clientCache.set(tenantId, fallbackClient);
+    return fallbackClient;
+  }
 }
 
 /**
@@ -74,6 +96,36 @@ function getStatsTableName(event: APIGatewayProxyEvent): string {
 }
 
 // ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Execute DynamoDB operation with fallback to default table
+ */
+async function executeDynamoDBOperation<T>(
+  event: APIGatewayProxyEvent,
+  baseTableName: string,
+  operation: (client: DynamoDBDocumentClient, tableName: string) => Promise<T>
+): Promise<T> {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tenantId = getTenantId(event);
+  let tableName = getTableName(baseTableName, event);
+  
+  try {
+    // Try with tenant-specific table first
+    return await operation(dynamoDbDocument, tableName);
+  } catch (error: any) {
+    // If table doesn't exist and we're not already using default, try default table
+    if (error.name === 'ResourceNotFoundException' && tenantId !== 'default') {
+      console.warn(`Tenant table ${tableName} not found, falling back to default table`);
+      tableName = baseTableName; // Use base table name without tenant suffix
+      return await operation(dynamoDbDocument, tableName);
+    }
+    throw error;
+  }
+}
+
+// ============================================
 // Repository Functions
 // ============================================
 
@@ -81,9 +133,6 @@ export const createChat = async (
   _userId: string,
   event: APIGatewayProxyEvent
 ): Promise<Chat> => {
-  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
-  
   const userId = `user#${_userId}`;
   const chatId = `chat#${crypto.randomUUID()}`;
   const item = {
@@ -95,12 +144,14 @@ export const createChat = async (
     updatedDate: '',
   };
 
-  await dynamoDbDocument.send(
-    new PutCommand({
-      TableName: tableName,
-      Item: item,
-    })
-  );
+  await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
+    return client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: item,
+      })
+    );
+  });
 
   return item;
 };
@@ -110,27 +161,26 @@ export const findChatById = async (
   _chatId: string,
   event: APIGatewayProxyEvent
 ): Promise<Chat | null> => {
-  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
-  
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
   
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#id = :id',
-      FilterExpression: '#chatId = :chatId',
-      ExpressionAttributeNames: {
-        '#id': 'id',
-        '#chatId': 'chatId',
-      },
-      ExpressionAttributeValues: {
-        ':id': userId,
-        ':chatId': chatId,
-      },
-    })
-  );
+  const res = await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
+    return client.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: '#id = :id',
+        FilterExpression: '#chatId = :chatId',
+        ExpressionAttributeNames: {
+          '#id': 'id',
+          '#chatId': 'chatId',
+        },
+        ExpressionAttributeValues: {
+          ':id': userId,
+          ':chatId': chatId,
+        },
+      })
+    );
+  });
 
   if (!res.Items || res.Items.length === 0) {
     return null;
@@ -144,16 +194,14 @@ export const findSystemContextById = async (
   _systemContextId: string,
   event: APIGatewayProxyEvent
 ): Promise<SystemContext | null> => {
-  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
-  
   const userId = `systemContext#${_userId}`;
   const systemContextId = `systemContext#${_systemContextId}`;
   
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#id = :id',
+  const res = await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
+    return client.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: '#id = :id',
       FilterExpression: '#systemContextId = :systemContextId',
       ExpressionAttributeNames: {
         '#id': 'id',
