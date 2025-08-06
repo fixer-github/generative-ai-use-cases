@@ -451,7 +451,7 @@ const ChatPage: React.FC = () => {
             value={modelId}
             onChange={setModelId}
             options={getAvailableModels().map((m) => {
-              return { value: m, label: modelDisplayName(m) };
+              return { value: m, label: m };
             })}
           />
         </div>

@@ -9,10 +9,18 @@ const useModelApi = () => {
 
   return {
     getAvailableModels: (): string[] => {
-      const response = http.get<GetAvailableModelsResponse>('models');
-      const models = response.data?.models ?? [];
+      try {
+        const response = http.get<GetAvailableModelsResponse>('models');
+        console.log(JSON.stringify(response));
 
-      return models;
+        const models = response.data ? response.data.models : ['empty'];
+
+        return models;
+      } catch (error) {
+        console.error(error);
+
+        return ['error'];
+      }
     },
   };
 };
