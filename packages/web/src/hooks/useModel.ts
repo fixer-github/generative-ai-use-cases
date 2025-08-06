@@ -102,7 +102,6 @@ const liteLlmModelIds = [
   'gpt-4o',
   'gpt-4o-mini',
   'o3',
-  'gpt-4.5-preview',
   'gpt-4.1',
   'gemini-2.5-flash',
   'gemini-2.5-pro',
@@ -198,10 +197,6 @@ const liteLlmModelMetadata: Record<string, any> = {
       reasoning: true,
     },
     displayName: 'o3',
-  },
-  'gpt-4.5-preview': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'GPT-4.5 Preview',
   },
   'gpt-4.1': {
     flags: { text: true, doc: true, image: true, video: false },
