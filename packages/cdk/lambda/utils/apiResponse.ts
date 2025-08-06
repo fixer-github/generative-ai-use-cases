@@ -15,7 +15,7 @@ export const SuccessResponse = <TResponse>(
 
 export const NotFoundResponse = (message: string): APIGatewayProxyResult => {
   return {
-    statusCode: 400,
+    statusCode: 404,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',

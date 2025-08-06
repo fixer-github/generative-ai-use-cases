@@ -56,25 +56,25 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    // const liteLlmEndpoint = env.LITELLM_ENDPOINT;
-    //
-    // if (!liteLlmEndpoint) {
-    //   return NotFoundResponse('LiteLLM endpoint is not found.');
-    // }
-    //
-    // const signedRequest = await createSignedRequest(liteLlmEndpoint);
-    //
-    // const fullUrl = liteLlmEndpoint.endsWith('/')
-    //   ? liteLlmEndpoint + 'models'
-    //   : liteLlmEndpoint + '/models';
-    //
-    // const response = await httpGetAsync<GetModelListRequest>(
-    //   fullUrl,
-    //   signedRequest.headers
-    // );
-    //
-    // const modelIds = response.data.map((value) => value.id);
-    const modelIds = ['hoge', 'fuga', 'moke'];
+    console.log(event);
+    const liteLlmEndpoint = env.LITELLM_ENDPOINT;
+
+    if (!liteLlmEndpoint) {
+      return NotFoundResponse('LiteLLM endpoint is not found.');
+    }
+
+    const signedRequest = await createSignedRequest(liteLlmEndpoint);
+
+    const fullUrl = liteLlmEndpoint.endsWith('/')
+      ? liteLlmEndpoint + 'models'
+      : liteLlmEndpoint + '/models';
+
+    const response = await httpGetAsync<GetModelListRequest>(
+      fullUrl,
+      signedRequest.headers
+    );
+
+    const modelIds = response.data.map((value) => value.id);
 
     return SuccessResponse({ models: modelIds });
   } catch (error) {

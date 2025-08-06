@@ -85,7 +85,7 @@ const useChatPageState = create<StateType>((set) => {
 });
 
 const ChatPage: React.FC = () => {
-  const { getAvailableModels } = useModelApi();
+  const { models } = useModelApi();
 
   const {
     content,
@@ -138,7 +138,8 @@ const ChatPage: React.FC = () => {
   const { createSystemContext } = useSystemContextApi();
   const { scrollableContainer, setFollowing } = useFollow();
   const { getChatTitle } = useChatList();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels } = MODELS;
   const { data: share, mutate: reloadShare } = findShareId(chatId);
   const modelId = getModelId();
   const prompter = useMemo(() => {
@@ -450,7 +451,7 @@ const ChatPage: React.FC = () => {
           <Select
             value={modelId}
             onChange={setModelId}
-            options={getAvailableModels().map((m) => {
+            options={models.map((m) => {
               return { value: m, label: m };
             })}
           />
