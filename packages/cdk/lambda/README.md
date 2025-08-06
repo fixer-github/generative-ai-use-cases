@@ -82,13 +82,35 @@ All tenant resources MUST follow this pattern:
 - **CloudTrail logging**: All access is logged with tenant context for auditing
 - **Fail-safe design**: Without proper tenant tag, access is denied by default
 
+## Deployment Strategy
+
+### Phase 1: Deploy Multi-Tenant Code (This PR)
+Deploy the multi-tenant aware code with fallback support:
+```bash
+npm run cdk:deploy
+```
+
+### Phase 2: Create Tenant Resources (PR#18)
+Create tenant-specific DynamoDB tables for each tenant:
+```bash
+npm run cdk:tenant:deploy -- --tenant-id <tenant-id>
+```
+
+### Fallback Behavior
+The system gracefully handles missing tenant resources:
+- **Default tenant** (`custom:tenant_id` = 'default' or missing): Uses standard tables
+- **Custom tenant with resources**: Uses tenant-specific tables (`TableName-tenant-{id}`)
+- **Custom tenant without resources**: Falls back to default tables with warning logs
+- **AssumeRole failures**: Falls back to Lambda's default IAM role
+
 ## Migration Checklist
 
 - [ ] Add `custom:tenant_id` to all users
-- [ ] Create tenant-specific tables/buckets
-- [ ] Update Lambda functions to pass event parameter
+- [ ] Deploy multi-tenant code (this PR)
+- [ ] Create tenant-specific tables/buckets (PR#18)
+- [ ] Configure Cognito Pre-Token Generation Lambda for session tags
 - [ ] Test with multiple tenants
-- [ ] Monitor CloudWatch for access errors
+- [ ] Monitor CloudWatch for fallback warnings
 
 ## Environment Variables
 
@@ -101,6 +123,31 @@ DEFAULT_TENANT_ID: default  # For backwards compatibility
 
 ## Troubleshooting
 
-1. **"Access Denied" errors**: Check tenant ID in JWT and resource naming
-2. **Missing credentials**: Ensure MULTI_TENANT_ROLE_ARN is set
-3. **Performance issues**: Check credential cache hit rate in logs
+### Common Issues
+
+1. **500 Internal Server Error**
+   - **Cause**: Tenant-specific table doesn't exist
+   - **Solution**: Check CloudWatch logs for "fallback to default table" warnings
+   - **Fix**: Deploy tenant resources using PR#18 or rely on fallback behavior
+
+2. **Access Denied Errors**
+   - **Cause**: Incorrect tenant ID or missing session tags
+   - **Solution**: Verify `custom:tenant_id` in JWT claims
+   - **Fix**: Configure Cognito Pre-Token Generation Lambda
+
+3. **AssumeRoleWithWebIdentity Failures**
+   - **Cause**: Missing or invalid JWT token
+   - **Solution**: Check Authorization header contains valid Bearer token
+   - **Fix**: System will automatically fall back to default credentials
+
+4. **Performance Issues**
+   - **Cause**: Repeated credential fetching
+   - **Solution**: Check credential cache hit rate in CloudWatch logs
+   - **Fix**: Credential caching is automatic with 55-minute TTL
+
+### Debug Logging
+Enable debug logging to troubleshoot issues:
+```javascript
+console.warn(`Tenant table ${tableName} not found, falling back to default table`);
+console.error('Failed to assume role for tenant access, falling back to default:', error);
+```
