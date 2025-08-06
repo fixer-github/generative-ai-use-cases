@@ -1,0 +1,38 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+
+export const SuccessResponse = (body: any): APIGatewayProxyResult => {
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify(body),
+  };
+};
+
+export const NotFoundResponse = (message: string): APIGatewayProxyResult => {
+  return {
+    statusCode: 400,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify({
+      message: message,
+    }),
+  };
+};
+
+export const InternalServerErrorResponse = (
+  message: string
+): APIGatewayProxyResult => {
+  return {
+    statusCode: 500,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify({ message: message }),
+  };
+};
