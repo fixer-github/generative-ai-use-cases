@@ -856,75 +856,9 @@ export class Api extends Construct {
     getTokenUsageFunction.addToRolePolicy(tenantTablePolicy);
     getTokenUsageFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
-    // Lambda function for STS AssumeRoleWithWebIdentity
-    const assumeRoleForTenantFunction = new NodejsFunction(
-      this,
-      'AssumeRoleForTenant',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/assumeRoleForTenant.ts',
-        timeout: Duration.minutes(1),
-        environment: {
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-        },
-      }
-    );
-    // Grant permission to assume the multi-tenant role
-    assumeRoleForTenantFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['sts:AssumeRoleWithWebIdentity'],
-        resources: [props.multiTenantRole.roleArn],
-      })
-    );
-
-    // Lambda function for S3 operations using STS
-    const tenantS3OperationsFunction = new NodejsFunction(
-      this,
-      'TenantS3Operations',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/tenantS3Operations.ts',
-        timeout: Duration.minutes(5),
-        environment: {
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          BUCKET_PREFIX: 'files',
-        },
-      }
-    );
-    
-    // Grant permission to assume the multi-tenant role
-    tenantS3OperationsFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['sts:AssumeRoleWithWebIdentity'],
-        resources: [props.multiTenantRole.roleArn],
-      })
-    );
-
-    // Lambda function for DynamoDB operations using STS
-    const tenantDynamoDBOperationsFunction = new NodejsFunction(
-      this,
-      'TenantDynamoDBOperations',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/tenantDynamoDBOperations.ts',
-        timeout: Duration.minutes(5),
-        environment: {
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          TABLE_PREFIX: 'chats',
-        },
-      }
-    );
-    
-    // Grant permission to assume the multi-tenant role
-    tenantDynamoDBOperationsFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['sts:AssumeRoleWithWebIdentity'],
-        resources: [props.multiTenantRole.roleArn],
-      })
-    );
+    // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity 
+    // directly within each Lambda function, so separate Lambda functions for 
+    // tenant operations are no longer needed.
 
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
@@ -962,48 +896,8 @@ export class Api extends Construct {
       },
     });
 
-    // Auth resource for STS operations
-    const authResource = api.root.addResource('auth');
-    const assumeRoleResource = authResource.addResource('assume-role');
-
-    // POST: /auth/assume-role
-    assumeRoleResource.addMethod(
-      'POST',
-      new LambdaIntegration(assumeRoleForTenantFunction),
-      commonAuthorizerProps
-    );
-
-    // Tenant resource for multi-tenant operations
-    const tenantResource = api.root.addResource('tenant');
-    
-    // S3 operations
-    const s3Resource = tenantResource.addResource('s3');
-    const s3OperationResource = s3Resource.addResource('{operation}');
-    
-    // GET: /tenant/s3/{operation} (for list)
-    s3OperationResource.addMethod(
-      'GET',
-      new LambdaIntegration(tenantS3OperationsFunction),
-      commonAuthorizerProps
-    );
-    
-    // POST: /tenant/s3/{operation} (for upload-url, download-url, delete)
-    s3OperationResource.addMethod(
-      'POST',
-      new LambdaIntegration(tenantS3OperationsFunction),
-      commonAuthorizerProps
-    );
-    
-    // DynamoDB operations
-    const dynamoDBResource = tenantResource.addResource('dynamodb');
-    const dynamoDBOperationResource = dynamoDBResource.addResource('{operation}');
-    
-    // POST: /tenant/dynamodb/{operation} (for all operations)
-    dynamoDBOperationResource.addMethod(
-      'POST',
-      new LambdaIntegration(tenantDynamoDBOperationsFunction),
-      commonAuthorizerProps
-    );
+    // Note: Tenant-specific API routes have been removed as the unified approach
+    // handles multi-tenancy through existing Lambda functions with AssumeRoleWithWebIdentity
 
     const predictResource = api.root.addResource('predict');
 
