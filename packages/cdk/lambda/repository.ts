@@ -202,17 +202,18 @@ export const findSystemContextById = async (
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: '#id = :id',
-      FilterExpression: '#systemContextId = :systemContextId',
-      ExpressionAttributeNames: {
-        '#id': 'id',
-        '#systemContextId': 'systemContextId',
-      },
-      ExpressionAttributeValues: {
-        ':id': userId,
-        ':systemContextId': systemContextId,
-      },
-    })
-  );
+        FilterExpression: '#systemContextId = :systemContextId',
+        ExpressionAttributeNames: {
+          '#id': 'id',
+          '#systemContextId': 'systemContextId',
+        },
+        ExpressionAttributeValues: {
+          ':id': userId,
+          ':systemContextId': systemContextId,
+        },
+      })
+    );
+  });
 
   if (!res.Items || res.Items.length === 0) {
     return null;
