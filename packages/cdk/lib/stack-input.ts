@@ -10,6 +10,7 @@ const baseStackInputSchema = z.object({
   // Auth
   selfSignUpEnabled: z.boolean().default(true),
   allowedSignUpEmailDomains: z.array(z.string()).nullish(),
+  allowedSignUpEmails: z.array(z.string()).nullish(),
   samlAuthEnabled: z.boolean().default(false),
   samlCognitoDomainName: z.string().nullish(),
   samlCognitoFederatedIdentityProviderName: z.string().nullish(),
@@ -138,6 +139,8 @@ const baseStackInputSchema = z.object({
   inlineAgents: z.boolean().default(false),
   // MCP
   mcpEnabled: z.boolean().default(false),
+  // LiteLLM Proxy Server
+  litellmProxyEnabled: z.boolean().default(false),
   // Guardrail
   guardrailEnabled: z.boolean().default(false),
   // Usecase builder

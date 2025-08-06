@@ -11,14 +11,16 @@ import {
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
-} from './construct';
+  LitellmProxyServer,
+  MultiTenantRole,
+} from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent } from 'generative-ai-use-cases';
-import { UseCaseBuilder } from './construct/use-case-builder';
-import { ProcessedStackInput } from './stack-input';
-import { allowS3AccessWithSourceIpCondition } from './utils/s3-access-policy';
+import { UseCaseBuilder } from '../../construct/use-case-builder';
+import { ProcessedStackInput } from '../../stack-input';
+import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -60,11 +62,34 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
+      allowedSignUpEmails: params.allowedSignUpEmails,
       samlAuthEnabled: params.samlAuthEnabled,
+    });
+
+    // Multi-Tenant Role
+    const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
+      userPool: auth.userPool,
+      userPoolClient: auth.client,
+      region: this.region,
+      account: this.account,
     });
 
     // Database
     const database = new Database(this, 'Database');
+
+    // LiteLLM Proxy Server (must be created before API)
+    let litellmEndpoint: string | null = null;
+    let litellmProxy: LitellmProxyServer | null = null;
+    if (params.litellmProxyEnabled) {
+      litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
+        idPool: auth.idPool,
+        isSageMakerStudio: props.isSageMakerStudio,
+        modelRegion: params.modelRegion,
+        crossAccountBedrockRoleArn:
+          params.crossAccountBedrockRoleArn || undefined,
+      });
+      litellmEndpoint = litellmProxy.endpoint;
+    }
 
     // API
     const api = new Api(this, 'API', {
@@ -80,6 +105,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      litellmEndpoint: litellmEndpoint,
+      litellmProxy: litellmProxy,
       userPool: auth.userPool,
       idPool: auth.idPool,
       userPoolClient: auth.client,
@@ -381,6 +408,19 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'McpEndpoint', {
       value: mcpEndpoint ?? '',
+    });
+
+    new CfnOutput(this, 'LitellmProxyEnabled', {
+      value: params.litellmProxyEnabled.toString(),
+    });
+
+    new CfnOutput(this, 'LitellmProxyEndpoint', {
+      value: litellmEndpoint ?? '',
+    });
+
+    new CfnOutput(this, 'MultiTenantRoleArn', {
+      value: multiTenantRole.role.roleArn,
+      description: 'ARN of the single role for multi-tenant resource access',
     });
 
     this.userPool = auth.userPool;

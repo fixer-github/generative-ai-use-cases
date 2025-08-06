@@ -6,7 +6,7 @@ import {
   BlockPublicAccess,
 } from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { ProcessedStackInput } from './stack-input';
+import { ProcessedStackInput } from '../../stack-input';
 
 export interface VideoTmpBucketStackProps extends StackProps {
   readonly params: ProcessedStackInput;

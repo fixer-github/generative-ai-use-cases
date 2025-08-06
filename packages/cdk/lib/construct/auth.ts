@@ -1,5 +1,7 @@
 import { Duration } from 'aws-cdk-lib';
 import {
+  LambdaVersion,
+  StringAttribute,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -11,13 +13,15 @@ import {
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly allowedSignUpEmailDomains?: string[] | null;
+  readonly allowedSignUpEmails?: string[] | null;
   readonly samlAuthEnabled: boolean;
 }
 
@@ -43,6 +47,13 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
+      },
+      customAttributes: {
+        tenant_id: new StringAttribute({
+          minLen: 1,
+          maxLen: 50,
+          mutable: true,
+        }),
       },
     });
 
@@ -102,7 +113,7 @@ export class Auth extends Construct {
     );
 
     // Lambda
-    if (props.allowedSignUpEmailDomains) {
+    if (props.allowedSignUpEmailDomains || props.allowedSignUpEmails) {
       const checkEmailDomainFunction = new NodejsFunction(
         this,
         'CheckEmailDomain',
@@ -112,7 +123,10 @@ export class Auth extends Construct {
           timeout: Duration.minutes(15),
           environment: {
             ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR: JSON.stringify(
-              props.allowedSignUpEmailDomains
+              props.allowedSignUpEmailDomains || []
+            ),
+            ALLOWED_SIGN_UP_EMAILS_STR: JSON.stringify(
+              props.allowedSignUpEmails || []
             ),
           },
         }
@@ -123,6 +137,23 @@ export class Auth extends Construct {
         checkEmailDomainFunction
       );
     }
+
+    // Pre Token Generation Lambda for adding custom claims
+    const preTokenGenerationFunction = new PythonFunction(
+      this,
+      'PreTokenGeneration',
+      {
+        runtime: LAMBDA_RUNTIME_PYTHON,
+        entry: './lambda/pre_token_generation',
+        timeout: Duration.seconds(5),
+      }
+    );
+
+    userPool.addTrigger(
+      UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
+      preTokenGenerationFunction,
+      LambdaVersion.V2_0
+    );
 
     this.client = client;
     this.userPool = userPool;
