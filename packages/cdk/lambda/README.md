@@ -104,3 +104,75 @@ DEFAULT_TENANT_ID: default  # For backwards compatibility
 1. **"Access Denied" errors**: Check tenant ID in JWT and resource naming
 2. **Missing credentials**: Ensure MULTI_TENANT_ROLE_ARN is set
 3. **Performance issues**: Check credential cache hit rate in logs
+
+## Migration Guide
+
+### Phase 1: Preparation
+1. **Audit existing code**: Identify all Lambda functions that interact with DynamoDB or S3
+2. **Map data models**: Document all table schemas and S3 bucket structures
+3. **Identify tenants**: Create a list of initial tenants and their IDs
+
+### Phase 2: Infrastructure Setup
+1. **Update IAM roles**: Add tag-based policies with `${aws:PrincipalTag/TenantID}`
+2. **Configure Cognito**: Add Pre-Token Generation Lambda trigger
+3. **Create tenant resources**: Provision DynamoDB tables and S3 buckets per tenant
+
+### Phase 3: Code Migration
+1. **Update repository layer**: Modify all repository functions to accept `event` parameter
+2. **Update Lambda handlers**: Pass API Gateway event to repository functions
+3. **Test with single tenant**: Validate functionality with one test tenant
+
+### Phase 4: Data Migration
+1. **Export existing data**: Create backups of all current data
+2. **Transform data**: Add tenant prefixes to existing records if needed
+3. **Import to tenant tables**: Load data into tenant-specific resources
+
+### Phase 5: Rollout
+1. **Pilot deployment**: Deploy to staging with limited tenants
+2. **Monitor and validate**: Check CloudWatch logs for errors
+3. **Gradual rollout**: Migrate tenants in batches
+4. **Full deployment**: Complete migration for all tenants
+
+## Implementation Next Steps
+
+### Immediate Actions (Week 1)
+- [ ] Add `custom:tenant_id` attribute to Cognito User Pool
+- [ ] Deploy Pre-Token Generation Lambda
+- [ ] Update IAM roles with tag-based policies
+- [ ] Create first tenant's resources (tables and buckets)
+
+### Short-term Goals (Week 2-3)
+- [ ] Migrate all Lambda functions to use new repository pattern
+- [ ] Implement credential caching for performance
+- [ ] Add comprehensive error handling and logging
+- [ ] Create automated tests for multi-tenant scenarios
+
+### Medium-term Goals (Month 1-2)
+- [ ] Build tenant provisioning automation
+- [ ] Implement tenant usage monitoring and analytics
+- [ ] Create admin dashboard for tenant management
+- [ ] Develop data migration tools and scripts
+
+### Long-term Goals (Quarter)
+- [ ] Implement tenant-specific rate limiting
+- [ ] Add cross-tenant analytics (admin only)
+- [ ] Build tenant offboarding automation
+- [ ] Create disaster recovery procedures per tenant
+
+### Monitoring and Observability
+- Set up CloudWatch dashboards per tenant
+- Implement distributed tracing with X-Ray
+- Create alerts for access violations
+- Monitor credential assumption patterns
+
+### Security Hardening
+- Regular security audits of IAM policies
+- Implement least privilege access reviews
+- Add encryption at rest for all tenant data
+- Enable AWS CloudTrail for audit logging
+
+### Performance Optimization
+- Implement connection pooling per tenant
+- Add caching layers where appropriate
+- Optimize DynamoDB read/write capacity
+- Monitor and tune Lambda cold starts
