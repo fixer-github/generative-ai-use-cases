@@ -1,48 +1,31 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { createShareId, findChatById } from './repository';
+import { withTenantRepository } from './tenantRepository';
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    const userId: string =
-      event.requestContext.authorizer!.claims['cognito:username'];
-    const chatId = event.pathParameters!.chatId!;
+export const handler = withTenantRepository(async (repo, userId, event) => {
+  const chatId = event.pathParameters!.chatId!;
 
-    // Authorization check: Verify if the specified chat belongs to the user
-    const chat = await findChatById(userId, chatId, event);
-    if (chat === null) {
-      return {
-        statusCode: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'You do not have permission to share this chat.',
-        }),
-      };
-    }
-
-    const response = await createShareId(userId, chatId, event);
-
+  // Authorization check: Verify if the specified chat belongs to the user
+  const chat = await repo.findChatById(userId, chatId);
+  if (chat === null) {
     return {
-      statusCode: 200,
+      statusCode: 403,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify(response),
-    };
-  } catch (error) {
-    console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({
+        message: 'You do not have permission to share this chat.',
+      }),
     };
   }
-};
+
+  const response = await repo.createShareId(userId, chatId);
+
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify(response),
+  };
+});

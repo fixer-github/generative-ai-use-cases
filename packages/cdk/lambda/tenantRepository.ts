@@ -63,7 +63,7 @@ export class TenantRepository implements IRepository {
                      this.event.requestContext.authorizer?.principalId ||
                      'unknown';
     }
-    return this._userId;
+    return this._userId as string;
   }
 
   /**
