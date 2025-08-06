@@ -1,6 +1,7 @@
 /**
  * Tenant-aware repository wrapper
  * This provides a cleaner API that doesn't require passing the event to every function
+ * @see docs/REPOSITORY_PATTERN.md for detailed usage guide
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -213,6 +214,7 @@ export type TenantHandler = (
 /**
  * Higher-order function to wrap Lambda handlers with tenant repository
  * Automatically extracts userId and creates repository instance
+ * @see docs/REPOSITORY_PATTERN.md for usage examples
  */
 export function withTenantRepository(
   handler: TenantHandler
@@ -249,6 +251,7 @@ export type SimpleHandler = (
 
 /**
  * Minimal wrapper for simple operations
+ * @see docs/REPOSITORY_PATTERN.md for usage examples
  */
 export function withRepository(
   handler: SimpleHandler
@@ -273,76 +276,3 @@ export function withRepository(
     }
   };
 }
-
-/**
- * Example usage patterns:
- * 
- * 1. SIMPLEST - Using withRepository wrapper (recommended for new code):
- * ```typescript
- * export const handler = withRepository(async (repo) => {
- *   const chat = await repo.createChat(repo.userId);
- *   const messages = await repo.listMessages(chat.id);
- *   
- *   return {
- *     statusCode: 200,
- *     headers: { 'Content-Type': 'application/json' },
- *     body: JSON.stringify({ chat, messages })
- *   };
- * });
- * ```
- * 
- * 2. Using withTenantRepository wrapper (when you need userId separately):
- * ```typescript
- * export const handler = withTenantRepository(async (repo, userId, event) => {
- *   const chatId = event.pathParameters!.chatId!;
- *   
- *   // Authorization check
- *   const chat = await repo.findChatById(userId, chatId);
- *   if (!chat) {
- *     return {
- *       statusCode: 403,
- *       body: JSON.stringify({ message: 'Forbidden' })
- *     };
- *   }
- *   
- *   const messages = await repo.listMessages(chatId);
- *   return {
- *     statusCode: 200,
- *     body: JSON.stringify({ messages })
- *   };
- * });
- * ```
- * 
- * 3. Manual repository creation (for complex scenarios):
- * ```typescript
- * export const handler = async (event: APIGatewayProxyEvent) => {
- *   const repo = createTenantRepository(event);
- *   const userId = repo.userId;
- *   
- *   // Complex business logic here
- *   const chat = await repo.createChat(userId);
- *   const messages = await repo.listMessages(chat.id);
- *   
- *   return {
- *     statusCode: 200,
- *     body: JSON.stringify({ chat, messages })
- *   };
- * }
- * ```
- * 
- * 4. Gradual migration from old code:
- * ```typescript
- * export const handler = async (event: APIGatewayProxyEvent) => {
- *   const userId = event.requestContext.authorizer!.claims['cognito:username'];
- *   
- *   // Old code - still works
- *   const oldChat = await createChat(userId, event);
- *   
- *   // New code - cleaner
- *   const repo = createTenantRepository(event);
- *   const newChat = await repo.createChat(userId);
- *   
- *   return { statusCode: 200, body: JSON.stringify({ oldChat, newChat }) };
- * }
- * ```
- */
