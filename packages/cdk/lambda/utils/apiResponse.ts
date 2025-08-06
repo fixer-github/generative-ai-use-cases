@@ -1,6 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 
-export const SuccessResponse = (body: any): APIGatewayProxyResult => {
+export const SuccessResponse = <TResponse>(
+  body: TResponse
+): APIGatewayProxyResult => {
   return {
     statusCode: 200,
     headers: {
