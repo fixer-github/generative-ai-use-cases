@@ -22,11 +22,12 @@ export function adjustModelForLiteLLM(model: Model): Model {
   }
   
   if (isLiteLLMModel(model.modelId)) {
+    // Remove the 'litellm/' prefix for the actual model ID sent to LiteLLM
+    const cleanModelId = model.modelId.replace('litellm/', '');
     return {
       ...model,
       type: 'liteLlm',
-      // Remove the 'litellm/' prefix for the actual model ID sent to LiteLLM
-      modelId: model.modelId.replace('litellm/', ''),
+      modelId: cleanModelId,
     };
   }
   

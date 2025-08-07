@@ -97,15 +97,29 @@ const getFlows = () => {
 
 const flows = getFlows();
 
-// List of liteLLM model IDs (configured to match config.yaml)
-const liteLlmModelIds = [
-  'gpt-4o',
-  'gpt-4o-mini',
-  'o3',
-  'gpt-4.1',
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-];
+// Get LiteLLM models from environment if LiteLLM proxy is enabled
+const getLiteLlmModels = (): ModelConfiguration[] => {
+  const litellmEnabled = import.meta.env.VITE_APP_LITELLM_PROXY_ENABLED === 'true';
+  if (!litellmEnabled) {
+    return [];
+  }
+  
+  try {
+    const models = JSON.parse(import.meta.env.VITE_APP_LITELLM_MODEL_IDS || '[]') as ModelConfiguration[];
+    return models
+      .map((model) => ({
+        modelId: model.modelId.trim(),
+        region: model.region?.trim() || modelRegion,
+      }))
+      .filter((model) => model.modelId);
+  } catch (e) {
+    console.warn('Failed to parse LiteLLM models:', e);
+    return [];
+  }
+};
+
+const liteLlmModelConfigs = getLiteLlmModels();
+const liteLlmModelIds = liteLlmModelConfigs.map((model) => model.modelId);
 
 // Define model objects
 const textModels = [
@@ -120,8 +134,14 @@ const textModels = [
   ...endpointNames.map(
     (name) => ({ modelId: name, type: 'sagemaker' }) as Model
   ),
-  // Temporary hardcoded addition of liteLLM models (configured to match config.yaml)
-  ...liteLlmModelIds.map((modelId) => ({ modelId, type: 'liteLlm' }) as Model),
+  // Dynamic LiteLLM models from environment configuration
+  ...liteLlmModelConfigs.map(
+    (model) => ({
+      modelId: model.modelId,
+      type: 'liteLlm',
+      region: model.region,
+    }) as Model
+  ),
 ];
 const imageGenModels = [
   ...imageModelConfigs.map(
@@ -177,40 +197,53 @@ export const findModelByModelId = (modelId: string) => {
 
 const searchAgent = agentNames.find((name) => name.includes('Search'));
 
-// Add metadata for liteLLM models (extended on frontend side)
+// Generate metadata for LiteLLM models dynamically
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const liteLlmModelMetadata: Record<string, any> = {
-  'gpt-4o': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'GPT-4o',
-  },
-  'gpt-4o-mini': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'GPT-4o Mini',
-  },
-  o3: {
-    flags: {
-      text: true,
-      doc: true,
-      image: false,
-      video: false,
-      reasoning: true,
-    },
-    displayName: 'o3',
-  },
-  'gpt-4.1': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'GPT-4.1',
-  },
-  'gemini-2.5-flash': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'Gemini 2.5 Flash',
-  },
-  'gemini-2.5-pro': {
-    flags: { text: true, doc: true, image: true, video: false },
-    displayName: 'Gemini 2.5 Pro',
-  },
+const generateLiteLlmModelMetadata = (): Record<string, any> => {
+  const metadata: Record<string, any> = {};
+  
+  liteLlmModelIds.forEach((modelId) => {
+    // Remove 'litellm/' prefix for display and metadata
+    const cleanModelId = modelId.replace('litellm/', '');
+    
+    // Generate display name from model ID
+    let displayName = cleanModelId;
+    
+    // Format common model names
+    if (cleanModelId.includes('gpt')) {
+      displayName = cleanModelId.toUpperCase().replace('-', ' ');
+    } else if (cleanModelId.includes('claude')) {
+      displayName = 'Claude ' + cleanModelId.replace('claude-', '').replace('-', ' ');
+    } else if (cleanModelId.includes('gemini')) {
+      displayName = 'Gemini ' + cleanModelId.replace('gemini-', '').replace('-', ' ');
+    } else if (cleanModelId.includes('azure')) {
+      displayName = 'Azure ' + cleanModelId.replace('azure-', '').replace('-', ' ');
+    } else if (cleanModelId.includes('nova')) {
+      displayName = 'Nova ' + cleanModelId.replace('nova-', '').replace('-', ' ');
+    }
+    
+    // Set default flags for LiteLLM models
+    // Most LiteLLM models support text and documents
+    // Image support depends on the specific model
+    const hasImageSupport = cleanModelId.includes('gpt-4') || 
+                           cleanModelId.includes('claude-3') || 
+                           cleanModelId.includes('gemini');
+    
+    metadata[modelId] = {
+      flags: { 
+        text: true, 
+        doc: true, 
+        image: hasImageSupport, 
+        video: false 
+      },
+      displayName: displayName + ' (via LiteLLM)',
+    };
+  });
+  
+  return metadata;
 };
+
+const liteLlmModelMetadata = generateLiteLlmModelMetadata();
 
 // Merge liteLLM metadata with original modelMetadata
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,9 +253,9 @@ const modelMetadata: Record<string, any> = {
 };
 
 const modelDisplayName = (modelId: string): string => {
-  // Get display name from metadata for liteLLM models
-  if (liteLlmModelMetadata[modelId]) {
-    return liteLlmModelMetadata[modelId].displayName;
+  // Check if it's a LiteLLM model (has litellm/ prefix or is in liteLlmModelMetadata)
+  if (modelId.startsWith('litellm/') || liteLlmModelMetadata[modelId]) {
+    return liteLlmModelMetadata[modelId]?.displayName ?? modelId;
   }
 
   // If there are multiple instances of the same model, add CRI suffix to the display name
