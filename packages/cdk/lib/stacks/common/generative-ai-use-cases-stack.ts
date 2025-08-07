@@ -74,16 +74,6 @@ export class GenerativeAiUseCasesStack extends Stack {
     // LiteLLM Proxy Server (must be created before API)
     let litellmEndpoint: string | null = null;
     let litellmProxy: LitellmProxyServer | null = null;
-    if (params.litellmProxyEnabled) {
-      litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
-        idPool: auth.idPool,
-        isSageMakerStudio: props.isSageMakerStudio,
-        modelRegion: params.modelRegion,
-        crossAccountBedrockRoleArn:
-          params.crossAccountBedrockRoleArn || undefined,
-      });
-      litellmEndpoint = litellmProxy.endpoint;
-    }
 
     // API
     const api = new Api(this, 'API', {
@@ -205,10 +195,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // LiteLLM Proxy Server
-    let litellmEndpoint: string | null = null;
+    // Create LiteLLM Proxy Server with KMS support if enabled
     if (params.litellmProxyEnabled) {
-      const litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
+      litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
         idPool: auth.idPool,
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
