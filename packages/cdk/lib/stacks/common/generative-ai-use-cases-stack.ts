@@ -74,11 +74,35 @@ export class GenerativeAiUseCasesStack extends Stack {
     // LiteLLM Proxy Server (must be created before API)
     let litellmEndpoint: string | null = null;
     let litellmProxy: LitellmProxyServer | null = null;
+    
+    // Extract LiteLLM models if enabled and proxy is enabled
+    let litellmModelIds: any[] = [];
+    if (params.litellmProxyEnabled && params.litellm?.enabled && params.litellm?.providers) {
+      // Extract models from all enabled providers
+      Object.entries(params.litellm.providers).forEach(([providerName, providerConfig]: [string, any]) => {
+        if (providerConfig.enabled && providerConfig.models) {
+          providerConfig.models.forEach((model: any) => {
+            // Format model ID for the frontend
+            // Prefix with 'litellm/' to distinguish from native Bedrock models
+            // This will help the Lambda functions route to the correct API
+            litellmModelIds.push({
+              modelId: `litellm/${model.name || model.model}`,
+              region: providerConfig.region || params.modelRegion || 'us-east-1',
+            });
+          });
+        }
+      });
+    }
+    
+    // Combine existing model IDs with LiteLLM models
+    const combinedModelIds = params.litellmProxyEnabled && litellmModelIds.length > 0
+      ? [...params.modelIds, ...litellmModelIds]
+      : params.modelIds;
 
     // API
     const api = new Api(this, 'API', {
       modelRegion: params.modelRegion,
-      modelIds: params.modelIds,
+      modelIds: combinedModelIds,
       imageGenerationModelIds: params.imageGenerationModelIds,
       videoGenerationModelIds: params.videoGenerationModelIds,
       videoBucketRegionMap: props.videoBucketRegionMap,
@@ -471,6 +495,11 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'LitellmProxyEndpoint', {
       value: litellmEndpoint ?? '',
+    });
+
+    new CfnOutput(this, 'LitellmModelIds', {
+      value: JSON.stringify(litellmModelIds),
+      description: 'Models available through LiteLLM proxy',
     });
 
     this.userPool = auth.userPool;
