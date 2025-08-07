@@ -12,7 +12,6 @@ import {
   SpeechToSpeech,
   McpApi,
   LitellmProxyServer,
-  MultiTenantRole,
   LiteLLMKms,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
@@ -69,14 +68,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlAuthEnabled: params.samlAuthEnabled,
     });
 
-    // Multi-Tenant Role
-    const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
-      userPool: auth.userPool,
-      userPoolClient: auth.client,
-      region: this.region,
-      account: this.account,
-    });
-
     // Database
     const database = new Database(this, 'Database');
 
@@ -113,7 +104,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       idPool: auth.idPool,
       userPoolClient: auth.client,
-      multiTenantRole: multiTenantRole.role,
       table: database.table,
       statsTable: database.statsTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
@@ -492,11 +482,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'LitellmProxyEndpoint', {
       value: litellmEndpoint ?? '',
-    });
-
-    new CfnOutput(this, 'MultiTenantRoleArn', {
-      value: multiTenantRole.role.roleArn,
-      description: 'ARN of the single role for multi-tenant resource access',
     });
 
     this.userPool = auth.userPool;
