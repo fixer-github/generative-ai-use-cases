@@ -125,6 +125,14 @@ export class LitellmProxyServer extends Construct {
           'X-Amz-Security-Token',
           'X-Amz-User-Agent',
         ],
+        exposedHeaders: [
+          'Content-Type',
+          'X-Amz-Request-Id',
+          'X-Amz-Error-Code',
+          'X-Amz-Error-Message',
+        ],
+        maxAge: Duration.seconds(300),
+        allowCredentials: true,
       },
       invokeMode: InvokeMode.RESPONSE_STREAM,
     });
