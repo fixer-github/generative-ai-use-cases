@@ -11,7 +11,6 @@ import {
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
-  LitellmProxyServer,
   MultiTenantRole,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
@@ -142,19 +141,6 @@ export class GenerativeAiUseCasesStack extends Stack {
         fileBucket: api.fileBucket,
       });
       mcpEndpoint = mcpApi.endpoint;
-    }
-
-    // LiteLLM Proxy Server
-    let litellmEndpoint: string | null = null;
-    if (params.litellmProxyEnabled) {
-      const litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
-        idPool: auth.idPool,
-        isSageMakerStudio: props.isSageMakerStudio,
-        modelRegion: params.modelRegion,
-        crossAccountBedrockRoleArn:
-          params.crossAccountBedrockRoleArn || undefined,
-      });
-      litellmEndpoint = litellmProxy.endpoint;
     }
 
     // Web Frontend
@@ -405,14 +391,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'McpEndpoint', {
       value: mcpEndpoint ?? '',
-    });
-
-    new CfnOutput(this, 'LitellmProxyEnabled', {
-      value: params.litellmProxyEnabled.toString(),
-    });
-
-    new CfnOutput(this, 'LitellmProxyEndpoint', {
-      value: litellmEndpoint ?? '',
     });
 
     new CfnOutput(this, 'MultiTenantRoleArn', {
