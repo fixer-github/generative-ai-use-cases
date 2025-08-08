@@ -1,15 +1,32 @@
-import { withTenantRepository } from './tenantRepository';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { deleteSystemContext } from './repository';
 
-export const handler = withTenantRepository(async (repo, userId, event) => {
-  const systemContextId = event.pathParameters!.systemContextId!;
-  await repo.deleteSystemContext(userId, systemContextId);
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId: string =
+      event.requestContext.authorizer!.claims['cognito:username'];
+    const systemContextId = event.pathParameters!.systemContextId!;
+    await deleteSystemContext(userId, systemContextId, event);
 
-  return {
-    statusCode: 204,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-    body: '',
-  };
-});
+    return {
+      statusCode: 204,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: '',
+    };
+  } catch (error) {
+    console.log(error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ message: 'Internal Server Error' }),
+    };
+  }
+};
