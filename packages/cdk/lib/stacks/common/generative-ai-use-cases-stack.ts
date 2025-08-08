@@ -14,6 +14,7 @@ import {
   LitellmProxyServer,
   LiteLLMKms,
 } from '../../construct';
+import { LiteLLMProvider } from '../../construct/litellm-kms';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -74,30 +75,36 @@ export class GenerativeAiUseCasesStack extends Stack {
     // LiteLLM Proxy Server (must be created before API)
     let litellmEndpoint: string | null = null;
     let litellmProxy: LitellmProxyServer | null = null;
-    
+
     // Extract LiteLLM models if enabled and proxy is enabled
-    let litellmModelIds: any[] = [];
-    if (params.litellmProxyEnabled && params.litellm?.enabled && params.litellm?.providers) {
+    const litellmModelIds: Array<{ modelId: string; region: string }> = [];
+    if (
+      params.litellmProxyEnabled &&
+      params.litellm?.enabled &&
+      params.litellm?.providers
+    ) {
       // Extract models from all enabled providers
-      Object.entries(params.litellm.providers).forEach(([providerName, providerConfig]: [string, any]) => {
+      Object.entries(params.litellm.providers).forEach(([, providerConfig]) => {
         if (providerConfig.enabled && providerConfig.models) {
-          providerConfig.models.forEach((model: any) => {
+          providerConfig.models.forEach((model) => {
             // Format model ID for the frontend
             // Prefix with 'litellm/' to distinguish from native Bedrock models
             // This will help the Lambda functions route to the correct API
             litellmModelIds.push({
               modelId: `litellm/${model.name || model.model}`,
-              region: providerConfig.region || params.modelRegion || 'us-east-1',
+              region:
+                providerConfig.region || params.modelRegion || 'us-east-1',
             });
           });
         }
       });
     }
-    
+
     // Combine existing model IDs with LiteLLM models
-    const combinedModelIds = params.litellmProxyEnabled && litellmModelIds.length > 0
-      ? [...params.modelIds, ...litellmModelIds]
-      : params.modelIds;
+    const combinedModelIds =
+      params.litellmProxyEnabled && litellmModelIds.length > 0
+        ? [...params.modelIds, ...litellmModelIds]
+        : params.modelIds;
 
     // API
     const api = new Api(this, 'API', {
@@ -176,7 +183,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       litellmKmsKey = new kms.Key(this, 'LiteLLMKey', {
         description: 'KMS key for encrypting LiteLLM API keys and secrets',
         enableKeyRotation: params.litellm.kms?.enableKeyRotation ?? true,
-        pendingWindow: Duration.days(params.litellm.kms?.pendingWindowInDays ?? 7),
+        pendingWindow: Duration.days(
+          params.litellm.kms?.pendingWindowInDays ?? 7
+        ),
         removalPolicy: RemovalPolicy.RETAIN,
         keyUsage: kms.KeyUsage.ENCRYPT_DECRYPT,
         keySpec: kms.KeySpec.SYMMETRIC_DEFAULT,
@@ -191,7 +200,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
 
       // Configure providers based on params
-      const providers: Record<string, any> = {};
+      const providers: Record<string, LiteLLMProvider> = {};
       if (params.litellm.providers) {
         Object.entries(params.litellm.providers).forEach(([name, config]) => {
           if (config.enabled) {
@@ -212,7 +221,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         enableVirtualKeys: params.litellm.virtualKeys?.enabled,
         virtualKeyPrefix: params.litellm.virtualKeys?.prefix,
         defaultProvider: params.litellm.routing?.defaultProvider,
-        enableCaching: true,  // Default to true for caching
+        enableCaching: true, // Default to true for caching
         secretRotationDays: params.litellm.kms?.secretRotationDays,
         routingStrategy: params.litellm.routing?.strategy,
         enableFallbacks: params.litellm.routing?.enableFallbacks,

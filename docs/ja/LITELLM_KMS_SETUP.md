@@ -70,9 +70,9 @@ KMS統合はLiteLLM Proxy Serverとシームレスに連携します：
 ```json
 {
   "context": {
-    "litellmProxyEnabled": true,  // LiteLLM Proxy Serverを有効化
+    "litellmProxyEnabled": true, // LiteLLM Proxy Serverを有効化
     "litellm": {
-      "enabled": true,           // KMS統合を有効化
+      "enabled": true, // KMS統合を有効化
       "kms": {
         "keyAlias": "alias/litellm-master",
         "enableKeyRotation": true,
@@ -258,6 +258,7 @@ curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
 ### 動的設定
 
 プロキシサーバーは自動的に：
+
 - ✅ 起動時にSecrets ManagerからAPIキーをロード
 - ✅ 静的ファイルなしで設定を生成
 - ✅ シークレット変更時に更新（再デプロイ不要）

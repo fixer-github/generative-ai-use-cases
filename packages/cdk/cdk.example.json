@@ -107,8 +107,14 @@
           "enabled": true,
           "region": "us-east-1",
           "models": [
-            { "name": "claude-3-5-sonnet", "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0" },
-            { "name": "claude-3-5-haiku", "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0" },
+            {
+              "name": "claude-3-5-sonnet",
+              "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0"
+            },
+            {
+              "name": "claude-3-5-haiku",
+              "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"
+            },
             { "name": "nova-pro", "model": "bedrock/amazon.nova-pro-v1:0" }
           ]
         },
@@ -128,9 +134,7 @@
             "project": "your-gcp-project",
             "location": "us-central1"
           },
-          "models": [
-            { "name": "gemini-pro", "model": "gemini-pro" }
-          ]
+          "models": [{ "name": "gemini-pro", "model": "gemini-pro" }]
         },
         "cohere": {
           "enabled": false,

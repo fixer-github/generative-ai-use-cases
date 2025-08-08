@@ -70,9 +70,9 @@ Update your `cdk.json` file to enable both the proxy server and KMS integration:
 ```json
 {
   "context": {
-    "litellmProxyEnabled": true,  // Enable the LiteLLM Proxy Server
+    "litellmProxyEnabled": true, // Enable the LiteLLM Proxy Server
     "litellm": {
-      "enabled": true,           // Enable KMS integration
+      "enabled": true, // Enable KMS integration
       "kms": {
         "keyAlias": "alias/litellm-master",
         "enableKeyRotation": true,
@@ -258,6 +258,7 @@ curl -X POST "${LITELLM_ENDPOINT}/v1/chat/completions" \
 ### Dynamic Configuration
 
 The proxy server automatically:
+
 - ✅ Loads API keys from Secrets Manager at startup
 - ✅ Generates configuration without static files
 - ✅ Updates when secrets change (no redeployment needed)

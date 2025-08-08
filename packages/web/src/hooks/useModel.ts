@@ -1,4 +1,8 @@
-import { Model, ModelConfiguration } from 'generative-ai-use-cases';
+import {
+  Model,
+  ModelConfiguration,
+  ModelMetadata,
+} from 'generative-ai-use-cases';
 import {
   CRI_PREFIX_PATTERN,
   modelMetadata as originalModelMetadata,
@@ -99,13 +103,16 @@ const flows = getFlows();
 
 // Get LiteLLM models from environment if LiteLLM proxy is enabled
 const getLiteLlmModels = (): ModelConfiguration[] => {
-  const litellmEnabled = import.meta.env.VITE_APP_LITELLM_PROXY_ENABLED === 'true';
+  const litellmEnabled =
+    import.meta.env.VITE_APP_LITELLM_PROXY_ENABLED === 'true';
   if (!litellmEnabled) {
     return [];
   }
-  
+
   try {
-    const models = JSON.parse(import.meta.env.VITE_APP_LITELLM_MODEL_IDS || '[]') as ModelConfiguration[];
+    const models = JSON.parse(
+      import.meta.env.VITE_APP_LITELLM_MODEL_IDS || '[]'
+    ) as ModelConfiguration[];
     return models
       .map((model) => ({
         modelId: model.modelId.trim(),
@@ -136,11 +143,12 @@ const textModels = [
   ),
   // Dynamic LiteLLM models from environment configuration
   ...liteLlmModelConfigs.map(
-    (model) => ({
-      modelId: model.modelId,
-      type: 'liteLlm',
-      region: model.region,
-    }) as Model
+    (model) =>
+      ({
+        modelId: model.modelId,
+        type: 'liteLlm',
+        region: model.region,
+      }) as Model
   ),
 ];
 const imageGenModels = [
@@ -198,48 +206,52 @@ export const findModelByModelId = (modelId: string) => {
 const searchAgent = agentNames.find((name) => name.includes('Search'));
 
 // Generate metadata for LiteLLM models dynamically
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const generateLiteLlmModelMetadata = (): Record<string, any> => {
-  const metadata: Record<string, any> = {};
-  
+const generateLiteLlmModelMetadata = (): Record<string, ModelMetadata> => {
+  const metadata: Record<string, ModelMetadata> = {};
+
   liteLlmModelIds.forEach((modelId) => {
     // Remove 'litellm/' prefix for display and metadata
     const cleanModelId = modelId.replace('litellm/', '');
-    
+
     // Generate display name from model ID
     let displayName = cleanModelId;
-    
+
     // Format common model names
     if (cleanModelId.includes('gpt')) {
       displayName = cleanModelId.toUpperCase().replace('-', ' ');
     } else if (cleanModelId.includes('claude')) {
-      displayName = 'Claude ' + cleanModelId.replace('claude-', '').replace('-', ' ');
+      displayName =
+        'Claude ' + cleanModelId.replace('claude-', '').replace('-', ' ');
     } else if (cleanModelId.includes('gemini')) {
-      displayName = 'Gemini ' + cleanModelId.replace('gemini-', '').replace('-', ' ');
+      displayName =
+        'Gemini ' + cleanModelId.replace('gemini-', '').replace('-', ' ');
     } else if (cleanModelId.includes('azure')) {
-      displayName = 'Azure ' + cleanModelId.replace('azure-', '').replace('-', ' ');
+      displayName =
+        'Azure ' + cleanModelId.replace('azure-', '').replace('-', ' ');
     } else if (cleanModelId.includes('nova')) {
-      displayName = 'Nova ' + cleanModelId.replace('nova-', '').replace('-', ' ');
+      displayName =
+        'Nova ' + cleanModelId.replace('nova-', '').replace('-', ' ');
     }
-    
+
     // Set default flags for LiteLLM models
     // Most LiteLLM models support text and documents
     // Image support depends on the specific model
-    const hasImageSupport = cleanModelId.includes('gpt-4') || 
-                           cleanModelId.includes('claude-3') || 
-                           cleanModelId.includes('gemini');
-    
+    const hasImageSupport =
+      cleanModelId.includes('gpt-4') ||
+      cleanModelId.includes('claude-3') ||
+      cleanModelId.includes('gemini');
+
     metadata[modelId] = {
-      flags: { 
-        text: true, 
-        doc: true, 
-        image: hasImageSupport, 
-        video: false 
+      flags: {
+        text: true,
+        doc: true,
+        image: hasImageSupport,
+        video: false,
       },
       displayName: displayName + ' (via LiteLLM)',
     };
   });
-  
+
   return metadata;
 };
 

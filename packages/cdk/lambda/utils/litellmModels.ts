@@ -20,7 +20,7 @@ export function adjustModelForLiteLLM(model: Model): Model {
   if (!model.modelId) {
     return model;
   }
-  
+
   if (isLiteLLMModel(model.modelId)) {
     // Remove the 'litellm/' prefix for the actual model ID sent to LiteLLM
     const cleanModelId = model.modelId.replace('litellm/', '');
@@ -30,7 +30,7 @@ export function adjustModelForLiteLLM(model: Model): Model {
       modelId: cleanModelId,
     };
   }
-  
+
   return model;
 }
 
@@ -38,7 +38,10 @@ export function adjustModelForLiteLLM(model: Model): Model {
  * Process model configuration from request
  * This ensures LiteLLM models are properly routed
  */
-export function processModelConfig(model: Model | undefined, defaultModel: Model): Model {
+export function processModelConfig(
+  model: Model | undefined,
+  defaultModel: Model
+): Model {
   const selectedModel = model || defaultModel;
   return adjustModelForLiteLLM(selectedModel);
 }

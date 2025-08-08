@@ -162,17 +162,21 @@ const baseStackInputSchema = z.object({
           useIAMRole: z.boolean().optional(),
           region: z.string().optional(),
           api_version: z.string().optional(),
-          vertex_config: z.object({
-            project: z.string().optional(),
-            location: z.string().optional(),
-          }).optional(),
-          models: z.array(
-            z.object({
-              name: z.string(),
-              model: z.string().optional(),
-              litellm_params: z.record(z.any()).optional(),
+          vertex_config: z
+            .object({
+              project: z.string().optional(),
+              location: z.string().optional(),
             })
-          ).optional(),
+            .optional(),
+          models: z
+            .array(
+              z.object({
+                name: z.string(),
+                model: z.string().optional(),
+                litellm_params: z.record(z.any()).optional(),
+              })
+            )
+            .optional(),
         })
       ),
       virtualKeys: z.object({

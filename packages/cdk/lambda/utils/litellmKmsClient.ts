@@ -237,7 +237,14 @@ class LiteLLMKmsClient {
       config.providers
     )) {
       if (providerConfig.enabled) {
-        const baseConfig = {
+        const baseConfig: {
+          model_name: string;
+          litellm_params: {
+            model: string;
+            api_key?: string;
+            api_base?: string;
+          };
+        } = {
           model_name: `${providerConfig.modelPrefix}/*`,
           litellm_params: {
             model: `${providerName}/*`,

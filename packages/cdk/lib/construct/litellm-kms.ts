@@ -4,7 +4,7 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cdk from 'aws-cdk-lib';
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { RemovalPolicy } from 'aws-cdk-lib';
 
 export interface LiteLLMProvider {
   readonly enabled: boolean;
@@ -97,7 +97,7 @@ export class LiteLLMKms extends Construct {
         enableAlerts: boolean;
       };
     }
-    
+
     const configData: ConfigData = {
       providers: {},
       defaultProvider: props.defaultProvider || 'openai',

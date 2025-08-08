@@ -96,6 +96,7 @@ Bedrock uses IAM role authentication, so no API key is needed:
 ```
 
 After deployment, store the API key:
+
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id litellm/openai/api-key \
@@ -267,17 +268,23 @@ Here's a complete `cdk.json` example:
           "enabled": true,
           "region": "us-east-1",
           "models": [
-            {"name": "claude-3-5-sonnet", "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0"},
-            {"name": "claude-3-5-haiku", "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"},
-            {"name": "nova-pro", "model": "bedrock/amazon.nova-pro-v1:0"}
+            {
+              "name": "claude-3-5-sonnet",
+              "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0"
+            },
+            {
+              "name": "claude-3-5-haiku",
+              "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"
+            },
+            { "name": "nova-pro", "model": "bedrock/amazon.nova-pro-v1:0" }
           ]
         },
         "openai": {
           "enabled": false,
           "useSecretKey": true,
           "models": [
-            {"name": "gpt-4", "model": "gpt-4"},
-            {"name": "gpt-3.5-turbo", "model": "gpt-3.5-turbo"}
+            { "name": "gpt-4", "model": "gpt-4" },
+            { "name": "gpt-3.5-turbo", "model": "gpt-3.5-turbo" }
           ]
         }
       },
@@ -297,17 +304,19 @@ Here's a complete `cdk.json` example:
 1. **Configure models in cdk.json** (as shown above)
 
 2. **Deploy the infrastructure**:
+
    ```bash
    npm run cdk:deploy
    ```
 
 3. **Store API keys** (for non-Bedrock providers):
+
    ```bash
    # Store master key (required)
    aws secretsmanager put-secret-value \
      --secret-id litellm/master-key \
      --secret-string "sk-litellm-your-secure-master-key"
-   
+
    # Store provider API keys
    aws secretsmanager put-secret-value \
      --secret-id litellm/openai/api-key \

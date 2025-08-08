@@ -163,10 +163,12 @@ npm run cdk deploy
 ### Verify Deployment
 
 Check the CloudFormation outputs for:
+
 - `LitellmProxyEnabled`: Should be `true`
 - `LitellmProxyEndpoint`: The Function URL endpoint
 
 Test the health endpoint:
+
 ```bash
 curl https://your-function-url.lambda-url.region.on.aws/health
 ```
