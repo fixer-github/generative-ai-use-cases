@@ -28,12 +28,10 @@ import { createTenantDynamoDBClient } from './utils/tenantDynamoDBClient';
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
 
-// Cache DynamoDB document clients per tenant
-const clientCache = new Map<string, DynamoDBDocumentClient>();
-
 /**
  * Get or create a tenant-specific DynamoDB document client
  * Falls back to default client if tenant-specific access fails
+ * NOTE: No caching to ensure proper user isolation within tenants
  */
 async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent
@@ -42,37 +40,20 @@ async function getTenantDynamoDBDocument(
   
   // For default tenant, use standard DynamoDB client
   if (!tenantId || tenantId === 'default') {
-    const defaultClient = clientCache.get('default');
-    if (defaultClient) {
-      return defaultClient;
-    }
     // Create standard DynamoDB client without AssumeRole
-    const standardClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-    clientCache.set('default', standardClient);
-    return standardClient;
-  }
-  
-  // Check if we already have a client for this tenant
-  let client = clientCache.get(tenantId);
-  if (client) {
-    return client;
+    // No caching to ensure fresh credentials for each user
+    return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
 
   try {
     // Try to create client with tenant credentials
+    // Each request gets fresh credentials to ensure proper user isolation
     const dynamoDb = await createTenantDynamoDBClient(event);
-    client = DynamoDBDocumentClient.from(dynamoDb);
-    
-    // Cache for future use
-    clientCache.set(tenantId, client);
-    
-    return client;
+    return DynamoDBDocumentClient.from(dynamoDb);
   } catch (error) {
     console.error('Failed to assume role for tenant access, falling back to default:', error);
     // Fall back to standard DynamoDB client
-    const fallbackClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-    clientCache.set(tenantId, fallbackClient);
-    return fallbackClient;
+    return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
 }
 
