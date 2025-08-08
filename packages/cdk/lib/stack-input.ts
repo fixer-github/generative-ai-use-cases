@@ -139,6 +139,17 @@ const baseStackInputSchema = z.object({
   inlineAgents: z.boolean().default(false),
   // MCP
   mcpEnabled: z.boolean().default(false),
+  // LiteLLM
+  liteLlmEnabled: z.boolean().default(false),
+  liteLlmApiKeys: z
+    .object({
+      openai: z.string().nullish(),
+      anthropic: z.string().nullish(),
+      google: z.string().nullish(),
+      cohere: z.string().nullish(),
+      huggingface: z.string().nullish(),
+    })
+    .nullish(),
   // Guardrail
   guardrailEnabled: z.boolean().default(false),
   // Usecase builder

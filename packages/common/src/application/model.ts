@@ -500,9 +500,74 @@ export const modelMetadata: Record<string, ModelMetadata> = {
   },
 };
 
+// LiteLLM models
+export const LITELLM_MODELS: Record<string, ModelMetadata> = {
+  // OpenAI Models
+  'gpt-4o': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
+    displayName: 'GPT-4o',
+  },
+  'gpt-4o-mini': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC_IMAGE, ...MODEL_FEATURE.LIGHT },
+    displayName: 'GPT-4o Mini',
+  },
+  'gpt-4-turbo': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE,
+    displayName: 'GPT-4 Turbo',
+  },
+  'gpt-3.5-turbo': {
+    flags: { ...MODEL_FEATURE.TEXT_ONLY, ...MODEL_FEATURE.LIGHT },
+    displayName: 'GPT-3.5 Turbo',
+  },
+  'o1-preview': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
+    displayName: 'o1-preview',
+  },
+  'o1-mini': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING, ...MODEL_FEATURE.LIGHT },
+    displayName: 'o1-mini',
+  },
+  // Google Models
+  'gemini-1.5-pro': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE_VIDEO,
+    displayName: 'Gemini 1.5 Pro',
+  },
+  'gemini-1.5-flash': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC_IMAGE_VIDEO, ...MODEL_FEATURE.LIGHT },
+    displayName: 'Gemini 1.5 Flash',
+  },
+  'gemini-2.0-flash-exp': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC_IMAGE_VIDEO, ...MODEL_FEATURE.LIGHT },
+    displayName: 'Gemini 2.0 Flash Experimental',
+  },
+  // Anthropic Models (via API)
+  'claude-3-5-sonnet-latest': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE,
+    displayName: 'Claude 3.5 Sonnet (API)',
+  },
+  'claude-3-5-haiku-latest': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC_IMAGE, ...MODEL_FEATURE.LIGHT },
+    displayName: 'Claude 3.5 Haiku (API)',
+  },
+  // Cohere Models
+  'command-r-plus': {
+    flags: MODEL_FEATURE.TEXT_DOC,
+    displayName: 'Command R+',
+  },
+  'command-r': {
+    flags: { ...MODEL_FEATURE.TEXT_DOC, ...MODEL_FEATURE.LIGHT },
+    displayName: 'Command R',
+  },
+};
+
+// Add LiteLLM models to modelMetadata
+Object.assign(modelMetadata, LITELLM_MODELS);
+
 export const BEDROCK_TEXT_MODELS = Object.keys(modelMetadata).filter(
-  (model) => modelMetadata[model].flags.text
+  (model) => modelMetadata[model].flags.text && !LITELLM_MODELS[model]
 );
+
+export const LITELLM_TEXT_MODELS = Object.keys(LITELLM_MODELS);
 export const BEDROCK_IMAGE_GEN_MODELS = Object.keys(modelMetadata).filter(
   (model) => modelMetadata[model].flags.image_gen
 );

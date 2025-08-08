@@ -26,9 +26,11 @@ import {
   BEDROCK_VIDEO_GEN_MODELS,
   BEDROCK_RERANKING_MODELS,
   BEDROCK_TEXT_MODELS,
+  LITELLM_TEXT_MODELS,
 } from '@generative-ai-use-cases/common';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 export interface BackendApiProps {
   // Context Params
@@ -55,6 +57,15 @@ export interface BackendApiProps {
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
+  
+  // LiteLLM
+  readonly liteLlmApiKeys?: {
+    openai?: string;
+    anthropic?: string;
+    google?: string;
+    cohere?: string;
+    huggingface?: string;
+  };
 }
 
 export class Api extends Construct {
@@ -93,7 +104,7 @@ export class Api extends Construct {
 
     // Validate Model Names
     for (const model of modelIds) {
-      if (!BEDROCK_TEXT_MODELS.includes(model.modelId)) {
+      if (!BEDROCK_TEXT_MODELS.includes(model.modelId) && !LITELLM_TEXT_MODELS.includes(model.modelId)) {
         throw new Error(`Unsupported Model Name: ${model.modelId}`);
       }
     }
@@ -211,6 +222,40 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+
+    // LiteLLM Lambda Function
+    const liteLlmFunction = new PythonFunction(this, 'LiteLlmFunction', {
+      runtime: LAMBDA_RUNTIME_PYTHON,
+      entry: './lambda/litellm',
+      timeout: Duration.minutes(15),
+      memorySize: 512,
+      environment: {
+        ...(props.liteLlmApiKeys?.openai
+          ? { OPENAI_API_KEY: props.liteLlmApiKeys.openai }
+          : {}),
+        ...(props.liteLlmApiKeys?.anthropic
+          ? { ANTHROPIC_API_KEY: props.liteLlmApiKeys.anthropic }
+          : {}),
+        ...(props.liteLlmApiKeys?.google
+          ? { GEMINI_API_KEY: props.liteLlmApiKeys.google }
+          : {}),
+        ...(props.liteLlmApiKeys?.cohere
+          ? { COHERE_API_KEY: props.liteLlmApiKeys.cohere }
+          : {}),
+        ...(props.liteLlmApiKeys?.huggingface
+          ? { HUGGINGFACE_API_KEY: props.liteLlmApiKeys.huggingface }
+          : {}),
+        LITELLM_VERBOSE: 'false',
+      },
+    });
+
+    // Grant invoke permissions to predictFunction and predictStreamFunction
+    liteLlmFunction.grantInvoke(predictFunction);
+    liteLlmFunction.grantInvoke(predictStreamFunction);
+
+    // Add LITELLM_FUNCTION_ARN to predictFunction and predictStreamFunction
+    predictFunction.addEnvironment('LITELLM_FUNCTION_ARN', liteLlmFunction.functionArn);
+    predictStreamFunction.addEnvironment('LITELLM_FUNCTION_ARN', liteLlmFunction.functionArn);
 
     // Add Flow Lambda Function
     const invokeFlowFunction = new NodejsFunction(this, 'InvokeFlow', {

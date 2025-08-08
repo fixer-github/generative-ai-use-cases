@@ -99,6 +99,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       agents: props.agents,
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
+      liteLlmApiKeys: params.liteLlmApiKeys,
     });
 
     // WAF
