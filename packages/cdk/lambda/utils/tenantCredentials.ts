@@ -3,7 +3,6 @@ import {
   STSClient,
   AssumeRoleWithWebIdentityCommand,
   Credentials,
-  Tag,
 } from '@aws-sdk/client-sts';
 import * as crypto from 'crypto';
 
@@ -49,21 +48,10 @@ export async function getTenantCredentials(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      // Assume role with web identity and explicitly set session tags
-      // Session tags enable tag-based access control in IAM policies
+      // Assume role with web identity
+      // Note: AssumeRoleWithWebIdentityCommand does not support SessionTags parameter
+      // Session tags must be configured via Cognito Identity Pool or other means
       const stsClient = new STSClient({});
-      
-      // Create session tags array - must include TenantID for policy enforcement
-      const sessionTags: Tag[] = [];
-      
-      // Only add TenantID tag if we have a non-default tenant
-      // This prevents the DENY policy from blocking access when no tenant ID exists
-      if (tenantId && tenantId !== 'default') {
-        sessionTags.push({
-          Key: 'TenantID',
-          Value: tenantId,
-        });
-      }
       
       const { Credentials } = await stsClient.send(
         new AssumeRoleWithWebIdentityCommand({
@@ -71,7 +59,6 @@ export async function getTenantCredentials(
           RoleSessionName: sessionName,
           WebIdentityToken: idToken,
           DurationSeconds: 600, // 10 minutes
-          SessionTags: sessionTags,
         })
       );
 
