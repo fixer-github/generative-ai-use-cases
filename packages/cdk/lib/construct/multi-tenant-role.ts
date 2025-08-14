@@ -4,8 +4,9 @@ import {
   PolicyStatement,
   Effect,
   WebIdentityPrincipal,
+  CfnRole,
 } from 'aws-cdk-lib/aws-iam';
-import { Stack } from 'aws-cdk-lib';
+import { Stack, Fn, CfnJson } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 
 export interface MultiTenantRoleProps {
@@ -84,13 +85,23 @@ export class MultiTenantRole extends Construct {
       })
     );
 
-    // Add a condition to ensure TenantID tag is always present
+    // Add condition to deny access to tenant resources without proper TenantID tag
+    // Only applies to tenant-specific resources (not all resources)
     this.role.addToPolicy(
       new PolicyStatement({
-        sid: 'DenyAccessWithoutTenantTag',
+        sid: 'DenyTenantResourceAccessWithoutTenantTag',
         effect: Effect.DENY,
-        actions: ['*'],
-        resources: ['*'],
+        actions: [
+          'dynamodb:*',
+          's3:*',
+        ],
+        resources: [
+          // Only deny access to tenant-specific resources, not all resources
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*`,
+          `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*/index/*`,
+          `arn:aws:s3:::*-tenant-*`,
+          `arn:aws:s3:::*-tenant-*/*`,
+        ],
         conditions: {
           Null: {
             'aws:PrincipalTag/TenantID': 'true',
@@ -114,5 +125,33 @@ export class MultiTenantRole extends Construct {
         ],
       })
     );
+
+    // Configure trust policy to allow session tagging via escape hatch
+    // This enables AssumeRoleWithWebIdentity to pass session tags
+    const cfnRole = this.role.node.defaultChild as CfnRole;
+    
+    // Create CfnJson objects to handle token resolution at deployment time
+    const trustPolicyCondition = new CfnJson(this, 'TrustPolicyCondition', {
+      value: {
+        StringEquals: {
+          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]: 
+            props.userPoolClient.userPoolClientId,
+        },
+      },
+    });
+    
+    cfnRole.addPropertyOverride('AssumeRolePolicyDocument', {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: {
+            Federated: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
+          },
+          Action: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
+          Condition: trustPolicyCondition,
+        },
+      ],
+    });
   }
 }
