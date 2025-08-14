@@ -34,15 +34,3 @@ export const getTenantTableName = (baseTableName: string, tenantId: string): str
   return `${tablePrefix}-tenant-${tenantId}`;
 };
 
-/**
- * Get table name from environment variable and tenant ID
- */
-export const getTableNameForTenant = (envVarName: string, event: APIGatewayProxyEvent): string => {
-  const baseTableName = process.env[envVarName];
-  if (!baseTableName) {
-    throw new Error(`Environment variable ${envVarName} is not set`);
-  }
-  
-  const tenantId = getTenantId(event);
-  return getTenantTableName(baseTableName, tenantId);
-};
