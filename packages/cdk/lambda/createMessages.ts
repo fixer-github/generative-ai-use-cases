@@ -55,7 +55,12 @@ export const handler = async (
       }
     }
 
-    const messages = await batchCreateMessages(req.messages, userId, chatId, event);
+    const messages = await batchCreateMessages(
+      req.messages,
+      userId,
+      chatId,
+      event
+    );
 
     return {
       statusCode: 200,

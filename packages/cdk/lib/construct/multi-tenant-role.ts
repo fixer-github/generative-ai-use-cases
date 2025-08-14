@@ -3,8 +3,6 @@ import {
   Role,
   PolicyStatement,
   Effect,
-  PolicyDocument,
-  FederatedPrincipal,
   WebIdentityPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Stack } from 'aws-cdk-lib';
@@ -94,7 +92,7 @@ export class MultiTenantRole extends Construct {
         actions: ['*'],
         resources: ['*'],
         conditions: {
-          'Null': {
+          Null: {
             'aws:PrincipalTag/TenantID': 'true',
           },
         },

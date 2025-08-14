@@ -25,7 +25,9 @@ export const handler = async (
     }
 
     // Get aggregated data for the specified period
-    const stats = await aggregateTokenUsage(startDate, endDate, event, [userId]);
+    const stats = await aggregateTokenUsage(startDate, endDate, event, [
+      userId,
+    ]);
 
     return {
       statusCode: 200,

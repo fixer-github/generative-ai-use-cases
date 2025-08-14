@@ -150,7 +150,7 @@ export class Api extends Construct {
     const multiTenantAssumeRolePolicy = new PolicyStatement({
       effect: Effect.ALLOW,
       actions: ['sts:AssumeRoleWithWebIdentity'],
-      resources: [props.multiTenantRole.roleArn]
+      resources: [props.multiTenantRole.roleArn],
     });
 
     // S3 (File Bucket)
@@ -730,8 +730,8 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
@@ -747,8 +747,8 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
@@ -764,13 +764,15 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
-    updateSystemContextTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
+    updateSystemContextTitleFunction.addToRolePolicy(
+      multiTenantAssumeRolePolicy
+    );
 
     const deleteSystemContextFunction = new NodejsFunction(
       this,
@@ -781,8 +783,8 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         },
       }
     );
@@ -814,8 +816,8 @@ export class Api extends Construct {
     props.statsTable.grantReadData(getTokenUsageFunction);
     getTokenUsageFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
-    // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity 
-    // directly within each Lambda function, so separate Lambda functions for 
+    // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
+    // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
 
     // API Gateway

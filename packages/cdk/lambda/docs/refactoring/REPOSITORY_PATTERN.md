@@ -3,6 +3,7 @@
 ## Overview
 
 The TenantRepository pattern provides a cleaner API for Lambda handlers that automatically handles:
+
 - Multi-tenant DynamoDB operations
 - Error handling and consistent error responses
 - User ID extraction from events
@@ -20,6 +21,7 @@ The TenantRepository pattern provides a cleaner API for Lambda handlers that aut
 ## Usage Patterns
 
 ### 1. Simplest Pattern - Using `withRepository`
+
 **Recommended for new code**
 
 ```typescript
@@ -28,24 +30,26 @@ import { withRepository } from './tenantRepository';
 export const handler = withRepository(async (repo) => {
   const chat = await repo.createChat(repo.userId);
   const messages = await repo.listMessages(chat.id);
-  
+
   return {
     statusCode: 200,
-    headers: { 
+    headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     },
-    body: JSON.stringify({ chat, messages })
+    body: JSON.stringify({ chat, messages }),
   };
 });
 ```
 
 **Benefits:**
+
 - No need to extract userId manually
 - Automatic error handling
 - Clean, minimal code
 
-### 2. Using `withTenantRepository` 
+### 2. Using `withTenantRepository`
+
 **When you need userId and event parameters separately**
 
 ```typescript
@@ -53,7 +57,7 @@ import { withTenantRepository } from './tenantRepository';
 
 export const handler = withTenantRepository(async (repo, userId, event) => {
   const chatId = event.pathParameters!.chatId!;
-  
+
   // Authorization check
   const chat = await repo.findChatById(userId, chatId);
   if (!chat) {
@@ -61,30 +65,32 @@ export const handler = withTenantRepository(async (repo, userId, event) => {
       statusCode: 403,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ message: 'Forbidden' })
+      body: JSON.stringify({ message: 'Forbidden' }),
     };
   }
-  
+
   const messages = await repo.listMessages(chatId);
   return {
     statusCode: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     },
-    body: JSON.stringify({ messages })
+    body: JSON.stringify({ messages }),
   };
 });
 ```
 
 **Benefits:**
+
 - Direct access to userId without repo.userId
 - Access to full event object for path parameters, query strings, etc.
 - Still includes automatic error handling
 
 ### 3. Manual Repository Creation
+
 **For complex scenarios requiring custom error handling**
 
 ```typescript
@@ -95,24 +101,24 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   try {
     const repo = createTenantRepository(event);
     const userId = repo.userId;
-    
+
     // Complex business logic here
     const chat = await repo.createChat(userId);
-    
+
     // Custom processing
     if (someCondition) {
       // Special handling
     }
-    
+
     const messages = await repo.listMessages(chat.id);
-    
+
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ chat, messages })
+      body: JSON.stringify({ chat, messages }),
     };
   } catch (error) {
     // Custom error handling
@@ -121,18 +127,19 @@ export const handler = async (event: APIGatewayProxyEvent) => {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Custom error message',
-        details: error instanceof Error ? error.message : 'Unknown'
-      })
+        details: error instanceof Error ? error.message : 'Unknown',
+      }),
     };
   }
 };
 ```
 
 ### 4. Gradual Migration Pattern
+
 **For migrating existing code incrementally**
 
 ```typescript
@@ -142,21 +149,21 @@ import { createChat as oldCreateChat } from './repository'; // Old import
 
 export const handler = async (event: APIGatewayProxyEvent) => {
   const userId = event.requestContext.authorizer!.claims['cognito:username'];
-  
+
   // Old code - still works during migration
   const oldChat = await oldCreateChat(userId, event);
-  
+
   // New code - cleaner approach
   const repo = createTenantRepository(event);
   const newChat = await repo.createChat(userId);
-  
-  return { 
+
+  return {
     statusCode: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     },
-    body: JSON.stringify({ oldChat, newChat }) 
+    body: JSON.stringify({ oldChat, newChat }),
   };
 };
 ```
@@ -164,6 +171,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 ## Available Repository Methods
 
 ### Chat Operations
+
 - `createChat(userId: string): Promise<Chat>`
 - `findChatById(userId: string, chatId: string): Promise<Chat | null>`
 - `listChats(userId: string, exclusiveStartKey?: string): Promise<ListChatsResponse>`
@@ -171,6 +179,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 - `deleteChat(userId: string, chatId: string): Promise<void>`
 
 ### System Context Operations
+
 - `findSystemContextById(userId: string, systemContextId: string): Promise<SystemContext | null>`
 - `listSystemContexts(userId: string): Promise<SystemContext[]>`
 - `createSystemContext(userId: string, title: string, systemContext: string): Promise<SystemContext>`
@@ -178,17 +187,20 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 - `deleteSystemContext(userId: string, systemContextId: string): Promise<void>`
 
 ### Message Operations
+
 - `listMessages(chatId: string): Promise<RecordedMessage[]>`
 - `batchCreateMessages(messages: ToBeRecordedMessage[], userId: string, chatId: string): Promise<RecordedMessage[]>`
 - `updateFeedback(chatId: string, feedbackData: UpdateFeedbackRequest): Promise<RecordedMessage>`
 
 ### Share Operations
+
 - `createShareId(userId: string, chatId: string): Promise<{ shareId: ShareId; userIdAndChatId: UserIdAndChatId }>`
 - `findUserIdAndChatId(shareId: string): Promise<UserIdAndChatId | null>`
 - `findShareId(userId: string, chatId: string): Promise<ShareId | null>`
 - `deleteShareId(shareId: string): Promise<void>`
 
 ### Token Usage Operations
+
 - `aggregateTokenUsage(startDate: string, endDate: string, userIds?: string[]): Promise<TokenUsageStats[]>`
 
 ## Benefits of the Repository Pattern
@@ -204,17 +216,21 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 ## Migration Guide
 
 ### Step 1: Identify Handlers to Migrate
+
 Look for Lambda handlers that:
+
 - Import directly from `./repository`
 - Have try-catch blocks with similar error handling
 - Extract userId from event.requestContext.authorizer
 
 ### Step 2: Choose the Right Pattern
+
 - Use `withRepository` for simple operations
 - Use `withTenantRepository` when you need event parameters
 - Use manual creation for complex custom logic
 
 ### Step 3: Update Imports
+
 ```typescript
 // Old
 import { createChat, listMessages } from './repository';
@@ -224,6 +240,7 @@ import { withRepository } from './tenantRepository';
 ```
 
 ### Step 4: Refactor Handler
+
 ```typescript
 // Old pattern
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -232,15 +249,21 @@ export const handler = async (event: APIGatewayProxyEvent) => {
     const chat = await createChat(userId, event);
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ chat })
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ chat }),
     };
   } catch (error) {
     console.error(error);
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ message: 'Internal Server Error' })
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ message: 'Internal Server Error' }),
     };
   }
 };
@@ -250,14 +273,19 @@ export const handler = withRepository(async (repo) => {
   const chat = await repo.createChat(repo.userId);
   return {
     statusCode: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ chat })
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify({ chat }),
   };
 });
 ```
 
 ### Step 5: Test
+
 Ensure all handlers work correctly after migration by:
+
 1. Running TypeScript compilation: `npm run lambda-build-dryrun`
 2. Testing Lambda functions locally or in development environment
 3. Verifying multi-tenant isolation is maintained
@@ -265,6 +293,7 @@ Ensure all handlers work correctly after migration by:
 ## Security Considerations
 
 The repository pattern maintains security through:
+
 - Automatic tenant ID extraction from JWT tokens
 - Table name construction with tenant suffix: `<BaseTable>-tenant-<TenantID>`
 - IAM policies using session tags for access control

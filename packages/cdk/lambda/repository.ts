@@ -36,7 +36,7 @@ async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent
 ): Promise<DynamoDBDocumentClient> {
   const tenantId = getTenantId(event);
-  
+
   // For default tenant, use standard DynamoDB client
   if (!tenantId || tenantId === 'default') {
     // Create standard DynamoDB client without AssumeRole
@@ -49,7 +49,10 @@ async function getTenantDynamoDBDocument(
     const dynamoDb = await createTenantDynamoDBClient(event);
     return DynamoDBDocumentClient.from(dynamoDb);
   } catch (error) {
-    console.error('Failed to assume role for tenant access, falling back to default:', error);
+    console.error(
+      'Failed to assume role for tenant access, falling back to default:',
+      error
+    );
     // Fall back to standard DynamoDB client
     return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
@@ -60,7 +63,10 @@ async function getTenantDynamoDBDocument(
  * Note: Tenant ID extraction is only for constructing the correct table name.
  * Security/isolation is enforced by IAM policies using session tags from the JWT.
  */
-function getTableName(baseTableName: string, event: APIGatewayProxyEvent): string {
+function getTableName(
+  baseTableName: string,
+  event: APIGatewayProxyEvent
+): string {
   const tenantId = getTenantId(event);
   return getTenantTableName(baseTableName, tenantId);
 }
@@ -89,14 +95,16 @@ async function executeDynamoDBOperation<T>(
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tenantId = getTenantId(event);
   let tableName = getTableName(baseTableName, event);
-  
+
   try {
     // Try with tenant-specific table first
     return await operation(dynamoDbDocument, tableName);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If table doesn't exist and we're not already using default, try default table
-    if (error.name === 'ResourceNotFoundException' && tenantId !== 'default') {
-      console.warn(`Tenant table ${tableName} not found, falling back to default table`);
+    if (error instanceof Error && error.name === 'ResourceNotFoundException' && tenantId !== 'default') {
+      console.warn(
+        `Tenant table ${tableName} not found, falling back to default table`
+      );
       tableName = baseTableName; // Use base table name without tenant suffix
       return await operation(dynamoDbDocument, tableName);
     }
@@ -123,14 +131,18 @@ export const createChat = async (
     updatedDate: '',
   };
 
-  await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
-    return client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: item,
-      })
-    );
-  });
+  await executeDynamoDBOperation(
+    event,
+    TABLE_NAME,
+    async (client, tableName) => {
+      return client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: item,
+        })
+      );
+    }
+  );
 
   return item;
 };
@@ -142,24 +154,28 @@ export const findChatById = async (
 ): Promise<Chat | null> => {
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
-  
-  const res = await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
-    return client.send(
-      new QueryCommand({
-        TableName: tableName,
-        KeyConditionExpression: '#id = :id',
-        FilterExpression: '#chatId = :chatId',
-        ExpressionAttributeNames: {
-          '#id': 'id',
-          '#chatId': 'chatId',
-        },
-        ExpressionAttributeValues: {
-          ':id': userId,
-          ':chatId': chatId,
-        },
-      })
-    );
-  });
+
+  const res = await executeDynamoDBOperation(
+    event,
+    TABLE_NAME,
+    async (client, tableName) => {
+      return client.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: '#id = :id',
+          FilterExpression: '#chatId = :chatId',
+          ExpressionAttributeNames: {
+            '#id': 'id',
+            '#chatId': 'chatId',
+          },
+          ExpressionAttributeValues: {
+            ':id': userId,
+            ':chatId': chatId,
+          },
+        })
+      );
+    }
+  );
 
   if (!res.Items || res.Items.length === 0) {
     return null;
@@ -175,24 +191,28 @@ export const findSystemContextById = async (
 ): Promise<SystemContext | null> => {
   const userId = `systemContext#${_userId}`;
   const systemContextId = `systemContext#${_systemContextId}`;
-  
-  const res = await executeDynamoDBOperation(event, TABLE_NAME, async (client, tableName) => {
-    return client.send(
-      new QueryCommand({
-        TableName: tableName,
-        KeyConditionExpression: '#id = :id',
-        FilterExpression: '#systemContextId = :systemContextId',
-        ExpressionAttributeNames: {
-          '#id': 'id',
-          '#systemContextId': 'systemContextId',
-        },
-        ExpressionAttributeValues: {
-          ':id': userId,
-          ':systemContextId': systemContextId,
-        },
-      })
-    );
-  });
+
+  const res = await executeDynamoDBOperation(
+    event,
+    TABLE_NAME,
+    async (client, tableName) => {
+      return client.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: '#id = :id',
+          FilterExpression: '#systemContextId = :systemContextId',
+          ExpressionAttributeNames: {
+            '#id': 'id',
+            '#systemContextId': 'systemContextId',
+          },
+          ExpressionAttributeValues: {
+            ':id': userId,
+            ':systemContextId': systemContextId,
+          },
+        })
+      );
+    }
+  );
 
   if (!res.Items || res.Items.length === 0) {
     return null;
@@ -208,12 +228,12 @@ export const listChats = async (
 ): Promise<ListChatsResponse> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const exclusiveStartKey = _exclusiveStartKey
     ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
     : undefined;
   const userId = `user#${_userId}`;
-  
+
   const res = await dynamoDbDocument.send(
     new QueryCommand({
       TableName: tableName,
@@ -244,9 +264,9 @@ export const listSystemContexts = async (
 ): Promise<SystemContext[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userId = `systemContext#${_userId}`;
-  
+
   const res = await dynamoDbDocument.send(
     new QueryCommand({
       TableName: tableName,
@@ -260,7 +280,7 @@ export const listSystemContexts = async (
       ScanIndexForward: false,
     })
   );
-  
+
   return res.Items as SystemContext[];
 };
 
@@ -272,10 +292,10 @@ export const createSystemContext = async (
 ): Promise<SystemContext> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userId = `systemContext#${_userId}`;
   const systemContextId = `systemContext#${crypto.randomUUID()}`;
-  
+
   const item = {
     id: userId,
     createdDate: `${Date.now()}`,
@@ -300,9 +320,9 @@ export const listMessages = async (
 ): Promise<RecordedMessage[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const chatId = `chat#${_chatId}`;
-  
+
   const res = await dynamoDbDocument.send(
     new QueryCommand({
       TableName: tableName,
@@ -388,7 +408,10 @@ async function updateTokenUsage(
       })
     );
   } catch (updateError) {
-    console.log('Record does not exist, creating initial structure:', updateError);
+    console.log(
+      'Record does not exist, creating initial structure:',
+      updateError
+    );
     try {
       await dynamoDbDocument.send(
         new UpdateCommand({
@@ -453,7 +476,7 @@ export const batchCreateMessages = async (
 ): Promise<RecordedMessage[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
   const createdDate = Date.now();
@@ -493,7 +516,9 @@ export const batchCreateMessages = async (
   );
 
   // Update token usage in parallel
-  await Promise.all(items.map(item => updateTokenUsage(item, event, dynamoDbDocument)));
+  await Promise.all(
+    items.map((item) => updateTokenUsage(item, event, dynamoDbDocument))
+  );
 
   return items;
 };
@@ -506,7 +531,7 @@ export const setChatTitle = async (
 ) => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const res = await dynamoDbDocument.send(
     new UpdateCommand({
       TableName: tableName,
@@ -521,7 +546,7 @@ export const setChatTitle = async (
       ReturnValues: 'ALL_NEW',
     })
   );
-  
+
   return res.Attributes as Chat;
 };
 
@@ -532,10 +557,10 @@ export const updateFeedback = async (
 ): Promise<RecordedMessage> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const chatId = `chat#${_chatId}`;
   const { createdDate, feedback, reasons, detailedFeedback } = feedbackData;
-  
+
   let updateExpression = 'set feedback = :feedback';
   const expressionAttributeValues: {
     ':feedback': string;
@@ -578,7 +603,7 @@ export const deleteChat = async (
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   // Delete Chat
   const chatItem = await findChatById(_userId, _chatId, event);
   await dynamoDbDocument.send(
@@ -621,9 +646,13 @@ export const updateSystemContextTitle = async (
 ): Promise<SystemContext> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
-  const systemContext = await findSystemContextById(_userId, _systemContextId, event);
-  
+
+  const systemContext = await findSystemContextById(
+    _userId,
+    _systemContextId,
+    event
+  );
+
   const res = await dynamoDbDocument.send(
     new UpdateCommand({
       TableName: tableName,
@@ -649,9 +678,13 @@ export const deleteSystemContext = async (
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
-  const systemContext = await findSystemContextById(_userId, _systemContextId, event);
-  
+
+  const systemContext = await findSystemContextById(
+    _userId,
+    _systemContextId,
+    event
+  );
+
   await dynamoDbDocument.send(
     new DeleteCommand({
       TableName: tableName,
@@ -673,7 +706,7 @@ export const createShareId = async (
 }> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
   const createdDate = `${Date.now()}`;
@@ -723,9 +756,9 @@ export const findUserIdAndChatId = async (
 ): Promise<UserIdAndChatId | null> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const shareId = `share#${_shareId}`;
-  
+
   const res = await dynamoDbDocument.send(
     new QueryCommand({
       TableName: tableName,
@@ -753,10 +786,10 @@ export const findShareId = async (
 ): Promise<ShareId | null> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
-  
+
   const res = await dynamoDbDocument.send(
     new QueryCommand({
       TableName: tableName,
@@ -783,7 +816,7 @@ export const deleteShareId = async (
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(TABLE_NAME, event);
-  
+
   const userIdAndChatId = await findUserIdAndChatId(_shareId, event);
   const share = await findShareId(
     // SAML authentication includes # in userId
@@ -826,7 +859,7 @@ export const aggregateTokenUsage = async (
 ): Promise<TokenUsageStats[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const statsTableName = getStatsTableName(event);
-  
+
   const userId = userIds?.[0];
   if (!userId) {
     throw new Error('userId is required');
