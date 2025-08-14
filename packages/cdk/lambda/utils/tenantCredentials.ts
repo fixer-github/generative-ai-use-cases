@@ -46,7 +46,7 @@ export async function getTenantCredentials(
           RoleArn: process.env.MULTI_TENANT_ROLE_ARN!,
           RoleSessionName: sessionName,
           WebIdentityToken: idToken,
-          DurationSeconds: 3600, // 1 hour
+          DurationSeconds: 600, // 10 minutes
         })
       );
 
