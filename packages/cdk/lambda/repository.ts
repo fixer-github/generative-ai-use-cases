@@ -31,7 +31,6 @@ const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
 /**
  * Get or create a tenant-specific DynamoDB document client
  * Falls back to default client if tenant-specific access fails
- * NOTE: No caching to ensure proper user isolation within tenants
  */
 async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent
@@ -41,7 +40,6 @@ async function getTenantDynamoDBDocument(
   // For default tenant, use standard DynamoDB client
   if (!tenantId || tenantId === 'default') {
     // Create standard DynamoDB client without AssumeRole
-    // No caching to ensure fresh credentials for each user
     return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
 
