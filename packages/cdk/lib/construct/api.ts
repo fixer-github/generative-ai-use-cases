@@ -146,26 +146,6 @@ export class Api extends Construct {
     const STATS_TABLE_BASE_NAME = 'TokenUsageStats';
     const DEFAULT_TENANT_ID = 'default';
 
-    // IAM policy for tenant-specific table access
-    const tenantTablePolicy = new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: [
-        'dynamodb:PutItem',
-        'dynamodb:GetItem',
-        'dynamodb:Query',
-        'dynamodb:UpdateItem',
-        'dynamodb:DeleteItem',
-        'dynamodb:BatchWriteItem',
-        'dynamodb:BatchGetItem',
-        'dynamodb:DescribeTable',
-        'dynamodb:DescribeTimeToLive'
-      ],
-      resources: [
-        `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-*`,
-        `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-*/index/*`
-      ]
-    });
-
     // IAM policy for assuming multi-tenant role with web identity
     const multiTenantAssumeRolePolicy = new PolicyStatement({
       effect: Effect.ALLOW,
@@ -292,7 +272,6 @@ export class Api extends Construct {
       },
     });
     table.grantWriteData(predictTitleFunction);
-    predictTitleFunction.addToRolePolicy(tenantTablePolicy);
     predictTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const generateImageFunction = new NodejsFunction(this, 'GenerateImage', {
@@ -348,7 +327,6 @@ export class Api extends Construct {
       );
     }
     table.grantWriteData(generateVideoFunction);
-    generateVideoFunction.addToRolePolicy(tenantTablePolicy);
     generateVideoFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
@@ -387,7 +365,6 @@ export class Api extends Construct {
     }
     fileBucket.grantWrite(copyVideoJob);
     table.grantWriteData(copyVideoJob);
-    copyVideoJob.addToRolePolicy(tenantTablePolicy);
     copyVideoJob.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listVideoJobs = new NodejsFunction(this, 'ListVideoJobs', {
@@ -412,7 +389,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(listVideoJobs);
-    listVideoJobs.addToRolePolicy(tenantTablePolicy);
     listVideoJobs.addToRolePolicy(multiTenantAssumeRolePolicy);
     copyVideoJob.grantInvoke(listVideoJobs);
 
@@ -430,7 +406,6 @@ export class Api extends Construct {
       },
     });
     table.grantWriteData(deleteVideoJob);
-    deleteVideoJob.addToRolePolicy(tenantTablePolicy);
     deleteVideoJob.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const optimizePromptFunction = new NodejsFunction(
@@ -589,7 +564,6 @@ export class Api extends Construct {
       },
     });
     table.grantWriteData(createChatFunction);
-    createChatFunction.addToRolePolicy(tenantTablePolicy);
     createChatFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteChatFunction = new NodejsFunction(this, 'DeleteChat', {
@@ -603,7 +577,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(deleteChatFunction);
-    deleteChatFunction.addToRolePolicy(tenantTablePolicy);
     deleteChatFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const createMessagesFunction = new NodejsFunction(this, 'CreateMessages', {
@@ -620,7 +593,6 @@ export class Api extends Construct {
     });
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
-    createMessagesFunction.addToRolePolicy(tenantTablePolicy);
     createMessagesFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateChatTitleFunction = new NodejsFunction(
@@ -637,7 +609,6 @@ export class Api extends Construct {
       }
     );
     table.grantReadWriteData(updateChatTitleFunction);
-    updateChatTitleFunction.addToRolePolicy(tenantTablePolicy);
     updateChatTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listChatsFunction = new NodejsFunction(this, 'ListChats', {
@@ -651,7 +622,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadData(listChatsFunction);
-    listChatsFunction.addToRolePolicy(tenantTablePolicy);
     listChatsFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const findChatbyIdFunction = new NodejsFunction(this, 'FindChatbyId', {
@@ -665,7 +635,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadData(findChatbyIdFunction);
-    findChatbyIdFunction.addToRolePolicy(tenantTablePolicy);
     findChatbyIdFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listMessagesFunction = new NodejsFunction(this, 'ListMessages', {
@@ -679,7 +648,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadData(listMessagesFunction);
-    listMessagesFunction.addToRolePolicy(tenantTablePolicy);
     listMessagesFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateFeedbackFunction = new NodejsFunction(this, 'UpdateFeedback', {
@@ -693,7 +661,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(updateFeedbackFunction);
-    updateFeedbackFunction.addToRolePolicy(tenantTablePolicy);
     updateFeedbackFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
@@ -713,7 +680,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(createShareId);
-    createShareId.addToRolePolicy(tenantTablePolicy);
     createShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const getSharedChat = new NodejsFunction(this, 'GetSharedChat', {
@@ -727,7 +693,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadData(getSharedChat);
-    getSharedChat.addToRolePolicy(tenantTablePolicy);
     getSharedChat.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const findShareId = new NodejsFunction(this, 'FindShareId', {
@@ -741,7 +706,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadData(findShareId);
-    findShareId.addToRolePolicy(tenantTablePolicy);
     findShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteShareId = new NodejsFunction(this, 'DeleteShareId', {
@@ -755,7 +719,6 @@ export class Api extends Construct {
       },
     });
     table.grantReadWriteData(deleteShareId);
-    deleteShareId.addToRolePolicy(tenantTablePolicy);
     deleteShareId.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const listSystemContextsFunction = new NodejsFunction(
@@ -773,7 +736,6 @@ export class Api extends Construct {
       }
     );
     table.grantReadData(listSystemContextsFunction);
-    listSystemContextsFunction.addToRolePolicy(tenantTablePolicy);
     listSystemContextsFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const createSystemContextFunction = new NodejsFunction(
@@ -791,7 +753,6 @@ export class Api extends Construct {
       }
     );
     table.grantWriteData(createSystemContextFunction);
-    createSystemContextFunction.addToRolePolicy(tenantTablePolicy);
     createSystemContextFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const updateSystemContextTitleFunction = new NodejsFunction(
@@ -809,7 +770,6 @@ export class Api extends Construct {
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
-    updateSystemContextTitleFunction.addToRolePolicy(tenantTablePolicy);
     updateSystemContextTitleFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteSystemContextFunction = new NodejsFunction(
@@ -827,7 +787,6 @@ export class Api extends Construct {
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);
-    deleteSystemContextFunction.addToRolePolicy(tenantTablePolicy);
     deleteSystemContextFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     const deleteFileFunction = new NodejsFunction(this, 'DeleteFileFunction', {
@@ -853,7 +812,6 @@ export class Api extends Construct {
     });
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
-    getTokenUsageFunction.addToRolePolicy(tenantTablePolicy);
     getTokenUsageFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity 
