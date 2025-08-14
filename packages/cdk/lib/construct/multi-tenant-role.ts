@@ -15,6 +15,7 @@ export interface MultiTenantRoleProps {
   readonly userPoolClient: UserPoolClient;
   readonly region: string;
   readonly account: string;
+  readonly env?: string;
 }
 
 export class MultiTenantRole extends Construct {
@@ -52,10 +53,10 @@ export class MultiTenantRole extends Construct {
           's3:ListBucket',
         ],
         resources: [
-          // Bucket-level permissions
-          `arn:aws:s3:::*-tenant-\${aws:PrincipalTag/TenantID}`,
-          // Object-level permissions
-          `arn:aws:s3:::*-tenant-\${aws:PrincipalTag/TenantID}/*`,
+          // Bucket-level permissions (stack-specific)
+          `arn:aws:s3:::generativeaiusecasesstack${props.env || ''}-*-tenant-\${aws:PrincipalTag/TenantID}`,
+          // Object-level permissions (stack-specific)
+          `arn:aws:s3:::generativeaiusecasesstack${props.env || ''}-*-tenant-\${aws:PrincipalTag/TenantID}/*`,
         ],
       })
     );

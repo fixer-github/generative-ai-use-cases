@@ -72,6 +72,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClient: auth.client,
       region: this.region,
       account: this.account,
+      env: params.env,
     });
 
     // Database
