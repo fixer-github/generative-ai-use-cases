@@ -18,6 +18,7 @@ const RETRY_DELAY = 1000; // milliseconds
 export async function getTenantCredentials(
   event: APIGatewayProxyEvent
 ): Promise<Credentials> {
+
   // Extract tenant ID for session name
   const tenantId =
     event.requestContext?.authorizer?.claims?.['custom:tenant_id'] || 'default';
@@ -27,7 +28,13 @@ export async function getTenantCredentials(
     event.requestContext?.authorizer?.claims?.['cognito:username'] || 'unknown';
 
   // Extract JWT token from Authorization header
-  const authHeader = event.headers.Authorization || event.headers.authorization;
+  // API Gateway passes the original Authorization header as X-Original-Authorization
+  const authHeader = event.headers['X-Original-Authorization'] ||
+                    event.headers['x-original-authorization'] ||
+                    event.headers.Authorization ||
+                    event.headers.authorization;
+
+
   if (!authHeader?.startsWith('Bearer ')) {
     throw new Error('No valid authorization token found');
   }
@@ -48,11 +55,10 @@ export async function getTenantCredentials(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      // Assume role with web identity
-      // Note: AssumeRoleWithWebIdentityCommand does not support SessionTags parameter
-      // Session tags must be configured via Cognito Identity Pool or other means
+      // AssumeRoleWithWebIdentity - session tags come from JWT claims automatically
+      // when properly configured in the IAM role trust policy
       const stsClient = new STSClient({});
-      
+
       const { Credentials } = await stsClient.send(
         new AssumeRoleWithWebIdentityCommand({
           RoleArn: process.env.MULTI_TENANT_ROLE_ARN!,
@@ -62,12 +68,8 @@ export async function getTenantCredentials(
         })
       );
 
-      if (!Credentials) {
-        throw new Error('Failed to obtain credentials from STS response');
-      }
-
       // Return fresh credentials without caching
-      return Credentials;
+      return Credentials!;
     } catch (error) {
       lastError = error as Error;
       console.error(
