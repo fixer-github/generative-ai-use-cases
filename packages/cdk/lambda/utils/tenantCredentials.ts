@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { STSClient, AssumeRoleWithWebIdentityCommand, Credentials } from '@aws-sdk/client-sts';
+import * as crypto from 'crypto';
 
 // Maximum retries for STS AssumeRole
 const MAX_RETRIES = 3;
@@ -27,10 +28,11 @@ export async function getTenantCredentials(
   
   const idToken = authHeader.substring(7);
   
-  // Create unique session name with tenant, user, and timestamp
-  // This ensures each user gets their own session
+  // Create unique session name with hash to prevent truncation issues
+  // Use hash of tenantId+userId to ensure uniqueness within 64-char limit
   const timestamp = Date.now();
-  const sessionName = `session-${tenantId}-${userId}-${timestamp}`.substring(0, 64);
+  const userHash = crypto.createHash('md5').update(tenantId + userId).digest('hex').substring(0, 16);
+  const sessionName = `session-${userHash}-${timestamp}`;
 
   let lastError: Error | null = null;
   
