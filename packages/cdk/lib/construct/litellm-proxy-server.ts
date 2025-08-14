@@ -7,6 +7,7 @@ import {
   FunctionUrlAuthType,
   InvokeMode,
   HttpMethod,
+  Alias,
 } from 'aws-cdk-lib/aws-lambda';
 import { PolicyStatement, Effect, IGrantable } from 'aws-cdk-lib/aws-iam';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
@@ -17,11 +18,13 @@ export interface LitellmProxyServerProps {
   readonly isSageMakerStudio: boolean;
   readonly modelRegion?: string;
   readonly crossAccountBedrockRoleArn?: string;
+  readonly provisionedConcurrentExecutions?: number;
 }
 
 export class LitellmProxyServer extends Construct {
   public readonly endpoint: string;
   public readonly function: DockerImageFunction;
+  public readonly alias?: Alias;
 
   constructor(scope: Construct, id: string, props: LitellmProxyServerProps) {
     super(scope, id);
@@ -71,29 +74,62 @@ export class LitellmProxyServer extends Construct {
       );
     }
 
-    // Create Function URL with IAM authentication for internal access
-    const litellmEndpoint = this.function.addFunctionUrl({
-      authType: FunctionUrlAuthType.AWS_IAM,
-      cors: {
-        allowedOrigins: ['*'], // In production, consider restricting this
-        allowedMethods: [HttpMethod.ALL],
-        allowedHeaders: [
-          'Content-Type',
-          'Authorization',
-          'X-Amz-Date',
-          'X-Api-Key',
-          'X-Amz-Security-Token',
-          'X-Amz-User-Agent',
-        ],
-      },
-      invokeMode: InvokeMode.RESPONSE_STREAM,
-    });
+    // Create alias with Provisioned Concurrency if specified
+    if (props.provisionedConcurrentExecutions && props.provisionedConcurrentExecutions > 0) {
+      this.alias = new Alias(this, 'LiveAlias', {
+        aliasName: 'live',
+        version: this.function.currentVersion,
+        provisionedConcurrentExecutions: props.provisionedConcurrentExecutions,
+      });
 
-    // Grant invoke permissions to authenticated users (for internal service access)
-    litellmEndpoint.grantInvokeUrl(props.idPool.authenticatedRole);
+      // Create Function URL for the alias
+      const litellmEndpoint = this.alias.addFunctionUrl({
+        authType: FunctionUrlAuthType.AWS_IAM,
+        cors: {
+          allowedOrigins: ['*'], // In production, consider restricting this
+          allowedMethods: [HttpMethod.ALL],
+          allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Amz-Date',
+            'X-Api-Key',
+            'X-Amz-Security-Token',
+            'X-Amz-User-Agent',
+          ],
+        },
+        invokeMode: InvokeMode.RESPONSE_STREAM,
+      });
 
-    // Store the endpoint URL
-    this.endpoint = litellmEndpoint.url;
+      // Grant invoke permissions to authenticated users (for internal service access)
+      litellmEndpoint.grantInvokeUrl(props.idPool.authenticatedRole);
+
+      // Store the endpoint URL
+      this.endpoint = litellmEndpoint.url;
+    } else {
+      // Create Function URL without Provisioned Concurrency
+      const litellmEndpoint = this.function.addFunctionUrl({
+        authType: FunctionUrlAuthType.AWS_IAM,
+        cors: {
+          allowedOrigins: ['*'], // In production, consider restricting this
+          allowedMethods: [HttpMethod.ALL],
+          allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Amz-Date',
+            'X-Api-Key',
+            'X-Amz-Security-Token',
+            'X-Amz-User-Agent',
+          ],
+        },
+        invokeMode: InvokeMode.RESPONSE_STREAM,
+      });
+
+      // Grant invoke permissions to authenticated users (for internal service access)
+      litellmEndpoint.grantInvokeUrl(props.idPool.authenticatedRole);
+
+      // Store the endpoint URL
+      this.endpoint = litellmEndpoint.url;
+    }
   }
 
   /**

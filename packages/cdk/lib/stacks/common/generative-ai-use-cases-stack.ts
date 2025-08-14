@@ -87,6 +87,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         modelRegion: params.modelRegion,
         crossAccountBedrockRoleArn:
           params.crossAccountBedrockRoleArn || undefined,
+        provisionedConcurrentExecutions: 2, // コールドスタート対策として2つの同時実行を確保
       });
       litellmEndpoint = litellmProxy.endpoint;
     }
