@@ -5,7 +5,7 @@
   "scripts": {
     "lint": "run-s custom-lint:build root:lint web:lint:fix cdk:lint cdk:lambda-build-dryrun",
     "test": "run-s web:test",
-    "root:lint": "pnpm prettier --write .",
+    "root:lint": "prettier --write .",
     "web:devw": "source ./setup-env.sh ${npm_config_env} && VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run dev",
     "web:devww": "powershell ./web_devw_win.ps1",
     "web:dev": "VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run dev",
