@@ -37,7 +37,11 @@ const useChat = () => {
   return {
     messages,
     isEmptyMessages,
-    sendMessage: async (promptSetting: PromptSetting, content: string, isReplace?: boolean) => {
+    sendMessage: async (
+      promptSetting: PromptSetting,
+      content: string,
+      isReplace?: boolean
+    ) => {
       if (tabId === -1) {
         throw new Error('Tab IDが取得できませんでした');
       }
@@ -84,7 +88,7 @@ const useChat = () => {
                   role: 'assistant',
                   content: '▍',
                 },
-              ]),
+              ])
         );
 
         // Update the Assistant message

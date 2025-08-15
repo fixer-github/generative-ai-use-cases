@@ -30,7 +30,8 @@ const CustomUseCaseDrawerItems: React.FC<Props> = (props) => {
             className={`${location.pathname.startsWith('/use-case-builder/execute/') && useCaseId === usecase.useCaseId ? 'bg-aws-sky' : ''} hover:bg-aws-sky flex h-8 cursor-pointer items-center rounded p-2`}
             onClick={() => {
               onClick(usecase.useCaseId);
-            }}>
+            }}
+          >
             <span className="line-clamp-1">{usecase.title}</span>
           </div>
         );

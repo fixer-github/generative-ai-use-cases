@@ -64,7 +64,8 @@ const EditableMarkdown: React.FC<EditableMarkdownProps> = ({
         <Link
           className="text-aws-smile underline"
           to="https://mermaid.js.org/intro/"
-          target="_blank">
+          target="_blank"
+        >
           {t('common.here')}
         </Link>
       </div>

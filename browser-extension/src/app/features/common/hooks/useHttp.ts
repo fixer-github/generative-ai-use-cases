@@ -32,7 +32,7 @@ const useHttp = () => {
         return null;
       }
     },
-    [settings],
+    [settings]
   );
 
   return {
@@ -43,7 +43,10 @@ const useHttp = () => {
      * @returns
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    get: <Data = any, Error = any>(url: string | null, config?: SWRConfiguration) => {
+    get: <Data = any, Error = any>(
+      url: string | null,
+      config?: SWRConfiguration
+    ) => {
       // eslint-disable-next-line react-hooks/rules-of-hooks
       return useSWR<Data, Error>(url ? getUrl(url) : null, fetcher, config);
     },

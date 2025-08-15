@@ -47,7 +47,8 @@ const DrawerItem: React.FC<DrawerItemProps> = (props) => {
               location.pathname === props.to && 'bg-aws-sky'
             } ${props.className} ${props.settingVisibility ? 'pl-2' : ''}`}
             to={props.to}
-            onClick={onClick}>
+            onClick={onClick}
+          >
             {!props.settingVisibility && (
               <span className="mr-2">{props.icon}</span>
             )}

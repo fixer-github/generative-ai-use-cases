@@ -84,7 +84,8 @@ const UseCaseBuilderMyUseCasePage: React.FC = () => {
               className=""
               onClick={() => {
                 navigate(`/use-case-builder/new`);
-              }}>
+              }}
+            >
               <PiNotePencil className="mr-2" />
               {t('useCaseBuilder.createNew')}
             </Button>
@@ -101,12 +102,14 @@ const UseCaseBuilderMyUseCasePage: React.FC = () => {
             return (
               <div
                 key={useCase.useCaseId}
-                className={`flex flex-row items-center gap-x-2 p-2 hover:bg-gray-100 ${idx > 0 ? 'border-t' : ''}`}>
+                className={`flex flex-row items-center gap-x-2 p-2 hover:bg-gray-100 ${idx > 0 ? 'border-t' : ''}`}
+              >
                 <div
                   className="flex flex-1 cursor-pointer flex-col justify-start"
                   onClick={() => {
                     navigate(`/use-case-builder/execute/${useCase.useCaseId}`);
-                  }}>
+                  }}
+                >
                   <div className="line-clamp-1 text-sm font-bold">
                     {useCase.title}
                   </div>
@@ -126,7 +129,8 @@ const UseCaseBuilderMyUseCasePage: React.FC = () => {
                     onClick={() => {
                       setDeleteTargetId(useCase.useCaseId);
                       setIsOpenConfirmDelete(true);
-                    }}>
+                    }}
+                  >
                     <PiTrash />
                   </ButtonIcon>
                   <ButtonShare
@@ -152,7 +156,8 @@ const UseCaseBuilderMyUseCasePage: React.FC = () => {
             <div className="mt-2 flex w-full justify-center">
               <button
                 className="text-sm hover:underline"
-                onClick={loadMoreMyUseCases}>
+                onClick={loadMoreMyUseCases}
+              >
                 {t('useCaseBuilder.loadMore')}
               </button>
             </div>

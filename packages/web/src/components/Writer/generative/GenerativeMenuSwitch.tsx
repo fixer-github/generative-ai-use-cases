@@ -32,7 +32,8 @@ const GenerativeMenuSwitch = ({
           editor.chain().unsetHighlight().run();
         },
       }}
-      className="border-muted bg-background flex w-fit max-w-[90vw] overflow-hidden rounded-md border shadow-xl">
+      className="border-muted bg-background flex w-fit max-w-[90vw] overflow-hidden rounded-md border shadow-xl"
+    >
       {open && <AISelector open={open} onOpenChange={onOpenChange} />}
       {!open && (
         <Fragment>
@@ -40,7 +41,8 @@ const GenerativeMenuSwitch = ({
             className="gap-1 rounded-none text-purple-500"
             variant="ghost"
             onClick={() => onOpenChange(true)}
-            size="sm">
+            size="sm"
+          >
             <PiMagicWand className="h-5 w-5" />
             {t('writer.ai.ask_ai')}
           </Button>

@@ -19,7 +19,8 @@ const ButtonShare: React.FC<Props> = (props) => {
       disabled={props.disabled}
       onClick={() => {
         props.onClick();
-      }}>
+      }}
+    >
       {props.isShared ? (
         <>
           <PiLinkBold className="mr-2" />

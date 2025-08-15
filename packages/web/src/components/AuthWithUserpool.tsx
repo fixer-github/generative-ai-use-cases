@@ -44,7 +44,8 @@ const AuthWithUserpool: React.FC<Props> = (props) => {
             {t('auth.title')}
           </div>
         ),
-      }}>
+      }}
+    >
       {props.children}
     </Authenticator>
   );

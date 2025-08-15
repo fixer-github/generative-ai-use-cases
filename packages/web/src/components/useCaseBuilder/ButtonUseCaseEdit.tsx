@@ -15,7 +15,8 @@ const ButtonUseCaseEdit: React.FC<Props> = (props) => {
       className={props.className ?? ''}
       onClick={() => {
         navigate(`/use-case-builder/edit/${props.useCaseId}`);
-      }}>
+      }}
+    >
       <PiPencilLine />
     </ButtonIcon>
   );

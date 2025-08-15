@@ -37,7 +37,8 @@ const SketchButton: React.FC<SketchButtonProps> = (props) => {
       } flex size-6 cursor-pointer items-center justify-center border ${
         props.isActive ? 'border-black/50 bg-gray-200' : ''
       }`}
-      onClick={props.onClick}>
+      onClick={props.onClick}
+    >
       {props.children}
     </div>
   );
@@ -233,7 +234,8 @@ const SketchPad: React.FC<Props> = (props) => {
               outlined
               onClick={() => {
                 setIsOpenUpload(false);
-              }}>
+              }}
+            >
               {t('common.cancel')}
             </Button>
             <Button onClick={onClickUploadComplete}>
@@ -250,7 +252,8 @@ const SketchPad: React.FC<Props> = (props) => {
                 className="relative text-xl"
                 onClick={() => {
                   setIsOpenPalette(!isOpenPalette);
-                }}>
+                }}
+              >
                 <PiPaintBrushFill style={{ color: penColor }} />
               </SketchButton>
             )}
@@ -267,7 +270,8 @@ const SketchPad: React.FC<Props> = (props) => {
               className="relative text-xl"
               onClick={() => {
                 setIsOpendotSizeSlider(!isOpendotSizeSlider);
-              }}>
+              }}
+            >
               <PiDotBold />
             </SketchButton>
             {isOpendotSizeSlider && (
@@ -275,10 +279,12 @@ const SketchPad: React.FC<Props> = (props) => {
                 <div className="absolute -left-6 top-7 flex flex-row gap-2 border bg-white p-2">
                   <div
                     className="flex items-center justify-center border"
-                    style={{ width: '80px', height: '80px' }}>
+                    style={{ width: '80px', height: '80px' }}
+                  >
                     <div
                       className="rounded-full bg-black"
-                      style={{ width: dotSize * 2, height: dotSize * 2 }}></div>
+                      style={{ width: dotSize * 2, height: dotSize * 2 }}
+                    ></div>
                   </div>
                   <RangeSlider
                     className=""
@@ -299,7 +305,8 @@ const SketchPad: React.FC<Props> = (props) => {
                 className="relative ml-1 text-xl"
                 onClick={() => {
                   setIsOpenPaletteBg(!isOpenPaletteBg);
-                }}>
+                }}
+              >
                 <PiPaintBucketFill />
               </SketchButton>
             )}
@@ -317,7 +324,8 @@ const SketchPad: React.FC<Props> = (props) => {
               isActive={isEraseMode}
               onClick={() => {
                 setIsEraseMode(!isEraseMode);
-              }}>
+              }}
+            >
               <PiEraserFill />
             </SketchButton>
 
@@ -357,7 +365,8 @@ const SketchPad: React.FC<Props> = (props) => {
           <Button
             onClick={() => {
               setIsOpenUpload(true);
-            }}>
+            }}
+          >
             <PiUploadSimple />
             {t('sketch.upload_image')}
           </Button>

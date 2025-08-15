@@ -86,14 +86,16 @@ const UseCaseBuilderExecutePage: React.FC = () => {
       <ModalDialog
         isOpen={isOpenErrorDialog}
         title={t('useCaseBuilder.accessError')}
-        onClose={() => {}}>
+        onClose={() => {}}
+      >
         <div className="flex flex-col gap-2">
           <div>{t('useCaseBuilder.notExistOrNotShared')}</div>
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => {
                 navigate(`/use-case-builder`);
-              }}>
+              }}
+            >
               {t('useCaseBuilder.returnToTop')}
             </Button>
           </div>

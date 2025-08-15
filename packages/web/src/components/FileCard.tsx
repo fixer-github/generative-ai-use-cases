@@ -22,7 +22,8 @@ const FileCard: React.FC<Props> = (props) => {
             props.error ? 'border-red-500' : 'border-aws-squid-ink/50'
           } max-w-36 break-all rounded border object-cover object-center p-1 ${
             props.size === 's' ? 'max-h-24' : 'max-h-32'
-          }`}>
+          }`}
+        >
           <PiFile className="mb-1 mr-1 inline size-4" />
           {props.url ? (
             <a href={props.url}>{props.filename}</a>
@@ -38,7 +39,8 @@ const FileCard: React.FC<Props> = (props) => {
         {props.onDelete && !props.loading && (
           <ButtonIcon
             className={`invisible absolute right-0 top-0 m-0.5 border bg-white text-xs group-hover:visible`}
-            onClick={props.onDelete}>
+            onClick={props.onDelete}
+          >
             <PiX />
           </ButtonIcon>
         )}

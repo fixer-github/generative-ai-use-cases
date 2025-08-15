@@ -9,7 +9,9 @@ const usePagination = (
   const { data, size, setSize, error, mutate, isValidating } = swr;
   const flattenData = data
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data.map((d: Pagination<any>) => d.data).flat()
+      data
+        .map((d: Pagination<any>) => d.data)
+        .flat()
     : [];
   const isLoadingInitialData = !data && !error;
   const isLoadingMore =

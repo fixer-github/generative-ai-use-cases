@@ -139,7 +139,8 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
       <Card
         label={t('generateImage.assistant.title')}
         help={t('generateImage.assistant.help')}
-        className={`${props.className ?? ''} h-full pb-32`}>
+        className={`${props.className ?? ''} h-full pb-32`}
+      >
         <div className="mb-2 flex w-full">
           <Select
             value={props.modelId}
@@ -151,7 +152,8 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
         </div>
         <div
           id="image-assistant-chat"
-          className="h-full overflow-y-auto overflow-x-hidden pb-16">
+          className="h-full overflow-y-auto overflow-x-hidden pb-16"
+        >
           {contents.length === 0 && (
             <div className="rounded border border-gray-400 bg-gray-100/50 p-2 text-gray-600">
               <div className="flex items-center font-bold">
@@ -184,7 +186,8 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
               key={idx}
               className={`mb-1 rounded border border-black/30 p-2 ${
                 c.role === 'user' ? 'bg-gray-100' : ''
-              }`}>
+              }`}
+            >
               {c.role === 'user' && (
                 <>
                   {c.content.split('\n').map((m, idx) => (
@@ -251,7 +254,8 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                                     c.content.negativePrompt ?? '',
                                     preset
                                   );
-                                }}>
+                                }}
+                              >
                                 {preset}
                               </Button>
                             )
@@ -264,7 +268,8 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                                 c.content.negativePrompt ?? '',
                                 ''
                               );
-                            }}>
+                            }}
+                          >
                             {t('generateImage.assistant.no_style')}
                           </Button>
                         </div>

@@ -22,7 +22,8 @@ const ModalDialogDeleteUseCase: React.FC<Props> = (props) => {
       title={t('useCaseBuilder.deleteUseCaseTitle')}
       onClose={() => {
         props.onClose();
-      }}>
+      }}
+    >
       <div className="flex flex-col gap-2">
         {props.isShared && (
           <Alert severity="warning" className="mb-2">
@@ -39,14 +40,16 @@ const ModalDialogDeleteUseCase: React.FC<Props> = (props) => {
             outlined
             onClick={() => {
               props.onClose();
-            }}>
+            }}
+          >
             {t('useCaseBuilder.cancel')}
           </Button>
           <Button
             className="bg-red-600"
             onClick={() => {
               props.onDelete();
-            }}>
+            }}
+          >
             {t('useCaseBuilder.delete')}
           </Button>
         </div>

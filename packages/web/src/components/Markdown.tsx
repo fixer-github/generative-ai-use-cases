@@ -91,7 +91,8 @@ const LinkRenderer = (props: any) => {
               );
             }
           }}
-          className={`cursor-pointer ${downloading ? 'text-gray-400' : ''}`}>
+          className={`cursor-pointer ${downloading ? 'text-gray-400' : ''}`}
+        >
           {props.children}
           {downloading && (
             <PiSpinnerGap className="mx-2 inline-block animate-spin" />
@@ -102,7 +103,8 @@ const LinkRenderer = (props: any) => {
           id={props.id}
           href={props.href}
           target={props.href.startsWith('#') ? '_self' : '_blank'}
-          rel="noreferrer">
+          rel="noreferrer"
+        >
           {props.children}
         </a>
       )}
@@ -145,7 +147,8 @@ const CodeRenderer = memo(
             </div>
             <SyntaxHighlighter
               style={vscDarkPlus}
-              language={language || 'plaintext'}>
+              language={language || 'plaintext'}
+            >
               {codeText}
             </SyntaxHighlighter>
           </>

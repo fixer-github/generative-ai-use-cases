@@ -25,7 +25,10 @@ export const handler = async (
     const chat = await findChatById(
       // SAML authentication includes # in userId
       // Example: user#EntraID_hogehoge.com#EXT#@hogehoge.onmicrosoft.com
-      userId.split('#').slice(1).join('#'),
+      userId
+        .split('#')
+        .slice(1)
+        .join('#'),
       chatId.split('#')[1]
     );
     const messages = await listMessages(chatId.split('#')[1]);

@@ -58,7 +58,8 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
   return code ? (
     <div
       onClick={props.handler}
-      className="flex h-full w-full cursor-pointer content-center items-center justify-center rounded-lg bg-white p-8 duration-700 hover:shadow-lg">
+      className="flex h-full w-full cursor-pointer content-center items-center justify-center rounded-lg bg-white p-8 duration-700 hover:shadow-lg"
+    >
       <div
         className="flex h-full w-full items-center justify-center"
         dangerouslySetInnerHTML={{ __html: svgContent }}
@@ -174,7 +175,8 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
             ? t('diagram.download_as_svg')
             : t('diagram.download_as_png')
         }
-        className="cursor-pointer">
+        className="cursor-pointer"
+      >
         <IoMdDownload className="text-base" />
         {type === 'SVG' ? (
           <TbSvg className="text-2xl" />
@@ -196,13 +198,15 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
         <div className="flex cursor-pointer rounded border bg-white text-xs font-bold">
           <div
             className={`m-1 mr-0 flex items-center rounded p-1 ${viewMode === 'diagram' ? 'bg-gray-600 text-white' : 'text-gray-600'}`}
-            onClick={() => setViewMode('diagram')}>
+            onClick={() => setViewMode('diagram')}
+          >
             <LuNetwork className="mr-1 text-lg" />
             {t('diagram.show_diagram')}
           </div>
           <div
             className={`m-1 ml-0 flex items-center rounded p-1 ${viewMode === 'code' ? 'bg-gray-600 text-white' : 'text-gray-600'}`}
-            onClick={() => setViewMode('code')}>
+            onClick={() => setViewMode('code')}
+          >
             <VscCode className="mr-1 text-lg" />
             {t('diagram.show_code')}
           </div>
@@ -212,11 +216,13 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
       {/* The drawing part of the diagram */}
       <div className="relative">
         <div
-          className={`${viewMode === 'diagram' ? 'visible opacity-100' : 'invisible absolute left-0 top-0 opacity-0'}`}>
+          className={`${viewMode === 'diagram' ? 'visible opacity-100' : 'invisible absolute left-0 top-0 opacity-0'}`}
+        >
           <Mermaid code={code} handler={() => setZoom(true)} />
         </div>
         <div
-          className={`${viewMode === 'code' ? 'visible opacity-100' : 'invisible absolute left-0 top-0 opacity-0'}`}>
+          className={`${viewMode === 'code' ? 'visible opacity-100' : 'invisible absolute left-0 top-0 opacity-0'}`}
+        >
           <EditableMarkdown
             code={code}
             handleMarkdownChange={handleMarkdownChange}
@@ -233,7 +239,8 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
           />
           <div
             className="fixed left-1/2 top-1/2 z-[110] flex h-[90%] w-[90%] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg bg-white"
-            onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex h-[40px] justify-end px-2">
               <button onClick={() => setZoom(false)}>
                 <IoIosClose className="flex h-8 w-8 cursor-pointer content-center justify-center rounded text-lg hover:bg-gray-200" />

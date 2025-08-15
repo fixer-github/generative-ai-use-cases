@@ -36,45 +36,48 @@ const PromptSettings: React.FC<Props> = (props) => {
         produce(prev, (draft) => {
           draft.splice(dragIndex, 1);
           draft.splice(hoverIndex, 0, prev[dragIndex]);
-        }),
+        })
       );
     },
-    [savePrompts],
+    [savePrompts]
   );
 
-  const renderAvailablePromptItem = useCallback((prompt: PromptSetting, index: number) => {
-    return (
-      <DraggablePromptItem
-        className="mx-1 first:mt-1 last:mb-1"
-        type={ItemTypes.PROMPT_ITEM}
-        key={prompt.systemContextId}
-        index={index}
-        prompt={prompt}
-        isPromptSetting
-        isPreset={
-          PRESET_PROMPTS.findIndex(
-            (prompt_) => prompt_.systemContextId === prompt.systemContextId,
-          ) > -1
-        }
-        movePrompt={movePrompt}
-        onDelete={() => {
-          savePrompts((prev) =>
-            produce(prev, (draft) => {
-              draft.splice(index, 1);
-            }),
-          );
-        }}
-        onChange={(prompt_) => {
-          savePrompts((prev) =>
-            produce(prev, (draft) => {
-              draft[index] = prompt_;
-            }),
-          );
-        }}
-      />
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const renderAvailablePromptItem = useCallback(
+    (prompt: PromptSetting, index: number) => {
+      return (
+        <DraggablePromptItem
+          className="mx-1 first:mt-1 last:mb-1"
+          type={ItemTypes.PROMPT_ITEM}
+          key={prompt.systemContextId}
+          index={index}
+          prompt={prompt}
+          isPromptSetting
+          isPreset={
+            PRESET_PROMPTS.findIndex(
+              (prompt_) => prompt_.systemContextId === prompt.systemContextId
+            ) > -1
+          }
+          movePrompt={movePrompt}
+          onDelete={() => {
+            savePrompts((prev) =>
+              produce(prev, (draft) => {
+                draft.splice(index, 1);
+              })
+            );
+          }}
+          onChange={(prompt_) => {
+            savePrompts((prev) =>
+              produce(prev, (draft) => {
+                draft[index] = prompt_;
+              })
+            );
+          }}
+        />
+      );
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    []
+  );
 
   const renderPromptItem = useCallback(
     (prompt: SystemContext, index: number, type: ItemTypeValues) => {
@@ -87,26 +90,30 @@ const PromptSettings: React.FC<Props> = (props) => {
           prompt={prompt}
           isPreset={type === 'presetItem'}
           canDrag={
-            prompts.findIndex((prompt_) => prompt_.systemContextId === prompt.systemContextId) < 0
+            prompts.findIndex(
+              (prompt_) => prompt_.systemContextId === prompt.systemContextId
+            ) < 0
           }
         />
       );
     },
-    [prompts],
+    [prompts]
   );
 
   const [, drop] = useDrop({
     accept: [ItemTypes.PRESET_ITEM, ItemTypes.SYSTEM_CONTEXT_ITEM],
     drop: (item: DragPromptItem) => {
       if (
-        prompts.findIndex((prompt_) => prompt_.systemContextId === item.prompt.systemContextId) > -1
+        prompts.findIndex(
+          (prompt_) => prompt_.systemContextId === item.prompt.systemContextId
+        ) > -1
       ) {
         return;
       }
       savePrompts((prev) =>
         produce(prev, (draft) => {
           draft.splice(item.index, 0, item.prompt);
-        }),
+        })
       );
     },
   });
@@ -125,7 +132,10 @@ const PromptSettings: React.FC<Props> = (props) => {
 
       <div className="h-1/2 flex flex-col">
         <div className="text-sm font-semibold mb-1">利用するプロンプト</div>
-        <div ref={drop} className="h-full overflow-y-auto bg-white/10 border rounded">
+        <div
+          ref={drop}
+          className="h-full overflow-y-auto bg-white/10 border rounded"
+        >
           {prompts.map((prompt, i) => renderAvailablePromptItem(prompt, i))}
         </div>
       </div>
@@ -135,7 +145,7 @@ const PromptSettings: React.FC<Props> = (props) => {
           <div
             className={twMerge(
               'border border-b-0 p-2 rounded-tl cursor-pointer hover:bg-white/50',
-              !isSelectedPreset ? 'bg-white/30' : '',
+              !isSelectedPreset ? 'bg-white/30' : ''
             )}
             onClick={() => {
               setisSelectedPreset(false);
@@ -146,7 +156,7 @@ const PromptSettings: React.FC<Props> = (props) => {
           <div
             className={twMerge(
               'border border-b-0 p-2 rounded-tr border-l-0 flex items-center gap-1 cursor-pointer hover:bg-white/50',
-              isSelectedPreset ? 'bg-white/30' : '',
+              isSelectedPreset ? 'bg-white/30' : ''
             )}
             onClick={() => {
               setisSelectedPreset(true);
@@ -157,13 +167,21 @@ const PromptSettings: React.FC<Props> = (props) => {
         </div>
         <div className="h-full overflow-y-auto bg-white/10 border rounded-b rounded-tr">
           {isSelectedPreset
-            ? presetPrompts.map((prompt, i) => renderPromptItem(prompt, i, 'presetItem'))
-            : systemContexts.map((prompt, i) => renderPromptItem(prompt, i, 'systemContextItem'))}
+            ? presetPrompts.map((prompt, i) =>
+                renderPromptItem(prompt, i, 'presetItem')
+              )
+            : systemContexts.map((prompt, i) =>
+                renderPromptItem(prompt, i, 'systemContextItem')
+              )}
         </div>
       </div>
 
       <div className="flex justify-between">
-        <Button outlined icon={<IconWrapper icon={PiCaretLeft} />} onClick={props.onBack}>
+        <Button
+          outlined
+          icon={<IconWrapper icon={PiCaretLeft} />}
+          onClick={props.onBack}
+        >
           戻る
         </Button>
       </div>

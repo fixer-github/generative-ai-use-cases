@@ -28,7 +28,8 @@ const ButtonIcon: React.FC<Props> = (props) => {
       }`}
       onClick={onClick}
       disabled={props.disabled}
-      title={props.title}>
+      title={props.title}
+    >
       {props.loading ? (
         <PiSpinnerGap className="animate-spin" />
       ) : (

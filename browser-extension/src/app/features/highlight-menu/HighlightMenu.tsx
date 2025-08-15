@@ -31,7 +31,14 @@ const HighlightMenu: React.FC<Props> = (props) => {
       flip(),
       shift(),
       autoPlacement({
-        allowedPlacements: ['top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end'],
+        allowedPlacements: [
+          'top',
+          'top-start',
+          'top-end',
+          'bottom',
+          'bottom-start',
+          'bottom-end',
+        ],
       }),
     ],
     whileElementsMounted: autoUpdate,

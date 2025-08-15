@@ -23,7 +23,8 @@ const ExpandableMenu: React.FC<Props> = (props) => {
         className={`text-aws-smile flex cursor-pointer items-center ${props.className}`}
         onClick={() => {
           setExpanded(!expanded);
-        }}>
+        }}
+      >
         <PiCaretRightFill
           className={`mr-1 ${expanded && 'rotate-90'} transition`}
         />

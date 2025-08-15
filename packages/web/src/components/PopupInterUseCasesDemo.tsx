@@ -32,7 +32,8 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
         className="flex cursor-pointer items-center justify-between py-2 pl-2 pr-1 text-sm"
         onClick={() => {
           setIsOpen(!isOpen);
-        }}>
+        }}
+      >
         <PiCaretDown
           className={`transition ${!isOpen && 'rotate-180'} mr-2 text-lg`}
         />
@@ -42,7 +43,8 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
         <ButtonIcon
           onClick={() => {
             setIsShow(false);
-          }}>
+          }}
+        >
           <PiX />
         </ButtonIcon>
       </div>
@@ -50,7 +52,8 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
       <div
         className={`${
           isOpen ? '' : 'h-0 scale-y-0'
-        } origin-top transition-all duration-100`}>
+        } origin-top transition-all duration-100`}
+      >
         <div className="flex h-80 flex-col items-center justify-between bg-white px-10 pb-10 pt-4 lg:h-fit lg:flex-row lg:px-24">
           {useCases.map((usecase, idx) => (
             <React.Fragment key={idx}>
@@ -103,7 +106,8 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
             onClick={() => {
               setCurrentIndex(currentIndex - 1);
               navigateUseCase(currentIndex - 1);
-            }}>
+            }}
+          >
             <PiArrowFatLineLeftLight />
             <span className="text-sm">{t('common.previous')}</span>
           </ButtonIcon>
@@ -116,7 +120,8 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
             onClick={() => {
               setCurrentIndex(currentIndex + 1);
               navigateUseCase(currentIndex + 1);
-            }}>
+            }}
+          >
             <span className="text-sm">{t('common.next')}</span>
             <PiArrowFatLineRightLight />
           </ButtonIcon>

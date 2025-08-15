@@ -879,7 +879,8 @@ const GenerateImagePage: React.FC = () => {
         help={t('generateImage.help.init_image')}
         onClose={() => {
           setIsOpenSketch(false);
-        }}>
+        }}
+      >
         <SketchPad
           width={width}
           height={height}
@@ -897,7 +898,8 @@ const GenerateImagePage: React.FC = () => {
         help={t('generateImage.help.mask_image')}
         onClose={() => {
           setIsOpenMask(false);
-        }}>
+        }}
+      >
         <SketchPad
           width={width}
           height={height}
@@ -977,7 +979,8 @@ const GenerateImagePage: React.FC = () => {
               disabled={
                 !image[selectedImageIndex].base64 || !isImageVariationSupported
               }
-              onClick={generateImageVariant}>
+              onClick={generateImageVariant}
+            >
               <PiNotePencil></PiNotePencil>
             </Button>
           </div>
@@ -1046,7 +1049,8 @@ const GenerateImagePage: React.FC = () => {
                 />
                 <ButtonIcon
                   className="absolute -top-0.5 right-[8.2rem]"
-                  onClick={onClickRandomSeed}>
+                  onClick={onClickRandomSeed}
+                >
                   <PiDiceFive />
                 </ButtonIcon>
               </div>
@@ -1066,7 +1070,8 @@ const GenerateImagePage: React.FC = () => {
           <ExpandableField
             label={t('generateImage.detail_parameters')}
             overrideExpanded={detailExpanded}
-            setOverrideExpanded={setDetailExpanded}>
+            setOverrideExpanded={setDetailExpanded}
+          >
             <div className="grid grid-cols-2 gap-2 pt-4">
               <div className="col-span-2 flex flex-col items-stretch justify-start lg:col-span-1">
                 <Select
@@ -1098,7 +1103,8 @@ const GenerateImagePage: React.FC = () => {
                         className="m-auto mt-2 text-sm"
                         onClick={() => {
                           setIsOpenSketch(true);
-                        }}>
+                        }}
+                      >
                         <PiFileArrowUp className="mr-2" />
                         {t('generateImage.set')}
                       </Button>
@@ -1123,7 +1129,8 @@ const GenerateImagePage: React.FC = () => {
                         disabled={!!maskPrompt}
                         onClick={() => {
                           setIsOpenMask(true);
-                        }}>
+                        }}
+                      >
                         <PiFileArrowUp className="mr-2" />
                         {t('generateImage.set')}
                       </Button>
@@ -1201,7 +1208,8 @@ const GenerateImagePage: React.FC = () => {
                                 );
                                 setColorList(newColors);
                                 setColors(newColors.join(','));
-                              }}>
+                              }}
+                            >
                               <MdDeleteOutline />
                             </ButtonIcon>
                           </div>
@@ -1214,7 +1222,8 @@ const GenerateImagePage: React.FC = () => {
                             setColors(newColors.join(','));
                           }}
                           className="mt-2"
-                          disabled={colorList.length >= 5}>
+                          disabled={colorList.length >= 5}
+                        >
                           {t('generateImage.add_color')}
                         </Button>
                       </div>
@@ -1318,7 +1327,8 @@ const GenerateImagePage: React.FC = () => {
                 (generationMode ===
                   AMAZON_ADVANCED_GENERATION_MODE.COLOR_GUIDED_GENERATION &&
                   !colors)
-              }>
+              }
+            >
               {t('generateImage.generate')}
             </Button>
 
@@ -1328,7 +1338,8 @@ const GenerateImagePage: React.FC = () => {
               onClick={() => {
                 clearAll();
               }}
-              disabled={generating || loadingChat}>
+              disabled={generating || loadingChat}
+            >
               {t('generateImage.clear')}
             </Button>
           </div>

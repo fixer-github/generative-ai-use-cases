@@ -52,12 +52,14 @@ export const TextButtons = () => {
           key={item.name}
           onSelect={(editor) => {
             item.command(editor);
-          }}>
+          }}
+        >
           <Button
             size="sm"
             className="rounded-none"
             variant="ghost"
-            type="button">
+            type="button"
+          >
             <item.icon
               className={cn('h-4 w-4', {
                 'text-blue-500': item.isActive(editor),

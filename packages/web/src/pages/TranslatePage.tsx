@@ -328,7 +328,8 @@ const TranslatePage: React.FC = () => {
                         stopTranscription();
                         setAudioInput(false);
                       }}
-                      className="text-aws-smile h-5 w-5 cursor-pointer"></PiStopCircleBold>
+                      className="text-aws-smile h-5 w-5 cursor-pointer"
+                    ></PiStopCircleBold>
                   )}
                   {!audio && (
                     <PiMicrophoneBold
@@ -336,7 +337,8 @@ const TranslatePage: React.FC = () => {
                         startTranscription();
                         setAudioInput(true);
                       }}
-                      className="h-5 w-5 cursor-pointer"></PiMicrophoneBold>
+                      className="h-5 w-5 cursor-pointer"
+                    ></PiMicrophoneBold>
                   )}
                 </div>
               </div>
@@ -351,7 +353,8 @@ const TranslatePage: React.FC = () => {
 
               <ExpandableField
                 label={t('translate.additional_context')}
-                optional>
+                optional
+              >
                 <Textarea
                   placeholder={t('translate.additional_context_placeholder')}
                   value={additionalContext}
@@ -390,7 +393,8 @@ const TranslatePage: React.FC = () => {
                   </ButtonIcon>
                   <ButtonCopy
                     text={translatedSentence}
-                    interUseCasesKey="translatedSentence"></ButtonCopy>
+                    interUseCasesKey="translatedSentence"
+                  ></ButtonCopy>
                 </div>
               </div>
               <div className="mt-3 flex justify-end gap-3">

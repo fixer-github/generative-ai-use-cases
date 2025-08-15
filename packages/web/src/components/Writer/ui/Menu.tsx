@@ -44,7 +44,8 @@ export default function Menu() {
             className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm"
             onClick={() => {
               setTheme(theme.toLowerCase());
-            }}>
+            }}
+          >
             <div className="flex items-center space-x-2">
               <div className="rounded-sm border p-1">{icon}</div>
               <span>{label}</span>

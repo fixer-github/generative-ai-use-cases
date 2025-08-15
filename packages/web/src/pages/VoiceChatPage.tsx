@@ -104,7 +104,8 @@ const VoiceChatPage: React.FC = () => {
             <Alert
               title={t('voiceChat.experimental_warning_title')}
               severity="warning"
-              className="w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
+              className="w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
+            >
               {t('voiceChat.experimental_warning')}
             </Alert>
             <div className="relative flex h-full flex-col items-center justify-center">
@@ -170,7 +171,8 @@ const VoiceChatPage: React.FC = () => {
           {!isLoading && !isActive && (
             <ExpandableField
               label={t('chat.system_prompt')}
-              className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
+              className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
+            >
               <>
                 <div className="absolute -top-2 right-0 mb-2 flex justify-end">
                   <Button
@@ -181,7 +183,8 @@ const VoiceChatPage: React.FC = () => {
                         t('voiceChat.default_system_prompt')
                       );
                       setSystemPrompt(t('voiceChat.default_system_prompt'));
-                    }}>
+                    }}
+                  >
                     {t('chat.initialize')}
                   </Button>
                 </div>
@@ -214,7 +217,8 @@ const VoiceChatPage: React.FC = () => {
                 startSession(systemPrompt, model!);
               }}
               outlined={true}
-              disabled={isLoading}>
+              disabled={isLoading}
+            >
               {!isLoading ? (
                 <>
                   <PiMicrophoneBold className="mr-2 size-5" />{' '}
@@ -228,7 +232,8 @@ const VoiceChatPage: React.FC = () => {
             <Button
               className="h-12 w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
               onClick={closeSession}
-              disabled={isLoading}>
+              disabled={isLoading}
+            >
               {!isLoading ? (
                 <>
                   <PiStopCircleBold className="mr-2 size-5" />{' '}

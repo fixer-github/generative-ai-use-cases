@@ -32,7 +32,8 @@ const ExpandableField: React.FC<Props> = (props) => {
           if (props.setOverrideExpanded) {
             props.setOverrideExpanded(!expandState);
           }
-        }}>
+        }}
+      >
         <PiCaretRightFill
           className={`mr-1 ${expandState && 'rotate-90'} transition`}
         />

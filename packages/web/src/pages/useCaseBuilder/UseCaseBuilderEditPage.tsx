@@ -55,7 +55,8 @@ const ErrorMesage: React.FC<{
   return (
     <li
       className="text-aws-smile cursor-pointer text-xs font-bold leading-6 underline"
-      onClick={props.onClick}>
+      onClick={props.onClick}
+    >
       {t(props.message)}
     </li>
   );
@@ -577,7 +578,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                   className={`text-aws-smile border-aws-smile flex cursor-pointer flex-row border-b-2 px-2 py-2 text-sm font-bold lg:border-b-0 lg:border-r-2`}
                   onClick={() => {
                     setCurrentMenu(m);
-                  }}>
+                  }}
+                >
                   {m}
                   {dottedMenu.includes(m) && (
                     <div className="ml-0.5">
@@ -593,7 +595,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                   className={`hover:text-aws-smile flex cursor-pointer flex-row border-b-2 border-gray-200 px-2 py-2 text-sm text-gray-800 lg:border-b-0 lg:border-r-2`}
                   onClick={() => {
                     setCurrentMenu(m);
-                  }}>
+                  }}
+                >
                   {m}
                   {dottedMenu.includes(m) && (
                     <div className="ml-0.5">
@@ -612,7 +615,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
               <div className="absolute right-3 top-5">
                 <ButtonIcon
                   className="hover:text-aws-smile text-gray-600"
-                  onClick={handleImportClick}>
+                  onClick={handleImportClick}
+                >
                   <PiDownloadSimple className="text-lg" />
                 </ButtonIcon>
               </div>
@@ -682,7 +686,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                             className="absolute -right-1 -top-1 h-6 w-6"
                             onClick={() => {
                               removeInputExample(idx);
-                            }}>
+                            }}
+                          >
                             <PiX className="" />
                           </ButtonIcon>
                         </div>
@@ -730,7 +735,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                       title: '',
                       examples,
                     });
-                  }}>
+                  }}
+                >
                   <PiPlus className="pr-2 text-xl" />
                   {t('useCaseBuilder.addInputExample')}
                 </Button>
@@ -870,7 +876,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                   className="bg-red-600"
                   onClick={() => {
                     setIsOpenDeleteDialog(true);
-                  }}>
+                  }}
+                >
                   <PiTrash className="mr-2" />
                   {t('useCaseBuilder.delete')}
                 </Button>
@@ -881,13 +888,15 @@ const UseCaseBuilderEditPage: React.FC = () => {
         <div className="col-span-12 min-h-[calc(100vh-2rem)] lg:col-span-5 2xl:col-span-6">
           <Card
             label={`${isPreview ? t('useCaseBuilder.preview') : t('useCaseBuilder.helpTitle')}`}
-            className="relative">
+            className="relative"
+          >
             <div className="absolute right-3 top-3 flex rounded border text-xs font-bold">
               <div
                 className={`my-1 ml-1 flex cursor-pointer items-center rounded px-2 py-1 ${isPreview ? 'bg-gray-600 text-white' : 'text-gray-600'}`}
                 onClick={() => {
                   setIsPreview(true);
-                }}>
+                }}
+              >
                 <PiEye className="mr-1 text-base" />
                 {t('useCaseBuilder.preview')}
               </div>
@@ -895,7 +904,8 @@ const UseCaseBuilderEditPage: React.FC = () => {
                 className={`my-1 mr-1 flex cursor-pointer items-center rounded px-4 py-1.5 ${isPreview ? 'text-gray-600' : 'bg-gray-600 text-white'}`}
                 onClick={() => {
                   setIsPreview(false);
-                }}>
+                }}
+              >
                 <PiQuestion className="mr-1 text-base" />
                 {t('useCaseBuilder.helpTitle')}
               </div>

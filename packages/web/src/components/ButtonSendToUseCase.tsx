@@ -26,7 +26,8 @@ const UseCaseItem: React.FC<UseCaseItemProps> = (props) => {
         navigate(
           `${props.path}?${queryString.stringify({ [props.queryKey]: props.text })}`
         );
-      }}>
+      }}
+    >
       {props.title}
     </li>
   );
@@ -46,7 +47,8 @@ const ButtonSendToUseCase: React.FC<Props> = (props) => {
         className={`${props.className ?? ''}`}
         onClick={() => {
           setShowModal(true);
-        }}>
+        }}
+      >
         {<PiPaperPlaneRight />}
       </ButtonIcon>
 
@@ -55,13 +57,15 @@ const ButtonSendToUseCase: React.FC<Props> = (props) => {
           className="fixed left-0 top-0 z-20 h-screen w-screen bg-gray-900/90"
           onClick={() => {
             setShowModal(false);
-          }}>
+          }}
+        >
           <ModalDialog
             isOpen={showModal}
             title={t('common.selectUseCase')}
             onClose={() => {
               setShowModal(false);
-            }}>
+            }}
+          >
             <ul>
               <UseCaseItem
                 path="/chat"

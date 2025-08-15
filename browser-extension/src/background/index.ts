@@ -47,7 +47,9 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
       content: info.selectionText ?? '',
     } as MessagePayload);
 
-    const prompt = prompts.filter((p) => p.systemContextId === info.menuItemId)[0];
+    const prompt = prompts.filter(
+      (p) => p.systemContextId === info.menuItemId
+    )[0];
     if (prompt) {
       Browser.tabs.sendMessage(tab.id, {
         type: 'SYSTEM-CONTEXT',

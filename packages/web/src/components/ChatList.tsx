@@ -52,7 +52,8 @@ const ChatList: React.FC<Props> = (props) => {
       <div
         className={`${
           props.className ?? ''
-        } flex flex-col items-start gap-0.5 overflow-x-hidden`}>
+        } flex flex-col items-start gap-0.5 overflow-x-hidden`}
+      >
         {searchedChats.map((chat) => {
           const _chatId = decomposeId(chat.chatId);
           return (
@@ -73,7 +74,8 @@ const ChatList: React.FC<Props> = (props) => {
               className="hover:underline"
               onClick={() => {
                 loadMore();
-              }}>
+              }}
+            >
               {t('common.load_more')}
             </button>
           </div>
@@ -84,7 +86,8 @@ const ChatList: React.FC<Props> = (props) => {
             .map((_, idx) => (
               <div
                 key={idx}
-                className="bg-aws-sky/20 my-1 h-6 w-full animate-pulse rounded"></div>
+                className="bg-aws-sky/20 my-1 h-6 w-full animate-pulse rounded"
+              ></div>
             ))}
       </div>
     </>

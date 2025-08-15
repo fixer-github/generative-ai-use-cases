@@ -1,5 +1,8 @@
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
-import { InvokeWithResponseStreamCommand, LambdaClient } from '@aws-sdk/client-lambda';
+import {
+  InvokeWithResponseStreamCommand,
+  LambdaClient,
+} from '@aws-sdk/client-lambda';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { PredictRequest } from '../../../@types/chat';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -32,7 +35,7 @@ const usePredict = () => {
         new InvokeWithResponseStreamCommand({
           FunctionName: settings?.lambdaArn,
           Payload: JSON.stringify(req),
-        }),
+        })
       );
       const events = res.EventStream;
       if (!events) {

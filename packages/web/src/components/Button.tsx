@@ -23,7 +23,8 @@ const Button: React.FC<Props> = (props) => {
       }`}
       title={props.title}
       onClick={props.onClick}
-      disabled={props.disabled || props.loading}>
+      disabled={props.disabled || props.loading}
+    >
       {props.loading && <PiSpinnerGap className="mr-2 animate-spin" />}
       {props.children}
     </button>

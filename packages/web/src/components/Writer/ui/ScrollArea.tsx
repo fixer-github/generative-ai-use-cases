@@ -13,7 +13,8 @@ const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
         scrollbarWidth: 'thin',
         scrollbarColor: 'rgba(0, 0, 0, 0.3) transparent',
       }}
-      {...props}>
+      {...props}
+    >
       {children}
     </div>
   )

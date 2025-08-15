@@ -272,7 +272,8 @@ const VideoAnalyzerPage: React.FC = () => {
                   <>
                     <Button
                       onClick={stopRecording}
-                      className="mb-3 h-fit w-16 lg:ml-3">
+                      className="mb-3 h-fit w-16 lg:ml-3"
+                    >
                       {t('videoAnalyzer.stop')}
                     </Button>
                   </>
@@ -280,7 +281,8 @@ const VideoAnalyzerPage: React.FC = () => {
                   <>
                     <Button
                       onClick={startRecording}
-                      className="mb-3 h-fit w-16 lg:ml-3">
+                      className="mb-3 h-fit w-16 lg:ml-3"
+                    >
                       {t('videoAnalyzer.start')}
                     </Button>
                   </>
@@ -312,7 +314,8 @@ const VideoAnalyzerPage: React.FC = () => {
                   <Button
                     outlined
                     onClick={onClickClear}
-                    disabled={loading || sending || content.length === 0}>
+                    disabled={loading || sending || content.length === 0}
+                  >
                     {t('videoAnalyzer.clear')}
                   </Button>
                 </div>

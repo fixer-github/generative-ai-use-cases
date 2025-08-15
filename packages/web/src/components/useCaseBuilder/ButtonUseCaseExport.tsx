@@ -62,7 +62,8 @@ const ButtonUseCaseExport: React.FC<Props> = (props) => {
     <ButtonIcon
       className={props.className ?? ''}
       onClick={onClickExport}
-      disabled={isExporting}>
+      disabled={isExporting}
+    >
       <PiUploadSimple />
     </ButtonIcon>
   );

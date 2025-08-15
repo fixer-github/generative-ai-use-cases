@@ -114,7 +114,8 @@ const InputChatContent: React.FC<Props> = (props) => {
     <div
       className={`${
         props.fullWidth ? 'w-full' : 'w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6'
-      }`}>
+      }`}
+    >
       {props.description && (
         <p className="m-2 whitespace-pre-wrap text-xs text-gray-500">
           {props.description}
@@ -123,7 +124,8 @@ const InputChatContent: React.FC<Props> = (props) => {
       <div
         className={`relative flex items-end rounded-xl border border-black/10 bg-gray-100 shadow-[0_0_30px_1px] shadow-gray-400/40 ${
           props.disableMarginBottom ? '' : 'mb-7'
-        }`}>
+        }`}
+      >
         <div className="flex grow flex-col">
           {props.fileUpload && uploadedFiles.length > 0 && (
             <div className="m-2 flex flex-wrap gap-2">
@@ -207,7 +209,8 @@ const InputChatContent: React.FC<Props> = (props) => {
                   value={[]}
                 />
                 <div
-                  className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex items-center justify-center rounded-xl p-2 align-bottom text-xl text-white`}>
+                  className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex items-center justify-center rounded-xl p-2 align-bottom text-xl text-white`}
+                >
                   {uploading ? (
                     <PiSpinnerGap className="animate-spin" />
                   ) : (
@@ -240,7 +243,8 @@ const InputChatContent: React.FC<Props> = (props) => {
             className="absolute -top-14 right-0 p-2 text-sm"
             outlined
             disabled={loading}
-            onClick={props.onReset}>
+            onClick={props.onReset}
+          >
             <PiArrowsCounterClockwise className="mr-2" />
             {t('common.start_over')}
           </Button>

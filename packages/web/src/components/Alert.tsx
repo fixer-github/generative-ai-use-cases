@@ -37,7 +37,8 @@ const Alert: React.FC<Props> = (props) => {
     <div
       className={`${props.className ?? ''} flex border ${colors.border} ${
         colors.bg
-      }`}>
+      }`}
+    >
       <div>
         {props.severity === 'error' && (
           <PiXCircle className={`m-3 text-4xl ${colors.icon}`} />

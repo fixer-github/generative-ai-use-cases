@@ -144,7 +144,8 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                 complete(text, {
                   body: { option, command: inputValue },
                 }).then(() => setInputValue(''));
-              }}>
+              }}
+            >
               {inputMode === 'searchAgent' ? (
                 <PiMagnifyingGlass className="h-4 w-4" />
               ) : (

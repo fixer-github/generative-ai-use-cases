@@ -58,7 +58,8 @@ const CardSample: React.FC<CardSampleProps> = (props) => {
   return (
     <div
       className="flex cursor-pointer rounded-lg border-2 p-3 hover:bg-gray-100"
-      onClick={onClick}>
+      onClick={onClick}
+    >
       <div className="flex items-center">
         <div className={`${color} rounded-xl border p-2 text-3xl shadow-md`}>
           {props.icon}

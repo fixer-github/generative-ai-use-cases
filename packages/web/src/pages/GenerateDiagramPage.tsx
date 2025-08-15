@@ -461,7 +461,8 @@ const GenerateDiagramPage: React.FC = () => {
   }> = ({ option, isSelected, onClick }) => (
     <button
       onClick={() => onClick(option.id)}
-      className={`min-h-[155px] w-[calc(25%)] min-w-[110px] max-w-[130px] flex-col rounded-lg border px-1 hover:bg-blue-50 ${isSelected ? 'border-blue-600 bg-blue-100' : 'border-gray-500 bg-white'}`}>
+      className={`min-h-[155px] w-[calc(25%)] min-w-[110px] max-w-[130px] flex-col rounded-lg border px-1 hover:bg-blue-50 ${isSelected ? 'border-blue-600 bg-blue-100' : 'border-gray-500 bg-white'}`}
+    >
       <div className="text-2xl">
         {React.createElement(option.icon, {
           size: '1.5rem',
@@ -469,11 +470,13 @@ const GenerateDiagramPage: React.FC = () => {
         })}
       </div>
       <div
-        className={`my-3 text-xs font-bold ${isSelected ? 'text-black' : 'text-gray-500'}`}>
+        className={`my-3 text-xs font-bold ${isSelected ? 'text-black' : 'text-gray-500'}`}
+      >
         {option.title}
       </div>
       <div
-        className={`text-xs ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>
+        className={`text-xs ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}
+      >
         {option.description}
       </div>
     </button>
@@ -491,7 +494,8 @@ const GenerateDiagramPage: React.FC = () => {
         <div className="w-full lg:w-[45%]">
           <Card
             label={t('diagram.input_label')}
-            className="flex h-full flex-col">
+            className="flex h-full flex-col"
+          >
             <div className="overflow-y-auto pb-5 pl-1">
               <div className="mb-2">
                 <Select
@@ -563,7 +567,8 @@ const GenerateDiagramPage: React.FC = () => {
                       onClick={() =>
                         setContent(DiagramData[selectedType].example.content)
                       }
-                      outlined>
+                      outlined
+                    >
                       {DiagramData[selectedType].example.title}
                     </Button>
                   </div>
@@ -574,7 +579,8 @@ const GenerateDiagramPage: React.FC = () => {
                   <Button
                     outlined
                     onClick={onClickClear}
-                    disabled={disabledExec}>
+                    disabled={disabledExec}
+                  >
                     {t('diagram.clear')}
                   </Button>
                   <Button disabled={disabledExec} onClick={onClickExec}>
@@ -590,7 +596,8 @@ const GenerateDiagramPage: React.FC = () => {
         <div className="w-full lg:w-[55%]">
           <Card
             label={t('diagram.result')}
-            className="flex h-full flex-col px-3">
+            className="flex h-full flex-col px-3"
+          >
             <div className="min-h-0 flex-1 overflow-auto">
               {/* Display the generation status */}
               {loading && (

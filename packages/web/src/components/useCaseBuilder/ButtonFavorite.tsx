@@ -16,7 +16,8 @@ const ButtonFavorite: React.FC<Props> = (props) => {
       disabled={props.disabled}
       onClick={() => {
         props.onClick();
-      }}>
+      }}
+    >
       {props.isFavorite ? <PiStarFill /> : <PiStar />}
     </ButtonIcon>
   );

@@ -492,11 +492,13 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
       onDragOver={props.fileUpload ? handleDragOver : undefined}
       onDragLeave={props.fileUpload ? handleDragLeave : undefined}
       onPaste={props.fileUpload ? handlePaste : undefined}
-      className="relative">
+      className="relative"
+    >
       {isOver && props.fileUpload && (
         <div
           onDrop={handleDrop}
-          className="absolute inset-0 z-[999] bg-slate-300 p-10 text-center">
+          className="absolute inset-0 z-[999] bg-slate-300 p-10 text-center"
+        >
           <div className="flex h-full w-full items-center justify-center outline-dashed">
             <div className="font-bold">{t('chat.drop_files')}</div>
           </div>
@@ -505,7 +507,8 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
       <div className="mb-4 flex flex-col-reverse text-xl font-semibold md:flex-row">
         {!props.previewMode && <div className="flex-1" />}
         <div
-          className={`${props.previewMode ? '' : 'hidden lg:block'} flex flex-row justify-center`}>
+          className={`${props.previewMode ? '' : 'hidden lg:block'} flex flex-row justify-center`}
+        >
           {props.isLoading
             ? t('common.loading')
             : props.title
@@ -548,7 +551,8 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
         errorMessages.map((m, idx) => (
           <div
             key={idx}
-            className="text-aws-squid-ink mb-2 rounded bg-red-200 p-2 text-sm">
+            className="text-aws-squid-ink mb-2 rounded bg-red-200 p-2 text-sm"
+          >
             {m}
           </div>
         ))}
@@ -620,7 +624,8 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
                   ref={fileInput}
                 />
                 <div
-                  className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}>
+                  className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}
+                >
                   {uploading ? (
                     <PiSpinnerGap className="animate-spin" />
                   ) : (
@@ -698,7 +703,8 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
                       className="cursor-pointer rounded-full border px-4 py-1 text-sm text-gray-600 hover:bg-gray-100"
                       onClick={() => {
                         fillInputsFromExamples(inputExample.examples);
-                      }}>
+                      }}
+                    >
                       {inputExample.title
                         ? inputExample.title
                         : t('useCaseBuilder.untitled')}
@@ -719,7 +725,8 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
           <Button
             outlined
             onClick={onClickClear}
-            disabled={props.isLoading || loading}>
+            disabled={props.isLoading || loading}
+          >
             {t('common.clear')}
           </Button>
 

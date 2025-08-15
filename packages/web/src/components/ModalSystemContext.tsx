@@ -25,7 +25,8 @@ const ModalSystemContext: React.FC<Props> = (props) => {
         isOpen={props.showSystemContextModal}
         onClose={() => {
           props.setShowSystemContextModal(false);
-        }}>
+        }}
+      >
         <div className="py-2.5">{t('common.title')}</div>
 
         <Textarea
@@ -49,7 +50,8 @@ const ModalSystemContext: React.FC<Props> = (props) => {
           <Button
             outlined
             onClick={() => props.setShowSystemContextModal(false)}
-            className="p-2">
+            className="p-2"
+          >
             {t('common.cancel')}
           </Button>
           <Button
@@ -61,7 +63,8 @@ const ModalSystemContext: React.FC<Props> = (props) => {
             disabled={
               props.saveSystemContext === '' ||
               props.saveSystemContextTitle === ''
-            }>
+            }
+          >
             {t('common.create')}
           </Button>
         </div>

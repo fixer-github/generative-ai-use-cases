@@ -625,7 +625,10 @@ export const deleteShareId = async (_shareId: string): Promise<void> => {
   const share = await findShareId(
     // SAML authentication includes # in userId
     // Example: user#EntraID_hogehoge.com#EXT#@hogehoge.onmicrosoft.com
-    userIdAndChatId!.userId.split('#').slice(1).join('#'),
+    userIdAndChatId!.userId
+      .split('#')
+      .slice(1)
+      .join('#'),
     userIdAndChatId!.chatId.split('#')[1]
   );
 

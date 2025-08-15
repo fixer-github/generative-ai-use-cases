@@ -18,7 +18,8 @@ const PromptSample: React.FC<PromptSampleProps> = (props) => {
         className="flex cursor-pointer items-center justify-between bg-gray-400 px-2 py-1 text-sm text-white hover:opacity-80"
         onClick={() => {
           setIsOpen(!isOpen);
-        }}>
+        }}
+      >
         {t('useCaseBuilder.help.example')}: {props.title}
         <PiCaretUp className={`${isOpen ? 'rotate-180' : ''} transition-all`} />
       </div>

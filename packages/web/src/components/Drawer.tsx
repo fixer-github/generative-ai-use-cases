@@ -92,7 +92,8 @@ const Drawer: React.FC<Props> = (props) => {
                 onClick={() => {
                   setSettingVisibility(false);
                 }}
-                outlined>
+                outlined
+              >
                 {t('drawer.done')}
               </Button>
             </div>
@@ -104,7 +105,8 @@ const Drawer: React.FC<Props> = (props) => {
             <ExpandableMenu
               title={t('drawer.tools')}
               subTitle={`(${t('drawer.ai_services')})`}
-              className="mx-3 my-2 text-xs">
+              className="mx-3 my-2 text-xs"
+            >
               <div className="mb-2 ml-2 mr-1">
                 {tools.map((item, idx) => (
                   <DrawerItem

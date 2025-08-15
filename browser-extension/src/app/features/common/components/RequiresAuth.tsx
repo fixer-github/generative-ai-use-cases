@@ -67,7 +67,10 @@ const RequiresAuth: React.FC<Props> = (props) => {
       {!settings || loading ? (
         <div className="flex flex-col items-center">
           <div className="italic">Loading...</div>
-          <IconWrapper icon={PiCircleNotchBold} className="text-6xl animate-spin" />
+          <IconWrapper
+            icon={PiCircleNotchBold}
+            className="text-6xl animate-spin"
+          />
         </div>
       ) : (
         <>
@@ -78,7 +81,9 @@ const RequiresAuth: React.FC<Props> = (props) => {
               <Button onClick={() => signIn()}>ログイン画面へ</Button>
             </div>
           ) : (
-            <Authenticator hideSignUp={!settings.enabledSelfSignUp}>{props.children}</Authenticator>
+            <Authenticator hideSignUp={!settings.enabledSelfSignUp}>
+              {props.children}
+            </Authenticator>
           )}
         </>
       )}

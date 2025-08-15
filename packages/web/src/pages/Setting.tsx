@@ -27,7 +27,8 @@ const SettingItem = (props: {
 }) => {
   return (
     <div
-      className={`border-aws-squid-ink grid grid-cols-12 border-solid px-1 py-2 hover:bg-gray-200 ${props.top ? 'border-y' : 'border-b'}`}>
+      className={`border-aws-squid-ink grid grid-cols-12 border-solid px-1 py-2 hover:bg-gray-200 ${props.top ? 'border-y' : 'border-b'}`}
+    >
       <div className="col-span-4 flex items-center justify-start">
         {props.name}
         {props.helpMessage && <Help message={props.helpMessage} />}
@@ -105,7 +106,8 @@ const Setting = () => {
             <select
               value={i18n.resolvedLanguage}
               onChange={(e) => i18n.changeLanguage(e.target.value)}
-              className="rounded border border-gray-300 py-1 pr-8 focus:border-gray-300 focus:outline-none focus:ring-0">
+              className="rounded border border-gray-300 py-1 pr-8 focus:border-gray-300 focus:outline-none focus:ring-0"
+            >
               {Object.entries(supportedLngs).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}
@@ -125,7 +127,8 @@ const Setting = () => {
               label=""
               onSwitch={setSettingTypingAnimation}
             />
-          }></SettingItem>
+          }
+        ></SettingItem>
 
         <SettingItem
           name={t('setting.items.show_use_case_builder')}
@@ -135,7 +138,8 @@ const Setting = () => {
               label=""
               onSwitch={setSettingShowUseCaseBuilder}
             />
-          }></SettingItem>
+          }
+        ></SettingItem>
 
         <SettingItem
           name={t('setting.items.show_tools')}
@@ -145,7 +149,8 @@ const Setting = () => {
               label=""
               onSwitch={setSettingShowTools}
             />
-          }></SettingItem>
+          }
+        ></SettingItem>
 
         <SettingItem
           name={t('setting.items.show_email')}
@@ -155,13 +160,15 @@ const Setting = () => {
               label=""
               onSwitch={setSettingShowEmail}
             />
-          }></SettingItem>
+          }
+        ></SettingItem>
 
         <SettingItem
           name={t('setting.items.login_status')}
           value={
             <Button onClick={onClickSignout}>{t('setting.signout')}</Button>
-          }></SettingItem>
+          }
+        ></SettingItem>
 
         <SettingItem
           name={t('setting.items.stats')}
@@ -170,7 +177,8 @@ const Setting = () => {
               {t('setting.items.stats')}{' '}
               <PiArrowSquareOut className="text-base" />
             </Link>
-          }></SettingItem>
+          }
+        ></SettingItem>
       </div>
 
       <div className="mb-3 mt-9 flex justify-center font-semibold">
@@ -263,7 +271,8 @@ const Setting = () => {
           <a
             href="https://github.com/aws-samples/generative-ai-use-cases/pulls?q=is%3Apr+is%3Aclosed"
             className="flex items-center hover:underline"
-            target="_blank">
+            target="_blank"
+          >
             <PiArrowSquareOut className="mr-1 text-base" />
             {t('setting.view_all_updates')}
           </a>

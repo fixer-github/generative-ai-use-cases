@@ -80,7 +80,8 @@ const PromptList: React.FC<Props> = (props) => {
     return (
       <li
         className="my-2 cursor-pointer hover:underline"
-        onClick={onClickPrompt}>
+        onClick={onClickPrompt}
+      >
         {props.title}
       </li>
     );
@@ -152,13 +153,15 @@ const PromptList: React.FC<Props> = (props) => {
                 ).catch(() => {
                   setEditing(true);
                 });
-              }}>
+              }}
+            >
               <PiCheck />
             </ButtonIcon>
             <ButtonIcon
               onClick={() => {
                 setEditing(false);
-              }}>
+              }}
+            >
               <PiX />
             </ButtonIcon>
           </>
@@ -166,19 +169,22 @@ const PromptList: React.FC<Props> = (props) => {
           <>
             <div
               className="grow cursor-pointer truncate hover:underline"
-              onClick={onClickPrompt}>
+              onClick={onClickPrompt}
+            >
               {props.systemContextTitle}
             </div>
             <ButtonIcon
               onClick={() => {
                 setEditing(true);
-              }}>
+              }}
+            >
               <PiPencilLine />
             </ButtonIcon>
             <ButtonIcon
               onClick={() => {
                 onClickDeleteSystemContext(props.systemContextId);
-              }}>
+              }}
+            >
               <PiTrash />
             </ButtonIcon>
           </>
@@ -201,12 +207,14 @@ const PromptList: React.FC<Props> = (props) => {
       <div
         className={`fixed top-0 transition-all ${
           expanded ? 'right-0 z-50' : '-right-64 z-30'
-        } pointer-events-none flex h-full justify-center`}>
+        } pointer-events-none flex h-full justify-center`}
+      >
         <div
           className="bg-aws-smile pointer-events-auto mt-24 flex size-12 cursor-pointer items-center justify-center rounded-l-full transition-all lg:mt-16"
           onClick={() => {
             setExpanded(!expanded);
-          }}>
+          }}
+        >
           <PiBookOpenText className="text-aws-squid-ink size-6" />
         </div>
 
@@ -244,7 +252,8 @@ const PromptList: React.FC<Props> = (props) => {
                 className="my-2 ml-2"
                 defaultOpened={false}
                 icon={category.experimental && <PiFlask />}
-                key={`${i}`}>
+                key={`${i}`}
+              >
                 <ul className="pl-4">
                   {category.items.map((item, j) => {
                     return (

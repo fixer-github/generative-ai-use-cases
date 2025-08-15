@@ -7,7 +7,9 @@ const BASE_OUT_DIR = 'dist';
 const baseOutDir = path.resolve(BASE_OUT_DIR);
 
 if (!fs.existsSync(baseOutDir)) {
-  throw Error(`${BASE_OUT_DIR} dir does not exist. Please run base build first.`);
+  throw Error(
+    `${BASE_OUT_DIR} dir does not exist. Please run base build first.`
+  );
 }
 
 const outDir = `${path.dirname(path.basename(baseOutDir))}/${BASE_OUT_DIR}-firefox-v2`;
@@ -21,7 +23,7 @@ manifest.manifest_version = 2;
 
 fs.writeFileSync(
   `${outDir}/background.html`,
-  '<script type="module" src="./service-worker-loader.js"></script>',
+  '<script type="module" src="./service-worker-loader.js"></script>'
 );
 manifest.background = { page: 'background.html' };
 
@@ -29,7 +31,9 @@ manifest.browser_action = manifest.action;
 delete manifest.action;
 
 for (const permission of manifest.host_permissions) {
-  manifest.permissions.push(permission === '<all_urls>' ? '*://*/*' : permission);
+  manifest.permissions.push(
+    permission === '<all_urls>' ? '*://*/*' : permission
+  );
 }
 delete manifest.host_permissions;
 

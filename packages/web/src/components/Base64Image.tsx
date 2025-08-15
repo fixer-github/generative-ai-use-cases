@@ -49,7 +49,8 @@ const Base64Image: React.FC<Props> = (props) => {
       } flex items-center justify-center rounded border border-black/30 ${
         props.clickable ? 'cursor-pointer hover:brightness-50' : ''
       } relative`}
-      onClick={onClick}>
+      onClick={onClick}
+    >
       {props.error ? (
         <div className="flex w-full flex-col items-center">
           <PiFileX
@@ -79,7 +80,8 @@ const Base64Image: React.FC<Props> = (props) => {
           {props.downloadFileName && (
             <ButtonIcon
               className="absolute bottom-5 right-5 bg-white p-2"
-              onClick={download}>
+              onClick={download}
+            >
               <PiDownload />
             </ButtonIcon>
           )}

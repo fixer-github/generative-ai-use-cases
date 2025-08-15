@@ -23,7 +23,8 @@ const ButtonSend: React.FC<Props> = (props) => {
         props.disabled ? 'bg-gray-300' : 'bg-aws-smile'
       }`}
       onClick={props.onClick}
-      disabled={props.disabled}>
+      disabled={props.disabled}
+    >
       {props.loading ? (
         <>
           {props.canStop ? (

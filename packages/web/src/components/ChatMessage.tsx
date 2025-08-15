@@ -157,11 +157,13 @@ const ChatMessage: React.FC<Props> = (props) => {
         chatContent?.role === 'assistant' || chatContent?.role === 'system'
           ? 'bg-gray-100/70'
           : ''
-      }`}>
+      }`}
+    >
       <div
         className={`${
           props.className ?? ''
-        } flex w-full flex-col justify-between p-3 md:w-11/12 lg:w-5/6 xl:w-4/6`}>
+        } flex w-full flex-col justify-between p-3 md:w-11/12 lg:w-5/6 xl:w-4/6`}
+      >
         <div className="flex w-full">
           {chatContent?.role === 'user' && (
             <div className="bg-aws-sky h-min rounded p-2 text-xl text-white">
@@ -202,7 +204,8 @@ const ChatMessage: React.FC<Props> = (props) => {
                   chatContent?.traceInlineMessage && (
                     <Markdown
                       className="mt-2"
-                      prefix={`${props.idx}-last-trace`}>
+                      prefix={`${props.idx}-last-trace`}
+                    >
                       {chatContent.traceInlineMessage}
                     </Markdown>
                   )}
@@ -303,7 +306,8 @@ const ChatMessage: React.FC<Props> = (props) => {
               onClick={() => {
                 props.setSaveSystemContext?.(chatContent?.content || '');
                 props.setShowSystemContextModal?.(true);
-              }}>
+              }}
+            >
               <PiFloppyDisk />
             </ButtonIcon>
           )}
@@ -314,7 +318,8 @@ const ChatMessage: React.FC<Props> = (props) => {
                   <ButtonIcon
                     onClick={() => {
                       setEditing(false);
-                    }}>
+                    }}
+                  >
                     <PiX className="text-red-500" />
                   </ButtonIcon>
                   <ButtonIcon
@@ -323,7 +328,8 @@ const ChatMessage: React.FC<Props> = (props) => {
                         setEditing(false);
                         props.onCommitEdit(editingPrompt);
                       }
-                    }}>
+                    }}
+                  >
                     <PiCheck className="text-green-500" />
                   </ButtonIcon>
                 </>
@@ -332,7 +338,8 @@ const ChatMessage: React.FC<Props> = (props) => {
                   onClick={() => {
                     setEditingPrompt(chatContent?.content ?? '');
                     setEditing(true);
-                  }}>
+                  }}
+                >
                   <PiNotePencil className="text-gray-400" />
                 </ButtonIcon>
               )}
@@ -345,7 +352,8 @@ const ChatMessage: React.FC<Props> = (props) => {
                 {props.allowRetry && (
                   <ButtonIcon
                     className="mr-0.5 text-gray-400"
-                    onClick={() => props.retryGeneration?.()}>
+                    onClick={() => props.retryGeneration?.()}
+                  >
                     <PiArrowClockwise />
                   </ButtonIcon>
                 )}

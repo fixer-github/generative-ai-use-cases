@@ -38,7 +38,8 @@ const ZoomUpVideo: React.FC<Props> = (props) => {
         {props.onDelete && !props.loading && (
           <ButtonIcon
             className={`invisible absolute right-0 top-0 m-0.5 border bg-white text-xs group-hover:visible`}
-            onClick={props.onDelete}>
+            onClick={props.onDelete}
+          >
             <PiX />
           </ButtonIcon>
         )}
@@ -57,7 +58,8 @@ const ZoomUpVideo: React.FC<Props> = (props) => {
           className="fixed left-1/2 top-1/2 z-[110] -translate-x-1/2 -translate-y-1/2"
           onClick={() => {
             setZoom(false);
-          }}>
+          }}
+        >
           <video src={props.src} controls className="max-h-[90vh]" />
         </div>
       )}

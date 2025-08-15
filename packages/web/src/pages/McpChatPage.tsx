@@ -189,7 +189,8 @@ const McpChatPage: React.FC = () => {
         {isEmpty && (
           <ExpandableField
             label={t('chat.system_prompt')}
-            className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
+            className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
+          >
             <>
               <div className="absolute -top-2 right-0 mb-2 flex justify-end">
                 <Button
@@ -198,7 +199,8 @@ const McpChatPage: React.FC = () => {
                   onClick={() => {
                     clear();
                     setInputSystemContext(currentSystemContext);
-                  }}>
+                  }}
+                >
                   {t('chat.initialize')}
                 </Button>
               </div>

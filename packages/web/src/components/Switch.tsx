@@ -22,7 +22,8 @@ const Switch: React.FC<Props> = (props) => {
         />
         <div className="peer-checked:bg-aws-smile peer relative h-6 w-11 min-w-11 rounded-full bg-gray-200 transition-colors">
           <span
-            className={`absolute inset-y-[2px] left-[2px] size-5 rounded-full border border-gray-300 bg-white transition-all ${props.checked ? 'translate-x-5 border-white' : ''}`}></span>
+            className={`absolute inset-y-[2px] left-[2px] size-5 rounded-full border border-gray-300 bg-white transition-all ${props.checked ? 'translate-x-5 border-white' : ''}`}
+          ></span>
         </div>
         <span className="ml-1 break-words text-xs font-medium">
           {props.label}

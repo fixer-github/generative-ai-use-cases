@@ -12,8 +12,11 @@ const usePrompt = () => {
       if (value[PROMPT_KEY]) {
         setPrompts(
           (value[PROMPT_KEY] as PromptSetting[]).filter(
-            (val) => !!val?.systemContextId && !!val?.systemContext && !!val?.systemContextTitle,
-          ),
+            (val) =>
+              !!val?.systemContextId &&
+              !!val?.systemContext &&
+              !!val?.systemContextTitle
+          )
         );
       } else {
         setPrompts([...presetPrompts]);

@@ -46,13 +46,15 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
         <Button
           size="sm"
           variant="ghost"
-          className="gap-2 rounded-none border-none">
+          className="gap-2 rounded-none border-none"
+        >
           {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
           <p className="text-base">↗</p>
           <p
             className={cn('underline decoration-stone-400 underline-offset-4', {
               'text-blue-500': editor.isActive('link'),
-            })}>
+            })}
+          >
             {t('writer.link')}
           </p>
         </Button>
@@ -69,7 +71,8 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
               onOpenChange(false);
             }
           }}
-          className="flex p-1">
+          className="flex p-1"
+        >
           <input
             ref={inputRef}
             type="text"
@@ -89,7 +92,8 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
                   inputRef.current.value = '';
                 }
                 onOpenChange(false);
-              }}>
+              }}
+            >
               <PiTrash className="h-4 w-4" />
             </Button>
           ) : (

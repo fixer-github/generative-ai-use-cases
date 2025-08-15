@@ -30,16 +30,20 @@ export const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    setMessages: (state, action: PayloadAction<TabId & { messages: Message[] }>) => {
+    setMessages: (
+      state,
+      action: PayloadAction<TabId & { messages: Message[] }>
+    ) => {
       setInitialStateIfNeeded(state, action.payload.tabId);
       state[action.payload.tabId].messages = action.payload.messages;
     },
     updateMessageContent: (
       state,
-      action: PayloadAction<TabId & { index: number; content: string }>,
+      action: PayloadAction<TabId & { index: number; content: string }>
     ) => {
       setInitialStateIfNeeded(state, action.payload.tabId);
-      state[action.payload.tabId].messages[action.payload.index].content = action.payload.content;
+      state[action.payload.tabId].messages[action.payload.index].content =
+        action.payload.content;
     },
     clearMessages: (state, action: PayloadAction<TabId>) => {
       setInitialStateIfNeeded(state, action.payload.tabId);
@@ -48,7 +52,8 @@ export const chatSlice = createSlice({
   },
 });
 
-export const { setMessages, updateMessageContent, clearMessages } = chatSlice.actions;
+export const { setMessages, updateMessageContent, clearMessages } =
+  chatSlice.actions;
 
 export const chatMessages = (state: RootState, tabId: number) => {
   setInitialStateIfNeeded(state.chat, tabId);
@@ -63,7 +68,7 @@ export const replaceMessages =
       setMessages({
         tabId,
         messages,
-      }),
+      })
     );
   };
 
@@ -78,7 +83,7 @@ export const pushMessages =
         messages: produce(currentMessages, (draft) => {
           draft.push(...messages);
         }),
-      }),
+      })
     );
   };
 
@@ -95,7 +100,7 @@ export const overwriteLatestMessage =
         tabId,
         index: currentMessages.length - 1,
         content: content.replace(/<([^>]+)>([\s\S]*?)<\/\1>/, '$2'),
-      }),
+      })
     );
   };
 

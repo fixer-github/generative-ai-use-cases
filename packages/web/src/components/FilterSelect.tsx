@@ -211,7 +211,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
           isDisabled
             ? 'bg-gray-200'
             : 'focus:ring-aws-smile/20 focus:border-aws-smile bg-white hover:border-gray-400 focus:ring'
-        }`}>
+        }`}
+      >
         <div className="flex grow flex-wrap gap-1 py-2 pl-2.5 pr-2">
           {!isMultiple ? (
             <p className="cursor-default select-none truncate">
@@ -227,7 +228,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
                 value.map((item, index) => (
                   <div
                     className={`flex space-x-1 rounded-sm border bg-gray-200 ${isDisabled ? 'border-gray-500 px-1' : 'pl-1'}`}
-                    key={index}>
+                    key={index}
+                  >
                     <p className="cursor-default select-none truncate text-gray-600">
                       {item.label}
                     </p>
@@ -236,7 +238,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
                         role="button"
                         tabIndex={0}
                         onClick={(e) => removeItem(e, item)}
-                        className="flex cursor-pointer items-center rounded-r-sm px-1 hover:bg-red-200 hover:text-red-600">
+                        className="flex cursor-pointer items-center rounded-r-sm px-1 hover:bg-red-200 hover:text-red-600"
+                      >
                         <PiX className="mt-0.5 h-3 w-3" />
                       </div>
                     )}
@@ -271,7 +274,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
               {allowOther && (
                 <div
                   className="hover:text-aws-smile absolute right-4 top-3.5 cursor-pointer text-gray-500"
-                  onClick={handleAddOther}>
+                  onClick={handleAddOther}
+                >
                   <PiPlusCircle className="h-5 w-5" />
                 </div>
               )}
@@ -301,7 +305,8 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
                         item.isSelected
                           ? 'bg-gray-500 text-white'
                           : 'text-gray-500 hover:bg-gray-100 hover:text-gray-500'
-                      }`}>
+                      }`}
+                    >
                       {item.label}
                     </li>
                   )}

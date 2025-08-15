@@ -202,7 +202,8 @@ const SummarizePage: React.FC = () => {
             <div className="flex w-full justify-end">
               <ButtonCopy
                 text={summarizedSentence}
-                interUseCasesKey="summarizedSentence"></ButtonCopy>
+                interUseCasesKey="summarizedSentence"
+              ></ButtonCopy>
             </div>
           </div>
         </Card>

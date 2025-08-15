@@ -51,7 +51,8 @@ const FeedbackForm: React.FC<Props> = ({ onSubmit, onCancel }) => {
               selectedReasons.includes(reason)
                 ? 'border-blue-500 bg-blue-100 text-blue-700'
                 : 'border-gray-300 bg-white text-gray-700'
-            }`}>
+            }`}
+          >
             {reason}
           </button>
         ))}

@@ -671,7 +671,8 @@ const MeetingMinutesPage: React.FC = () => {
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
-                    onClick={() => setInputMethod('microphone')}>
+                    onClick={() => setInputMethod('microphone')}
+                  >
                     <PiMicrophoneBold className="mr-2 h-4 w-4" />
                     {t('transcribe.mic_input')}
                   </button>
@@ -681,7 +682,8 @@ const MeetingMinutesPage: React.FC = () => {
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
-                    onClick={() => setInputMethod('direct')}>
+                    onClick={() => setInputMethod('direct')}
+                  >
                     <PiPencilLine className="mr-2 h-4 w-4" />
                     {t('transcribe.direct_input')}
                   </button>
@@ -691,7 +693,8 @@ const MeetingMinutesPage: React.FC = () => {
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
-                    onClick={() => setInputMethod('file')}>
+                    onClick={() => setInputMethod('file')}
+                  >
                     <PiPaperclip className="mr-2 h-4 w-4" />
                     {t('transcribe.file_upload')}
                   </button>
@@ -709,7 +712,8 @@ const MeetingMinutesPage: React.FC = () => {
                               stopMicTranscription();
                               stopScreenTranscription();
                             }}
-                            disabled={disabledMicExec}>
+                            disabled={disabledMicExec}
+                          >
                             <PiStopCircleBold className="mr-2 h-5 w-5" />
                             {t('transcribe.stop_recording')}
                           </Button>
@@ -722,7 +726,8 @@ const MeetingMinutesPage: React.FC = () => {
                                 onClickExecStartTranscription();
                               }
                             }}
-                            outlined={true}>
+                            outlined={true}
+                          >
                             <PiMicrophoneBold className="mr-2 h-5 w-5" />
                             {t('transcribe.start_recording')}
                           </Button>
@@ -757,10 +762,12 @@ const MeetingMinutesPage: React.FC = () => {
                         id="file_input"
                         type="file"
                         accept=".mp3, .mp4, .wav, .flac, .ogg, .amr, .webm, .m4a"
-                        ref={ref}></input>
+                        ref={ref}
+                      ></input>
                       <p
                         className="ml-0.5 mt-1 text-xs text-gray-500"
-                        id="file_input_help">
+                        id="file_input_help"
+                      >
                         {t('transcribe.supported_files')}
                       </p>
                     </div>
@@ -794,7 +801,8 @@ const MeetingMinutesPage: React.FC = () => {
                   <ExpandableField
                     label={t('transcribe.detailed_parameters')}
                     className="mb-4"
-                    notItem={true}>
+                    notItem={true}
+                  >
                     <div className="grid grid-cols-2 gap-2 pt-2">
                       <Switch
                         label={t('transcribe.speaker_recognition')}
@@ -838,7 +846,8 @@ const MeetingMinutesPage: React.FC = () => {
                   <Button
                     outlined
                     disabled={disableClearExec}
-                    onClick={onClickClear}>
+                    onClick={onClickClear}
+                  >
                     {t('common.clear')}
                   </Button>
                   {inputMethod === 'file' && (
@@ -983,7 +992,8 @@ const MeetingMinutesPage: React.FC = () => {
                       minutesLoading ||
                       (minutesStyle === 'custom' &&
                         (!customPrompt || customPrompt.trim() === ''))
-                    }>
+                    }
+                  >
                     {t('meetingMinutes.generate')}
                   </Button>
                 </div>
@@ -1003,7 +1013,8 @@ const MeetingMinutesPage: React.FC = () => {
                   <div className="flex">
                     <ButtonCopy
                       text={currentTranscriptText}
-                      interUseCasesKey="transcript"></ButtonCopy>
+                      interUseCasesKey="transcript"
+                    ></ButtonCopy>
                     <ButtonSendToUseCase text={currentTranscriptText} />
                   </div>
                 )}
@@ -1067,7 +1078,8 @@ const MeetingMinutesPage: React.FC = () => {
                           `/writer?${queryString.stringify({ sentence: generatedMinutes })}`
                         );
                       }}
-                      title={t('navigation.writing')}>
+                      title={t('navigation.writing')}
+                    >
                       <PiPencilLine />
                     </ButtonIcon>
                   </div>

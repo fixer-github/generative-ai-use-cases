@@ -13,11 +13,13 @@ const Popup = () => {
       <div className="">
         <Button
           onClick={() => {
-            Browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-              Browser.tabs.sendMessage(tab.id ?? 0, {
-                type: 'CHAT-OPEN',
-              } as MessagePayload);
-            });
+            Browser.tabs
+              .query({ active: true, currentWindow: true })
+              .then(([tab]) => {
+                Browser.tabs.sendMessage(tab.id ?? 0, {
+                  type: 'CHAT-OPEN',
+                } as MessagePayload);
+              });
           }}
         >
           拡張機能を開く

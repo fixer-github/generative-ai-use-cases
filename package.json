@@ -48,8 +48,6 @@
       "allowedVersions": {},
       "ignoreMissing": []
     },
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
+    "onlyBuiltDependencies": ["esbuild"]
   }
 }

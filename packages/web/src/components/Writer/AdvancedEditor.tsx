@@ -74,7 +74,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
         return (
           <span
             key={i}
-            className="bg-red-100 text-red-600 line-through dark:bg-red-950/30 dark:text-red-400">
+            className="bg-red-100 text-red-600 line-through dark:bg-red-950/30 dark:text-red-400"
+          >
             {text}
           </span>
         );
@@ -83,7 +84,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
         return (
           <span
             key={i}
-            className="bg-green-100 text-green-600 dark:bg-green-950/30 dark:text-green-400">
+            className="bg-green-100 text-green-600 dark:bg-green-950/30 dark:text-green-400"
+          >
             {text}
           </span>
         );
@@ -305,7 +307,8 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
             <Button
               onClick={handleExecClick}
               disabled={loading}
-              className="flex items-center gap-2">
+              className="flex items-center gap-2"
+            >
               {loading ? (
                 <PiSpinner className="h-4 w-4 animate-spin" />
               ) : (
@@ -342,7 +345,8 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
                 debouncedUpdates(editor);
                 setSaveStatus(true);
               }}
-              slotAfter={<ImageResizer />}>
+              slotAfter={<ImageResizer />}
+            >
               <EditorCommand className="border-muted bg-background z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border px-1 py-2 shadow-md transition-all">
                 <EditorCommandEmpty className="text-muted-foreground px-2">
                   {t('writer.no_results')}
@@ -353,7 +357,8 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
                       value={item.title}
                       onCommand={(val) => item.command?.(val)}
                       className="hover:bg-accent aria-selected:bg-accent flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm"
-                      key={item.title}>
+                      key={item.title}
+                    >
                       <div className="border-muted bg-background flex h-10 w-10 items-center justify-center rounded-md border">
                         {item.icon}
                       </div>
@@ -435,7 +440,8 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
                     )}
                     <div
                       ref={(el) => (commentRefs.current[idx] = el)}
-                      className="pb-2">
+                      className="pb-2"
+                    >
                       <CommentItem
                         comment={comment}
                         onReplace={() => {

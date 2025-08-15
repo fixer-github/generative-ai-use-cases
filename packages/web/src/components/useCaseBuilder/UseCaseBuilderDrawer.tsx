@@ -62,7 +62,8 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
 
       <ExpandableMenu
         title={t('useCaseBuilder.favorites')}
-        className="mx-3 my-2 text-xs">
+        className="mx-3 my-2 text-xs"
+      >
         <div className="scrollbar-thin scrollbar-thumb-white ml-2 mr-1 h-full overflow-y-auto">
           <div>
             <CustomUseCaseDrawerItems useCases={favoriteUseCases} />
@@ -72,13 +73,15 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
                 .map((_, idx) => (
                   <div
                     key={idx}
-                    className="bg-aws-sky/20 my-0.5 h-8 w-full animate-pulse rounded"></div>
+                    className="bg-aws-sky/20 my-0.5 h-8 w-full animate-pulse rounded"
+                  ></div>
                 ))}
             {canLoadMoreFavoriteUseCases && !isLoadingFavoriteUseCases && (
               <div className="my-2 flex w-full justify-center">
                 <button
                   className="text-sm hover:underline"
-                  onClick={loadMoreFavoriteUseCases}>
+                  onClick={loadMoreFavoriteUseCases}
+                >
                   {t('useCaseBuilder.loadMore')}
                 </button>
               </div>
@@ -90,7 +93,8 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
 
       <ExpandableMenu
         title={t('useCaseBuilder.recentlyUsed')}
-        className="mx-3 my-2 text-xs">
+        className="mx-3 my-2 text-xs"
+      >
         <div className="scrollbar-thin scrollbar-thumb-white ml-2 mr-1 h-full overflow-y-auto">
           <div>
             <CustomUseCaseDrawerItems useCases={recentlyUsedUseCases} />
@@ -100,14 +104,16 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
                 .map((_, idx) => (
                   <div
                     key={idx}
-                    className="bg-aws-sky/20 my-0.5 h-8 w-full animate-pulse rounded"></div>
+                    className="bg-aws-sky/20 my-0.5 h-8 w-full animate-pulse rounded"
+                  ></div>
                 ))}
             {canLoadMoreRecentlyUsedUseCases &&
               !isLoadingRecentlyUsedUseCases && (
                 <div className="my-2 flex w-full justify-center">
                   <button
                     className="text-sm hover:underline"
-                    onClick={loadMoreRecentlyUsedUseCases}>
+                    onClick={loadMoreRecentlyUsedUseCases}
+                  >
                     {t('useCaseBuilder.loadMore')}
                   </button>
                 </div>

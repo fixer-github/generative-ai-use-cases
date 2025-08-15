@@ -46,7 +46,8 @@ const ButtonCopy: React.FC<Props> = (props) => {
       disabled={props.disabled}
       onClick={() => {
         copyMessage(props.text, props.html);
-      }}>
+      }}
+    >
       {showsCheck ? <PiCheck /> : <PiClipboard />}
     </ButtonIcon>
   );

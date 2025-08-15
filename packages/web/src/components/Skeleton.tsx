@@ -6,7 +6,8 @@ type Props = BaseProps;
 const Skeleton: React.FC<Props> = (props) => {
   return (
     <div
-      className={`${props.className ?? ''} h-12 w-full animate-pulse bg-gray-200`}></div>
+      className={`${props.className ?? ''} h-12 w-full animate-pulse bg-gray-200`}
+    ></div>
   );
 };
 

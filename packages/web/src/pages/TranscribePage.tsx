@@ -180,7 +180,8 @@ const TranscribePage: React.FC = () => {
                   <Button
                     className="h-10 w-full"
                     onClick={stopTranscription}
-                    disabled={disabledMicExec}>
+                    disabled={disabledMicExec}
+                  >
                     <PiStopCircleBold className="mr-2 h-5 w-5" />
                     {t('transcribe.stop_recording')}
                   </Button>
@@ -193,7 +194,8 @@ const TranscribePage: React.FC = () => {
                         onClickExecStartTranscription();
                       }
                     }}
-                    outlined={true}>
+                    outlined={true}
+                  >
                     <PiMicrophoneBold className="mr-2 h-5 w-5" />
                     {t('transcribe.start_recording')}
                   </Button>
@@ -211,10 +213,12 @@ const TranscribePage: React.FC = () => {
                 id="file_input"
                 type="file"
                 accept=".mp3, .mp4, .wav, .flac, .ogg, .amr, .webm, .m4a"
-                ref={ref}></input>
+                ref={ref}
+              ></input>
               <p
                 className="ml-0.5 mt-1 text-xs text-gray-500"
-                id="file_input_help">
+                id="file_input_help"
+              >
                 {t('transcribe.supported_files')}
               </p>
             </div>
@@ -222,7 +226,8 @@ const TranscribePage: React.FC = () => {
           <ExpandableField
             label={t('transcribe.detailed_parameters')}
             className="p-2"
-            notItem={true}>
+            notItem={true}
+          >
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Switch
                 label={t('transcribe.speaker_recognition')}
@@ -291,7 +296,8 @@ const TranscribePage: React.FC = () => {
                 <>
                   <ButtonCopy
                     text={formattedOutput}
-                    interUseCasesKey="transcript"></ButtonCopy>
+                    interUseCasesKey="transcript"
+                  ></ButtonCopy>
                   <ButtonSendToUseCase text={formattedOutput} />
                 </>
               )}

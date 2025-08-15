@@ -218,7 +218,8 @@ const WebContent: React.FC = () => {
             title={t('common.error')}
             onDissmiss={() => {
               setShowError(false);
-            }}>
+            }}
+          >
             {t('webcontent.error_message')}
           </Alert>
         )}
@@ -285,7 +286,8 @@ const WebContent: React.FC = () => {
             <div className="flex w-full justify-end">
               <ButtonCopy
                 text={content}
-                interUseCasesKey="content"></ButtonCopy>
+                interUseCasesKey="content"
+              ></ButtonCopy>
             </div>
           </div>
 
@@ -297,7 +299,8 @@ const WebContent: React.FC = () => {
                   ? t('webcontent.not_fetched')
                   : t('webcontent.fetched'),
             })}
-            className="mt-2">
+            className="mt-2"
+          >
             <div className="rounded border border-black/30 p-1.5">
               {text === '' && (
                 <div className="text-gray-500">

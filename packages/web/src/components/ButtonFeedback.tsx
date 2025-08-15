@@ -49,7 +49,8 @@ const ButtonFeedback: React.FC<Props> = (props) => {
     <ButtonIcon
       className={`${props.className} ${color}`}
       disabled={props.disabled}
-      onClick={props.onClick}>
+      onClick={props.onClick}
+    >
       {icon}
     </ButtonIcon>
   );

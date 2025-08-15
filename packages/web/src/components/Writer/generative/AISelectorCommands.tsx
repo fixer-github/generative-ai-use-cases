@@ -74,7 +74,8 @@ const AISelectorCommands = ({ onSelect }: AISelectorCommandsProps) => {
             }}
             className="flex gap-2 px-4"
             key={option.value}
-            value={option.value}>
+            value={option.value}
+          >
             <option.icon className="h-4 w-4 text-purple-500" />
             {option.label}
           </CommandItem>
@@ -96,7 +97,8 @@ const AISelectorCommands = ({ onSelect }: AISelectorCommandsProps) => {
                 }}
                 className="flex gap-2 px-4"
                 key={option.value}
-                value={option.value}>
+                value={option.value}
+              >
                 <option.icon className="h-4 w-4 text-purple-500" />
                 {option.label}
               </CommandItem>
@@ -114,7 +116,8 @@ const AISelectorCommands = ({ onSelect }: AISelectorCommandsProps) => {
             onSelect(text, 'continue');
           }}
           value="continue"
-          className="gap-2 px-4">
+          className="gap-2 px-4"
+        >
           <PiSkipForward className="h-4 w-4 text-purple-500" />
           {t('writer.ai.options.continue')}
         </CommandItem>

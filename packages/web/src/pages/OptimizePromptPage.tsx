@@ -149,7 +149,8 @@ const OptimizePromptPage: React.FC = () => {
                 <div className="flex w-full justify-end">
                   <ButtonCopy
                     text={optimizedPrompt}
-                    interUseCasesKey="optimizePrompt"></ButtonCopy>
+                    interUseCasesKey="optimizePrompt"
+                  ></ButtonCopy>
                 </div>
               </div>
 

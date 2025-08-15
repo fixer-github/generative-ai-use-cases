@@ -427,7 +427,8 @@ const ChatPage: React.FC = () => {
     <>
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className={`${!isEmpty ? 'screen:pb-36' : ''} relative`}>
+        className={`${!isEmpty ? 'screen:pb-36' : ''} relative`}
+      >
         <div className="invisible my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
           {title}
         </div>
@@ -436,7 +437,8 @@ const ChatPage: React.FC = () => {
           <div
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className="fixed bottom-0 left-0 right-0 top-0 z-[999] bg-slate-300 p-10 text-center">
+            className="fixed bottom-0 left-0 right-0 top-0 z-[999] bg-slate-300 p-10 text-center"
+          >
             <div className="flex h-full w-full items-center justify-center outline-dashed">
               <div className="font-bold">{t('chat.drop_files')}</div>
             </div>
@@ -467,7 +469,8 @@ const ChatPage: React.FC = () => {
                 outlined
                 onClick={() => {
                   setForceExpandPromptList(Math.random());
-                }}>
+                }}
+              >
                 {t('chat.view_prompt_examples')}
               </Button>
             )}
@@ -482,7 +485,8 @@ const ChatPage: React.FC = () => {
                   className="mb-1 flex items-center justify-center text-xs hover:underline"
                   onClick={() => {
                     setShowShareIdModal(true);
-                  }}>
+                  }}
+                >
                   <PiShareFatFill className="mr-1" />
                   {share ? <>{t('chat.sharing')}</> : <>{t('chat.share')}</>}
                 </button>
@@ -530,7 +534,8 @@ const ChatPage: React.FC = () => {
           {isEmpty && !loadingMessages && !chatId && (
             <ExpandableField
               label={t('chat.system_prompt')}
-              className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
+              className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
+            >
               <>
                 <div className="absolute -top-2 right-0 mb-2 flex justify-end">
                   <Button
@@ -539,7 +544,8 @@ const ChatPage: React.FC = () => {
                     onClick={() => {
                       clear();
                       setInputSystemContext(currentSystemContext);
-                    }}>
+                    }}
+                  >
                     {t('chat.initialize')}
                   </Button>
                   <Button
@@ -548,7 +554,8 @@ const ChatPage: React.FC = () => {
                     onClick={() => {
                       setSaveSystemContext(inputSystemContext);
                       setShowSystemContextModal(true);
-                    }}>
+                    }}
+                  >
                     {t('chat.save')}
                   </Button>
                 </div>
@@ -619,7 +626,8 @@ const ChatPage: React.FC = () => {
         title={t('chat.share_conversation')}
         onClose={() => {
           setShowShareIdModal(false);
-        }}>
+        }}
+      >
         <div className="py-3 text-xs text-gray-600">
           {share ? (
             <>{t('chat.delete_link_message')}</>
@@ -642,13 +650,15 @@ const ChatPage: React.FC = () => {
                 }}
                 outlined
                 className="mr-1"
-                loading={deletingShareId}>
+                loading={deletingShareId}
+              >
                 {t('chat.open_link')}
               </Button>
               <Button
                 onClick={onDeleteShareId}
                 loading={deletingShareId}
-                className="bg-red-500">
+                className="bg-red-500"
+              >
                 {t('chat.delete_link')}
               </Button>
             </div>
@@ -664,12 +674,14 @@ const ChatPage: React.FC = () => {
         onClose={() => {
           setShowSetting(false);
         }}
-        title={t('chat.advanced_options')}>
+        title={t('chat.advanced_options')}
+      >
         {setting && (
           <ExpandableField
             label={t('chat.model_parameters')}
             className="relative w-full"
-            defaultOpened={true}>
+            defaultOpened={true}
+          >
             <div className="">
               <ModelParameters
                 modelFeatureFlags={MODELS.modelMetadata[modelId].flags}
@@ -683,7 +695,8 @@ const ChatPage: React.FC = () => {
           <Button
             onClick={() => {
               setShowSetting(false);
-            }}>
+            }}
+          >
             {t('chat.settings')}
           </Button>
         </div>

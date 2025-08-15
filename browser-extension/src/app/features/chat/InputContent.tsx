@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PiArrowsCounterClockwise, PiPaperPlaneRightFill, PiSpinner } from 'react-icons/pi';
+import {
+  PiArrowsCounterClockwise,
+  PiPaperPlaneRightFill,
+  PiSpinner,
+} from 'react-icons/pi';
 import { BaseProps } from '../../../@types/common';
 import { twMerge } from 'tailwind-merge';
 import Button from '../common/components/Button';
@@ -28,14 +32,17 @@ const InputContent: React.FC<Props> = (props) => {
   });
 
   useEffect(() => {
-    if (props.initPromptSetting?.initializeMessages && !props.initPromptSetting?.directSend) {
+    if (
+      props.initPromptSetting?.initializeMessages &&
+      !props.initPromptSetting?.directSend
+    ) {
       clearMessages();
     }
     if (props.initPromptSetting?.directSend) {
       sendMessage(
         props.initPromptSetting,
         props.initContent,
-        props.initPromptSetting.initializeMessages,
+        props.initPromptSetting.initializeMessages
       );
     } else {
       if (props.initContent) {
@@ -49,9 +56,14 @@ const InputContent: React.FC<Props> = (props) => {
   }, [props.initContent, props.initPromptSetting]);
 
   useEffect(() => {
-    if (promptSetting.formDefinitions && promptSetting.formDefinitions.length > 0) {
+    if (
+      promptSetting.formDefinitions &&
+      promptSetting.formDefinitions.length > 0
+    ) {
       const tmp = new Array(promptSetting.formDefinitions.length).fill('');
-      const contentIndex = promptSetting.formDefinitions.findIndex((def) => def.autoCopy);
+      const contentIndex = promptSetting.formDefinitions.findIndex(
+        (def) => def.autoCopy
+      );
       if (contentIndex > -1) {
         tmp[contentIndex] = props.initContent;
       }
@@ -78,7 +90,12 @@ ${formValues[idx]}
   }, [content, formValues, isEmptyMessages, promptSetting, sendMessage]);
 
   return (
-    <div className={twMerge('relative bg-aws-squid-ink px-2 pb-1', props.className)}>
+    <div
+      className={twMerge(
+        'relative bg-aws-squid-ink px-2 pb-1',
+        props.className
+      )}
+    >
       <div className="absolute -top-12 w-full h-12 -mx-2 bg-gradient-to-t bg-transparent from-aws-squid-ink"></div>
       <div className="mb-2 flex justify-end">
         {isEmptyMessages ? (
@@ -114,7 +131,7 @@ ${formValues[idx]}
                   setFormValues(
                     produce(formValues, (draft) => {
                       draft[idx] = value;
-                    }),
+                    })
                   );
                 }}
               />
@@ -133,7 +150,7 @@ ${formValues[idx]}
       <button
         className={twMerge(
           'absolute right-3 bottom-3 mb-0.5  text-white p-2 rounded text-xl',
-          isLoading ? 'border' : 'bg-aws-smile',
+          isLoading ? 'border' : 'bg-aws-smile'
         )}
         disabled={isLoading}
         onClick={() => {

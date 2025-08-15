@@ -24,7 +24,7 @@ const PromptSettingItem: React.FC<Props> = (props) => {
         <div className="text-xs ">プロンプト</div>
         <textarea
           className={twMerge(
-            'text-xs text-aws-font-color-gray border p-1 rounded bg-aws-squid-ink w-full resize-none',
+            'text-xs text-aws-font-color-gray border p-1 rounded bg-aws-squid-ink w-full resize-none'
           )}
           rows={13}
           value={props.prompt.systemContext}
@@ -64,11 +64,14 @@ const PromptSettingItem: React.FC<Props> = (props) => {
                     props.onChange
                       ? props.onChange({
                           ...props.prompt,
-                          formDefinitions: produce(props.prompt.formDefinitions, (draft) => {
-                            if (draft) {
-                              draft[idx].label = val;
+                          formDefinitions: produce(
+                            props.prompt.formDefinitions,
+                            (draft) => {
+                              if (draft) {
+                                draft[idx].label = val;
+                              }
                             }
-                          }),
+                          ),
                         })
                       : null;
                   }}
@@ -81,11 +84,14 @@ const PromptSettingItem: React.FC<Props> = (props) => {
                     props.onChange
                       ? props.onChange({
                           ...props.prompt,
-                          formDefinitions: produce(props.prompt.formDefinitions, (draft) => {
-                            if (draft) {
-                              draft[idx].tag = val;
+                          formDefinitions: produce(
+                            props.prompt.formDefinitions,
+                            (draft) => {
+                              if (draft) {
+                                draft[idx].tag = val;
+                              }
                             }
-                          }),
+                          ),
                         })
                       : null;
                   }}
@@ -98,11 +104,14 @@ const PromptSettingItem: React.FC<Props> = (props) => {
                     props.onChange
                       ? props.onChange({
                           ...props.prompt,
-                          formDefinitions: produce(props.prompt.formDefinitions, (draft) => {
-                            if (draft) {
-                              draft[idx].autoCopy = val;
+                          formDefinitions: produce(
+                            props.prompt.formDefinitions,
+                            (draft) => {
+                              if (draft) {
+                                draft[idx].autoCopy = val;
+                              }
                             }
-                          }),
+                          ),
                         })
                       : null;
                   }}
@@ -114,18 +123,21 @@ const PromptSettingItem: React.FC<Props> = (props) => {
                       props.onChange
                         ? props.onChange({
                             ...props.prompt,
-                            formDefinitions: produce(props.prompt.formDefinitions, (draft) => {
-                              if (draft) {
-                                draft.splice(idx, 1);
-                                if (draft.length === 0) {
-                                  draft.push({
-                                    autoCopy: true,
-                                    label: '',
-                                    tag: '',
-                                  });
+                            formDefinitions: produce(
+                              props.prompt.formDefinitions,
+                              (draft) => {
+                                if (draft) {
+                                  draft.splice(idx, 1);
+                                  if (draft.length === 0) {
+                                    draft.push({
+                                      autoCopy: true,
+                                      label: '',
+                                      tag: '',
+                                    });
+                                  }
                                 }
                               }
-                            }),
+                            ),
                           })
                         : null;
                     }}
@@ -145,15 +157,18 @@ const PromptSettingItem: React.FC<Props> = (props) => {
                     props.onChange
                       ? props.onChange({
                           ...props.prompt,
-                          formDefinitions: produce(props.prompt.formDefinitions, (draft) => {
-                            if (draft) {
-                              draft.push({
-                                autoCopy: false,
-                                label: '',
-                                tag: '',
-                              });
+                          formDefinitions: produce(
+                            props.prompt.formDefinitions,
+                            (draft) => {
+                              if (draft) {
+                                draft.push({
+                                  autoCopy: false,
+                                  label: '',
+                                  tag: '',
+                                });
+                              }
                             }
-                          }),
+                          ),
                         })
                       : null;
                   }}

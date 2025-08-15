@@ -55,7 +55,10 @@ const SSOPage: React.FC = () => {
           {loading ? (
             <div>
               <div className="italic">Loading...</div>
-              <IconWrapper icon={PiCircleNotchBold} className="text-6xl animate-spin" />
+              <IconWrapper
+                icon={PiCircleNotchBold}
+                className="text-6xl animate-spin"
+              />
             </div>
           ) : !hasAuthenticated ? (
             <div>

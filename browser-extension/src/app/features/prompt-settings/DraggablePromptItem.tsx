@@ -39,7 +39,11 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
   // Implement based on the React DnD example
   // https://react-dnd.github.io/react-dnd/examples/sortable/simple
   const ref = useRef<HTMLDivElement>(null);
-  const [{ handlerId }, drop] = useDrop<DragPromptItem, void, { handlerId: Identifier | null }>({
+  const [{ handlerId }, drop] = useDrop<
+    DragPromptItem,
+    void,
+    { handlerId: Identifier | null }
+  >({
     accept: ItemTypes.PROMPT_ITEM,
     collect(monitor) {
       return {
@@ -62,7 +66,8 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
       const hoverBoundingRect = ref.current?.getBoundingClientRect();
 
       // Get vertical middle
-      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const hoverMiddleY =
+        (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
 
       // Determine mouse position
       const clientOffset = monitor.getClientOffset();
@@ -125,7 +130,7 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
         'flex flex-col border border-b-0 last:border-b first:rounded-t p-1 last:rounded-b bg-aws-squid-ink',
         props.canDrag === false ? 'bg-white/30 cursor-no-drop' : '',
         isDragging ? 'opacity-30' : '',
-        isPromptSetting ? '' : 'cursor-grab',
+        isPromptSetting ? '' : 'cursor-grab'
       )}
       data-handler-id={handlerId}
     >
@@ -138,7 +143,7 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
         <div
           className={twMerge(
             'flex items-center gap-2 p-1 w-full ',
-            isPromptSetting ? 'hover:bg-white/20 rounded cursor-pointer' : '',
+            isPromptSetting ? 'hover:bg-white/20 rounded cursor-pointer' : ''
           )}
           onClick={() => {
             if (isPromptSetting) {
@@ -149,7 +154,10 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
           {isPromptSetting && (
             <IconWrapper
               icon={PiCaretDown}
-              className={twMerge('transition', isOpenSettings ? '' : 'rotate-180')}
+              className={twMerge(
+                'transition',
+                isOpenSettings ? '' : 'rotate-180'
+              )}
             />
           )}
           {props.prompt.systemContextTitle}
@@ -166,11 +174,17 @@ const DraggablePromptItem: React.FC<Props> = (props) => {
       <div
         className={twMerge(
           'transition-all',
-          isOpenSettings ? 'max-h-[350px] overflow-y-auto' : 'max-h-0 overflow-hidden ',
+          isOpenSettings
+            ? 'max-h-[350px] overflow-y-auto'
+            : 'max-h-0 overflow-hidden '
         )}
       >
         {props.isPromptSetting ? (
-          <PromptSettingItem className="my-1" prompt={props.prompt} onChange={props.onChange} />
+          <PromptSettingItem
+            className="my-1"
+            prompt={props.prompt}
+            onChange={props.onChange}
+          />
         ) : null}
       </div>
     </div>

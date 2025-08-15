@@ -234,7 +234,8 @@ const AgentChatPage: React.FC = () => {
     <>
       <div
         onDragOver={handleDragOver}
-        className={`${!isEmpty ? 'screen:pb-36' : ''} relative`}>
+        className={`${!isEmpty ? 'screen:pb-36' : ''} relative`}
+      >
         <div className="invisible my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
           {title}
         </div>
@@ -243,7 +244,8 @@ const AgentChatPage: React.FC = () => {
           <div
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className="fixed bottom-0 left-0 right-0 top-0 z-[999] bg-slate-300 p-10 text-center">
+            className="fixed bottom-0 left-0 right-0 top-0 z-[999] bg-slate-300 p-10 text-center"
+          >
             <div className="flex h-full w-full items-center justify-center outline-dashed">
               <div className="font-bold">{t('agent.drop_files')}</div>
             </div>

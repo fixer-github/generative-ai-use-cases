@@ -285,7 +285,8 @@ const RagKnowledgeBasePage: React.FC = () => {
         </div>
 
         <div
-          className={`fixed bottom-0 z-0 flex w-full flex-col items-center justify-center lg:pr-64 print:hidden`}>
+          className={`fixed bottom-0 z-0 flex w-full flex-col items-center justify-center lg:pr-64 print:hidden`}
+        >
           <InputChatContent
             content={content}
             disabled={loading && !writing}
@@ -312,19 +313,22 @@ const RagKnowledgeBasePage: React.FC = () => {
         onClose={() => {
           setShowSetting(false);
         }}
-        title={t('chat.advanced_options')}>
+        title={t('chat.advanced_options')}
+      >
         {userDefinedExplicitFilters.length > 0 && (
           <ExpandableField
             label={t('rag.filter')}
             className="relative w-full"
-            defaultOpened={true}>
+            defaultOpened={true}
+          >
             <div className="flex justify-end">
               <div>
                 {t('rag.filter_settings')}{' '}
                 <a
                   className="text-aws-smile underline"
                   href="https://github.com/aws-samples/generative-ai-use-cases/blob/main/packages/common/src/custom/rag-knowledge-base.ts"
-                  target="_blank">
+                  target="_blank"
+                >
                   {t('rag.here')}
                 </a>{' '}
                 {t('rag.please_refer')}
@@ -345,7 +349,8 @@ const RagKnowledgeBasePage: React.FC = () => {
             <a
               className="text-aws-smile underline"
               href="https://github.com/aws-samples/generative-ai-use-cases/blob/main/packages/common/src/custom/rag-knowledge-base.ts"
-              target="_blank">
+              target="_blank"
+            >
               packages/common/src/custom/rag-knowledge-base.ts
             </a>{' '}
             {t('rag.can_add_filters')}
@@ -355,7 +360,8 @@ const RagKnowledgeBasePage: React.FC = () => {
           <Button
             onClick={() => {
               setShowSetting(false);
-            }}>
+            }}
+          >
             {t('chat.settings')}
           </Button>
         </div>

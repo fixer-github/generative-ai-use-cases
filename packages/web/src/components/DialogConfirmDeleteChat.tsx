@@ -30,7 +30,8 @@ const DialogConfirmDeleteChat: React.FC<Props> = (props) => {
           onClick={() => {
             props.onDelete(decomposeId(props.target?.chatId ?? '') ?? '');
           }}
-          className="bg-red-500 p-2 text-white">
+          className="bg-red-500 p-2 text-white"
+        >
           {t('common.delete')}
         </Button>
       </div>

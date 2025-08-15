@@ -34,7 +34,8 @@ const AICompletionCommands = ({
                 completion
               )
               .run();
-          }}>
+          }}
+        >
           <PiCheck className="text-muted-foreground h-4 w-4" />
           {t('writer.ai.replace_selection')}
         </CommandItem>
@@ -48,7 +49,8 @@ const AICompletionCommands = ({
               .focus()
               .insertContentAt(selection.to + 1, completion)
               .run();
-          }}>
+          }}
+        >
           <PiQuotes className="text-muted-foreground h-4 w-4" />
           {t('writer.ai.insert_below')}
         </CommandItem>

@@ -27,7 +27,8 @@ const ModalDialogShareUseCase: React.FC<Props> = (props) => {
       title={t('useCaseBuilder.share')}
       onClose={() => {
         props.onClose();
-      }}>
+      }}
+    >
       <div className="flex flex-col gap-2">
         <div>
           <Switch
@@ -63,7 +64,8 @@ const ModalDialogShareUseCase: React.FC<Props> = (props) => {
           <Button
             onClick={() => {
               props.onClose();
-            }}>
+            }}
+          >
             {t('useCaseBuilder.ok')}
           </Button>
         </div>

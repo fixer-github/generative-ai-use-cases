@@ -488,7 +488,8 @@ const GenerateVideoPage: React.FC = () => {
                 <ButtonIcon
                   className="absolute bottom-2 right-1"
                   onClick={translateAndSetAsPrompt}
-                  disabled={translating}>
+                  disabled={translating}
+                >
                   {translating ? (
                     <PiSpinnerGap className="animate-spin" />
                   ) : (
@@ -695,7 +696,8 @@ const GenerateVideoPage: React.FC = () => {
               className="h-8 w-full"
               disabled={disabledExec}
               onClick={generateVideo}
-              loading={isGenerating}>
+              loading={isGenerating}
+            >
               {t('video.generate')}
             </Button>
             <Button
@@ -705,7 +707,8 @@ const GenerateVideoPage: React.FC = () => {
                 clear();
                 clearFiles();
               }}
-              disabled={!clearable}>
+              disabled={!clearable}
+            >
               {t('video.clear')}
             </Button>
           </div>
@@ -756,7 +759,8 @@ const GenerateVideoPage: React.FC = () => {
             <ButtonIcon
               loading={isValidatingVideoJobs}
               onClick={mutateVideoJobs}
-              className="h-8 w-8">
+              className="h-8 w-8"
+            >
               <PiArrowClockwise className="text-base" />
             </ButtonIcon>
           </div>
@@ -769,43 +773,50 @@ const GenerateVideoPage: React.FC = () => {
                     <th
                       scope="col"
                       className="min-w-12 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.play')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-32 bg-gray-50 px-6 py-3"
-                      align="left">
+                      align="left"
+                    >
                       {t('video.table.status')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-48 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.prompt')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-48 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.model')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-48 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.date')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-32 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.download')}
                     </th>
                     <th
                       scope="col"
                       className="min-w-12 bg-gray-50 px-6 py-3"
-                      align="center">
+                      align="center"
+                    >
                       {t('video.table.delete')}
                     </th>
                   </tr>
@@ -815,59 +826,70 @@ const GenerateVideoPage: React.FC = () => {
                     return (
                       <tr
                         key={idx}
-                        className="border-b bg-white hover:bg-gray-50">
+                        className="border-b bg-white hover:bg-gray-50"
+                      >
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           <ButtonIcon
                             onClick={() => {
                               setPreview(job);
                             }}
-                            disabled={job.status !== 'Completed'}>
+                            disabled={job.status !== 'Completed'}
+                          >
                             <PiPlayFill className="text-aws-smile" />
                           </ButtonIcon>
                         </td>
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           {t(`video.status.${job.status.toLowerCase()}`)}
                         </td>
                         <td
                           className="max-w-64 whitespace-nowrap px-6 py-4"
-                          align="left">
+                          align="left"
+                        >
                           <div className="line-clamp-1">{job.prompt}</div>
                         </td>
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           {job.modelId}
                         </td>
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           {formatDate(job.createdDate)}
                         </td>
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           <ButtonIcon
                             onClick={() => {
                               downloadFile(job);
                             }}
                             disabled={job.status !== 'Completed'}
-                            loading={downloadingJobIds[job.createdDate]}>
+                            loading={downloadingJobIds[job.createdDate]}
+                          >
                             <PiDownload className="text-aws-smile" />
                           </ButtonIcon>
                         </td>
                         <td
                           className="whitespace-nowrap px-6 py-4"
-                          align="center">
+                          align="center"
+                        >
                           <ButtonIcon
                             onClick={() => {
                               deleteVideoJob(job);
                             }}
                             disabled={job.status === 'InProgress'}
-                            loading={deletingJobIds[job.createdDate]}>
+                            loading={deletingJobIds[job.createdDate]}
+                          >
                             <PiTrash className="text-red-500" />
                           </ButtonIcon>
                         </td>
@@ -887,7 +909,8 @@ const GenerateVideoPage: React.FC = () => {
                 <div className="flex h-12 w-full items-center justify-center">
                   <div
                     className="cursor-pointer hover:underline"
-                    onClick={loadMoreVideoJobs}>
+                    onClick={loadMoreVideoJobs}
+                  >
                     {t('video.load.more')}
                   </div>
                 </div>

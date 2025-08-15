@@ -4,9 +4,7 @@
 
 /* Tailwind's settings override this, so we set important */
 .amplify-button--primary {
-  background-color: var(
-    --amplify-components-button-primary-background-color
-  ) !important;
+  background-color: var(--amplify-components-button-primary-background-color) !important;
 }
 
 /* Remove the spinner for <input type="number"> */
@@ -18,7 +16,7 @@ input::-webkit-inner-spin-button {
 }
 
 /* Firefox */
-input[type='number'] {
+input[type="number"] {
   -moz-appearance: textfield;
 }
 

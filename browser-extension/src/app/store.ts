@@ -1,5 +1,10 @@
 import { wrapStore } from '@eduardoac-skimlinks/webext-redux';
-import { combineReducers, configureStore, type Action, type ThunkAction } from '@reduxjs/toolkit';
+import {
+  combineReducers,
+  configureStore,
+  type Action,
+  type ThunkAction,
+} from '@reduxjs/toolkit';
 import { localStorage } from 'redux-persist-webextension-storage';
 import {
   FLUSH,
@@ -24,7 +29,10 @@ const reducers = combineReducers({
   chat: chatReducer,
 });
 
-const persistedReducer: typeof reducers = persistReducer(persistConfig, reducers);
+const persistedReducer: typeof reducers = persistReducer(
+  persistConfig,
+  reducers
+);
 const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
