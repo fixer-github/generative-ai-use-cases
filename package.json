@@ -5,7 +5,7 @@
   "scripts": {
     "lint": "run-s custom-lint:build root:lint web:lint:fix cdk:lint cdk:lambda-build-dryrun",
     "test": "run-s web:test",
-    "root:lint": "prettier --write .",
+    "root:lint": "biome format --write .",
     "web:devw": "source ./setup-env.sh ${npm_config_env} && VITE_APP_VERSION=${npm_package_version} pnpm --filter web run dev",
     "web:devww": "powershell ./web_devw_win.ps1",
     "web:dev": "VITE_APP_VERSION=${npm_package_version} pnpm --filter web run dev",
@@ -31,7 +31,7 @@
     "extension:devw": "source ./setup-env.sh && cd browser-extension && pnpm run dev",
     "extension:build": "cd browser-extension && pnpm run build",
     "extension:buildw": "source ./setup-env.sh && cd browser-extension && pnpm run build",
-    "extension:lint": "pnpm prettier --write browser-extension/. && cd browser-extension",
+    "extension:lint": "pnpm biome format --write browser-extension/. && cd browser-extension",
     "custom-lint:build": "pnpm --filter packages/eslint-plugin-i18nhelper run build",
     "docs:dev": "mkdocs serve",
     "docs:build": "mkdocs build",
