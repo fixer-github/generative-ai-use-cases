@@ -89,11 +89,7 @@
         "useGetterReturn": "error"
       }
     },
-    "includes": [
-      "**",
-      "**/dist",
-      "**/.eslintrc.cjs"
-    ]
+    "includes": ["**", "**/dist", "**/.eslintrc.cjs"]
   },
   "javascript": {
     "formatter": {
@@ -102,18 +98,10 @@
   },
   "overrides": [
     {
-      "includes": [
-        "*.yaml",
-        "*.yml"
-      ]
+      "includes": ["*.yaml", "*.yml"]
     },
     {
-      "includes": [
-        "*.ts",
-        "*.tsx",
-        "*.mts",
-        "*.cts"
-      ],
+      "includes": ["*.ts", "*.tsx", "*.mts", "*.cts"],
       "linter": {
         "rules": {
           "complexity": {
