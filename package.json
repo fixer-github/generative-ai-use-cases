@@ -5,34 +5,34 @@
   "scripts": {
     "lint": "run-s custom-lint:build root:lint web:lint:fix cdk:lint cdk:lambda-build-dryrun",
     "test": "run-s web:test",
-    "root:lint": "npx prettier --write .",
-    "web:devw": "source ./setup-env.sh ${npm_config_env} && VITE_APP_VERSION=${npm_package_version} npm -w packages/web run dev",
+    "root:lint": "pnpm prettier --write .",
+    "web:devw": "source ./setup-env.sh ${npm_config_env} && VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run dev",
     "web:devww": "powershell ./web_devw_win.ps1",
-    "web:dev": "VITE_APP_VERSION=${npm_package_version} npm -w packages/web run dev",
-    "web:build": "VITE_APP_VERSION=${npm_package_version} npm -w packages/web run build --",
-    "web:build:analyze": "VITE_APP_VERSION=${npm_package_version} npm -w packages/web run build -- --mode analyze",
-    "web:lint": "npm -w packages/web run lint",
-    "web:lint:fix": "npm -w packages/web run lint:fix",
-    "web:test": "npm -w packages/web run test",
-    "cdk:deploy": "npm -w packages/cdk run cdk deploy -- --all",
-    "cdk:deploy:quick": "npm -w packages/cdk run cdk deploy -- --all --asset-parallelism --asset-prebuild=false --concurrency 3 --method=direct --require-approval never --force",
-    "cdk:deploy:quick:hotswap": "npm -w packages/cdk run cdk deploy -- --all --asset-parallelism --asset-prebuild=false --concurrency 3 --method=direct --require-approval never --force --hotswap",
-    "cdk:deploy:tenant": "npm -w packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' deploy --all",
-    "cdk:diff:tenant": "npm -w packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' diff",
-    "cdk:destroy": "npm -w packages/cdk run cdk destroy -- --all",
-    "cdk:destroy:tenant": "npm -w packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' destroy --all",
-    "cdk:lint": "npm -w packages/cdk run lint",
-    "cdk:lambda-build-dryrun": "npm -w packages/cdk run lambda-build-dryrun",
-    "cdk:test": "npm -w packages/cdk run test",
-    "cdk:test:update-snapshot": "npm -w packages/cdk run test -- --update-snapshot",
-    "cdk:watch": "npm -w packages/cdk run cdk watch",
-    "extension:ci": "cd browser-extension && npm ci",
-    "extension:dev": "cd browser-extension && npm run dev",
-    "extension:devw": "source ./setup-env.sh && cd browser-extension && npm run dev",
-    "extension:build": "cd browser-extension && npm run build",
-    "extension:buildw": "source ./setup-env.sh && cd browser-extension && npm run build",
-    "extension:lint": "npx prettier --write browser-extension/. && cd browser-extension",
-    "custom-lint:build": "npm -w packages/eslint-plugin-i18nhelper run build",
+    "web:dev": "VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run dev",
+    "web:build": "VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run build --",
+    "web:build:analyze": "VITE_APP_VERSION=${npm_package_version} pnpm --filter packages/web run build -- --mode analyze",
+    "web:lint": "pnpm --filter packages/web run lint",
+    "web:lint:fix": "pnpm --filter packages/web run lint:fix",
+    "web:test": "pnpm --filter packages/web run test",
+    "cdk:deploy": "pnpm --filter packages/cdk run cdk deploy -- --all",
+    "cdk:deploy:quick": "pnpm --filter packages/cdk run cdk deploy -- --all --asset-parallelism --asset-prebuild=false --concurrency 3 --method=direct --require-approval never --force",
+    "cdk:deploy:quick:hotswap": "pnpm --filter packages/cdk run cdk deploy -- --all --asset-parallelism --asset-prebuild=false --concurrency 3 --method=direct --require-approval never --force --hotswap",
+    "cdk:deploy:tenant": "pnpm --filter packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' deploy --all",
+    "cdk:diff:tenant": "pnpm --filter packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' diff",
+    "cdk:destroy": "pnpm --filter packages/cdk run cdk destroy -- --all",
+    "cdk:destroy:tenant": "pnpm --filter packages/cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' destroy --all",
+    "cdk:lint": "pnpm --filter packages/cdk run lint",
+    "cdk:lambda-build-dryrun": "pnpm --filter packages/cdk run lambda-build-dryrun",
+    "cdk:test": "pnpm --filter packages/cdk run test",
+    "cdk:test:update-snapshot": "pnpm --filter packages/cdk run test -- --update-snapshot",
+    "cdk:watch": "pnpm --filter packages/cdk run cdk watch",
+    "extension:ci": "cd browser-extension && pnpm install --frozen-lockfile",
+    "extension:dev": "cd browser-extension && pnpm run dev",
+    "extension:devw": "source ./setup-env.sh && cd browser-extension && pnpm run dev",
+    "extension:build": "cd browser-extension && pnpm run build",
+    "extension:buildw": "source ./setup-env.sh && cd browser-extension && pnpm run build",
+    "extension:lint": "pnpm prettier --write browser-extension/. && cd browser-extension",
+    "custom-lint:build": "pnpm --filter packages/eslint-plugin-i18nhelper run build",
     "docs:dev": "mkdocs serve",
     "docs:build": "mkdocs build",
     "docs:gh-deploy": "mkdocs gh-deploy --"
@@ -41,7 +41,13 @@
     "npm-run-all": "^4.1.5",
     "prettier": "^3.2.5"
   },
-  "workspaces": [
-    "packages/*"
-  ]
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {},
+      "ignoreMissing": []
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }
