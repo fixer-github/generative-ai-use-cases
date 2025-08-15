@@ -46,6 +46,10 @@ export class LitellmProxyServer extends Construct {
       },
     });
 
+    this.function.addAlias('LitellmProxy', {
+      provisionedConcurrentExecutions: 10,
+    });
+
     // Grant access to AWS Bedrock
     this.function.role?.addToPrincipalPolicy(
       new PolicyStatement({
