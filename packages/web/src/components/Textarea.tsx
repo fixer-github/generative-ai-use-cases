@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react';
-import RowItem, { RowItemProps } from './RowItem';
-import Help from './Help';
 import { useTranslation } from 'react-i18next';
+import Help from './Help';
+import RowItem, { RowItemProps } from './RowItem';
 
 type Props = RowItemProps & {
   value?: string;
@@ -44,7 +44,7 @@ const Textarea: React.FC<Props> = (props) => {
     const isMax = maxHeight > 0 && scrollHeight > maxHeight;
     ref.current.style.height = (isMax ? maxHeight : scrollHeight) + 'px';
     ref.current.style.overflowY = isMax ? 'auto' : 'hidden';
-  }, [props.value, maxHeight]);
+  }, [maxHeight]);
 
   return (
     <RowItem notItem={props.notItem}>

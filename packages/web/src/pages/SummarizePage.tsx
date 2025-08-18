@@ -1,20 +1,20 @@
+import queryString from 'query-string';
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import ExpandableField from '../components/ExpandableField';
-import Textarea from '../components/Textarea';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import Select from '../components/Select';
-import useChat from '../hooks/useChat';
-import useTyping from '../hooks/useTyping';
 import { create } from 'zustand';
 import { SummarizePageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import Card from '../components/Card';
+import ExpandableField from '../components/ExpandableField';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import Textarea from '../components/Textarea';
+import useChat from '../hooks/useChat';
 import { MODELS } from '../hooks/useModel';
+import useTyping from '../hooks/useTyping';
 import { getPrompter } from '../prompts';
-import queryString from 'query-string';
-import { useTranslation } from 'react-i18next';
 
 type StateType = {
   sentence: string;
@@ -86,7 +86,7 @@ const SummarizePage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   const disabledExec = useMemo(() => {
     return sentence === '' || loading;
@@ -107,7 +107,14 @@ const SummarizePage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSentence, setAdditionalContext, modelId, availableModels, search]);
+  }, [
+    setSentence,
+    setAdditionalContext,
+    modelId,
+    availableModels,
+    search,
+    setModelId,
+  ]);
 
   useEffect(() => {
     setTypingTextInput(summarizedSentence);
@@ -131,21 +138,21 @@ const SummarizePage: React.FC = () => {
     const _response = messages[messages.length - 1].content;
     setSummarizedSentence(_response.trim());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, setSummarizedSentence]);
 
   // Execute summary
   const onClickExec = useCallback(() => {
     if (loading) return;
     getSummary(sentence, additionalContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentence, additionalContext, loading]);
+  }, [sentence, additionalContext, loading, getSummary]);
 
   // Reset
   const onClickClear = useCallback(() => {
     clear();
     clearChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clear, clearChat]);
 
   return (
     <div className="grid grid-cols-12">

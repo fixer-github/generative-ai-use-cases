@@ -2,9 +2,9 @@ import {
   AdditionalModelRequestFields,
   FeatureFlags,
 } from 'generative-ai-use-cases';
-import Switch from './Switch';
-import RangeSlider from './RangeSlider';
 import { useTranslation } from 'react-i18next';
+import RangeSlider from './RangeSlider';
+import Switch from './Switch';
 
 const DEFAULT_REASONING_BUDGET = 4096; // Claude 3.7 Sonnet recommended minimum value
 const MIN_REASONING_BUDGET = 1024; // Claude 3.7 Sonnet minimum value

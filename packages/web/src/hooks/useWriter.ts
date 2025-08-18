@@ -1,8 +1,8 @@
 import { StreamingChunk } from 'generative-ai-use-cases';
-import useChatApi from './useChatApi';
 import { create } from 'zustand';
-import { MODELS } from './useModel';
 import { generateWriterPrompt, WriterOption } from '../prompts/writer';
+import useChatApi from './useChatApi';
+import { MODELS } from './useModel';
 
 const useWriterState = create<{
   modelId: string;

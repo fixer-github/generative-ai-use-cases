@@ -1,3 +1,4 @@
+import { AxiosError } from 'axios';
 import {
   CreateUseCaseRequest,
   CreateUseCaseResponse,
@@ -10,7 +11,6 @@ import {
   UpdateUseCaseRequest,
 } from 'generative-ai-use-cases';
 import useHttp from '../useHttp';
-import { AxiosError } from 'axios';
 
 const useUseCaseBuilderApi = () => {
   const http = useHttp();

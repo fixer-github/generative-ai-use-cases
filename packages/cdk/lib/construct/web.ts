@@ -1,27 +1,27 @@
-import { Stack, RemovalPolicy, CfnResource, Duration } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
 import {
   CloudFrontToS3,
   CloudFrontToS3Props,
 } from '@aws-solutions-constructs/aws-cloudfront-s3';
+import { CfnResource, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import {
   CfnDistribution,
   Distribution,
-  ResponseHeadersPolicy,
   HeadersFrameOption,
   HeadersReferrerPolicy,
+  ResponseHeadersPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import { NodejsBuild } from 'deploy-time-build';
-import * as s3 from 'aws-cdk-lib/aws-s3';
+import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 import { ARecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
-import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
+import { NodejsBuild } from 'deploy-time-build';
 import {
   Flow,
   HiddenUseCases,
   ModelConfiguration,
 } from 'generative-ai-use-cases';
-import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 
 export interface WebProps {
   readonly apiEndpointUrl: string;

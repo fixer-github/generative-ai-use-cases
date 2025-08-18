@@ -1,14 +1,14 @@
-import React, { useEffect, useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
-import Card from '../components/Card';
 import Button from '../components/Button';
-import Textarea from '../components/Textarea';
-import Select from '../components/Select';
-import Markdown from '../components/Markdown';
 import ButtonCopy from '../components/ButtonCopy';
-import useOptimizePrompt from '../hooks/useOptimizePrompt';
+import Card from '../components/Card';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import Textarea from '../components/Textarea';
 import { MODELS } from '../hooks/useModel';
+import useOptimizePrompt from '../hooks/useOptimizePrompt';
 
 type StateType = {
   prompt: string;
@@ -98,14 +98,7 @@ const OptimizePromptPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    loading,
-    setLoading,
-    optimizePrompt,
-    prompt,
-    modelId,
-    setOptimizedPrompt,
-  ]);
+  }, [loading, optimizePrompt, prompt, modelId, setOptimizedPrompt]);
 
   const disabledExec = useMemo(() => {
     return prompt === '' || loading;

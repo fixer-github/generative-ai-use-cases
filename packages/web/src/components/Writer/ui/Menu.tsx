@@ -1,8 +1,8 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PiCheck, PiList, PiMonitor, PiMoon, PiSunDim } from 'react-icons/pi';
 import { Button } from './Button';
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 export default function Menu() {
   const { t } = useTranslation();

@@ -1,11 +1,11 @@
-import { Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import {
+  BlockPublicAccess,
   Bucket,
   BucketEncryption,
-  BlockPublicAccess,
 } from 'aws-cdk-lib/aws-s3';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import { Construct } from 'constructs';
 import { ProcessedStackInput } from '../../stack-input';
 
 export interface VideoTmpBucketStackProps extends StackProps {

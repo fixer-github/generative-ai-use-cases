@@ -1,9 +1,9 @@
 import React from 'react';
-import ModalDialog from '../ModalDialog';
-import Button from '../Button';
+import { useTranslation } from 'react-i18next';
 import { BaseProps } from '../../@types/common';
 import Alert from '../Alert';
-import { useTranslation } from 'react-i18next';
+import Button from '../Button';
+import ModalDialog from '../ModalDialog';
 
 type Props = BaseProps & {
   isOpen: boolean;

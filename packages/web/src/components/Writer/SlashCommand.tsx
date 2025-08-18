@@ -1,17 +1,17 @@
+import { Command, createSuggestionItems, renderItems } from 'novel';
 import {
   PiCheckSquare,
   PiCode,
-  PiTextHOne,
-  PiTextHTwo,
-  PiTextHThree,
   PiList,
   PiListNumbers,
-  PiTextAlignLeft,
   PiQuotes,
+  PiTextAlignLeft,
+  PiTextHOne,
+  PiTextHThree,
+  PiTextHTwo,
   PiXLogo,
   PiYoutubeLogo,
 } from 'react-icons/pi';
-import { Command, createSuggestionItems, renderItems } from 'novel';
 
 export const suggestionItems = createSuggestionItems([
   {

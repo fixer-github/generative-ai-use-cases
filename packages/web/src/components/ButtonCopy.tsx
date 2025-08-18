@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import ButtonIcon from './ButtonIcon';
-import { BaseProps } from '../@types/common';
-import { PiCheck, PiClipboard } from 'react-icons/pi';
 import copy from 'copy-to-clipboard';
+import React, { useCallback, useEffect, useState } from 'react';
+import { PiCheck, PiClipboard } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 import useInterUseCases from '../hooks/useInterUseCases';
+import ButtonIcon from './ButtonIcon';
 
 type Props = BaseProps & {
   text: string;

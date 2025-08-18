@@ -1,24 +1,24 @@
+import queryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import RowItem from '../components/RowItem';
-import ExpandableField from '../components/ExpandableField';
-import Textarea from '../components/Textarea';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import Alert from '../components/Alert';
-import Select from '../components/Select';
-import useChat from '../hooks/useChat';
-import useChatApi from '../hooks/useChatApi';
-import useTyping from '../hooks/useTyping';
 import { create } from 'zustand';
 import { WebContentPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
-import queryString from 'query-string';
+import Alert from '../components/Alert';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import Card from '../components/Card';
+import ExpandableField from '../components/ExpandableField';
 import InputText from '../components/InputText';
-import { useTranslation } from 'react-i18next';
+import Markdown from '../components/Markdown';
+import RowItem from '../components/RowItem';
+import Select from '../components/Select';
+import Textarea from '../components/Textarea';
+import useChat from '../hooks/useChat';
+import useChatApi from '../hooks/useChatApi';
+import { MODELS } from '../hooks/useModel';
+import useTyping from '../hooks/useTyping';
+import { getPrompter } from '../prompts';
 
 type StateType = {
   url: string;
@@ -116,7 +116,7 @@ const WebContent: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   const disabledExec = useMemo(() => {
     return url === '' || loading || fetching;
@@ -137,7 +137,7 @@ const WebContent: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setUrl, setContext, modelId, availableModels, search]);
+  }, [setUrl, setContext, modelId, availableModels, search, setModelId]);
 
   useEffect(() => {
     setTypingTextInput(content);
@@ -166,7 +166,7 @@ const WebContent: React.FC = () => {
 
     try {
       res = await getWebText({ url });
-    } catch (e) {
+    } catch (_e) {
       setFetching(false);
       setShowError(true);
       return;

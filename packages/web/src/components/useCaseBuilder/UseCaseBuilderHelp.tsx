@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PiCaretUp } from 'react-icons/pi';
 import ButtonCopy from '../ButtonCopy';
-import { useTranslation } from 'react-i18next';
 
 type PromptSampleProps = {
   title: string;

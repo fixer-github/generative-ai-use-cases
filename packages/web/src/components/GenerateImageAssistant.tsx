@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { PiLightbulbFilamentBold, PiWarningFill } from 'react-icons/pi';
+import { useLocation } from 'react-router-dom';
+import { BaseProps } from '../@types/common';
+import useChat from '../hooks/useChat';
+import { MODELS } from '../hooks/useModel';
+import Button from './Button';
 import Card from './Card';
 import InputChatContent from './InputChatContent';
 import Select from './Select';
-import { useLocation } from 'react-router-dom';
-import useChat from '../hooks/useChat';
-import { PiLightbulbFilamentBold, PiWarningFill } from 'react-icons/pi';
-import { BaseProps } from '../@types/common';
-import Button from './Button';
-import { useTranslation } from 'react-i18next';
-import { MODELS } from '../hooks/useModel';
 
 type Props = BaseProps & {
   modelId: string;
@@ -120,7 +120,13 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, scrollToBottom]);
+  }, [
+    loading,
+    scrollToBottom,
+    contents.length,
+    contents[_length - 1],
+    props.onGenerate,
+  ]);
 
   const onSend = useCallback(() => {
     postChat(props.content);

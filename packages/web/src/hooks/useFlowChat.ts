@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
-import { create } from 'zustand';
-import { v4 as uuid } from 'uuid';
-import useFlowApi from './useFlowApi';
 import { Flow, ShownMessage } from 'generative-ai-use-cases';
+import { useCallback, useState } from 'react';
+import { v4 as uuid } from 'uuid';
+import { create } from 'zustand';
+import useFlowApi from './useFlowApi';
 import { MODELS } from './useModel';
 
 type FlowState = {
@@ -36,7 +36,7 @@ function parse(content: string) {
   let document;
   try {
     document = JSON.parse(content);
-  } catch (e) {
+  } catch (_e) {
     document = content;
   }
   return document;

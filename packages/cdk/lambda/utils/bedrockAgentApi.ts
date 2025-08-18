@@ -11,19 +11,19 @@ import {
 } from '@aws-sdk/client-bedrock-agent-runtime';
 
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
 import {
-  ApiInterface,
   AgentMap,
+  ApiInterface,
+  BraveSearchResult,
   Model,
   UnrecordedMessage,
-  BraveSearchResult,
 } from 'generative-ai-use-cases';
-import { streamingChunk } from './streamingChunk';
+import { v4 as uuidv4 } from 'uuid';
 import {
   initBedrockAgentClient,
   initBedrockAgentRuntimeClient,
 } from './bedrockClient';
+import { streamingChunk } from './streamingChunk';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 const s3Client = new S3Client({});

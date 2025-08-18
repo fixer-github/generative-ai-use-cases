@@ -1,37 +1,37 @@
 import {
-  BedrockImageGenerationResponse,
-  GenerateImageParams,
-  GenerateVideoParams,
-  Model,
-  ModelConfiguration,
-  PromptTemplate,
-  StableDiffusionParams,
-  UnrecordedMessage,
-  ConverseInferenceParams,
-  UsecaseConverseInferenceParams,
-  GuardrailConverseConfigParams,
-  GuardrailConverseStreamConfigParams,
-  StabilityAI2024ModelParams,
-  StabilityAI2024ModelResponse,
-  AmazonGeneralImageParams,
-  AmazonAdvancedImageParams,
-  StreamingChunk,
-  Metadata,
-} from 'generative-ai-use-cases';
-import {
+  ContentBlock,
+  ConversationRole,
   ConverseCommandInput,
   ConverseCommandOutput,
   ConverseStreamCommandInput,
   ConverseStreamOutput,
-  ConversationRole,
-  ContentBlock,
 } from '@aws-sdk/client-bedrock-runtime';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import {
+  AmazonAdvancedImageParams,
+  AmazonGeneralImageParams,
+  BedrockImageGenerationResponse,
+  ConverseInferenceParams,
+  GenerateImageParams,
+  GenerateVideoParams,
+  GuardrailConverseConfigParams,
+  GuardrailConverseStreamConfigParams,
+  Metadata,
+  Model,
+  ModelConfiguration,
+  PromptTemplate,
+  StabilityAI2024ModelParams,
+  StabilityAI2024ModelResponse,
+  StableDiffusionParams,
+  StreamingChunk,
+  UnrecordedMessage,
+  UsecaseConverseInferenceParams,
+} from 'generative-ai-use-cases';
+import { getFormatFromMimeType, getMimeTypeFromFileName } from './media';
 import {
   applyAutoCacheToMessages,
   applyAutoCacheToSystem,
 } from './promptCache';
-import { getFormatFromMimeType, getMimeTypeFromFileName } from './media';
 
 // Default Models
 

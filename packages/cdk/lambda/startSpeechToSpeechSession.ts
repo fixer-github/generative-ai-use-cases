@@ -1,9 +1,9 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
-  LambdaClient,
-  InvokeCommand,
   InvocationType,
+  InvokeCommand,
+  LambdaClient,
 } from '@aws-sdk/client-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 export const handler = async (
   event: APIGatewayProxyEvent

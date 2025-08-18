@@ -1,7 +1,7 @@
-import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { PiX } from 'react-icons/pi';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { PiX } from 'react-icons/pi';
 
 import { cn } from '../lib/utils';
 

@@ -1,17 +1,17 @@
+import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import {
   Item,
+  LanguageCode,
   StartStreamTranscriptionCommand,
   TranscribeStreamingClient,
-  LanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
-import MicrophoneStream from 'microphone-stream';
-import { useState, useEffect, useMemo } from 'react';
-import update from 'immutability-helper';
-import { Buffer } from 'buffer';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
-import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { Buffer } from 'buffer';
 import { Transcript } from 'generative-ai-use-cases';
+import update from 'immutability-helper';
+import MicrophoneStream from 'microphone-stream';
+import { useEffect, useMemo, useState } from 'react';
 
 const pcmEncodeChunk = (chunk: Buffer) => {
   const input = MicrophoneStream.toRaw(chunk);

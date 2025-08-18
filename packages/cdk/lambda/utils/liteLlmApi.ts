@@ -1,3 +1,8 @@
+import { Sha256 } from '@aws-crypto/sha256-js';
+import { StopReason } from '@aws-sdk/client-bedrock-runtime';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { HttpRequest } from '@smithy/protocol-http';
+import { SignatureV4 } from '@smithy/signature-v4';
 import {
   ApiInterface,
   GenerateImageParams,
@@ -6,11 +11,6 @@ import {
   UnrecordedMessage,
 } from 'generative-ai-use-cases';
 import { streamingChunk } from './streamingChunk';
-import { StopReason } from '@aws-sdk/client-bedrock-runtime';
-import { SignatureV4 } from '@smithy/signature-v4';
-import { HttpRequest } from '@smithy/protocol-http';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
 
 const createOpenAIChatCompletionMessages = (messages: UnrecordedMessage[]) => {
   return messages.map((message) => {

@@ -1,10 +1,10 @@
 import { Editor } from '@tiptap/react';
 import { DocumentComment } from 'generative-ai-use-cases';
-import { create } from 'zustand';
-import useWriter from '../../../hooks/useWriter';
+import { TFunction } from 'i18next';
 import { removeAIHighlight } from 'novel';
 import { toast } from 'sonner';
-import { TFunction } from 'i18next';
+import { create } from 'zustand';
+import useWriter from '../../../hooks/useWriter';
 
 const REGEX_BRACKET = /\{(?:[^{}])*\}/g;
 const REGEX_ZENKAKU =

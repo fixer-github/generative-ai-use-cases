@@ -1,30 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import InputChatContent from '../components/InputChatContent';
-import { create } from 'zustand';
-import useChat from '../hooks/useChat';
-import { useLocation } from 'react-router-dom';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import useFollow from '../hooks/useFollow';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import BedrockIcon from '../assets/bedrock.svg?react';
-import { RagPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import queryString from 'query-string';
-import { getPrompter } from '../prompts';
-import ExpandableField from '../components/ExpandableField';
-import { userDefinedExplicitFilters } from '@generative-ai-use-cases/common';
 import { RetrievalFilter } from '@aws-sdk/client-bedrock-agent-runtime';
-import { RetrievalFilterLabel } from '../components/KbFilter';
-import KbFilter from '../components/KbFilter';
+import { userDefinedExplicitFilters } from '@generative-ai-use-cases/common';
 import {
   ExplicitFilterConfiguration,
   ExtraData,
 } from 'generative-ai-use-cases';
-import { Option, SelectValue } from '../components/FilterSelect';
-import ModalDialog from '../components/ModalDialog';
-import Button from '../components/Button';
+import queryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import { create } from 'zustand';
+import { RagPageQueryParams } from '../@types/navigate';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import Button from '../components/Button';
+import ChatMessage from '../components/ChatMessage';
+import ExpandableField from '../components/ExpandableField';
+import { Option, SelectValue } from '../components/FilterSelect';
+import InputChatContent from '../components/InputChatContent';
+import KbFilter, { RetrievalFilterLabel } from '../components/KbFilter';
+import ModalDialog from '../components/ModalDialog';
+import ScrollTopBottom from '../components/ScrollTopBottom';
+import Select from '../components/Select';
+import useChat from '../hooks/useChat';
+import useFollow from '../hooks/useFollow';
+import { MODELS } from '../hooks/useModel';
+import { getPrompter } from '../prompts';
 
 type StateType = {
   sessionId: string | undefined;
@@ -80,7 +79,7 @@ const RagKnowledgeBasePage: React.FC = () => {
   const { scrollableContainer, setFollowing } = useFollow();
   const { modelIdsInModelRegion: availableModels, modelDisplayName } = MODELS;
   const modelId = getModelId();
-  const prompter = useMemo(() => {
+  const _prompter = useMemo(() => {
     return getPrompter(modelId);
   }, [modelId]);
 
@@ -123,7 +122,7 @@ const RagKnowledgeBasePage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   useEffect(() => {
     const _modelId = !modelId ? availableModels[0] : modelId;
@@ -139,7 +138,7 @@ const RagKnowledgeBasePage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableModels, modelId, search, setContent]);
+  }, [availableModels, modelId, search, setContent, setModelId]);
 
   const getExtraDataFromFilters = useCallback(() => {
     return filters
@@ -166,7 +165,7 @@ const RagKnowledgeBasePage: React.FC = () => {
             },
           }) as ExtraData
       );
-  }, [filters]);
+  }, [filters, RetrievalFilterLabelToRetrievalFilter]);
 
   const onSend = useCallback(() => {
     setFollowing(true);

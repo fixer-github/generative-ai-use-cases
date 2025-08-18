@@ -1,22 +1,20 @@
-import { EditorBubbleItem, useEditor } from 'novel';
-
-import { Button } from '../ui/Button';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
+import { EditorBubbleItem, type EditorInstance, useEditor } from 'novel';
+import { IconType } from 'react-icons/lib';
 import {
+  PiCaretDown,
   PiCheck,
   PiCheckSquare,
-  PiCaretDown,
   PiCode,
-  PiTextHOne,
-  PiTextHTwo,
-  PiTextHThree,
-  PiListNumbers,
-  PiTextT,
-  PiQuotes,
   PiList,
+  PiListNumbers,
+  PiQuotes,
+  PiTextHOne,
+  PiTextHThree,
+  PiTextHTwo,
+  PiTextT,
 } from 'react-icons/pi';
-import { IconType } from 'react-icons/lib';
-import { type EditorInstance } from 'novel';
+import { Button } from '../ui/Button';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
 
 export type SelectorItem = {
   name: string;

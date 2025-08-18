@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Button from './Button';
 import { useTranslation } from 'react-i18next';
+import Button from './Button';
 
 type Props = {
   onSubmit: (reasons: string[], feedback: string) => void;

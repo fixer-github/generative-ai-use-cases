@@ -1,22 +1,22 @@
 import * as cdk from 'aws-cdk-lib';
-import * as events from 'aws-cdk-lib/aws-events';
-import * as targets from 'aws-cdk-lib/aws-events-targets';
-import * as kendra from 'aws-cdk-lib/aws-kendra';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3Deploy from 'aws-cdk-lib/aws-s3-deployment';
-import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
-import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { Construct } from 'constructs';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import { Duration, Token, Arn, RemovalPolicy } from 'aws-cdk-lib';
+import { Arn, Duration, RemovalPolicy, Token } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
   LambdaIntegration,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kendra from 'aws-cdk-lib/aws-kendra';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3Deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
+import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 const KENDRA_STATE_CFN_PARAMETER_NAME = 'kendraState';

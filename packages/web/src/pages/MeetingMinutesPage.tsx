@@ -1,40 +1,41 @@
+import { LanguageCode } from '@aws-sdk/client-transcribe-streaming';
+import { Transcript } from 'generative-ai-use-cases';
+import queryString from 'query-string';
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
-  useEffect,
   useState,
 } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import {
+  PiMicrophoneBold,
+  PiPaperclip,
+  PiPencilLine,
+  PiStopCircleBold,
+} from 'react-icons/pi';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { create } from 'zustand';
-import Card from '../components/Card';
 import Button from '../components/Button';
 import ButtonCopy from '../components/ButtonCopy';
-import ButtonSendToUseCase from '../components/ButtonSendToUseCase';
 import ButtonIcon from '../components/ButtonIcon';
-import useTranscribe from '../hooks/useTranscribe';
-import useMicrophone from '../hooks/useMicrophone';
-import useScreenAudio from '../hooks/useScreenAudio';
-import useMeetingMinutes from '../hooks/useMeetingMinutes';
-import { MODELS } from '../hooks/useModel';
-import {
-  PiStopCircleBold,
-  PiMicrophoneBold,
-  PiPencilLine,
-  PiPaperclip,
-} from 'react-icons/pi';
-import Switch from '../components/Switch';
-import RangeSlider from '../components/RangeSlider';
+import ButtonSendToUseCase from '../components/ButtonSendToUseCase';
+import Card from '../components/Card';
 import ExpandableField from '../components/ExpandableField';
-import Select from '../components/Select';
-import { Transcript } from 'generative-ai-use-cases';
-import Textarea from '../components/Textarea';
-import { useTranslation, Trans } from 'react-i18next';
-import { toast } from 'sonner';
 import Markdown from '../components/Markdown';
-import { useNavigate } from 'react-router-dom';
-import queryString from 'query-string';
-import { MeetingMinutesStyle } from '../hooks/useMeetingMinutes';
-import { LanguageCode } from '@aws-sdk/client-transcribe-streaming';
+import RangeSlider from '../components/RangeSlider';
+import Select from '../components/Select';
+import Switch from '../components/Switch';
+import Textarea from '../components/Textarea';
+import useMeetingMinutes, {
+  MeetingMinutesStyle,
+} from '../hooks/useMeetingMinutes';
+import useMicrophone from '../hooks/useMicrophone';
+import { MODELS } from '../hooks/useModel';
+import useScreenAudio from '../hooks/useScreenAudio';
+import useTranscribe from '../hooks/useTranscribe';
 
 // Real-time transcript segment for chronological integration
 interface RealtimeSegment {
@@ -475,7 +476,6 @@ const MeetingMinutesPage: React.FC = () => {
       }
     }
   }, [
-    countdownSeconds,
     autoGenerate,
     realtimeText,
     lastProcessedTranscript,

@@ -1,42 +1,41 @@
-import React, { useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect, useMemo } from 'react';
 import {
-  PiList,
-  PiHouse,
   PiChatCircleText,
-  PiPencil,
-  PiNote,
   PiChatsCircle,
-  PiPenNib,
-  PiTranslate,
-  PiImages,
-  PiVideoLight,
-  PiSpeakerHighBold,
+  PiFlowArrow,
   PiGear,
   PiGlobe,
-  PiX,
-  PiRobot,
-  PiVideoCamera,
-  PiFlowArrow,
+  PiGraph,
+  PiHouse,
+  PiImages,
+  PiList,
   PiMagicWand,
   PiMicrophoneBold,
-  PiTreeStructure,
+  PiNote,
   PiNotebook,
-  PiGraph,
+  PiPencil,
+  PiPenNib,
+  PiRobot,
+  PiSpeakerHighBold,
+  PiTranslate,
+  PiTreeStructure,
+  PiVideoCamera,
+  PiVideoLight,
+  PiX,
 } from 'react-icons/pi';
-import { Outlet } from 'react-router-dom';
-import Drawer, { ItemProps } from './components/Drawer';
+import { Outlet, useLocation } from 'react-router-dom';
 import ButtonIcon from './components/ButtonIcon';
+import Drawer, { ItemProps } from './components/Drawer';
 import '@aws-amplify/ui-react/styles.css';
-import useDrawer from './hooks/useDrawer';
-import useChatList from './hooks/useChatList';
+import { useTranslation } from 'react-i18next';
 import PopupInterUseCasesDemo from './components/PopupInterUseCasesDemo';
+import useChatList from './hooks/useChatList';
+import useDrawer from './hooks/useDrawer';
 import useInterUseCases from './hooks/useInterUseCases';
 import { MODELS } from './hooks/useModel';
-import useScreen from './hooks/useScreen';
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
+import useScreen from './hooks/useScreen';
 import useUseCases from './hooks/useUseCases';
-import { useTranslation } from 'react-i18next';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -266,7 +265,7 @@ const App: React.FC = () => {
     if (screen.current) {
       notifyScreen(screen.current);
     }
-  }, [pathname, screen, notifyScreen]);
+  }, [screen, notifyScreen]);
 
   return (
     <div

@@ -1,7 +1,7 @@
-import { Template } from 'aws-cdk-lib/assertions';
 import * as cdk from 'aws-cdk-lib';
-import { processedStackInputSchema } from '../lib/stack-input';
+import { Template } from 'aws-cdk-lib/assertions';
 import { createStacks } from '../lib/create-stacks';
+import { processedStackInputSchema } from '../lib/stack-input';
 
 describe('GenerativeAiUseCases', () => {
   test('matches the snapshot', () => {

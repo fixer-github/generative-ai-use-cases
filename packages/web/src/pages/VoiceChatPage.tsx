@@ -1,24 +1,24 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSpeechToSpeech } from '../hooks/useSpeechToSpeech';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   PiArrowClockwiseBold,
-  PiStopCircleBold,
-  PiMicrophoneBold,
   PiEar,
+  PiMicrophoneBold,
+  PiStopCircleBold,
 } from 'react-icons/pi';
-import ChatMessage from '../components/ChatMessage';
-import Switch from '../components/Switch';
-import ExpandableField from '../components/ExpandableField';
+import { toast } from 'sonner';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import Alert from '../components/Alert.tsx';
 import Button from '../components/Button';
+import ChatMessage from '../components/ChatMessage';
+import ExpandableField from '../components/ExpandableField';
 import InputChatContent from '../components/InputChatContent';
 import ScrollTopBottom from '../components/ScrollTopBottom';
-import Alert from '../components/Alert.tsx';
 import Select from '../components/Select';
+import Switch from '../components/Switch';
 import useFollow from '../hooks/useFollow';
-import BedrockIcon from '../assets/bedrock.svg?react';
-import { toast } from 'sonner';
 import { MODELS } from '../hooks/useModel';
+import { useSpeechToSpeech } from '../hooks/useSpeechToSpeech';
 
 const VoiceChatPage: React.FC = () => {
   const { t } = useTranslation();
@@ -78,7 +78,7 @@ const VoiceChatPage: React.FC = () => {
       }
     };
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, []);
+  }, [closeSession]);
 
   return (
     <>

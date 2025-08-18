@@ -1,15 +1,15 @@
-import { create } from 'zustand';
-import useFileApi from './useFileApi';
 import { FileLimit, UploadedFileType } from 'generative-ai-use-cases';
+import i18next from 'i18next';
 import { produce } from 'immer';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import i18next from 'i18next';
+import { create } from 'zustand';
 import {
   getFileTypeFromMimeType,
   getMimeTypeFromFileHeader,
   validateMimeTypeAndExtension,
 } from '../utils/MediaUtils';
+import useFileApi from './useFileApi';
 
 export const extractBaseURL = (url: string) => {
   return url.split(/[?#]/)[0];

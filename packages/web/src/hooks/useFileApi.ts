@@ -1,14 +1,14 @@
+import axios from 'axios';
 import {
-  GetFileUploadSignedUrlRequest,
-  GetFileUploadSignedUrlResponse,
-  UploadFileRequest,
+  DeleteFileResponse,
   GetFileDownloadSignedUrlRequest,
   GetFileDownloadSignedUrlResponse,
-  DeleteFileResponse,
+  GetFileUploadSignedUrlRequest,
+  GetFileUploadSignedUrlResponse,
   S3Type,
+  UploadFileRequest,
 } from 'generative-ai-use-cases';
 import useHttp from './useHttp';
-import axios from 'axios';
 
 const useFileApi = () => {
   const http = useHttp();

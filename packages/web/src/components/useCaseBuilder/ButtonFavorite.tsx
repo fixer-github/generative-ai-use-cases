@@ -1,7 +1,7 @@
 import React from 'react';
+import { PiStar, PiStarFill } from 'react-icons/pi';
 import { BaseProps } from '../../@types/common';
 import ButtonIcon from '../ButtonIcon';
-import { PiStar, PiStarFill } from 'react-icons/pi';
 
 type Props = BaseProps & {
   isFavorite: boolean;

@@ -1,13 +1,13 @@
+import { fetchAuthSession } from 'aws-amplify/auth';
 import React, { ReactNode, useMemo } from 'react';
-import { BaseProps } from '../@types/common';
+import { useTranslation } from 'react-i18next';
+import { PiChartBar, PiGear } from 'react-icons/pi';
 import { Link } from 'react-router-dom';
 import useSWR from 'swr';
+import { BaseProps } from '../@types/common';
+import useUserSetting from '../hooks/useUserSetting';
 import useVersion from '../hooks/useVersion';
 import IconWithDot from './IconWithDot';
-import { PiChartBar, PiGear } from 'react-icons/pi';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import useUserSetting from '../hooks/useUserSetting';
-import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {
   builderMode?: boolean;

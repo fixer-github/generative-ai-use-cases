@@ -1,11 +1,11 @@
-import { v4 as uuidv4 } from 'uuid';
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
-  TranscribeClient,
-  StartTranscriptionJobCommand,
   LanguageCode,
+  StartTranscriptionJobCommand,
+  TranscribeClient,
 } from '@aws-sdk/client-transcribe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { StartTranscriptionRequest } from 'generative-ai-use-cases';
+import { v4 as uuidv4 } from 'uuid';
 
 export const handler = async (
   event: APIGatewayProxyEvent

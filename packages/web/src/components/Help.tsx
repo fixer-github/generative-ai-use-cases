@@ -1,6 +1,6 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
 import { PiQuestionFill } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 import Tooltip from './Tooltip';
 
 type Props = BaseProps & {

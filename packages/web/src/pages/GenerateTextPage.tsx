@@ -1,19 +1,19 @@
+import queryString from 'query-string';
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Textarea from '../components/Textarea';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import Select from '../components/Select';
-import useChat from '../hooks/useChat';
-import useTyping from '../hooks/useTyping';
+import { useLocation } from 'react-router-dom';
 import { create } from 'zustand';
 import { GenerateTextPageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import Card from '../components/Card';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import Textarea from '../components/Textarea';
+import useChat from '../hooks/useChat';
 import { MODELS } from '../hooks/useModel';
+import useTyping from '../hooks/useTyping';
 import { getPrompter } from '../prompts';
-import queryString from 'query-string';
 
 type StateType = {
   information: string;
@@ -88,7 +88,7 @@ const GenerateTextPage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   const disabledExec = useMemo(() => {
     return information === '' || loading;
@@ -110,7 +110,14 @@ const GenerateTextPage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setInformation, setContext, modelId, availableModels, search]);
+  }, [
+    setInformation,
+    setContext,
+    modelId,
+    availableModels,
+    search,
+    setModelId,
+  ]);
 
   useEffect(() => {
     setTypingTextInput(text);
@@ -134,21 +141,21 @@ const GenerateTextPage: React.FC = () => {
     const _response = messages[messages.length - 1].content;
     setText(_response.trim());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, setText]);
 
   // Execute summary
   const onClickExec = useCallback(() => {
     if (loading) return;
     getGeneratedText(information, context);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [information, context, loading]);
+  }, [information, context, loading, getGeneratedText]);
 
   // Reset
   const onClickClear = useCallback(() => {
     clear();
     clearChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clear, clearChat]);
 
   return (
     <div className="grid grid-cols-12">

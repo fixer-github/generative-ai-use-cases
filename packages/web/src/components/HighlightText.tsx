@@ -1,5 +1,5 @@
+import { Highlight, TextWithHighlights } from '@aws-sdk/client-kendra';
 import React, { useMemo } from 'react';
-import { TextWithHighlights, Highlight } from '@aws-sdk/client-kendra';
 
 type Props = {
   textWithHighlights: TextWithHighlights;

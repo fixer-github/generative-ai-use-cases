@@ -1,7 +1,7 @@
 import React from 'react';
+import { PiFile, PiSpinnerGap, PiX } from 'react-icons/pi';
 import { BaseProps } from '../@types/common';
 import ButtonIcon from './ButtonIcon';
-import { PiFile, PiSpinnerGap, PiX } from 'react-icons/pi';
 
 type Props = BaseProps & {
   filename?: string;

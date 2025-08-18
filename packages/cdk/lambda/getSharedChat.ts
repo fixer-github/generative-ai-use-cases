@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { findUserIdAndChatId, findChatById, listMessages } from './repository';
+import { findChatById, findUserIdAndChatId, listMessages } from './repository';
 
 export const handler = async (
   event: APIGatewayProxyEvent

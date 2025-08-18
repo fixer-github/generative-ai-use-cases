@@ -1,28 +1,28 @@
+import { SystemContext } from 'generative-ai-use-cases';
 import React, {
-  useState,
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
-  useLayoutEffect,
-  useEffect,
+  useState,
 } from 'react';
-import { BaseProps } from '../@types/common';
-import ExpandableMenu from './ExpandableMenu';
+import { useTranslation } from 'react-i18next';
 import {
   PiBookOpenText,
-  PiFlask,
-  PiTrash,
-  PiPencilLine,
   PiCheck,
+  PiFlask,
+  PiPencilLine,
+  PiTrash,
   PiX,
 } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 import { ChatPageQueryParams } from '../@types/navigate';
 import useChat from '../hooks/useChat';
-import { getPrompter, PromptListItem } from '../prompts';
 import type { PromptList } from '../prompts';
+import { getPrompter, PromptListItem } from '../prompts';
 import ButtonIcon from './ButtonIcon';
-import { SystemContext } from 'generative-ai-use-cases';
-import { useTranslation } from 'react-i18next';
+import ExpandableMenu from './ExpandableMenu';
 
 type Props = BaseProps & {
   onClick: (params: ChatPageQueryParams) => void;
@@ -59,12 +59,7 @@ const PromptList: React.FC<Props> = (props) => {
       setPreviousForceExpanded(props.forceExpand);
       setExpanded(true);
     }
-  }, [
-    props.forceExpand,
-    previousForceExpanded,
-    setPreviousForceExpanded,
-    setExpanded,
-  ]);
+  }, [props.forceExpand, previousForceExpanded]);
 
   // To access the upper setExpanded, nest the component
   const Item: React.FC<PromptListItem> = (props) => {

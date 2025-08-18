@@ -1,8 +1,8 @@
-import React, { lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
 import queryString from 'query-string';
-import { WriterPageQueryParams } from '../@types/navigate';
+import React, { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import { WriterPageQueryParams } from '../@types/navigate';
 
 const TailwindAdvancedEditor = lazy(
   () => import('../components/Writer/AdvancedEditor')

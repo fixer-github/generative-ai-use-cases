@@ -1,8 +1,8 @@
 import { produce } from 'immer';
+import queryString from 'query-string';
 import { useNavigate } from 'react-router-dom';
 import { create } from 'zustand';
 import { InterUseCase } from '../@types/navigate';
-import queryString from 'query-string';
 
 const useInterUseCasesState = create<{
   isShow: boolean;

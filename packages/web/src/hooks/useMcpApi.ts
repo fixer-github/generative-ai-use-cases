@@ -1,14 +1,14 @@
+import { Sha256 } from '@aws-crypto/sha256-js';
+import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
+import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
+import { HttpRequest } from '@aws-sdk/protocol-http';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import { McpRequest, Model, StreamingChunk } from 'generative-ai-use-cases';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useChat from './useChat';
 import useChatApi from './useChatApi';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { HttpRequest } from '@aws-sdk/protocol-http';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
-import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
-import { StreamingChunk, McpRequest, Model } from 'generative-ai-use-cases';
-import { useTranslation } from 'react-i18next';
 
 const MCP_ENDPOINT = import.meta.env.VITE_APP_MCP_ENDPOINT;
 

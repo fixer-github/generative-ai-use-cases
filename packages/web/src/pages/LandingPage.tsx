@@ -1,48 +1,48 @@
+import queryString from 'query-string';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import CardDemo from '../components/CardDemo';
-import Button from '../components/Button';
+import { useTranslation } from 'react-i18next';
 import {
   PiChatCircleText,
-  PiPencil,
-  PiNote,
   PiChatsCircle,
-  PiTranslate,
+  PiFlowArrow,
   PiGlobe,
+  PiGraph,
   PiImages,
-  PiVideoLight,
+  PiMicrophoneBold,
+  PiNote,
   PiNotebook,
   PiPen,
-  PiRobot,
-  PiVideoCamera,
-  PiFlowArrow,
-  PiTreeStructure,
+  PiPencil,
   PiPenNib,
-  PiMicrophoneBold,
-  PiGraph,
+  PiRobot,
+  PiTranslate,
+  PiTreeStructure,
+  PiVideoCamera,
+  PiVideoLight,
 } from 'react-icons/pi';
-import AwsIcon from '../assets/aws.svg?react';
-import GaiXerIcon from '../assets/gaixer-white.svg?react';
-import useInterUseCases from '../hooks/useInterUseCases';
+import { useNavigate } from 'react-router-dom';
 import {
   AgentPageQueryParams,
   ChatPageQueryParams,
+  DiagramPageQueryParams,
   GenerateImagePageQueryParams,
-  GenerateVideoPageQueryParams,
   GenerateTextPageQueryParams,
+  GenerateVideoPageQueryParams,
   InterUseCaseParams,
+  McpPageQueryParams,
   RagPageQueryParams,
   SummarizePageQueryParams,
   TranslatePageQueryParams,
-  WebContentPageQueryParams,
   VideoAnalyzerPageQueryParams,
-  DiagramPageQueryParams,
-  McpPageQueryParams,
+  WebContentPageQueryParams,
 } from '../@types/navigate';
-import queryString from 'query-string';
+import AwsIcon from '../assets/aws.svg?react';
+import GaiXerIcon from '../assets/gaixer-white.svg?react';
+import Button from '../components/Button';
+import CardDemo from '../components/CardDemo';
+import useInterUseCases from '../hooks/useInterUseCases';
 import { MODELS } from '../hooks/useModel';
 import useUseCases from '../hooks/useUseCases';
-import { useTranslation } from 'react-i18next';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =

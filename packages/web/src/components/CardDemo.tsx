@@ -1,8 +1,8 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
-import Card from './Card';
-import Button from './Button';
 import { useTranslation } from 'react-i18next';
+import { BaseProps } from '../@types/common';
+import Button from './Button';
+import Card from './Card';
 
 type Props = BaseProps & {
   label: string;

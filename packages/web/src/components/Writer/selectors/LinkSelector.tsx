@@ -1,10 +1,10 @@
-import { Button } from '../ui/Button';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
-import { cn } from '../lib/utils';
-import { PiCheck, PiTrash } from 'react-icons/pi';
 import { useEditor } from 'novel';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PiCheck, PiTrash } from 'react-icons/pi';
+import { cn } from '../lib/utils';
+import { Button } from '../ui/Button';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
 
 function isValidUrl(url: string) {
   try {

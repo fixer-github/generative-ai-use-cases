@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
-  SamplePromptType,
   getUseCaseBuilderSamplePrompts,
+  SamplePromptType,
 } from '../../prompts/useCaseBuilderSamples';
-import { useTranslation } from 'react-i18next';
 
 type CardSampleProps = SamplePromptType;
 

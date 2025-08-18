@@ -1,15 +1,3 @@
-import {
-  Chat,
-  RecordedMessage,
-  ToBeRecordedMessage,
-  ShareId,
-  UserIdAndChatId,
-  SystemContext,
-  UpdateFeedbackRequest,
-  ListChatsResponse,
-  TokenUsageStats,
-} from 'generative-ai-use-cases';
-import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   BatchGetCommand,
@@ -21,6 +9,18 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import * as crypto from 'crypto';
+import {
+  Chat,
+  ListChatsResponse,
+  RecordedMessage,
+  ShareId,
+  SystemContext,
+  ToBeRecordedMessage,
+  TokenUsageStats,
+  UpdateFeedbackRequest,
+  UserIdAndChatId,
+} from 'generative-ai-use-cases';
 
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;

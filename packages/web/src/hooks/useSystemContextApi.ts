@@ -3,9 +3,8 @@ import {
   SystemContext,
   UpdateSystemContextTitleResponse,
 } from 'generative-ai-use-cases';
-
-import useHttp from './useHttp';
 import { decomposeId } from '../utils/ChatUtils';
+import useHttp from './useHttp';
 
 const useSystemContextApi = () => {
   const http = useHttp();

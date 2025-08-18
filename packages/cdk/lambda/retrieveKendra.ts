@@ -1,9 +1,9 @@
-import * as lambda from 'aws-lambda';
 import {
   AttributeFilter,
   KendraClient,
   RetrieveCommand,
 } from '@aws-sdk/client-kendra';
+import * as lambda from 'aws-lambda';
 import { RetrieveKendraRequest } from 'generative-ai-use-cases';
 
 const INDEX_ID = process.env.INDEX_ID;

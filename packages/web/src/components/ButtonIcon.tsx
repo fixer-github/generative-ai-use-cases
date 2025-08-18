@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { BaseProps } from '../@types/common';
 import { PiSpinnerGap } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 
 type Props = BaseProps & {
   disabled?: boolean;

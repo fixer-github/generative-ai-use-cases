@@ -1,13 +1,13 @@
+import { ShownMessage } from 'generative-ai-use-cases';
 import React, { useMemo } from 'react';
+import {
+  PiThumbsDown,
+  PiThumbsDownFill,
+  PiThumbsUp,
+  PiThumbsUpFill,
+} from 'react-icons/pi';
 import { BaseProps } from '../@types/common';
 import ButtonIcon from './ButtonIcon';
-import {
-  PiThumbsUp,
-  PiThumbsDown,
-  PiThumbsUpFill,
-  PiThumbsDownFill,
-} from 'react-icons/pi';
-import { ShownMessage } from 'generative-ai-use-cases';
 
 type Props = BaseProps & {
   message: ShownMessage;

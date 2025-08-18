@@ -1,44 +1,44 @@
+import { FileLimit, UseCaseInputExample } from 'generative-ai-use-cases';
+import { produce } from 'immer';
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   useRef,
+  useState,
 } from 'react';
-import Select from '../Select';
-import Button from '../Button';
-import useChat from '../../hooks/useChat';
+import { useTranslation } from 'react-i18next';
+import { PiPaperclip, PiSpinnerGap } from 'react-icons/pi';
 import { useLocation } from 'react-router-dom';
-import { MODELS } from '../../hooks/useModel';
-import Markdown from '../Markdown';
-import ButtonCopy from '../ButtonCopy';
-import useTyping from '../../hooks/useTyping';
 import { create } from 'zustand';
-import Textarea from '../Textarea';
-import { produce } from 'immer';
-import ButtonFavorite from './ButtonFavorite';
-import ButtonShare from './ButtonShare';
-import ButtonUseCaseEdit from './ButtonUseCaseEdit';
-import ButtonUseCaseExport from './ButtonUseCaseExport';
-import Skeleton from '../Skeleton';
 import useMyUseCases from '../../hooks/useCaseBuilder/useMyUseCases';
-import { UseCaseInputExample, FileLimit } from 'generative-ai-use-cases';
+import useChat from '../../hooks/useChat';
+import useFiles from '../../hooks/useFiles';
+import { MODELS } from '../../hooks/useModel';
+import useRagApi from '../../hooks/useRagApi';
+import useRagKnowledgeBaseApi from '../../hooks/useRagKnowledgeBaseApi';
+import useTyping from '../../hooks/useTyping';
+import { AcceptedDotExtensions } from '../../utils/MediaUtils';
 import {
-  NOLABEL,
   extractPlaceholdersFromPromptTemplate,
   getItemsFromPlaceholders,
   getTextFormItemsFromItems,
   getTextFormUniqueLabels,
+  NOLABEL,
 } from '../../utils/UseCaseBuilderUtils';
-import useRagKnowledgeBaseApi from '../../hooks/useRagKnowledgeBaseApi';
-import useRagApi from '../../hooks/useRagApi';
-import useFiles from '../../hooks/useFiles';
+import Button from '../Button';
+import ButtonCopy from '../ButtonCopy';
+import FileCard from '../FileCard';
+import Markdown from '../Markdown';
+import Select from '../Select';
+import Skeleton from '../Skeleton';
+import Textarea from '../Textarea';
 import ZoomUpImage from '../ZoomUpImage';
 import ZoomUpVideo from '../ZoomUpVideo';
-import FileCard from '../FileCard';
-import { AcceptedDotExtensions } from '../../utils/MediaUtils';
-import { PiPaperclip, PiSpinnerGap } from 'react-icons/pi';
-import { useTranslation } from 'react-i18next';
+import ButtonFavorite from './ButtonFavorite';
+import ButtonShare from './ButtonShare';
+import ButtonUseCaseEdit from './ButtonUseCaseEdit';
+import ButtonUseCaseExport from './ButtonUseCaseExport';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -185,7 +185,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
   useEffect(() => {
     clear(textFormUniqueLabels);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textFormUniqueLabels]);
+  }, [textFormUniqueLabels, clear]);
 
   useEffect(() => {
     for (const item of selectItems) {
@@ -206,7 +206,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
         : availableModels[0]
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableModels, props.modelId, pathname]);
+  }, [availableModels, props.modelId, setModelId]);
 
   useEffect(() => {
     setTypingTextInput(text);
@@ -220,7 +220,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
     const _response = messages[messages.length - 1].content;
     setText(_response.trim());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, setText]);
 
   useEffect(() => {
     const retrieveKendraItems = items.filter(
@@ -299,14 +299,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
     tmpErrorMessages.push(...fileErrorMessages);
 
     setErrorMessages(tmpErrorMessages);
-  }, [
-    setErrorMessages,
-    items,
-    textFormItems,
-    fileErrorMessages,
-    selectItems,
-    t,
-  ]);
+  }, [items, textFormItems, fileErrorMessages, selectItems, t]);
 
   const onClickExec = useCallback(async () => {
     if (loading) return;

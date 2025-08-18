@@ -1,8 +1,8 @@
-import { Model, ModelConfiguration } from 'generative-ai-use-cases';
 import {
   CRI_PREFIX_PATTERN,
   modelMetadata as originalModelMetadata,
 } from '@generative-ai-use-cases/common';
+import { Model, ModelConfiguration } from 'generative-ai-use-cases';
 
 const modelRegion = import.meta.env.VITE_APP_MODEL_REGION;
 
@@ -90,7 +90,7 @@ const agentNames: string[] = JSON.parse(import.meta.env.VITE_APP_AGENT_NAMES)
 const getFlows = () => {
   try {
     return JSON.parse(import.meta.env.VITE_APP_FLOWS);
-  } catch (e) {
+  } catch (_e) {
     return [];
   }
 };

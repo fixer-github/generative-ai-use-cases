@@ -1,5 +1,5 @@
-import { Construct } from 'constructs';
 import { aws_bedrock as bedrock, Lazy, Names } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
 
 export class Guardrail extends Construct {
   public readonly guardrailIdentifier: string;

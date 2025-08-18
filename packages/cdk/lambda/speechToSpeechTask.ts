@@ -1,18 +1,18 @@
-import { Amplify } from 'aws-amplify';
-import { events, EventsChannel } from 'aws-amplify/data';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { randomUUID } from 'crypto';
 import {
   InvokeModelWithBidirectionalStreamCommand,
-  InvokeModelWithBidirectionalStreamInput,
   InvokeModelWithBidirectionalStreamCommandOutput,
+  InvokeModelWithBidirectionalStreamInput,
   ModelStreamErrorException,
 } from '@aws-sdk/client-bedrock-runtime';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { NodeHttp2Handler } from '@smithy/node-http-handler';
+import { Amplify } from 'aws-amplify';
+import { EventsChannel, events } from 'aws-amplify/data';
+import { randomUUID } from 'crypto';
 import {
-  SpeechToSpeechEventType,
-  SpeechToSpeechEvent,
   Model,
+  SpeechToSpeechEvent,
+  SpeechToSpeechEventType,
 } from 'generative-ai-use-cases';
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
 
@@ -65,7 +65,7 @@ const dispatchEvent = async (
       event,
       data,
     } as SpeechToSpeechEvent);
-  } catch (e) {
+  } catch (_e) {
     console.error(
       'Failed to publish the event via channel. The channel might be closed',
       event,

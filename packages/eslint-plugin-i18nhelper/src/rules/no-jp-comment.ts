@@ -1,7 +1,7 @@
 import { TSESLint, TSESTree } from '@typescript-eslint/utils';
 import { RuleContext } from '@typescript-eslint/utils/dist/ts-eslint';
-import { includeJa } from '../utils';
 import type { MessageIds, Options } from '../types';
+import { includeJa } from '../utils';
 
 export const noJpComment: TSESLint.RuleModule<'noJpComment', []> = {
   meta: {

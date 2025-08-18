@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import ModalDialog from '../ModalDialog';
-import Button from '../Button';
-import { BaseProps } from '../../@types/common';
-import Switch from '../Switch';
-import ButtonCopy from '../ButtonCopy';
 import { useTranslation } from 'react-i18next';
+import { BaseProps } from '../../@types/common';
+import Button from '../Button';
+import ButtonCopy from '../ButtonCopy';
+import ModalDialog from '../ModalDialog';
+import Switch from '../Switch';
 
 type Props = BaseProps & {
   isOpen: boolean;

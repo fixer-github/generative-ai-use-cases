@@ -1,13 +1,13 @@
-import { Construct } from 'constructs';
+import { CfnJson, Stack } from 'aws-cdk-lib';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import {
-  Role,
-  WebIdentityPrincipal,
-  PolicyStatement,
   Effect,
   FederatedPrincipal,
+  PolicyStatement,
+  Role,
+  WebIdentityPrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import { Stack, CfnJson } from 'aws-cdk-lib';
-import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { Construct } from 'constructs';
 
 export interface MultiTenantRoleProps {
   readonly userPool: UserPool;

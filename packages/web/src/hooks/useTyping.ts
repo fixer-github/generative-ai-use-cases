@@ -21,7 +21,7 @@ const useTyping = (typing?: boolean) => {
         setCurrentIndex(0);
       }
     }
-  }, [typing, animating, setAnimating, setCurrentIndex]);
+  }, [typing, animating]);
 
   // The number of remaining characters that need to be input
   const remainingTextLength = useMemo(() => {
@@ -55,15 +55,7 @@ const useTyping = (typing?: boolean) => {
 
       return () => clearTimeout(timeout);
     }
-  }, [
-    typingTextInput,
-    currentIndex,
-    animating,
-    typing,
-    setCurrentIndex,
-    setAnimating,
-    inputUnit,
-  ]);
+  }, [typingTextInput, currentIndex, animating, typing, inputUnit]);
 
   const typingTextOutput = useMemo(() => {
     if (!settingTypingAnimation) {

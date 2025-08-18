@@ -1,7 +1,7 @@
-import { UnrecordedMessage } from 'generative-ai-use-cases';
 import { RetrieveResultItem } from '@aws-sdk/client-kendra';
-import { claudePrompter } from './claude';
+import { UnrecordedMessage } from 'generative-ai-use-cases';
 import { TFunction } from 'i18next';
+import { claudePrompter } from './claude';
 
 // Currently, prompter is only for Claude
 export const getPrompter = (modelId: string) => {

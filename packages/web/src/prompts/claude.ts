@@ -1,7 +1,30 @@
+import { TFunction } from 'i18next';
+
+import {
+  ArchitecturePrompt,
+  BlockPrompt,
+  ClassPrompt,
+  ErPrompt,
+  FlowchartPrompt,
+  GanttChartPrompt,
+  GitgraphPrompt,
+  MindmapPrompt,
+  NetworkpacketPrompt,
+  PiechartPrompt,
+  QuadrantchartPrompt,
+  RequirementPrompt,
+  SankeychartPrompt,
+  SequencePrompt,
+  StatePrompt,
+  TimelinePrompt,
+  UserJourneyPrompt,
+  XychartPrompt,
+} from './diagrams/index';
 import {
   ChatParams,
-  WriterParams,
+  DiagramParams,
   GenerateTextParams,
+  MeetingMinutesParams,
   Prompter,
   PromptList,
   RagParams,
@@ -10,32 +33,8 @@ import {
   TranslateParams,
   VideoAnalyzerParams,
   WebContentParams,
-  DiagramParams,
-  MeetingMinutesParams,
+  WriterParams,
 } from './index';
-
-import {
-  FlowchartPrompt,
-  SequencePrompt,
-  ClassPrompt,
-  StatePrompt,
-  ErPrompt,
-  UserJourneyPrompt,
-  GanttChartPrompt,
-  PiechartPrompt,
-  QuadrantchartPrompt,
-  RequirementPrompt,
-  GitgraphPrompt,
-  MindmapPrompt,
-  XychartPrompt,
-  SankeychartPrompt,
-  BlockPrompt,
-  NetworkpacketPrompt,
-  ArchitecturePrompt,
-  TimelinePrompt,
-} from './diagrams/index';
-
-import { TFunction } from 'i18next';
 
 const systemContexts: { [key: string]: string } = {
   '/chat': `You are an AI assistant helping users in chat.

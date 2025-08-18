@@ -1,36 +1,36 @@
-import React, { useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Textarea from '../components/Textarea';
-import Select from '../components/Select';
-import ExpandableField from '../components/ExpandableField';
-import { create } from 'zustand';
-import { MODELS } from '../hooks/useModel';
 import queryString from 'query-string';
-import useDiagram from '../hooks/useDiagram';
-import { DiagramPageQueryParams } from '../@types/navigate';
-import Markdown from '../components/Markdown';
-import { RiRobot2Line, RiMindMap } from 'react-icons/ri';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BiAbacus } from 'react-icons/bi';
 import { BsDiagram3 } from 'react-icons/bs';
-import { GrCluster } from 'react-icons/gr';
-import { VscTypeHierarchy } from 'react-icons/vsc';
 import { FaChartGantt, FaTimeline } from 'react-icons/fa6';
-import { PiChartPieDuotone } from 'react-icons/pi';
 import { GoChecklist } from 'react-icons/go';
+import { GrCluster } from 'react-icons/gr';
 import { LiaMailBulkSolid } from 'react-icons/lia';
+import { PiChartPieDuotone } from 'react-icons/pi';
+import { RiMindMap, RiRobot2Line } from 'react-icons/ri';
 import {
-  TbGitBranch,
-  TbRoute,
-  TbChartSankey,
-  TbChartDots3,
-  TbMathXy,
   TbBrandAws,
-  TbPackages,
+  TbChartDots3,
+  TbChartSankey,
+  TbGitBranch,
   TbMathSymbols,
+  TbMathXy,
+  TbPackages,
+  TbRoute,
 } from 'react-icons/tb';
-import { useTranslation } from 'react-i18next';
+import { VscTypeHierarchy } from 'react-icons/vsc';
+import { useLocation } from 'react-router-dom';
+import { create } from 'zustand';
+import { DiagramPageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import ExpandableField from '../components/ExpandableField';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import Textarea from '../components/Textarea';
+import useDiagram from '../hooks/useDiagram';
+import { MODELS } from '../hooks/useModel';
 
 const DiagramRenderer = lazy(() => import('../components/DiagramRenderer'));
 
@@ -161,7 +161,7 @@ const GenerateDiagramPage: React.FC = () => {
     })();
     // To avoid infinite loops, only keep the following dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableModels, search]);
+  }, [availableModels, search, setContent, setModelId]);
 
   useEffect(() => {
     if (messages.length === 0) return;

@@ -1,16 +1,9 @@
-import { useEffect, useMemo, useState, memo } from 'react';
-import { BaseProps } from '../@types/common';
-import { default as ReactMarkdown } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import ButtonCopy from './ButtonCopy';
-import useRagFile from '../hooks/useRagFile';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { PiSpinnerGap } from 'react-icons/pi';
-import useFileApi from '../hooks/useFileApi';
-
+import { default as ReactMarkdown } from 'react-markdown';
+import { useLocation } from 'react-router-dom';
 // Reduce bundle size by registering only the languages used in the project
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
 import c from 'react-syntax-highlighter/dist/esm/languages/prism/c';
 import cpp from 'react-syntax-highlighter/dist/esm/languages/prism/cpp';
@@ -29,11 +22,17 @@ import perl from 'react-syntax-highlighter/dist/esm/languages/prism/perl';
 import php from 'react-syntax-highlighter/dist/esm/languages/prism/php';
 import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
 import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql';
-import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
 import tsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx';
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
 import xmlDoc from 'react-syntax-highlighter/dist/esm/languages/prism/xml-doc';
 import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
-import { useLocation } from 'react-router-dom';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import remarkBreaks from 'remark-breaks';
+import remarkGfm from 'remark-gfm';
+import { BaseProps } from '../@types/common';
+import useFileApi from '../hooks/useFileApi';
+import useRagFile from '../hooks/useRagFile';
+import ButtonCopy from './ButtonCopy';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('c', c);

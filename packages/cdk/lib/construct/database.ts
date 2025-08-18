@@ -1,5 +1,5 @@
-import { Construct } from 'constructs';
 import * as ddb from 'aws-cdk-lib/aws-dynamodb';
+import { Construct } from 'constructs';
 
 export class Database extends Construct {
   public readonly table: ddb.Table;

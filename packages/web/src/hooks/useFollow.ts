@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useScreen from './useScreen';
 
 const useFollow = () => {
@@ -36,7 +36,7 @@ const useFollow = () => {
   // If manually scrolled up, set following to false
   useEffect(() => {
     setFollowing(isAtBottom);
-  }, [isAtBottom, setFollowing]);
+  }, [isAtBottom]);
 
   return {
     setFollowing,

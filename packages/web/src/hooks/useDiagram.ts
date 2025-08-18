@@ -1,10 +1,10 @@
-import { useMemo, useCallback, useState } from 'react';
+import { PredictRequest } from 'generative-ai-use-cases';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import useChat from '../hooks/useChat';
+import { getPrompter } from '../prompts';
 import useChatApi from './useChatApi';
 import { findModelByModelId } from './useModel';
-import { getPrompter } from '../prompts';
-import useChat from '../hooks/useChat';
-import { PredictRequest } from 'generative-ai-use-cases';
-import { useTranslation } from 'react-i18next';
 
 const useDiagram = (id: string) => {
   const { t } = useTranslation();

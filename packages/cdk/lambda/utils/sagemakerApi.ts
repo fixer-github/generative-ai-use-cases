@@ -1,11 +1,11 @@
 import {
-  SageMakerRuntimeClient,
   InvokeEndpointCommand,
   InvokeEndpointWithResponseStreamCommand,
+  SageMakerRuntimeClient,
 } from '@aws-sdk/client-sagemaker-runtime';
-import { generatePrompt } from './prompter';
 import { ApiInterface, UnrecordedMessage } from 'generative-ai-use-cases';
 import { getSageMakerModelTemplate } from './models';
+import { generatePrompt } from './prompter';
 import { streamingChunk } from './streamingChunk';
 
 const client = new SageMakerRuntimeClient({

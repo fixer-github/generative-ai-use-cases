@@ -1,22 +1,22 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import useMcp from '../hooks/useMcp';
-import useFollow from '../hooks/useFollow';
-import { useLocation } from 'react-router-dom';
+import { UnrecordedMessage } from 'generative-ai-use-cases';
+import queryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { create } from 'zustand';
 import { PiArrowClockwiseBold } from 'react-icons/pi';
-import { MODELS, findModelByModelId } from '../hooks/useModel';
+import { useLocation } from 'react-router-dom';
+import { create } from 'zustand';
+import { McpPageQueryParams } from '../@types/navigate';
 import StrandsIcon from '../assets/strands.svg?react';
+import Button from '../components/Button';
 import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import Switch from '../components/Switch';
 import ExpandableField from '../components/ExpandableField';
 import InputChatContent from '../components/InputChatContent';
-import Button from '../components/Button';
 import ScrollTopBottom from '../components/ScrollTopBottom';
-import { UnrecordedMessage } from 'generative-ai-use-cases';
-import { McpPageQueryParams } from '../@types/navigate';
-import queryString from 'query-string';
+import Select from '../components/Select';
+import Switch from '../components/Switch';
+import useFollow from '../hooks/useFollow';
+import useMcp from '../hooks/useMcp';
+import { findModelByModelId, MODELS } from '../hooks/useModel';
 
 type StateType = {
   content: string;
@@ -90,7 +90,17 @@ const McpChatPage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, setContent, availableModels, pathname]);
+  }, [
+    search,
+    setContent,
+    availableModels,
+    clear,
+    currentSystemContext,
+    modelId,
+    setInputSystemContext,
+    setModelId,
+    updateSystemContext,
+  ]);
 
   useEffect(() => {
     setInputSystemContext(currentSystemContext);

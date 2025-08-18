@@ -1,13 +1,13 @@
-import { MODELS } from './useModel';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import {
-  LambdaClient,
   InvokeWithResponseStreamCommand,
+  LambdaClient,
 } from '@aws-sdk/client-lambda';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
-import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { OptimizePromptRequest } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
+import { MODELS } from './useModel';
 
 // Supported regions are available at the following page
 // https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-management-optimize.html

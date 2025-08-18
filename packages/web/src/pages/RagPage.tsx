@@ -1,20 +1,20 @@
+import queryString from 'query-string';
 import React, { useCallback, useEffect } from 'react';
-import InputChatContent from '../components/InputChatContent';
-import { create } from 'zustand';
-import useChat from '../hooks/useChat';
-import useRag from '../hooks/useRag';
+import { useTranslation } from 'react-i18next';
+import { PiPlus } from 'react-icons/pi';
 import { useLocation } from 'react-router-dom';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import useFollow from '../hooks/useFollow';
+import { create } from 'zustand';
+import { RagPageQueryParams } from '../@types/navigate';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import KendraIcon from '../assets/kendra.svg?react';
-import { PiPlus } from 'react-icons/pi';
-import { RagPageQueryParams } from '../@types/navigate';
+import ChatMessage from '../components/ChatMessage';
+import InputChatContent from '../components/InputChatContent';
+import ScrollTopBottom from '../components/ScrollTopBottom';
+import Select from '../components/Select';
+import useChat from '../hooks/useChat';
+import useFollow from '../hooks/useFollow';
 import { MODELS } from '../hooks/useModel';
-import queryString from 'query-string';
-import { useTranslation } from 'react-i18next';
+import useRag from '../hooks/useRag';
 
 type StateType = {
   content: string;
@@ -57,7 +57,7 @@ const RagPage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableModels, modelId, search, setContent]);
+  }, [availableModels, modelId, search, setContent, setModelId]);
 
   const onSend = useCallback(() => {
     setFollowing(true);

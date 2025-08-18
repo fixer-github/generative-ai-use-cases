@@ -1,12 +1,12 @@
+import { BEDROCK_SPEECH_TO_SPEECH_MODELS } from '@generative-ai-use-cases/common';
 import { Duration } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import * as agw from 'aws-cdk-lib/aws-apigateway';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as agw from 'aws-cdk-lib/aws-apigateway';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Construct } from 'constructs';
 import { ModelConfiguration } from 'generative-ai-use-cases';
-import { BEDROCK_SPEECH_TO_SPEECH_MODELS } from '@generative-ai-use-cases/common';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface SpeechToSpeechProps {

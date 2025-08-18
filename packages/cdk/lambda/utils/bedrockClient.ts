@@ -1,17 +1,17 @@
-import { STSClient, AssumeRoleCommand, Credentials } from '@aws-sdk/client-sts';
-import {
-  BedrockRuntimeClient,
-  BedrockRuntimeClientConfig,
-} from '@aws-sdk/client-bedrock-runtime';
-import {
-  BedrockAgentRuntimeClient,
-  BedrockAgentRuntimeClientConfig,
-} from '@aws-sdk/client-bedrock-agent-runtime';
-import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3';
 import {
   BedrockAgentClient,
   BedrockAgentClientConfig,
 } from '@aws-sdk/client-bedrock-agent';
+import {
+  BedrockAgentRuntimeClient,
+  BedrockAgentRuntimeClientConfig,
+} from '@aws-sdk/client-bedrock-agent-runtime';
+import {
+  BedrockRuntimeClient,
+  BedrockRuntimeClientConfig,
+} from '@aws-sdk/client-bedrock-runtime';
+import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3';
+import { AssumeRoleCommand, Credentials, STSClient } from '@aws-sdk/client-sts';
 
 // Temporary credentials for cross-account access
 const stsClient = new STSClient();

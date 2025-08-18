@@ -1,18 +1,18 @@
-import React, { useCallback, useMemo, useRef, useEffect } from 'react';
+import { Transcript } from 'generative-ai-use-cases';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { PiMicrophoneBold, PiStopCircleBold } from 'react-icons/pi';
 import { create } from 'zustand';
-import Card from '../components/Card';
 import Button from '../components/Button';
 import ButtonCopy from '../components/ButtonCopy';
 import ButtonSendToUseCase from '../components/ButtonSendToUseCase';
-import useTranscribe from '../hooks/useTranscribe';
-import useMicrophone from '../hooks/useMicrophone';
-import { PiStopCircleBold, PiMicrophoneBold } from 'react-icons/pi';
-import Switch from '../components/Switch';
-import RangeSlider from '../components/RangeSlider';
+import Card from '../components/Card';
 import ExpandableField from '../components/ExpandableField';
-import { Transcript } from 'generative-ai-use-cases';
+import RangeSlider from '../components/RangeSlider';
+import Switch from '../components/Switch';
 import Textarea from '../components/Textarea';
-import { useTranslation } from 'react-i18next';
+import useMicrophone from '../hooks/useMicrophone';
+import useTranscribe from '../hooks/useTranscribe';
 
 type StateType = {
   content: Transcript[];

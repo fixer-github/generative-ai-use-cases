@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { create } from 'zustand';
 
 const useScreenStore = create<{
@@ -111,7 +111,7 @@ const useScreen = () => {
     return () => {
       current.removeEventListener('scroll', handleScrollInner);
     };
-  }, [screen, notifyScreen]);
+  }, [notifyScreen]);
 
   const scrollTopAnchorRef = useRef(null);
   const scrollBottomAnchorRef = useRef(null);
@@ -120,13 +120,13 @@ const useScreen = () => {
     if (scrollTopAnchorRef.current) {
       setScrollTopAnchor(scrollTopAnchorRef.current);
     }
-  }, [scrollTopAnchorRef, setScrollTopAnchor]);
+  }, [setScrollTopAnchor]);
 
   useEffect(() => {
     if (scrollBottomAnchorRef.current) {
       setScrollBottomAnchor(scrollBottomAnchorRef.current);
     }
-  }, [scrollBottomAnchorRef, setScrollBottomAnchor]);
+  }, [setScrollBottomAnchor]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollBottomAnchor) {

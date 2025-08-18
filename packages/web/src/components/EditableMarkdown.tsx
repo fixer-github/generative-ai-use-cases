@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { PiPencilLine, PiCheck } from 'react-icons/pi';
-import Markdown from './Markdown';
 import MDEditor from '@uiw/react-md-editor';
-import Button from './Button';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PiCheck, PiPencilLine } from 'react-icons/pi';
+import { Link } from 'react-router-dom';
+import Button from './Button';
+import Markdown from './Markdown';
 
 interface EditableMarkdownProps {
   code: string;

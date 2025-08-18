@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import { TokenUsageStats } from 'generative-ai-use-cases';
+import { create } from 'zustand';
 
 interface StatState {
   isLoading: boolean;

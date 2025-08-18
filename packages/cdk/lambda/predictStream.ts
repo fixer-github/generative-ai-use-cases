@@ -1,4 +1,4 @@
-import { Handler, Context } from 'aws-lambda';
+import { Context, Handler } from 'aws-lambda';
 import { PredictRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';

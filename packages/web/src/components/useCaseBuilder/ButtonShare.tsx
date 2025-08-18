@@ -1,8 +1,8 @@
 import React from 'react';
-import { BaseProps } from '../../@types/common';
-import { PiLinkBold, PiLockKey } from 'react-icons/pi';
-import Button from '../Button';
 import { useTranslation } from 'react-i18next';
+import { PiLinkBold, PiLockKey } from 'react-icons/pi';
+import { BaseProps } from '../../@types/common';
+import Button from '../Button';
 
 type Props = BaseProps & {
   isShared: boolean;

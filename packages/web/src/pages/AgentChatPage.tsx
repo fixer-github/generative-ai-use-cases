@@ -1,21 +1,21 @@
+import { FileLimit } from 'generative-ai-use-cases';
+import queryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
-import InputChatContent from '../components/InputChatContent';
-import useChat from '../hooks/useChat';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import useFollow from '../hooks/useFollow';
+import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
-import BedrockIcon from '../assets/bedrock.svg?react';
 import { AgentPageQueryParams } from '../@types/navigate';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import ChatMessage from '../components/ChatMessage';
+import InputChatContent from '../components/InputChatContent';
+import ScrollTopBottom from '../components/ScrollTopBottom';
+import Select from '../components/Select';
+import useChat from '../hooks/useChat';
+import useFiles from '../hooks/useFiles';
+import useFollow from '../hooks/useFollow';
 import { MODELS } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
-import { v4 as uuidv4 } from 'uuid';
-import queryString from 'query-string';
-import useFiles from '../hooks/useFiles';
-import { FileLimit } from 'generative-ai-use-cases';
-import { useTranslation } from 'react-i18next';
 
 const fileLimit: FileLimit = {
   accept: {
@@ -91,7 +91,7 @@ const AgentChatPage: React.FC = () => {
   const { scrollableContainer, setFollowing } = useFollow();
   const { agentNames: availableModels } = MODELS;
   const modelId = getModelId();
-  const prompter = useMemo(() => {
+  const _prompter = useMemo(() => {
     return getPrompter(modelId);
   }, [modelId]);
 
@@ -106,7 +106,7 @@ const AgentChatPage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   const title = useMemo(() => {
     if (agentName) {
@@ -134,7 +134,7 @@ const AgentChatPage: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setContent, modelId, availableModels, search, agentName]);
+  }, [setContent, modelId, availableModels, search, agentName, setModelId]);
 
   const onSend = useCallback(() => {
     setFollowing(true);
@@ -153,7 +153,16 @@ const AgentChatPage: React.FC = () => {
     setContent('');
     clearFiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, setFollowing]);
+  }, [
+    content,
+    setFollowing,
+    base64Cache,
+    clearFiles,
+    postChat,
+    sessionId,
+    setContent,
+    uploadedFiles,
+  ]);
 
   const onRetry = useCallback(() => {
     retryGeneration(
@@ -174,7 +183,7 @@ const AgentChatPage: React.FC = () => {
     setContent('');
     setSessionId(uuidv4());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clear]);
+  }, [clear, setContent, setSessionId]);
 
   const onStop = useCallback(() => {
     forceToStop();

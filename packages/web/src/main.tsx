@@ -1,49 +1,49 @@
 import './i18n/config';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import AuthWithUserpool from './components/AuthWithUserpool';
 import AuthWithSAML from './components/AuthWithSAML';
+import AuthWithUserpool from './components/AuthWithUserpool';
 import './index.css';
+import { Authenticator } from '@aws-amplify/ui-react';
 import {
-  RouterProvider,
   createBrowserRouter,
   RouteObject,
+  RouterProvider,
 } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import Setting from './pages/Setting';
-import StatPage from './pages/StatPage.tsx';
-import ChatPage from './pages/ChatPage';
-import SharedChatPage from './pages/SharedChatPage';
-import SummarizePage from './pages/SummarizePage';
-import GenerateTextPage from './pages/GenerateTextPage';
-import TranslatePage from './pages/TranslatePage';
-import VideoAnalyzerPage from './pages/VideoAnalyzerPage';
-import NotFound from './pages/NotFound';
-import RagPage from './pages/RagPage';
-import RagKnowledgeBasePage from './pages/RagKnowledgeBasePage';
-import WebContent from './pages/WebContent';
-import GenerateImagePage from './pages/GenerateImagePage';
-import GenerateVideoPage from './pages/GenerateVideoPage';
-import OptimizePromptPage from './pages/OptimizePromptPage';
-import TranscribePage from './pages/TranscribePage';
-import MeetingMinutesPage from './pages/MeetingMinutesPage';
-import AgentChatPage from './pages/AgentChatPage.tsx';
-import FlowChatPage from './pages/FlowChatPage';
-import VoiceChatPage from './pages/VoiceChatPage';
-import McpChatPage from './pages/McpChatPage';
-import { MODELS } from './hooks/useModel';
-import { Authenticator } from '@aws-amplify/ui-react';
-import UseCaseBuilderEditPage from './pages/useCaseBuilder/UseCaseBuilderEditPage.tsx';
-import App from './App.tsx';
-import UseCaseBuilderRoot from './UseCaseBuilderRoot.tsx';
-import UseCaseBuilderExecutePage from './pages/useCaseBuilder/UseCaseBuilderExecutePage.tsx';
-import UseCaseBuilderSamplesPage from './pages/useCaseBuilder/UseCaseBuilderSamplesPage.tsx';
-import UseCaseBuilderMyUseCasePage from './pages/useCaseBuilder/UseCaseBuilderMyUseCasePage.tsx';
-import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
-import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
-import WriterPage from './pages/WriterPage.tsx';
-import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
+import App from './App.tsx';
+import { MODELS } from './hooks/useModel';
+import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
+import useUseCases from './hooks/useUseCases';
+import AgentChatPage from './pages/AgentChatPage.tsx';
+import ChatPage from './pages/ChatPage';
+import FlowChatPage from './pages/FlowChatPage';
+import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
+import GenerateImagePage from './pages/GenerateImagePage';
+import GenerateTextPage from './pages/GenerateTextPage';
+import GenerateVideoPage from './pages/GenerateVideoPage';
+import LandingPage from './pages/LandingPage';
+import McpChatPage from './pages/McpChatPage';
+import MeetingMinutesPage from './pages/MeetingMinutesPage';
+import NotFound from './pages/NotFound';
+import OptimizePromptPage from './pages/OptimizePromptPage';
+import RagKnowledgeBasePage from './pages/RagKnowledgeBasePage';
+import RagPage from './pages/RagPage';
+import Setting from './pages/Setting';
+import SharedChatPage from './pages/SharedChatPage';
+import StatPage from './pages/StatPage.tsx';
+import SummarizePage from './pages/SummarizePage';
+import TranscribePage from './pages/TranscribePage';
+import TranslatePage from './pages/TranslatePage';
+import UseCaseBuilderEditPage from './pages/useCaseBuilder/UseCaseBuilderEditPage.tsx';
+import UseCaseBuilderExecutePage from './pages/useCaseBuilder/UseCaseBuilderExecutePage.tsx';
+import UseCaseBuilderMyUseCasePage from './pages/useCaseBuilder/UseCaseBuilderMyUseCasePage.tsx';
+import UseCaseBuilderSamplesPage from './pages/useCaseBuilder/UseCaseBuilderSamplesPage.tsx';
+import VideoAnalyzerPage from './pages/VideoAnalyzerPage';
+import VoiceChatPage from './pages/VoiceChatPage';
+import WebContent from './pages/WebContent';
+import WriterPage from './pages/WriterPage.tsx';
+import UseCaseBuilderRoot from './UseCaseBuilderRoot.tsx';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =

@@ -1,8 +1,8 @@
 import {
-  VideoJob,
   GenerateVideoRequest,
   GenerateVideoResponse,
   ListVideoJobsResponse,
+  VideoJob,
 } from 'generative-ai-use-cases';
 import useHttp from './useHttp';
 

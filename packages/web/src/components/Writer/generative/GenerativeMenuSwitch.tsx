@@ -1,9 +1,9 @@
 import { EditorBubble, removeAIHighlight, useEditor } from 'novel';
 import { Fragment, type ReactNode, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { PiMagicWand } from 'react-icons/pi';
 import { Button } from '../ui/Button';
 import { AISelector } from './AISelector';
-import { PiMagicWand } from 'react-icons/pi';
-import { useTranslation } from 'react-i18next';
 
 interface GenerativeMenuSwitchProps {
   children: ReactNode;

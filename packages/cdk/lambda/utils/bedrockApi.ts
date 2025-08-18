@@ -1,15 +1,15 @@
 import {
-  InvokeModelCommand,
+  AccessDeniedException,
   ConverseCommand,
   ConverseCommandInput,
   ConverseCommandOutput,
   ConverseStreamCommand,
   ConverseStreamCommandInput,
   ConverseStreamOutput,
+  InvokeModelCommand,
   ServiceQuotaExceededException,
-  ThrottlingException,
-  AccessDeniedException,
   StartAsyncInvokeCommand,
+  ThrottlingException,
 } from '@aws-sdk/client-bedrock-runtime';
 import {
   ApiInterface,
@@ -20,13 +20,13 @@ import {
   StreamingChunk,
   UnrecordedMessage,
 } from 'generative-ai-use-cases';
+import { initBedrockRuntimeClient } from './bedrockClient';
 import {
-  BEDROCK_TEXT_GEN_MODELS,
   BEDROCK_IMAGE_GEN_MODELS,
+  BEDROCK_TEXT_GEN_MODELS,
   BEDROCK_VIDEO_GEN_MODELS,
 } from './models';
 import { streamingChunk } from './streamingChunk';
-import { initBedrockRuntimeClient } from './bedrockClient';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 

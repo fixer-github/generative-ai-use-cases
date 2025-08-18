@@ -1,4 +1,4 @@
-import { PreSignUpTriggerEvent, Context, Callback } from 'aws-lambda';
+import { Callback, Context, PreSignUpTriggerEvent } from 'aws-lambda';
 
 const ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR =
   process.env.ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR;

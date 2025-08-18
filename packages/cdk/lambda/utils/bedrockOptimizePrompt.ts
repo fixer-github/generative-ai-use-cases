@@ -1,10 +1,10 @@
 import {
   BedrockAgentRuntimeClient,
+  OptimizePromptCommand,
+  OptimizePromptCommandInput,
   ServiceQuotaExceededException,
   ThrottlingException,
   ValidationException,
-  OptimizePromptCommandInput,
-  OptimizePromptCommand,
 } from '@aws-sdk/client-bedrock-agent-runtime';
 import { OptimizePromptRequest } from 'generative-ai-use-cases';
 

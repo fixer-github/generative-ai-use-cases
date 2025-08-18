@@ -1,12 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
-import { GenerativeAiUseCasesStack } from './stacks/common/generative-ai-use-cases-stack';
+import { ProcessedStackInput } from './stack-input';
+import { AgentStack } from './stacks/common/agent-stack';
 import { CloudFrontWafStack } from './stacks/common/cloud-front-waf-stack';
 import { DashboardStack } from './stacks/common/dashboard-stack';
-import { AgentStack } from './stacks/common/agent-stack';
-import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack';
+import { GenerativeAiUseCasesStack } from './stacks/common/generative-ai-use-cases-stack';
 import { GuardrailStack } from './stacks/common/guardrail-stack';
-import { ProcessedStackInput } from './stack-input';
+import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack';
 import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {

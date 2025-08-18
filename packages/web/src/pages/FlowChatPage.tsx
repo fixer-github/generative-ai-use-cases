@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import InputChatContent from '../components/InputChatContent';
-import useFlowChat from '../hooks/useFlowChat';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import BedrockIcon from '../assets/bedrock.svg?react';
-import { useTranslation } from 'react-i18next';
+import ChatMessage from '../components/ChatMessage';
+import InputChatContent from '../components/InputChatContent';
+import ScrollTopBottom from '../components/ScrollTopBottom';
+import Select from '../components/Select';
+import useFlowChat from '../hooks/useFlowChat';
+import useFollow from '../hooks/useFollow';
 
 type StateType = {
   content: string;

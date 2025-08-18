@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { ColorChangeHandler, CompactPicker } from 'react-color';
+import { useTranslation } from 'react-i18next';
 import {
   PiArrowClockwise,
   PiArrowCounterClockwise,
@@ -17,11 +18,10 @@ import {
   PiUploadSimple,
 } from 'react-icons/pi';
 import SignatureCanvas from 'react-signature-canvas';
-import Button from './Button';
 import { BaseProps } from '../@types/common';
+import Button from './Button';
 import ModalDialog from './ModalDialog';
 import RangeSlider from './RangeSlider';
-import { useTranslation } from 'react-i18next';
 
 type SketchButtonProps = BaseProps & {
   isActive?: boolean;
@@ -105,7 +105,7 @@ const SketchPad: React.FC<Props> = (props) => {
       }
       canvasRef.current?.fromData(data);
     }
-  }, [undoStack]);
+  }, []);
 
   const onClickRedo = useCallback(() => {
     const data = canvasRef.current?.toData();
@@ -116,7 +116,7 @@ const SketchPad: React.FC<Props> = (props) => {
         canvasRef.current?.fromData(data);
       }
     }
-  }, [undoStack]);
+  }, []);
 
   const onClickComplete = useCallback(() => {
     if (canvasRef.current?.isEmpty()) {

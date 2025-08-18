@@ -1,6 +1,6 @@
-import React, { useEffect, lazy, Suspense } from 'react';
-import { useTranslation } from 'react-i18next';
 import { format, subDays } from 'date-fns';
+import React, { lazy, Suspense, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useStat from '../hooks/useStat';
 import useStatApi from '../hooks/useStatApi';
 
@@ -52,7 +52,7 @@ const StatPage: React.FC = () => {
 
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setError, setLoading, setStats, statApi.getTokenUsageByDateRange]);
 
   if (isLoading) {
     return (

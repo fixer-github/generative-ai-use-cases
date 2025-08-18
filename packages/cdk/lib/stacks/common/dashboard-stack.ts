@@ -1,10 +1,10 @@
-import { Stack, StackProps, CfnOutput, Duration } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import * as cw from 'aws-cdk-lib/aws-cloudwatch';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import { ProcessedStackInput } from '../../stack-input';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import { Construct } from 'constructs';
 import { ModelConfiguration } from 'generative-ai-use-cases';
+import { ProcessedStackInput } from '../../stack-input';
 
 export interface DashboardStackProps extends StackProps {
   readonly params: ProcessedStackInput;

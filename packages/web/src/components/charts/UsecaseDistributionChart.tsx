@@ -1,17 +1,17 @@
+import { format } from 'date-fns';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { ChartProps } from './types';
-import { format } from 'date-fns';
-import { useTranslation } from 'react-i18next';
 
 const COLORS = [
   '#1f77b4',

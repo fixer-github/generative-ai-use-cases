@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { Model, UnrecordedMessage } from 'generative-ai-use-cases';
+import { useCallback, useState } from 'react';
+import { getPrompter } from '../prompts';
 import useChatApi from './useChatApi';
 import { MODELS } from './useModel';
-import { getPrompter } from '../prompts';
-import { UnrecordedMessage, Model } from 'generative-ai-use-cases';
 
 export type MeetingMinutesStyle =
   | 'faq'
@@ -87,7 +87,7 @@ export const useMeetingMinutes = (
                     fullResponse += payload.text;
                     setGeneratedMinutes(fullResponse);
                   }
-                } catch (error) {
+                } catch (_error) {
                   // Skip invalid JSON chunks
                   console.debug('Skipping invalid JSON chunk:', c);
                 }

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import RowItem, { RowItemProps } from './RowItem';
-import { PiCaretRightFill } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
+import { PiCaretRightFill } from 'react-icons/pi';
+import RowItem, { RowItemProps } from './RowItem';
 
 type Props = RowItemProps & {
   label: string;

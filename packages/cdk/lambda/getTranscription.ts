@@ -1,9 +1,9 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  TranscribeClient,
-  GetTranscriptionJobCommand,
-} from '@aws-sdk/client-transcribe';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetTranscriptionJobCommand,
+  TranscribeClient,
+} from '@aws-sdk/client-transcribe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { GetTranscriptionResponse, Transcript } from 'generative-ai-use-cases';
 
 function parseS3Url(s3Url: string) {

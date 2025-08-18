@@ -1,7 +1,7 @@
 import {
   FeatureFlags,
-  PromptCacheField,
   ModelMetadata,
+  PromptCacheField,
 } from 'generative-ai-use-cases';
 
 // Manage Model Feature

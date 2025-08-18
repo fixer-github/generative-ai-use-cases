@@ -1,6 +1,6 @@
+import { S3Type } from 'generative-ai-use-cases';
 import { useState } from 'react';
 import useFileApi from './useFileApi';
-import { S3Type } from 'generative-ai-use-cases';
 
 const useRagFile = () => {
   const { getFileDownloadSignedUrl } = useFileApi();

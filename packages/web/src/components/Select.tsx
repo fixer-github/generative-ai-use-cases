@@ -1,9 +1,9 @@
-import React, { Fragment, useCallback, useMemo } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
+import React, { Fragment, useCallback, useMemo } from 'react';
 import { PiCaretUpDown, PiCheck, PiX } from 'react-icons/pi';
-import RowItem, { RowItemProps } from './RowItem';
 import ButtonIcon from './ButtonIcon';
 import Help from './Help';
+import RowItem, { RowItemProps } from './RowItem';
 
 type Props = RowItemProps & {
   label?: string;

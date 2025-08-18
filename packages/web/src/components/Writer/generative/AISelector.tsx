@@ -1,22 +1,20 @@
-import { Command, CommandInput } from '../ui/Command';
-
+import { addAIHighlight, useEditor } from 'novel';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   PiArrowUp,
+  PiMagicWand,
   PiMagnifyingGlass,
   PiSpinner,
-  PiMagicWand,
 } from 'react-icons/pi';
-import { useEditor } from 'novel';
-import { addAIHighlight } from 'novel';
-import { useState } from 'react';
 import Markdown from 'react-markdown';
 import { toast } from 'sonner';
+import useWriter from '../../../hooks/useWriter';
 import { Button } from '../ui/Button';
+import { Command, CommandInput } from '../ui/Command';
 import { ScrollArea } from '../ui/ScrollArea';
 import AICompletionCommands from './AICompletionCommand';
 import AISelectorCommands from './AISelectorCommands';
-import useWriter from '../../../hooks/useWriter';
-import { useTranslation } from 'react-i18next';
 
 interface AISelectorProps {
   open: boolean;

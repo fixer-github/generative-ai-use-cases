@@ -1,6 +1,5 @@
 import { Duration, Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { CfnAgent, CfnAgentAlias } from 'aws-cdk-lib/aws-bedrock';
 import {
   Effect,
   PolicyDocument,
@@ -8,13 +7,14 @@ import {
   Role,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
   BlockPublicAccess,
   Bucket,
   BucketEncryption,
 } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
-import { CfnAgent, CfnAgentAlias } from 'aws-cdk-lib/aws-bedrock';
+import { Construct } from 'constructs';
 import { Agent as AgentType } from 'generative-ai-use-cases';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { StackInput } from '../stack-input';

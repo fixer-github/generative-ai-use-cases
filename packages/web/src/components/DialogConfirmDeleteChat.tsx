@@ -1,10 +1,10 @@
+import { Chat } from 'generative-ai-use-cases';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BaseProps } from '../@types/common';
+import { decomposeId } from '../utils/ChatUtils';
 import Button from './Button';
 import ModalDialog from './ModalDialog';
-import { Chat } from 'generative-ai-use-cases';
-import { decomposeId } from '../utils/ChatUtils';
-import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {
   isOpen: boolean;

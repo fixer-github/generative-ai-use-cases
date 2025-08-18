@@ -1,28 +1,28 @@
+import { UploadedFileType } from 'generative-ai-use-cases';
+import queryString from 'query-string';
 import React, {
   useCallback,
   useEffect,
-  useState,
-  useRef,
   useMemo,
+  useRef,
+  useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import useChat from '../hooks/useChat';
-import useTyping from '../hooks/useTyping';
-import useFileApi from '../hooks/useFileApi';
-import { UploadedFileType } from 'generative-ai-use-cases';
-import { extractBaseURL } from '../hooks/useFiles';
-import { create } from 'zustand';
-import { getPrompter } from '../prompts';
-import { VideoAnalyzerPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import Button from '../components/Button';
-import Markdown from '../components/Markdown';
-import InputChatContent from '../components/InputChatContent';
-import Card from '../components/Card';
-import Select from '../components/Select';
-import queryString from 'query-string';
+import { useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+import { create } from 'zustand';
+import { VideoAnalyzerPageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import InputChatContent from '../components/InputChatContent';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import useChat from '../hooks/useChat';
+import useFileApi from '../hooks/useFileApi';
+import { extractBaseURL } from '../hooks/useFiles';
+import { MODELS } from '../hooks/useModel';
+import useTyping from '../hooks/useTyping';
+import { getPrompter } from '../prompts';
 
 type StateType = {
   content: string;
@@ -99,7 +99,7 @@ const VideoAnalyzerPage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setContent, modelId, visionModelIds, search]);
+  }, [setContent, modelId, visionModelIds, search, setModelId]);
 
   useEffect(() => {
     setTypingTextInput(analysis);
@@ -224,7 +224,7 @@ const VideoAnalyzerPage: React.FC = () => {
     } catch (e) {
       console.error(t('videoAnalyzer.errors.cameraAccessFailed'), e);
     }
-  }, [setRecording, videoElement, deviceId, t]);
+  }, [deviceId, t]);
 
   // Stop video
   const stopRecording = useCallback(() => {

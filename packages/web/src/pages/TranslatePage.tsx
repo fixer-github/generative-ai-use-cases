@@ -1,38 +1,38 @@
+import debounce from 'lodash.debounce';
+import queryString from 'query-string';
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   useRef,
+  useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import ButtonIcon from '../components/ButtonIcon';
-import Textarea from '../components/Textarea';
-import ExpandableField from '../components/ExpandableField';
-import Select from '../components/Select';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import Switch from '../components/Switch';
-import useChat from '../hooks/useChat';
-import useMicrophone from '../hooks/useMicrophone';
-import useTyping from '../hooks/useTyping';
-import useLocalStorageBoolean from '../hooks/useLocalStorageBoolean';
+import { useTranslation } from 'react-i18next';
 import {
   PiMicrophoneBold,
-  PiStopCircleBold,
   PiSpeakerSimpleHigh,
   PiSpeakerSimpleHighFill,
+  PiStopCircleBold,
 } from 'react-icons/pi';
+import { useLocation } from 'react-router-dom';
 import { create } from 'zustand';
-import debounce from 'lodash.debounce';
 import { TranslatePageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import ButtonIcon from '../components/ButtonIcon';
+import Card from '../components/Card';
+import ExpandableField from '../components/ExpandableField';
+import Markdown from '../components/Markdown';
+import Select from '../components/Select';
+import Switch from '../components/Switch';
+import Textarea from '../components/Textarea';
+import useChat from '../hooks/useChat';
+import useLocalStorageBoolean from '../hooks/useLocalStorageBoolean';
+import useMicrophone from '../hooks/useMicrophone';
 import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
-import queryString from 'query-string';
 import useSpeach from '../hooks/useSpeach';
-import { useTranslation } from 'react-i18next';
+import useTyping from '../hooks/useTyping';
+import { getPrompter } from '../prompts';
 
 const languages = ['en', 'ja', 'zh', 'ko', 'fr', 'es', 'de', 'th', 'vi'];
 
@@ -130,7 +130,7 @@ const TranslatePage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   // Memo variable
   const disabledExec = useMemo(() => {
@@ -160,6 +160,7 @@ const TranslatePage: React.FC = () => {
     modelId,
     availableModels,
     search,
+    setModelId,
   ]);
 
   useEffect(() => {
@@ -173,7 +174,14 @@ const TranslatePage: React.FC = () => {
       onSentenceChange(sentence, additionalContext, language, loading);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentence, language]);
+  }, [
+    sentence,
+    language,
+    additionalContext,
+    auto,
+    loading, // Translate after debounce
+    onSentenceChange,
+  ]);
 
   // Translate after debounce
   // Wait for 1 second after stopping input and send a translation request
@@ -195,7 +203,7 @@ const TranslatePage: React.FC = () => {
       },
       1000
     ),
-    [prompter]
+    []
   );
 
   // Display the response in real time
@@ -206,7 +214,7 @@ const TranslatePage: React.FC = () => {
     const _response = messages[messages.length - 1].content;
     setTranslatedSentence(_response.trim());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, setTranslatedSentence]);
 
   // When the recording function fails, turn the toggle switch off
   useEffect(() => {
@@ -246,7 +254,7 @@ const TranslatePage: React.FC = () => {
     if (loading) return;
     getTranslation(sentence, language, additionalContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentence, additionalContext, loading, prompter, language]);
+  }, [sentence, additionalContext, loading, language, getTranslation]);
 
   // Reset
   const onClickClear = useCallback(() => {
@@ -254,14 +262,14 @@ const TranslatePage: React.FC = () => {
     clearChat();
     clearTranscripts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clear, clearChat, clearTranscripts]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSpeachPlaying, setIsSpeachPlaying] = useState(false);
 
   const handleSpeachEnded = useCallback(() => {
     setIsSpeachPlaying(false);
-  }, [setIsSpeachPlaying]);
+  }, []);
 
   const startOrStopSpeach = useCallback(async () => {
     if (speachIsLoading) return;
@@ -287,8 +295,6 @@ const TranslatePage: React.FC = () => {
   }, [
     translatedSentence,
     synthesizeSpeach,
-    audioRef,
-    setIsSpeachPlaying,
     isSpeachPlaying,
     handleSpeachEnded,
     speachIsLoading,

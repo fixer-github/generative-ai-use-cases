@@ -1,26 +1,26 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  QueryCommand,
-  UpdateCommand,
-  DeleteCommand,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  VideoJob,
-  ListVideoJobsResponse,
-  GenerateVideoRequest,
-} from 'generative-ai-use-cases';
 import {
   GetAsyncInvokeCommand,
   ValidationException,
 } from '@aws-sdk/client-bedrock-runtime';
-import { CopyVideoJobParams } from './copyVideoJob';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  LambdaClient,
-  InvokeCommand,
   InvocationType,
+  InvokeCommand,
+  LambdaClient,
 } from '@aws-sdk/client-lambda';
+import {
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import {
+  GenerateVideoRequest,
+  ListVideoJobsResponse,
+  VideoJob,
+} from 'generative-ai-use-cases';
+import { CopyVideoJobParams } from './copyVideoJob';
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;

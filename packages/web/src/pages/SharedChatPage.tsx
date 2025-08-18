@@ -1,12 +1,12 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import ChatMessage from '../components/ChatMessage';
+import ModalSystemContext from '../components/ModalSystemContext';
+import ScrollTopBottom from '../components/ScrollTopBottom';
 import useChatApi from '../hooks/useChatApi';
 import useSystemContextApi from '../hooks/useSystemContextApi';
-import ChatMessage from '../components/ChatMessage';
-import BedrockIcon from '../assets/bedrock.svg?react';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import ModalSystemContext from '../components/ModalSystemContext';
-import { useTranslation } from 'react-i18next';
 
 const SharedChatPage: React.FC = () => {
   const { t } = useTranslation();
@@ -57,13 +57,7 @@ const SharedChatPage: React.FC = () => {
       setShowSystemContextModal(false);
       setSaveSystemContextTitle('');
     }
-  }, [
-    createSystemContext,
-    setShowSystemContextModal,
-    setSaveSystemContextTitle,
-    saveSystemContextTitle,
-    saveSystemContext,
-  ]);
+  }, [createSystemContext, saveSystemContextTitle, saveSystemContext]);
 
   return (
     <>

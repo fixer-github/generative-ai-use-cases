@@ -1,3 +1,4 @@
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { Duration } from 'aws-cdk-lib';
 import {
   LambdaVersion,
@@ -11,10 +12,9 @@ import {
   UserPoolAuthenticationProvider,
 } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
-import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { BaseProps } from '../@types/common';
+import { useTranslation } from 'react-i18next';
 import {
-  PiCaretDown,
-  PiX,
-  PiCircleFill,
-  PiCheckCircleFill,
   PiArrowFatLineLeftLight,
   PiArrowFatLineRightLight,
+  PiCaretDown,
+  PiCheckCircleFill,
+  PiCircleFill,
+  PiX,
 } from 'react-icons/pi';
-import ButtonIcon from './ButtonIcon';
+import { BaseProps } from '../@types/common';
 import useInterUseCases from '../hooks/useInterUseCases';
-import { useTranslation } from 'react-i18next';
+import ButtonIcon from './ButtonIcon';
 
 type Props = BaseProps;
 

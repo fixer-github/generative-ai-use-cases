@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react';
 import { UnrecordedMessage } from 'generative-ai-use-cases';
+import { useMemo, useRef, useState } from 'react';
 
 type EventMessage = {
   id: string;

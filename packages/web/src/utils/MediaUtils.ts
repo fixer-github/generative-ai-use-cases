@@ -1,12 +1,12 @@
 import {
-  ImageMimeType,
-  VideoMimeType,
-  SupportedMimeType,
   documentMimeTypeToExtensions,
-  imageMimeTypeToExtensions,
-  videoMimeTypeToExtensions,
-  mimeTypeToExtensions,
   extensionToMimeType,
+  ImageMimeType,
+  imageMimeTypeToExtensions,
+  mimeTypeToExtensions,
+  SupportedMimeType,
+  VideoMimeType,
+  videoMimeTypeToExtensions,
 } from '@generative-ai-use-cases/common';
 import { fileTypeFromBuffer, fileTypeFromStream } from 'file-type';
 

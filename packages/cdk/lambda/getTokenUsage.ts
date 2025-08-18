@@ -1,5 +1,5 @@
-import { aggregateTokenUsage } from './repository';
 import { GetTokenUsageEvent } from 'generative-ai-use-cases';
+import { aggregateTokenUsage } from './repository';
 
 export const handler = async (event: GetTokenUsageEvent) => {
   try {

@@ -1,8 +1,8 @@
-import bedrockApi from './bedrockApi';
 import bedrockAgentApi from './bedrockAgentApi';
+import bedrockApi from './bedrockApi';
 import bedrockKbApi from './bedrockKbApi';
-import sagemakerApi from './sagemakerApi';
 import liteLlmApi from './liteLlmApi';
+import sagemakerApi from './sagemakerApi';
 
 const api = {
   bedrock: bedrockApi,

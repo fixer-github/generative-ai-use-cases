@@ -1,7 +1,7 @@
-import { CommandGroup, CommandItem, CommandSeparator } from '../ui/Command';
 import { useEditor } from 'novel';
-import { PiCheck, PiQuotes, PiTrash } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
+import { PiCheck, PiQuotes, PiTrash } from 'react-icons/pi';
+import { CommandGroup, CommandItem, CommandSeparator } from '../ui/Command';
 
 const AICompletionCommands = ({
   completion,

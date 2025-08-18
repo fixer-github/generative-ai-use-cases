@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { IoIosClose, IoMdDownload } from 'react-icons/io';
-import { VscCode } from 'react-icons/vsc';
-import { LuNetwork } from 'react-icons/lu';
-import EditableMarkdown from './EditableMarkdown';
-import Button from './Button';
 import mermaid, { MermaidConfig } from 'mermaid';
-import { TbSvg, TbPng } from 'react-icons/tb';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IoIosClose, IoMdDownload } from 'react-icons/io';
+import { LuNetwork } from 'react-icons/lu';
+import { TbPng, TbSvg } from 'react-icons/tb';
+import { VscCode } from 'react-icons/vsc';
+import Button from './Button';
+import EditableMarkdown from './EditableMarkdown';
 
 const defaultConfig: MermaidConfig = {
   // Prevent syntax error from being added to the dom node
@@ -53,7 +53,7 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
 
   useEffect(() => {
     render();
-  }, [code, render]);
+  }, [render]);
 
   return code ? (
     <div

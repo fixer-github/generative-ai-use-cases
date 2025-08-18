@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { BaseProps } from '../@types/common';
 import { PiArrowLineDownFill, PiArrowLineUpFill } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 import useScreen from '../hooks/useScreen';
 
 type Props = BaseProps;

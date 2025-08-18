@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import dns from 'dns';
 import { parse } from 'node-html-parser';
 import sanitizeHtml from 'sanitize-html';
 import { URL } from 'url';
-import dns from 'dns';
 import { promisify } from 'util';
 
 const dnsLookup = promisify(dns.lookup);

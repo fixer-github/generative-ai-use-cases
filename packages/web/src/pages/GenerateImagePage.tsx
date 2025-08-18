@@ -1,36 +1,36 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Textarea from '../components/Textarea';
-import { create } from 'zustand';
-import RangeSlider from '../components/RangeSlider';
-import Select from '../components/Select';
-import ExpandableField from '../components/ExpandableField';
-import ButtonIcon from '../components/ButtonIcon';
-import { PiFileArrowUp, PiDiceFive, PiNotePencil } from 'react-icons/pi';
-import { MdDeleteOutline } from 'react-icons/md';
-import useImage from '../hooks/useImage';
-import GenerateImageAssistant from '../components/GenerateImageAssistant';
-import SketchPad, { Canvas } from '../components/SketchPad';
-import ModalDialog from '../components/ModalDialog';
-import { produce } from 'immer';
-import Help from '../components/Help';
-import { useLocation } from 'react-router-dom';
-import useChat from '../hooks/useChat';
-import Base64Image from '../components/Base64Image';
 import { AxiosError } from 'axios';
-import { GenerateImagePageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
-import queryString from 'query-string';
-import { GenerateImageParams } from 'generative-ai-use-cases';
 import {
   AmazonBaseImageGenerationMode,
   AmazonUIImageGenerationMode,
   ControlMode,
+  GenerateImageParams,
 } from 'generative-ai-use-cases';
-import InputText from '../components/InputText';
+import { produce } from 'immer';
+import queryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MdDeleteOutline } from 'react-icons/md';
+import { PiDiceFive, PiFileArrowUp, PiNotePencil } from 'react-icons/pi';
+import { useLocation } from 'react-router-dom';
+import { create } from 'zustand';
+import { GenerateImagePageQueryParams } from '../@types/navigate';
+import Base64Image from '../components/Base64Image';
+import Button from '../components/Button';
+import ButtonIcon from '../components/ButtonIcon';
+import Card from '../components/Card';
+import ExpandableField from '../components/ExpandableField';
+import GenerateImageAssistant from '../components/GenerateImageAssistant';
+import Help from '../components/Help';
+import InputText from '../components/InputText';
+import ModalDialog from '../components/ModalDialog';
+import RangeSlider from '../components/RangeSlider';
+import Select from '../components/Select';
+import SketchPad, { Canvas } from '../components/SketchPad';
+import Textarea from '../components/Textarea';
+import useChat from '../hooks/useChat';
+import useImage from '../hooks/useImage';
+import { MODELS } from '../hooks/useModel';
+import { getPrompter } from '../prompts';
 
 const MAX_SAMPLE = 7;
 
@@ -568,7 +568,7 @@ const GenerateImagePage: React.FC = () => {
   const { modelIds, imageGenModelIds, imageGenModels, modelDisplayName } =
     MODELS;
   const modelId = getModelId();
-  const prompter = useMemo(() => {
+  const _prompter = useMemo(() => {
     return getPrompter(modelId);
   }, [modelId]);
   const [width, height] = useMemo(() => {
@@ -605,7 +605,13 @@ const GenerateImagePage: React.FC = () => {
       setImageSample(previousImageSample);
     }
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [generationMode]);
+  }, [
+    generationMode,
+    imageSample,
+    previousGenerationMode,
+    previousImageSample,
+    setImageSample,
+  ]);
 
   const modeOptions = useMemo(
     () => getModeOptions(imageGenModelId),
@@ -623,7 +629,7 @@ const GenerateImagePage: React.FC = () => {
   useEffect(() => {
     updateSystemContextByModel();
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [updateSystemContextByModel]);
 
   // Setting the demo data for LandingPage
   useEffect(() => {
@@ -656,6 +662,7 @@ const GenerateImagePage: React.FC = () => {
     search,
     setChatContent,
     setImageGenModelId,
+    setModelId,
   ]);
 
   const generateRandomSeed = useCallback(() => {
@@ -857,7 +864,6 @@ const GenerateImagePage: React.FC = () => {
     selectedImageIndex,
     setGenerationMode,
     setInitImage,
-    setDetailExpanded,
   ]);
 
   const clearAll = useCallback(() => {

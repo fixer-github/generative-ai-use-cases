@@ -16,8 +16,8 @@ import {
   HttpMethods,
 } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 
 export interface TranscribeProps {
   readonly userPool: UserPool;

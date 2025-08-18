@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { GenerateVideoRequest } from 'generative-ai-use-cases';
+import { createJob } from './repositoryVideoJob';
 import api from './utils/api';
 import { defaultVideoGenerationModel } from './utils/models';
-import { createJob } from './repositoryVideoJob';
 
 export const handler = async (
   event: APIGatewayProxyEvent

@@ -1,14 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
   LambdaIntegration,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface RagKnowledgeBaseProps {

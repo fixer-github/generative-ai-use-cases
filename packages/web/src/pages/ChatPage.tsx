@@ -1,37 +1,37 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
-import InputChatContent from '../components/InputChatContent';
-import useChat from '../hooks/useChat';
-import useChatApi from '../hooks/useChatApi';
-import useSystemContextApi from '../hooks/useSystemContextApi';
-import useChatList from '../hooks/useChatList';
-import ChatMessage from '../components/ChatMessage';
-import PromptList from '../components/PromptList';
-import Button from '../components/Button';
-import ButtonCopy from '../components/ButtonCopy';
-import ModalDialog from '../components/ModalDialog';
-import ModalSystemContext from '../components/ModalSystemContext';
-import ExpandableField from '../components/ExpandableField';
-import Switch from '../components/Switch';
-import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import useFollow from '../hooks/useFollow';
-import { PiArrowClockwiseBold, PiShareFatFill } from 'react-icons/pi';
-import { create } from 'zustand';
-import BedrockIcon from '../assets/bedrock.svg?react';
-import { ChatPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
-import queryString from 'query-string';
-import useFiles from '../hooks/useFiles';
 import {
   AdditionalModelRequestFields,
   FileLimit,
   SystemContext,
 } from 'generative-ai-use-cases';
-import ModelParameters from '../components/ModelParameters';
-import { AcceptedDotExtensions } from '../utils/MediaUtils';
+import queryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PiArrowClockwiseBold, PiShareFatFill } from 'react-icons/pi';
+import { useLocation, useParams } from 'react-router-dom';
+import { create } from 'zustand';
+import { ChatPageQueryParams } from '../@types/navigate';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import ChatMessage from '../components/ChatMessage';
+import ExpandableField from '../components/ExpandableField';
+import InputChatContent from '../components/InputChatContent';
+import ModalDialog from '../components/ModalDialog';
+import ModalSystemContext from '../components/ModalSystemContext';
+import ModelParameters from '../components/ModelParameters';
+import PromptList from '../components/PromptList';
+import ScrollTopBottom from '../components/ScrollTopBottom';
+import Select from '../components/Select';
+import Switch from '../components/Switch';
+import useChat from '../hooks/useChat';
+import useChatApi from '../hooks/useChatApi';
+import useChatList from '../hooks/useChatList';
+import useFiles from '../hooks/useFiles';
+import useFollow from '../hooks/useFollow';
+import { MODELS } from '../hooks/useModel';
+import useSystemContextApi from '../hooks/useSystemContextApi';
+import { getPrompter } from '../prompts';
+import { AcceptedDotExtensions } from '../utils/MediaUtils';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -111,7 +111,7 @@ const ChatPage: React.FC = () => {
   const { data: systemContextResponse, mutate } = listSystemContexts();
   useEffect(() => {
     setSystemContextList(systemContextResponse ? systemContextResponse : []);
-  }, [systemContextResponse, setSystemContextList]);
+  }, [systemContextResponse]);
 
   const {
     getModelId,
@@ -156,7 +156,7 @@ const ChatPage: React.FC = () => {
       updateSystemContextByModel();
     }
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [prompter]);
+  }, [chatId, updateSystemContextByModel]);
 
   const title = useMemo(() => {
     if (chatId) {
@@ -203,7 +203,17 @@ const ChatPage: React.FC = () => {
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, setContent, availableModels, pathname]);
+  }, [
+    search,
+    setContent,
+    availableModels,
+    clear,
+    currentSystemContext,
+    modelId,
+    setInputSystemContext,
+    setModelId,
+    updateSystemContext,
+  ]);
 
   const onSend = useCallback(() => {
     setFollowing(true);
@@ -223,7 +233,18 @@ const ChatPage: React.FC = () => {
     setContent('');
     clearFiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, base64Cache, fileUpload, setFollowing, overrideModelParameters]);
+  }, [
+    content,
+    base64Cache,
+    fileUpload,
+    setFollowing,
+    overrideModelParameters,
+    clearFiles,
+    postChat,
+    prompter.chatPrompt,
+    setContent,
+    uploadedFiles,
+  ]);
 
   const onRetry = useCallback(() => {
     retryGeneration(
@@ -304,11 +325,9 @@ const ChatPage: React.FC = () => {
     saveSystemContext,
     systemContextResponse,
     createSystemContext,
-    setShowSystemContextModal,
     setInputSystemContext,
     setSaveSystemContextTitle,
     mutate,
-    setSystemContextList,
   ]);
   const onDeleteShareId = useCallback(async () => {
     try {
@@ -421,7 +440,7 @@ const ChatPage: React.FC = () => {
   // Initialize forceExpandPromptList to null when the path changes
   useEffect(() => {
     setForceExpandPromptList(null);
-  }, [pathname, setForceExpandPromptList]);
+  }, []);
 
   return (
     <>

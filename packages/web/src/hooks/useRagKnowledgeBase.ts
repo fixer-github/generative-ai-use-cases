@@ -3,15 +3,15 @@
 // The code in the main branch is not using this hook.
 // ============
 
-import { useMemo } from 'react';
-import useChat from './useChat';
-import useRagKnowledgeBaseApi from './useRagKnowledgeBaseApi';
-import { getPrompter } from '../prompts';
 import { RetrieveResultItem } from '@aws-sdk/client-kendra';
 import { ShownMessage } from 'generative-ai-use-cases';
-import { cleanEncode } from '../utils/URLUtils';
-import { arrangeItems } from './useRag';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getPrompter } from '../prompts';
+import { cleanEncode } from '../utils/URLUtils';
+import useChat from './useChat';
+import { arrangeItems } from './useRag';
+import useRagKnowledgeBaseApi from './useRagKnowledgeBaseApi';
 
 // Convert s3://<BUCKET>/<PREFIX> to https://s3.<REGION>.amazonaws.com/<BUCKET>/<PREFIX>
 const convertS3UriToUrl = (s3Uri: string, region: string): string => {

@@ -1,34 +1,34 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { VideoJob, GenerateVideoParams } from 'generative-ai-use-cases';
-import { create } from 'zustand';
-import useVideo from '../hooks/useVideo';
-import { MODELS } from '../hooks/useModel';
-import useFileApi from '../hooks/useFileApi';
-import useFiles from '../hooks/useFiles';
-import Textarea from '../components/Textarea';
-import Select from '../components/Select';
-import RangeSlider from '../components/RangeSlider';
-import Switch from '../components/Switch';
-import ButtonIcon from '../components/ButtonIcon';
-import Button from '../components/Button';
-import ButtonCopy from '../components/ButtonCopy';
-import Card from '../components/Card';
-import ZoomUpImage from '../components/ZoomUpImage';
+import { GenerateVideoParams, VideoJob } from 'generative-ai-use-cases';
+import queryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  PiPlayFill,
-  PiDownload,
-  PiSpinnerGap,
   PiArrowClockwise,
+  PiDownload,
+  PiPlayFill,
+  PiSpinnerGap,
+  PiTranslate,
   PiTrash,
   PiUpload,
-  PiTranslate,
 } from 'react-icons/pi';
-import { GenerateVideoPageQueryParams } from '../@types/navigate';
 import { useLocation } from 'react-router-dom';
-import queryString from 'query-string';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
+import { create } from 'zustand';
+import { GenerateVideoPageQueryParams } from '../@types/navigate';
+import Button from '../components/Button';
+import ButtonCopy from '../components/ButtonCopy';
+import ButtonIcon from '../components/ButtonIcon';
+import Card from '../components/Card';
+import RangeSlider from '../components/RangeSlider';
+import Select from '../components/Select';
+import Switch from '../components/Switch';
+import Textarea from '../components/Textarea';
+import ZoomUpImage from '../components/ZoomUpImage';
+import useFileApi from '../hooks/useFileApi';
+import useFiles from '../hooks/useFiles';
+import { MODELS } from '../hooks/useModel';
 import useOneshotTranslation from '../hooks/useOneshotTranslation';
+import useVideo from '../hooks/useVideo';
 
 const TASK_TYPES = (modelId: string): string[] => {
   if (modelId === 'amazon.nova-reel-v1:1') {
@@ -272,7 +272,13 @@ const GenerateVideoPage: React.FC = () => {
       setVideoGenModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoGenModelId, videoGenModelIds, search, setPrompt]);
+  }, [
+    videoGenModelId,
+    videoGenModelIds,
+    search,
+    setPrompt,
+    setVideoGenModelId,
+  ]);
 
   useEffect(() => {
     if (videoGenModelId === '') {
@@ -388,7 +394,6 @@ const GenerateVideoPage: React.FC = () => {
     videoGenModels,
     videoGenModelId,
     mutateVideoJobs,
-    setIsGenerating,
     t,
     uploadedFiles,
   ]);
@@ -399,7 +404,7 @@ const GenerateVideoPage: React.FC = () => {
       const signedUrl = await getFileDownloadSignedUrl(job.output);
       setPreviewVideoSrc(signedUrl);
     },
-    [setPreviewPrompt, getFileDownloadSignedUrl, setPreviewVideoSrc]
+    [getFileDownloadSignedUrl]
   );
 
   const downloadFile = useCallback(
@@ -418,7 +423,7 @@ const GenerateVideoPage: React.FC = () => {
       URL.revokeObjectURL(url);
       setDownloadingJobIds({ ...downloadingJobIds, [job.createdDate]: false });
     },
-    [setDownloadingJobIds, downloadingJobIds, getFileDownloadSignedUrl]
+    [downloadingJobIds, getFileDownloadSignedUrl]
   );
 
   const deleteVideoJob = useCallback(
@@ -428,7 +433,7 @@ const GenerateVideoPage: React.FC = () => {
       mutateVideoJobs();
       setDeletingJobIds({ ...deletingJobIds, [job.createdDate]: false });
     },
-    [deleteVideoJobInner, mutateVideoJobs, deletingJobIds, setDeletingJobIds]
+    [deleteVideoJobInner, mutateVideoJobs, deletingJobIds]
   );
 
   const disabledExec = useMemo(() => {

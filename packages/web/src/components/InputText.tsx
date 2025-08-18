@@ -1,6 +1,6 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
 import { useTranslation } from 'react-i18next';
+import { BaseProps } from '../@types/common';
 
 type Props = BaseProps & {
   label?: string;

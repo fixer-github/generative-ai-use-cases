@@ -1,34 +1,34 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  PiArrowClockwise,
+  PiArrowDown,
+  PiArrowUp,
+  PiChalkboardTeacher,
+  PiCheck,
+  PiCloudArrowDown,
+  PiCloudArrowUp,
+  PiFloppyDisk,
+  PiNotePencil,
+  PiUserFill,
+  PiX,
+} from 'react-icons/pi';
 import { useLocation } from 'react-router-dom';
-import Markdown from './Markdown';
+import { BaseProps } from '../@types/common';
+import BedrockIcon from '../assets/bedrock.svg?react';
+import useChat from '../hooks/useChat';
+import useFiles from '../hooks/useFiles';
+import useTyping from '../hooks/useTyping';
 import ButtonCopy from './ButtonCopy';
 import ButtonFeedback from './ButtonFeedback';
 import ButtonIcon from './ButtonIcon';
+import FeedbackForm from './FeedbackForm';
+import FileCard from './FileCard';
+import Markdown from './Markdown';
+import Textarea from './Textarea';
 import ZoomUpImage from './ZoomUpImage';
 import ZoomUpVideo from './ZoomUpVideo';
-import {
-  PiUserFill,
-  PiChalkboardTeacher,
-  PiFloppyDisk,
-  PiArrowClockwise,
-  PiArrowUp,
-  PiArrowDown,
-  PiCloudArrowUp,
-  PiCloudArrowDown,
-  PiNotePencil,
-  PiCheck,
-  PiX,
-} from 'react-icons/pi';
-import { BaseProps } from '../@types/common';
-import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
-import BedrockIcon from '../assets/bedrock.svg?react';
-import useChat from '../hooks/useChat';
-import useTyping from '../hooks/useTyping';
-import FileCard from './FileCard';
-import FeedbackForm from './FeedbackForm';
-import Textarea from './Textarea';
-import useFiles from '../hooks/useFiles';
-import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {
   idx?: number;
@@ -89,7 +89,7 @@ const ChatMessage: React.FC<Props> = (props) => {
       setSignedUrls([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatContent]);
+  }, [chatContent, getFileDownloadSignedUrl]);
 
   const disabled = useMemo(() => {
     return isSendingFeedback || !props.chatContent?.id;

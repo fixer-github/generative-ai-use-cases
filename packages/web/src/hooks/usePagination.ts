@@ -1,5 +1,5 @@
-import { SWRInfiniteResponse } from 'swr/infinite';
 import { Pagination } from 'generative-ai-use-cases';
+import { SWRInfiniteResponse } from 'swr/infinite';
 
 const usePagination = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

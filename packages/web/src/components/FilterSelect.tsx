@@ -7,11 +7,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-
-import useOnClickOutside from '../hooks/useOnClickOutside';
+import { useTranslation } from 'react-i18next';
 
 import { PiMagnifyingGlass, PiPlusCircle, PiX } from 'react-icons/pi';
-import { useTranslation } from 'react-i18next';
+import useOnClickOutside from '../hooks/useOnClickOutside';
 
 export type Option = {
   value: string;

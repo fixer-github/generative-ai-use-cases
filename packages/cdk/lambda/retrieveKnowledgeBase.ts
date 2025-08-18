@@ -1,5 +1,5 @@
-import * as lambda from 'aws-lambda';
 import { RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
+import * as lambda from 'aws-lambda';
 import { RetrieveKnowledgeBaseRequest } from 'generative-ai-use-cases';
 import { initBedrockAgentRuntimeClient } from './utils/bedrockClient';
 

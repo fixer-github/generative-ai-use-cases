@@ -1,6 +1,6 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
 import { PiCircleFill } from 'react-icons/pi';
+import { BaseProps } from '../@types/common';
 
 type Props = BaseProps & {
   showDot: boolean;

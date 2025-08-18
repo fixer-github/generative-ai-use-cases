@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Text, Loader, useAuthenticator } from '@aws-amplify/ui-react';
+import { Button, Loader, Text, useAuthenticator } from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
+import React, { useEffect, useState } from 'react';
 import '@aws-amplify/ui-react/styles.css';
 import { signInWithRedirect } from 'aws-amplify/auth';
 import { useTranslation } from 'react-i18next';

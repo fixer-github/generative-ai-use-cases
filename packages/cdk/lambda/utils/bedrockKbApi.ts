@@ -9,20 +9,19 @@ import {
   ThrottlingException,
   VectorSearchRerankingConfiguration,
 } from '@aws-sdk/client-bedrock-agent-runtime';
-
+import {
+  getDynamicFilters,
+  hiddenStaticExplicitFilters,
+  implicitFilters,
+} from '@generative-ai-use-cases/common';
 import {
   ApiInterface,
   Model,
   UnrecordedMessage,
 } from 'generative-ai-use-cases';
-import {
-  implicitFilters,
-  hiddenStaticExplicitFilters,
-  getDynamicFilters,
-} from '@generative-ai-use-cases/common';
-import { streamingChunk } from './streamingChunk';
 import { verifyToken } from './auth';
 import { initBedrockAgentRuntimeClient } from './bedrockClient';
+import { streamingChunk } from './streamingChunk';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 

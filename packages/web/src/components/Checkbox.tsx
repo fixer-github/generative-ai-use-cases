@@ -1,6 +1,6 @@
 import React from 'react';
-import RowItem from './RowItem';
 import { BaseProps } from '../@types/common';
+import RowItem from './RowItem';
 
 type Props = BaseProps & {
   label: string;

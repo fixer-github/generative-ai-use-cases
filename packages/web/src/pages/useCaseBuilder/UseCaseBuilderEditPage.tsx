@@ -1,46 +1,46 @@
+import { UseCaseInputExample } from 'generative-ai-use-cases';
+import { produce } from 'immer';
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   useRef,
+  useState,
 } from 'react';
-import Card from '../../components/Card';
-import Button from '../../components/Button';
-import ButtonIcon from '../../components/ButtonIcon';
-import Textarea from '../../components/Textarea';
-import { create } from 'zustand';
-import RowItem from '../../components/RowItem';
-import AppBuilderView from '../../components/useCaseBuilder/UseCaseBuilderView';
-import InputText from '../../components/InputText';
+import { useTranslation } from 'react-i18next';
 import {
+  PiCircleFill,
+  PiDownloadSimple,
+  PiEye,
   PiPlus,
   PiQuestion,
   PiTrash,
-  PiEye,
   PiX,
-  PiCircleFill,
-  PiDownloadSimple,
 } from 'react-icons/pi';
-import useMyUseCases from '../../hooks/useCaseBuilder/useMyUseCases';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import useUseCase from '../../hooks/useCaseBuilder/useUseCase';
+import { create } from 'zustand';
+import Button from '../../components/Button';
+import ButtonIcon from '../../components/ButtonIcon';
+import Card from '../../components/Card';
+import InputText from '../../components/InputText';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import RowItem from '../../components/RowItem';
+import Select from '../../components/Select';
+import Switch from '../../components/Switch';
+import Textarea from '../../components/Textarea';
 import ModalDialogDeleteUseCase from '../../components/useCaseBuilder/ModalDialogDeleteUseCase';
 import UseCaseBuilderHelp from '../../components/useCaseBuilder/UseCaseBuilderHelp';
-import { UseCaseInputExample } from 'generative-ai-use-cases';
-import { produce } from 'immer';
+import AppBuilderView from '../../components/useCaseBuilder/UseCaseBuilderView';
+import useMyUseCases from '../../hooks/useCaseBuilder/useMyUseCases';
+import useUseCase from '../../hooks/useCaseBuilder/useUseCase';
+import { MODELS } from '../../hooks/useModel';
+import usePageTitle from '../../hooks/usePageTitle';
 import {
-  NOLABEL,
   extractPlaceholdersFromPromptTemplate,
   getItemsFromPlaceholders,
   getTextFormItemsFromItems,
+  NOLABEL,
 } from '../../utils/UseCaseBuilderUtils';
-import usePageTitle from '../../hooks/usePageTitle';
-import Select from '../../components/Select';
-import Switch from '../../components/Switch';
-import { MODELS } from '../../hooks/useModel';
-import { useTranslation } from 'react-i18next';
 
 type ErrorWithMenu = {
   message: string;
@@ -262,7 +262,6 @@ const UseCaseBuilderEditPage: React.FC = () => {
     setFixedModelId,
     setFileUpload,
     clear,
-    setIsDisabledUpdate,
   ]);
 
   // Placeholders in the prompt template
@@ -355,14 +354,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
     }
 
     setCreateErrorMessages(tmp);
-  }, [
-    placeholders.length,
-    promptTemplate,
-    title,
-    fileUpload,
-    setCreateErrorMessages,
-    t,
-  ]);
+  }, [placeholders.length, promptTemplate, title, fileUpload, t]);
 
   useEffect(() => {
     const tmp = [];
@@ -375,7 +367,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
     }
 
     setUpdateErrorMessages(tmp);
-  }, [isDisabledUpdate, setUpdateErrorMessages, t]);
+  }, [isDisabledUpdate, t]);
 
   // When transitioning to a page, prevent the non-existent menu from being displayed
   useEffect(() => {
@@ -473,7 +465,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
     if (jsonFileInputRef.current) {
       jsonFileInputRef.current.click();
     }
-  }, [jsonFileInputRef]);
+  }, []);
 
   // Handle file selection and parsing
   const handleFileSelect = useCallback(

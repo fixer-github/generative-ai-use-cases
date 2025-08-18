@@ -1,13 +1,13 @@
+import { DocumentAttribute, RetrieveResultItem } from '@aws-sdk/client-kendra';
+import { ShownMessage } from 'generative-ai-use-cases';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getPrompter } from '../prompts';
+import { cleanEncode } from '../utils/URLUtils';
 import useChat from './useChat';
 import useChatApi from './useChatApi';
-import useRagApi from './useRagApi';
-import { ShownMessage } from 'generative-ai-use-cases';
 import { findModelByModelId } from './useModel';
-import { getPrompter } from '../prompts';
-import { RetrieveResultItem, DocumentAttribute } from '@aws-sdk/client-kendra';
-import { cleanEncode } from '../utils/URLUtils';
-import { useTranslation } from 'react-i18next';
+import useRagApi from './useRagApi';
 
 // Key value to consider the same document
 const uniqueKeyOfItem = (item: RetrieveResultItem): string => {
@@ -103,7 +103,7 @@ const useRag = (id: string) => {
       try {
         const retrievedItems = await retrieve(query);
         items = arrangeItems(retrievedItems.data.ResultItems ?? []);
-      } catch (error) {
+      } catch (_error) {
         popMessage();
         pushMessage('assistant', t('rag.errorRetrieval'));
         setLoading(false);

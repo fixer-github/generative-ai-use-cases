@@ -1,6 +1,9 @@
 import './writer.css';
 import 'katex/dist/katex.min.css';
-import { getDefaultEditorContent, emptyContent } from './lib/content';
+import { Editor } from '@tiptap/react';
+import DiffMatchPatch from 'diff-match-patch';
+import { DocumentComment } from 'generative-ai-use-cases';
+import hljs from 'highlight.js/lib/core';
 import {
   EditorCommand,
   EditorCommandEmpty,
@@ -9,37 +12,32 @@ import {
   EditorContent,
   type EditorInstance,
   EditorRoot,
+  handleCommandNavigation,
   ImageResizer,
   type JSONContent,
-  handleCommandNavigation,
 } from 'novel';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { PiChatText, PiSpinner, PiTrash } from 'react-icons/pi';
+import { toast } from 'sonner';
 import { useDebouncedCallback } from 'use-debounce';
+import { MODELS } from '../../hooks/useModel';
+import useWriter from '../../hooks/useWriter';
+import Button from '../Button';
+import ButtonCopy from '../ButtonCopy';
+import ButtonIcon from '../ButtonIcon';
+import Card from '../Card';
+import Select from '../Select';
 import { defaultExtensions } from './extensions';
+import { AICommentManager, useComments } from './extensions/AIComments';
+import GenerativeMenuSwitch from './generative/GenerativeMenuSwitch';
+import { emptyContent, getDefaultEditorContent } from './lib/content';
+import { slashCommand, suggestionItems } from './SlashCommand';
 import { ColorSelector } from './selectors/ColorSelector';
 import { LinkSelector } from './selectors/LinkSelector';
 import { NodeSelector } from './selectors/NodeSelector';
-import { Separator } from './ui/Separator';
-
-import GenerativeMenuSwitch from './generative/GenerativeMenuSwitch';
 import { TextButtons } from './selectors/TextButton';
-import { slashCommand, suggestionItems } from './SlashCommand';
-
-import hljs from 'highlight.js/lib/core';
-import Card from '../Card';
-import Button from '../Button';
-import ButtonIcon from '../ButtonIcon';
-import { PiTrash, PiChatText, PiSpinner } from 'react-icons/pi';
-import useWriter from '../../hooks/useWriter';
-import { Editor } from '@tiptap/react';
-import Select from '../Select';
-import { MODELS } from '../../hooks/useModel';
-import { AICommentManager, useComments } from './extensions/AIComments';
-import ButtonCopy from '../ButtonCopy';
-import DiffMatchPatch from 'diff-match-patch';
-import { DocumentComment } from 'generative-ai-use-cases';
-import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
+import { Separator } from './ui/Separator';
 
 const extensions = [...defaultExtensions, slashCommand];
 
@@ -222,7 +220,7 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
   // Recalculate the comment positions when the comments are updated
   useEffect(() => {
     recalculateCommentPositions();
-  }, [comments, recalculateCommentPositions]);
+  }, [recalculateCommentPositions]);
 
   // Set the initial content
   useEffect(() => {

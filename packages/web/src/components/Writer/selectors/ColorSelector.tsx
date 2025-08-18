@@ -1,6 +1,6 @@
-import { PiCheck, PiCaretDown } from 'react-icons/pi';
 import { EditorBubbleItem, useEditor } from 'novel';
 import { useTranslation } from 'react-i18next';
+import { PiCaretDown, PiCheck } from 'react-icons/pi';
 
 import { Button } from '../ui/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';

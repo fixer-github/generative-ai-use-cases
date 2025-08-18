@@ -1,14 +1,14 @@
-import { Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as oss from 'aws-cdk-lib/aws-opensearchserverless';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3Deploy from 'aws-cdk-lib/aws-s3-deployment';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import { ProcessedStackInput } from '../../stack-input';
+import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
+import { ProcessedStackInput } from '../../stack-input';
 
 const UUID = '339C5FED-A1B5-43B6-B40A-5E8E59E5734D';
 

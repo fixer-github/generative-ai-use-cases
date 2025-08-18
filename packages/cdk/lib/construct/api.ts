@@ -1,34 +1,34 @@
-import { Stack, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import {
+  BEDROCK_IMAGE_GEN_MODELS,
+  BEDROCK_RERANKING_MODELS,
+  BEDROCK_TEXT_MODELS,
+  BEDROCK_VIDEO_GEN_MODELS,
+} from '@generative-ai-use-cases/common';
+import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
   Cors,
   LambdaIntegration,
-  RestApi,
   ResponseType,
+  RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
-import { IFunction } from 'aws-cdk-lib/aws-lambda';
-import { Construct } from 'constructs';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { IFunction } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
   BlockPublicAccess,
   Bucket,
   BucketEncryption,
   HttpMethods,
 } from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
 import { Agent, AgentMap, ModelConfiguration } from 'generative-ai-use-cases';
-import {
-  BEDROCK_IMAGE_GEN_MODELS,
-  BEDROCK_VIDEO_GEN_MODELS,
-  BEDROCK_RERANKING_MODELS,
-  BEDROCK_TEXT_MODELS,
-} from '@generative-ai-use-cases/common';
-import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LitellmProxyServer } from './litellm-proxy-server';
 
 export interface BackendApiProps {

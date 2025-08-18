@@ -1,4 +1,5 @@
 import { UseCaseInputExample } from 'generative-ai-use-cases';
+import { TFunction } from 'i18next';
 import { ReactNode } from 'react';
 import {
   PiCodeBold,
@@ -13,8 +14,6 @@ import {
   PiQuestionBold,
   PiSquaresFourBold,
 } from 'react-icons/pi';
-
-import { TFunction } from 'i18next';
 
 export type SamplePromptType = {
   title: string;

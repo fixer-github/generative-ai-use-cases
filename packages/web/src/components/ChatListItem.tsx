@@ -1,3 +1,4 @@
+import { Chat } from 'generative-ai-use-cases';
 import React, {
   useCallback,
   useEffect,
@@ -6,12 +7,11 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BaseProps } from '../@types/common';
-import { Link } from 'react-router-dom';
 import { PiChat, PiCheck, PiPencilLine, PiTrash, PiX } from 'react-icons/pi';
-import ButtonIcon from './ButtonIcon';
-import { Chat } from 'generative-ai-use-cases';
+import { Link } from 'react-router-dom';
+import { BaseProps } from '../@types/common';
 import { decomposeId } from '../utils/ChatUtils';
+import ButtonIcon from './ButtonIcon';
 import DialogConfirmDeleteChat from './DialogConfirmDeleteChat';
 
 type Props = BaseProps & {
@@ -73,7 +73,7 @@ const ChatListItem: React.FC<Props> = (props) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing]);
+  }, [editing, chatId, props.onUpdateTitle]);
 
   const highlightText = useCallback((text: string, words: string[]) => {
     if (words.length === 0) return text;

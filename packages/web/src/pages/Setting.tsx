@@ -1,17 +1,17 @@
-import useVersion from '../hooks/useVersion';
-import useUserSetting from '../hooks/useUserSetting';
-import { Link } from 'react-router-dom';
-import Help from '../components/Help';
-import Alert from '../components/Alert';
-import Button from '../components/Button';
-import Switch from '../components/Switch';
-import { MODELS } from '../hooks/useModel';
-import useGitHub, { PullRequest } from '../hooks/useGitHub';
-import { PiGithubLogoFill, PiArrowSquareOut } from 'react-icons/pi';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useCallback } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { PiArrowSquareOut, PiGithubLogoFill } from 'react-icons/pi';
+import { Link } from 'react-router-dom';
 import { useSWRConfig } from 'swr';
-import { useTranslation, Trans } from 'react-i18next';
+import Alert from '../components/Alert';
+import Button from '../components/Button';
+import Help from '../components/Help';
+import Switch from '../components/Switch';
+import useGitHub, { PullRequest } from '../hooks/useGitHub';
+import { MODELS } from '../hooks/useModel';
+import useUserSetting from '../hooks/useUserSetting';
+import useVersion from '../hooks/useVersion';
 import { supportedLngs } from '../i18n/config';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';

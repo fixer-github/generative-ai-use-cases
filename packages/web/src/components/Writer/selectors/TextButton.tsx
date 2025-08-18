@@ -1,13 +1,13 @@
-import { Button } from '../ui/Button';
-import { cn } from '../lib/utils';
+import { EditorBubbleItem, useEditor } from 'novel';
 import {
-  PiTextB,
   PiCode,
+  PiTextB,
   PiTextItalic,
   PiTextStrikethrough,
   PiTextUnderline,
 } from 'react-icons/pi';
-import { EditorBubbleItem, useEditor } from 'novel';
+import { cn } from '../lib/utils';
+import { Button } from '../ui/Button';
 import type { SelectorItem } from './NodeSelector';
 
 export const TextButtons = () => {

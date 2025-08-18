@@ -51,7 +51,7 @@ exports.handler = async (event, context) => {
 
   try {
     switch (event.RequestType) {
-      case 'Create':
+      case 'Create': {
         // parse number/boolean props
         const vectorDimension = Number(props.vectorDimension);
         const ragKnowledgeBaseBinaryVector =
@@ -119,6 +119,7 @@ exports.handler = async (event, context) => {
           props.vectorIndexName
         );
         break;
+      }
       case 'Update':
         await updateStatus(
           event,
@@ -127,13 +128,14 @@ exports.handler = async (event, context) => {
           props.vectorIndexName
         );
         break;
-      case 'Delete':
+      case 'Delete': {
         const index = event.PhysicalResourceId;
         await client.indices.delete({
           index,
         });
         await updateStatus(event, 'SUCCESS', 'Successfully deleted', index);
         break;
+      }
     }
   } catch (e) {
     console.log('---- Error');

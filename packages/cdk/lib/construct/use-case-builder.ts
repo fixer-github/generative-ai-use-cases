@@ -1,17 +1,17 @@
+import { Duration } from 'aws-cdk-lib';
 import {
-  RestApi,
-  LambdaIntegration,
-  CognitoUserPoolsAuthorizer,
   AuthorizationType,
+  CognitoUserPoolsAuthorizer,
+  LambdaIntegration,
+  RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
-import { Construct } from 'constructs';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import * as ddb from 'aws-cdk-lib/aws-dynamodb';
 import {
   NodejsFunction,
   NodejsFunctionProps,
 } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Duration } from 'aws-cdk-lib';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import * as ddb from 'aws-cdk-lib/aws-dynamodb';
+import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface UseCaseBuilderProps {

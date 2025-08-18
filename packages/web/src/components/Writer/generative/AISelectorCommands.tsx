@@ -1,17 +1,17 @@
+import { getPrevText, useEditor } from 'novel';
+import { useTranslation } from 'react-i18next';
 import {
-  PiEqualsThin,
-  PiChecks,
   PiArrowClockwise,
+  PiCheck,
+  PiChecks,
+  PiEqualsThin,
+  PiFileMagnifyingGlass,
+  PiMagnifyingGlass,
   PiSkipForward,
   PiTextAlignJustify,
-  PiMagnifyingGlass,
-  PiCheck,
-  PiFileMagnifyingGlass,
 } from 'react-icons/pi';
-import { getPrevText, useEditor } from 'novel';
-import { CommandGroup, CommandItem, CommandSeparator } from '../ui/Command';
 import { MODELS } from '../../../hooks/useModel';
-import { useTranslation } from 'react-i18next';
+import { CommandGroup, CommandItem, CommandSeparator } from '../ui/Command';
 
 const AISelectorCommands = ({ onSelect }: AISelectorCommandsProps) => {
   const { t } = useTranslation();
