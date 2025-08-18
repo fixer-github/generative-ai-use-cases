@@ -109,23 +109,51 @@ export class MultiTenantRole extends Construct {
       })
     );
 
-    // Configure trust policy to allow Cognito users to assume this role
-    // Security: Only users with tenant_id in JWT claims should call AssumeRole
+    // ===== IAMロールの信頼ポリシー（Trust Policy）の設定 =====
+    // これは「誰がこのロールを引き受けることができるか」を定義する重要な設定です
+    
+    // CfnJsonを使用して動的な値（トークン）をキーとして含むConditionを作成
+    // CDKでは、デプロイ時に解決される値（userPoolIdなど）をオブジェクトのキーとして
+    // 直接使用できないため、CfnJsonを介して処理する必要がある
+    const trustCondition = new CfnJson(this, 'TrustCondition', {
+      value: {
+        // aud（audience）クレームがこのアプリのクライアントIDと一致することを要求
+        // これにより、正しいCognitoアプリケーションからのトークンのみを受け入れる
+        [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]: 
+          props.userPoolClient.userPoolClientId,
+      },
+    });
+    
+    // CDKで作成したロールオブジェクトから、CloudFormationレベルのロールオブジェクトを取得
+    // （信頼ポリシーを直接設定するためにL1コンストラクト（CfnRole）にアクセス）
     const cfnRole = this.role.node.defaultChild as CfnRole;
+    
+    // AssumeRolePolicyDocument = このロールの「信頼関係」を定義
+    // つまり「このロールを誰が使えるか」のルールを設定
     cfnRole.assumeRolePolicyDocument = {
-      Version: '2012-10-17',
+      Version: '2012-10-17',  // IAMポリシー言語のバージョン（固定値）
       Statement: [
         {
+          // このステートメントで「許可」を設定
           Effect: 'Allow',
+          
+          // Principal = 「誰に」許可するかを指定
+          // Federated = 外部IDプロバイダー（この場合はCognito）を指定
           Principal: {
+            // Cognito User Poolを信頼する設定
+            // これにより、このUser Poolで認証されたユーザーがロールを引き受け可能になる
             Federated: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
           },
+          
+          // Action = 「何を」許可するかを指定
+          // AssumeRoleWithWebIdentity = CognitoのJWTトークンを使ってロールを引き受ける操作
           Action: 'sts:AssumeRoleWithWebIdentity',
+          
+          // Condition = 追加の条件（セキュリティ強化）
           Condition: {
-            StringEquals: {
-              [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]: 
-                props.userPoolClient.userPoolClientId,
-            },
+            // StringEquals = 文字列の完全一致を要求
+            // CfnJsonで作成した動的なConditionを参照
+            StringEquals: trustCondition,
           },
         },
       ],
