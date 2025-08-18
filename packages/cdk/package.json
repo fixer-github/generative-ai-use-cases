@@ -7,7 +7,8 @@
     "test": "jest",
     "test:lambda:watch": "jest lambda --watchAll",
     "cdk": "cdk",
-    "lint": "biome lint . --error-on-warnings",
+    "lint": "biome check . --error-on-warnings --max-diagnostics=none",
+    "lint:fix": "biome check . --fix --unsafe",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
     "postinstall": "npm ci --prefix custom-resources"
   },

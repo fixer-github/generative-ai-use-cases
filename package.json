@@ -3,9 +3,10 @@
   "private": true,
   "version": "4.3.2",
   "scripts": {
-    "lint": "run-s custom-lint:build root:lint web:lint:fix cdk:lint cdk:lambda-build-dryrun",
+    "lint": "run-s custom-lint:build root:lint web:lint cdk:lint cdk:lambda-build-dryrun",
     "test": "run-s web:test",
-    "root:lint": "biome format --write .",
+    "root:lint": "biome check . --max-diagnostics=none",
+    "root:lint:fix": "biome check . --fix --unsafe",
     "web:devw": "source ./setup-env.sh ${npm_config_env} && VITE_APP_VERSION=${npm_package_version} pnpm --filter web run dev",
     "web:devww": "powershell ./web_devw_win.ps1",
     "web:dev": "VITE_APP_VERSION=${npm_package_version} pnpm --filter web run dev",
@@ -22,6 +23,7 @@
     "cdk:destroy": "pnpm --filter cdk run cdk destroy -- --all",
     "cdk:destroy:tenant": "pnpm --filter cdk run cdk -- --app 'npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts' destroy --all",
     "cdk:lint": "pnpm --filter cdk run lint",
+    "cdk:lint:fix": "pnpm --filter cdk run lint:fix",
     "cdk:lambda-build-dryrun": "pnpm --filter cdk run lambda-build-dryrun",
     "cdk:test": "pnpm --filter cdk run test",
     "cdk:test:update-snapshot": "pnpm --filter cdk run test -- --update-snapshot",
@@ -48,6 +50,8 @@
       "allowedVersions": {},
       "ignoreMissing": []
     },
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
