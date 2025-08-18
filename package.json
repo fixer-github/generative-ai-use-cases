@@ -4,6 +4,7 @@
   "version": "4.3.2",
   "scripts": {
     "lint": "run-s custom-lint:build root:lint web:lint cdk:lint cdk:lambda-build-dryrun",
+    "lint:fix": "run-s root:lint:fix web:lint:fix cdk:lint:fix",
     "test": "run-s web:test",
     "root:lint": "biome check . --max-diagnostics=none",
     "root:lint:fix": "biome check . --fix --unsafe",
