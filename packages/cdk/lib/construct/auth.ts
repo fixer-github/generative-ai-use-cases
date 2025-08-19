@@ -1,10 +1,11 @@
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack, CfnJson } from 'aws-cdk-lib';
 import {
   LambdaVersion,
   StringAttribute,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
+  CfnIdentityPoolRoleAttachment,
 } from 'aws-cdk-lib/aws-cognito';
 import {
   IdentityPool,
@@ -72,6 +73,50 @@ export class Auth extends Construct {
       },
     });
 
+    // Configure Role Mapping for Principal Tags
+    // Use CfnJson to handle dynamic provider URL as object key
+    const providerUrl = `cognito-idp.${Stack.of(this).region}.amazonaws.com/${userPool.userPoolId}:${client.userPoolClientId}`;
+    
+    // Create role mappings using CfnJson to handle dynamic keys
+    const roleMappings = new CfnJson(this, 'RoleMappings', {
+      value: {
+        [providerUrl]: {
+          type: 'Rules',
+          ambiguousRoleResolution: 'AuthenticatedRole',
+          identityProvider: providerUrl,
+          rulesConfiguration: {
+            rules: [
+              {
+                claim: 'custom:tenant_id',
+                matchType: 'Contains',
+                value: 'tenant',
+                roleArn: idPool.authenticatedRole.roleArn,
+              },
+              {
+                claim: 'custom:tenant_id',
+                matchType: 'Equals',
+                value: 'default',
+                roleArn: idPool.authenticatedRole.roleArn,
+              },
+            ],
+          },
+        },
+      },
+    });
+    
+    new CfnIdentityPoolRoleAttachment(this, 'IdentityPoolRoleAttachment', {
+      identityPoolId: idPool.identityPoolId,
+      roles: {
+        authenticated: idPool.authenticatedRole.roleArn,
+        unauthenticated: idPool.unauthenticatedRole?.roleArn,
+      },
+      roleMappings: roleMappings,
+    });
+
+    // Configure Principal Tag mapping from JWT claims to IAM session tags
+    // This enables ABAC with ${aws:PrincipalTag/TenantID} in IAM policies
+    // The custom:tenant_id claim from JWT will be mapped to TenantID Principal Tag
+
     if (props.allowedIpV4AddressRanges || props.allowedIpV6AddressRanges) {
       const ipRanges = [
         ...(props.allowedIpV4AddressRanges
@@ -107,6 +152,63 @@ export class Auth extends Construct {
             effect: Effect.ALLOW,
             resources: ['*'],
             actions: ['polly:SynthesizeSpeech'],
+          }),
+        ],
+      })
+    );
+
+    // Multi-tenant policy using Principal Tags for tenant isolation
+    idPool.authenticatedRole.attachInlinePolicy(
+      new Policy(this, 'MultiTenantPolicy', {
+        statements: [
+          // DynamoDB access with tenant isolation
+          new PolicyStatement({
+            sid: 'DynamoDBTenantAccess',
+            effect: Effect.ALLOW,
+            actions: [
+              'dynamodb:GetItem',
+              'dynamodb:PutItem',
+              'dynamodb:UpdateItem',
+              'dynamodb:DeleteItem',
+              'dynamodb:Query',
+              'dynamodb:Scan',
+              'dynamodb:BatchGetItem',
+              'dynamodb:BatchWriteItem',
+              'dynamodb:DescribeTable',
+              'dynamodb:DescribeTimeToLive',
+            ],
+            resources: [
+              `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-\${aws:PrincipalTag/TenantID}`,
+              `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/*-tenant-\${aws:PrincipalTag/TenantID}/index/*`,
+            ],
+          }),
+          // S3 access with tenant isolation
+          new PolicyStatement({
+            sid: 'S3TenantAccess',
+            effect: Effect.ALLOW,
+            actions: [
+              's3:GetObject',
+              's3:PutObject',
+              's3:DeleteObject',
+              's3:ListBucket',
+            ],
+            resources: [
+              `arn:aws:s3:::${Stack.of(this).stackName}-*-tenant-\${aws:PrincipalTag/TenantID}`,
+              `arn:aws:s3:::${Stack.of(this).stackName}-*-tenant-\${aws:PrincipalTag/TenantID}/*`,
+            ],
+          }),
+          // CloudWatch Logs access
+          new PolicyStatement({
+            sid: 'CloudWatchLogsAccess',
+            effect: Effect.ALLOW,
+            actions: [
+              'logs:CreateLogGroup',
+              'logs:CreateLogStream',
+              'logs:PutLogEvents',
+            ],
+            resources: [
+              `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/lambda/*`,
+            ],
           }),
         ],
       })

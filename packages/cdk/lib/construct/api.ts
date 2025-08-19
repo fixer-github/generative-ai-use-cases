@@ -13,7 +13,7 @@ import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { Effect, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import {
   BlockPublicAccess,
   Bucket,
@@ -50,7 +50,6 @@ export interface BackendApiProps {
 
   // Resource
   readonly userPool: UserPool;
-  readonly multiTenantRole: Role;
   readonly idPool: IdentityPool;
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
@@ -146,11 +145,11 @@ export class Api extends Construct {
     const STATS_TABLE_BASE_NAME = 'TokenUsageStats';
     const DEFAULT_TENANT_ID = 'default';
 
-    // IAM policy for assuming multi-tenant role with web identity
+    // IAM policy for using Cognito Identity Pool to get credentials
     const multiTenantAssumeRolePolicy = new PolicyStatement({
       effect: Effect.ALLOW,
-      actions: ['sts:AssumeRoleWithWebIdentity'],
-      resources: [props.multiTenantRole.roleArn],
+      actions: ['cognito-identity:GetId', 'cognito-identity:GetCredentialsForIdentity'],
+      resources: [`arn:aws:cognito-identity:${Stack.of(this).region}:${Stack.of(this).account}:identitypool/${props.idPool.identityPoolId}`],
     });
 
     // S3 (File Bucket)
@@ -257,7 +256,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -307,7 +307,8 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -344,7 +345,8 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -381,7 +383,8 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
       },
       bundling: {
@@ -402,7 +405,8 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantWriteData(deleteVideoJob);
@@ -560,7 +564,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantWriteData(createChatFunction);
@@ -573,7 +578,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadWriteData(deleteChatFunction);
@@ -587,7 +593,8 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         BUCKET_NAME: fileBucket.bucketName,
       },
     });
@@ -618,7 +625,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(listChatsFunction);
@@ -631,7 +639,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(findChatbyIdFunction);
@@ -644,7 +653,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(listMessagesFunction);
@@ -657,7 +667,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadWriteData(updateFeedbackFunction);
@@ -676,7 +687,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadWriteData(createShareId);
@@ -689,7 +701,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(getSharedChat);
@@ -702,7 +715,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(findShareId);
@@ -715,7 +729,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadWriteData(deleteShareId);
@@ -731,7 +746,8 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -748,7 +764,8 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -765,7 +782,8 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -784,7 +802,8 @@ export class Api extends Construct {
         environment: {
           TABLE_NAME: TABLE_BASE_NAME,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -809,7 +828,8 @@ export class Api extends Construct {
         TABLE_NAME: TABLE_BASE_NAME,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         STATS_TABLE_NAME: STATS_TABLE_BASE_NAME,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     table.grantReadData(getTokenUsageFunction);

@@ -1,39 +1,28 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import {
-  STSClient,
-  AssumeRoleWithWebIdentityCommand,
+  CognitoIdentityClient,
+  GetIdCommand,
+  GetCredentialsForIdentityCommand,
   Credentials,
-} from '@aws-sdk/client-sts';
-import * as crypto from 'crypto';
+} from '@aws-sdk/client-cognito-identity';
 
-// Maximum retries for STS AssumeRole
+// Maximum retries for Cognito Identity operations
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // milliseconds
 
 /**
- * Get credentials using AssumeRoleWithWebIdentity with retry logic
- * The assumed role's IAM policies automatically enforce tenant isolation
- * NOTE: No caching to ensure proper user isolation within tenants
+ * Get credentials using Cognito Identity Pool Enhanced Flow
+ * This enables proper Principal Tag mapping for ABAC-based tenant isolation
  */
 export async function getTenantCredentials(
   event: APIGatewayProxyEvent
 ): Promise<Credentials> {
-
-  // Extract tenant ID for session name
-  const tenantId =
-    event.requestContext?.authorizer?.claims?.['custom:tenant_id'] || 'default';
-
-  // Extract user ID for better session identification
-  const userId =
-    event.requestContext?.authorizer?.claims?.['cognito:username'] || 'unknown';
-
   // Extract JWT token from Authorization header
-  // API Gateway passes the original Authorization header as X-Original-Authorization
-  const authHeader = event.headers['X-Original-Authorization'] ||
-                    event.headers['x-original-authorization'] ||
-                    event.headers.Authorization ||
-                    event.headers.authorization;
-
+  const authHeader =
+    event.headers['X-Original-Authorization'] ||
+    event.headers['x-original-authorization'] ||
+    event.headers.Authorization ||
+    event.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
     throw new Error('No valid authorization token found');
@@ -41,39 +30,57 @@ export async function getTenantCredentials(
 
   const idToken = authHeader.substring(7);
 
-  // Create unique session name with hash to prevent truncation issues
-  // Use hash of tenantId+userId to ensure uniqueness within 64-char limit
-  const timestamp = Date.now();
-  const userHash = crypto
-    .createHash('md5')
-    .update(tenantId + userId)
-    .digest('hex')
-    .substring(0, 16);
-  const sessionName = `session-${userHash}-${timestamp}`;
+  // Extract region and identity pool ID from environment
+  const region = process.env.AWS_REGION || 'us-east-1';
+  const identityPoolId = process.env.IDENTITY_POOL_ID;
+  const userPoolId = process.env.USER_POOL_ID;
 
+  if (!identityPoolId || !userPoolId) {
+    throw new Error(
+      'IDENTITY_POOL_ID and USER_POOL_ID environment variables must be set'
+    );
+  }
+
+  const client = new CognitoIdentityClient({ region });
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      // AssumeRoleWithWebIdentity - session tags come from JWT claims automatically
-      // when properly configured in the IAM role trust policy
-      const stsClient = new STSClient({});
-
-      const { Credentials } = await stsClient.send(
-        new AssumeRoleWithWebIdentityCommand({
-          RoleArn: process.env.MULTI_TENANT_ROLE_ARN!,
-          RoleSessionName: sessionName,
-          WebIdentityToken: idToken,
-          DurationSeconds: 600, // 10 minutes
+      // Step 1: Get Identity ID from Cognito Identity Pool
+      const getIdResponse = await client.send(
+        new GetIdCommand({
+          IdentityPoolId: identityPoolId,
+          Logins: {
+            [`cognito-idp.${region}.amazonaws.com/${userPoolId}`]: idToken,
+          },
         })
       );
 
-      // Return fresh credentials without caching
-      return Credentials!;
+      if (!getIdResponse.IdentityId) {
+        throw new Error('Failed to get Identity ID');
+      }
+
+      // Step 2: Get credentials for the identity
+      // This will include Principal Tags from JWT claims via Role Mapping
+      const credentialsResponse = await client.send(
+        new GetCredentialsForIdentityCommand({
+          IdentityId: getIdResponse.IdentityId,
+          Logins: {
+            [`cognito-idp.${region}.amazonaws.com/${userPoolId}`]: idToken,
+          },
+        })
+      );
+
+      if (!credentialsResponse.Credentials) {
+        throw new Error('Failed to get credentials');
+      }
+
+      // Return credentials with Principal Tags automatically included
+      return credentialsResponse.Credentials;
     } catch (error) {
       lastError = error as Error;
       console.error(
-        `AssumeRoleWithWebIdentity attempt ${attempt} failed:`,
+        `GetCredentialsForIdentity attempt ${attempt} failed:`,
         error
       );
 

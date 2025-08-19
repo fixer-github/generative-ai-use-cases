@@ -13,11 +13,11 @@ export async function createTenantDynamoDBClient(
   // Get fresh credentials for each request to ensure proper user isolation
   const credentials = await getTenantCredentials(event);
 
-  // Create DynamoDB client with assumed role credentials
+  // Create DynamoDB client with Cognito Identity credentials
   return new DynamoDBClient({
     credentials: {
       accessKeyId: credentials.AccessKeyId!,
-      secretAccessKey: credentials.SecretAccessKey!,
+      secretAccessKey: credentials.SecretKey!,
       sessionToken: credentials.SessionToken!,
     },
   });
