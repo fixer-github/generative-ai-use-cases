@@ -1,6 +1,7 @@
 import { Construct } from 'constructs';
 import {
   Role,
+  IRole,
   PolicyStatement,
   Effect,
   WebIdentityPrincipal,
@@ -8,10 +9,12 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import { Stack, Fn, CfnJson } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export interface MultiTenantRoleProps {
   readonly userPool: UserPool;
   readonly userPoolClient: UserPoolClient;
+  readonly identityPool: IdentityPool;
   readonly region: string;
   readonly account: string;
   readonly env?: string;
@@ -23,22 +26,14 @@ export class MultiTenantRole extends Construct {
   constructor(scope: Construct, id: string, props: MultiTenantRoleProps) {
     super(scope, id);
 
-    // Create web identity principal for Cognito without conditions
-    // Conditions will be added via escape hatch to avoid token resolution issues
-    const principal = new WebIdentityPrincipal(
-      `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`
-    );
+    // Use the existing Identity Pool authenticated role instead of creating a new role
+    // This ensures that Cognito Identity Pool can properly apply principal tags
+    // Cast IRole to Role since we know it's a concrete Role instance
+    this.role = props.identityPool.authenticatedRole as Role;
 
-    // Create the single role for multi-tenant access with tag-based ABAC
-    this.role = new Role(this, 'MultiTenantAccessRole', {
-      roleName: `${Stack.of(this).stackName}-MultiTenantAccessRole`,
-      assumedBy: principal,
-      description:
-        'Single role for multi-tenant resource access with tag-based ABAC',
-    });
-
-    // Note: Session tag mapping for JWT claims must be configured in Cognito
-    // Pre-Token Generation trigger to add the tenant ID to the JWT claims
+    // Note: Trust relationship is now properly configured in the Auth construct
+    // The Identity Pool's authenticated role trusts cognito-identity.amazonaws.com
+    // and principal tags are mapped from JWT claims via CfnIdentityPoolPrincipalTag
 
     // Add S3 access policy for tenant-specific buckets using PrincipalTag
     this.role.addToPolicy(
@@ -91,10 +86,7 @@ export class MultiTenantRole extends Construct {
       new PolicyStatement({
         sid: 'DenyTenantResourceAccessWithoutTenantTag',
         effect: Effect.DENY,
-        actions: [
-          'dynamodb:*',
-          's3:*',
-        ],
+        actions: ['dynamodb:*', 's3:*'],
         resources: [
           // Only deny access to tenant-specific resources, not all resources
           `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*`,
@@ -126,32 +118,8 @@ export class MultiTenantRole extends Construct {
       })
     );
 
-    // Configure trust policy to allow session tagging via escape hatch
-    // This enables AssumeRoleWithWebIdentity to pass session tags
-    const cfnRole = this.role.node.defaultChild as CfnRole;
-    
-    // Create CfnJson objects to handle token resolution at deployment time
-    const trustPolicyCondition = new CfnJson(this, 'TrustPolicyCondition', {
-      value: {
-        StringEquals: {
-          [`cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}:aud`]: 
-            props.userPoolClient.userPoolClientId,
-        },
-      },
-    });
-    
-    cfnRole.addPropertyOverride('AssumeRolePolicyDocument', {
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: {
-            Federated: `cognito-idp.${props.region}.amazonaws.com/${props.userPool.userPoolId}`,
-          },
-          Action: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
-          Condition: trustPolicyCondition,
-        },
-      ],
-    });
+    // IMPORTANT: Do not modify the trust policy here - it's configured in the Auth construct
+    // The Identity Pool's authenticated role must trust cognito-identity.amazonaws.com
+    // Principal tags are automatically applied by the Identity Pool based on CfnIdentityPoolPrincipalTag configuration
   }
 }
