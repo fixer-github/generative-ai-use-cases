@@ -230,6 +230,7 @@ export class Web extends Construct {
       buildEnvironment: {
         NODE_OPTIONS: '--max-old-space-size=4096', // Memory for CodeBuild at deployment
         VITE_APP_API_ENDPOINT: props.apiEndpointUrl,
+        VITE_APP_WEBSOCKET_ENDPOINT: props.webSocketEndpointUrl,
         VITE_APP_REGION: Stack.of(this).region,
         VITE_APP_USER_POOL_ID: props.userPoolId,
         VITE_APP_USER_POOL_CLIENT_ID: props.userPoolClientId,

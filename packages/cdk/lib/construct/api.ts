@@ -30,6 +30,8 @@ import {
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { LitellmProxyServer } from './litellm-proxy-server';
+import { WebSocketApi, WebSocketStage } from 'aws-cdk-lib/aws-apigatewayv2';
+import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
 export interface BackendApiProps {
   // Context Params
@@ -62,6 +64,7 @@ export interface BackendApiProps {
 
 export class Api extends Construct {
   readonly api: RestApi;
+  readonly ws: WebSocketStage;
   readonly predictStreamFunction: NodejsFunction;
   readonly invokeFlowFunction: NodejsFunction;
   readonly optimizePromptFunction: NodejsFunction;
@@ -179,6 +182,28 @@ export class Api extends Construct {
       },
     });
 
+    // 接続
+    const connectWebSocketFunction = new NodejsFunction(
+      this,
+      'ConnectWebSocket',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/connectWebSocket.ts',
+      }
+    );
+    connectWebSocketFunction.grantInvoke(idPool.authenticatedRole);
+
+    // 切断
+    const disconnectWebSocketFunction = new NodejsFunction(
+      this,
+      'DisconnectWebSocket',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/disconnectWebSocket.ts',
+      }
+    );
+    disconnectWebSocketFunction.grantInvoke(idPool.authenticatedRole);
+
     const predictStreamFunction = new NodejsFunction(this, 'PredictStream', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/predictStream.ts',
@@ -206,6 +231,7 @@ export class Api extends Construct {
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
       },
       bundling: {
+        // TODO: ここに後で追加する
         nodeModules: [
           '@aws-sdk/client-bedrock-runtime',
           '@aws-sdk/client-bedrock-agent-runtime',
@@ -994,7 +1020,40 @@ export class Api extends Construct {
       commonAuthorizerProps
     );
 
+    // WebSocket Endpoint
+    const webSocketApi = new WebSocketApi(this, 'WebSocket', {
+      apiName: 'WebSocketApi',
+    });
+
+    webSocketApi.addRoute('$connect', {
+      integration: new WebSocketLambdaIntegration(
+        'ConnectWebSocket',
+        connectWebSocketFunction
+      ),
+    });
+
+    webSocketApi.addRoute('$disconnect', {
+      integration: new WebSocketLambdaIntegration(
+        'DisconnectWebSocket',
+        disconnectWebSocketFunction
+      ),
+    });
+
+    webSocketApi.addRoute('$default', {
+      integration: new WebSocketLambdaIntegration(
+        'PredictStream',
+        predictStreamFunction
+      ),
+    });
+
+    const ws = new WebSocketStage(this, 'WebSocketStage', {
+      webSocketApi,
+      stageName: 'prod',
+      autoDeploy: true,
+    });
+
     this.api = api;
+    this.ws = ws;
     this.predictStreamFunction = predictStreamFunction;
     this.invokeFlowFunction = invokeFlowFunction;
     this.optimizePromptFunction = optimizePromptFunction;
