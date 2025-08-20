@@ -25,6 +25,7 @@ import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 
 export interface WebProps {
   readonly apiEndpointUrl: string;
+  readonly webSocketEndpointUrl: string;
   readonly userPoolId: string;
   readonly userPoolClientId: string;
   readonly idPoolId: string;

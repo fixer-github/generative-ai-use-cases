@@ -21,6 +21,7 @@ import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
+import { WSApi } from '../../construct/websocket-api';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -118,6 +119,11 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailVersion: props.guardrailVersion,
     });
 
+    // WebSocket API
+    const wsApi = new WSApi(this, 'WebSocketAPI', {
+      // TODO: 設定項目はここ
+    });
+
     // WAF
     if (
       params.allowedIpV4AddressRanges ||
@@ -173,6 +179,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         params.samlCognitoFederatedIdentityProviderName,
       // Backend
       apiEndpointUrl: api.api.url,
+      webSocketEndpointUrl: wsApi.stage.url,
       predictStreamFunctionArn: api.predictStreamFunction.functionArn,
       ragEnabled: params.ragEnabled,
       ragKnowledgeBaseEnabled: params.ragKnowledgeBaseEnabled,
@@ -300,6 +307,10 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'ApiEndpoint', {
       value: api.api.url,
+    });
+
+    new CfnOutput(this, 'WebSocketEndpoint', {
+      value: wsApi.stage.url,
     });
 
     new CfnOutput(this, 'UserPoolId', { value: auth.userPool.userPoolId });

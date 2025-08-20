@@ -27,6 +27,27 @@ const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
+export const createWebSocketConnection = async (
+  connectionId: string,
+  apiId: string,
+  endpoint: string,
+  apiType: string
+): Promise<void> => {
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: 'WebSocketConnections',
+      Item: {
+        connectionId: connectionId,
+        apiId: apiId,
+        endpoint: endpoint,
+        connectedAt: new Date().toISOString(),
+        // APIの種類を識別するための情報
+        apiType: apiType,
+      },
+    })
+  );
+};
+
 export const createChat = async (_userId: string): Promise<Chat> => {
   const userId = `user#${_userId}`;
   const chatId = `chat#${crypto.randomUUID()}`;
