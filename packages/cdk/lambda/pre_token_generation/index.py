@@ -2,8 +2,8 @@ import json
 
 def handler(event, context):
     """
-    Cognito Pre Token Generation trigger (V2) to add tenant ID to session tags.
-    This enables tag-based ABAC with IAM policies using PrincipalTag.
+    Cognito Pre Token Generation trigger (V2) to add tenant ID to JWT claims.
+    This enables Cognito Identity Pool to map claims to principal tags for ABAC.
     """
     try:
         print(f"Pre Token Generation Event: {json.dumps(event, indent=2)}")
@@ -11,21 +11,14 @@ def handler(event, context):
         user_attributes = event["request"]["userAttributes"]
         tenant_id = user_attributes.get("custom:tenant_id", "default")
         
-        # AWS expects the tags as a properly formatted object, not a JSON string
-        # Based on AWS documentation, the structure should be directly in the claim
+        # For Identity Pool Enhanced Flow, we only need to ensure the custom:tenant_id
+        # claim is present in the JWT. The Identity Pool will automatically map
+        # this to the TenantID principal tag based on the principalTags configuration.
         event["response"]["claimsAndScopeOverrideDetails"] = {
             "idTokenGeneration": {
                 "claimsToAddOrOverride": {
-                    # Add tenant ID as a regular claim for application use
-                    "custom:tenant_id": tenant_id,
-                    # Add AWS session tags claim for ABAC
-                    # AWS Cognito handles the serialization automatically
-                    "https://aws.amazon.com/tags": {
-                        "principal_tags": {
-                            "TenantID": [tenant_id]
-                        },
-                        "transitive_tag_keys": ["TenantID"]
-                    }
+                    # Add tenant ID as a claim - this will be mapped to principal tag by Identity Pool
+                    "custom:tenant_id": tenant_id
                 }
             },
             "accessTokenGeneration": {

@@ -22,11 +22,13 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getTenantId, getTenantTableName } from './utils/tenantUtils';
+import { getTenantId } from './utils/tenantUtils';
 import { createTenantDynamoDBClient } from './utils/tenantDynamoDBClient';
 
-const TABLE_NAME: string = process.env.TABLE_NAME!;
-const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
+const TABLE_PREFIX: string = process.env.TABLE_NAME!;
+const DEFAULT_TABLE_NAME: string = process.env.DEFAULT_TABLE_NAME!;
+const STATS_TABLE_PREFIX: string = process.env.STATS_TABLE_NAME!;
+const DEFAULT_STATS_TABLE_NAME: string = process.env.DEFAULT_STATS_TABLE_NAME!;
 
 /**
  * Get or create a tenant-specific DynamoDB document client
@@ -63,12 +65,16 @@ async function getTenantDynamoDBDocument(
  * Note: Tenant ID extraction is only for constructing the correct table name.
  * Security/isolation is enforced by IAM policies using session tags from the JWT.
  */
-function getTableName(
-  baseTableName: string,
-  event: APIGatewayProxyEvent
-): string {
+function getTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
-  return getTenantTableName(baseTableName, tenantId);
+
+  // For default/fallback users, use the actual CDK-generated table name
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_TABLE_NAME;
+  }
+
+  // For tenant users, construct tenant-specific table name directly
+  return `${TABLE_PREFIX}-tenant-${tenantId}`;
 }
 
 /**
@@ -76,8 +82,14 @@ function getTableName(
  */
 function getStatsTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
-  const statsTablePrefix = STATS_TABLE_NAME.replace(/-tenant-.*$/, '');
-  return getTenantTableName(statsTablePrefix, tenantId);
+
+  // For default/fallback users, use the actual CDK-generated stats table name
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_STATS_TABLE_NAME;
+  }
+
+  // For tenant users, construct tenant-specific stats table name directly
+  return `${STATS_TABLE_PREFIX}-tenant-${tenantId}`;
 }
 
 // ============================================
@@ -85,31 +97,16 @@ function getStatsTableName(event: APIGatewayProxyEvent): string {
 // ============================================
 
 /**
- * Execute DynamoDB operation with fallback to default table
+ * Execute DynamoDB operation with proper tenant table selection
  */
 async function executeDynamoDBOperation<T>(
   event: APIGatewayProxyEvent,
-  baseTableName: string,
   operation: (client: DynamoDBDocumentClient, tableName: string) => Promise<T>
 ): Promise<T> {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tenantId = getTenantId(event);
-  let tableName = getTableName(baseTableName, event);
+  const tableName = getTableName(event);
 
-  try {
-    // Try with tenant-specific table first
-    return await operation(dynamoDbDocument, tableName);
-  } catch (error: unknown) {
-    // If table doesn't exist and we're not already using default, try default table
-    if (error instanceof Error && error.name === 'ResourceNotFoundException' && tenantId !== 'default') {
-      console.warn(
-        `Tenant table ${tableName} not found, falling back to default table`
-      );
-      tableName = baseTableName; // Use base table name without tenant suffix
-      return await operation(dynamoDbDocument, tableName);
-    }
-    throw error;
-  }
+  return await operation(dynamoDbDocument, tableName);
 }
 
 // ============================================
@@ -133,7 +130,6 @@ export const createChat = async (
 
   await executeDynamoDBOperation(
     event,
-    TABLE_NAME,
     async (client, tableName) => {
       return client.send(
         new PutCommand({
@@ -157,7 +153,6 @@ export const findChatById = async (
 
   const res = await executeDynamoDBOperation(
     event,
-    TABLE_NAME,
     async (client, tableName) => {
       return client.send(
         new QueryCommand({
@@ -194,7 +189,6 @@ export const findSystemContextById = async (
 
   const res = await executeDynamoDBOperation(
     event,
-    TABLE_NAME,
     async (client, tableName) => {
       return client.send(
         new QueryCommand({
@@ -227,7 +221,7 @@ export const listChats = async (
   _exclusiveStartKey?: string
 ): Promise<ListChatsResponse> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const exclusiveStartKey = _exclusiveStartKey
     ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
@@ -263,7 +257,7 @@ export const listSystemContexts = async (
   event: APIGatewayProxyEvent
 ): Promise<SystemContext[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userId = `systemContext#${_userId}`;
 
@@ -291,7 +285,7 @@ export const createSystemContext = async (
   event: APIGatewayProxyEvent
 ): Promise<SystemContext> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userId = `systemContext#${_userId}`;
   const systemContextId = `systemContext#${crypto.randomUUID()}`;
@@ -319,7 +313,7 @@ export const listMessages = async (
   event: APIGatewayProxyEvent
 ): Promise<RecordedMessage[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const chatId = `chat#${_chatId}`;
 
@@ -475,7 +469,7 @@ export const batchCreateMessages = async (
   event: APIGatewayProxyEvent
 ): Promise<RecordedMessage[]> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
@@ -530,7 +524,7 @@ export const setChatTitle = async (
   event: APIGatewayProxyEvent
 ) => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const res = await dynamoDbDocument.send(
     new UpdateCommand({
@@ -556,7 +550,7 @@ export const updateFeedback = async (
   event: APIGatewayProxyEvent
 ): Promise<RecordedMessage> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const chatId = `chat#${_chatId}`;
   const { createdDate, feedback, reasons, detailedFeedback } = feedbackData;
@@ -602,7 +596,7 @@ export const deleteChat = async (
   event: APIGatewayProxyEvent
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   // Delete Chat
   const chatItem = await findChatById(_userId, _chatId, event);
@@ -645,7 +639,7 @@ export const updateSystemContextTitle = async (
   event: APIGatewayProxyEvent
 ): Promise<SystemContext> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const systemContext = await findSystemContextById(
     _userId,
@@ -677,7 +671,7 @@ export const deleteSystemContext = async (
   event: APIGatewayProxyEvent
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const systemContext = await findSystemContextById(
     _userId,
@@ -705,7 +699,7 @@ export const createShareId = async (
   userIdAndChatId: UserIdAndChatId;
 }> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
@@ -755,7 +749,7 @@ export const findUserIdAndChatId = async (
   event: APIGatewayProxyEvent
 ): Promise<UserIdAndChatId | null> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const shareId = `share#${_shareId}`;
 
@@ -785,7 +779,7 @@ export const findShareId = async (
   event: APIGatewayProxyEvent
 ): Promise<ShareId | null> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
@@ -815,7 +809,7 @@ export const deleteShareId = async (
   event: APIGatewayProxyEvent
 ): Promise<void> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(TABLE_NAME, event);
+  const tableName = getTableName(event);
 
   const userIdAndChatId = await findUserIdAndChatId(_shareId, event);
   const share = await findShareId(

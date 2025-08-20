@@ -11,14 +11,14 @@ import {
   IdentityPool,
   UserPoolAuthenticationProvider,
 } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { 
-  Effect, 
-  Policy, 
-  PolicyStatement, 
+import {
+  Effect,
+  Policy,
+  PolicyStatement,
   Role,
   ServicePrincipal,
   FederatedPrincipal,
-  CfnRole 
+  CfnRole,
 } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -86,7 +86,7 @@ export class Auth extends Construct {
     // The Identity Pool's default authenticated role needs proper trust policy
     const authenticatedRole = idPool.authenticatedRole as Role;
     const cfnRole = authenticatedRole.node.defaultChild as CfnRole;
-    
+
     // Update the assume role policy to properly trust cognito-identity.amazonaws.com
     cfnRole.assumeRolePolicyDocument = {
       Version: '2012-10-17',
@@ -96,7 +96,7 @@ export class Auth extends Construct {
           Principal: {
             Federated: 'cognito-identity.amazonaws.com',
           },
-          Action: 'sts:AssumeRoleWithWebIdentity',
+          Action: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
           Condition: {
             StringEquals: {
               'cognito-identity.amazonaws.com:aud': idPool.identityPoolId,
@@ -201,7 +201,7 @@ export class Auth extends Construct {
         identityPoolId: idPool.identityPoolId,
         identityProviderName: userPool.userPoolProviderName,
         principalTags: {
-          'TenantID': 'custom:tenant_id',
+          TenantID: 'custom:tenant_id',
         },
         useDefaults: false,
       }

@@ -19,20 +19,3 @@ export const getTenantId = (event: APIGatewayProxyEvent): string => {
   return tenantId;
 };
 
-/**
- * Generate tenant-specific table name
- */
-export const getTenantTableName = (
-  baseTableName: string,
-  tenantId: string
-): string => {
-  // For backwards compatibility, if no tenant ID or default tenant, use base table name
-  if (!tenantId || tenantId === 'default') {
-    return baseTableName;
-  }
-
-  // Remove any existing tenant suffix to get the base name
-  const tablePrefix = baseTableName.replace(/-tenant-.*$/, '');
-
-  return `${tablePrefix}-tenant-${tenantId}`;
-};

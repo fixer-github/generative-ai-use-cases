@@ -70,6 +70,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
       userPool: auth.userPool,
       userPoolClient: auth.client,
+      identityPool: auth.idPool,
       region: this.region,
       account: this.account,
       env: params.env,

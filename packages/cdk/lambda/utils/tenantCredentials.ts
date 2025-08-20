@@ -39,14 +39,15 @@ export async function getTenantCredentials(
     event.requestContext?.authorizer?.claims?.['cognito:username'] || 'unknown';
 
   // Extract JWT token from Authorization header
-  const authHeader = event.headers.Authorization || event.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  const idToken = event.headers.Authorization || event.headers.authorization;
+  if (!idToken) {
     throw new Error('No valid authorization token found');
   }
 
-  const idToken = authHeader.substring(7);
+  console.log(
+    `Getting credentials for tenant: ${tenantId}, user: ${userId}, identity pool: ${process.env.IDENTITY_POOL_ID}`
+  );
 
-  console.log(`Getting credentials for tenant: ${tenantId}, user: ${userId}, identity pool: ${process.env.IDENTITY_POOL_ID}`);
 
   let lastError: Error | null = null;
 
@@ -71,7 +72,9 @@ export async function getTenantCredentials(
         );
       }
 
-      console.log(`Successfully obtained Identity ID: ${getIdResponse.IdentityId}`);
+      console.log(
+        `Successfully obtained Identity ID: ${getIdResponse.IdentityId}`
+      );
 
       // Step 2: Get credentials for the identity
       // The Identity Pool automatically applies principal tags from JWT claims
@@ -95,6 +98,7 @@ export async function getTenantCredentials(
         `Successfully obtained credentials for tenant: ${tenantId}, user: ${userId}`
       );
 
+
       // Return fresh credentials without caching
       return getCredentialsResponse.Credentials;
     } catch (error) {
@@ -106,7 +110,7 @@ export async function getTenantCredentials(
           errorMessage: (error as Error).message,
           identityPoolId: process.env.IDENTITY_POOL_ID,
           userPoolId: process.env.USER_POOL_ID,
-          region: process.env.AWS_REGION
+          region: process.env.AWS_REGION,
         }
       );
 
