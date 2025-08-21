@@ -6,7 +6,6 @@ This document explains how to deploy tenant-specific stacks separately from the 
 
 The CDK application now supports deploying tenant-specific infrastructure separately. This allows you to:
 
-- Create IAM roles for individual tenants without redeploying the entire application
 - Manage tenant resources independently
 - Scale tenant infrastructure as needed
 
@@ -49,12 +48,12 @@ packages/cdk/lib/
 │   │   ├── rag-knowledge-base-stack.ts
 │   │   └── video-tmp-bucket-stack.ts
 │   └── tenant/          # Tenant-specific stacks
-│       └── tenant-iam-role-stack.ts
+│       └── tenant-dynamodb-stack.ts
 ├── create-stacks.ts     # Main stack creation
 └── create-tenant-stacks.ts  # Tenant stack creation
 ```
 
-## Deploying Tenant IAM Role Stack
+## Deploying Tenant DynamoDB Stacks
 
 ### Configuration
 
@@ -65,12 +64,7 @@ Configure tenant deployments by creating a `cdk.tenant.json` file:
   "app": "npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts",
   "context": {
     "tenantId": "tenant123",
-    "identityProviderArn": "arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX",
-    "audience": "your-client-id",
-    "tenantIdClaim": "custom:tenant_id",
-    "tenantRegion": "us-east-1",
-    "roleName": "CustomTenantRole",
-    "createIamRole": true
+    "tenantRegion": "us-east-1"
   }
 }
 ```
@@ -82,7 +76,7 @@ Configure tenant deployments by creating a `cdk.tenant.json` file:
 npm run cdk:deploy:tenant
 
 # Deploy a specific tenant stack
-npm run cdk:deploy:tenant -- TenantStack-tenant123
+npm run cdk:deploy:tenant -- TenantDynamoDBStack-tenant123
 
 # Destroy all tenant stacks
 npm run cdk:destroy:tenant
@@ -91,39 +85,7 @@ npm run cdk:destroy:tenant
 ### Configuration Options
 
 - `tenantId` (required): Unique identifier for the tenant
-- `identityProviderArn` (required*): ARN of the identity provider (Cognito User Pool or OIDC provider) - *Required only when `createIamRole` is true
-- `audience` (required*): Audience/Client ID for the identity provider - *Required only when `createIamRole` is true
-- `tenantIdClaim`: JWT claim containing tenant ID (default: "custom:tenant_id")
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
-- `roleName`: Custom role name (default: TenantRole-{tenantId})
-- `createIamRole`: Whether to create the IAM role stack (default: true)
-
-## Stack Outputs
-
-After deployment, the stack will output:
-
-- **RoleArn**: The ARN of the created IAM role (only when `createIamRole` is true)
-- **RoleName**: The name of the created IAM role (only when `createIamRole` is true)
-
-## Deploying Only DynamoDB Stacks
-
-To deploy only the DynamoDB stacks without creating IAM roles, set `createIamRole` to `false` in your configuration:
-
-```json
-{
-  "context": {
-    "tenantId": "tenant123",
-    "tenantRegion": "us-east-1",
-    "createIamRole": false
-  }
-}
-```
-
-This is useful when:
-
-- IAM roles are managed separately or already exist
-- You only need to provision tenant-specific DynamoDB tables
-- Testing or development environments where IAM roles are not needed
 
 ## Adding More Tenant Stacks
 
@@ -133,20 +95,6 @@ To add more tenant-specific stacks:
 2. Import and instantiate it in `packages/cdk/lib/create-tenant-stacks.ts`
 3. Deploy using the same pattern as above
 
-## IAM Policy Configuration
-
-The tenant IAM role includes helper methods for creating tenant-isolated policies:
-
-### DynamoDB Per-Tenant Tables
-
-The role supports access to per-tenant DynamoDB tables with naming pattern: `<BaseTableName>-<TenantId>`
-
-```typescript
-// Example: Allow access to 'ChatHistory-tenant123' table
-const dynamoPolicy =
-  tenantIamRole.createDynamoDbTenantTablePolicyStatement('ChatHistory');
-tenantIamRole.addToPolicy(dynamoPolicy);
-```
 
 This policy allows tenants to access only their own tables based on the tenant ID claim in their JWT token.
 

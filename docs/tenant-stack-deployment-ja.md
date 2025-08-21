@@ -6,7 +6,6 @@
 
 CDKアプリケーションは、テナント固有のインフラストラクチャを個別にデプロイすることをサポートするようになりました。これにより以下が可能になります：
 
-- アプリケーション全体を再デプロイすることなく、個々のテナント用のIAMロールを作成
 - テナントリソースを独立して管理
 - 必要に応じてテナントインフラストラクチャをスケール
 
@@ -49,12 +48,12 @@ packages/cdk/lib/
 │   │   ├── rag-knowledge-base-stack.ts
 │   │   └── video-tmp-bucket-stack.ts
 │   └── tenant/          # テナント固有のスタック
-│       └── tenant-iam-role-stack.ts
+│       └── tenant-dynamodb-stack.ts
 ├── create-stacks.ts     # メインスタック作成
 └── create-tenant-stacks.ts  # テナントスタック作成
 ```
 
-## テナントIAMロールスタックのデプロイ
+## テナントDynamoDBスタックのデプロイ
 
 ### 設定
 
@@ -65,12 +64,7 @@ packages/cdk/lib/
   "app": "npx ts-node --prefer-ts-exts bin/generative-ai-use-cases-tenant.ts",
   "context": {
     "tenantId": "tenant123",
-    "identityProviderArn": "arn:aws:cognito-idp:us-east-1:123456789012:userpool/us-east-1_XXXXXXXX",
-    "audience": "your-client-id",
-    "tenantIdClaim": "custom:tenant_id",
-    "tenantRegion": "us-east-1",
-    "roleName": "CustomTenantRole",
-    "createIamRole": true
+    "tenantRegion": "us-east-1"
   }
 }
 ```
@@ -82,7 +76,7 @@ packages/cdk/lib/
 npm run cdk:deploy:tenant
 
 # 特定のテナントスタックをデプロイ
-npm run cdk:deploy:tenant -- TenantStack-tenant123
+npm run cdk:deploy:tenant -- TenantDynamoDBStack-tenant123
 
 # すべてのテナントスタックを削除
 npm run cdk:destroy:tenant
@@ -91,39 +85,7 @@ npm run cdk:destroy:tenant
 ### 設定オプション
 
 - `tenantId`（必須）：テナントの一意の識別子
-- `identityProviderArn`（必須*）：IDプロバイダー（Cognito User PoolまたはOIDCプロバイダー）のARN - *`createIamRole`がtrueの場合のみ必須
-- `audience`（必須*）：IDプロバイダーのオーディエンス/クライアントID - *`createIamRole`がtrueの場合のみ必須
-- `tenantIdClaim`：テナントIDを含むJWTクレーム（デフォルト："custom:tenant_id"）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
-- `roleName`：カスタムロール名（デフォルト：TenantRole-{tenantId}）
-- `createIamRole`：IAMロールスタックを作成するかどうか（デフォルト：true）
-
-## スタックの出力
-
-デプロイ後、スタックは以下を出力します：
-
-- **RoleArn**：作成されたIAMロールのARN（`createIamRole`がtrueの場合のみ）
-- **RoleName**：作成されたIAMロールの名前（`createIamRole`がtrueの場合のみ）
-
-## DynamoDBスタックのみをデプロイする
-
-IAMロールを作成せずにDynamoDBスタックのみをデプロイするには、設定で`createIamRole`を`false`に設定します：
-
-```json
-{
-  "context": {
-    "tenantId": "tenant123",
-    "tenantRegion": "us-east-1",
-    "createIamRole": false
-  }
-}
-```
-
-これは以下の場合に便利です：
-
-- IAMロールが別途管理されている、またはすでに存在する場合
-- テナント固有のDynamoDBテーブルのみをプロビジョニングする必要がある場合
-- IAMロールが不要なテストまたは開発環境
 
 ## さらなるテナントスタックの追加
 
@@ -133,22 +95,6 @@ IAMロールを作成せずにDynamoDBスタックのみをデプロイするに
 2. `packages/cdk/lib/create-tenant-stacks.ts`でインポートしてインスタンス化
 3. 上記と同じパターンを使用してデプロイ
 
-## IAMポリシー設定
-
-テナントIAMロールには、テナント分離ポリシーを作成するためのヘルパーメソッドが含まれています：
-
-### テナントごとのDynamoDBテーブル
-
-ロールは、`<BaseTableName>-<TenantId>`の命名パターンを持つテナントごとのDynamoDBテーブルへのアクセスをサポートします。
-
-```typescript
-// 例：'ChatHistory-tenant123'テーブルへのアクセスを許可
-const dynamoPolicy =
-  tenantIamRole.createDynamoDbTenantTablePolicyStatement('ChatHistory');
-tenantIamRole.addToPolicy(dynamoPolicy);
-```
-
-このポリシーにより、テナントはJWTトークン内のテナントIDクレームに基づいて、自分のテーブルのみにアクセスできます。
 
 ## ベストプラクティス
 

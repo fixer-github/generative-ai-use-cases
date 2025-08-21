@@ -30,21 +30,11 @@ if (!tenantId) {
   );
 }
 
-// Parse createIamRole from context - CDK context values are strings
-const createIamRole =
-  context.createIamRole === undefined
-    ? true // default to true
-    : context.createIamRole !== 'false' && context.createIamRole !== false;
 
 const params = {
   account: context.account || process.env.CDK_DEFAULT_ACCOUNT,
   region: context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',
   tenantId: tenantId,
-  identityProviderArn: context.identityProviderArn,
-  audience: context.audience,
-  tenantIdClaim: context.tenantIdClaim,
-  roleName: context.roleName,
-  createIamRole: createIamRole,
 };
 
 createTenantStacks(app, params);
