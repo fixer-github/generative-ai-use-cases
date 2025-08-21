@@ -27,19 +27,19 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check ChatHistory table
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistorydev-tenant-test-tenant-123',
+        TableName: 'ChatHistory-dev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
       });
 
       // Check TokenUsageStats table
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'TokenUsageStatsdev-tenant-test-tenant-123',
+        TableName: 'TokenUsageStats-dev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
       });
 
       // Check UseCaseBuilder table
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'UseCaseBuilderdev-tenant-test-tenant-123',
+        TableName: 'UseCaseBuilder-dev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
       });
 
@@ -63,7 +63,7 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check that special characters are replaced with hyphens
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistorydev-tenant-test-tenant-123',
+        TableName: 'ChatHistory-dev-tenant-test-tenant-123',
       });
     });
 
@@ -90,7 +90,7 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check Use Case Builder table structure
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'UseCaseBuilderdev-tenant-test-tenant-usecase',
+        TableName: 'UseCaseBuilder-dev-tenant-test-tenant-usecase',
         KeySchema: [
           { AttributeName: 'id', KeyType: 'HASH' },
           { AttributeName: 'dataType', KeyType: 'RANGE' }
@@ -129,15 +129,15 @@ describe('TenantDynamoDB Tests', () => {
       const template = Template.fromStack(stack);
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'CustomChatdev-tenant-test-tenant-custom',
+        TableName: 'CustomChat-dev-tenant-test-tenant-custom',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'CustomStatsdev-tenant-test-tenant-custom',
+        TableName: 'CustomStats-dev-tenant-test-tenant-custom',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'CustomUseCasedev-tenant-test-tenant-custom',
+        TableName: 'CustomUseCase-dev-tenant-test-tenant-custom',
       });
     });
 
@@ -156,15 +156,15 @@ describe('TenantDynamoDB Tests', () => {
       const template = Template.fromStack(stack);
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistoryprod-tenant-test-tenant-env',
+        TableName: 'ChatHistory-prod-tenant-test-tenant-env',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'TokenUsageStatsprod-tenant-test-tenant-env',
+        TableName: 'TokenUsageStats-prod-tenant-test-tenant-env',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'UseCaseBuilderprod-tenant-test-tenant-env',
+        TableName: 'UseCaseBuilder-prod-tenant-test-tenant-env',
       });
     });
 
@@ -184,13 +184,13 @@ describe('TenantDynamoDB Tests', () => {
       
       // For production, tables should have RETAIN policy
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistoryprod-tenant-test-tenant-prod',
+        TableName: 'ChatHistory-prod-tenant-test-tenant-prod',
       });
       
       // Check that DeletionPolicy is set to Retain at the resource level
       const resources = template.toJSON().Resources;
       const tables = Object.values(resources).filter((r: any) => r.Type === 'AWS::DynamoDB::Table');
-      const chatHistoryTable = tables.find((t: any) => t.Properties.TableName === 'ChatHistoryprod-tenant-test-tenant-prod') as any;
+      const chatHistoryTable = tables.find((t: any) => t.Properties.TableName === 'ChatHistory-prod-tenant-test-tenant-prod') as any;
       expect(chatHistoryTable?.DeletionPolicy).toBe('Retain');
     });
 
@@ -210,13 +210,13 @@ describe('TenantDynamoDB Tests', () => {
       
       // For dev, tables should have DELETE policy (or no explicit policy)
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistorydev-tenant-test-tenant-dev',
+        TableName: 'ChatHistory-dev-tenant-test-tenant-dev',
       });
       
       // Check that there's no RETAIN policy (should default to DELETE for dev)
       const resources = template.toJSON().Resources;
       const tables = Object.values(resources).filter((r: any) => r.Type === 'AWS::DynamoDB::Table');
-      const chatHistoryTable = tables.find((t: any) => t.Properties.TableName === 'ChatHistorydev-tenant-test-tenant-dev') as any;
+      const chatHistoryTable = tables.find((t: any) => t.Properties.TableName === 'ChatHistory-dev-tenant-test-tenant-dev') as any;
       expect(chatHistoryTable?.DeletionPolicy).not.toBe('Retain');
     });
   });
@@ -233,15 +233,15 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check tables are created
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistorydev-tenant-test-tenant-456',
+        TableName: 'ChatHistory-dev-tenant-test-tenant-456',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'TokenUsageStatsdev-tenant-test-tenant-456',
+        TableName: 'TokenUsageStats-dev-tenant-test-tenant-456',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'UseCaseBuilderdev-tenant-test-tenant-456',
+        TableName: 'UseCaseBuilder-dev-tenant-test-tenant-456',
       });
 
       // Check outputs
@@ -277,15 +277,15 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check tables are created with staging environment
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'ChatHistorystaging-tenant-test-tenant-123',
+        TableName: 'ChatHistory-staging-tenant-test-tenant-123',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'TokenUsageStatsstaging-tenant-test-tenant-123',
+        TableName: 'TokenUsageStats-staging-tenant-test-tenant-123',
       });
       
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'UseCaseBuilderstaging-tenant-test-tenant-123',
+        TableName: 'UseCaseBuilder-staging-tenant-test-tenant-123',
       });
     });
   });
@@ -296,7 +296,7 @@ describe('TenantDynamoDB Tests', () => {
       const tableName = TenantDynamoDB.generateTableName('MyTable', 'tenant-123', 'dev');
 
       // Assert
-      expect(tableName).toBe('MyTabledev-tenant-tenant-123');
+      expect(tableName).toBe('MyTable-dev-tenant-tenant-123');
     });
 
     test('Should create additional tenant table', () => {
@@ -319,7 +319,7 @@ describe('TenantDynamoDB Tests', () => {
       
       // Check custom table is created
       template.hasResourceProperties('AWS::DynamoDB::Table', {
-        TableName: 'CustomDatadev-tenant-test-tenant-789',
+        TableName: 'CustomData-dev-tenant-test-tenant-789',
       });
     });
   });

@@ -102,9 +102,9 @@ export class TenantDynamoDB extends Construct {
     const tokenUsageStatsBaseName = props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
     const useCaseBuilderBaseName = props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
 
-    this.chatHistoryTableName = `${chatHistoryBaseName}${environment}-tenant-${sanitizedTenantId}`;
-    this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}${environment}-tenant-${sanitizedTenantId}`;
-    this.useCaseBuilderTableName = `${useCaseBuilderBaseName}${environment}-tenant-${sanitizedTenantId}`;
+    this.chatHistoryTableName = `${chatHistoryBaseName}-${environment}-tenant-${sanitizedTenantId}`;
+    this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-${environment}-tenant-${sanitizedTenantId}`;
+    this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-${environment}-tenant-${sanitizedTenantId}`;
 
     // Determine removal policy based on environment
     const removalPolicy = props.removalPolicy || 
@@ -243,7 +243,7 @@ export class TenantDynamoDB extends Construct {
    */
   public static generateTableName(baseTableName: string, tenantId: string, environment: string = 'dev'): string {
     const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
-    return `${baseTableName}${environment}-tenant-${sanitizedTenantId}`;
+    return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
   }
 
   /**
