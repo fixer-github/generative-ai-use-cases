@@ -46,12 +46,6 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
   readonly billingMode?: dynamodb.BillingMode;
 
   /**
-   * Enable point-in-time recovery
-   * @default true
-   */
-  readonly pointInTimeRecovery?: boolean;
-
-  /**
    * Removal policy for tables
    * @default RemovalPolicy.RETAIN
    */
@@ -110,7 +104,6 @@ export class TenantDynamoDBStack extends cdk.Stack {
       tokenUsageStatsTableBaseName: props?.tokenUsageStatsTableBaseName,
       useCaseBuilderTableBaseName: props?.useCaseBuilderTableBaseName,
       billingMode: props?.billingMode,
-      pointInTimeRecovery: props?.pointInTimeRecovery,
       removalPolicy: props?.removalPolicy,
     });
 

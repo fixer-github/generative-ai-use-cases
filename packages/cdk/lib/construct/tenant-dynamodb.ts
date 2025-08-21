@@ -39,22 +39,10 @@ export interface TenantDynamoDBProps {
   readonly billingMode?: dynamodb.BillingMode;
 
   /**
-   * Enable point-in-time recovery
-   * @default true
-   */
-  readonly pointInTimeRecovery?: boolean;
-
-  /**
    * Removal policy for tables
    * @default RemovalPolicy.RETAIN
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
-
-  /**
-   * Table encryption
-   * @default TableEncryption.AWS_MANAGED
-   */
-  readonly encryption?: dynamodb.TableEncryption;
 }
 
 export class TenantDynamoDB extends Construct {
@@ -134,11 +122,7 @@ export class TenantDynamoDB extends Construct {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
-      },
       removalPolicy: removalPolicy,
-      encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags to Chat History table
@@ -166,11 +150,7 @@ export class TenantDynamoDB extends Construct {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
-      },
       removalPolicy: removalPolicy,
-      encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags to Token Usage Stats table
@@ -202,11 +182,7 @@ export class TenantDynamoDB extends Construct {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
-      },
       removalPolicy: removalPolicy,
-      encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags to Use Case Builder table
@@ -292,11 +268,7 @@ export class TenantDynamoDB extends Construct {
       partitionKey,
       sortKey,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: true,
-      },
       removalPolicy: removalPolicy,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags

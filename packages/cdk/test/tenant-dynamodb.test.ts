@@ -29,27 +29,18 @@ describe('TenantDynamoDB Tests', () => {
       template.hasResourceProperties('AWS::DynamoDB::Table', {
         TableName: 'ChatHistorydev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
-        PointInTimeRecoverySpecification: {
-          PointInTimeRecoveryEnabled: true,
-        },
       });
 
       // Check TokenUsageStats table
       template.hasResourceProperties('AWS::DynamoDB::Table', {
         TableName: 'TokenUsageStatsdev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
-        PointInTimeRecoverySpecification: {
-          PointInTimeRecoveryEnabled: true,
-        },
       });
 
       // Check UseCaseBuilder table
       template.hasResourceProperties('AWS::DynamoDB::Table', {
         TableName: 'UseCaseBuilderdev-tenant-test-tenant-123',
         BillingMode: 'PAY_PER_REQUEST',
-        PointInTimeRecoverySpecification: {
-          PointInTimeRecoveryEnabled: true,
-        },
       });
 
       // Check that all three tables are created
