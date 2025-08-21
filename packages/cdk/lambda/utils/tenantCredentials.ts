@@ -14,7 +14,6 @@ const RETRY_DELAY = 1000; // milliseconds
 /**
  * Get credentials using Cognito Identity Pool Enhanced Flow with retry logic
  * The Identity Pool automatically maps JWT claims to principal tags for ABAC
- * NOTE: No caching to ensure proper user isolation within tenants
  */
 export async function getTenantCredentials(
   event: APIGatewayProxyEvent
@@ -32,7 +31,7 @@ export async function getTenantCredentials(
 
   // Extract tenant ID for logging
   const tenantId =
-    event.requestContext?.authorizer?.claims?.['custom:tenant_id'] || 'default';
+    event.requestContext?.authorizer?.claims?.['custom:tenant_id'] || process.env.DEFAULT_TENANT_ID;
 
   // Extract user ID for logging
   const userId =

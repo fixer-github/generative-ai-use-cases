@@ -24,7 +24,7 @@ import {
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;
-const TABLE_NAME: string = process.env.TABLE_NAME!;
+const TABLE_NAME: string = process.env.TABLE_PREFIX!;
 const COPY_VIDEO_JOB_FUNCTION_ARN = process.env.COPY_VIDEO_JOB_FUNCTION_ARN!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);

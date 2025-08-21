@@ -10,6 +10,41 @@ const isValidExtraData = (extra: ExtraData, bucketName: string): boolean => {
   );
 };
 
+const validateMessages = (
+  messages: CreateMessagesRequest['messages'],
+  bucketName: string
+): { isValid: boolean; error?: string } => {
+  if (!messages) {
+    return { isValid: true };
+  }
+
+  for (const message of messages) {
+    if (!message.extraData || message.extraData.length === 0) {
+      continue;
+    }
+
+    for (const extra of message.extraData) {
+      if (!isValidExtraData(extra, bucketName)) {
+        return { isValid: false, error: 'Invalid extraData' };
+      }
+    }
+  }
+
+  return { isValid: true };
+};
+
+const createResponse = (
+  statusCode: number,
+  body: object
+): APIGatewayProxyResult => ({
+  statusCode,
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  },
+  body: JSON.stringify(body),
+});
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -22,37 +57,16 @@ export const handler = async (
     // Authorization check: Verify if the specified chat belongs to the user
     const chat = await findChatById(userId, chatId, event);
     if (chat === null) {
-      return {
-        statusCode: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'You do not have permission to post messages in the chat.',
-        }),
-      };
+      return createResponse(403, {
+        message: 'You do not have permission to post messages in the chat.',
+      });
     }
 
-    if (req.messages) {
-      for (const message of req.messages) {
-        if (message.extraData && message.extraData.length > 0) {
-          for (const extra of message.extraData) {
-            if (!isValidExtraData(extra, FILE_UPLOAD_BUCKET_NAME)) {
-              return {
-                statusCode: 400,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Access-Control-Allow-Origin': '*',
-                },
-                body: JSON.stringify({
-                  message: 'Invalid extraData',
-                }),
-              };
-            }
-          }
-        }
-      }
+    const validation = validateMessages(req.messages, FILE_UPLOAD_BUCKET_NAME);
+    if (!validation.isValid) {
+      return createResponse(400, {
+        message: validation.error,
+      });
     }
 
     const messages = await batchCreateMessages(
@@ -62,25 +76,9 @@ export const handler = async (
       event
     );
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        messages,
-      }),
-    };
+    return createResponse(200, { messages });
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return createResponse(500, { message: 'Internal Server Error' });
   }
 };

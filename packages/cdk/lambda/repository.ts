@@ -25,10 +25,11 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId } from './utils/tenantUtils';
 import { createTenantDynamoDBClient } from './utils/tenantDynamoDBClient';
 
-const TABLE_PREFIX: string = process.env.TABLE_NAME!;
+const TABLE_PREFIX: string = process.env.TABLE_PREFIX!;
 const DEFAULT_TABLE_NAME: string = process.env.DEFAULT_TABLE_NAME!;
 const STATS_TABLE_PREFIX: string = process.env.STATS_TABLE_NAME!;
 const DEFAULT_STATS_TABLE_NAME: string = process.env.DEFAULT_STATS_TABLE_NAME!;
+const DEFAULT_TENANT_ID: string = process.env.DEFAULT_TENANT_ID!;
 
 /**
  * Get or create a tenant-specific DynamoDB document client
@@ -40,14 +41,13 @@ async function getTenantDynamoDBDocument(
   const tenantId = getTenantId(event);
 
   // For default tenant, use standard DynamoDB client
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || tenantId === DEFAULT_TENANT_ID) {
     // Create standard DynamoDB client without AssumeRole
     return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
 
   try {
     // Try to create client with tenant credentials
-    // Each request gets fresh credentials to ensure proper user isolation
     const dynamoDb = await createTenantDynamoDBClient(event);
     return DynamoDBDocumentClient.from(dynamoDb);
   } catch (error) {
@@ -69,7 +69,7 @@ function getTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
 
   // For default/fallback users, use the actual CDK-generated table name
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || tenantId === DEFAULT_TENANT_ID) {
     return DEFAULT_TABLE_NAME;
   }
 
@@ -84,29 +84,12 @@ function getStatsTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
 
   // For default/fallback users, use the actual CDK-generated stats table name
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || tenantId === DEFAULT_TENANT_ID) {
     return DEFAULT_STATS_TABLE_NAME;
   }
 
   // For tenant users, construct tenant-specific stats table name directly
   return `${STATS_TABLE_PREFIX}-tenant-${tenantId}`;
-}
-
-// ============================================
-// Helper Functions
-// ============================================
-
-/**
- * Execute DynamoDB operation with proper tenant table selection
- */
-async function executeDynamoDBOperation<T>(
-  event: APIGatewayProxyEvent,
-  operation: (client: DynamoDBDocumentClient, tableName: string) => Promise<T>
-): Promise<T> {
-  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
-  const tableName = getTableName(event);
-
-  return await operation(dynamoDbDocument, tableName);
 }
 
 // ============================================
@@ -117,6 +100,9 @@ export const createChat = async (
   _userId: string,
   event: APIGatewayProxyEvent
 ): Promise<Chat> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
   const userId = `user#${_userId}`;
   const chatId = `chat#${crypto.randomUUID()}`;
   const item = {
@@ -128,16 +114,11 @@ export const createChat = async (
     updatedDate: '',
   };
 
-  await executeDynamoDBOperation(
-    event,
-    async (client, tableName) => {
-      return client.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: item,
-        })
-      );
-    }
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
   );
 
   return item;
@@ -148,28 +129,26 @@ export const findChatById = async (
   _chatId: string,
   event: APIGatewayProxyEvent
 ): Promise<Chat | null> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
   const userId = `user#${_userId}`;
   const chatId = `chat#${_chatId}`;
 
-  const res = await executeDynamoDBOperation(
-    event,
-    async (client, tableName) => {
-      return client.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: '#id = :id',
-          FilterExpression: '#chatId = :chatId',
-          ExpressionAttributeNames: {
-            '#id': 'id',
-            '#chatId': 'chatId',
-          },
-          ExpressionAttributeValues: {
-            ':id': userId,
-            ':chatId': chatId,
-          },
-        })
-      );
-    }
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: '#id = :id',
+      FilterExpression: '#chatId = :chatId',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+        '#chatId': 'chatId',
+      },
+      ExpressionAttributeValues: {
+        ':id': userId,
+        ':chatId': chatId,
+      },
+    })
   );
 
   if (!res.Items || res.Items.length === 0) {
@@ -184,28 +163,26 @@ export const findSystemContextById = async (
   _systemContextId: string,
   event: APIGatewayProxyEvent
 ): Promise<SystemContext | null> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
   const userId = `systemContext#${_userId}`;
   const systemContextId = `systemContext#${_systemContextId}`;
 
-  const res = await executeDynamoDBOperation(
-    event,
-    async (client, tableName) => {
-      return client.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: '#id = :id',
-          FilterExpression: '#systemContextId = :systemContextId',
-          ExpressionAttributeNames: {
-            '#id': 'id',
-            '#systemContextId': 'systemContextId',
-          },
-          ExpressionAttributeValues: {
-            ':id': userId,
-            ':systemContextId': systemContextId,
-          },
-        })
-      );
-    }
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: '#id = :id',
+      FilterExpression: '#systemContextId = :systemContextId',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+        '#systemContextId': 'systemContextId',
+      },
+      ExpressionAttributeValues: {
+        ':id': userId,
+        ':systemContextId': systemContextId,
+      },
+    })
   );
 
   if (!res.Items || res.Items.length === 0) {

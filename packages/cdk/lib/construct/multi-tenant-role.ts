@@ -47,10 +47,8 @@ export class MultiTenantRole extends Construct {
           's3:ListBucket',
         ],
         resources: [
-          // Bucket-level permissions (stack-specific)
-          `arn:aws:s3:::generativeaiusecasesstack${props.env || ''}-*-tenant-\${aws:PrincipalTag/TenantID}`,
-          // Object-level permissions (stack-specific)
-          `arn:aws:s3:::generativeaiusecasesstack${props.env || ''}-*-tenant-\${aws:PrincipalTag/TenantID}/*`,
+          `arn:aws:s3:::${Stack.of(this).stackName}-*-tenant-\${aws:PrincipalTag/TenantID}`,
+          `arn:aws:s3:::${Stack.of(this).stackName}-*-tenant-\${aws:PrincipalTag/TenantID}/*`,
         ],
       })
     );

@@ -5,7 +5,6 @@ import { getTenantCredentials } from './tenantCredentials';
 /**
  * Create a DynamoDB client with tenant-isolated credentials from Cognito Identity Pool
  * IAM policies automatically restrict access to tenant-specific resources via principal tags
- * NOTE: No caching to ensure proper user isolation within tenants
  */
 export async function createTenantDynamoDBClient(
   event: APIGatewayProxyEvent

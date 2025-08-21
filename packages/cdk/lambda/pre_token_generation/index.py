@@ -1,4 +1,7 @@
 import json
+import os
+
+DEFAULT_TENANT_ID = os.environ.get('DEFAULT_TENANT_ID', 'default')
 
 def handler(event, context):
     """
@@ -9,7 +12,7 @@ def handler(event, context):
         print(f"Pre Token Generation Event: {json.dumps(event, indent=2)}")
         
         user_attributes = event["request"]["userAttributes"]
-        tenant_id = user_attributes.get("custom:tenant_id", "default")
+        tenant_id = user_attributes.get("custom:tenant_id", DEFAULT_TENANT_ID)
         
         # For Identity Pool Enhanced Flow, we only need to ensure the custom:tenant_id
         # claim is present in the JWT. The Identity Pool will automatically map
