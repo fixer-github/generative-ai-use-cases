@@ -9,6 +9,12 @@ export interface TenantDynamoDBProps {
   readonly tenantId: string;
 
   /**
+   * The environment (e.g., dev, staging, prod)
+   * @default 'dev'
+   */
+  readonly environment?: string;
+
+  /**
    * Base name for the chat history table
    * @default 'ChatHistory'
    */
@@ -97,17 +103,24 @@ export class TenantDynamoDB extends Construct {
       throw new Error('Tenant ID is required');
     }
 
+    // Get environment, default to 'dev'
+    const environment = props.environment || 'dev';
+
     // Sanitize tenant ID for use in resource names
     const sanitizedTenantId = this.tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
 
-    // Set table names
+    // Set table names with environment prefix
     const chatHistoryBaseName = props.chatHistoryTableBaseName || 'ChatHistory';
     const tokenUsageStatsBaseName = props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
     const useCaseBuilderBaseName = props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
 
-    this.chatHistoryTableName = `${chatHistoryBaseName}-tenant-${sanitizedTenantId}`;
-    this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-tenant-${sanitizedTenantId}`;
-    this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-tenant-${sanitizedTenantId}`;
+    this.chatHistoryTableName = `${chatHistoryBaseName}${environment}-tenant-${sanitizedTenantId}`;
+    this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}${environment}-tenant-${sanitizedTenantId}`;
+    this.useCaseBuilderTableName = `${useCaseBuilderBaseName}${environment}-tenant-${sanitizedTenantId}`;
+
+    // Determine removal policy based on environment
+    const removalPolicy = props.removalPolicy || 
+      (environment === 'dev' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN);
 
     // Chat History Table
     this.chatHistoryTable = new dynamodb.Table(this, 'ChatHistoryTable', {
@@ -124,9 +137,13 @@ export class TenantDynamoDB extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
       },
-      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
+      removalPolicy: removalPolicy,
       encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
+
+    // Add tags to Chat History table
+    cdk.Tags.of(this.chatHistoryTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.chatHistoryTable).add('Environment', environment);
 
     // Add feedback index
     this.chatHistoryTable.addGlobalSecondaryIndex({
@@ -152,9 +169,13 @@ export class TenantDynamoDB extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
       },
-      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
+      removalPolicy: removalPolicy,
       encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
+
+    // Add tags to Token Usage Stats table
+    cdk.Tags.of(this.tokenUsageStatsTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.tokenUsageStatsTable).add('Environment', environment);
 
     // Add month index for usage stats
     this.tokenUsageStatsTable.addGlobalSecondaryIndex({
@@ -184,9 +205,13 @@ export class TenantDynamoDB extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
       },
-      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
+      removalPolicy: removalPolicy,
       encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
     });
+
+    // Add tags to Use Case Builder table
+    cdk.Tags.of(this.useCaseBuilderTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.useCaseBuilderTable).add('Environment', environment);
 
     // Add use case ID index for use case builder
     this.useCaseBuilderTable.addGlobalSecondaryIndex({
@@ -240,9 +265,9 @@ export class TenantDynamoDB extends Construct {
    * Generate tenant-specific table name
    * This helper method can be used to generate table names consistently
    */
-  public static generateTableName(baseTableName: string, tenantId: string): string {
+  public static generateTableName(baseTableName: string, tenantId: string, environment: string = 'dev'): string {
     const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
-    return `${baseTableName}-tenant-${sanitizedTenantId}`;
+    return `${baseTableName}${environment}-tenant-${sanitizedTenantId}`;
   }
 
   /**
@@ -254,9 +279,13 @@ export class TenantDynamoDB extends Construct {
     baseTableName: string,
     partitionKey: dynamodb.Attribute,
     sortKey?: dynamodb.Attribute,
-    globalSecondaryIndexes?: dynamodb.GlobalSecondaryIndexProps[]
+    globalSecondaryIndexes?: dynamodb.GlobalSecondaryIndexProps[],
+    environment: string = 'dev'
   ): dynamodb.Table {
-    const tableName = TenantDynamoDB.generateTableName(baseTableName, this.tenantId);
+    const tableName = TenantDynamoDB.generateTableName(baseTableName, this.tenantId, environment);
+
+    // Determine removal policy based on environment
+    const removalPolicy = environment === 'dev' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN;
 
     const table = new dynamodb.Table(this, id, {
       tableName,
@@ -266,9 +295,13 @@ export class TenantDynamoDB extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true,
       },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      removalPolicy: removalPolicy,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
+
+    // Add tags
+    cdk.Tags.of(table).add('TenantId', this.tenantId);
+    cdk.Tags.of(table).add('Environment', environment);
 
     if (globalSecondaryIndexes) {
       globalSecondaryIndexes.forEach((gsi) => {

@@ -10,6 +10,12 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
   readonly tenantId?: string;
 
   /**
+   * The environment (e.g., dev, staging, prod)
+   * @default 'dev'
+   */
+  readonly environment?: string;
+
+  /**
    * Base name for the chat history table
    * @default 'ChatHistory'
    */
@@ -93,9 +99,13 @@ export class TenantDynamoDBStack extends cdk.Stack {
       constraintDescription: 'Tenant ID must contain only alphanumeric characters and hyphens',
     }).valueAsString;
 
+    // Get environment, default to 'dev'
+    const environment = props?.environment || 'dev';
+
     // Create the tenant DynamoDB construct
     this.tenantDynamoDB = new TenantDynamoDB(this, 'TenantDynamoDB', {
       tenantId,
+      environment,
       chatHistoryTableBaseName: props?.chatHistoryTableBaseName,
       tokenUsageStatsTableBaseName: props?.tokenUsageStatsTableBaseName,
       useCaseBuilderTableBaseName: props?.useCaseBuilderTableBaseName,
@@ -143,6 +153,7 @@ export class TenantDynamoDBStack extends cdk.Stack {
 
     // Add tags
     cdk.Tags.of(this).add('TenantId', tenantId.toString());
+    cdk.Tags.of(this).add('Environment', environment);
     cdk.Tags.of(this).add('Purpose', 'TenantDynamoDBTables');
 
     // Set stack description
