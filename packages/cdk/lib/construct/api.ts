@@ -30,8 +30,6 @@ import {
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { LitellmProxyServer } from './litellm-proxy-server';
-import { WebSocketApi, WebSocketStage } from 'aws-cdk-lib/aws-apigatewayv2';
-import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
 export interface BackendApiProps {
   // Context Params
@@ -41,7 +39,6 @@ export interface BackendApiProps {
   readonly videoGenerationModelIds: ModelConfiguration[];
   readonly videoBucketRegionMap: Record<string, string>;
   readonly endpointNames: string[];
-  readonly queryDecompositionEnabled: boolean;
   readonly rerankingModelId?: string | null;
   readonly customAgents: Agent[];
   readonly crossAccountBedrockRoleArn?: string | null;
@@ -53,10 +50,8 @@ export interface BackendApiProps {
   // Resource
   readonly userPool: UserPool;
   readonly idPool: IdentityPool;
-  readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
-  readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
@@ -64,8 +59,6 @@ export interface BackendApiProps {
 
 export class Api extends Construct {
   readonly api: RestApi;
-  readonly ws: WebSocketStage;
-  readonly predictStreamFunction: NodejsFunction;
   readonly invokeFlowFunction: NodejsFunction;
   readonly optimizePromptFunction: NodejsFunction;
   readonly modelRegion: string;
@@ -88,11 +81,8 @@ export class Api extends Construct {
       endpointNames,
       crossAccountBedrockRoleArn,
       userPool,
-      userPoolClient,
       table,
       idPool,
-      knowledgeBaseId,
-      queryDecompositionEnabled,
       rerankingModelId,
       litellmEndpoint,
     } = props;
@@ -181,67 +171,6 @@ export class Api extends Construct {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
     });
-
-    // 接続
-    const connectWebSocketFunction = new NodejsFunction(
-      this,
-      'ConnectWebSocket',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/connectWebSocket.ts',
-      }
-    );
-    connectWebSocketFunction.grantInvoke(idPool.authenticatedRole);
-
-    // 切断
-    const disconnectWebSocketFunction = new NodejsFunction(
-      this,
-      'DisconnectWebSocket',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/disconnectWebSocket.ts',
-      }
-    );
-    disconnectWebSocketFunction.grantInvoke(idPool.authenticatedRole);
-
-    const predictStreamFunction = new NodejsFunction(this, 'PredictStream', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/predictStream.ts',
-      timeout: Duration.minutes(15),
-      memorySize: 256,
-      environment: {
-        USER_POOL_ID: userPool.userPoolId,
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-        MODEL_REGION: modelRegion,
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        AGENT_MAP: JSON.stringify(agentMap),
-        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-        BUCKET_NAME: fileBucket.bucketName,
-        KNOWLEDGE_BASE_ID: knowledgeBaseId ?? '',
-        ...(props.guardrailIdentify
-          ? { GUARDRAIL_IDENTIFIER: props.guardrailIdentify }
-          : {}),
-        ...(props.guardrailVersion
-          ? { GUARDRAIL_VERSION: props.guardrailVersion }
-          : {}),
-        QUERY_DECOMPOSITION_ENABLED: JSON.stringify(queryDecompositionEnabled),
-        RERANKING_MODEL_ID: rerankingModelId ?? '',
-        LITELLM_ENDPOINT: litellmEndpoint ?? '',
-      },
-      bundling: {
-        // TODO: ここに後で追加する
-        nodeModules: [
-          '@aws-sdk/client-bedrock-runtime',
-          '@aws-sdk/client-bedrock-agent-runtime',
-          // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
-          '@aws-sdk/client-sagemaker-runtime',
-        ],
-      },
-    });
-    fileBucket.grantReadWrite(predictStreamFunction);
-    predictStreamFunction.grantInvoke(idPool.authenticatedRole);
 
     // Add Flow Lambda Function
     const invokeFlowFunction = new NodejsFunction(this, 'InvokeFlow', {
@@ -483,7 +412,6 @@ export class Api extends Construct {
         ),
       });
       predictFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
-      predictStreamFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
       generateImageFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
       generateVideoFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
@@ -493,7 +421,6 @@ export class Api extends Construct {
 
     // Grant permissions to access LiteLLM proxy if it's enabled
     if (props.litellmProxy) {
-      props.litellmProxy.grantInvokeUrl(predictStreamFunction);
       props.litellmProxy.grantInvokeUrl(predictFunction);
       props.litellmProxy.grantInvokeUrl(predictTitleFunction);
       props.litellmProxy.grantInvokeUrl(generateImageFunction);
@@ -513,7 +440,6 @@ export class Api extends Construct {
         resources: ['*'],
         actions: ['bedrock:*', 'logs:*'],
       });
-      predictStreamFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       predictFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       generateImageFunction.role?.addToPrincipalPolicy(bedrockPolicy);
@@ -533,13 +459,11 @@ export class Api extends Construct {
         actions: ['sts:AssumeRole'],
         resources: [crossAccountBedrockRoleArn],
       });
-      predictStreamFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(logsPolicy);
       generateImageFunction.role?.addToPrincipalPolicy(logsPolicy);
       generateVideoFunction.role?.addToPrincipalPolicy(logsPolicy);
       listVideoJobs.role?.addToPrincipalPolicy(logsPolicy);
-      predictStreamFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       generateImageFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
@@ -1020,41 +944,7 @@ export class Api extends Construct {
       commonAuthorizerProps
     );
 
-    // WebSocket Endpoint
-    const webSocketApi = new WebSocketApi(this, 'WebSocket', {
-      apiName: 'WebSocketApi',
-    });
-
-    webSocketApi.addRoute('$connect', {
-      integration: new WebSocketLambdaIntegration(
-        'ConnectWebSocket',
-        connectWebSocketFunction
-      ),
-    });
-
-    webSocketApi.addRoute('$disconnect', {
-      integration: new WebSocketLambdaIntegration(
-        'DisconnectWebSocket',
-        disconnectWebSocketFunction
-      ),
-    });
-
-    webSocketApi.addRoute('$default', {
-      integration: new WebSocketLambdaIntegration(
-        'PredictStream',
-        predictStreamFunction
-      ),
-    });
-
-    const ws = new WebSocketStage(this, 'WebSocketStage', {
-      webSocketApi,
-      stageName: 'prod',
-      autoDeploy: true,
-    });
-
     this.api = api;
-    this.ws = ws;
-    this.predictStreamFunction = predictStreamFunction;
     this.invokeFlowFunction = invokeFlowFunction;
     this.optimizePromptFunction = optimizePromptFunction;
     this.modelRegion = modelRegion;

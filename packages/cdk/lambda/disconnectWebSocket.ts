@@ -6,11 +6,10 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const connectionId = event.requestContext.connectionId!;
-    await repository.createWebSocketConnection(connectionId);
+    await repository.deleteWebSocketConnection(connectionId);
 
     return {
-      statusCode: 200,
-      body: 'Connection created',
+      statusCode: 204,
     };
   } catch (err) {
     console.error(err);
@@ -18,7 +17,7 @@ export const handler = async (
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Failed to connect',
+        message: 'Failed to disconnect',
         error: err,
       }),
     };

@@ -10,7 +10,11 @@ import {
   TokenUsageStats,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  ScanCommand,
+  ScanCommandOutput,
+} from '@aws-sdk/client-dynamodb';
 import {
   BatchGetCommand,
   BatchWriteCommand,
@@ -21,31 +25,53 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { Err, Ok, Result } from '../types/result';
 
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
+const CONNECTION_TABLE_NAME: string = process.env.CONNECTION_TABLE_NAME!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
+// TODO: 後でテーブル名変える
 export const createWebSocketConnection = async (
-  connectionId: string,
-  apiId: string,
-  endpoint: string,
-  apiType: string
+  connectionId: string
 ): Promise<void> => {
   await dynamoDbDocument.send(
     new PutCommand({
-      TableName: 'WebSocketConnections',
+      TableName: CONNECTION_TABLE_NAME,
       Item: {
         connectionId: connectionId,
-        apiId: apiId,
-        endpoint: endpoint,
-        connectedAt: new Date().toISOString(),
-        // APIの種類を識別するための情報
-        apiType: apiType,
       },
     })
   );
+};
+
+export const deleteWebSocketConnection = async (
+  connectinoId: string
+): Promise<void> => {
+  await dynamoDbDocument.send(
+    new DeleteCommand({
+      TableName: CONNECTION_TABLE_NAME,
+      Key: {
+        connectinoId: connectinoId,
+      },
+    })
+  );
+};
+
+export const scanWebSocketConnections = async (): Promise<
+  Result<ScanCommandOutput, Error>
+> => {
+  try {
+    const connections = await dynamoDbDocument.send(
+      new ScanCommand({ TableName: process.env.CONNECTION_TABLE_NAME })
+    );
+
+    return Ok(connections);
+  } catch (err) {
+    return Err(err as Error);
+  }
 };
 
 export const createChat = async (_userId: string): Promise<Chat> => {

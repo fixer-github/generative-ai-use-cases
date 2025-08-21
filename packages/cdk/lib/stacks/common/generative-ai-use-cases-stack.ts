@@ -21,6 +21,7 @@ import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
+import { WSApi } from '../../construct/websocket-api';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -100,7 +101,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       videoBucketRegionMap: props.videoBucketRegionMap,
       endpointNames: params.endpointNames,
       customAgents: params.agents,
-      queryDecompositionEnabled: params.queryDecompositionEnabled,
       rerankingModelId: params.rerankingModelId,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
@@ -109,13 +109,21 @@ export class GenerativeAiUseCasesStack extends Stack {
       litellmProxy: litellmProxy,
       userPool: auth.userPool,
       idPool: auth.idPool,
-      userPoolClient: auth.client,
       table: database.table,
       statsTable: database.statsTable,
-      knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: props.agents,
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
+    });
+
+    const wsApi = new WSApi(this, 'WebSocketAPI', {
+      region: this.region,
+      account: this.account,
+      userPool: auth.userPool,
+      idPool: auth.idPool,
+      userPoolClient: auth.client,
+      connectionsTable: database.connectionsTable,
+      fileBucket: api.fileBucket,
     });
 
     // WAF
@@ -173,8 +181,8 @@ export class GenerativeAiUseCasesStack extends Stack {
         params.samlCognitoFederatedIdentityProviderName,
       // Backend
       apiEndpointUrl: api.api.url,
-      webSocketEndpointUrl: api.ws.url,
-      predictStreamFunctionArn: api.predictStreamFunction.functionArn,
+      webSocketEndpointUrl: wsApi.stage.url,
+      predictStreamFunctionArn: wsApi.predictStreamFunction.functionArn,
       ragEnabled: params.ragEnabled,
       ragKnowledgeBaseEnabled: params.ragKnowledgeBaseEnabled,
       agentEnabled: params.agentEnabled || params.agents.length > 0,
@@ -304,7 +312,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     });
 
     new CfnOutput(this, 'WebSocketEndpoint', {
-      value: api.ws.url,
+      value: wsApi.stage.url,
     });
 
     new CfnOutput(this, 'UserPoolId', { value: auth.userPool.userPoolId });
@@ -316,7 +324,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     new CfnOutput(this, 'IdPoolId', { value: auth.idPool.identityPoolId });
 
     new CfnOutput(this, 'PredictStreamFunctionArn', {
-      value: api.predictStreamFunction.functionArn,
+      value: wsApi.predictStreamFunction.functionArn,
     });
 
     new CfnOutput(this, 'OptimizePromptFunctionArn', {
