@@ -21,6 +21,12 @@ export interface TenantDynamoDBProps {
   readonly tokenUsageStatsTableBaseName?: string;
 
   /**
+   * Base name for the use case builder table
+   * @default 'UseCaseBuilder'
+   */
+  readonly useCaseBuilderTableBaseName?: string;
+
+  /**
    * Billing mode for the tables
    * @default BillingMode.PAY_PER_REQUEST
    */
@@ -57,6 +63,11 @@ export class TenantDynamoDB extends Construct {
   public readonly tokenUsageStatsTable: dynamodb.Table;
 
   /**
+   * The use case builder table for the tenant
+   */
+  public readonly useCaseBuilderTable: dynamodb.Table;
+
+  /**
    * The tenant ID
    */
   public readonly tenantId: string;
@@ -70,6 +81,11 @@ export class TenantDynamoDB extends Construct {
    * Token usage stats table name
    */
   public readonly tokenUsageStatsTableName: string;
+
+  /**
+   * Use case builder table name
+   */
+  public readonly useCaseBuilderTableName: string;
 
   constructor(scope: Construct, id: string, props: TenantDynamoDBProps) {
     super(scope, id);
@@ -87,9 +103,11 @@ export class TenantDynamoDB extends Construct {
     // Set table names
     const chatHistoryBaseName = props.chatHistoryTableBaseName || 'ChatHistory';
     const tokenUsageStatsBaseName = props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
+    const useCaseBuilderBaseName = props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
 
     this.chatHistoryTableName = `${chatHistoryBaseName}-tenant-${sanitizedTenantId}`;
     this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-tenant-${sanitizedTenantId}`;
+    this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-tenant-${sanitizedTenantId}`;
 
     // Chat History Table
     this.chatHistoryTable = new dynamodb.Table(this, 'ChatHistoryTable', {
@@ -151,6 +169,39 @@ export class TenantDynamoDB extends Construct {
       },
     });
 
+    // Use Case Builder Table
+    this.useCaseBuilderTable = new dynamodb.Table(this, 'UseCaseBuilderTable', {
+      tableName: this.useCaseBuilderTableName,
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'dataType',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: props.pointInTimeRecovery !== false,
+      },
+      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
+      encryption: props.encryption || dynamodb.TableEncryption.AWS_MANAGED,
+    });
+
+    // Add use case ID index for use case builder
+    this.useCaseBuilderTable.addGlobalSecondaryIndex({
+      indexName: 'UseCaseIdIndexName',
+      partitionKey: {
+        name: 'useCaseId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'dataType',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // Output table ARNs
     new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
       value: this.chatHistoryTable.tableArn,
@@ -171,6 +222,17 @@ export class TenantDynamoDB extends Construct {
     new cdk.CfnOutput(this, 'TokenUsageStatsTableName', {
       value: this.tokenUsageStatsTable.tableName,
       description: `Name of the token usage stats table for tenant ${this.tenantId}`,
+    });
+
+    // Output use case builder table ARN and name
+    new cdk.CfnOutput(this, 'UseCaseBuilderTableArn', {
+      value: this.useCaseBuilderTable.tableArn,
+      description: `ARN of the use case builder table for tenant ${this.tenantId}`,
+    });
+
+    new cdk.CfnOutput(this, 'UseCaseBuilderTableName', {
+      value: this.useCaseBuilderTable.tableName,
+      description: `Name of the use case builder table for tenant ${this.tenantId}`,
     });
   }
 

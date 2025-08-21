@@ -145,6 +145,7 @@ export class Api extends Construct {
     // Table name prefixes for constructing tenant-specific table names
     const TABLE_PREFIX = 'ChatHistory';
     const STATS_TABLE_PREFIX = 'TokenUsageStats';
+    const USECASE_BUILDER_TABLE_PREFIX = 'UseCaseBuilder';
     const DEFAULT_TENANT_ID = 'default';
 
     // IAM policy for assuming multi-tenant role with web identity

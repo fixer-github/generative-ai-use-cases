@@ -22,6 +22,12 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
   readonly tokenUsageStatsTableBaseName?: string;
 
   /**
+   * Base name for the use case builder table
+   * @default 'UseCaseBuilder'
+   */
+  readonly useCaseBuilderTableBaseName?: string;
+
+  /**
    * Description for the stack
    * @default 'DynamoDB tables for tenant {tenantId}'
    */
@@ -69,6 +75,13 @@ export class TenantDynamoDBStack extends cdk.Stack {
     return this.tenantDynamoDB.tokenUsageStatsTable;
   }
 
+  /**
+   * The use case builder table for the tenant
+   */
+  public get useCaseBuilderTable(): dynamodb.Table {
+    return this.tenantDynamoDB.useCaseBuilderTable;
+  }
+
   constructor(scope: Construct, id: string, props?: TenantDynamoDBStackProps) {
     super(scope, id, props);
 
@@ -85,6 +98,7 @@ export class TenantDynamoDBStack extends cdk.Stack {
       tenantId,
       chatHistoryTableBaseName: props?.chatHistoryTableBaseName,
       tokenUsageStatsTableBaseName: props?.tokenUsageStatsTableBaseName,
+      useCaseBuilderTableBaseName: props?.useCaseBuilderTableBaseName,
       billingMode: props?.billingMode,
       pointInTimeRecovery: props?.pointInTimeRecovery,
       removalPolicy: props?.removalPolicy,
@@ -113,6 +127,18 @@ export class TenantDynamoDBStack extends cdk.Stack {
       value: this.tenantDynamoDB.tokenUsageStatsTable.tableName,
       description: `Name of the token usage stats table for tenant ${tenantId}`,
       exportName: `${this.stackName}-TokenUsageStatsTableName`,
+    });
+
+    new cdk.CfnOutput(this, 'StackUseCaseBuilderTableArn', {
+      value: this.tenantDynamoDB.useCaseBuilderTable.tableArn,
+      description: `ARN of the use case builder table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-UseCaseBuilderTableArn`,
+    });
+
+    new cdk.CfnOutput(this, 'StackUseCaseBuilderTableName', {
+      value: this.tenantDynamoDB.useCaseBuilderTable.tableName,
+      description: `Name of the use case builder table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-UseCaseBuilderTableName`,
     });
 
     // Add tags
