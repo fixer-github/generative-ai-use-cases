@@ -120,6 +120,11 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
       environment: params.env,
+
+      // LangChain Credentials
+      openai: params.openai,
+      azureOpenai: params.azureOpenai,
+      google: params.google,
     });
 
     // WAF

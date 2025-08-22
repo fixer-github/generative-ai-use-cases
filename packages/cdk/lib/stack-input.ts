@@ -166,6 +166,28 @@ const baseStackInputSchema = z.object({
   hostedZoneId: z.string().nullish(),
   // Dashboard
   dashboard: z.boolean().default(false),
+
+  // LangChain
+  openai: z
+    .object({
+      apiKey: z.string(),
+    })
+    .optional(),
+
+  azureOpenai: z
+    .object({
+      endpoint: z.string(),
+      apiKey: z.string(),
+      deploymentName: z.string(),
+      apiVersion: z.string(),
+    })
+    .optional(),
+
+  google: z
+    .object({
+      googleApplicationCredentials: z.string(),
+    })
+    .optional(),
 });
 
 // Common Validator with refine
