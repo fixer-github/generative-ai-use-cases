@@ -20,12 +20,21 @@ import {
 } from '@langchain/core/messages';
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
-import { initChatModel } from 'langchain/chat_models/universal';
+import {
+  ConfigurableChatModelCallOptions,
+  ConfigurableModel,
+  initChatModel,
+} from 'langchain/chat_models/universal';
+import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 
-// TODO: クレデンシャル系をどうにかする
 const createModel = async (
   model: Model
-): Promise<Result<BaseChatModel, Error>> => {
+): Promise<
+  Result<
+    ConfigurableModel<BaseLanguageModelInput, ConfigurableChatModelCallOptions>,
+    Error
+  >
+> => {
   try {
     const llm = await initChatModel(model.modelId);
     return Ok(llm);

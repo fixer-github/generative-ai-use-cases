@@ -100,26 +100,24 @@ const flows = getFlows();
 // List of LangChain model IDs (configured to match config.yaml)
 const langchainModelIds = [
   // Azure OpenAI
-  'azure_openai:gpt-4o',
-  'azure_openai:gpt-4o-mini',
   'azure_openai:o3',
   'azure_openai:gpt-4.1',
   'azure_openai:gpt-5',
 
   // Google VertexAI
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
+  // 'gemini-2.5-flash',
+  // 'gemini-2.5-pro',
 
   // Amazon Bedrock
-  // 'bedrock:anthropic.claude-sonnet-4-20250514-v1:0',
-  // 'bedrock:anthropic.claude-opus-4-20250514-v1:0',
-  // 'bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0',
-  // 'bedrock:anthropic.claude-3-5-haiku-20241022-v1:0',
-  // 'bedrock:amazon.nova-premier-v1:0',
-  // 'bedrock:amazon.nova-pro-v1:0',
-  // 'bedrock:amazon.nova-lite-v1:0',
-  // 'bedrock:amazon.nova-micro-v1:0',
-  // 'bedrock:deepseek.r1-v1:0',
+  'bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0',
+  'bedrock:us.anthropic.claude-opus-4-20250514-v1:0',
+  'bedrock:us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  'bedrock:us.anthropic.claude-3-5-haiku-20241022-v1:0',
+  'bedrock:us.amazon.nova-premier-v1:0',
+  'bedrock:us.amazon.nova-pro-v1:0',
+  'bedrock:us.amazon.nova-lite-v1:0',
+  'bedrock:us.amazon.nova-micro-v1:0',
+  'bedrock:us.deepseek.r1-v1:0',
 ];
 
 // Define model objects
@@ -254,50 +252,50 @@ const langchainModelMetadata: Record<string, any> = {
     flags: { text: true, doc: true, image: false, video: false },
     displayName: 'GPT 5',
   },
-  'gemini-2.5-flash': {
+  // 'gemini-2.5-flash': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'Gemini 2.5 Flash',
+  // },
+  // 'gemini-2.5-pro': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'Gemini 2.5 Pro',
+  // },
+  'bedrock:anthropic.claude-sonnet-4-20250514-v1:0': {
     flags: { text: true, doc: true, image: false, video: false },
-    displayName: 'Gemini 2.5 Flash',
+    displayName: 'Claude Sonnet 4',
   },
-  'gemini-2.5-pro': {
+  'bedrock:anthropic.claude-opus-4-20250514-v1:0': {
     flags: { text: true, doc: true, image: false, video: false },
-    displayName: 'Gemini 2.5 Pro',
+    displayName: 'Claude Opus 4',
   },
-  // 'bedrock:anthropic.claude-sonnet-4-20250514-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Claude Sonnet 4',
-  // },
-  // 'bedrock:anthropic.claude-opus-4-20250514-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Claude Opus 4',
-  // },
-  // 'bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Claude 3.7 Sonnet',
-  // },
-  // 'bedrock:anthropic.claude-3-5-haiku-20241022-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Claude 3.5 Haiku',
-  // },
-  // 'bedrock:amazon.nova-premier-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Nova Premier',
-  // },
-  // 'bedrock:amazon.nova-pro-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Nova Pro',
-  // },
-  // 'bedrock:amazon.nova-lite-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Nova Lite',
-  // },
-  // 'bedrock:amazon.nova-micro-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'Nova Micro',
-  // },
-  // 'bedrock:deepseek.r1-v1:0': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'DeepSeek r1',
-  // },
+  'bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Claude 3.7 Sonnet',
+  },
+  'bedrock:anthropic.claude-3-5-haiku-20241022-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Claude 3.5 Haiku',
+  },
+  'bedrock:amazon.nova-premier-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Nova Premier',
+  },
+  'bedrock:amazon.nova-pro-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Nova Pro',
+  },
+  'bedrock:amazon.nova-lite-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Nova Lite',
+  },
+  'bedrock:amazon.nova-micro-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'Nova Micro',
+  },
+  'bedrock:deepseek.r1-v1:0': {
+    flags: { text: true, doc: true, image: false, video: false },
+    displayName: 'DeepSeek r1',
+  },
 };
 
 // Merge LangChain metadata with original modelMetadata

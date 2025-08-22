@@ -178,7 +178,7 @@ const baseStackInputSchema = z.object({
     .object({
       endpoint: z.string(),
       apiKey: z.string(),
-      deploymentName: z.string(),
+      deploymentName: z.string().optional(),
       apiVersion: z.string(),
     })
     .optional(),

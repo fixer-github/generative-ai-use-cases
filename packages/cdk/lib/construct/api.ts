@@ -73,7 +73,7 @@ export interface BackendApiProps {
   readonly azureOpenai?: {
     readonly endpoint: string; // AZURE_OPENAI_ENDPOINT
     readonly apiKey: string; // AZURE_OPENAI_API_KEY
-    readonly deploymentName: string; // AZURE_OPENAI_DEPLOYMENT_NAME
+    readonly deploymentName?: string; // AZURE_OPENAI_DEPLOYMENT_NAME
     readonly apiVersion: string; // OPENAI_API_VERSION
   };
 
@@ -220,7 +220,16 @@ export class Api extends Construct {
           props.google?.googleApplicationCredentials ?? '{}',
       },
       bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        nodeModules: [
+          '@aws-sdk/client-bedrock-runtime',
+
+          'langchain',
+          '@langchain/core',
+          '@langchain/community',
+          '@langchain/openai',
+          '@langchain/google-vertexai',
+          '@langchain/aws',
+        ],
       },
     });
 
@@ -264,6 +273,13 @@ export class Api extends Construct {
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
           '@aws-sdk/client-sagemaker-runtime',
+
+          'langchain',
+          '@langchain/core',
+          '@langchain/community',
+          '@langchain/openai',
+          '@langchain/google-vertexai',
+          '@langchain/aws',
         ],
       },
     });
