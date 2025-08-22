@@ -10,9 +10,8 @@ export interface TenantDynamoDBProps {
 
   /**
    * The environment (e.g., dev, staging, prod)
-   * @default 'dev'
    */
-  readonly environment?: string;
+  readonly environment: string;
 
   /**
    * Base name for the chat history table

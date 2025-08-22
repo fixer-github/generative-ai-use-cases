@@ -11,9 +11,8 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
 
   /**
    * The environment (e.g., dev, staging, prod)
-   * @default 'dev'
    */
-  readonly environment?: string;
+  readonly environment: string;
 
   /**
    * Base name for the chat history table
@@ -59,28 +58,8 @@ export class TenantDynamoDBStack extends cdk.Stack {
   /**
    * The tenant DynamoDB construct
    */
-  public readonly tenantDynamoDB: TenantDynamoDB;
+  private readonly tenantDynamoDB: TenantDynamoDB;
 
-  /**
-   * The chat history table for the tenant
-   */
-  public get chatHistoryTable(): dynamodb.Table {
-    return this.tenantDynamoDB.chatHistoryTable;
-  }
-
-  /**
-   * The token usage statistics table for the tenant
-   */
-  public get tokenUsageStatsTable(): dynamodb.Table {
-    return this.tenantDynamoDB.tokenUsageStatsTable;
-  }
-
-  /**
-   * The use case builder table for the tenant
-   */
-  public get useCaseBuilderTable(): dynamodb.Table {
-    return this.tenantDynamoDB.useCaseBuilderTable;
-  }
 
   constructor(scope: Construct, id: string, props?: TenantDynamoDBStackProps) {
     super(scope, id, props);
@@ -93,8 +72,8 @@ export class TenantDynamoDBStack extends cdk.Stack {
       constraintDescription: 'Tenant ID must contain only alphanumeric characters and hyphens',
     }).valueAsString;
 
-    // Get environment, default to 'dev'
-    const environment = props?.environment || 'dev';
+    // Get environment (required parameter)
+    const environment = props?.environment!;
 
     // Create the tenant DynamoDB construct
     this.tenantDynamoDB = new TenantDynamoDB(this, 'TenantDynamoDB', {
@@ -108,16 +87,11 @@ export class TenantDynamoDBStack extends cdk.Stack {
     });
 
     // Add stack-level outputs with export names
+    // Chat History Table outputs
     new cdk.CfnOutput(this, 'StackChatHistoryTableArn', {
       value: this.tenantDynamoDB.chatHistoryTable.tableArn,
       description: `ARN of the chat history table for tenant ${tenantId}`,
       exportName: `${this.stackName}-ChatHistoryTableArn`,
-    });
-
-    new cdk.CfnOutput(this, 'StackTokenUsageStatsTableArn', {
-      value: this.tenantDynamoDB.tokenUsageStatsTable.tableArn,
-      description: `ARN of the token usage stats table for tenant ${tenantId}`,
-      exportName: `${this.stackName}-TokenUsageStatsTableArn`,
     });
 
     new cdk.CfnOutput(this, 'StackChatHistoryTableName', {
@@ -126,12 +100,20 @@ export class TenantDynamoDBStack extends cdk.Stack {
       exportName: `${this.stackName}-ChatHistoryTableName`,
     });
 
+    // Token Usage Stats Table outputs
+    new cdk.CfnOutput(this, 'StackTokenUsageStatsTableArn', {
+      value: this.tenantDynamoDB.tokenUsageStatsTable.tableArn,
+      description: `ARN of the token usage stats table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-TokenUsageStatsTableArn`,
+    });
+
     new cdk.CfnOutput(this, 'StackTokenUsageStatsTableName', {
       value: this.tenantDynamoDB.tokenUsageStatsTable.tableName,
       description: `Name of the token usage stats table for tenant ${tenantId}`,
       exportName: `${this.stackName}-TokenUsageStatsTableName`,
     });
 
+    // Use Case Builder Table outputs
     new cdk.CfnOutput(this, 'StackUseCaseBuilderTableArn', {
       value: this.tenantDynamoDB.useCaseBuilderTable.tableArn,
       description: `ARN of the use case builder table for tenant ${tenantId}`,

@@ -20,6 +20,7 @@ describe('TenantDynamoDB Tests', () => {
       // Act
       new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
         tenantId,
+        environment: 'dev',
       });
 
       // Assert
@@ -56,6 +57,7 @@ describe('TenantDynamoDB Tests', () => {
       // Act
       new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
         tenantId,
+        environment: 'dev',
       });
 
       // Assert
@@ -72,6 +74,7 @@ describe('TenantDynamoDB Tests', () => {
       expect(() => {
         new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
           tenantId: '',
+          environment: 'dev',
         });
       }).toThrow('Tenant ID is required');
     });
@@ -83,6 +86,7 @@ describe('TenantDynamoDB Tests', () => {
       // Act
       new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
         tenantId,
+        environment: 'dev',
       });
 
       // Assert
@@ -120,6 +124,7 @@ describe('TenantDynamoDB Tests', () => {
       // Act
       new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
         tenantId,
+        environment: 'dev',
         chatHistoryTableBaseName: 'CustomChat',
         tokenUsageStatsTableBaseName: 'CustomStats',
         useCaseBuilderTableBaseName: 'CustomUseCase',
@@ -226,6 +231,7 @@ describe('TenantDynamoDB Tests', () => {
       // Arrange & Act
       const tenantStack = new TenantDynamoDBStack(app, 'TenantStack', {
         tenantId: 'test-tenant-456',
+        environment: 'dev',
       });
 
       // Assert
@@ -252,7 +258,9 @@ describe('TenantDynamoDB Tests', () => {
 
     test('Should create stack with parameter when tenant ID not provided', () => {
       // Arrange & Act
-      const tenantStack = new TenantDynamoDBStack(app, 'TenantStack');
+      const tenantStack = new TenantDynamoDBStack(app, 'TenantStack', {
+        environment: 'dev',
+      });
 
       // Assert
       const template = Template.fromStack(tenantStack);
@@ -304,6 +312,7 @@ describe('TenantDynamoDB Tests', () => {
       const tenantId = 'test-tenant-789';
       const tenantDynamoDB = new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
         tenantId,
+        environment: 'dev',
       });
 
       // Act

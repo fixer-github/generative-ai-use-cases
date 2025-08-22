@@ -47,7 +47,7 @@ export interface BackendApiProps {
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
-  readonly environment?: string;
+  readonly environment: string;
 
   // Resource
   readonly userPool: UserPool;

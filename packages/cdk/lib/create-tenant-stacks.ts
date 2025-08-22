@@ -5,14 +5,14 @@ export interface TenantStackInput {
   account?: string;
   region: string;
   tenantId: string;
-  environment?: string;
+  environment: string;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
   // Tenant DynamoDB Stack
   const tenantDynamoDBStack = new TenantDynamoDBStack(
     app,
-    `TenantDynamoDBStack-${params.tenantId}`,
+    `TenantDynamoDBStack${params.environment}-${params.tenantId}`,
     {
       env: {
         account: params.account,

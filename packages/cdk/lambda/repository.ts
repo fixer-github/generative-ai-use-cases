@@ -26,7 +26,7 @@ import { getTenantId } from './utils/tenantUtils';
 import { createTenantDynamoDBClient } from './utils/tenantDynamoDBClient';
 
 const TABLE_PREFIX: string = process.env.TABLE_NAME!;
-const ENVIRONMENT: string = process.env.ENVIRONMENT || 'dev';
+const ENVIRONMENT: string = process.env.ENVIRONMENT!;
 const DEFAULT_TABLE_NAME: string = process.env.DEFAULT_TABLE_NAME!;
 const STATS_TABLE_PREFIX: string = process.env.STATS_TABLE_NAME!;
 const DEFAULT_STATS_TABLE_NAME: string = process.env.DEFAULT_STATS_TABLE_NAME!;
