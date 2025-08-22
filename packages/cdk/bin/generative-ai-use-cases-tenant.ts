@@ -36,6 +36,7 @@ const params = {
   region: context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',
   tenantId: tenantId,
   environment: context.environment || 'dev',
+  removalPolicy: context.removalPolicy || false, // Default to RETAIN (false) if not specified
 };
 
 createTenantStacks(app, params);
