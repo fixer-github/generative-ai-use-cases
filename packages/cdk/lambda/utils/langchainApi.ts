@@ -4,39 +4,33 @@
  * - マルチモーダルに対応していない
  * - StreamingのStopReasonが応答終了以外に対応していない
  */
-import { ChatBedrockConverse } from '@langchain/aws';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { ChatVertexAI } from '@langchain/google-vertexai';
-import { AzureChatOpenAI, ChatOpenAI } from '@langchain/openai';
 import {
+  Model,
+  UnrecordedMessage,
   ApiInterface,
   GenerateImageParams,
   GenerateVideoParams,
-  Model,
-  UnrecordedMessage,
 } from 'generative-ai-use-cases';
 import { Err, Ok, Result } from './result';
 import {
-  AIMessage,
-  HumanMessage,
   SystemMessage,
+  HumanMessage,
+  AIMessage,
 } from '@langchain/core/messages';
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
+import { initChatModel } from 'langchain/chat_models/universal';
 
 // TODO: クレデンシャル系をどうにかする
-const createModel = (model: Model): Result<BaseChatModel, Error> => {
-  switch (model.type) {
-    case 'bedrock':
-      return Ok(new ChatBedrockConverse());
-    case 'openai':
-      return Ok(new ChatOpenAI());
-    case 'google-vertexai':
-      return Ok(new ChatVertexAI());
-    case 'azure-openai':
-      return Ok(new AzureChatOpenAI());
-    default:
-      return Err(new Error('Unknown model'));
+const createModel = async (
+  model: Model
+): Promise<Result<BaseChatModel, Error>> => {
+  try {
+    const llm = await initChatModel(model.modelId);
+    return Ok(llm);
+  } catch (err) {
+    return Err(err as Error);
   }
 };
 
@@ -61,7 +55,7 @@ const langchainApi: ApiInterface = {
     messages: UnrecordedMessage[],
     id: string
   ): Promise<string> {
-    const createLlmResult = createModel(model);
+    const createLlmResult = await createModel(model);
 
     if (!createLlmResult.ok) {
       throw new Error(
@@ -81,7 +75,7 @@ const langchainApi: ApiInterface = {
     id: string,
     idToken?: string | undefined
   ): AsyncIterable<string> {
-    const createLlmResult = createModel(model);
+    const createLlmResult = await createModel(model);
 
     if (!createLlmResult.ok) {
       throw new Error(

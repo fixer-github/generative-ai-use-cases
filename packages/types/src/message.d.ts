@@ -11,9 +11,7 @@ export type Model = {
     | 'bedrockKb'
     | 'sagemaker'
     | 'liteLlm'
-    | 'openai'
-    | 'google-vertexai'
-    | 'azure-openai';
+    | 'langchain';
   modelId: string;
   modelParameters?: AdditionalModelRequestFields;
   sessionId?: string;
