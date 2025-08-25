@@ -7,7 +7,7 @@ export interface TenantStackInput {
   region: string;
   tenantId: string;
   environment: string;
-  removalPolicy?: boolean;
+  removalPolicy: boolean;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -36,7 +36,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
-      removalPolicy: params.removalPolicy ?? false, // Default to RETAIN if not specified
+      removalPolicy: params.removalPolicy,
     }
   );
 
