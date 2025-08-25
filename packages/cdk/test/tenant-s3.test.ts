@@ -31,10 +31,12 @@ describe('TenantS3 Tests', () => {
 
       // Assert
       const template = Template.fromStack(stack);
-      
+
       // Check that three buckets are created
       const resources = template.toJSON().Resources;
-      const buckets = Object.values(resources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
+      const buckets = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
       expect(buckets.length).toBe(3);
 
       // Check bucket properties
@@ -122,7 +124,6 @@ describe('TenantS3 Tests', () => {
       }).toThrow('Environment is required');
     });
 
-
     test('Should apply correct removal policy', () => {
       // Arrange
       const tenantId = 'test-tenant-retention';
@@ -145,17 +146,21 @@ describe('TenantS3 Tests', () => {
       // Assert
       const destroyTemplate = Template.fromStack(stack);
       const retainTemplate = Template.fromStack(retainStack);
-      
+
       // Check DESTROY policy - CDK uses UpdateReplacePolicy and DeletionPolicy
       const destroyResources = destroyTemplate.toJSON().Resources;
-      const destroyBuckets = Object.values(destroyResources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
+      const destroyBuckets = Object.values(destroyResources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
       destroyBuckets.forEach((bucket: any) => {
         expect(bucket.UpdateReplacePolicy).toBe('Delete');
       });
 
       // Check RETAIN policy
       const retainResources = retainTemplate.toJSON().Resources;
-      const retainBuckets = Object.values(retainResources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
+      const retainBuckets = Object.values(retainResources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
       retainBuckets.forEach((bucket: any) => {
         expect(bucket.UpdateReplacePolicy).toBe('Retain');
       });
@@ -175,19 +180,23 @@ describe('TenantS3 Tests', () => {
 
       // Assert
       const template = Template.fromStack(stack);
-      
+
       // Check that buckets have tags (order may vary)
       const resources = template.toJSON().Resources;
-      const buckets = Object.values(resources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
-      
+      const buckets = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
+
       buckets.forEach((bucket: any) => {
         const tags = bucket.Properties.Tags;
         expect(tags).toContainEqual({ Key: 'TenantId', Value: tenantId });
         expect(tags).toContainEqual({ Key: 'Environment', Value: environment });
-        expect(tags).toContainEqual({ Key: 'Purpose', Value: 'TenantS3Storage' });
+        expect(tags).toContainEqual({
+          Key: 'Purpose',
+          Value: 'TenantS3Storage',
+        });
       });
     });
-
 
     test('Should use custom bucket base names', () => {
       // Arrange
@@ -212,7 +221,8 @@ describe('TenantS3 Tests', () => {
 
     test('Should throw error for overly long names', () => {
       // Arrange
-      const veryLongTenantId = 'this-is-a-very-long-tenant-id-that-might-cause-issues-with-bucket-naming';
+      const veryLongTenantId =
+        'this-is-a-very-long-tenant-id-that-might-cause-issues-with-bucket-naming';
       const longEnvironment = 'very-long-environment-name';
 
       // Act & Assert
@@ -245,11 +255,11 @@ describe('TenantS3 Tests', () => {
 
       // Assert
       const template = Template.fromStack(tenantS3Stack);
-      
+
       // Check that all required outputs exist
       const outputs = template.toJSON().Outputs;
       const outputKeys = Object.keys(outputs);
-      
+
       expect(outputKeys).toContain('StackDocumentsBucketArn');
       expect(outputKeys).toContain('StackDocumentsBucketName');
       expect(outputKeys).toContain('StackDocumentsBucketDomainName');
@@ -262,7 +272,9 @@ describe('TenantS3 Tests', () => {
 
       // Check that three buckets are created
       const resources = template.toJSON().Resources;
-      const buckets = Object.values(resources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
+      const buckets = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
       expect(buckets.length).toBe(3);
     });
 
@@ -281,16 +293,21 @@ describe('TenantS3 Tests', () => {
       // Assert - Check that tags are applied to the stack
       const template = Template.fromStack(tenantS3Stack);
       const resources = template.toJSON().Resources;
-      
+
       // Check tags on buckets (stack tags are inherited)
-      const buckets = Object.values(resources).filter((r: any) => r.Type === 'AWS::S3::Bucket');
+      const buckets = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::S3::Bucket'
+      );
       expect(buckets.length).toBeGreaterThan(0);
-      
+
       buckets.forEach((bucket: any) => {
         const tags = bucket.Properties.Tags;
         expect(tags).toContainEqual({ Key: 'TenantId', Value: tenantId });
         expect(tags).toContainEqual({ Key: 'Environment', Value: environment });
-        expect(tags).toContainEqual({ Key: 'Purpose', Value: 'TenantS3Storage' });
+        expect(tags).toContainEqual({
+          Key: 'Purpose',
+          Value: 'TenantS3Storage',
+        });
       });
     });
 
@@ -303,7 +320,7 @@ describe('TenantS3 Tests', () => {
 
       // Assert
       const template = Template.fromStack(tenantS3Stack);
-      
+
       // Check that TenantId parameter is created
       const parameters = template.toJSON().Parameters;
       expect(parameters.TenantId).toBeDefined();

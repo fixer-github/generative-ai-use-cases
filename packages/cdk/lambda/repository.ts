@@ -129,17 +129,14 @@ export const createChat = async (
     updatedDate: '',
   };
 
-  await executeDynamoDBOperation(
-    event,
-    async (client, tableName) => {
-      return client.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: item,
-        })
-      );
-    }
-  );
+  await executeDynamoDBOperation(event, async (client, tableName) => {
+    return client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: item,
+      })
+    );
+  });
 
   return item;
 };

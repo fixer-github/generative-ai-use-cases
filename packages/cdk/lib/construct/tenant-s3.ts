@@ -103,12 +103,15 @@ export class TenantS3 extends Construct {
     }
 
     // Sanitize tenant ID for use in resource names
-    const sanitizedTenantId = this.tenantId.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    const sanitizedTenantId = this.tenantId
+      .replace(/[^a-zA-Z0-9-]/g, '-')
+      .toLowerCase();
 
     // Set bucket base names
     const documentsBucketBaseName = props.documentsBucketBaseName || 'docs';
     const chatBucketBaseName = props.chatBucketBaseName || 'chat';
-    const analyticsBucketBaseName = props.analyticsBucketBaseName || 'analytics';
+    const analyticsBucketBaseName =
+      props.analyticsBucketBaseName || 'analytics';
 
     // Generate unique bucket names
     this.documentsBucketName = this.generateUniqueBucketName(
@@ -128,7 +131,9 @@ export class TenantS3 extends Construct {
     );
 
     // Determine removal policy
-    const removalPolicy = props.removalPolicy ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN;
+    const removalPolicy = props.removalPolicy
+      ? cdk.RemovalPolicy.DESTROY
+      : cdk.RemovalPolicy.RETAIN;
 
     // Create common bucket properties
     const commonBucketProps: Partial<s3.BucketProps> = {
@@ -257,7 +262,7 @@ export class TenantS3 extends Construct {
     if (baseLength >= MAX_BUCKET_NAME_LENGTH) {
       throw new Error(
         `Bucket name base components too long: ${baseLength} characters. ` +
-        `Consider shortening bucketBaseName, environment, or tenantId.`
+          `Consider shortening bucketBaseName, environment, or tenantId.`
       );
     }
 
@@ -273,16 +278,22 @@ export class TenantS3 extends Construct {
 
     // Final validation
     if (bucketName.length > MAX_BUCKET_NAME_LENGTH) {
-      throw new Error(`Generated bucket name exceeds maximum length: ${bucketName.length} > ${MAX_BUCKET_NAME_LENGTH}`);
+      throw new Error(
+        `Generated bucket name exceeds maximum length: ${bucketName.length} > ${MAX_BUCKET_NAME_LENGTH}`
+      );
     }
 
     // Validate S3 bucket naming rules
     if (!/^[a-z0-9-]+$/.test(bucketName)) {
-      throw new Error(`Generated bucket name contains invalid characters: ${bucketName}`);
+      throw new Error(
+        `Generated bucket name contains invalid characters: ${bucketName}`
+      );
     }
 
     if (bucketName.startsWith('-') || bucketName.endsWith('-')) {
-      throw new Error(`Generated bucket name cannot start or end with hyphen: ${bucketName}`);
+      throw new Error(
+        `Generated bucket name cannot start or end with hyphen: ${bucketName}`
+      );
     }
 
     return bucketName;

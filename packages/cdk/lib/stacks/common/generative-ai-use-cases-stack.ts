@@ -1,5 +1,6 @@
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import * as crypto from 'crypto';
 import {
   Auth,
   Api,
@@ -66,6 +67,13 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlAuthEnabled: params.samlAuthEnabled,
     });
 
+    // Compute environment hash once for S3 bucket naming consistency
+    const hashedEnvironment = crypto
+      .createHash('sha256')
+      .update(`${params.env}-${this.account}-${this.region}`)
+      .digest('hex')
+      .substring(0, 8);
+
     // Multi-Tenant Role
     const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
       userPool: auth.userPool,
@@ -74,6 +82,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       region: this.region,
       account: this.account,
       env: params.env,
+      hashedEnvironment: hashedEnvironment,
     });
 
     // Database
@@ -120,6 +129,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
       environment: params.env,
+      hashedEnvironment: hashedEnvironment,
     });
 
     // WAF

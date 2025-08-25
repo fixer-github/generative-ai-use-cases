@@ -30,7 +30,6 @@ if (!tenantId) {
   );
 }
 
-
 const params = {
   account: context.account || process.env.CDK_DEFAULT_ACCOUNT,
   region: context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',

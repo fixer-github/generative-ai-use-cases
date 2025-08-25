@@ -68,12 +68,15 @@ export class TenantS3Stack extends cdk.Stack {
     super(scope, id, props);
 
     // Create parameter if tenant ID not provided
-    const tenantId = props?.tenantId || new cdk.CfnParameter(this, 'TenantId', {
-      description: 'The tenant identifier for the S3 buckets',
-      type: 'String',
-      allowedPattern: '^[a-zA-Z0-9-]+$',
-      constraintDescription: 'Tenant ID must contain only alphanumeric characters and hyphens',
-    }).valueAsString;
+    const tenantId =
+      props?.tenantId ||
+      new cdk.CfnParameter(this, 'TenantId', {
+        description: 'The tenant identifier for the S3 buckets',
+        type: 'String',
+        allowedPattern: '^[a-zA-Z0-9-]+$',
+        constraintDescription:
+          'Tenant ID must contain only alphanumeric characters and hyphens',
+      }).valueAsString;
 
     // Get environment (required parameter)
     const environment = props?.environment!;
@@ -158,7 +161,8 @@ export class TenantS3Stack extends cdk.Stack {
     cdk.Tags.of(this).add('RemovalPolicy', removalPolicy.toString());
 
     // Set stack description
-    this.templateOptions.description = props?.description || 
+    this.templateOptions.description =
+      props?.description ||
       `Creates tenant-specific S3 buckets for multi-tenant application (tenant: ${tenantId})`;
   }
 

@@ -48,6 +48,7 @@ export interface BackendApiProps {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
+  readonly hashedEnvironment: string;
 
   // Resource
   readonly userPool: UserPool;
@@ -453,6 +454,13 @@ export class Api extends Construct {
       timeout: Duration.minutes(15),
       environment: {
         BUCKET_NAME: fileBucket.bucketName,
+        ENVIRONMENT: props.environment,
+        HASHED_ENVIRONMENT: props.hashedEnvironment,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        CHAT_BUCKET_BASE: 'chat',
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     // Grant S3 write permissions with source IP condition
@@ -477,6 +485,14 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+          ENVIRONMENT: props.environment,
+          HASHED_ENVIRONMENT: props.hashedEnvironment,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          CHAT_BUCKET_BASE: 'chat',
+          DOCS_BUCKET_BASE: 'docs',
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+          USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -619,11 +635,14 @@ export class Api extends Construct {
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
+        ENVIRONMENT: props.environment,
+        HASHED_ENVIRONMENT: props.hashedEnvironment,
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
         BUCKET_NAME: fileBucket.bucketName,
+        CHAT_BUCKET_BASE: 'chat',
+        DOCS_BUCKET_BASE: 'docs',
       },
     });
     table.grantReadWriteData(createMessagesFunction);
@@ -887,6 +906,14 @@ export class Api extends Construct {
       timeout: Duration.minutes(15),
       environment: {
         BUCKET_NAME: fileBucket.bucketName,
+        ENVIRONMENT: props.environment,
+        HASHED_ENVIRONMENT: props.hashedEnvironment,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        CHAT_BUCKET_BASE: 'chat',
+        DOCS_BUCKET_BASE: 'docs',
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
       },
     });
     fileBucket.grantDelete(deleteFileFunction);
@@ -1175,7 +1202,6 @@ export class Api extends Construct {
       new LambdaIntegration(getTokenUsageFunction),
       commonAuthorizerProps
     );
-
 
     this.api = api;
     this.predictStreamFunction = predictStreamFunction;
