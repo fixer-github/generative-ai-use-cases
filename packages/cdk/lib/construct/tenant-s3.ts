@@ -146,22 +146,12 @@ export class TenantS3 extends Construct {
       ...commonBucketProps,
       autoDeleteObjects: props.removalPolicy,
     });
-    this.documentsBucket.addCorsRule({
-      allowedOrigins: ['*'],
-      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
-      allowedHeaders: ['*'],
-    });
 
     // Create chat attachments bucket
     this.chatBucket = new s3.Bucket(this, 'ChatBucket', {
       bucketName: this.chatBucketName,
       ...commonBucketProps,
       autoDeleteObjects: props.removalPolicy,
-    });
-    this.chatBucket.addCorsRule({
-      allowedOrigins: ['*'],
-      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
-      allowedHeaders: ['*'],
     });
 
     // Create analytics bucket
@@ -218,9 +208,37 @@ export class TenantS3 extends Construct {
   }
 
   /**
-   * Generate a unique S3 bucket name with the specified format
-   * Format: {BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{hashedGuid:remaining}
-   * Total max length: 63 characters
+   * Generate a deterministic S3 bucket name with the specified format
+   * 
+   * Format: {BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}
+   * 
+   * Structure breakdown:
+   * 1. {BucketBaseName}: Base name (e.g., 'docs', 'chat', 'analytics')
+   * 2. {environment}: Environment name (e.g., 'dev', 'staging', 'prod')
+   * 3. {hashedEnv:8}: 8-character SHA256 hash of "{environment}-{accountId}-{region}"
+   * 4. 'tenant-': Fixed prefix to identify tenant resources
+   * 5. {tenantId}: Sanitized tenant identifier
+   * 6. {deterministicHash}: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}"
+   *    truncated to fit within S3's 63-character limit
+   * 
+   * Hash Input Components:
+   * - hashedEnv: SHA256("{environment}-{accountId}-{region}") → first 8 chars
+   * - deterministicHash: SHA256("{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}") → remaining space
+   * 
+   * Example: 'docs-dev5d201162-tenant-my-tenant-a1b2c3d4e5f6'
+   * - BucketBaseName: 'docs'
+   * - Environment: 'dev' 
+   * - HashedEnv: '5d201162' (hash of "dev-123456789012-us-east-1")
+   * - TenantId: 'my-tenant'
+   * - DeterministicHash: 'a1b2c3d4e5f6' (truncated hash for remaining space)
+   * 
+   * Benefits:
+   * - Same inputs always produce the same bucket name (idempotent deployments)
+   * - No duplicate buckets created on re-deployment
+   * - CDK can properly track and update existing resources
+   * - Deterministic across environments and accounts
+   * 
+   * Total max length: 63 characters (AWS S3 limit)
    */
   private generateUniqueBucketName(
     bucketBaseName: string,
@@ -254,9 +272,9 @@ export class TenantS3 extends Construct {
 
     const remainingLength = MAX_BUCKET_NAME_LENGTH - baseLength;
     
-    // Generate unique GUID hash for remaining space
+    // Generate deterministic GUID hash for remaining space
     const guidHash = this.generateHash(
-      `${bucketBaseName}-${environment}-${tenantId}-${Date.now()}-${Math.random()}`,
+      `${bucketBaseName}-${environment}-${tenantId}-${this.getAccountInfo()}`,
       remainingLength
     );
 
@@ -298,50 +316,4 @@ export class TenantS3 extends Construct {
     return `${stack.account || 'unknown'}-${stack.region || 'unknown'}`;
   }
 
-  /**
-   * Static method to generate bucket name (for testing or external use)
-   */
-  public static generateBucketName(
-    bucketBaseName: string,
-    environment: string,
-    tenantId: string,
-    accountInfo?: string
-  ): string {
-    const MAX_BUCKET_NAME_LENGTH = 63;
-    const TENANT_PREFIX = 'tenant-';
-    const SEPARATOR = '-';
-
-    // Sanitize inputs
-    const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
-    const sanitizedBaseName = bucketBaseName.toLowerCase();
-    const sanitizedEnvironment = environment.toLowerCase();
-
-    // Generate hashed environment
-    const hashedEnv = crypto
-      .createHash('sha256')
-      .update(`${sanitizedEnvironment}-${accountInfo || 'default'}`)
-      .digest('hex')
-      .substring(0, 8);
-
-    // Calculate remaining length for GUID
-    const baseLength = sanitizedBaseName.length + 
-                      SEPARATOR.length + 
-                      sanitizedEnvironment.length + 
-                      hashedEnv.length + 
-                      SEPARATOR.length + 
-                      TENANT_PREFIX.length + 
-                      sanitizedTenantId.length + 
-                      SEPARATOR.length;
-
-    const remainingLength = MAX_BUCKET_NAME_LENGTH - baseLength;
-    
-    // Generate GUID hash
-    const guidHash = crypto
-      .createHash('sha256')
-      .update(`${sanitizedBaseName}-${sanitizedEnvironment}-${sanitizedTenantId}-${Date.now()}-${Math.random()}`)
-      .digest('hex')
-      .substring(0, Math.max(1, remainingLength));
-
-    return `${sanitizedBaseName}-${sanitizedEnvironment}${hashedEnv}-${TENANT_PREFIX}${sanitizedTenantId}-${guidHash}`;
-  }
 }
