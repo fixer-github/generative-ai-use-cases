@@ -88,7 +88,7 @@ Configure tenant deployments by creating a `packages/cdk/cdk.tenant.json` file:
     "tenantId": "tenant123",
     "environment": "dev",
     "tenantRegion": "us-east-1",
-    "removalPolicy": false
+    "enableAutoDelete": false
   }
 }
 ```
@@ -104,10 +104,10 @@ npm run cdk:tenant:deploy -- TenantDynamoDBStackdev-tenant123
 npm run cdk:tenant:deploy -- TenantS3Stackdev-tenant123
 
 # Deploy with context override (for development with destroyable resources)
-npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=dev --context removalPolicy=true
+npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=dev --context enableAutoDelete=true
 
 # Deploy for production (with retained resources)
-npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=prod --context removalPolicy=false
+npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=prod --context enableAutoDelete=false
 
 # Synthesize tenant stacks (without deployment)
 npm run cdk:tenant:synth
@@ -127,7 +127,7 @@ npm run cdk:tenant:destroy
 - `tenantId` (required): Unique identifier for the tenant
 - `environment` (required): Environment name (e.g., dev, staging, prod)
 - `tenantRegion`: AWS region for deployment (default: CDK_DEFAULT_REGION or us-east-1)
-- `removalPolicy`: Boolean flag for resource deletion policy (true = DESTROY, false = RETAIN, default: false)
+- `enableAutoDelete`: Boolean flag for resource deletion policy (true = DESTROY, false = RETAIN, default: false)
 
 ## Tenant DynamoDB Tables
 
@@ -157,7 +157,7 @@ All tables follow the pattern: `{BaseTableName}-{environment}-tenant-{tenantId}`
 
 ### Environment-Based Features
 
-- **Deletion Protection**: Resources use `RETAIN` removal policy when `removalPolicy` is `false`, or `DESTROY` when `removalPolicy` is `true`
+- **Deletion Protection**: Resources use `RETAIN` removal policy when `enableAutoDelete` is `false`, or `DESTROY` when `enableAutoDelete` is `true`
 - **Billing Mode**: All tables use `PAY_PER_REQUEST` billing mode for cost optimization
 - **Tagging**: All tables are automatically tagged with `TenantId` and `Environment` for resource management
 
@@ -256,11 +256,11 @@ To add more tenant-specific stacks:
    - DynamoDB tables: `{BaseTableName}-{environment}-tenant-{tenantId}`
    - S3 buckets: `{BaseBucketName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}`
 3. **Environment Isolation**: Use different environments (dev, staging, prod) for proper lifecycle management
-4. **Deletion Protection**: Use `removalPolicy: false` for production deployments to prevent accidental deletion
+4. **Deletion Protection**: Use `enableAutoDelete: false` for production deployments to prevent accidental deletion
 5. **Resource Tagging**: All tenant resources are automatically tagged for cost tracking and management
 6. **Security**: 
    - S3 buckets are configured with encryption and public access blocking by default
    - All buckets use deterministic naming for predictable, secure deployments
-7. **Testing**: Always test tenant stack deployments in a development environment first with `removalPolicy: true`
+7. **Testing**: Always test tenant stack deployments in a development environment first with `enableAutoDelete: true`
 8. **Monitoring**: Monitor S3 bucket usage and DynamoDB performance for cost optimization
 9. **Documentation**: Document any tenant-specific configurations or requirements

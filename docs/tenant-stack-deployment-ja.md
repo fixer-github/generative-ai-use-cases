@@ -88,7 +88,7 @@ packages/cdk/lib/
     "tenantId": "tenant123",
     "environment": "dev",
     "tenantRegion": "us-east-1",
-    "removalPolicy": false
+    "enableAutoDelete": false
   }
 }
 ```
@@ -104,10 +104,10 @@ npm run cdk:tenant:deploy -- TenantDynamoDBStackdev-tenant123
 npm run cdk:tenant:deploy -- TenantS3Stackdev-tenant123
 
 # コンテキストオーバーライドでデプロイ（削除可能なリソースを持つ開発用）
-npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=dev --context removalPolicy=true
+npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=dev --context enableAutoDelete=true
 
 # 本番環境用デプロイ（保持されるリソース）
-npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=prod --context removalPolicy=false
+npm run cdk:tenant:deploy -- --context tenantId=my-tenant --context environment=prod --context enableAutoDelete=false
 
 # テナントスタックを合成（デプロイなし）
 npm run cdk:tenant:synth
@@ -127,7 +127,7 @@ npm run cdk:tenant:destroy
 - `tenantId`（必須）：テナントの一意の識別子
 - `environment`（必須）：環境名（例：dev、staging、prod）
 - `tenantRegion`：デプロイメント用のAWSリージョン（デフォルト：CDK_DEFAULT_REGIONまたはus-east-1）
-- `removalPolicy`：リソース削除ポリシーのブールフラグ（true = DESTROY、false = RETAIN、デフォルト：false）
+- `enableAutoDelete`：リソース削除ポリシーのブールフラグ（true = DESTROY、false = RETAIN、デフォルト：false）
 
 ## テナントDynamoDBテーブル
 
@@ -157,7 +157,7 @@ npm run cdk:tenant:destroy
 
 ### 環境ベースの機能
 
-- **削除保護**：`removalPolicy`が`false`の場合は`RETAIN`削除ポリシーを使用し、`removalPolicy`が`true`の場合は`DESTROY`を使用
+- **削除保護**：`enableAutoDelete`が`false`の場合は`RETAIN`削除ポリシーを使用し、`enableAutoDelete`が`true`の場合は`DESTROY`を使用
 - **課金モード**：すべてのテーブルはコスト最適化のために`PAY_PER_REQUEST`課金モードを使用
 - **タグ付け**：すべてのテーブルはリソース管理のために自動的に`TenantId`と`Environment`でタグ付けされる
 
@@ -248,11 +248,11 @@ DocumentsとChatバケットには、Webアプリケーションアクセス用�
    - DynamoDBテーブル：`{BaseTableName}-{environment}-tenant-{tenantId}`
    - S3バケット：`{BaseBucketName}-{environment}{hash}-tenant-{tenantId}-{guid}`
 3. **環境分離**：適切なライフサイクル管理のために異なる環境（dev、staging、prod）を使用
-4. **削除保護**：偶発的な削除を防ぐために本番デプロイメントには`removalPolicy: false`を使用
+4. **削除保護**：偶発的な削除を防ぐために本番デプロイメントには`enableAutoDelete: false`を使用
 5. **リソースタグ付け**：すべてのテナントリソースはコスト追跡と管理のために自動的にタグ付けされる
 6. **セキュリティ**：
    - S3バケットはデフォルトで暗号化とパブリックアクセスブロックで設定される
    - 本番環境では実際のアプリケーションドメインにCORSオリジンを制限
-7. **テスト**：最初に`removalPolicy: true`を使用して開発環境でテナントスタックのデプロイメントを常にテスト
+7. **テスト**：最初に`enableAutoDelete: true`を使用して開発環境でテナントスタックのデプロイメントを常にテスト
 8. **監視**：コスト最適化のためにS3バケット使用量とDynamoDBパフォーマンスを監視
 9. **ドキュメント**：テナント固有の設定や要件を文書化
