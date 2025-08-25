@@ -11,7 +11,7 @@ const api = {
   bedrockKb: bedrockKbApi,
   sagemaker: sagemakerApi,
   liteLlm: liteLlmApi,
-  langChain: langchainApi,
+  langchain: langchainApi,
 };
 
 export default api;
