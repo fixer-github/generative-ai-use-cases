@@ -209,35 +209,30 @@ export class TenantS3 extends Construct {
 
   /**
    * Generate a deterministic S3 bucket name with the specified format
-   * 
-   * Format: {BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}
-   * 
+   *
+   * Format: {BucketBaseName}-{environment}-tenant-{tenantId}-{guidHash}
+   *
    * Structure breakdown:
    * 1. {BucketBaseName}: Base name (e.g., 'docs', 'chat', 'analytics')
    * 2. {environment}: Environment name (e.g., 'dev', 'staging', 'prod')
-   * 3. {hashedEnv:8}: 8-character SHA256 hash of "{environment}-{accountId}-{region}"
-   * 4. 'tenant-': Fixed prefix to identify tenant resources
-   * 5. {tenantId}: Sanitized tenant identifier
-   * 6. {deterministicHash}: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}"
+   * 3. 'tenant-': Fixed prefix to identify tenant resources
+   * 4. {tenantId}: Sanitized tenant identifier
+   * 5. {guidHash}: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}"
    *    truncated to fit within S3's 63-character limit
-   * 
-   * Hash Input Components:
-   * - hashedEnv: SHA256("{environment}-{accountId}-{region}") → first 8 chars
-   * - deterministicHash: SHA256("{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}") → remaining space
-   * 
-   * Example: 'docs-dev5d201162-tenant-my-tenant-a1b2c3d4e5f6'
+   *
+   * Example: 'docs-dev-tenant-my-tenant-a1b2c3d4e5f6789012345678'
    * - BucketBaseName: 'docs'
-   * - Environment: 'dev' 
-   * - HashedEnv: '5d201162' (hash of "dev-123456789012-us-east-1")
+   * - Environment: 'dev'
    * - TenantId: 'my-tenant'
-   * - DeterministicHash: 'a1b2c3d4e5f6' (truncated hash for remaining space)
-   * 
+   * - GuidHash: 'a1b2c3d4e5f6789012345678' (truncated hash for remaining space)
+   *
    * Benefits:
    * - Same inputs always produce the same bucket name (idempotent deployments)
    * - No duplicate buckets created on re-deployment
    * - CDK can properly track and update existing resources
    * - Deterministic across environments and accounts
-   * 
+   * - Simplified naming without redundant hashes
+   *
    * Total max length: 63 characters (AWS S3 limit)
    */
   private generateUniqueBucketName(
@@ -250,17 +245,13 @@ export class TenantS3 extends Construct {
     const TENANT_PREFIX = 'tenant-';
     const SEPARATOR = '-';
 
-    // Generate hashed environment (8 characters)
-    const hashedEnv = this.generateHash(`${environment}-${this.getAccountInfo()}`, 8);
-
     // Calculate available space for GUID hash
-    const baseLength = bucketBaseName.length + 
-                      SEPARATOR.length + 
-                      environment.length + 
-                      hashedEnv.length + 
-                      SEPARATOR.length + 
-                      TENANT_PREFIX.length + 
-                      tenantId.length + 
+    const baseLength = bucketBaseName.length +
+                      SEPARATOR.length +
+                      environment.length +
+                      SEPARATOR.length +
+                      TENANT_PREFIX.length +
+                      tenantId.length +
                       SEPARATOR.length;
 
     if (baseLength >= MAX_BUCKET_NAME_LENGTH) {
@@ -271,14 +262,14 @@ export class TenantS3 extends Construct {
     }
 
     const remainingLength = MAX_BUCKET_NAME_LENGTH - baseLength;
-    
+
     // Generate deterministic GUID hash for remaining space
     const guidHash = this.generateHash(
       `${bucketBaseName}-${environment}-${tenantId}-${this.getAccountInfo()}`,
       remainingLength
     );
 
-    const bucketName = `${bucketBaseName}-${environment}${hashedEnv}-${TENANT_PREFIX}${tenantId}-${guidHash}`;
+    const bucketName = `${bucketBaseName}-${environment}-${TENANT_PREFIX}${tenantId}-${guidHash}`;
 
     // Final validation
     if (bucketName.length > MAX_BUCKET_NAME_LENGTH) {

@@ -169,7 +169,7 @@ npm run cdk:tenant:destroy
 
 すべてのバケットは、AWS S3要件に準拠するためのグローバル一意パターンに従います：
 ```
-{BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{hashedGuid:remaining}
+{BucketBaseName}-{environment}-tenant-{tenantId}-{guidHash}
 ```
 
 - **最大長**：63文字（AWS S3制限）

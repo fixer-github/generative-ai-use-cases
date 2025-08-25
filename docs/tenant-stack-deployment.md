@@ -169,16 +169,15 @@ The tenant deployment creates three dedicated S3 buckets for each tenant with gl
 
 All buckets follow a deterministic, globally unique pattern to comply with AWS S3 requirements:
 ```
-{BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}
+{BucketBaseName}-{environment}-tenant-{tenantId}-{guidHash}
 ```
 
 **Structure breakdown:**
 1. `{BucketBaseName}`: Base name (e.g., 'docs', 'chat', 'analytics')
 2. `{environment}`: Environment name (e.g., 'dev', 'staging', 'prod')
-3. `{hashedEnv:8}`: 8-character SHA256 hash of "{environment}-{accountId}-{region}"
-4. `tenant-`: Fixed prefix to identify tenant resources
-5. `{tenantId}`: Sanitized tenant identifier
-6. `{deterministicHash}`: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}" truncated to remaining space
+3. `tenant-`: Fixed prefix to identify tenant resources
+4. `{tenantId}`: Sanitized tenant identifier
+5. `{guidHash}`: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}" truncated to remaining space
 
 **Key Features:**
 - **Maximum Length**: 63 characters (AWS S3 limit)
@@ -190,13 +189,12 @@ All buckets follow a deterministic, globally unique pattern to comply with AWS S
 
 **Example:**
 ```
-docs-dev5d201162-tenant-my-tenant-a1b2c3d4e5f6
+docs-dev-tenant-my-tenant-a1b2c3d4e5f6789012345678
 ├── docs: BucketBaseName
 ├── dev: Environment  
-├── 5d201162: HashedEnv (hash of "dev-123456789012-us-east-1")
 ├── tenant-: Fixed prefix
 ├── my-tenant: TenantId
-└── a1b2c3d4e5f6: DeterministicHash (truncated for remaining space)
+└── a1b2c3d4e5f6789012345678: GuidHash (truncated for remaining space)
 ```
 
 ### Documents Bucket
@@ -254,7 +252,7 @@ To add more tenant-specific stacks:
 1. **Naming Convention**: Use consistent naming for tenant resources including environment and tenant ID
 2. **Resource Naming**: 
    - DynamoDB tables: `{BaseTableName}-{environment}-tenant-{tenantId}`
-   - S3 buckets: `{BaseBucketName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}`
+   - S3 buckets: `{BaseBucketName}-{environment}-tenant-{tenantId}-{guidHash}`
 3. **Environment Isolation**: Use different environments (dev, staging, prod) for proper lifecycle management
 4. **Deletion Protection**: Use `enableAutoDelete: false` for production deployments to prevent accidental deletion
 5. **Resource Tagging**: All tenant resources are automatically tagged for cost tracking and management
