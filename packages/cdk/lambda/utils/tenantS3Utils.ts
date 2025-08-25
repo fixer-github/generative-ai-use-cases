@@ -4,7 +4,6 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 
 // Constants at file level
 const ENVIRONMENT = process.env.ENVIRONMENT!;
-const HASHED_ENVIRONMENT = process.env.HASHED_ENVIRONMENT!;
 const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID!;
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
 
@@ -16,8 +15,8 @@ export function getTenantBucketPattern(
   baseName: string,
   tenantId: string
 ): string {
-  // Pattern: {baseName}-{environment}{hashedEnv:8}-tenant-{tenantId}
-  return `${baseName}-${ENVIRONMENT}${HASHED_ENVIRONMENT}-tenant-${tenantId}`;
+  // Pattern: {baseName}-{environment}-tenant-{tenantId}
+  return `${baseName}-${ENVIRONMENT}-tenant-${tenantId}`;
 }
 
 /**

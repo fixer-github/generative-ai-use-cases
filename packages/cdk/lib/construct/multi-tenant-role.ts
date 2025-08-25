@@ -48,10 +48,10 @@ export class MultiTenantRole extends Construct {
           's3:ListBucket',
         ],
         resources: [
-          // Bucket-level permissions using computed hash
-          `arn:aws:s3:::*-${props.env}${props.hashedEnvironment}-tenant-\${aws:PrincipalTag/TenantID}-*`,
-          // Object-level permissions using computed hash
-          `arn:aws:s3:::*-${props.env}${props.hashedEnvironment}-tenant-\${aws:PrincipalTag/TenantID}-*/*`,
+          // Bucket-level permissions using simplified naming
+          `arn:aws:s3:::*-${props.env}-tenant-\${aws:PrincipalTag/TenantID}-*`,
+          // Object-level permissions using simplified naming
+          `arn:aws:s3:::*-${props.env}-tenant-\${aws:PrincipalTag/TenantID}-*/*`,
         ],
       })
     );
