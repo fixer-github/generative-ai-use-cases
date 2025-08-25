@@ -137,12 +137,7 @@ export class TenantS3 extends Construct {
       enforceSSL: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: removalPolicy,
-      lifecycleRules: [
-        {
-          id: 'AbortIncompleteMultipartUploads',
-          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
-        },
-      ],
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
     };
 
     // Create documents bucket
@@ -150,14 +145,11 @@ export class TenantS3 extends Construct {
       bucketName: this.documentsBucketName,
       ...commonBucketProps,
       autoDeleteObjects: props.removalPolicy,
-      cors: [
-        {
-          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-          allowedOrigins: ['*'], // Should be restricted to actual origins in production
-          allowedHeaders: ['*'],
-          maxAge: 3000,
-        },
-      ],
+    });
+    this.documentsBucket.addCorsRule({
+      allowedOrigins: ['*'],
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
+      allowedHeaders: ['*'],
     });
 
     // Create chat attachments bucket
@@ -165,14 +157,11 @@ export class TenantS3 extends Construct {
       bucketName: this.chatBucketName,
       ...commonBucketProps,
       autoDeleteObjects: props.removalPolicy,
-      cors: [
-        {
-          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-          allowedOrigins: ['*'], // Should be restricted to actual origins in production
-          allowedHeaders: ['*'],
-          maxAge: 3000,
-        },
-      ],
+    });
+    this.chatBucket.addCorsRule({
+      allowedOrigins: ['*'],
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
+      allowedHeaders: ['*'],
     });
 
     // Create analytics bucket
