@@ -167,32 +167,54 @@ The tenant deployment creates three dedicated S3 buckets for each tenant with gl
 
 ### Bucket Naming Convention
 
-All buckets follow a globally unique pattern to comply with AWS S3 requirements:
+All buckets follow a deterministic, globally unique pattern to comply with AWS S3 requirements:
 ```
-{BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{hashedGuid:remaining}
+{BucketBaseName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}
 ```
 
+**Structure breakdown:**
+1. `{BucketBaseName}`: Base name (e.g., 'docs', 'chat', 'analytics')
+2. `{environment}`: Environment name (e.g., 'dev', 'staging', 'prod')
+3. `{hashedEnv:8}`: 8-character SHA256 hash of "{environment}-{accountId}-{region}"
+4. `tenant-`: Fixed prefix to identify tenant resources
+5. `{tenantId}`: Sanitized tenant identifier
+6. `{deterministicHash}`: SHA256 hash of "{bucketBaseName}-{environment}-{tenantId}-{accountId}-{region}" truncated to remaining space
+
+**Key Features:**
 - **Maximum Length**: 63 characters (AWS S3 limit)
-- **Hash Strategy**: SHA256-based hashing for uniqueness and collision avoidance
+- **Deterministic**: Same inputs always produce the same bucket name (idempotent deployments)
+- **Hash Strategy**: SHA256-based hashing using AWS account ID and region for uniqueness
+- **No Duplicates**: Prevents duplicate buckets on re-deployment
 - **Sanitization**: Special characters in tenant IDs are automatically replaced with hyphens
 - **Case**: All bucket names are lowercase
+
+**Example:**
+```
+docs-dev5d201162-tenant-my-tenant-a1b2c3d4e5f6
+├── docs: BucketBaseName
+├── dev: Environment  
+├── 5d201162: HashedEnv (hash of "dev-123456789012-us-east-1")
+├── tenant-: Fixed prefix
+├── my-tenant: TenantId
+└── a1b2c3d4e5f6: DeterministicHash (truncated for remaining space)
+```
 
 ### Documents Bucket
 - **Purpose**: Storage for RAG/knowledge base documents and files
 - **Base Name**: `docs` (configurable)
-- **Features**: CORS enabled for web application access, versioning, encryption
+- **Features**: Versioning, encryption, secure backend access
 - **Use Cases**: Document uploads, knowledge base content, RAG data sources
 
 ### Chat Bucket
 - **Purpose**: Storage for chat attachments and uploaded files
 - **Base Name**: `chat` (configurable)
-- **Features**: CORS enabled for web application access, versioning, encryption
+- **Features**: Versioning, encryption, secure backend access
 - **Use Cases**: File attachments in conversations, temporary uploads, shared media
 
 ### Analytics Bucket
 - **Purpose**: Storage for usage analytics, reports, and metrics data
 - **Base Name**: `analytics` (configurable)
-- **Features**: Backend-only access (no CORS), versioning, encryption
+- **Features**: Backend-only access, versioning, encryption
 - **Use Cases**: Usage statistics, system metrics, audit logs, reporting data
 
 ### Security Features
@@ -201,21 +223,7 @@ All buckets follow a globally unique pattern to comply with AWS S3 requirements:
 - **Public Access**: Complete public access blocking for all buckets
 - **SSL/TLS**: HTTPS-only access enforced for all operations
 - **Versioning**: Object versioning enabled for data protection
-- **Lifecycle Management**: Automatic cleanup of incomplete multipart uploads after 7 days
-
-### CORS Configuration
-
-Documents and Chat buckets include CORS configuration for web application access:
-```json
-{
-  "AllowedMethods": ["GET", "PUT", "POST"],
-  "AllowedOrigins": ["*"],
-  "AllowedHeaders": ["*"],
-  "MaxAge": 3000
-}
-```
-
-**Note**: In production, `AllowedOrigins` should be restricted to your application's actual domain(s).
+- **Object Ownership**: Bucket owner enforced for improved security
 
 ## Stack Naming
 
@@ -246,13 +254,13 @@ To add more tenant-specific stacks:
 1. **Naming Convention**: Use consistent naming for tenant resources including environment and tenant ID
 2. **Resource Naming**: 
    - DynamoDB tables: `{BaseTableName}-{environment}-tenant-{tenantId}`
-   - S3 buckets: `{BaseBucketName}-{environment}{hash}-tenant-{tenantId}-{guid}`
+   - S3 buckets: `{BaseBucketName}-{environment}{hashedEnv:8}-tenant-{tenantId}-{deterministicHash:remaining}`
 3. **Environment Isolation**: Use different environments (dev, staging, prod) for proper lifecycle management
 4. **Deletion Protection**: Use `removalPolicy: false` for production deployments to prevent accidental deletion
 5. **Resource Tagging**: All tenant resources are automatically tagged for cost tracking and management
 6. **Security**: 
    - S3 buckets are configured with encryption and public access blocking by default
-   - Restrict CORS origins to your actual application domains in production
+   - All buckets use deterministic naming for predictable, secure deployments
 7. **Testing**: Always test tenant stack deployments in a development environment first with `removalPolicy: true`
 8. **Monitoring**: Monitor S3 bucket usage and DynamoDB performance for cost optimization
 9. **Documentation**: Document any tenant-specific configurations or requirements
