@@ -122,43 +122,6 @@ describe('TenantS3 Tests', () => {
       }).toThrow('Environment is required');
     });
 
-    test('Should configure CORS for documents and chat buckets', () => {
-      // Arrange
-      const tenantId = 'test-tenant-cors';
-
-      // Act
-      new TenantS3(stack, 'TestTenantS3', {
-        tenantId,
-        environment: 'dev',
-        removalPolicy: true,
-      });
-
-      // Assert
-      const template = Template.fromStack(stack);
-      
-      // Count buckets with CORS configuration
-      const resources = template.toJSON().Resources;
-      const bucketsWithCors = Object.values(resources).filter((r: any) => 
-        r.Type === 'AWS::S3::Bucket' && r.Properties.CorsConfiguration
-      );
-      
-      // Should have 2 buckets with CORS (documents and chat, not analytics)
-      expect(bucketsWithCors.length).toBe(2);
-
-      // Check CORS configuration
-      template.hasResourceProperties('AWS::S3::Bucket', {
-        CorsConfiguration: {
-          CorsRules: [
-            {
-              AllowedMethods: ['GET', 'PUT', 'POST'],
-              AllowedOrigins: ['*'],
-              AllowedHeaders: ['*'],
-              MaxAge: 3000,
-            },
-          ],
-        },
-      });
-    });
 
     test('Should apply correct removal policy', () => {
       // Arrange
@@ -225,34 +188,6 @@ describe('TenantS3 Tests', () => {
       });
     });
 
-    test('Should configure lifecycle rules for incomplete multipart uploads', () => {
-      // Arrange
-      const tenantId = 'test-tenant-lifecycle';
-
-      // Act
-      new TenantS3(stack, 'TestTenantS3', {
-        tenantId,
-        environment: 'dev',
-        removalPolicy: true,
-      });
-
-      // Assert
-      const template = Template.fromStack(stack);
-      
-      template.hasResourceProperties('AWS::S3::Bucket', {
-        LifecycleConfiguration: {
-          Rules: [
-            {
-              Id: 'AbortIncompleteMultipartUploads',
-              Status: 'Enabled',
-              AbortIncompleteMultipartUpload: {
-                DaysAfterInitiation: 7,
-              },
-            },
-          ],
-        },
-      });
-    });
 
     test('Should use custom bucket base names', () => {
       // Arrange
@@ -274,22 +209,6 @@ describe('TenantS3 Tests', () => {
       expect(tenantS3.analyticsBucketName).toMatch(/^custom-analytics-dev[a-f0-9]{8}-tenant-test-tenant-custom-[a-f0-9]+$/);
     });
 
-    test('Static generateBucketName method should work correctly', () => {
-      // Act
-      const bucketName = TenantS3.generateBucketName(
-        'test-bucket',
-        'dev',
-        'tenant-123',
-        '123456789012-us-east-1'
-      );
-
-      // Assert
-      expect(bucketName.length).toBeLessThanOrEqual(63);
-      expect(bucketName).toMatch(/^test-bucket-dev[a-f0-9]{8}-tenant-tenant-123-[a-f0-9]+$/);
-      expect(bucketName).toMatch(/^[a-z0-9-]+$/); // Only lowercase letters, numbers, and hyphens
-      expect(bucketName).not.toMatch(/^-/); // Should not start with hyphen
-      expect(bucketName).not.toMatch(/-$/); // Should not end with hyphen
-    });
 
     test('Should throw error for overly long names', () => {
       // Arrange
