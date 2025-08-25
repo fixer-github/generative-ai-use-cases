@@ -143,6 +143,13 @@ export class TenantS3 extends Construct {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: removalPolicy,
       objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+      lifecycleRules: [
+        {
+          id: 'AbortIncompleteMultipartUploads',
+          enabled: true,
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+        },
+      ],
     };
 
     // Create documents bucket
