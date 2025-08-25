@@ -4,7 +4,6 @@
  * - マルチモーダルに対応していない
  * - StreamingのStopReasonが応答終了以外に対応していない
  */
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import {
   Model,
   UnrecordedMessage,
