@@ -149,6 +149,7 @@ export class TenantS3 extends Construct {
     this.documentsBucket = new s3.Bucket(this, 'DocumentsBucket', {
       bucketName: this.documentsBucketName,
       ...commonBucketProps,
+      autoDeleteObjects: props.removalPolicy,
       cors: [
         {
           allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
@@ -163,6 +164,7 @@ export class TenantS3 extends Construct {
     this.chatBucket = new s3.Bucket(this, 'ChatBucket', {
       bucketName: this.chatBucketName,
       ...commonBucketProps,
+      autoDeleteObjects: props.removalPolicy,
       cors: [
         {
           allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
@@ -177,6 +179,7 @@ export class TenantS3 extends Construct {
     this.analyticsBucket = new s3.Bucket(this, 'AnalyticsBucket', {
       bucketName: this.analyticsBucketName,
       ...commonBucketProps,
+      autoDeleteObjects: props.removalPolicy,
       // No CORS needed for analytics bucket as it's primarily for backend use
     });
 
