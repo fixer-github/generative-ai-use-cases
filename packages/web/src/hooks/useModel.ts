@@ -105,10 +105,11 @@ const langchainModelIds = [
   // OpenAI
   'openai:gpt-4o',
 
-  // Azure OpenAI
-  'azure_openai:o3',
-  'azure_openai:gpt-4.1',
-  'azure_openai:gpt-5',
+  // INFO:確実に動かないのでとりあえずコメント
+  // 'openai:gpt-4o-mini',
+  // 'openai:o3',
+  // 'openai:gpt-4.1',
+  // 'openai:gpt-5'
 ];
 
 // Define model objects
@@ -202,18 +203,23 @@ const langchainModelMetadata: Record<string, any> = {
     flags: { text: true, doc: true, image: false, video: false },
     displayName: 'GPT 4o',
   },
-  'azure_openai:o3': {
-    flags: { text: true, doc: true, image: false, video: false },
-    displayName: 'o3',
-  },
-  'azure_openai:gpt-4.1': {
-    flags: { text: true, doc: true, image: false, video: false },
-    displayName: 'GPT 4.1',
-  },
-  'azure_openai:gpt-5': {
-    flags: { text: true, doc: true, image: false, video: false },
-    displayName: 'GPT 5',
-  },
+  // INFO:確実に動かないのでとりあえずコメント
+  // 'openai:gpt-4o-mini': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'GPT 4o mini',
+  // },
+  // 'openai:o3': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'o3',
+  // },
+  // 'openai:gpt-4.1': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'GPT 4.1',
+  // },
+  // 'openai:gpt-5': {
+  //   flags: { text: true, doc: true, image: false, video: false },
+  //   displayName: 'GPT 5',
+  // },
 };
 
 // Merge LangChain metadata with original modelMetadata

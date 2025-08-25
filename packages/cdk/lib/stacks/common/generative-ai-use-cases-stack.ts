@@ -123,7 +123,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
       // LangChain Credentials
       openai: params.openai,
-      azureOpenai: params.azureOpenai,
     });
 
     // WAF

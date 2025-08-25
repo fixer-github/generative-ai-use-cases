@@ -65,14 +65,6 @@ export interface BackendApiProps {
   readonly openai?: {
     readonly apiKey: string; // OPENAI_API_KEY
   };
-
-  // Azure OpenAI
-  readonly azureOpenai?: {
-    readonly apiKey: string; // AZURE_OPENAI_API_KEY
-    readonly apiInstanceName: string; // AZURE_OPENAI_API_INSTANCE_NAME
-    readonly apiDeploymentName: string; // AZURE_OPENAI_API_DEPLOYMENT_NAME
-    readonly apiVersion: string; // OPENAI_API_VERSION
-  };
 }
 
 export class Api extends Construct {
@@ -204,12 +196,6 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_API_INSTANCE_NAME:
-          props.azureOpenai?.apiInstanceName ?? '',
-        AZURE_OPENAI_API_DEPLOYMENT_NAME:
-          props.azureOpenai?.apiDeploymentName ?? '',
-        OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: [
@@ -249,12 +235,6 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_API_INSTANCE_NAME:
-          props.azureOpenai?.apiInstanceName ?? '',
-        AZURE_OPENAI_API_DEPLOYMENT_NAME:
-          props.azureOpenai?.apiDeploymentName ?? '',
-        OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: [

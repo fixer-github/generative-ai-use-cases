@@ -173,15 +173,6 @@ const baseStackInputSchema = z.object({
       apiKey: z.string(),
     })
     .optional(),
-
-  azureOpenai: z
-    .object({
-      apiKey: z.string(),
-      apiInstanceName: z.string(),
-      apiDeploymentName: z.string(),
-      apiVersion: z.string(),
-    })
-    .optional(),
 });
 
 // Common Validator with refine
