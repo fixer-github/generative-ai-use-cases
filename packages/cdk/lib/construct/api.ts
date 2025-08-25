@@ -64,22 +64,14 @@ export interface BackendApiProps {
   // LangChain Credentials
   readonly openai?: {
     readonly apiKey: string; // OPENAI_API_KEY
-    // readonly openaiApiBase: string;
-    // readonly openaiOrganization: string;
-    // readonly openaiProxy: string;
   };
 
   // Azure OpenAI
   readonly azureOpenai?: {
-    readonly endpoint: string; // AZURE_OPENAI_ENDPOINT
     readonly apiKey: string; // AZURE_OPENAI_API_KEY
-    readonly deploymentName?: string; // AZURE_OPENAI_DEPLOYMENT_NAME
+    readonly apiInstanceName: string; // AZURE_OPENAI_API_INSTANCE_NAME
+    readonly apiDeploymentName: string; // AZURE_OPENAI_API_DEPLOYMENT_NAME
     readonly apiVersion: string; // OPENAI_API_VERSION
-  };
-
-  // Google Vertex AI
-  readonly google?: {
-    readonly googleApplicationCredentials: string; // GOOGLE_APPLICATION_CREDENTIALS
   };
 }
 
@@ -212,23 +204,19 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_ENDPOINT: props.azureOpenai?.endpoint ?? '',
         AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_DEPLOYMENT_NAME: props.azureOpenai?.deploymentName ?? '',
+        AZURE_OPENAI_API_INSTANCE_NAME:
+          props.azureOpenai?.apiInstanceName ?? '',
+        AZURE_OPENAI_API_DEPLOYMENT_NAME:
+          props.azureOpenai?.apiDeploymentName ?? '',
         OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
-        GOOGLE_APPLICATION_CREDENTIALS:
-          props.google?.googleApplicationCredentials ?? '{}',
       },
       bundling: {
         nodeModules: [
           '@aws-sdk/client-bedrock-runtime',
 
-          'langchain',
           '@langchain/core',
-          '@langchain/community',
           '@langchain/openai',
-          '@langchain/google-vertexai',
-          '@langchain/aws',
         ],
       },
     });
@@ -258,14 +246,15 @@ export class Api extends Construct {
         QUERY_DECOMPOSITION_ENABLED: JSON.stringify(queryDecompositionEnabled),
         RERANKING_MODEL_ID: rerankingModelId ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
+
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_ENDPOINT: props.azureOpenai?.endpoint ?? '',
         AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_DEPLOYMENT_NAME: props.azureOpenai?.deploymentName ?? '',
+        AZURE_OPENAI_API_INSTANCE_NAME:
+          props.azureOpenai?.apiInstanceName ?? '',
+        AZURE_OPENAI_API_DEPLOYMENT_NAME:
+          props.azureOpenai?.apiDeploymentName ?? '',
         OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
-        GOOGLE_APPLICATION_CREDENTIALS:
-          props.google?.googleApplicationCredentials ?? '{}',
       },
       bundling: {
         nodeModules: [
@@ -274,12 +263,8 @@ export class Api extends Construct {
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
           '@aws-sdk/client-sagemaker-runtime',
 
-          'langchain',
           '@langchain/core',
-          '@langchain/community',
           '@langchain/openai',
-          '@langchain/google-vertexai',
-          '@langchain/aws',
         ],
       },
     });
@@ -345,14 +330,13 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
+
         // LangChain Credentials
-        OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_ENDPOINT: props.azureOpenai?.endpoint ?? '',
-        AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_DEPLOYMENT_NAME: props.azureOpenai?.deploymentName ?? '',
-        OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
-        GOOGLE_APPLICATION_CREDENTIALS:
-          props.google?.googleApplicationCredentials ?? '{}',
+        // OPENAI_API_KEY: props.openai?.apiKey ?? '',
+        // AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
+        // AZURE_OPENAI_API_INSTANCE_NAME: props.azureOpenai?.apiInstanceName ?? '',
+        // AZURE_OPENAI_API_DEPLOYMENT_NAME: props.azureOpenai?.apiDeploymentName ?? '',
+        // OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -380,14 +364,13 @@ export class Api extends Construct {
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
+
         // LangChain Credentials
-        OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        AZURE_OPENAI_ENDPOINT: props.azureOpenai?.endpoint ?? '',
-        AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        AZURE_OPENAI_DEPLOYMENT_NAME: props.azureOpenai?.deploymentName ?? '',
-        OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
-        GOOGLE_APPLICATION_CREDENTIALS:
-          props.google?.googleApplicationCredentials ?? '{}',
+        // OPENAI_API_KEY: props.openai?.apiKey ?? '',
+        // AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
+        // AZURE_OPENAI_API_INSTANCE_NAME: props.azureOpenai?.apiInstanceName ?? '',
+        // AZURE_OPENAI_API_DEPLOYMENT_NAME: props.azureOpenai?.apiDeploymentName ?? '',
+        // OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],

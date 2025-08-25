@@ -176,16 +176,10 @@ const baseStackInputSchema = z.object({
 
   azureOpenai: z
     .object({
-      endpoint: z.string(),
       apiKey: z.string(),
-      deploymentName: z.string().optional(),
+      apiInstanceName: z.string(),
+      apiDeploymentName: z.string(),
       apiVersion: z.string(),
-    })
-    .optional(),
-
-  google: z
-    .object({
-      googleApplicationCredentials: z.string(),
     })
     .optional(),
 });
