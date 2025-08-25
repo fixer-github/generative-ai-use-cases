@@ -277,7 +277,6 @@ export class GenerativeAiUseCasesStack extends Stack {
         api: api.api,
         multiTenantRole: multiTenantRole.role,
         idPool: auth.idPool,
-        table: database.table,
         environment: params.env,
       });
     }

@@ -21,14 +21,13 @@ export interface UseCaseBuilderProps {
   readonly api: RestApi;
   readonly multiTenantRole: Role;
   readonly idPool: IdentityPool;
-  readonly table: ddb.Table;
   readonly environment: string;
 }
 export class UseCaseBuilder extends Construct {
   constructor(scope: Construct, id: string, props: UseCaseBuilderProps) {
     super(scope, id);
 
-    const { userPool, api, multiTenantRole, idPool, table, environment } = props;
+    const { userPool, api, multiTenantRole, idPool, environment } = props;
 
     // Multi-tenant role assumption policy
     const multiTenantAssumeRolePolicy = new PolicyStatement({
