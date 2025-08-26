@@ -15,13 +15,10 @@ The CDK application supports deploying tenant-specific infrastructure separately
 The tenant-specific deployment creates isolated DynamoDB tables and S3 buckets for each tenant, eliminating the need for complex IAM role management. Each tenant gets their own set of resources with environment-aware naming and appropriate deletion protection.
 
 ### DynamoDB Tables
-
 Each tenant receives dedicated DynamoDB tables for data storage with proper indexing and access patterns.
 
 ### S3 Buckets
-
 Each tenant receives three dedicated S3 buckets:
-
 - **Documents Bucket**: For RAG/knowledge base document storage
 - **Chat Bucket**: For chat file attachments and uploads
 - **Analytics Bucket**: For usage analytics and reporting data
@@ -141,21 +138,18 @@ The tenant deployment creates three dedicated tables for each tenant:
 All tables follow the pattern: `{BaseTableName}-{environment}-tenant-{tenantId}`
 
 ### ChatHistory Table
-
 - **Purpose**: Stores tenant-specific chat conversation history
 - **Partition Key**: `id` (STRING)
 - **Sort Key**: `createdDate` (STRING)
 - **Global Secondary Index**: `FeedbackIndex` on `feedback` attribute
 
 ### TokenUsageStats Table
-
 - **Purpose**: Tracks token usage statistics for the tenant
 - **Partition Key**: `id` (STRING)
 - **Sort Key**: `userId` (STRING)
 - **Global Secondary Index**: `MonthIndex` for monthly aggregation
 
 ### UseCaseBuilder Table
-
 - **Purpose**: Stores tenant-specific use case configurations
 - **Partition Key**: `id` (STRING)
 - **Sort Key**: `dataType` (STRING)
@@ -204,21 +198,18 @@ docs-dev-tenant-my-tenant-a1b2c3d4e5f6789012345678
 ```
 
 ### Documents Bucket
-
 - **Purpose**: Storage for RAG/knowledge base documents and files
 - **Base Name**: `docs` (configurable)
 - **Features**: Versioning, encryption, secure backend access
 - **Use Cases**: Document uploads, knowledge base content, RAG data sources
 
 ### Chat Bucket
-
 - **Purpose**: Storage for chat attachments and uploaded files
 - **Base Name**: `chat` (configurable)
 - **Features**: Versioning, encryption, secure backend access
 - **Use Cases**: File attachments in conversations, temporary uploads, shared media
 
 ### Analytics Bucket
-
 - **Purpose**: Storage for usage analytics, reports, and metrics data
 - **Base Name**: `analytics` (configurable)
 - **Features**: Backend-only access, versioning, encryption
@@ -231,36 +222,18 @@ docs-dev-tenant-my-tenant-a1b2c3d4e5f6789012345678
 - **SSL/TLS**: HTTPS-only access enforced for all operations
 - **Versioning**: Object versioning enabled for data protection
 - **Object Ownership**: Bucket owner enforced for improved security
-- **Lifecycle Management**: Automatic cleanup of incomplete multipart uploads after 7 days
-
-### CORS Configuration
-
-Documents and Chat buckets include CORS configuration for web application access:
-
-```json
-{
-  "AllowedMethods": ["GET", "PUT", "POST"],
-  "AllowedOrigins": ["*"],
-  "AllowedHeaders": ["*"],
-  "MaxAge": 3000
-}
-```
-
-**Note**: In production, `AllowedOrigins` should be restricted to your application's actual domain(s).
 
 ## Stack Naming
 
 Tenant stacks are named using the following patterns:
 
 ### DynamoDB Stack
-
 - Pattern: `TenantDynamoDBStack{environment}-{tenantId}`
 - Examples:
   - Development: `TenantDynamoDBStackdev-tenant123`
   - Production: `TenantDynamoDBStackprod-tenant123`
 
 ### S3 Stack
-
 - Pattern: `TenantS3Stack{environment}-{tenantId}`
 - Examples:
   - Development: `TenantS3Stackdev-tenant123`
@@ -277,13 +250,13 @@ To add more tenant-specific stacks:
 ## Best Practices
 
 1. **Naming Convention**: Use consistent naming for tenant resources including environment and tenant ID
-2. **Resource Naming**:
+2. **Resource Naming**: 
    - DynamoDB tables: `{BaseTableName}-{environment}-tenant-{tenantId}`
    - S3 buckets: `{BaseBucketName}-{environment}-tenant-{tenantId}-{guidHash}`
 3. **Environment Isolation**: Use different environments (dev, staging, prod) for proper lifecycle management
 4. **Deletion Protection**: Use `enableAutoDelete: false` for production deployments to prevent accidental deletion
 5. **Resource Tagging**: All tenant resources are automatically tagged for cost tracking and management
-6. **Security**:
+6. **Security**: 
    - S3 buckets are configured with encryption and public access blocking by default
    - All buckets use deterministic naming for predictable, secure deployments
 7. **Testing**: Always test tenant stack deployments in a development environment first with `enableAutoDelete: true`

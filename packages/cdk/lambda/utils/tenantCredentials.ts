@@ -48,6 +48,7 @@ export async function getTenantCredentials(
     `Getting credentials for tenant: ${tenantId}, user: ${userId}, identity pool: ${process.env.IDENTITY_POOL_ID}`
   );
 
+
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -96,6 +97,7 @@ export async function getTenantCredentials(
       console.log(
         `Successfully obtained credentials for tenant: ${tenantId}, user: ${userId}`
       );
+
 
       // Return fresh credentials without caching
       return getCredentialsResponse.Credentials;
