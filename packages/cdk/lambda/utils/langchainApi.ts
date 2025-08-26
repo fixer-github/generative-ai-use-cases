@@ -1,8 +1,7 @@
 /*
  * TODO: 現状の問題点
- * - LLMの応答取得に例外処理がない
- * - マルチモーダルに対応していない
  * - StreamingのStopReasonが応答終了以外に対応していない
+ * - S3からの入力に対応していない（どこで使っているのかが分からない）
  */
 import {
   Model,
@@ -10,51 +9,96 @@ import {
   ApiInterface,
   GenerateImageParams,
   GenerateVideoParams,
+  ExtraData,
 } from 'generative-ai-use-cases';
-import { Err, Ok, Result } from './result';
 import {
   SystemMessage,
   HumanMessage,
   AIMessage,
+  DataContentBlock,
 } from '@langchain/core/messages';
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
-import {
-  ConfigurableChatModelCallOptions,
-  ConfigurableModel,
-  initChatModel,
-} from 'langchain/chat_models/universal';
-import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
+import { initChatModel } from 'langchain/chat_models/universal';
 
-const createModel = async (
-  model: Model
-): Promise<
-  Result<
-    ConfigurableModel<BaseLanguageModelInput, ConfigurableChatModelCallOptions>,
-    Error
-  >
-> => {
-  try {
-    const llm = await initChatModel(model.modelId);
-    return Ok(llm);
-  } catch (err) {
-    return Err(err as Error);
+const convertExtraData = (extraData: ExtraData): DataContentBlock => {
+  const { type: dataType, name, source } = extraData;
+  const { type: sourceType, mediaType, data } = source;
+
+  switch (sourceType) {
+    case 's3':
+      throw new Error('Not implemented');
+    case 'base64':
+      switch (dataType) {
+        case 'image':
+          return {
+            type: 'image',
+            source_type: 'base64',
+            mime_type: mediaType,
+            data: data,
+          };
+        case 'file':
+          return {
+            type: 'file',
+            source_type: 'base64',
+            mime_type: mediaType,
+            data: data,
+            metadata: {
+              filename: name,
+            },
+          };
+        case 'json':
+          return {
+            type: 'text',
+            source_type: 'text',
+            mime_type: mediaType,
+            text: data,
+          };
+        case 'video':
+          throw new Error('Video input is not supported currently.');
+      }
+    case 'json':
+      return {
+        type: 'text',
+        source_type: 'text',
+        mime_type: mediaType,
+        text: data,
+      };
+  }
+};
+
+const convertToHumanMessage = (message: UnrecordedMessage) => {
+  if (message.extraData) {
+    const extraContents = message.extraData.map((data) =>
+      convertExtraData(data)
+    );
+
+    return new HumanMessage({
+      content: [
+        {
+          type: 'text',
+          text: message.content,
+        },
+        ...extraContents,
+      ],
+    });
+  }
+  return new HumanMessage(message.content);
+};
+
+const convertSingleMessage = (message: UnrecordedMessage) => {
+  switch (message.role) {
+    case 'system':
+      return new SystemMessage(message.content);
+    case 'user':
+      return convertToHumanMessage(message);
+    case 'assistant':
+      return new AIMessage(message.content);
   }
 };
 
 const convertMessages = (messages: UnrecordedMessage[]) => {
-  const convert = (message: UnrecordedMessage) => {
-    switch (message.role) {
-      case 'system':
-        return new SystemMessage(message.content);
-      case 'user':
-        return new HumanMessage(message.content);
-      case 'assistant':
-        return new AIMessage(message.content);
-    }
-  };
-
-  return messages.map((message) => convert(message));
+  return messages.map((message) => convertSingleMessage(message));
 };
 
 const langchainApi: ApiInterface = {
@@ -63,14 +107,7 @@ const langchainApi: ApiInterface = {
     messages: UnrecordedMessage[],
     id: string
   ): Promise<string> {
-    const createLlmResult = await createModel(model);
-
-    if (!createLlmResult.ok) {
-      throw new Error(
-        `Failed to create LangChain model:${createLlmResult.error}`
-      );
-    }
-    const llm = createLlmResult.value;
+    const llm = await initChatModel(model.modelId);
     const langchainMessages = convertMessages(messages);
 
     const response = await llm.invoke(langchainMessages);
@@ -83,14 +120,7 @@ const langchainApi: ApiInterface = {
     id: string,
     idToken?: string | undefined
   ): AsyncIterable<string> {
-    const createLlmResult = await createModel(model);
-
-    if (!createLlmResult.ok) {
-      throw new Error(
-        `Failed to create LangChain model:${createLlmResult.error}`
-      );
-    }
-    const llm = createLlmResult.value;
+    const llm = await initChatModel(model.modelId);
     const langchainMessages = convertMessages(messages);
 
     const stream = await llm.stream(langchainMessages);

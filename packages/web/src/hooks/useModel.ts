@@ -200,7 +200,7 @@ const liteLlmModelMetadata: Record<string, any> = {
 
 const langchainModelMetadata: Record<string, any> = {
   'openai:gpt-4o': {
-    flags: { text: true, doc: true, image: false, video: false },
+    flags: { text: true, doc: true, image: true, video: false },
     displayName: 'GPT 4o',
   },
   // INFO:確実に動かないのでとりあえずコメント
