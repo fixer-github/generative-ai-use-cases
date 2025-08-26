@@ -3,10 +3,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetFileDownloadSignedUrlRequest } from 'generative-ai-use-cases';
 import { initKnowledgeBaseS3Client } from './utils/bedrockClient';
-import { getTenantId } from './utils/tenantUtils';
+import { getTenantIdFromJWT } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';
 import {
-  getTenantBucketName,
+  getTenantBucketNameByTenantId,
   isDefaultTenant,
   determineBucketBaseName,
 } from './utils/tenantS3Utils';
@@ -18,7 +18,8 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const req = event.queryStringParameters as GetFileDownloadSignedUrlRequest;
-    const tenantId = getTenantId(event);
+    const tenantId = await getTenantIdFromJWT(event);
+    console.log(`Processing file download for tenant: ${tenantId}`);
 
     // Determine S3 client and bucket name based on tenant and request type
     let s3Client: S3Client;
@@ -33,18 +34,24 @@ export const handler = async (
             })
           : new S3Client({ region: req.region });
     } else {
-      // Tenant-specific client
-      s3Client = await createTenantS3Client(event);
-
+      // Tenant-specific path: Use Lambda's IAM role for bucket discovery
+      console.log(`Finding tenant bucket using Lambda IAM role for tenant: ${tenantId}`);
+      
       // For tenant buckets, resolve the actual bucket name if not knowledge base
       if (req.s3Type !== 'knowledgeBase') {
+        const lambdaS3Client = new S3Client({ region: req.region });
         const baseName = determineBucketBaseName(req.bucketName);
-        bucketName = await getTenantBucketName(
-          event,
-          s3Client,
+        bucketName = await getTenantBucketNameByTenantId(
+          tenantId,
+          lambdaS3Client,
           baseName as 'chat' | 'docs' | 'analytics'
         );
+        console.log(`Found tenant bucket: ${bucketName}`);
       }
+      
+      // Create tenant-specific S3 client for signed URL generation (maintains tenant isolation)
+      console.log(`Creating tenant-specific S3 client for signed URL generation`);
+      s3Client = await createTenantS3Client(event);
     }
 
     const command = new GetObjectCommand({

@@ -35,12 +35,23 @@ export async function findTenantBucket(
   pattern: string
 ): Promise<string | null> {
   try {
+    console.log(`Searching for bucket with pattern: ${pattern}`);
     const { Buckets } = await s3Client.send(new ListBucketsCommand({}));
 
-    // Create regex to match pattern with random GUID suffix
-    const regex = new RegExp(`^${pattern}-[a-f0-9]+$`);
+    // Create regex to match pattern with hash suffix (alphanumeric characters)
+    // The TenantS3 construct generates SHA256 hash which includes letters and numbers
+    const regex = new RegExp(`^${pattern}-[a-zA-Z0-9]+$`);
 
     const bucket = Buckets?.find((b) => regex.test(b.Name || ''));
+    
+    if (bucket) {
+      console.log(`Found matching bucket: ${bucket.Name}`);
+    } else {
+      console.warn(`No bucket found matching pattern: ${pattern}`);
+      console.log(`Available buckets: ${Buckets?.map(b => b.Name).join(', ')}`);
+      console.log(`Regex pattern used: ^${pattern}-[a-zA-Z0-9]+$`);
+    }
+    
     return bucket?.Name || null;
   } catch (error) {
     console.error('Failed to list S3 buckets:', error);
@@ -67,6 +78,34 @@ export async function getTenantBucketName(
   // For tenant users, find the specific bucket
   const bucketPattern = getTenantBucketPattern(bucketType, tenantId);
   const bucketName = await findTenantBucket(s3Client, bucketPattern);
+
+  // Fallback to default bucket if tenant bucket not found
+  return bucketName || DEFAULT_BUCKET_NAME;
+}
+
+/**
+ * Get the appropriate bucket name for a tenant operation using tenant ID directly
+ * Returns default bucket for default tenant, tenant bucket for others
+ */
+export async function getTenantBucketNameByTenantId(
+  tenantId: string,
+  s3Client: S3Client,
+  bucketType: 'chat' | 'docs' | 'analytics'
+): Promise<string> {
+  // Use default bucket for default tenant
+  if (isDefaultTenant(tenantId)) {
+    return DEFAULT_BUCKET_NAME;
+  }
+
+  // For tenant users, find the specific bucket
+  const bucketPattern = getTenantBucketPattern(bucketType, tenantId);
+  const bucketName = await findTenantBucket(s3Client, bucketPattern);
+
+  if (!bucketName) {
+    console.error(`WARNING: Tenant bucket not found for pattern: ${bucketPattern}, falling back to default bucket: ${DEFAULT_BUCKET_NAME}`);
+    console.error(`This means tenant files will be uploaded to the default bucket instead of tenant-isolated bucket!`);
+    console.error(`Tenant ID: ${tenantId}, Expected pattern: ${bucketPattern}, Fallback bucket: ${DEFAULT_BUCKET_NAME}`);
+  }
 
   // Fallback to default bucket if tenant bucket not found
   return bucketName || DEFAULT_BUCKET_NAME;
