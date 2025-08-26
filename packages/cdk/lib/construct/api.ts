@@ -452,15 +452,19 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getFileUploadSignedUrl.ts',
       timeout: Duration.minutes(15),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: {
         BUCKET_NAME: fileBucket.bucketName,
-        ENVIRONMENT: props.environment,
+        ENVIRONMENT: props.environment || 'dev',
         HASHED_ENVIRONMENT: props.hashedEnvironment,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         CHAT_BUCKET_BASE: 'chat',
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
+        USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
       },
     });
     // Grant S3 write permissions with source IP condition
@@ -474,6 +478,15 @@ export class Api extends Construct {
           ipv6: props.allowedIpV6AddressRanges,
         }
       );
+      
+      // Grant S3 ListBuckets permission to find tenant-specific buckets
+      getSignedUrlFunction.role.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['s3:ListAllMyBuckets'],
+          resources: ['*'],
+        })
+      );
     }
 
     const getFileDownloadSignedUrlFunction = new NodejsFunction(
@@ -483,9 +496,12 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/getFileDownloadSignedUrl.ts',
         timeout: Duration.minutes(15),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
         environment: {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-          ENVIRONMENT: props.environment,
+          ENVIRONMENT: props.environment || 'dev',
           HASHED_ENVIRONMENT: props.hashedEnvironment,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           CHAT_BUCKET_BASE: 'chat',
@@ -493,6 +509,7 @@ export class Api extends Construct {
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
           USER_POOL_ID: props.userPool.userPoolId,
+          USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
         },
       }
     );

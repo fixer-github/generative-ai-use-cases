@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { HttpMethods } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import * as crypto from 'crypto';
 
@@ -152,11 +153,29 @@ export class TenantS3 extends Construct {
       autoDeleteObjects: props.removalPolicy,
     });
 
+    // Add CORS configuration for documents bucket (needed for file uploads from browser)
+    this.documentsBucket.addCorsRule({
+      allowedOrigins: ['*'],
+      allowedMethods: [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT],
+      allowedHeaders: ['*'],
+      exposedHeaders: [],
+      maxAge: 3000,
+    });
+
     // Create chat attachments bucket
     this.chatBucket = new s3.Bucket(this, 'ChatBucket', {
       bucketName: this.chatBucketName,
       ...commonBucketProps,
       autoDeleteObjects: props.removalPolicy,
+    });
+
+    // Add CORS configuration for chat bucket (needed for file uploads from browser)
+    this.chatBucket.addCorsRule({
+      allowedOrigins: ['*'],
+      allowedMethods: [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT],
+      allowedHeaders: ['*'],
+      exposedHeaders: [],
+      maxAge: 3000,
     });
 
     // Create analytics bucket
