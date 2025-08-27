@@ -158,7 +158,7 @@ export class TenantS3 extends Construct {
       allowedOrigins: ['*'],
       allowedMethods: [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT],
       allowedHeaders: ['*'],
-      exposedHeaders: [],
+      exposedHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2', 'x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm'],
       maxAge: 3000,
     });
 
@@ -174,7 +174,7 @@ export class TenantS3 extends Construct {
       allowedOrigins: ['*'],
       allowedMethods: [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT],
       allowedHeaders: ['*'],
-      exposedHeaders: [],
+      exposedHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2', 'x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm'],
       maxAge: 3000,
     });
 

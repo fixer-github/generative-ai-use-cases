@@ -465,6 +465,7 @@ export class Api extends Construct {
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
         USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
+        CDK_ACCOUNT_ID: Stack.of(this).account!,
       },
     });
     // Grant S3 write permissions with source IP condition
@@ -504,12 +505,14 @@ export class Api extends Construct {
           ENVIRONMENT: props.environment || 'dev',
           HASHED_ENVIRONMENT: props.hashedEnvironment,
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          BUCKET_NAME: fileBucket.bucketName,
           CHAT_BUCKET_BASE: 'chat',
           DOCS_BUCKET_BASE: 'docs',
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
           USER_POOL_ID: props.userPool.userPoolId,
           USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
+          CDK_ACCOUNT_ID: Stack.of(this).account || '',
         },
       }
     );

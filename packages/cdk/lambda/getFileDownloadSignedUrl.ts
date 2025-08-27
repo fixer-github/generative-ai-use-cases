@@ -36,7 +36,7 @@ export const handler = async (
     } else {
       // Tenant-specific path: Use Lambda's IAM role for bucket discovery
       console.log(`Finding tenant bucket using Lambda IAM role for tenant: ${tenantId}`);
-      
+
       // For tenant buckets, resolve the actual bucket name if not knowledge base
       if (req.s3Type !== 'knowledgeBase') {
         const lambdaS3Client = new S3Client({ region: req.region });
@@ -48,7 +48,7 @@ export const handler = async (
         );
         console.log(`Found tenant bucket: ${bucketName}`);
       }
-      
+
       // Create tenant-specific S3 client for signed URL generation (maintains tenant isolation)
       console.log(`Creating tenant-specific S3 client for signed URL generation`);
       s3Client = await createTenantS3Client(event);
