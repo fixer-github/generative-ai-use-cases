@@ -1,4 +1,8 @@
-import { Model, ModelConfiguration } from 'generative-ai-use-cases';
+import {
+  Model,
+  ModelConfiguration,
+  ModelMetadata,
+} from 'generative-ai-use-cases';
 import {
   CRI_PREFIX_PATTERN,
   modelMetadata as originalModelMetadata,
@@ -187,7 +191,7 @@ const searchAgent = agentNames.find((name) => name.includes('Search'));
 
 // Add metadata for liteLLM models (extended on frontend side)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const liteLlmModelMetadata: Record<string, any> = {
+const liteLlmModelMetadata: Record<string, ModelMetadata> = {
   'gemini-2.5-flash': {
     flags: { text: true, doc: true, image: true, video: false },
     displayName: 'Gemini 2.5 Flash',
@@ -198,7 +202,7 @@ const liteLlmModelMetadata: Record<string, any> = {
   },
 };
 
-const langchainModelMetadata: Record<string, any> = {
+const langchainModelMetadata: Record<string, ModelMetadata> = {
   'openai:gpt-4o': {
     flags: { text: true, doc: true, image: true, video: false },
     displayName: 'GPT 4o',
@@ -224,7 +228,7 @@ const langchainModelMetadata: Record<string, any> = {
 
 // Merge LangChain metadata with original modelMetadata
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modelMetadata: Record<string, any> = {
+const modelMetadata: Record<string, ModelMetadata> = {
   ...liteLlmModelMetadata,
   ...langchainModelMetadata,
   ...originalModelMetadata,
