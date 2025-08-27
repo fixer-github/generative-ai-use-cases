@@ -22,7 +22,6 @@ import { StopReason } from '@aws-sdk/client-bedrock-runtime';
 import { initChatModel } from 'langchain/chat_models/universal';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
-import { array } from 'zod';
 
 const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
   console.debug('Get data from S3');
