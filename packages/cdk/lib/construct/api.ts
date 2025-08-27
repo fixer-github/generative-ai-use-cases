@@ -48,7 +48,6 @@ export interface BackendApiProps {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
-  readonly hashedEnvironment: string;
 
   // Resource
   readonly userPool: UserPool;
@@ -458,9 +457,7 @@ export class Api extends Construct {
       environment: {
         BUCKET_NAME: fileBucket.bucketName,
         ENVIRONMENT: props.environment || 'dev',
-        HASHED_ENVIRONMENT: props.hashedEnvironment,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        CHAT_BUCKET_BASE: 'chat',
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
@@ -479,15 +476,6 @@ export class Api extends Construct {
           ipv6: props.allowedIpV6AddressRanges,
         }
       );
-      
-      // Grant S3 ListBuckets permission to find tenant-specific buckets
-      getSignedUrlFunction.role.addToPrincipalPolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['s3:ListAllMyBuckets'],
-          resources: ['*'],
-        })
-      );
     }
 
     const getFileDownloadSignedUrlFunction = new NodejsFunction(
@@ -503,11 +491,8 @@ export class Api extends Construct {
         environment: {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
           ENVIRONMENT: props.environment || 'dev',
-          HASHED_ENVIRONMENT: props.hashedEnvironment,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+            DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           BUCKET_NAME: fileBucket.bucketName,
-          CHAT_BUCKET_BASE: 'chat',
-          DOCS_BUCKET_BASE: 'docs',
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
           USER_POOL_ID: props.userPool.userPoolId,
@@ -656,7 +641,6 @@ export class Api extends Construct {
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         ENVIRONMENT: props.environment,
-        HASHED_ENVIRONMENT: props.hashedEnvironment,
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
@@ -927,10 +911,7 @@ export class Api extends Construct {
       environment: {
         BUCKET_NAME: fileBucket.bucketName,
         ENVIRONMENT: props.environment,
-        HASHED_ENVIRONMENT: props.hashedEnvironment,
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        CHAT_BUCKET_BASE: 'chat',
-        DOCS_BUCKET_BASE: 'docs',
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,

@@ -1,6 +1,3 @@
-import { S3Client, ListBucketsCommand } from '@aws-sdk/client-s3';
-import { getTenantId } from './tenantUtils';
-import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as crypto from 'crypto';
 
 // Constants at file level
@@ -10,17 +7,6 @@ const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
 const CDK_ACCOUNT_ID = process.env.CDK_ACCOUNT_ID || '';
 const AWS_REGION = process.env.AWS_REGION || '';
 
-/**
- * Generate tenant-specific S3 bucket pattern
- * Matches the naming pattern from TenantS3 construct
- */
-export function getTenantBucketPattern(
-  baseName: string,
-  tenantId: string
-): string {
-  // Pattern: {baseName}-{environment}-tenant-{tenantId}
-  return `${baseName}-${ENVIRONMENT}-tenant-${tenantId}`;
-}
 
 /**
  * Check if the tenant is the default tenant
@@ -29,62 +15,7 @@ export function isDefaultTenant(tenantId: string): boolean {
   return tenantId === DEFAULT_TENANT_ID;
 }
 
-/**
- * Find the exact tenant bucket name using pattern matching
- * The bucket has a random GUID suffix, so we need to list and match
- */
-export async function findTenantBucket(
-  s3Client: S3Client,
-  pattern: string
-): Promise<string | null> {
-  try {
-    console.log(`Searching for bucket with pattern: ${pattern}`);
-    const { Buckets } = await s3Client.send(new ListBucketsCommand({}));
 
-    // Create regex to match pattern with hash suffix (alphanumeric characters)
-    // The TenantS3 construct generates SHA256 hash which includes letters and numbers
-    const regex = new RegExp(`^${pattern}-[a-zA-Z0-9]+$`);
-
-    const bucket = Buckets?.find((b) => regex.test(b.Name || ''));
-
-    if (bucket) {
-      console.log(`Found matching bucket: ${bucket.Name}`);
-    } else {
-      console.warn(`No bucket found matching pattern: ${pattern}`);
-      console.log(`Available buckets: ${Buckets?.map(b => b.Name).join(', ')}`);
-      console.log(`Regex pattern used: ^${pattern}-[a-zA-Z0-9]+$`);
-    }
-
-    return bucket?.Name || null;
-  } catch (error) {
-    console.error('Failed to list S3 buckets:', error);
-    return null;
-  }
-}
-
-/**
- * Get the appropriate bucket name for a tenant operation
- * Returns default bucket for default tenant, tenant bucket for others
- */
-export async function getTenantBucketName(
-  event: APIGatewayProxyEvent,
-  s3Client: S3Client,
-  bucketType: 'chat' | 'docs' | 'analytics'
-): Promise<string> {
-  const tenantId = getTenantId(event);
-
-  // Use default bucket for default tenant
-  if (isDefaultTenant(tenantId)) {
-    return DEFAULT_BUCKET_NAME;
-  }
-
-  // For tenant users, find the specific bucket
-  const bucketPattern = getTenantBucketPattern(bucketType, tenantId);
-  const bucketName = await findTenantBucket(s3Client, bucketPattern);
-
-  // Fallback to default bucket if tenant bucket not found
-  return bucketName || DEFAULT_BUCKET_NAME;
-}
 
 /**
  * Get the appropriate bucket name for a tenant operation using tenant ID directly
@@ -93,7 +24,6 @@ export async function getTenantBucketName(
  */
 export async function getTenantBucketNameByTenantId(
   tenantId: string,
-  s3Client: S3Client,
   bucketType: 'chat' | 'docs' | 'analytics'
 ): Promise<string> {
   // Use default bucket for default tenant

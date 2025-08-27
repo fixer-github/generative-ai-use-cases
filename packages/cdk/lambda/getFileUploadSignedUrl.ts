@@ -33,10 +33,9 @@ export const handler = async (
       s3Client = new S3Client({});
       bucketName = DEFAULT_BUCKET_NAME;
     } else {
-      // Tenant-specific path: Use Lambda's IAM role for bucket discovery
-      console.log(`Finding tenant bucket using Lambda IAM role for tenant: ${tenantId}`);
-      const lambdaS3Client = new S3Client({});
-      bucketName = await getTenantBucketNameByTenantId(tenantId, lambdaS3Client, 'chat');
+      // Tenant-specific path: Generate deterministic bucket name
+      console.log(`Generating deterministic bucket name for tenant: ${tenantId}`);
+      bucketName = await getTenantBucketNameByTenantId(tenantId, 'chat');
       console.log(`Found tenant bucket: ${bucketName}`);
       
       // Create tenant-specific S3 client for signed URL generation (maintains tenant isolation)

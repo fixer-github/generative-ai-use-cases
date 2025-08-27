@@ -34,16 +34,14 @@ export const handler = async (
             })
           : new S3Client({ region: req.region });
     } else {
-      // Tenant-specific path: Use Lambda's IAM role for bucket discovery
-      console.log(`Finding tenant bucket using Lambda IAM role for tenant: ${tenantId}`);
+      // Tenant-specific path: Generate deterministic bucket name
+      console.log(`Generating deterministic bucket name for tenant: ${tenantId}`);
 
       // For tenant buckets, resolve the actual bucket name if not knowledge base
       if (req.s3Type !== 'knowledgeBase') {
-        const lambdaS3Client = new S3Client({ region: req.region });
         const baseName = determineBucketBaseName(req.bucketName);
         bucketName = await getTenantBucketNameByTenantId(
           tenantId,
-          lambdaS3Client,
           baseName as 'chat' | 'docs' | 'analytics'
         );
         console.log(`Found tenant bucket: ${bucketName}`);

@@ -18,7 +18,6 @@ export interface MultiTenantRoleProps {
   readonly region: string;
   readonly account: string;
   readonly env?: string;
-  readonly hashedEnvironment: string;
 }
 
 export class MultiTenantRole extends Construct {
