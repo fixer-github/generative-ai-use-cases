@@ -20,43 +20,82 @@ import {
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
 import { initChatModel } from 'langchain/chat_models/universal';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { sdkStreamMixin } from '@smithy/util-stream-node';
+import { array } from 'zod';
 
-const convertExtraData = (extraData: ExtraData): DataContentBlock => {
+const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
+  console.debug('Get data from S3');
+
+  const s3Client = new S3Client();
+
+  const command = new GetObjectCommand({
+    Bucket: process.env.BUCKET_NAME,
+    Key: extraData.source.data,
+  });
+
+  const response = await s3Client.send(command);
+
+  if (!response.Body) {
+    throw new Error('No body in response');
+  }
+
+  // SdkStreamMixinを使用してStreamを変換
+  const sdkStream = sdkStreamMixin(response.Body);
+  const data = await sdkStream.transformToByteArray();
+
+  // Uint8ArrayをBase64に変換
+  const base64String = Buffer.from(data).toString('base64');
+
+  return base64String;
+};
+
+const getTextDataFromExtraData = async (
+  extraData: ExtraData
+): Promise<string> => {
+  if (extraData.source.type === 's3') {
+    // S3に保存されている場合はデータを取得してBase64に変換して返す
+    return await getS3FileAsBase64(extraData);
+  }
+
+  return extraData.source.data;
+};
+
+const convertExtraData = async (
+  extraData: ExtraData
+): Promise<DataContentBlock> => {
   const { type: dataType, name, source } = extraData;
-  const { type: sourceType, mediaType, data } = source;
+  const { type: sourceType, mediaType } = source;
 
-  switch (sourceType) {
-    case 's3':
-      throw new Error('Not implemented');
-    case 'base64':
-      switch (dataType) {
-        case 'image':
-          return {
-            type: 'image',
-            source_type: 'base64',
-            mime_type: mediaType,
-            data: data,
-          };
-        case 'file':
-          return {
-            type: 'file',
-            source_type: 'base64',
-            mime_type: mediaType,
-            data: data,
-            metadata: {
-              filename: name,
-            },
-          };
-        case 'json':
-          return {
-            type: 'text',
-            source_type: 'text',
-            mime_type: mediaType,
-            text: data,
-          };
-        case 'video':
-          throw new Error('Video input is not supported currently.');
-      }
+  const data = await getTextDataFromExtraData(extraData);
+
+  if (sourceType === 'json') {
+    return {
+      type: 'text',
+      source_type: 'text',
+      mime_type: mediaType,
+      text: data,
+    };
+  }
+
+  switch (dataType) {
+    case 'image':
+      return {
+        type: 'image',
+        source_type: 'base64',
+        mime_type: mediaType,
+        data: data,
+      };
+    case 'file':
+      return {
+        type: 'file',
+        source_type: 'base64',
+        mime_type: mediaType,
+        data: data,
+        metadata: {
+          filename: name,
+        },
+      };
     case 'json':
       return {
         type: 'text',
@@ -64,13 +103,15 @@ const convertExtraData = (extraData: ExtraData): DataContentBlock => {
         mime_type: mediaType,
         text: data,
       };
+    case 'video':
+      throw new Error('Video input is not supported currently.');
   }
 };
 
-const convertToHumanMessage = (message: UnrecordedMessage) => {
+const convertToHumanMessage = async (message: UnrecordedMessage) => {
   if (message.extraData) {
-    const extraContents = message.extraData.map((data) =>
-      convertExtraData(data)
+    const extraContents = await Promise.all(
+      message.extraData.map(async (data) => await convertExtraData(data))
     );
 
     return new HumanMessage({
@@ -86,19 +127,21 @@ const convertToHumanMessage = (message: UnrecordedMessage) => {
   return new HumanMessage(message.content);
 };
 
-const convertSingleMessage = (message: UnrecordedMessage) => {
+const convertSingleMessage = async (message: UnrecordedMessage) => {
   switch (message.role) {
     case 'system':
       return new SystemMessage(message.content);
     case 'user':
-      return convertToHumanMessage(message);
+      return await convertToHumanMessage(message);
     case 'assistant':
       return new AIMessage(message.content);
   }
 };
 
 const convertMessages = (messages: UnrecordedMessage[]) => {
-  return messages.map((message) => convertSingleMessage(message));
+  return Promise.all(
+    messages.map(async (message) => await convertSingleMessage(message))
+  );
 };
 
 const langchainApi: ApiInterface = {
@@ -108,7 +151,9 @@ const langchainApi: ApiInterface = {
     id: string
   ): Promise<string> {
     const llm = await initChatModel(model.modelId);
-    const langchainMessages = convertMessages(messages);
+    const langchainMessages = await convertMessages(messages);
+
+    console.debug(JSON.stringify(messages));
 
     const response = await llm.invoke(langchainMessages);
 
@@ -121,7 +166,9 @@ const langchainApi: ApiInterface = {
     idToken?: string | undefined
   ): AsyncIterable<string> {
     const llm = await initChatModel(model.modelId);
-    const langchainMessages = convertMessages(messages);
+    const langchainMessages = await convertMessages(messages);
+
+    console.debug(JSON.stringify(messages));
 
     const stream = await llm.stream(langchainMessages);
 
