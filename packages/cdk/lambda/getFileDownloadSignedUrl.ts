@@ -3,7 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetFileDownloadSignedUrlRequest } from 'generative-ai-use-cases';
 import { initKnowledgeBaseS3Client } from './utils/bedrockClient';
-import { getTenantIdFromJWT } from './utils/tenantUtils';
+import { getTenantId } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';
 import {
   getTenantBucketNameByTenantId,
@@ -18,7 +18,7 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const req = event.queryStringParameters as GetFileDownloadSignedUrlRequest;
-    const tenantId = await getTenantIdFromJWT(event);
+    const tenantId = getTenantId(event);
     console.log(`Processing file download for tenant: ${tenantId}`);
 
     // Determine S3 client and bucket name based on tenant and request type
@@ -35,7 +35,9 @@ export const handler = async (
           : new S3Client({ region: req.region });
     } else {
       // Tenant-specific path: Generate deterministic bucket name
-      console.log(`Generating deterministic bucket name for tenant: ${tenantId}`);
+      console.log(
+        `Generating deterministic bucket name for tenant: ${tenantId}`
+      );
 
       // For tenant buckets, resolve the actual bucket name if not knowledge base
       if (req.s3Type !== 'knowledgeBase') {
@@ -48,7 +50,9 @@ export const handler = async (
       }
 
       // Create tenant-specific S3 client for signed URL generation (maintains tenant isolation)
-      console.log(`Creating tenant-specific S3 client for signed URL generation`);
+      console.log(
+        `Creating tenant-specific S3 client for signed URL generation`
+      );
       s3Client = await createTenantS3Client(event);
     }
 

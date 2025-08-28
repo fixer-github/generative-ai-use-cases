@@ -3,9 +3,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetFileUploadSignedUrlRequest } from 'generative-ai-use-cases';
-import { getTenantIdFromJWT } from './utils/tenantUtils';
+import { getTenantId } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';
-import { getTenantBucketNameByTenantId, isDefaultTenant } from './utils/tenantS3Utils';
+import {
+  getTenantBucketNameByTenantId,
+  isDefaultTenant,
+} from './utils/tenantS3Utils';
 
 // Constants
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
@@ -17,9 +20,9 @@ export const handler = async (
     const req: GetFileUploadSignedUrlRequest = JSON.parse(event.body!);
     const filename = req.filename;
     const uuid = uuidv4();
-    
-    // Extract tenant ID from JWT token in Authorization header
-    const tenantId = await getTenantIdFromJWT(event);
+
+    // Extract tenant ID from Cognito authorizer claims
+    const tenantId = getTenantId(event);
     console.log(`Processing file upload for tenant: ${tenantId}`);
     console.log(`Request filename: ${filename}`);
 
@@ -34,17 +37,23 @@ export const handler = async (
       bucketName = DEFAULT_BUCKET_NAME;
     } else {
       // Tenant-specific path: Generate deterministic bucket name
-      console.log(`Generating deterministic bucket name for tenant: ${tenantId}`);
+      console.log(
+        `Generating deterministic bucket name for tenant: ${tenantId}`
+      );
       bucketName = await getTenantBucketNameByTenantId(tenantId, 'chat');
       console.log(`Found tenant bucket: ${bucketName}`);
-      
+
       // Create tenant-specific S3 client for signed URL generation (maintains tenant isolation)
-      console.log(`Creating tenant-specific S3 client for signed URL generation`);
+      console.log(
+        `Creating tenant-specific S3 client for signed URL generation`
+      );
       s3Client = await createTenantS3Client(event);
     }
 
     // The upload destination is XXXXX/image.png format. The file can be downloaded with the correct file name when downloaded.
-    console.log(`Final upload destination - Bucket: ${bucketName}, Key: ${uuid}/${filename}`);
+    console.log(
+      `Final upload destination - Bucket: ${bucketName}, Key: ${uuid}/${filename}`
+    );
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: `${uuid}/${filename}`,
@@ -53,7 +62,7 @@ export const handler = async (
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
     });
-    
+
     console.log(`Generated signed URL for bucket: ${bucketName}`);
 
     return {

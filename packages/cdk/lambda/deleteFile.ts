@@ -1,9 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DeleteFileRequest } from 'generative-ai-use-cases';
-import { getTenantIdFromJWT } from './utils/tenantUtils';
+import { getTenantId } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';
-import { getTenantBucketNameByTenantId, isDefaultTenant } from './utils/tenantS3Utils';
+import {
+  getTenantBucketNameByTenantId,
+  isDefaultTenant,
+} from './utils/tenantS3Utils';
 
 // Constants
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
@@ -13,8 +16,8 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const req = event.pathParameters as DeleteFileRequest;
-    // Extract tenant ID from JWT token in Authorization header (same as upload)
-    const tenantId = await getTenantIdFromJWT(event);
+    // Extract tenant ID from Cognito authorizer claims
+    const tenantId = getTenantId(event);
     console.log(`Processing file deletion for tenant: ${tenantId}`);
     console.log(`Request fileName: ${req.fileName}`);
 
@@ -29,16 +32,20 @@ export const handler = async (
       bucketName = DEFAULT_BUCKET_NAME;
     } else {
       // Tenant-specific path: Generate deterministic bucket name
-      console.log(`Generating deterministic bucket name for tenant: ${tenantId}`);
+      console.log(
+        `Generating deterministic bucket name for tenant: ${tenantId}`
+      );
       bucketName = await getTenantBucketNameByTenantId(tenantId, 'chat');
       console.log(`Found tenant bucket: ${bucketName}`);
-      
+
       // Create tenant-specific S3 client for delete operation (maintains tenant isolation)
       console.log(`Creating tenant-specific S3 client for delete operation`);
       s3Client = await createTenantS3Client(event);
     }
 
-    console.log(`Final delete operation - Bucket: ${bucketName}, Key: ${req.fileName}`);
+    console.log(
+      `Final delete operation - Bucket: ${bucketName}, Key: ${req.fileName}`
+    );
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: req.fileName,

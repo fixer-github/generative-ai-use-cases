@@ -4,9 +4,8 @@ import * as crypto from 'crypto';
 const ENVIRONMENT = process.env.ENVIRONMENT!;
 const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID!;
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
-const CDK_ACCOUNT_ID = process.env.CDK_ACCOUNT_ID || '';
-const AWS_REGION = process.env.AWS_REGION || '';
-
+const CDK_ACCOUNT_ID = process.env.CDK_ACCOUNT_ID!;
+const AWS_REGION = process.env.AWS_REGION!;
 
 /**
  * Check if the tenant is the default tenant
@@ -15,8 +14,6 @@ export function isDefaultTenant(tenantId: string): boolean {
   return tenantId === DEFAULT_TENANT_ID;
 }
 
-
-
 /**
  * Get the appropriate bucket name for a tenant operation using tenant ID directly
  * Returns default bucket for default tenant, tenant bucket for others
@@ -24,7 +21,7 @@ export function isDefaultTenant(tenantId: string): boolean {
  */
 export async function getTenantBucketNameByTenantId(
   tenantId: string,
-  bucketType: 'chat' | 'docs' | 'analytics'
+  bucketType: 'chat' | 'docs' | 'analytics' | 'transcripts' | 'videos'
 ): Promise<string> {
   // Use default bucket for default tenant
   if (isDefaultTenant(tenantId)) {
@@ -40,15 +37,24 @@ export async function getTenantBucketNameByTenantId(
       CDK_ACCOUNT_ID,
       AWS_REGION
     );
-    
+
     console.log(`Generated deterministic tenant bucket name: ${bucketName}`);
     return bucketName;
   } catch (error) {
-    console.error(`Error generating tenant bucket name for tenant ${tenantId}:`, error);
-    console.error(`WARNING: Falling back to default bucket: ${DEFAULT_BUCKET_NAME}`);
-    console.error(`This means tenant files will be uploaded to the default bucket instead of tenant-isolated bucket!`);
-    console.error(`Tenant ID: ${tenantId}, Bucket type: ${bucketType}, Fallback bucket: ${DEFAULT_BUCKET_NAME}`);
-    
+    console.error(
+      `Error generating tenant bucket name for tenant ${tenantId}:`,
+      error
+    );
+    console.error(
+      `WARNING: Falling back to default bucket: ${DEFAULT_BUCKET_NAME}`
+    );
+    console.error(
+      `This means tenant files will be uploaded to the default bucket instead of tenant-isolated bucket!`
+    );
+    console.error(
+      `Tenant ID: ${tenantId}, Bucket type: ${bucketType}, Fallback bucket: ${DEFAULT_BUCKET_NAME}`
+    );
+
     // Fallback to default bucket if generation fails
     return DEFAULT_BUCKET_NAME;
   }
@@ -60,7 +66,7 @@ export async function getTenantBucketNameByTenantId(
  */
 export function determineBucketBaseName(bucketname: string): string {
   // Common bucket base names
-  const commonBases = ['chat', 'docs', 'analytics'];
+  const commonBases = ['chat', 'docs', 'analytics', 'transcripts', 'videos'];
 
   for (const base of commonBases) {
     if (bucketname.includes(base)) {
@@ -75,7 +81,7 @@ export function determineBucketBaseName(bucketname: string): string {
 /**
  * Generate a deterministic S3 bucket name using the same algorithm as TenantS3 construct
  * This eliminates the need for s3:ListAllMyBuckets permission
- * 
+ *
  * Format: {bucketBaseName}-{environment}-tenant-{tenantId}-{guidHash}
  */
 export function generateTenantBucketName(
@@ -96,18 +102,19 @@ export function generateTenantBucketName(
     .toLowerCase();
 
   // Calculate available space for GUID hash
-  const baseLength = bucketBaseName.length +
-                    SEPARATOR.length +
-                    environment.length +
-                    SEPARATOR.length +
-                    TENANT_PREFIX.length +
-                    sanitizedTenantId.length +
-                    SEPARATOR.length;
+  const baseLength =
+    bucketBaseName.length +
+    SEPARATOR.length +
+    environment.length +
+    SEPARATOR.length +
+    TENANT_PREFIX.length +
+    sanitizedTenantId.length +
+    SEPARATOR.length;
 
   if (baseLength >= MAX_BUCKET_NAME_LENGTH) {
     throw new Error(
       `Bucket name base components too long: ${baseLength} characters. ` +
-        `Consider shortening bucketBaseName, environment, or tenantId.`
+      `Consider shortening bucketBaseName, environment, or tenantId.`
     );
   }
 
@@ -127,7 +134,7 @@ export function generateTenantBucketName(
     accountInfo,
     hashInput,
     remainingLength,
-    guidHash
+    guidHash,
   });
 
   const bucketName = `${bucketBaseName}-${environment}-${TENANT_PREFIX}${sanitizedTenantId}-${guidHash}`;

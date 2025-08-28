@@ -647,6 +647,7 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         CHAT_BUCKET_BASE: 'chat',
         DOCS_BUCKET_BASE: 'docs',
+        CDK_ACCOUNT_ID: Stack.of(this).account!,
       },
     });
     table.grantReadWriteData(createMessagesFunction);
