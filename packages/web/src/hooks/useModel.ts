@@ -108,12 +108,10 @@ const liteLlmModelIds = ['gemini-2.5-flash', 'gemini-2.5-pro'];
 const langchainModelIds = [
   // OpenAI
   'openai:gpt-4o',
-
-  // INFO:確実に動かないのでとりあえずコメント
-  // 'openai:gpt-4o-mini',
-  // 'openai:o3',
-  // 'openai:gpt-4.1',
-  // 'openai:gpt-5'
+  'openai:gpt-4o-mini',
+  'openai:o3',
+  'openai:gpt-4.1',
+  'openai:gpt-5',
 ];
 
 // Define model objects
