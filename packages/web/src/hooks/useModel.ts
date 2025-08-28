@@ -207,23 +207,22 @@ const langchainModelMetadata: Record<string, ModelMetadata> = {
     flags: { text: true, doc: true, image: true, video: false },
     displayName: 'GPT 4o',
   },
-  // INFO:確実に動かないのでとりあえずコメント
-  // 'openai:gpt-4o-mini': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'GPT 4o mini',
-  // },
-  // 'openai:o3': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'o3',
-  // },
-  // 'openai:gpt-4.1': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'GPT 4.1',
-  // },
-  // 'openai:gpt-5': {
-  //   flags: { text: true, doc: true, image: false, video: false },
-  //   displayName: 'GPT 5',
-  // },
+  'openai:gpt-4o-mini': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'GPT 4o mini',
+  },
+  'openai:o3': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'o3',
+  },
+  'openai:gpt-4.1': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'GPT 4.1',
+  },
+  'openai:gpt-5': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'GPT 5',
+  },
 };
 
 // Merge LangChain metadata with original modelMetadata
