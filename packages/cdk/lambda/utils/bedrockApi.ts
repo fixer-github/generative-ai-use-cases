@@ -26,7 +26,7 @@ import {
   BEDROCK_VIDEO_GEN_MODELS,
 } from './models';
 import { streamingChunk } from './streamingChunk';
-import { initBedrockRuntimeClient } from './bedrockClient';
+import { initBedrockRuntimeClient, initBedrockRuntimeClientWithCredentials } from './bedrockClient';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -191,16 +191,48 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
 
     return extractOutputImage(model, body);
   },
-  generateVideo: async (model, params: GenerateVideoParams) => {
-    const videoBucketRegionMap = JSON.parse(
-      process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
-    );
+  generateVideo: async (
+    model,
+    params: GenerateVideoParams,
+    tenantId?: string,
+    credentials?: {
+      accessKeyId: string;
+      secretAccessKey: string;
+      sessionToken?: string;
+    }
+  ) => {
     const region = model.region || MODEL_REGION;
-    const client = await initBedrockRuntimeClient({ region });
-    const tmpOutputBucket = videoBucketRegionMap[region];
+    
+    // Use tenant-scoped credentials when provided for ABAC
+    const client = credentials 
+      ? await initBedrockRuntimeClientWithCredentials({ region }, credentials)
+      : await initBedrockRuntimeClient({ region });
 
-    if (!tmpOutputBucket || tmpOutputBucket.length === 0) {
-      throw new Error('Video tmp buket is not defined');
+    // Determine output bucket based on tenant
+    let outputBucket: string;
+
+    if (
+      !tenantId ||
+      tenantId === process.env.DEFAULT_TENANT_ID ||
+      tenantId === 'default'
+    ) {
+      // Use shared temporary bucket for default tenant
+      const videoBucketRegionMap = JSON.parse(
+        process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
+      );
+      outputBucket = videoBucketRegionMap[region];
+
+      if (!outputBucket || outputBucket.length === 0) {
+        throw new Error('Video tmp bucket is not defined for default tenant');
+      }
+      console.log(
+        `Using shared video bucket for default tenant: ${outputBucket}`
+      );
+    } else {
+      // Use tenant-specific bucket for tenant users
+      const { getTenantBucketNameByTenantId } = await import('./tenantS3Utils');
+      outputBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
+      console.log(`Using tenant-specific video bucket: ${outputBucket}`);
     }
 
     const command = new StartAsyncInvokeCommand({
@@ -208,8 +240,8 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
       modelInput: createBodyVideo(model, params),
       outputDataConfig: {
         s3OutputDataConfig: {
-          s3Uri: `s3://${tmpOutputBucket}`,
-          bucketOwner: process.env.VIDEO_BUCKET_OWNER, // Required for cross-account access
+          s3Uri: `s3://${outputBucket}`,
+          // bucketOwner removed - not needed for same-account access with proper IAM
         },
       },
     });

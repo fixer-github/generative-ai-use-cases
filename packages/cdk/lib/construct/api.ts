@@ -325,6 +325,7 @@ export class Api extends Construct {
         ENVIRONMENT: props.environment || 'dev',
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
+        CDK_ACCOUNT_ID: Stack.of(this).account,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -364,6 +365,7 @@ export class Api extends Construct {
         ENVIRONMENT: props.environment || 'dev',
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
+        CDK_ACCOUNT_ID: Stack.of(this).account,
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -490,7 +492,7 @@ export class Api extends Construct {
         environment: {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
           ENVIRONMENT: props.environment || 'dev',
-            DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           BUCKET_NAME: fileBucket.bucketName,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
           USER_POOL_ID: props.userPool.userPoolId,
@@ -640,7 +642,7 @@ export class Api extends Construct {
         BUCKET_NAME: fileBucket.bucketName,
         CHAT_BUCKET_BASE: 'chat',
         DOCS_BUCKET_BASE: 'docs',
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
+        CDK_ACCOUNT_ID: Stack.of(this).account,
       },
     });
     table.grantReadWriteData(createMessagesFunction);
@@ -879,7 +881,7 @@ export class Api extends Construct {
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
+        CDK_ACCOUNT_ID: Stack.of(this).account,
       },
     });
     fileBucket.grantDelete(deleteFileFunction);

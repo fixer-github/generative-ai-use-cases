@@ -114,6 +114,21 @@ export class MultiTenantRole extends Construct {
       })
     );
 
+    // Add Bedrock access for video generation and other model invocations
+    this.role.addToPolicy(
+      new PolicyStatement({
+        sid: 'BedrockAccess',
+        effect: Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+          'bedrock:ListFoundationModels',
+          'bedrock:GetFoundationModel'
+        ],
+        resources: ['*']
+      })
+    );
+
     // IMPORTANT: Do not modify the trust policy here - it's configured in the Auth construct
     // The Identity Pool's authenticated role must trust cognito-identity.amazonaws.com
     // Principal tags are automatically applied by the Identity Pool based on CfnIdentityPoolPrincipalTag configuration

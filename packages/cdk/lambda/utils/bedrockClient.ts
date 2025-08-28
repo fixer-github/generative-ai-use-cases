@@ -96,6 +96,26 @@ export const initBedrockRuntimeClient = async (
   return bedrockRuntimeClient[config.region];
 };
 
+/**
+ * Initialize Bedrock Runtime Client with custom credentials for tenant isolation
+ * Used for ABAC-based multi-tenant access control
+ */
+export const initBedrockRuntimeClientWithCredentials = async (
+  config: BedrockRuntimeClientConfig & { region: string },
+  credentials: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+  }
+) => {
+  // Always create a new client with the provided credentials
+  // No caching to ensure proper tenant isolation
+  return new BedrockRuntimeClient({
+    ...config,
+    credentials,
+  });
+};
+
 export const initBedrockAgentClient = async (
   config: BedrockAgentClientConfig & { region: string }
 ) => {
