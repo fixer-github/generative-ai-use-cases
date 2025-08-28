@@ -310,13 +310,6 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
-
-        // LangChain Credentials
-        // OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        // AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        // AZURE_OPENAI_API_INSTANCE_NAME: props.azureOpenai?.apiInstanceName ?? '',
-        // AZURE_OPENAI_API_DEPLOYMENT_NAME: props.azureOpenai?.apiDeploymentName ?? '',
-        // OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -344,13 +337,6 @@ export class Api extends Construct {
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
         USER_POOL_ID: props.userPool.userPoolId,
-
-        // LangChain Credentials
-        // OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        // AZURE_OPENAI_API_KEY: props.azureOpenai?.apiKey ?? '',
-        // AZURE_OPENAI_API_INSTANCE_NAME: props.azureOpenai?.apiInstanceName ?? '',
-        // AZURE_OPENAI_API_DEPLOYMENT_NAME: props.azureOpenai?.apiDeploymentName ?? '',
-        // OPENAI_API_VERSION: props.azureOpenai?.apiVersion ?? '',
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -1208,7 +1194,6 @@ export class Api extends Construct {
       new LambdaIntegration(getTokenUsageFunction),
       commonAuthorizerProps
     );
-
 
     this.api = api;
     this.predictStreamFunction = predictStreamFunction;
