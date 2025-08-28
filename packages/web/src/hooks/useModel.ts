@@ -190,7 +190,6 @@ export const findModelByModelId = (modelId: string) => {
 const searchAgent = agentNames.find((name) => name.includes('Search'));
 
 // Add metadata for liteLLM models (extended on frontend side)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const liteLlmModelMetadata: Record<string, ModelMetadata> = {
   'gemini-2.5-flash': {
     flags: { text: true, doc: true, image: true, video: false },
@@ -226,7 +225,6 @@ const langchainModelMetadata: Record<string, ModelMetadata> = {
 };
 
 // Merge LangChain metadata with original modelMetadata
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const modelMetadata: Record<string, ModelMetadata> = {
   ...liteLlmModelMetadata,
   ...langchainModelMetadata,
