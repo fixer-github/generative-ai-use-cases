@@ -23,6 +23,11 @@ import { initChatModel } from 'langchain/chat_models/universal';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
 
+/**
+ * S3からファイルを取得してBase64形式で返す
+ * @param extraData 対象のデータ
+ * @returns Base64形式のデータ
+ */
 const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
   console.debug('Get data from S3');
 
@@ -49,6 +54,11 @@ const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
   return base64String;
 };
 
+/**
+ * ExtraDataがS3のURLを指していたときにBase64形式に変換してくれるヘルパー
+ * @param extraData 対象のデータ
+ * @returns Base64あるいはText形式のデータ
+ */
 const getTextDataFromExtraData = async (
   extraData: ExtraData
 ): Promise<string> => {
@@ -60,6 +70,11 @@ const getTextDataFromExtraData = async (
   return extraData.source.data;
 };
 
+/**
+ * ExtraDataをLangChain用のDataContentBlockに変換する
+ * @param extraData 対象のデータ
+ * @returns LangChain用のDataContentBlock
+ */
 const convertExtraData = async (
   extraData: ExtraData
 ): Promise<DataContentBlock> => {
@@ -107,6 +122,11 @@ const convertExtraData = async (
   }
 };
 
+/**
+ * Bedrock用のUnrecordedMessageをLangChain用のHumanMessageにいい感じに変換する
+ * @param message Bedrock用のメッセージ
+ * @returns LangChain用のHumanMessage
+ */
 const convertToHumanMessage = async (message: UnrecordedMessage) => {
   if (message.extraData) {
     const extraContents = await Promise.all(
@@ -126,6 +146,11 @@ const convertToHumanMessage = async (message: UnrecordedMessage) => {
   return new HumanMessage(message.content);
 };
 
+/**
+ * Bedrock用のメッセージをLangChain用のメッセージに変換してくれる
+ * @param message Bedrock用のメッセージ
+ * @returns LangChain用のメッセージ
+ */
 const convertSingleMessage = async (message: UnrecordedMessage) => {
   switch (message.role) {
     case 'system':
@@ -137,6 +162,11 @@ const convertSingleMessage = async (message: UnrecordedMessage) => {
   }
 };
 
+/**
+ * Bedrock用の会話履歴をLangChain用の会話履歴にいい感じに変換してくれる
+ * @param messages Bedrock用の会話履歴
+ * @returns LangChain用の会話履歴
+ */
 const convertMessages = (messages: UnrecordedMessage[]) => {
   return Promise.all(
     messages.map(async (message) => await convertSingleMessage(message))
