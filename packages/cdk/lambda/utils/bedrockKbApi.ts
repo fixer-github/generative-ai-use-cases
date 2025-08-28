@@ -297,7 +297,14 @@ const bedrockKbApi: ApiInterface = {
   generateImage: async () => {
     throw new Error('Not Implemented');
   },
-  generateVideo: async () => {
+  generateVideo: async (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    model?: any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params?: any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tenantId?: string
+  ) => {
     throw new Error('Not Implemented');
   },
 };

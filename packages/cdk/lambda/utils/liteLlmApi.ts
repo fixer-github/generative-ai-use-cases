@@ -240,7 +240,9 @@ const liteLlmApi: ApiInterface = {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     model: Model,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    params: GenerateVideoParams
+    params: GenerateVideoParams,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tenantId?: string
   ): Promise<string> {
     throw new Error('Function not implemented.');
   },

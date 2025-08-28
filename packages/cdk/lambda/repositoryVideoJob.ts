@@ -22,9 +22,15 @@ import {
   InvocationType,
 } from '@aws-sdk/client-lambda';
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
+import {
+  getTenantBucketNameByTenantId,
+  isDefaultTenant,
+} from './utils/tenantS3Utils';
+import { getTenantId } from './utils/tenantUtils';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;
-const TABLE_NAME: string = process.env.TABLE_NAME!;
+const TABLE_NAME: string = process.env.DEFAULT_TABLE_NAME!;
 const COPY_VIDEO_JOB_FUNCTION_ARN = process.env.COPY_VIDEO_JOB_FUNCTION_ARN!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
@@ -33,10 +39,27 @@ const lambda = new LambdaClient({});
 export const createJob = async (
   _userId: string,
   invocationArn: string,
-  req: GenerateVideoRequest
+  req: GenerateVideoRequest,
+  event: APIGatewayProxyEvent
 ) => {
   const userId = `videoJob#${_userId}`;
   const jobId = invocationArn.split('/').slice(-1)[0];
+
+  // Extract tenant ID to determine appropriate video bucket
+  const tenantId = getTenantId(event);
+  console.log(`Creating video job for tenant: ${tenantId}`);
+
+  // Determine tenant-specific or default video bucket
+  let outputBucketName: string;
+  if (isDefaultTenant(tenantId)) {
+    // Use default/shared video bucket for default tenant
+    outputBucketName = BUCKET_NAME;
+    console.log(`Using default video bucket: ${outputBucketName}`);
+  } else {
+    // Use tenant-specific video bucket
+    outputBucketName = await getTenantBucketNameByTenantId(tenantId, 'videos');
+    console.log(`Using tenant-specific video bucket: ${outputBucketName}`);
+  }
 
   const params = req.params;
 
@@ -51,9 +74,10 @@ export const createJob = async (
     jobId,
     invocationArn,
     status: 'InProgress',
-    output: `s3://${BUCKET_NAME}/${jobId}/output.mp4`,
+    output: `s3://${outputBucketName}/${jobId}/output.mp4`,
     modelId: req.model!.modelId,
     region: req.model!.region,
+    tenantId: tenantId, // Add tenant ID for job tracking
     ...params,
   };
 
