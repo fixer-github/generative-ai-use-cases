@@ -930,6 +930,17 @@ export class Api extends Construct {
     props.statsTable.grantReadData(getTokenUsageFunction);
     getTokenUsageFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
 
+    // Get Model
+    const getAvailableModelsFunction = new NodejsFunction(
+      this,
+      'GetAvailableModels',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/getAvailableModels.ts',
+      }
+    );
+    getAvailableModelsFunction.addToRolePolicy(multiTenantAssumeRolePolicy);
+
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
@@ -1192,6 +1203,14 @@ export class Api extends Construct {
     tokenUsageResource.addMethod(
       'GET',
       new LambdaIntegration(getTokenUsageFunction),
+      commonAuthorizerProps
+    );
+
+    // GET: /models
+    const modelsResource = api.root.addResource('models');
+    modelsResource.addMethod(
+      'GET',
+      new LambdaIntegration(getAvailableModelsFunction),
       commonAuthorizerProps
     );
 

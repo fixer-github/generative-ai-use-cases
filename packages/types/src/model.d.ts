@@ -29,3 +29,10 @@ export type ModelMetadata = {
   flags: FeatureFlags;
   displayName: string;
 };
+
+export type ModelData = {
+  modelId: string;
+  type: string; // TODO: 今後`provider`への名前変更を検討
+  displayName: string;
+  features: FeatureFlags;
+};
