@@ -21,23 +21,22 @@ export const handler = async (
     console.log(`Processing file deletion for tenant: ${tenantId}`);
     console.log(`Request fileName: ${req.fileName}`);
 
+    // Get appropriate bucket name (tenant-specific or fallback)
+    const bucketName = await getTenantBucketNameByTenantId(
+      tenantId,
+      'chat',
+      DEFAULT_BUCKET_NAME
+    );
+    console.log(`Using bucket for delete operation: ${bucketName}`);
+
     // Use tenant-specific S3 client and bucket
     let s3Client: S3Client;
-    let bucketName: string;
 
     if (isDefaultTenant(tenantId)) {
       // Default tenant path - simple and clear
-      console.log('Using default S3 client and bucket for default tenant');
+      console.log('Using default S3 client for default tenant');
       s3Client = new S3Client({});
-      bucketName = DEFAULT_BUCKET_NAME;
     } else {
-      // Tenant-specific path: Generate deterministic bucket name
-      console.log(
-        `Generating deterministic bucket name for tenant: ${tenantId}`
-      );
-      bucketName = await getTenantBucketNameByTenantId(tenantId, 'chat');
-      console.log(`Found tenant bucket: ${bucketName}`);
-
       // Create tenant-specific S3 client for delete operation (maintains tenant isolation)
       console.log(`Creating tenant-specific S3 client for delete operation`);
       s3Client = await createTenantS3Client(event);

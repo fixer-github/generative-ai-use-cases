@@ -4,7 +4,6 @@ import { batchCreateMessages, findChatById } from './repository';
 import { getTenantId } from './utils/tenantUtils';
 import {
   getTenantBucketNameByTenantId,
-  isDefaultTenant,
 } from './utils/tenantS3Utils';
 
 const FILE_UPLOAD_BUCKET_NAME = process.env.BUCKET_NAME!;
@@ -43,21 +42,15 @@ export const handler = async (
       };
     }
 
-    // Determine tenant-specific or default upload bucket for validation
-    let uploadBucketName: string;
-    if (isDefaultTenant(tenantId)) {
-      // Use default/shared upload bucket for default tenant
-      uploadBucketName = FILE_UPLOAD_BUCKET_NAME;
-      console.log(
-        `Using default upload bucket for validation: ${uploadBucketName}`
-      );
-    } else {
-      // Use tenant-specific upload bucket (chat bucket for file uploads)
-      uploadBucketName = await getTenantBucketNameByTenantId(tenantId, 'chat');
-      console.log(
-        `Using tenant-specific upload bucket for validation: ${uploadBucketName}`
-      );
-    }
+    // Get appropriate upload bucket for validation (tenant-specific or fallback)
+    const uploadBucketName = await getTenantBucketNameByTenantId(
+      tenantId,
+      'chat',
+      FILE_UPLOAD_BUCKET_NAME
+    );
+    console.log(
+      `Using upload bucket for validation: ${uploadBucketName}`
+    );
 
     if (req.messages) {
       for (const message of req.messages) {

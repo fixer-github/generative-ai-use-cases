@@ -44,7 +44,8 @@ export const handler = async (
         const baseName = determineBucketBaseName(req.bucketName);
         bucketName = await getTenantBucketNameByTenantId(
           tenantId,
-          baseName as 'chat' | 'docs' | 'analytics'
+          baseName as 'chat' | 'docs' | 'analytics',
+          req.bucketName
         );
         console.log(`Found tenant bucket: ${bucketName}`);
       }

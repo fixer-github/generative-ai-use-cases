@@ -3,7 +3,6 @@ import * as crypto from 'crypto';
 // Constants at file level
 const ENVIRONMENT = process.env.ENVIRONMENT!;
 const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID!;
-const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
 const CDK_ACCOUNT_ID = process.env.CDK_ACCOUNT_ID!;
 const AWS_REGION = process.env.AWS_REGION!;
 
@@ -16,16 +15,17 @@ export function isDefaultTenant(tenantId: string): boolean {
 
 /**
  * Get the appropriate bucket name for a tenant operation using tenant ID directly
- * Returns default bucket for default tenant, tenant bucket for others
+ * Returns fallback bucket for default tenant, tenant bucket for others
  * Uses deterministic bucket name generation (no s3:ListAllMyBuckets permission needed)
  */
 export async function getTenantBucketNameByTenantId(
   tenantId: string,
-  bucketType: 'chat' | 'docs' | 'analytics' | 'transcripts' | 'videos'
+  bucketType: 'chat' | 'docs' | 'analytics' | 'transcripts' | 'videos',
+  fallbackBucketName: string
 ): Promise<string> {
-  // Use default bucket for default tenant
+  // Use fallback bucket for default tenant
   if (isDefaultTenant(tenantId)) {
-    return DEFAULT_BUCKET_NAME;
+    return fallbackBucketName;
   }
 
   try {
@@ -46,17 +46,17 @@ export async function getTenantBucketNameByTenantId(
       error
     );
     console.error(
-      `WARNING: Falling back to default bucket: ${DEFAULT_BUCKET_NAME}`
+      `WARNING: Falling back to fallback bucket: ${fallbackBucketName}`
     );
     console.error(
-      `This means tenant files will be uploaded to the default bucket instead of tenant-isolated bucket!`
+      `This means tenant files will be uploaded to the fallback bucket instead of tenant-isolated bucket!`
     );
     console.error(
-      `Tenant ID: ${tenantId}, Bucket type: ${bucketType}, Fallback bucket: ${DEFAULT_BUCKET_NAME}`
+      `Tenant ID: ${tenantId}, Bucket type: ${bucketType}, Fallback bucket: ${fallbackBucketName}`
     );
 
-    // Fallback to default bucket if generation fails
-    return DEFAULT_BUCKET_NAME;
+    // Fallback to provided fallback bucket if generation fails
+    return fallbackBucketName;
   }
 }
 
