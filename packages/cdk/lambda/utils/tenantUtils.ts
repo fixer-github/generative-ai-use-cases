@@ -1,5 +1,4 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { isDefaultTenant } from './tenantS3Utils';
 
 /**
  * Extract tenant ID from the JWT claims in the API Gateway event
@@ -13,7 +12,7 @@ export const getTenantId = (event: APIGatewayProxyEvent): string => {
     process.env.DEFAULT_TENANT_ID ||
     'default';
 
-  if (!tenantId || isDefaultTenant(tenantId)) {
+  if (!tenantId || tenantId === 'default') {
     console.warn('No tenant ID found in request, using default tenant');
   }
 

@@ -22,8 +22,11 @@ import {
   InvocationType,
 } from '@aws-sdk/client-lambda';
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
+import {
+  getTenantBucketNameByTenantId,
+  isDefaultTenant,
+} from './utils/tenantS3Utils';
 import { getTenantId } from './utils/tenantUtils';
-import { getVideoBucketForJobOutput } from './utils/videoBucketUtils';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;
@@ -47,7 +50,16 @@ export const createJob = async (
   console.log(`Creating video job for tenant: ${tenantId}`);
 
   // Determine tenant-specific or default video bucket
-  const outputBucketName = await getVideoBucketForJobOutput(tenantId, BUCKET_NAME);
+  let outputBucketName: string;
+  if (isDefaultTenant(tenantId)) {
+    // Use default/shared video bucket for default tenant
+    outputBucketName = BUCKET_NAME;
+    console.log(`Using default video bucket: ${outputBucketName}`);
+  } else {
+    // Use tenant-specific video bucket
+    outputBucketName = await getTenantBucketNameByTenantId(tenantId, 'videos');
+    console.log(`Using tenant-specific video bucket: ${outputBucketName}`);
+  }
 
   const params = req.params;
 

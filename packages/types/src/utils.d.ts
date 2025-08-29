@@ -26,13 +26,7 @@ export type GenerateImageInterface = (
 
 export type GenerateVideoInterface = (
   model: Model,
-  params: GenerateVideoParams,
-  tenantId?: string,
-  credentials?: {
-    accessKeyId: string;
-    secretAccessKey: string;
-    sessionToken?: string;
-  }
+  params: GenerateVideoParams
 ) => Promise<string>;
 
 export type ApiInterface = {
