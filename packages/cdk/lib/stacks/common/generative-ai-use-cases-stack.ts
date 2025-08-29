@@ -113,7 +113,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       idPool: auth.idPool,
       userPoolClient: auth.client,
-      multiTenantRole: multiTenantRole.role,
       table: database.table,
       statsTable: database.statsTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
@@ -276,7 +275,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       new UseCaseBuilder(this, 'UseCaseBuilder', {
         userPool: auth.userPool,
         api: api.api,
-        multiTenantRole: multiTenantRole.role,
         idPool: auth.idPool,
         environment: params.env,
       });
