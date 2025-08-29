@@ -45,6 +45,7 @@ import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
 import WriterPage from './pages/WriterPage.tsx';
 import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
+import BotKbEditPage from './pages/BotKbEditPage.tsx';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -91,6 +92,10 @@ const routes: RouteObject[] = [
   {
     path: '/share/:shareId',
     element: <SharedChatPage />,
+  },
+  {
+    path: '/bot/new',
+    element: <BotKbEditPage />,
   },
   enabled('generate')
     ? {
