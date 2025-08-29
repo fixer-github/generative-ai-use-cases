@@ -24,6 +24,7 @@ import {
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId } from './utils/tenantUtils';
 import { createTenantDynamoDBClient } from './utils/tenantDynamoDBClient';
+import { isDefaultTenant } from './utils/tenantS3Utils';
 
 const TABLE_PREFIX: string = process.env.TABLE_NAME!;
 const ENVIRONMENT: string = process.env.ENVIRONMENT!;
@@ -41,7 +42,7 @@ async function getTenantDynamoDBDocument(
   const tenantId = getTenantId(event);
 
   // For default tenant, use standard DynamoDB client
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || isDefaultTenant(tenantId)) {
     // Create standard DynamoDB client without AssumeRole
     return DynamoDBDocumentClient.from(new DynamoDBClient({}));
   }
@@ -70,7 +71,7 @@ function getTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
 
   // For default/fallback users, use the actual CDK-generated table name
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || isDefaultTenant(tenantId)) {
     return DEFAULT_TABLE_NAME;
   }
 
@@ -85,7 +86,7 @@ function getStatsTableName(event: APIGatewayProxyEvent): string {
   const tenantId = getTenantId(event);
 
   // For default/fallback users, use the actual CDK-generated stats table name
-  if (!tenantId || tenantId === 'default') {
+  if (!tenantId || isDefaultTenant(tenantId)) {
     return DEFAULT_STATS_TABLE_NAME;
   }
 

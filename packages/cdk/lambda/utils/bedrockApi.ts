@@ -27,6 +27,7 @@ import {
 } from './models';
 import { streamingChunk } from './streamingChunk';
 import { initBedrockRuntimeClient, initBedrockRuntimeClientWithCredentials } from './bedrockClient';
+import { getVideoBucketForGeneration } from './videoBucketUtils';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -209,31 +210,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
       : await initBedrockRuntimeClient({ region });
 
     // Determine output bucket based on tenant
-    let outputBucket: string;
-
-    if (
-      !tenantId ||
-      tenantId === process.env.DEFAULT_TENANT_ID ||
-      tenantId === 'default'
-    ) {
-      // Use shared temporary bucket for default tenant
-      const videoBucketRegionMap = JSON.parse(
-        process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
-      );
-      outputBucket = videoBucketRegionMap[region];
-
-      if (!outputBucket || outputBucket.length === 0) {
-        throw new Error('Video tmp bucket is not defined for default tenant');
-      }
-      console.log(
-        `Using shared video bucket for default tenant: ${outputBucket}`
-      );
-    } else {
-      // Use tenant-specific bucket for tenant users
-      const { getTenantBucketNameByTenantId } = await import('./tenantS3Utils');
-      outputBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
-      console.log(`Using tenant-specific video bucket: ${outputBucket}`);
-    }
+    const outputBucket = await getVideoBucketForGeneration(tenantId, region);
 
     const command = new StartAsyncInvokeCommand({
       modelId: model.modelId,
