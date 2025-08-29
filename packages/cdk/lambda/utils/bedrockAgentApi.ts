@@ -3,11 +3,8 @@ import {
   ListAgentActionGroupsCommand,
 } from '@aws-sdk/client-bedrock-agent';
 import {
-  DependencyFailedException,
   InvokeAgentCommand,
   Parameter,
-  ServiceQuotaExceededException,
-  ThrottlingException,
 } from '@aws-sdk/client-bedrock-agent-runtime';
 
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -24,6 +21,8 @@ import {
   initBedrockAgentClient,
   initBedrockAgentRuntimeClient,
 } from './bedrockClient';
+import { convertS3UriToUrl, encodeUrlString } from './s3Utils';
+import { handleBedrockError } from './bedrockErrorHandler';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 const s3Client = new S3Client({});
@@ -35,28 +34,6 @@ type AgentInfo = {
 };
 const agentInfoMap: { [aliasId: string]: AgentInfo } = {};
 
-// Convert s3://<BUCKET>/<PREFIX> to https://s3.<REGION>.amazonaws.com/<BUCKET>/<PREFIX>
-const convertS3UriToUrl = (s3Uri: string, region: string): string => {
-  const result = /^s3:\/\/(?<bucketName>.+?)\/(?<prefix>.+)/.exec(s3Uri);
-  if (result) {
-    const groups = result?.groups as {
-      bucketName: string;
-      prefix: string;
-    };
-    return `https://s3.${region}.amazonaws.com/${groups.bucketName}/${groups.prefix}`;
-  }
-  return '';
-};
-
-// Encode a string to URL
-const encodeUrlString = (str: string): string => {
-  try {
-    return encodeURIComponent(str);
-  } catch (e) {
-    console.error('Failed to URL-encode string:', e);
-    return str;
-  }
-};
 
 const getAgentInfo = async (agentId: string, agentAliasId: string) => {
   // Get Agent Info if not cached
@@ -341,42 +318,13 @@ const bedrockAgentApi: ApiInterface = {
         }
       }
     } catch (e) {
-      if (
-        e instanceof ThrottlingException ||
-        e instanceof ServiceQuotaExceededException
-      ) {
-        yield streamingChunk({
-          text: 'The server is currently experiencing high access. Please try again later.',
-          stopReason: 'error',
-        });
-      } else if (e instanceof DependencyFailedException) {
-        const modelAccessURL = `https://${process.env.MODEL_REGION}.console.aws.amazon.com/bedrock/home?region=${process.env.MODEL_REGION}#/modelaccess`;
-        yield streamingChunk({
-          text: `The selected model is not enabled. Please enable the model in the [Bedrock console Model Access screen](${modelAccessURL}).`,
-          stopReason: 'error',
-        });
-      } else {
-        console.error(e);
-        yield streamingChunk({
-          text:
-            'An error occurred. Please report the following error to the administrator.\n' +
-            e,
-          stopReason: 'error',
-        });
-      }
+      yield* handleBedrockError(e);
     }
   },
   generateImage: async () => {
     throw new Error('Not Implemented');
   },
-  generateVideo: async (
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    model?: any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    params?: any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tenantId?: string
-  ) => {
+  generateVideo: async () => {
     throw new Error('Not Implemented');
   },
 };

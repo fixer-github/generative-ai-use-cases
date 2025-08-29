@@ -6,9 +6,6 @@ import {
   ConverseStreamCommand,
   ConverseStreamCommandInput,
   ConverseStreamOutput,
-  ServiceQuotaExceededException,
-  ThrottlingException,
-  AccessDeniedException,
   StartAsyncInvokeCommand,
 } from '@aws-sdk/client-bedrock-runtime';
 import {
@@ -27,6 +24,8 @@ import {
 } from './models';
 import { streamingChunk } from './streamingChunk';
 import { initBedrockRuntimeClient, initBedrockRuntimeClientWithCredentials } from './bedrockClient';
+import { getVideoBucketForTenant } from './videoBucketUtils';
+import { handleBedrockError } from './bedrockErrorHandler';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -151,29 +150,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
         }
       }
     } catch (e) {
-      if (
-        e instanceof ThrottlingException ||
-        e instanceof ServiceQuotaExceededException
-      ) {
-        yield streamingChunk({
-          text: 'The server is currently experiencing high access. Please try again later.',
-          stopReason: 'error',
-        });
-      } else if (e instanceof AccessDeniedException) {
-        const modelAccessURL = `https://${region}.console.aws.amazon.com/bedrock/home?region=${region}#/modelaccess`;
-        yield streamingChunk({
-          text: `The selected model is not enabled. Please enable the model in the [Bedrock console Model Access screen](${modelAccessURL}).`,
-          stopReason: 'error',
-        });
-      } else {
-        console.error(e);
-        yield streamingChunk({
-          text:
-            'An error occurred. Please report the following error to the administrator.\n' +
-            e,
-          stopReason: 'error',
-        });
-      }
+      yield* handleBedrockError(e, region);
     }
   },
   generateImage: async (model, params) => {
@@ -209,31 +186,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
       : await initBedrockRuntimeClient({ region });
 
     // Determine output bucket based on tenant
-    let outputBucket: string;
-
-    if (
-      !tenantId ||
-      tenantId === process.env.DEFAULT_TENANT_ID ||
-      tenantId === 'default'
-    ) {
-      // Use shared temporary bucket for default tenant
-      const videoBucketRegionMap = JSON.parse(
-        process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
-      );
-      outputBucket = videoBucketRegionMap[region];
-
-      if (!outputBucket || outputBucket.length === 0) {
-        throw new Error('Video tmp bucket is not defined for default tenant');
-      }
-      console.log(
-        `Using shared video bucket for default tenant: ${outputBucket}`
-      );
-    } else {
-      // Use tenant-specific bucket for tenant users
-      const { getTenantBucketNameByTenantId } = await import('./tenantS3Utils');
-      outputBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
-      console.log(`Using tenant-specific video bucket: ${outputBucket}`);
-    }
+    const outputBucket = await getVideoBucketForTenant(tenantId, region);
 
     const command = new StartAsyncInvokeCommand({
       modelId: model.modelId,

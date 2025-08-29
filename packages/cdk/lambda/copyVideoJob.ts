@@ -8,11 +8,8 @@ import {
 import { Readable } from 'stream';
 import { VideoJob } from 'generative-ai-use-cases';
 import { updateJobStatus } from './repositoryVideoJob';
-import {
-  getTenantBucketNameByTenantId,
-  isDefaultTenant,
-} from './utils/tenantS3Utils';
 import { createTenantS3ClientForBackgroundJob } from './utils/tenantS3Client';
+import { getVideoBucketConfigForCopy } from './utils/videoBucketUtils';
 
 // Extend VideoJob to include tenantId for tenant-specific processing
 type VideoJobWithTenant = VideoJob & {
@@ -24,9 +21,6 @@ export interface CopyVideoJobParams {
 }
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;
-const videoBucketRegionMap = JSON.parse(
-  process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
-);
 
 const copyAndDeleteObject = async (
   jobId: string,
@@ -94,42 +88,28 @@ export const handler = async (event: CopyVideoJobParams): Promise<void> => {
   // Determine source and destination buckets based on tenant
   const tenantId = job.tenantId; // Tenant ID is stored in job
 
-  let srcBucket: string;
-  let dstBucket: string;
+  const bucketConfig = await getVideoBucketConfigForCopy(
+    tenantId,
+    job.region,
+    BUCKET_NAME
+  );
 
-  if (!tenantId || isDefaultTenant(tenantId)) {
-    // For default tenant: copy from shared temp bucket to default bucket
-    srcBucket = videoBucketRegionMap[job.region];
-    dstBucket = BUCKET_NAME;
-    console.log(
-      `Default tenant - copying from temp bucket ${srcBucket} to default bucket ${dstBucket}`
-    );
-
-    if (!srcBucket || srcBucket.length === 0) {
-      throw new Error(`Video temp bucket not defined for region ${job.region}`);
-    }
-  } else {
-    // For tenant users: video already generated directly to tenant bucket, so just update status
-    dstBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
-    console.log(
-      `Tenant user - video already in tenant bucket ${dstBucket}, marking as complete`
-    );
-
-    // No copying needed for tenant users since video was generated directly to tenant bucket
+  // If no copying is needed (tenant users), just update status
+  if (!bucketConfig.needsCopy) {
     await updateJobStatus(job, 'Completed');
     return;
   }
 
   console.log(
-    `Copying video from ${srcBucket} (${job.region}) to ${dstBucket} (${dstRegion})`
+    `Copying video from ${bucketConfig.srcBucket} (${job.region}) to ${bucketConfig.dstBucket} (${dstRegion})`
   );
 
   try {
     await copyAndDeleteObject(
       jobId,
-      srcBucket,
+      bucketConfig.srcBucket!,
       job.region,
-      dstBucket,
+      bucketConfig.dstBucket,
       dstRegion,
       tenantId
     );

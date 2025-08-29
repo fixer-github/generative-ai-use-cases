@@ -5,6 +5,7 @@ import { defaultVideoGenerationModel } from './utils/models';
 import { createJob } from './repositoryVideoJob';
 import { getTenantCredentials } from './utils/tenantCredentials';
 import { isDefaultTenant } from './utils/tenantS3Utils';
+import { getTenantId } from './utils/tenantUtils';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -16,7 +17,6 @@ export const handler = async (
     const model = req.model || defaultVideoGenerationModel;
 
     // Extract tenant ID for video generation
-    const { getTenantId } = await import('./utils/tenantUtils');
     const tenantId = getTenantId(event);
 
     // Get tenant-scoped credentials for ABAC when not using default tenant
@@ -24,7 +24,7 @@ export const handler = async (
     if (model.type === 'bedrock') {
       if (isDefaultTenant(tenantId)) {
         // For default tenant, use Lambda execution role
-        invocationArn = await (api.bedrock.generateVideo as any)(
+        invocationArn = await api.bedrock.generateVideo(
           model,
           req.params,
           tenantId
@@ -38,7 +38,7 @@ export const handler = async (
           throw new Error('Failed to obtain tenant credentials for video generation');
         }
         
-        invocationArn = await (api.bedrock.generateVideo as any)(
+        invocationArn = await api.bedrock.generateVideo(
           model,
           req.params,
           tenantId,
