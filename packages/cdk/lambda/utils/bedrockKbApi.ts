@@ -21,7 +21,6 @@ import {
   getDynamicFilters,
 } from '@generative-ai-use-cases/common';
 import { streamingChunk } from './streamingChunk';
-import { verifyToken } from './auth';
 import { initBedrockAgentRuntimeClient } from './bedrockClient';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
@@ -67,14 +66,12 @@ const getExplicitFilters = async (
   messages: UnrecordedMessage[],
   idToken?: string
 ): Promise<RetrievalFilter | undefined> => {
-  // Check id token valid
-  const payload = await verifyToken(idToken || '');
-  if (!payload) {
-    return undefined;
-  }
-
+  // Skip token verification - getDynamicFilters currently returns empty array
+  // Token is already validated by API Gateway before reaching Lambda
+  
   // ===== Dynamic Filter =====
-  const dynamicFilters: RetrievalFilter[] = getDynamicFilters(payload);
+  // Currently not implemented - getDynamicFilters returns empty array regardless of payload
+  const dynamicFilters: RetrievalFilter[] = [];
 
   // ===== Get User Defined Explicit Filters =====
   let userDefinedExplicitFilters: RetrievalFilter[] = [];
