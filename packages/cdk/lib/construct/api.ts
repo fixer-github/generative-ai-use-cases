@@ -565,8 +565,6 @@ export class Api extends Construct {
 
     // Apply Cognito Identity permissions to functions that use tenant credentials
     generateVideoFunction.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
-    copyVideoJob.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
-    listVideoJobs.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
 
     // Add STS AssumeRole permissions for copyVideoJob to assume multi-tenant role for background processing
     if (props.multiTenantRoleArn) {
