@@ -236,7 +236,7 @@ const liteLlmApi: ApiInterface = {
   ): Promise<string> {
     throw new Error('Function not implemented.');
   },
-  generateVideo: function (): Promise<string> {
+  generateVideo: function (_model, _params, _tenantId): Promise<string> {
     throw new Error('Function not implemented.');
   },
 };

@@ -92,7 +92,7 @@ const sagemakerApi: ApiInterface = {
   generateImage: async () => {
     throw new Error('Not Implemented');
   },
-  generateVideo: async () => {
+  generateVideo: async (_model, _params, _tenantId) => {
     throw new Error('Not Implemented');
   },
 };

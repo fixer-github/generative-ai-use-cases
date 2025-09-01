@@ -195,7 +195,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
   generateVideo: async (
     model,
     params: GenerateVideoParams,
-    tenantId?: string,
+    tenantId: string,
     credentials?: {
       accessKeyId: string;
       secretAccessKey: string;
@@ -203,9 +203,8 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
     }
   ) => {
     const region = model.region || MODEL_REGION;
-    const effectiveTenantId = tenantId || 'default';
     
-    console.log(`Generating video for tenant: ${effectiveTenantId}, model: ${model.modelId}, region: ${region}`);
+    console.log(`Generating video for tenant: ${tenantId}, model: ${model.modelId}, region: ${region}`);
     console.log(`Using ${credentials ? 'tenant-scoped' : 'default'} credentials`);
     
     try {
@@ -215,8 +214,8 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
         : await initBedrockRuntimeClient({ region });
 
       // Determine output bucket based on tenant
-      const outputBucket = await getVideoBucketForGeneration(effectiveTenantId, region);
-      console.log(`Using output bucket: ${outputBucket} for tenant: ${effectiveTenantId}`);
+      const outputBucket = await getVideoBucketForGeneration(tenantId, region);
+      console.log(`Using output bucket: ${outputBucket} for tenant: ${tenantId}`);
 
       const modelInput = createBodyVideo(model, params);
       console.log(`Model input created for ${model.modelId}`);
@@ -250,7 +249,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
           console.error(`Bedrock StartAsyncInvokeCommand attempt ${attempt} failed:`, {
             error: error instanceof Error ? error.message : String(error),
             modelId: model.modelId,
-            tenantId: effectiveTenantId,
+            tenantId: tenantId,
             attempt,
           });
           
@@ -272,12 +271,12 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
       // All retries failed
       throw new Error(`Bedrock video generation failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
     } catch (error) {
-      console.error(`Video generation failed for tenant: ${effectiveTenantId}`, {
+      console.error(`Video generation failed for tenant: ${tenantId}`, {
         error: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
         modelId: model.modelId,
         region,
-        tenantId: effectiveTenantId,
+        tenantId: tenantId,
         hasCredentials: !!credentials,
         credentialsValid: credentials ? !!(credentials.accessKeyId && credentials.secretAccessKey) : null,
       });

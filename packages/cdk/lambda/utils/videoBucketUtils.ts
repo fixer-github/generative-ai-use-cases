@@ -7,10 +7,10 @@ const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
  * Returns shared temp bucket for default tenant, tenant-specific bucket for others
  */
 export async function getVideoBucketForGeneration(
-  tenantId: string | undefined,
+  tenantId: string,
   region: string
 ): Promise<string> {
-  if (!tenantId || isDefaultTenant(tenantId)) {
+  if (isDefaultTenant(tenantId)) {
     // Use shared temporary bucket for default tenant
     const videoBucketRegionMap = JSON.parse(
       process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'
@@ -37,7 +37,7 @@ export async function getVideoBucketForGeneration(
  * Returns different configurations for default vs tenant users
  */
 export async function getVideoBucketsForCopy(
-  tenantId: string | undefined,
+  tenantId: string,
   region: string,
   defaultBucket: string
 ): Promise<{
@@ -45,7 +45,7 @@ export async function getVideoBucketsForCopy(
   dstBucket: string;
   needsCopy: boolean;
 }> {
-  if (!tenantId || isDefaultTenant(tenantId)) {
+  if (isDefaultTenant(tenantId)) {
     // For default tenant: copy from shared temp bucket to default bucket
     const videoBucketRegionMap = JSON.parse(
       process.env.VIDEO_BUCKET_REGION_MAP ?? '{}'

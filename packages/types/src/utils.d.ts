@@ -27,7 +27,7 @@ export type GenerateImageInterface = (
 export type GenerateVideoInterface = (
   model: Model,
   params: GenerateVideoParams,
-  tenantId?: string,
+  tenantId: string,
   credentials?: {
     accessKeyId: string;
     secretAccessKey: string;
