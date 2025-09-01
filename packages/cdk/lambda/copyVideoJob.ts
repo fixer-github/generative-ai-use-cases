@@ -11,7 +11,6 @@ import { updateJobStatus } from './repositoryVideoJob';
 import { createTenantS3ClientForBackgroundJob } from './utils/tenantS3Client';
 import { getVideoBucketsForCopy } from './utils/videoBucketUtils';
 
-// Extend VideoJob to include tenantId for tenant-specific processing
 type VideoJobWithTenant = VideoJob & {
   tenantId?: string;
 };

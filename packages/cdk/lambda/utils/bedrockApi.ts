@@ -243,12 +243,8 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
         try {
           const res = await client.send(command);
           
-          if (!res.invocationArn) {
-            throw new Error('Bedrock response missing invocationArn');
-          }
-          
           console.log(`Video generation started successfully, invocationArn: ${res.invocationArn}`);
-          return res.invocationArn;
+          return res.invocationArn!;
         } catch (error) {
           lastError = error as Error;
           console.error(`Bedrock StartAsyncInvokeCommand attempt ${attempt} failed:`, {

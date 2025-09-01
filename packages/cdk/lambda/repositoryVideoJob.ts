@@ -49,17 +49,12 @@ export const createJob = async (
   const tenantId = getTenantId(event);
   console.log(`Creating video job for tenant: ${tenantId}`);
 
-  // Determine tenant-specific or default video bucket
-  let outputBucketName: string;
-  if (isDefaultTenant(tenantId)) {
-    // Use default/shared video bucket for default tenant
-    outputBucketName = BUCKET_NAME;
-    console.log(`Using default video bucket: ${outputBucketName}`);
-  } else {
-    // Use tenant-specific video bucket
-    outputBucketName = await getTenantBucketNameByTenantId(tenantId, 'videos', BUCKET_NAME);
-    console.log(`Using tenant-specific video bucket: ${outputBucketName}`);
-  }
+  // Determine final destination bucket for video output
+  const outputBucketName = isDefaultTenant(tenantId)
+    ? BUCKET_NAME // Default tenant uses main bucket
+    : await getTenantBucketNameByTenantId(tenantId, 'videos', BUCKET_NAME); // Tenant-specific bucket
+
+  console.log(`Video output bucket for tenant ${tenantId}: ${outputBucketName}`);
 
   const params = req.params;
 

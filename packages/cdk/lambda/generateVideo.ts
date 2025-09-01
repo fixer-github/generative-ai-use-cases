@@ -41,17 +41,12 @@ export const handler = async (
         console.log(`Successfully obtained tenant credentials for tenant: ${tenantId}`);
         console.log(`Credentials expiration: ${tenantCredentials.Expiration}`);
         
-        // Validate credentials before use
+        // Transform credentials to standard format
         const credentials = {
           accessKeyId: tenantCredentials.AccessKeyId,
           secretAccessKey: tenantCredentials.SecretKey,
           sessionToken: tenantCredentials.SessionToken,
         };
-        
-        // Additional validation to ensure credentials are complete
-        if (!credentials.accessKeyId || !credentials.secretAccessKey) {
-          throw new Error('Invalid tenant credentials: missing accessKeyId or secretAccessKey');
-        }
         
         invocationArn = await api.bedrock.generateVideo(
           model,
