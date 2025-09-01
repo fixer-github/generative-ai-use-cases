@@ -6,6 +6,73 @@ auth:
   login: Đăng nhập
   loginWith: 'Đăng nhập bằng {{provider}}'
   title: Generative AI Use Cases on AWS
+bot:
+  titleRequired: Tiêu đề là bắt buộc
+  saveFailed: Lưu thất bại
+  edit:
+    pageTitle: Chỉnh sửa Bot
+  create:
+    pageTitle: Tạo Bot mới
+  basicInfo: Thông tin cơ bản
+  title: Tiêu đề
+  titlePlaceholder: Nhập tên bot
+  description: Mô tả
+  descriptionPlaceholder: Nhập mô tả bot
+  instruction: Hướng dẫn
+  instructionPlaceholder: Nhập hướng dẫn cho bot
+  instructionHelp: Xác định cách bot nên hoạt động. Vui lòng cung cấp hướng dẫn cụ thể.
+  knowledgeBase: Cơ sở kiến thức
+  urls: URL
+  s3Urls: S3 URL
+  files: Tệp tin
+  modelSettings: Cài đặt mô hình
+  embeddingModel: Mô hình nhúng
+  parsingModel: Mô hình phân tích
+  generationSettings: Cài đặt tạo
+  displayRetrievedChunks: Hiển thị các đoạn đã lấy
+  displayRetrievedChunksHelp: Hiển thị ngữ cảnh được lấy để trả lời câu hỏi của người dùng
+  maxTokens: Số token tối đa
+  maxTokensHelp: Độ dài tối đa của phản hồi được tạo
+  temperature: Nhiệt độ
+  temperatureHelp: Giá trị cao hơn làm cho phản hồi sáng tạo hơn, giá trị thấp hơn làm cho chúng chính xác hơn
+  topPHelp: Ngưỡng xác suất tích lũy
+  topKHelp: Số từ ứng viên để xem xét
+  chunkingSettings: Cài đặt phân đoạn
+  chunkingStrategy: Chiến lược phân đoạn
+  fixedSize: Kích thước cố định
+  hierarchical: Phân cấp
+  semantic: Ngữ nghĩa
+  none: Không
+  maxTokensPerChunk: Số token tối đa mỗi đoạn
+  overlapTokens: Token chồng chéo
+  bufferSize: Kích thước bộ đệm
+  breakpointThreshold: Ngưỡng điểm ngắt
+  maxParentTokenSize: Kích thước token cha tối đa
+  maxChildTokenSize: Kích thước token con tối đa
+  searchSettings: Cài đặt tìm kiếm
+  maxSearchResults: Kết quả tìm kiếm tối đa
+  maxSearchResultsHelp: Số lượng kết quả tìm kiếm tối đa để lấy
+  searchType: Loại tìm kiếm
+  hybrid: Kết hợp
+  hybridSearchAlpha: Alpha tìm kiếm kết hợp
+  hybridSearchAlphaHelp: Cân bằng giữa tìm kiếm ngữ nghĩa và từ khóa (0=chỉ từ khóa, 1=chỉ ngữ nghĩa)
+  webCrawlingSettings: Cài đặt quét web
+  crawlingScope: Phạm vi quét
+  crawlDefault: Mặc định
+  crawlHostOnly: Chỉ máy chủ
+  crawlSubdomain: Tên miền phụ
+  includePatterns: Mẫu bao gồm
+  excludePatterns: Mẫu loại trừ
+  guardrails: Rào chắn
+  enableGuardrails: Bật rào chắn
+  guardrailsHelp: Bật lọc nội dung và kiểm tra an toàn
+  hateThreshold: Ngưỡng thù hận
+  insultsThreshold: Ngưỡng xúc phạm
+  sexualThreshold: Ngưỡng nội dung khiêu dâm
+  violenceThreshold: Ngưỡng bạo lực
+  misconductThreshold: Ngưỡng hành vi sai trái
+  groundingThreshold: Ngưỡng cơ sở
+  relevanceThreshold: Ngưỡng liên quan
 chat:
   advanced_options: Tùy chọn nâng cao
   create_link: Tạo liên kết

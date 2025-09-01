@@ -23,6 +23,7 @@ import {
   PiTreeStructure,
   PiNotebook,
   PiGraph,
+  PiRobotFill,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -90,6 +91,13 @@ const App: React.FC = () => {
       to: '/chat',
       icon: <PiChatsCircle />,
       display: 'usecase' as const,
+    },
+    {
+      label: t('navigation.bot'),
+      to: '/bot/new',
+      icon: <PiRobotFill />,
+      display: 'usecase' as const,
+      sub: 'Coming soon',
     },
     ragEnabled
       ? {

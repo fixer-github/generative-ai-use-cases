@@ -6,6 +6,73 @@ auth:
   login: 登录
   loginWith: '使用 {{provider}} 登录'
   title: Generative AI Use Cases on AWS
+bot:
+  titleRequired: 标题是必需的
+  saveFailed: 保存失败
+  edit:
+    pageTitle: 编辑机器人
+  create:
+    pageTitle: 创建新机器人
+  basicInfo: 基本信息
+  title: 标题
+  titlePlaceholder: 输入机器人名称
+  description: 描述
+  descriptionPlaceholder: 输入机器人描述
+  instruction: 指令
+  instructionPlaceholder: 输入机器人指令
+  instructionHelp: 定义机器人应该如何行为。请提供具体的指令。
+  knowledgeBase: 知识库
+  urls: URL
+  s3Urls: S3 URL
+  files: 文件
+  modelSettings: 模型设置
+  embeddingModel: 嵌入模型
+  parsingModel: 解析模型
+  generationSettings: 生成设置
+  displayRetrievedChunks: 显示检索的块
+  displayRetrievedChunksHelp: 显示用于回答用户问题的上下文
+  maxTokens: 最大令牌数
+  maxTokensHelp: 生成响应的最大长度
+  temperature: 温度
+  temperatureHelp: 较高的值使响应更有创意，较低的值使其更准确
+  topPHelp: 累积概率阈值
+  topKHelp: 要考虑的单词候选数量
+  chunkingSettings: 分块设置
+  chunkingStrategy: 分块策略
+  fixedSize: 固定大小
+  hierarchical: 分层
+  semantic: 语义
+  none: 无
+  maxTokensPerChunk: 每块最大令牌数
+  overlapTokens: 重叠令牌
+  bufferSize: 缓冲区大小
+  breakpointThreshold: 断点阈值
+  maxParentTokenSize: 最大父令牌大小
+  maxChildTokenSize: 最大子令牌大小
+  searchSettings: 搜索设置
+  maxSearchResults: 最大搜索结果
+  maxSearchResultsHelp: 要检索的最大搜索结果数
+  searchType: 搜索类型
+  hybrid: 混合
+  hybridSearchAlpha: 混合搜索 Alpha
+  hybridSearchAlphaHelp: 语义和关键字搜索之间的平衡（0=仅关键字，1=仅语义）
+  webCrawlingSettings: 网页爬取设置
+  crawlingScope: 爬取范围
+  crawlDefault: 默认
+  crawlHostOnly: 仅主机
+  crawlSubdomain: 子域
+  includePatterns: 包含模式
+  excludePatterns: 排除模式
+  guardrails: 护栏
+  enableGuardrails: 启用护栏
+  guardrailsHelp: 启用内容过滤和安全检查
+  hateThreshold: 仇恨阈值
+  insultsThreshold: 侮辱阈值
+  sexualThreshold: 性内容阈值
+  violenceThreshold: 暴力阈值
+  misconductThreshold: 不当行为阈值
+  groundingThreshold: 基础阈值
+  relevanceThreshold: 相关性阈值
 chat:
   advanced_options: 高级选项
   create_link: 创建链接

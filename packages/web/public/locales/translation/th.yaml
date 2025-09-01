@@ -6,6 +6,73 @@ auth:
   login: เข้าสู่ระบบ
   loginWith: 'เข้าสู่ระบบด้วย {{provider}}'
   title: Generative AI Use Cases on AWS
+bot:
+  titleRequired: จำเป็นต้องระบุชื่อ
+  saveFailed: การบันทึกล้มเหลว
+  edit:
+    pageTitle: แก้ไขบอท
+  create:
+    pageTitle: สร้างบอทใหม่
+  basicInfo: ข้อมูลพื้นฐาน
+  title: ชื่อ
+  titlePlaceholder: กรอกชื่อบอท
+  description: คำอธิบาย
+  descriptionPlaceholder: กรอกคำอธิบายบอท
+  instruction: คำสั่ง
+  instructionPlaceholder: กรอกคำสั่งการทำงานของบอท
+  instructionHelp: กำหนดว่าบอทควรทำงานอย่างไร โปรดให้คำสั่งที่เจาะจง
+  knowledgeBase: ฐานความรู้
+  urls: URL
+  s3Urls: S3 URL
+  files: ไฟล์
+  modelSettings: การตั้งค่าโมเดล
+  embeddingModel: โมเดลการฝัง
+  parsingModel: โมเดลการแยกวิเคราะห์
+  generationSettings: การตั้งค่าการสร้าง
+  displayRetrievedChunks: แสดงชิ้นส่วนที่ดึงมา
+  displayRetrievedChunksHelp: แสดงบริบทที่ดึงมาเพื่อตอบคำถามของผู้ใช้
+  maxTokens: โทเค็นสูงสุด
+  maxTokensHelp: ความยาวสูงสุดของการตอบกลับ
+  temperature: อุณหภูมิ
+  temperatureHelp: ค่าที่สูงขึ้นจะทำให้การตอบกลับมีความสร้างสรรค์มากขึ้น ค่าที่ต่ำลงจะทำให้แม่นยำมากขึ้น
+  topPHelp: เกณฑ์ความน่าจะเป็นสะสม
+  topKHelp: จำนวนคำที่จะพิจารณา
+  chunkingSettings: การตั้งค่าการแบ่งชิ้นส่วน
+  chunkingStrategy: กลยุทธ์การแบ่งชิ้นส่วน
+  fixedSize: ขนาดคงที่
+  hierarchical: แบบลำดับชั้น
+  semantic: แบบความหมาย
+  none: ไม่มี
+  maxTokensPerChunk: โทเค็นสูงสุดต่อชิ้นส่วน
+  overlapTokens: โทเค็นที่ซ้อนทับกัน
+  bufferSize: ขนาดบัฟเฟอร์
+  breakpointThreshold: เกณฑ์จุดแบ่ง
+  maxParentTokenSize: ขนาดโทเค็นหลักสูงสุด
+  maxChildTokenSize: ขนาดโทเค็นย่อยสูงสุด
+  searchSettings: การตั้งค่าการค้นหา
+  maxSearchResults: ผลการค้นหาสูงสุด
+  maxSearchResultsHelp: จำนวนผลการค้นหาสูงสุดที่จะดึงมา
+  searchType: ประเภทการค้นหา
+  hybrid: แบบผสม
+  hybridSearchAlpha: ค่าอัลฟาการค้นหาแบบผสม
+  hybridSearchAlphaHelp: สมดุลระหว่างการค้นหาเชิงความหมายและคำหลัก (0=คำหลักเท่านั้น, 1=ความหมายเท่านั้น)
+  webCrawlingSettings: การตั้งค่าการครอว์ลเว็บ
+  crawlingScope: ขอบเขตการครอว์ล
+  crawlDefault: ค่าเริ่มต้น
+  crawlHostOnly: โฮสต์เดียว
+  crawlSubdomain: ซับโดเมน
+  includePatterns: รูปแบบที่รวม
+  excludePatterns: รูปแบบที่ยกเว้น
+  guardrails: การควบคุม
+  enableGuardrails: เปิดใช้การควบคุม
+  guardrailsHelp: เปิดใช้การกรองเนื้อหาและการตรวจสอบความปลอดภัย
+  hateThreshold: เกณฑ์ความเกลียดชัง
+  insultsThreshold: เกณฑ์การดูหมิ่น
+  sexualThreshold: เกณฑ์เนื้อหาทางเพศ
+  violenceThreshold: เกณฑ์ความรุนแรง
+  misconductThreshold: เกณฑ์การประพฤติมิชอบ
+  groundingThreshold: เกณฑ์ความน่าเชื่อถือ
+  relevanceThreshold: เกณฑ์ความเกี่ยวข้อง
 chat:
   advanced_options: ตัวเลือกขั้นสูง
   create_link: สร้างลิงก์

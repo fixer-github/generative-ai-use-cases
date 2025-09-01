@@ -6,6 +6,73 @@ auth:
   login: Login
   loginWith: 'Login with {{provider}}'
   title: Generative AI Use Cases on AWS
+bot:
+  titleRequired: Title is required
+  saveFailed: Failed to save
+  edit:
+    pageTitle: Edit Bot
+  create:
+    pageTitle: Create New Bot
+  basicInfo: Basic Information
+  title: Title
+  titlePlaceholder: Enter bot name
+  description: Description
+  descriptionPlaceholder: Enter bot description
+  instruction: Instruction
+  instructionPlaceholder: Enter bot instructions
+  instructionHelp: Define how the bot should behave. Please provide specific instructions.
+  knowledgeBase: Knowledge Base
+  urls: URLs
+  s3Urls: S3 URLs
+  files: Files
+  modelSettings: Model Settings
+  embeddingModel: Embedding Model
+  parsingModel: Parsing Model
+  generationSettings: Generation Settings
+  displayRetrievedChunks: Display Retrieved Chunks
+  displayRetrievedChunksHelp: Display the context retrieved to answer user questions
+  maxTokens: Max Tokens
+  maxTokensHelp: Maximum length of generated responses
+  temperature: Temperature
+  temperatureHelp: Higher values make responses more creative, lower values make them more accurate
+  topPHelp: Cumulative probability threshold
+  topKHelp: Number of word candidates to consider
+  chunkingSettings: Chunking Settings
+  chunkingStrategy: Chunking Strategy
+  fixedSize: Fixed Size
+  hierarchical: Hierarchical
+  semantic: Semantic
+  none: None
+  maxTokensPerChunk: Max Tokens Per Chunk
+  overlapTokens: Overlap Tokens
+  bufferSize: Buffer Size
+  breakpointThreshold: Breakpoint Threshold
+  maxParentTokenSize: Max Parent Token Size
+  maxChildTokenSize: Max Child Token Size
+  searchSettings: Search Settings
+  maxSearchResults: Max Search Results
+  maxSearchResultsHelp: Maximum number of search results to retrieve
+  searchType: Search Type
+  hybrid: Hybrid
+  hybridSearchAlpha: Hybrid Search Alpha
+  hybridSearchAlphaHelp: Balance between semantic and keyword search (0=keyword only, 1=semantic only)
+  webCrawlingSettings: Web Crawling Settings
+  crawlingScope: Crawling Scope
+  crawlDefault: Default
+  crawlHostOnly: Host Only
+  crawlSubdomain: Subdomain
+  includePatterns: Include Patterns
+  excludePatterns: Exclude Patterns
+  guardrails: Guardrails
+  enableGuardrails: Enable Guardrails
+  guardrailsHelp: Enable content filtering and safety checks
+  hateThreshold: Hate Threshold
+  insultsThreshold: Insults Threshold
+  sexualThreshold: Sexual Content Threshold
+  violenceThreshold: Violence Threshold
+  misconductThreshold: Misconduct Threshold
+  groundingThreshold: Grounding Threshold
+  relevanceThreshold: Relevance Threshold
 chat:
   advanced_options: Advanced Options
   create_link: Create Link

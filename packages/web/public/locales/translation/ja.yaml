@@ -6,6 +6,73 @@ auth:
   login: ログイン
   loginWith: '{{provider}}でログイン'
   title: Generative AI Use Cases on AWS
+bot:
+  titleRequired: タイトルは必須です
+  saveFailed: 保存に失敗しました
+  edit:
+    pageTitle: ボットを編集
+  create:
+    pageTitle: ボットを新規作成
+  basicInfo: 基本情報
+  title: タイトル
+  titlePlaceholder: ボット名を入力
+  description: 説明
+  descriptionPlaceholder: ボットの説明を入力
+  instruction: インストラクション
+  instructionPlaceholder: ボットの動作指示を入力
+  instructionHelp: ボットがどのように振る舞うか定義します。具体的に指示をしてください。
+  knowledgeBase: ナレッジベース
+  urls: URL
+  s3Urls: S3 URL
+  files: ファイル
+  modelSettings: モデル設定
+  embeddingModel: 埋め込みモデル
+  parsingModel: パーシングモデル
+  generationSettings: 生成設定
+  displayRetrievedChunks: 取得したチャンクを表示
+  displayRetrievedChunksHelp: ユーザーの質問に答えるために取得したコンテキストを表示します
+  maxTokens: 最大トークン数
+  maxTokensHelp: 生成される応答の最大長
+  temperature: Temperature
+  temperatureHelp: 値が高いほど創造的、低いほど正確な応答になります
+  topPHelp: 累積確率のしきい値
+  topKHelp: 考慮する単語の候補数
+  chunkingSettings: チャンキング設定
+  chunkingStrategy: チャンキング戦略
+  fixedSize: 固定サイズ
+  hierarchical: 階層的
+  semantic: セマンティック
+  none: なし
+  maxTokensPerChunk: チャンクあたりの最大トークン数
+  overlapTokens: オーバーラップトークン数
+  bufferSize: バッファサイズ
+  breakpointThreshold: ブレークポイントしきい値
+  maxParentTokenSize: 親の最大トークンサイズ
+  maxChildTokenSize: 子の最大トークンサイズ
+  searchSettings: 検索設定
+  maxSearchResults: 最大検索結果数
+  maxSearchResultsHelp: 取得する検索結果の最大数
+  searchType: 検索タイプ
+  hybrid: ハイブリッド
+  hybridSearchAlpha: ハイブリッド検索アルファ
+  hybridSearchAlphaHelp: セマンティック検索とキーワード検索のバランス（0=キーワードのみ、1=セマンティックのみ）
+  webCrawlingSettings: ウェブクローリング設定
+  crawlingScope: クローリング範囲
+  crawlDefault: デフォルト
+  crawlHostOnly: ホストのみ
+  crawlSubdomain: サブドメイン
+  includePatterns: 含めるパターン
+  excludePatterns: 除外するパターン
+  guardrails: ガードレール
+  enableGuardrails: ガードレールを有効化
+  guardrailsHelp: コンテンツフィルタリングとセーフティチェックを有効にします
+  hateThreshold: ヘイトしきい値
+  insultsThreshold: 侮辱しきい値
+  sexualThreshold: 性的コンテンツしきい値
+  violenceThreshold: 暴力しきい値
+  misconductThreshold: 不正行為しきい値
+  groundingThreshold: グラウンディングしきい値
+  relevanceThreshold: 関連性しきい値
 chat:
   advanced_options: 高度なオプション
   create_link: リンクの作成
@@ -65,6 +132,7 @@ common:
   title: タイトル
   trace: トレース
   try: 試す
+  add: 追加
 demo:
   inter_use_cases: ユースケース連携
 diagram:
@@ -557,6 +625,7 @@ model:
 navigation:
   agentChat: Agent チャット
   chat: チャット
+  bot: ボット
   diagramGeneration: ダイアグラム生成
   flowChat: Flow チャット
   home: ホーム
