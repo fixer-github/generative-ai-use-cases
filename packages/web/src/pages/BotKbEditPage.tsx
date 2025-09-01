@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { PiCaretLeft, PiPlus, PiTrash } from 'react-icons/pi';
+import { PiPlus, PiTrash } from 'react-icons/pi';
 import Button from '../components/Button';
 import InputText from '../components/InputText';
 import Textarea from '../components/Textarea';
