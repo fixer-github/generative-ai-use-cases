@@ -18,7 +18,6 @@ export interface TranscribeProps {
   readonly api: RestApi;
   readonly multiTenantRole: Role;
   readonly environment?: string;
-  readonly defaultTenantId?: string;
   readonly cdkAccount?: string;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
@@ -28,12 +27,14 @@ export class Transcribe extends Construct {
   constructor(scope: Construct, id: string, props: TranscribeProps) {
     super(scope, id);
 
+    const DEFAULT_TENANT_ID = 'default';
+
     const getSignedUrlFunction = new NodejsFunction(this, 'GetSignedUrl', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getFileUploadSignedUrl.ts',
       timeout: Duration.minutes(15),
       environment: {
-        DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
         ENVIRONMENT: props.environment || 'dev',
         CDK_ACCOUNT_ID: props.cdkAccount || this.account,
@@ -49,7 +50,7 @@ export class Transcribe extends Construct {
         entry: './lambda/startTranscription.ts',
         timeout: Duration.minutes(15),
         environment: {
-          DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
           ENVIRONMENT: props.environment || 'dev',
           CDK_ACCOUNT_ID: props.cdkAccount || this.account,
@@ -78,7 +79,7 @@ export class Transcribe extends Construct {
         entry: './lambda/getTranscription.ts',
         timeout: Duration.minutes(15),
         environment: {
-          DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
           ENVIRONMENT: props.environment || 'dev',
           CDK_ACCOUNT_ID: props.cdkAccount || this.account,
