@@ -123,7 +123,9 @@ export class MultiTenantRole extends Construct {
           'bedrock:InvokeModel',
           'bedrock:InvokeModelWithResponseStream',
           'bedrock:ListFoundationModels',
-          'bedrock:GetFoundationModel'
+          'bedrock:GetFoundationModel',
+          'bedrock:StartAsyncInvoke',
+          'bedrock:GetAsyncInvoke'
         ],
         resources: ['*']
       })

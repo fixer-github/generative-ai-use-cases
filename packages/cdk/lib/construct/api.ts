@@ -43,6 +43,7 @@ export interface BackendApiProps {
   readonly rerankingModelId?: string | null;
   readonly customAgents: Agent[];
   readonly crossAccountBedrockRoleArn?: string | null;
+  readonly multiTenantRoleArn?: string | null;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly litellmEndpoint?: string | null;
@@ -331,6 +332,7 @@ export class Api extends Construct {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
     });
+
     for (const region of Object.keys(props.videoBucketRegionMap)) {
       const bucketName = props.videoBucketRegionMap[region];
       generateVideoFunction.role?.addToPrincipalPolicy(
@@ -344,6 +346,7 @@ export class Api extends Construct {
         })
       );
     }
+
     table.grantWriteData(generateVideoFunction);
 
     const copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
@@ -545,6 +548,39 @@ export class Api extends Construct {
       props.litellmProxy.grantInvokeUrl(generateVideoFunction);
       props.litellmProxy.grantInvokeUrl(listVideoJobs);
       props.litellmProxy.grantInvokeUrl(invokeFlowFunction);
+    }
+
+    // Add Cognito Identity permissions to Lambda functions that use getTenantCredentials
+    // These functions need to call Cognito Identity Pool to get tenant-scoped credentials
+    const cognitoIdentityPolicy = new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: [
+        'cognito-identity:GetId',
+        'cognito-identity:GetCredentialsForIdentity'
+      ],
+      resources: [
+        `arn:aws:cognito-identity:${Stack.of(this).region}:${Stack.of(this).account}:identitypool/${idPool.identityPoolId}`
+      ]
+    });
+
+    // Apply Cognito Identity permissions to functions that use tenant credentials
+    generateVideoFunction.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
+    copyVideoJob.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
+    listVideoJobs.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
+
+    // Add STS AssumeRole permissions for copyVideoJob to assume multi-tenant role for background processing
+    if (props.multiTenantRoleArn) {
+      const stsAssumeRolePolicy = new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRole', 'sts:TagSession'],
+        resources: [props.multiTenantRoleArn],
+        conditions: {
+          StringEquals: {
+            'aws:RequestedRegion': modelRegion
+          }
+        }
+      });
+      copyVideoJob.role?.addToPrincipalPolicy(stsAssumeRolePolicy);
     }
 
     // Bedrock is always granted permission

@@ -106,6 +106,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       queryDecompositionEnabled: params.queryDecompositionEnabled,
       rerankingModelId: params.rerankingModelId,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
+      multiTenantRoleArn: multiTenantRole.role.roleArn,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       litellmEndpoint: litellmEndpoint,

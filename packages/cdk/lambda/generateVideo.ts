@@ -38,15 +38,26 @@ export const handler = async (
           throw new Error('Failed to obtain tenant credentials for video generation');
         }
         
+        console.log(`Successfully obtained tenant credentials for tenant: ${tenantId}`);
+        console.log(`Credentials expiration: ${tenantCredentials.Expiration}`);
+        
+        // Validate credentials before use
+        const credentials = {
+          accessKeyId: tenantCredentials.AccessKeyId,
+          secretAccessKey: tenantCredentials.SecretKey,
+          sessionToken: tenantCredentials.SessionToken,
+        };
+        
+        // Additional validation to ensure credentials are complete
+        if (!credentials.accessKeyId || !credentials.secretAccessKey) {
+          throw new Error('Invalid tenant credentials: missing accessKeyId or secretAccessKey');
+        }
+        
         invocationArn = await api.bedrock.generateVideo(
           model,
           req.params,
           tenantId,
-          {
-            accessKeyId: tenantCredentials.AccessKeyId,
-            secretAccessKey: tenantCredentials.SecretKey,
-            sessionToken: tenantCredentials.SessionToken,
-          }
+          credentials
         );
       }
     } else {

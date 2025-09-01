@@ -108,12 +108,25 @@ export const initBedrockRuntimeClientWithCredentials = async (
     sessionToken?: string;
   }
 ) => {
+  // Validate required credentials
+  if (!credentials.accessKeyId || !credentials.secretAccessKey) {
+    throw new Error('Invalid credentials: accessKeyId and secretAccessKey are required');
+  }
+
   // Always create a new client with the provided credentials
   // No caching to ensure proper tenant isolation
-  return new BedrockRuntimeClient({
-    ...config,
-    credentials,
-  });
+  const clientConfig: BedrockRuntimeClientConfig = {
+    region: config.region,
+    credentials: {
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      ...(credentials.sessionToken && { sessionToken: credentials.sessionToken }),
+    },
+  };
+
+  console.log(`Creating Bedrock client for region: ${config.region} with tenant credentials`);
+  
+  return new BedrockRuntimeClient(clientConfig);
 };
 
 export const initBedrockAgentClient = async (

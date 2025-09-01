@@ -203,27 +203,90 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
     }
   ) => {
     const region = model.region || MODEL_REGION;
+    const effectiveTenantId = tenantId || 'default';
     
-    // Use tenant-scoped credentials when provided for ABAC
-    const client = credentials 
-      ? await initBedrockRuntimeClientWithCredentials({ region }, credentials)
-      : await initBedrockRuntimeClient({ region });
+    console.log(`Generating video for tenant: ${effectiveTenantId}, model: ${model.modelId}, region: ${region}`);
+    console.log(`Using ${credentials ? 'tenant-scoped' : 'default'} credentials`);
+    
+    try {
+      // Use tenant-scoped credentials when provided for ABAC
+      const client = credentials 
+        ? await initBedrockRuntimeClientWithCredentials({ region }, credentials)
+        : await initBedrockRuntimeClient({ region });
 
-    // Determine output bucket based on tenant
-    const outputBucket = await getVideoBucketForGeneration(tenantId, region);
+      // Determine output bucket based on tenant
+      const outputBucket = await getVideoBucketForGeneration(effectiveTenantId, region);
+      console.log(`Using output bucket: ${outputBucket} for tenant: ${effectiveTenantId}`);
 
-    const command = new StartAsyncInvokeCommand({
-      modelId: model.modelId,
-      modelInput: createBodyVideo(model, params),
-      outputDataConfig: {
-        s3OutputDataConfig: {
-          s3Uri: `s3://${outputBucket}`,
-          // bucketOwner removed - not needed for same-account access with proper IAM
+      const modelInput = createBodyVideo(model, params);
+      console.log(`Model input created for ${model.modelId}`);
+
+      const command = new StartAsyncInvokeCommand({
+        modelId: model.modelId,
+        modelInput,
+        outputDataConfig: {
+          s3OutputDataConfig: {
+            s3Uri: `s3://${outputBucket}`,
+            // bucketOwner removed - not needed for same-account access with proper IAM
+          },
         },
-      },
-    });
-    const res = await client.send(command);
-    return res.invocationArn!;
+      });
+
+      console.log(`Sending StartAsyncInvokeCommand to Bedrock for model: ${model.modelId}`);
+      
+      // Retry mechanism for Bedrock calls
+      let lastError: Error | null = null;
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 1000;
+      
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const res = await client.send(command);
+          
+          if (!res.invocationArn) {
+            throw new Error('Bedrock response missing invocationArn');
+          }
+          
+          console.log(`Video generation started successfully, invocationArn: ${res.invocationArn}`);
+          return res.invocationArn;
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Bedrock StartAsyncInvokeCommand attempt ${attempt} failed:`, {
+            error: error instanceof Error ? error.message : String(error),
+            modelId: model.modelId,
+            tenantId: effectiveTenantId,
+            attempt,
+          });
+          
+          // Check if it's a retryable error
+          const isRetryable = error instanceof AccessDeniedException ||
+                              error instanceof ThrottlingException ||
+                              error instanceof ServiceQuotaExceededException;
+          
+          if (attempt < MAX_RETRIES && isRetryable) {
+            console.log(`Retrying Bedrock call in ${RETRY_DELAY * attempt}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY * attempt));
+          } else if (!isRetryable) {
+            // Don't retry for non-retryable errors
+            throw error;
+          }
+        }
+      }
+      
+      // All retries failed
+      throw new Error(`Bedrock video generation failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
+    } catch (error) {
+      console.error(`Video generation failed for tenant: ${effectiveTenantId}`, {
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        modelId: model.modelId,
+        region,
+        tenantId: effectiveTenantId,
+        hasCredentials: !!credentials,
+        credentialsValid: credentials ? !!(credentials.accessKeyId && credentials.secretAccessKey) : null,
+      });
+      throw error;
+    }
   },
 };
 

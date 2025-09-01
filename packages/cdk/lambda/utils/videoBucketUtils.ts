@@ -1,5 +1,7 @@
 import { isDefaultTenant, getTenantBucketNameByTenantId } from './tenantS3Utils';
 
+const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
+
 /**
  * Determine the appropriate video bucket for a tenant during video generation
  * Returns shared temp bucket for default tenant, tenant-specific bucket for others
@@ -24,7 +26,7 @@ export async function getVideoBucketForGeneration(
     return outputBucket;
   } else {
     // Use tenant-specific bucket for tenant users
-    const outputBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
+    const outputBucket = await getTenantBucketNameByTenantId(tenantId, 'videos', DEFAULT_BUCKET_NAME);
     console.log(`Using tenant-specific video bucket: ${outputBucket}`);
     return outputBucket;
   }
@@ -65,7 +67,7 @@ export async function getVideoBucketsForCopy(
     };
   } else {
     // For tenant users: video already generated directly to tenant bucket, so just update status
-    const dstBucket = await getTenantBucketNameByTenantId(tenantId, 'videos');
+    const dstBucket = await getTenantBucketNameByTenantId(tenantId, 'videos', DEFAULT_BUCKET_NAME);
     console.log(
       `Tenant user - video already in tenant bucket ${dstBucket}, marking as complete`
     );

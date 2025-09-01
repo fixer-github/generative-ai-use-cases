@@ -57,7 +57,7 @@ export const createJob = async (
     console.log(`Using default video bucket: ${outputBucketName}`);
   } else {
     // Use tenant-specific video bucket
-    outputBucketName = await getTenantBucketNameByTenantId(tenantId, 'videos');
+    outputBucketName = await getTenantBucketNameByTenantId(tenantId, 'videos', BUCKET_NAME);
     console.log(`Using tenant-specific video bucket: ${outputBucketName}`);
   }
 
