@@ -37,6 +37,18 @@ export interface TenantS3StackProps extends cdk.StackProps {
   readonly analyticsBucketBaseName?: string;
 
   /**
+   * Base name for the transcripts bucket
+   * @default 'transcripts'
+   */
+  readonly transcriptsBucketBaseName?: string;
+
+  /**
+   * Base name for the videos bucket
+   * @default 'videos'
+   */
+  readonly videosBucketBaseName?: string;
+
+  /**
    * Whether to enable versioning on buckets
    * @default true
    */
@@ -92,6 +104,8 @@ export class TenantS3Stack extends cdk.Stack {
       documentsBucketBaseName: props?.documentsBucketBaseName,
       chatBucketBaseName: props?.chatBucketBaseName,
       analyticsBucketBaseName: props?.analyticsBucketBaseName,
+      transcriptsBucketBaseName: props?.transcriptsBucketBaseName,
+      videosBucketBaseName: props?.videosBucketBaseName,
       enableVersioning: props?.enableVersioning,
       enableAccessLogging: props?.enableAccessLogging,
     });
@@ -154,6 +168,44 @@ export class TenantS3Stack extends cdk.Stack {
       exportName: `${this.stackName}-AnalyticsBucketDomainName`,
     });
 
+    // Transcripts Bucket outputs
+    new cdk.CfnOutput(this, 'StackTranscriptsBucketArn', {
+      value: this.tenantS3.transcriptsBucket.bucketArn,
+      description: `ARN of the transcripts bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-TranscriptsBucketArn`,
+    });
+
+    new cdk.CfnOutput(this, 'StackTranscriptsBucketName', {
+      value: this.tenantS3.transcriptsBucket.bucketName,
+      description: `Name of the transcripts bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-TranscriptsBucketName`,
+    });
+
+    new cdk.CfnOutput(this, 'StackTranscriptsBucketDomainName', {
+      value: this.tenantS3.transcriptsBucket.bucketDomainName,
+      description: `Domain name of the transcripts bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-TranscriptsBucketDomainName`,
+    });
+
+    // Videos Bucket outputs
+    new cdk.CfnOutput(this, 'StackVideosBucketArn', {
+      value: this.tenantS3.videosBucket.bucketArn,
+      description: `ARN of the videos bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-VideosBucketArn`,
+    });
+
+    new cdk.CfnOutput(this, 'StackVideosBucketName', {
+      value: this.tenantS3.videosBucket.bucketName,
+      description: `Name of the videos bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-VideosBucketName`,
+    });
+
+    new cdk.CfnOutput(this, 'StackVideosBucketDomainName', {
+      value: this.tenantS3.videosBucket.bucketDomainName,
+      description: `Domain name of the videos bucket for tenant ${tenantId}`,
+      exportName: `${this.stackName}-VideosBucketDomainName`,
+    });
+
     // Add tags
     cdk.Tags.of(this).add('TenantId', tenantId.toString());
     cdk.Tags.of(this).add('Environment', environment);
@@ -192,5 +244,19 @@ export class TenantS3Stack extends cdk.Stack {
    */
   public getAnalyticsBucket() {
     return this.tenantS3.analyticsBucket;
+  }
+
+  /**
+   * Get the transcripts bucket
+   */
+  public getTranscriptsBucket() {
+    return this.tenantS3.transcriptsBucket;
+  }
+
+  /**
+   * Get the videos bucket
+   */
+  public getVideosBucket() {
+    return this.tenantS3.videosBucket;
   }
 }
