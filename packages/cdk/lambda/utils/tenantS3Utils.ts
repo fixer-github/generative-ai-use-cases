@@ -84,7 +84,7 @@ export function determineBucketBaseName(bucketname: string): string {
  *
  * Format: {bucketBaseName}-{environment}-tenant-{tenantId}-{guidHash}
  */
-export function generateTenantBucketName(
+function generateTenantBucketName(
   bucketBaseName: string,
   environment: string,
   tenantId: string,

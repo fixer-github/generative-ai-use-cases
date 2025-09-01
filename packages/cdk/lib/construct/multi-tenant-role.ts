@@ -1,13 +1,9 @@
 import { Construct } from 'constructs';
 import {
   Role,
-  IRole,
   PolicyStatement,
   Effect,
-  WebIdentityPrincipal,
-  CfnRole,
 } from 'aws-cdk-lib/aws-iam';
-import { Stack, Fn, CfnJson } from 'aws-cdk-lib';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
