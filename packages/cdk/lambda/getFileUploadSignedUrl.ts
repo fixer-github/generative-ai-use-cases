@@ -10,8 +10,7 @@ import {
   isDefaultTenant,
 } from './utils/tenantS3Utils';
 
-// Constants
-const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
+// Constants - removed DEFAULT_BUCKET_NAME as we use tenant-specific buckets
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -26,12 +25,8 @@ export const handler = async (
     console.log(`Processing file upload for tenant: ${tenantId}`);
     console.log(`Request filename: ${filename}`);
 
-    // Get appropriate bucket name (tenant-specific or fallback)
-    const bucketName = await getTenantBucketNameByTenantId(
-      tenantId,
-      'chat',
-      DEFAULT_BUCKET_NAME
-    );
+    // Get appropriate bucket name (tenant-specific for videos/audio files)
+    const bucketName = await getTenantBucketNameByTenantId(tenantId, 'videos');
     console.log(`Using bucket for upload operation: ${bucketName}`);
 
     // Use tenant-specific S3 client and bucket

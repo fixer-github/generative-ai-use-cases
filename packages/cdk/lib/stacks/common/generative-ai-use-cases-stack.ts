@@ -66,7 +66,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlAuthEnabled: params.samlAuthEnabled,
     });
 
-
     // Multi-Tenant Role
     const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
       userPool: auth.userPool,
@@ -288,6 +287,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       idPool: auth.idPool,
       api: api.api,
+      multiTenantRole: multiTenantRole.role,
+      environment: params.env,
+      defaultTenantId: 'default',
+      cdkAccount: this.account,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
     });

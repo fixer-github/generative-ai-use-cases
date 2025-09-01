@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Duration } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
@@ -7,22 +7,19 @@ import {
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Effect, Policy, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import {
-  BlockPublicAccess,
-  Bucket,
-  BucketEncryption,
-  HttpMethods,
-} from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface TranscribeProps {
   readonly userPool: UserPool;
   readonly idPool: IdentityPool;
   readonly api: RestApi;
+  readonly multiTenantRole: Role;
+  readonly environment?: string;
+  readonly defaultTenantId?: string;
+  readonly cdkAccount?: string;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
 }
@@ -31,48 +28,18 @@ export class Transcribe extends Construct {
   constructor(scope: Construct, id: string, props: TranscribeProps) {
     super(scope, id);
 
-    const audioBucket = new Bucket(this, 'AudioBucket', {
-      encryption: BucketEncryption.S3_MANAGED,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      enforceSSL: true,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-    });
-    audioBucket.addCorsRule({
-      allowedOrigins: ['*'],
-      allowedMethods: [HttpMethods.PUT],
-      allowedHeaders: ['*'],
-      exposedHeaders: [],
-      maxAge: 3000,
-    });
-
-    const transcriptBucket = new Bucket(this, 'TranscriptBucket', {
-      encryption: BucketEncryption.S3_MANAGED,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      enforceSSL: true,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-    });
-
     const getSignedUrlFunction = new NodejsFunction(this, 'GetSignedUrl', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getFileUploadSignedUrl.ts',
       timeout: Duration.minutes(15),
       environment: {
-        BUCKET_NAME: audioBucket.bucketName,
+        DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+        ENVIRONMENT: props.environment || 'dev',
+        CDK_ACCOUNT_ID: props.cdkAccount || this.account,
+        IDENTITY_POOL_ID: props.idPool.identityPoolId,
       },
     });
-    if (getSignedUrlFunction.role) {
-      allowS3AccessWithSourceIpCondition(
-        audioBucket.bucketName,
-        getSignedUrlFunction.role,
-        'write',
-        {
-          ipv4: props.allowedIpV4AddressRanges,
-          ipv6: props.allowedIpV6AddressRanges,
-        }
-      );
-    }
 
     const startTranscriptionFunction = new NodejsFunction(
       this,
@@ -82,7 +49,11 @@ export class Transcribe extends Construct {
         entry: './lambda/startTranscription.ts',
         timeout: Duration.minutes(15),
         environment: {
-          TRANSCRIPT_BUCKET_NAME: transcriptBucket.bucketName,
+          DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          ENVIRONMENT: props.environment || 'dev',
+          CDK_ACCOUNT_ID: props.cdkAccount || this.account,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
         },
         initialPolicy: [
           new PolicyStatement({
@@ -90,11 +61,14 @@ export class Transcribe extends Construct {
             actions: ['transcribe:*'],
             resources: ['*'],
           }),
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: [props.multiTenantRole.roleArn],
+          }),
         ],
       }
     );
-    audioBucket.grantRead(startTranscriptionFunction);
-    transcriptBucket.grantWrite(startTranscriptionFunction);
 
     const getTranscriptionFunction = new NodejsFunction(
       this,
@@ -103,16 +77,27 @@ export class Transcribe extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/getTranscription.ts',
         timeout: Duration.minutes(15),
+        environment: {
+          DEFAULT_TENANT_ID: props.defaultTenantId || 'default',
+          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
+          ENVIRONMENT: props.environment || 'dev',
+          CDK_ACCOUNT_ID: props.cdkAccount || this.account,
+          IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        },
         initialPolicy: [
           new PolicyStatement({
             effect: Effect.ALLOW,
             actions: ['transcribe:*'],
             resources: ['*'],
           }),
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: [props.multiTenantRole.roleArn],
+          }),
         ],
       }
     );
-    transcriptBucket.grantRead(getTranscriptionFunction);
 
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {

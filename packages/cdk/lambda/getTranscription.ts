@@ -5,6 +5,9 @@ import {
 } from '@aws-sdk/client-transcribe';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetTranscriptionResponse, Transcript } from 'generative-ai-use-cases';
+import { getTenantId } from './utils/tenantUtils';
+import { createTenantS3Client } from './utils/tenantS3Client';
+import { isDefaultTenant } from './utils/tenantS3Utils';
 
 function parseS3Url(s3Url: string) {
   const url = new URL(s3Url);
@@ -21,21 +24,46 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const transcribeClient = new TranscribeClient({});
-    const s3Client = new S3Client({});
     const jobName = event.pathParameters!.jobName;
     const userId = event.requestContext.authorizer!.claims.sub;
+
+    // Extract tenant ID from Cognito claims
+    const tenantId = getTenantId(event);
+    console.log(
+      `Getting transcription for tenant: ${tenantId}, user: ${userId}, job: ${jobName}`
+    );
 
     const command = new GetTranscriptionJobCommand({
       TranscriptionJobName: jobName,
     });
     const res = await transcribeClient.send(command);
 
-    if (
-      // Return Forbidden error if the user who started the job is different
-      res.TranscriptionJob?.Tags!.find(
-        (tag) => tag.Key === 'userId' && tag.Value !== userId
-      )
-    ) {
+    // Validate both userId and tenantId for security
+    const userIdTag = res.TranscriptionJob?.Tags?.find(
+      (tag) => tag.Key === 'userId'
+    );
+    const tenantIdTag = res.TranscriptionJob?.Tags?.find(
+      (tag) => tag.Key === 'tenantId'
+    );
+
+    if (userIdTag && userIdTag.Value !== userId) {
+      console.log(
+        `Access denied: userId mismatch. Expected: ${userId}, Found: ${userIdTag.Value}`
+      );
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({ message: 'Forbidden' }),
+      };
+    }
+
+    if (tenantIdTag && tenantIdTag.Value !== tenantId) {
+      console.log(
+        `Access denied: tenantId mismatch. Expected: ${tenantId}, Found: ${tenantIdTag.Value}`
+      );
       return {
         statusCode: 403,
         headers: {
@@ -50,6 +78,20 @@ export const handler = async (
       const { bucket, key } = parseS3Url(
         res.TranscriptionJob.Transcript!.TranscriptFileUri!
       );
+
+      // Use tenant-specific S3 client for reading transcript
+      let s3Client: S3Client;
+
+      if (isDefaultTenant(tenantId)) {
+        console.log('Using default S3 client for transcript retrieval');
+        s3Client = new S3Client({});
+      } else {
+        console.log(
+          'Creating tenant-specific S3 client for transcript retrieval'
+        );
+        s3Client = await createTenantS3Client(event);
+      }
+
       const s3Result = await s3Client.send(
         new GetObjectCommand({
           Bucket: bucket,

@@ -6,6 +6,8 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe';
 import { StartTranscriptionRequest } from 'generative-ai-use-cases';
+import { getTenantId } from './utils/tenantUtils';
+import { getTenantBucketNameByTenantId } from './utils/tenantS3Utils';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -15,9 +17,22 @@ export const handler = async (
     const req: StartTranscriptionRequest = JSON.parse(event.body!);
     const userId = event.requestContext.authorizer!.claims.sub;
 
+    // Extract tenant ID from Cognito claims
+    const tenantId = getTenantId(event);
+    console.log(
+      `Starting transcription for tenant: ${tenantId}, user: ${userId}`
+    );
+
     const { audioUrl, speakerLabel, maxSpeakers, languageCode } = req;
 
     const uuid = uuidv4();
+
+    // Get tenant-specific transcript bucket
+    const transcriptBucketName = await getTenantBucketNameByTenantId(
+      tenantId,
+      'transcripts'
+    );
+    console.log(`Using transcript bucket: ${transcriptBucketName}`);
 
     const command = new StartTranscriptionJobCommand({
       IdentifyLanguage: !languageCode, // Enable auto-detection when no language specified
@@ -29,11 +44,15 @@ export const handler = async (
         ShowSpeakerLabels: speakerLabel,
         MaxSpeakerLabels: speakerLabel ? maxSpeakers : undefined,
       },
-      OutputBucketName: process.env.TRANSCRIPT_BUCKET_NAME,
+      OutputBucketName: transcriptBucketName,
       Tags: [
         {
           Key: 'userId',
           Value: userId,
+        },
+        {
+          Key: 'tenantId',
+          Value: tenantId,
         },
       ],
     });
