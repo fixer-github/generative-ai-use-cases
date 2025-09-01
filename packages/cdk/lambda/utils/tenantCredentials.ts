@@ -5,7 +5,6 @@ import {
   GetIdCommand,
   Credentials,
 } from '@aws-sdk/client-cognito-identity';
-import * as crypto from 'crypto';
 
 // Maximum retries for Cognito Identity operations
 const MAX_RETRIES = 3;

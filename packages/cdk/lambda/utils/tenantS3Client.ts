@@ -1,5 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { STSClient, AssumeRoleCommand, Credentials } from '@aws-sdk/client-sts';
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantCredentials } from './tenantCredentials';
 import { isDefaultTenant } from './tenantS3Utils';

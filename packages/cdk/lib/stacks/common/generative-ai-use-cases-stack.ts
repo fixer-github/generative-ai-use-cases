@@ -287,9 +287,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       idPool: auth.idPool,
       api: api.api,
-      multiTenantRole: multiTenantRole.role,
-      environment: params.env,
-      cdkAccount: this.account,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
     });

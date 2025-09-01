@@ -1,4 +1,4 @@
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
@@ -7,7 +7,7 @@ import {
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { Effect, Policy, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
+import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
@@ -16,9 +16,6 @@ export interface TranscribeProps {
   readonly userPool: UserPool;
   readonly idPool: IdentityPool;
   readonly api: RestApi;
-  readonly multiTenantRole: Role;
-  readonly environment?: string;
-  readonly cdkAccount?: string;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
 }
@@ -35,10 +32,9 @@ export class Transcribe extends Construct {
       timeout: Duration.minutes(15),
       environment: {
         DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-        ENVIRONMENT: props.environment || 'dev',
-        CDK_ACCOUNT_ID: props.cdkAccount || this.account,
         IDENTITY_POOL_ID: props.idPool.identityPoolId,
+        USER_POOL_ID: props.userPool.userPoolId,
+        AWS_REGION: Stack.of(this).region,
       },
     });
 
@@ -51,21 +47,15 @@ export class Transcribe extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          ENVIRONMENT: props.environment || 'dev',
-          CDK_ACCOUNT_ID: props.cdkAccount || this.account,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
+          USER_POOL_ID: props.userPool.userPoolId,
+          AWS_REGION: Stack.of(this).region,
         },
         initialPolicy: [
           new PolicyStatement({
             effect: Effect.ALLOW,
             actions: ['transcribe:*'],
             resources: ['*'],
-          }),
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['sts:AssumeRole'],
-            resources: [props.multiTenantRole.roleArn],
           }),
         ],
       }
@@ -80,21 +70,15 @@ export class Transcribe extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          MULTI_TENANT_ROLE_ARN: props.multiTenantRole.roleArn,
-          ENVIRONMENT: props.environment || 'dev',
-          CDK_ACCOUNT_ID: props.cdkAccount || this.account,
           IDENTITY_POOL_ID: props.idPool.identityPoolId,
+          USER_POOL_ID: props.userPool.userPoolId,
+          AWS_REGION: Stack.of(this).region,
         },
         initialPolicy: [
           new PolicyStatement({
             effect: Effect.ALLOW,
             actions: ['transcribe:*'],
             resources: ['*'],
-          }),
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['sts:AssumeRole'],
-            resources: [props.multiTenantRole.roleArn],
           }),
         ],
       }
