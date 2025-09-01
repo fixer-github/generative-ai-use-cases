@@ -81,11 +81,21 @@ describe('TenantS3 Tests', () => {
       expect(tenantS3.videosBucketName.length).toBeLessThanOrEqual(63);
 
       // Check that names follow the expected pattern
-      expect(tenantS3.documentsBucketName).toMatch(/^docs-dev-tenant-test-tenant-short-[a-f0-9]+$/);
-      expect(tenantS3.chatBucketName).toMatch(/^chat-dev-tenant-test-tenant-short-[a-f0-9]+$/);
-      expect(tenantS3.analyticsBucketName).toMatch(/^analytics-dev-tenant-test-tenant-short-[a-f0-9]+$/);
-      expect(tenantS3.transcriptsBucketName).toMatch(/^transcripts-dev-tenant-test-tenant-short-[a-f0-9]+$/);
-      expect(tenantS3.videosBucketName).toMatch(/^videos-dev-tenant-test-tenant-short-[a-f0-9]+$/);
+      expect(tenantS3.documentsBucketName).toMatch(
+        /^docs-dev-tenant-test-tenant-short-[a-f0-9]+$/
+      );
+      expect(tenantS3.chatBucketName).toMatch(
+        /^chat-dev-tenant-test-tenant-short-[a-f0-9]+$/
+      );
+      expect(tenantS3.analyticsBucketName).toMatch(
+        /^analytics-dev-tenant-test-tenant-short-[a-f0-9]+$/
+      );
+      expect(tenantS3.transcriptsBucketName).toMatch(
+        /^transcripts-dev-tenant-test-tenant-short-[a-f0-9]+$/
+      );
+      expect(tenantS3.videosBucketName).toMatch(
+        /^videos-dev-tenant-test-tenant-short-[a-f0-9]+$/
+      );
     });
 
     test('Should sanitize tenant ID for resource names', () => {
@@ -101,11 +111,21 @@ describe('TenantS3 Tests', () => {
 
       // Assert
       // Check that special characters are replaced with hyphens and converted to lowercase
-      expect(tenantS3.documentsBucketName).toMatch(/^docs-dev-tenant-test-tenant-123--[a-f0-9]+$/);
-      expect(tenantS3.chatBucketName).toMatch(/^chat-dev-tenant-test-tenant-123--[a-f0-9]+$/);
-      expect(tenantS3.analyticsBucketName).toMatch(/^analytics-dev-tenant-test-tenant-123--[a-f0-9]+$/);
-      expect(tenantS3.transcriptsBucketName).toMatch(/^transcripts-dev-tenant-test-tenant-123--[a-f0-9]+$/);
-      expect(tenantS3.videosBucketName).toMatch(/^videos-dev-tenant-test-tenant-123--[a-f0-9]+$/);
+      expect(tenantS3.documentsBucketName).toMatch(
+        /^docs-dev-tenant-test-tenant-123--[a-f0-9]+$/
+      );
+      expect(tenantS3.chatBucketName).toMatch(
+        /^chat-dev-tenant-test-tenant-123--[a-f0-9]+$/
+      );
+      expect(tenantS3.analyticsBucketName).toMatch(
+        /^analytics-dev-tenant-test-tenant-123--[a-f0-9]+$/
+      );
+      expect(tenantS3.transcriptsBucketName).toMatch(
+        /^transcripts-dev-tenant-test-tenant-123--[a-f0-9]+$/
+      );
+      expect(tenantS3.videosBucketName).toMatch(
+        /^videos-dev-tenant-test-tenant-123--[a-f0-9]+$/
+      );
     });
 
     test('Should throw error if tenant ID is empty', () => {
@@ -219,12 +239,17 @@ describe('TenantS3 Tests', () => {
       });
 
       // Assert
-      expect(tenantS3.documentsBucketName).toMatch(/^custom-docs-dev-tenant-test-tenant-custom-[a-f0-9]+$/);
-      expect(tenantS3.chatBucketName).toMatch(/^custom-chat-dev-tenant-test-tenant-custom-[a-f0-9]+$/);
-      expect(tenantS3.analyticsBucketName).toMatch(/^custom-analytics-dev-tenant-test-tenant-custom-[a-f0-9]+$/);
+      expect(tenantS3.documentsBucketName).toMatch(
+        /^custom-docs-dev-tenant-test-tenant-custom-[a-f0-9]+$/
+      );
+      expect(tenantS3.chatBucketName).toMatch(
+        /^custom-chat-dev-tenant-test-tenant-custom-[a-f0-9]+$/
+      );
+      expect(tenantS3.analyticsBucketName).toMatch(
+        /^custom-analytics-dev-tenant-test-tenant-custom-[a-f0-9]+$/
+      );
       // Note: custom base names are only tested for the three original buckets
     });
-
 
     test('Should throw error for overly long names', () => {
       // Arrange
@@ -362,11 +387,21 @@ describe('TenantS3 Tests', () => {
 
       // Check that bucket names are stored correctly in the construct
       const tenantS3 = tenantS3Stack.getTenantS3();
-      expect(tenantS3.documentsBucketName).toMatch(/^docs-dev-tenant-getter-test-tenant-[a-f0-9]+$/);
-      expect(tenantS3.chatBucketName).toMatch(/^chat-dev-tenant-getter-test-tenant-[a-f0-9]+$/);
-      expect(tenantS3.analyticsBucketName).toMatch(/^analytics-dev-tenant-getter-test-tenant-[a-f0-9]+$/);
-      expect(tenantS3.transcriptsBucketName).toMatch(/^transcripts-dev-tenant-getter-test-tenant-[a-f0-9]+$/);
-      expect(tenantS3.videosBucketName).toMatch(/^videos-dev-tenant-getter-test-tenant-[a-f0-9]+$/);
+      expect(tenantS3.documentsBucketName).toMatch(
+        /^docs-dev-tenant-getter-test-tenant-[a-f0-9]+$/
+      );
+      expect(tenantS3.chatBucketName).toMatch(
+        /^chat-dev-tenant-getter-test-tenant-[a-f0-9]+$/
+      );
+      expect(tenantS3.analyticsBucketName).toMatch(
+        /^analytics-dev-tenant-getter-test-tenant-[a-f0-9]+$/
+      );
+      expect(tenantS3.transcriptsBucketName).toMatch(
+        /^transcripts-dev-tenant-getter-test-tenant-[a-f0-9]+$/
+      );
+      expect(tenantS3.videosBucketName).toMatch(
+        /^videos-dev-tenant-getter-test-tenant-[a-f0-9]+$/
+      );
     });
   });
 });
