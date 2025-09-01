@@ -8,7 +8,6 @@ import {
 import { Readable } from 'stream';
 import { VideoJob } from 'generative-ai-use-cases';
 import { updateJobStatus } from './repositoryVideoJob';
-import { createTenantS3ClientForBackgroundJob } from './utils/tenantS3Client';
 import { getVideoBucketsForCopy } from './utils/videoBucketUtils';
 
 type VideoJobWithTenant = VideoJob & {
@@ -26,14 +25,10 @@ const copyAndDeleteObject = async (
   srcBucket: string,
   srcRegion: string,
   dstBucket: string,
-  dstRegion: string,
-  tenantId?: string
+  dstRegion: string
 ) => {
   const srcS3 = new S3Client({ region: srcRegion });
-  const dstS3 = await createTenantS3ClientForBackgroundJob(
-    tenantId || 'default',
-    dstRegion
-  );
+  const dstS3 = new S3Client({ region: dstRegion });
 
   const { Body, ContentType, ContentLength } = await srcS3.send(
     new GetObjectCommand({
@@ -109,8 +104,7 @@ export const handler = async (event: CopyVideoJobParams): Promise<void> => {
       bucketConfig.srcBucket!,
       job.region,
       bucketConfig.dstBucket,
-      dstRegion,
-      tenantId
+      dstRegion
     );
 
     await updateJobStatus(job, 'Completed');

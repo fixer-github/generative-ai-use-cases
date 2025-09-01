@@ -1,11 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantCredentials } from './tenantCredentials';
-import { isDefaultTenant } from './tenantS3Utils';
-
-const MULTI_TENANT_ROLE_ARN = process.env.MULTI_TENANT_ROLE_ARN!;
-const stsClient = new STSClient();
 
 /**
  * Create an S3 client with tenant-isolated credentials from Cognito Identity Pool
@@ -40,52 +35,17 @@ export async function createTenantS3Client(
 }
 
 /**
- * Create an S3 client with tenant-isolated credentials for background jobs
- * Uses STS AssumeRole with session tags to maintain ABAC security
- * For use in background lambdas that don't have API Gateway events
+ * Create an S3 client for background jobs
+ * Since background jobs work with buckets they already have access to,
+ * we simply use the Lambda's own execution role credentials
  */
 export async function createTenantS3ClientForBackgroundJob(
   tenantId: string,
   region?: string
 ): Promise<S3Client> {
-  // Use default credentials for default tenant
-  if (isDefaultTenant(tenantId)) {
-    return new S3Client({ region: region || process.env.AWS_REGION! });
-  }
-
-  // Assume multi-tenant role with tenant ID as session tag for ABAC
-  try {
-    const assumeRoleCommand = new AssumeRoleCommand({
-      RoleArn: MULTI_TENANT_ROLE_ARN,
-      RoleSessionName: `BackgroundJob-${tenantId}`,
-      Tags: [
-        {
-          Key: 'TenantID',
-          Value: tenantId,
-        },
-      ],
-    });
-
-    const response = await stsClient.send(assumeRoleCommand);
-    if (!response.Credentials) {
-      throw new Error(`Failed to assume role for tenant: ${tenantId}`);
-    }
-
-    return new S3Client({
-      region: region || process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: response.Credentials.AccessKeyId!,
-        secretAccessKey: response.Credentials.SecretAccessKey!,
-        sessionToken: response.Credentials.SessionToken!,
-      },
-    });
-  } catch (error) {
-    console.error(
-      `Failed to get tenant-specific S3 client for tenant ${tenantId}:`,
-      error
-    );
-    // Fall back to default credentials
-    console.warn(`Falling back to default S3 client for tenant: ${tenantId}`);
-    return new S3Client({ region: region || process.env.AWS_REGION! });
-  }
+  // For background jobs, use the Lambda's own execution role
+  // This works because:
+  // - For default tenant: copyVideoJob copies from temp to default bucket (both accessible)
+  // - For tenant users: no copy is needed (needsCopy: false), just status updates
+  return new S3Client({ region: region || process.env.AWS_REGION! });
 }

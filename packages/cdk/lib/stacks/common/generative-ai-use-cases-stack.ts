@@ -106,7 +106,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       queryDecompositionEnabled: params.queryDecompositionEnabled,
       rerankingModelId: params.rerankingModelId,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-      multiTenantRoleArn: multiTenantRole.role.roleArn,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       litellmEndpoint: litellmEndpoint,
@@ -428,10 +427,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: litellmEndpoint ?? '',
     });
 
-    new CfnOutput(this, 'MultiTenantRoleArn', {
-      value: multiTenantRole.role.roleArn,
-      description: 'ARN of the single role for multi-tenant resource access',
-    });
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
