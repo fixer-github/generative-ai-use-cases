@@ -10,8 +10,6 @@ import {
   isDefaultTenant,
 } from './utils/tenantS3Utils';
 
-// Constants - removed DEFAULT_BUCKET_NAME as we use tenant-specific buckets
-
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
