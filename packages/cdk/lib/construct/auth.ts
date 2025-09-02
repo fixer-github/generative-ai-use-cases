@@ -29,8 +29,11 @@ export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly allowedSignUpEmailDomains?: string[] | null;
-  readonly allowedSignUpEmails?: string[] | null;
+  readonly selfSignUpTenantMap?: {
+    tenantId: string;
+    domains?: string[];
+    emails?: string[];
+  }[] | null;
   readonly samlAuthEnabled: boolean;
   readonly samlDefaultAuthEnabled: boolean;
 }
@@ -152,28 +155,19 @@ export class Auth extends Construct {
     );
 
     // Lambda
-    if (props.allowedSignUpEmailDomains || props.allowedSignUpEmails) {
-      const checkEmailDomainFunction = new NodejsFunction(
-        this,
-        'CheckEmailDomain',
-        {
-          runtime: LAMBDA_RUNTIME_NODEJS,
-          entry: './lambda/checkEmailDomain.ts',
-          timeout: Duration.minutes(15),
-          environment: {
-            ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR: JSON.stringify(
-              props.allowedSignUpEmailDomains || []
-            ),
-            ALLOWED_SIGN_UP_EMAILS_STR: JSON.stringify(
-              props.allowedSignUpEmails || []
-            ),
-          },
-        }
-      );
+    if (props.selfSignUpTenantMap && props.selfSignUpTenantMap.length > 0) {
+      const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/assignTenant.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
+        },
+      });
 
       userPool.addTrigger(
         UserPoolOperation.PRE_SIGN_UP,
-        checkEmailDomainFunction
+        assignTenantFunction
       );
     }
 
