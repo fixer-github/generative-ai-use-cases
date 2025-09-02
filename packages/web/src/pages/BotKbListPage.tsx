@@ -6,7 +6,6 @@ import {
   Collection,
   Flex,
   Heading,
-  Link,
   Loader,
   Menu,
   MenuButton,
@@ -18,10 +17,6 @@ import {
   View,
 } from '@aws-amplify/ui-react';
 import {
-  PiDot,
-  PiDotsSix,
-  PiDotsThree,
-  PiDotsThreeBold,
   PiDotsThreeOutlineFill,
   PiPlusBold,
   PiShare,
