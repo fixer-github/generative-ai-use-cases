@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Autocomplete,
   Badge,
   Button,
   Card,
@@ -15,14 +14,7 @@ import {
   Text,
   View,
 } from '@aws-amplify/ui-react';
-import {
-  PiPlus,
-  PiPlusBold,
-  PiShare,
-  PiSparkle,
-  PiSparkleBold,
-  PiUpload,
-} from 'react-icons/pi';
+import { PiPlusBold, PiShare, PiSparkleBold, PiUpload } from 'react-icons/pi';
 
 // -------------------------
 // ダミーデータ
@@ -141,11 +133,6 @@ const DUMMY_BOTS: RagBot[] = [
     model: 'GPT-4.1',
   },
 ];
-
-type BadgesProps = {
-  status: 'Ready' | 'Draft' | 'Indexing' | 'Error';
-  visibility: Visibility;
-};
 
 type InformationProgressProps = {
   progress: number;
@@ -294,11 +281,7 @@ const TopSection: React.FC = () => {
   );
 };
 
-type SearchSectionProps = {
-  bots: RagBot[];
-};
-
-const SearchSection: React.FC<SearchSectionProps> = ({ bots }) => {
+const SearchSection: React.FC = () => {
   // TODO: これハードコーディングでいいんかな
   const status = ['All', 'Ready', 'Draft', 'Indexing', 'Error'];
   const visibility = ['All', 'Private', 'Tenant', 'Public'];
@@ -341,7 +324,7 @@ const BotKbListPage: React.FC = () => {
   return (
     <div className="p-4">
       <TopSection />
-      <SearchSection bots={bots} />
+      <SearchSection />
 
       <Collection
         direction="row"
