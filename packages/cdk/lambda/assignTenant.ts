@@ -12,7 +12,6 @@ interface TenantMapEntry {
 
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
 const TENANT_MAP: TenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
-const USER_POOL_ID = process.env.USER_POOL_ID;
 
 const cognito = new CognitoIdentityProviderClient({});
 
@@ -43,12 +42,10 @@ exports.handler = async (event: PostConfirmationTriggerEvent) => {
       }
       throw new Error('Unknown tenant');
     }
-    if (!USER_POOL_ID) {
-      throw new Error('USER_POOL_ID is not set');
-    }
+
     await cognito.send(
       new AdminUpdateUserAttributesCommand({
-        UserPoolId: USER_POOL_ID,
+        UserPoolId: event.userPoolId,
         Username: event.userName,
         UserAttributes: [{ Name: 'custom:tenant_id', Value: tenantId }],
       })

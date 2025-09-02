@@ -175,7 +175,6 @@ export class Auth extends Construct {
         timeout: Duration.minutes(15),
         environment: {
           SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
-          USER_POOL_ID: userPool.userPoolId,
         },
       });
 
@@ -183,10 +182,9 @@ export class Auth extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['cognito-idp:AdminUpdateUserAttributes'],
-          resources: [userPool.userPoolArn],
+          resources: ['*'],
         })
       );
-
       userPool.addTrigger(
         UserPoolOperation.POST_CONFIRMATION,
         assignTenantFunction
