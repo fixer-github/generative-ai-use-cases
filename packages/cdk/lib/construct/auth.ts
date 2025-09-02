@@ -161,7 +161,7 @@ export class Auth extends Construct {
       const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/checkTenant.ts',
-        timeout: Duration.minutes(15),
+        timeout: Duration.seconds(30),
         environment: {
           SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
         },
@@ -172,7 +172,7 @@ export class Auth extends Construct {
       const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/assignTenant.ts',
-        timeout: Duration.minutes(15),
+        timeout: Duration.seconds(30),
         environment: {
           SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
         },
