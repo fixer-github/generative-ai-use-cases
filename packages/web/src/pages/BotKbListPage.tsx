@@ -1,6 +1,28 @@
 import React from 'react';
-import { PiStarFill, PiStarBold } from 'react-icons/pi';
-import { Card, Grid, Heading, Link } from '@aws-amplify/ui-react';
+import {
+  Autocomplete,
+  Badge,
+  Button,
+  Card,
+  Collection,
+  Flex,
+  Heading,
+  Link,
+  Loader,
+  Rating,
+  SearchField,
+  SelectField,
+  Text,
+  View,
+} from '@aws-amplify/ui-react';
+import {
+  PiPlus,
+  PiPlusBold,
+  PiShare,
+  PiSparkle,
+  PiSparkleBold,
+  PiUpload,
+} from 'react-icons/pi';
 
 // -------------------------
 // ダミーデータ
@@ -120,36 +142,85 @@ const DUMMY_BOTS: RagBot[] = [
   },
 ];
 
-type RatingProps = {
-  rating: number;
+type BadgesProps = {
+  status: 'Ready' | 'Draft' | 'Indexing' | 'Error';
+  visibility: Visibility;
 };
 
-const Rating: React.FC<RatingProps> = ({ rating }) => {
-  const starCount = Math.floor(rating);
-
-  const fillStars = [];
-
-  for (let i = 0; i < starCount; i++) {
-    fillStars.push(<PiStarFill />);
-  }
-  for (let i = starCount; i < 5; i++) {
-    fillStars.push(<PiStarBold />);
-  }
-
-  return <div className="flex flex-row">{fillStars.map((star) => star)}</div>;
+type InformationProgressProps = {
+  progress: number;
 };
 
-type TagProps = {
-  tag: string;
-};
-
-const Tag: React.FC<TagProps> = ({ tag }) => {
+const InformationProgress: React.FC<InformationProgressProps> = ({
+  progress,
+}) => {
   return (
-    <a
-      className="rounded-full border-2 border-slate-200 px-3 text-sm font-bold hover:bg-slate-200"
-      href={`/bot/tags/${tag}`}>
-      #{tag}
-    </a>
+    <>
+      <Flex direction={'row'} justifyContent={'space-between'}>
+        <Text fontSize="0.8em" variation="tertiary">
+          インデックス作成中
+        </Text>
+        <Text fontSize="0.8em" variation="tertiary">
+          {progress}%
+        </Text>
+      </Flex>
+      <Loader
+        size="large"
+        variation="linear"
+        isDeterminate
+        isPercentageTextHidden
+        percentage={progress}
+      />
+    </>
+  );
+};
+
+type InformationProps = {
+  bot: RagBot;
+};
+
+const Information: React.FC<InformationProps> = ({ bot }) => {
+  const convertStatus = () => {
+    switch (bot.status.status) {
+      case 'Ready':
+        return 'success';
+      case 'Indexing':
+        return 'warning';
+      case 'Error':
+        return 'error';
+    }
+  };
+
+  const convertVisibility = () => {
+    switch (bot.visibility) {
+      case 'Tenant':
+        return 'success';
+      case 'Public':
+        return 'info';
+    }
+  };
+
+  const status = convertStatus();
+  const visibility = convertVisibility();
+
+  return (
+    <View>
+      <Flex direction="row" gap="small">
+        <Badge variation={status}>{bot.status.status}</Badge>
+        <Badge variation={visibility}>{bot.visibility}</Badge>
+        <Badge>KB {bot.kbCount}</Badge>
+        <Badge>Files {bot.fileCount}</Badge>
+      </Flex>
+      <Text isTruncated fontSize="0.8em">
+        {bot.description}
+      </Text>
+      {bot.status.status === 'Indexing' && (
+        <InformationProgress progress={bot.status.progress} />
+      )}
+      {bot.status.status === 'Error' && (
+        <Badge variation="error">{bot.status.message}</Badge>
+      )}
+    </View>
   );
 };
 
@@ -159,11 +230,13 @@ type TagsProps = {
 
 const Tags: React.FC<TagsProps> = ({ tags }) => {
   return (
-    <div className="flex flex-row gap-1">
+    <Flex direction="row" gap="xxs">
       {tags.map((tag) => (
-        <Tag tag={tag} />
+        <Text variation="primary" as="p">
+          #{tag}
+        </Text>
       ))}
-    </div>
+    </Flex>
   );
 };
 
@@ -173,29 +246,111 @@ type RagBotCardProps = {
 
 const RagBotCard: React.FC<RagBotCardProps> = ({ bot }) => {
   return (
-    <Card variation="elevated">
-      <Link className="underline-offset-2 hover:underline">
+    <Card variation="elevated" width="400px">
+      <Link backgroundColor="blue.90">
         <Heading level={6}>{bot.name}</Heading>
       </Link>
-      <div>{bot.description}</div>
-      <Rating rating={bot.rating} />
+      <Information bot={bot} />
+      <Flex direction="row" justifyContent="space-between">
+        <Rating size="small" maxValue={5} value={bot.rating} />
+        <Text fontSize="0.8em">
+          更新: {new Date(bot.lastUpdated).toLocaleString('ja-JP')}
+        </Text>
+      </Flex>
       <Tags tags={bot.tags} />
+      <Flex direction="row" alignItems="center">
+        <Text grow={1}>7日間の利用: {bot.usage7d}</Text>
+        <Button size="small">
+          <PiSparkleBold className="mr-4" />
+          開く
+        </Button>
+        <Button variation="primary" size="small">
+          <PiShare className="mr-4" />
+          共有
+        </Button>
+      </Flex>
     </Card>
   );
 };
+
+const TopSection: React.FC = () => {
+  return (
+    <Flex direction="row" alignItems="center">
+      <Flex direction="column" grow={1}>
+        <Heading level={2}>RAGチャットボット</Heading>
+        <Text variation="secondary" fontSize="1.2em">
+          テナント内で作成・共有されたRAGエージェントの一覧
+        </Text>
+      </Flex>
+      <Button>
+        <PiUpload className="mr-4" />
+        ファイルをアップロード
+      </Button>
+      <Button variation="primary">
+        <PiPlusBold className="mr-4" />
+        新規ボット作成
+      </Button>
+    </Flex>
+  );
+};
+
+type SearchSectionProps = {
+  bots: RagBot[];
+};
+
+const SearchSection: React.FC<SearchSectionProps> = ({ bots }) => {
+  // TODO: これハードコーディングでいいんかな
+  const status = ['All', 'Ready', 'Draft', 'Indexing', 'Error'];
+  const visibility = ['All', 'Private', 'Tenant', 'Public'];
+
+  return (
+    <Flex direction="row">
+      <SearchField
+        label="Search"
+        placeholder="検索: 名前・説明・タグ"
+        hasSearchButton={false}
+        hasSearchIcon
+        grow={1}
+      />
+      <SelectField label="Status" labelHidden>
+        {status.map((value) => (
+          <option value={value}>{value}</option>
+        ))}
+      </SelectField>
+      <SelectField label="Visibility" labelHidden>
+        {visibility.map((value) => (
+          <option value={value}>{value}</option>
+        ))}
+      </SelectField>
+      <SelectField label="Sort" labelHidden>
+        <option value="newer">更新が新しい順</option>
+        <option value="older">更新が古い順</option>
+      </SelectField>
+    </Flex>
+  );
+};
+
+/*
+ * TODO:
+ * - Gridをいい感じにする
+ */
 
 const BotKbListPage: React.FC = () => {
   const bots = DUMMY_BOTS;
 
   return (
     <div className="p-4">
-      <Heading level={2}>RAGチャットボット</Heading>
+      <TopSection />
+      <SearchSection bots={bots} />
 
-      <Grid gap="1rem" autoColumns={'auto'}>
-        {bots.map((bot) => (
-          <RagBotCard bot={bot} />
-        ))}
-      </Grid>
+      <Collection
+        direction="row"
+        gap="small"
+        wrap="wrap"
+        items={bots}
+        type="list">
+        {(bot) => <RagBotCard bot={bot} />}
+      </Collection>
     </div>
   );
 };
