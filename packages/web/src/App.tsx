@@ -94,7 +94,7 @@ const App: React.FC = () => {
     },
     {
       label: t('navigation.bot'),
-      to: '/bot/new',
+      to: '/bot',
       icon: <PiRobotFill />,
       display: 'usecase' as const,
       sub: 'Coming soon',
