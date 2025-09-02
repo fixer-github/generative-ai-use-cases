@@ -334,11 +334,6 @@ const SearchSection: React.FC = () => {
   );
 };
 
-/*
- * TODO:
- * - Gridをいい感じにする
- */
-
 const BotKbListPage: React.FC = () => {
   const bots = DUMMY_BOTS;
 
