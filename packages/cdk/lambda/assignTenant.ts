@@ -1,4 +1,8 @@
-import { PreSignUpTriggerEvent, Context, Callback } from 'aws-lambda';
+import { PostConfirmationTriggerEvent } from 'aws-lambda';
+import {
+  CognitoIdentityProviderClient,
+  AdminUpdateUserAttributesCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 
 interface TenantMapEntry {
   tenantId: string;
@@ -8,6 +12,9 @@ interface TenantMapEntry {
 
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
 const TENANT_MAP: TenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
+const USER_POOL_ID = process.env.USER_POOL_ID;
+
+const cognito = new CognitoIdentityProviderClient({});
 
 const findTenantId = (email: string): string | null => {
   if (email.split('@').length !== 2) {
@@ -25,29 +32,30 @@ const findTenantId = (email: string): string | null => {
   return null;
 };
 
-exports.handler = async (
-  event: PreSignUpTriggerEvent,
-  _context: Context,
-  callback: Callback
-) => {
+exports.handler = async (event: PostConfirmationTriggerEvent) => {
   try {
     console.log('Received event:', JSON.stringify(event, null, 2));
     const email = event.request.userAttributes.email;
     const tenantId = findTenantId(email);
-    if (tenantId) {
-      event.request.userAttributes['custom:tenant_id'] = tenantId;
-      callback(null, event);
-    } else if (TENANT_MAP.length === 0) {
-      callback(null, event);
-    } else {
-      callback(new Error('Unknown tenant'));
+    if (!tenantId) {
+      if (TENANT_MAP.length === 0) {
+        return event;
+      }
+      throw new Error('Unknown tenant');
     }
+    if (!USER_POOL_ID) {
+      throw new Error('USER_POOL_ID is not set');
+    }
+    await cognito.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: event.userName,
+        UserAttributes: [{ Name: 'custom:tenant_id', Value: tenantId }],
+      })
+    );
+    return event;
   } catch (error) {
-    console.log('Error ocurred:', error);
-    if (error instanceof Error) {
-      callback(error);
-    } else {
-      callback(new Error('An unknown error occurred.'));
-    }
+    console.log('Error occurred:', error);
+    throw error;
   }
 };

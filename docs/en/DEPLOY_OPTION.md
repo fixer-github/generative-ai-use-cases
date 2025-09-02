@@ -1488,11 +1488,11 @@ const envs: Record<string, Partial<StackInput>> = {
 
 ### Map Tenants for Self Sign-up
 
-Use `selfSignUpTenantMap` to automatically assign a tenant ID based on the email used during sign-up.
+Use `selfSignUpTenantMap` to control who can sign up and automatically tag users with a tenant ID.
 
-Each entry in the map consists of `tenantId` and optional `domains` or `emails`. When a user signs up, the system checks the provided email address against the map:
+Each entry in the map consists of `tenantId` and optional `domains` or `emails`. When a user signs up, a Pre Sign-up Lambda checks the provided email address against the map:
 
-- If the email or its domain matches an entry, the user is associated with the corresponding `tenantId`.
+- If the email or its domain matches an entry, the sign-up request continues. The tenant ID will then be attached to the user by a Post Confirmation Lambda.
 - If no entry matches, the sign-up request is rejected.
 
 Configuration Example
