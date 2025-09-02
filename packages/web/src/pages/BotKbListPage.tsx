@@ -24,6 +24,7 @@ import {
   PiTrash,
   PiUpload,
 } from 'react-icons/pi';
+import { Link as ReactRouterLink } from 'react-router-dom';
 
 // -------------------------
 // ダミーデータ
@@ -294,7 +295,7 @@ const TopSection: React.FC = () => {
         <PiUpload className="mr-4" />
         ファイルをアップロード
       </Button>
-      <Button variation="primary">
+      <Button variation="primary" as={ReactRouterLink} to="/bot/new">
         <PiPlusBold className="mr-4" />
         新規ボット作成
       </Button>
