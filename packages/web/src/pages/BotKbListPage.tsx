@@ -8,13 +8,27 @@ import {
   Heading,
   Link,
   Loader,
+  Menu,
+  MenuButton,
+  MenuItem,
   Rating,
   SearchField,
   SelectField,
   Text,
   View,
 } from '@aws-amplify/ui-react';
-import { PiPlusBold, PiShare, PiSparkleBold, PiUpload } from 'react-icons/pi';
+import {
+  PiDot,
+  PiDotsSix,
+  PiDotsThree,
+  PiDotsThreeBold,
+  PiDotsThreeOutlineFill,
+  PiPlusBold,
+  PiShare,
+  PiSparkleBold,
+  PiTrash,
+  PiUpload,
+} from 'react-icons/pi';
 
 // -------------------------
 // ダミーデータ
@@ -143,7 +157,7 @@ const InformationProgress: React.FC<InformationProgressProps> = ({
 }) => {
   return (
     <>
-      <Flex direction={'row'} justifyContent={'space-between'}>
+      <Flex direction="row" justifyContent="space-between">
         <Text fontSize="0.8em" variation="tertiary">
           インデックス作成中
         </Text>
@@ -159,55 +173,6 @@ const InformationProgress: React.FC<InformationProgressProps> = ({
         percentage={progress}
       />
     </>
-  );
-};
-
-type InformationProps = {
-  bot: RagBot;
-};
-
-const Information: React.FC<InformationProps> = ({ bot }) => {
-  const convertStatus = () => {
-    switch (bot.status.status) {
-      case 'Ready':
-        return 'success';
-      case 'Indexing':
-        return 'warning';
-      case 'Error':
-        return 'error';
-    }
-  };
-
-  const convertVisibility = () => {
-    switch (bot.visibility) {
-      case 'Tenant':
-        return 'success';
-      case 'Public':
-        return 'info';
-    }
-  };
-
-  const status = convertStatus();
-  const visibility = convertVisibility();
-
-  return (
-    <View>
-      <Flex direction="row" gap="small">
-        <Badge variation={status}>{bot.status.status}</Badge>
-        <Badge variation={visibility}>{bot.visibility}</Badge>
-        <Badge>KB {bot.kbCount}</Badge>
-        <Badge>Files {bot.fileCount}</Badge>
-      </Flex>
-      <Text isTruncated fontSize="0.8em">
-        {bot.description}
-      </Text>
-      {bot.status.status === 'Indexing' && (
-        <InformationProgress progress={bot.status.progress} />
-      )}
-      {bot.status.status === 'Error' && (
-        <Badge variation="error">{bot.status.message}</Badge>
-      )}
-    </View>
   );
 };
 
@@ -232,29 +197,90 @@ type RagBotCardProps = {
 };
 
 const RagBotCard: React.FC<RagBotCardProps> = ({ bot }) => {
+  const convertStatus = () => {
+    switch (bot.status.status) {
+      case 'Ready':
+        return 'success';
+      case 'Indexing':
+        return 'warning';
+      case 'Error':
+        return 'error';
+    }
+  };
+
+  const convertVisibility = () => {
+    switch (bot.visibility) {
+      case 'Tenant':
+        return 'success';
+      case 'Public':
+        return 'info';
+    }
+  };
+
+  const status = convertStatus();
+  const visibility = convertVisibility();
+
   return (
     <Card variation="elevated" width="400px">
-      <Link backgroundColor="blue.90">
-        <Heading level={6}>{bot.name}</Heading>
-      </Link>
-      <Information bot={bot} />
-      <Flex direction="row" justifyContent="space-between">
-        <Rating size="small" maxValue={5} value={bot.rating} />
-        <Text fontSize="0.8em">
-          更新: {new Date(bot.lastUpdated).toLocaleString('ja-JP')}
+      <Flex direction="column" gap="xs">
+        <Flex
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center">
+          <Heading level={6}>{bot.name}</Heading>
+          <Menu
+            size="small"
+            trigger={
+              <MenuButton size="small" padding="xxs" variation="link">
+                <PiDotsThreeOutlineFill />
+              </MenuButton>
+            }>
+            <MenuItem variation="warning">
+              <PiTrash className="mr-4" />
+              削除
+            </MenuItem>
+          </Menu>
+        </Flex>
+        <Flex direction="row" gap="xxxs">
+          <Badge variation={status}>{bot.status.status}</Badge>
+          <Badge variation={visibility}>{bot.visibility}</Badge>
+          <Badge>KB {bot.kbCount}</Badge>
+          <Badge>Files {bot.fileCount}</Badge>
+        </Flex>
+        <Text isTruncated fontSize="0.8rem">
+          {bot.description}
         </Text>
-      </Flex>
-      <Tags tags={bot.tags} />
-      <Flex direction="row" alignItems="center">
-        <Text grow={1}>7日間の利用: {bot.usage7d}</Text>
-        <Button size="small">
-          <PiSparkleBold className="mr-4" />
-          開く
-        </Button>
-        <Button variation="primary" size="small">
-          <PiShare className="mr-4" />
-          共有
-        </Button>
+        {bot.status.status === 'Indexing' && (
+          <InformationProgress progress={bot.status.progress} />
+        )}
+        {bot.status.status === 'Error' && (
+          <Badge variation="error" alignSelf="flex-start">
+            {bot.status.message}
+          </Badge>
+        )}
+        <Flex
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center">
+          <Rating gap="xxxs" maxValue={5} value={bot.rating} />
+          <Text fontSize="0.8em">
+            更新: {new Date(bot.lastUpdated).toLocaleString('ja-JP')}
+          </Text>
+        </Flex>
+        <Tags tags={bot.tags} />
+        <Flex direction="row" alignItems="center">
+          <Text fontSize="0.8rem" grow={1}>
+            7日間の利用: {bot.usage7d}
+          </Text>
+          <Button size="small">
+            <PiSparkleBold className="mr-4" />
+            開く
+          </Button>
+          <Button variation="primary" size="small">
+            <PiShare className="mr-4" />
+            共有
+          </Button>
+        </Flex>
       </Flex>
     </Card>
   );
@@ -262,7 +288,7 @@ const RagBotCard: React.FC<RagBotCardProps> = ({ bot }) => {
 
 const TopSection: React.FC = () => {
   return (
-    <Flex direction="row" alignItems="center">
+    <Flex direction="row" alignItems="center" margin="medium">
       <Flex direction="column" grow={1}>
         <Heading level={2}>RAGチャットボット</Heading>
         <Text variation="secondary" fontSize="1.2em">
@@ -287,7 +313,7 @@ const SearchSection: React.FC = () => {
   const visibility = ['All', 'Private', 'Tenant', 'Public'];
 
   return (
-    <Flex direction="row">
+    <Flex direction="row" margin="medium">
       <SearchField
         label="Search"
         placeholder="検索: 名前・説明・タグ"
@@ -322,7 +348,7 @@ const BotKbListPage: React.FC = () => {
   const bots = DUMMY_BOTS;
 
   return (
-    <div className="p-4">
+    <View>
       <TopSection />
       <SearchSection />
 
@@ -331,10 +357,11 @@ const BotKbListPage: React.FC = () => {
         gap="small"
         wrap="wrap"
         items={bots}
-        type="list">
+        type="list"
+        margin="small">
         {(bot) => <RagBotCard bot={bot} />}
       </Collection>
-    </div>
+    </View>
   );
 };
 
