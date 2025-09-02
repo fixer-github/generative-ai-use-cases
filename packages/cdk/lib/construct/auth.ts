@@ -16,26 +16,19 @@ import {
   Policy,
   PolicyStatement,
   Role,
-  ServicePrincipal,
-  FederatedPrincipal,
   CfnRole,
 } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
+import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly selfSignUpTenantMap?:
-    | {
-        tenantId: string;
-        domains?: string[];
-        emails?: string[];
-      }[]
-    | null;
+  readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
   readonly samlAuthEnabled: boolean;
   readonly samlDefaultAuthEnabled: boolean;
 }

@@ -1,13 +1,8 @@
 import { PreSignUpTriggerEvent, Context, Callback } from 'aws-lambda';
-
-interface TenantMapEntry {
-  tenantId: string;
-  domains?: string[];
-  emails?: string[];
-}
+import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
-const TENANT_MAP: TenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
+const TENANT_MAP: SelfSignUpTenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
 
 const isAllowed = (email: string): boolean => {
   if (email.split('@').length !== 2) {

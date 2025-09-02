@@ -3,15 +3,11 @@ import {
   CognitoIdentityProviderClient,
   AdminUpdateUserAttributesCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 
-interface TenantMapEntry {
-  tenantId: string;
-  domains?: string[];
-  emails?: string[];
-}
 
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
-const TENANT_MAP: TenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
+const TENANT_MAP: SelfSignUpTenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
 
 const cognito = new CognitoIdentityProviderClient({});
 
