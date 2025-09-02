@@ -93,18 +93,18 @@ const AuthWithSamlOrUserpool: React.FC<Props> = (props) => {
       ) : !authenticated ? (
         <div className="grid grid-cols-1 justify-items-center gap-4">
           <Text className="mt-12 text-center text-3xl">{t('auth.title')}</Text>
-          <Button
-            variation="primary"
-            onClick={() => signIn()}
-            className="mt-6 w-60">
-            {t('auth.login')}
-          </Button>
           <Authenticator
             hideSignUp={!selfSignUpEnabled}
             components={{
               Header: () => null,
             }}
           />
+          <Button
+            variation="primary"
+            onClick={() => signIn()}
+            className="mt-6 w-60">
+            {t('auth.loginWith', { provider: samlCognitoFederatedIdentityProviderName })}
+          </Button>
         </div>
       ) : (
         <>{props.children}</>
