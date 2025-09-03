@@ -11,18 +11,21 @@ import {
 } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Duration } from 'aws-cdk-lib';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import * as ddb from 'aws-cdk-lib/aws-dynamodb';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface UseCaseBuilderProps {
   readonly userPool: UserPool;
   readonly api: RestApi;
+  readonly idPool: IdentityPool;
+  readonly environment: string;
 }
 export class UseCaseBuilder extends Construct {
   constructor(scope: Construct, id: string, props: UseCaseBuilderProps) {
     super(scope, id);
 
-    const { userPool, api } = props;
+    const { userPool, api, idPool, environment } = props;
 
     const useCaseIdIndexName = 'UseCaseIdIndexName';
     const useCaseBuilderTable = new ddb.Table(this, 'UseCaseBuilderTable', {
@@ -50,11 +53,19 @@ export class UseCaseBuilder extends Construct {
       projectionType: ddb.ProjectionType.ALL,
     });
 
+    const TABLE_PREFIX = 'UseCaseBuilder';
+    const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || 'default';
+
     const commonProperty: NodejsFunctionProps = {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.minutes(15),
       environment: {
-        USECASE_TABLE_NAME: useCaseBuilderTable.tableName,
+        USECASE_TABLE_NAME: TABLE_PREFIX,
+        DEFAULT_USECASE_TABLE_NAME: useCaseBuilderTable.tableName,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        ENVIRONMENT: environment,
+        IDENTITY_POOL_ID: idPool.identityPoolId,
+        USER_POOL_ID: userPool.userPoolId,
         USECASE_ID_INDEX_NAME: useCaseIdIndexName,
       },
     };

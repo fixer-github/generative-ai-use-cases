@@ -1,34 +1,47 @@
 import * as cdk from 'aws-cdk-lib';
-import { TenantIamRoleStack } from './stacks/tenant/tenant-iam-role-stack';
+import { TenantDynamoDBStack } from './stacks/tenant/tenant-dynamodb-stack';
+import { TenantS3Stack } from './stacks/tenant/tenant-s3-stack';
 
 export interface TenantStackInput {
   account?: string;
   region: string;
   tenantId: string;
-  identityProviderArn?: string;
-  audience?: string;
-  tenantIdClaim?: string;
-  roleName?: string;
+  environment: string;
+  removalPolicy: boolean;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
-  // Tenant IAM Role Stack
-  const tenantIamRoleStack = new TenantIamRoleStack(
+  // Tenant DynamoDB Stack
+  const tenantDynamoDBStack = new TenantDynamoDBStack(
     app,
-    `TenantStack-${params.tenantId}`,
+    `TenantDynamoDBStack${params.environment}-${params.tenantId}`,
     {
       env: {
         account: params.account,
         region: params.region,
       },
-      identityProviderArn: params.identityProviderArn,
-      audience: params.audience,
-      tenantIdClaim: params.tenantIdClaim,
-      roleName: params.roleName || `TenantRole-${params.tenantId}`,
+      tenantId: params.tenantId,
+      environment: params.environment,
+    }
+  );
+
+  // Tenant S3 Stack
+  const tenantS3Stack = new TenantS3Stack(
+    app,
+    `TenantS3Stack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      removalPolicy: params.removalPolicy,
     }
   );
 
   return {
-    tenantIamRoleStack,
+    tenantDynamoDBStack,
+    tenantS3Stack,
   };
 };

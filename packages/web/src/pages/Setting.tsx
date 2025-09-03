@@ -48,12 +48,11 @@ const Setting = () => {
     agentNames,
   } = MODELS;
   const { cache } = useSWRConfig();
-  const { getLocalVersion, getHasUpdate } = useVersion();
+  const { getHasUpdate } = useVersion();
   const { getClosedPullRequests } = useGitHub();
   const { signOut } = useAuthenticator();
   const { i18n, t } = useTranslation();
 
-  const localVersion = getLocalVersion();
   const hasUpdate = getHasUpdate();
   const closedPullRequests = getClosedPullRequests();
   const {
@@ -85,7 +84,7 @@ const Setting = () => {
               components={[
                 <Link
                   className="text-aws-smile"
-                  to="https://github.com/aws-samples/generative-ai-use-cases"
+                  to="https://github.com/fixer-github/generative-ai-use-cases"
                   target="_blank"
                 />,
               ]}
@@ -179,14 +178,9 @@ const Setting = () => {
 
       <div className="text-sm">
         <SettingItem
-          name={t('setting.items.version')}
-          value={localVersion || t('common.not_available')}
-          helpMessage={t('setting.items.version_help')}
-          top={true}
-        />
-        <SettingItem
           name={t('setting.items.rag_enabled')}
           value={ragEnabled.toString()}
+          top={true}
         />
         <SettingItem
           name={t('setting.items.rag_kb_enabled')}
@@ -228,7 +222,7 @@ const Setting = () => {
               />,
               <Link
                 className="text-aws-smile"
-                to="https://github.com/aws-samples/generative-ai-use-cases"
+                to="https://github.com/fixer-github/generative-ai-use-cases"
                 target="_blank"
               />,
             ]}
@@ -261,7 +255,7 @@ const Setting = () => {
 
         <div className="mb-3 mt-1 flex w-full justify-end text-xs">
           <a
-            href="https://github.com/aws-samples/generative-ai-use-cases/pulls?q=is%3Apr+is%3Aclosed"
+            href="https://github.com/fixer-github/generative-ai-use-cases/pulls?q=is%3Apr+is%3Aclosed"
             className="flex items-center hover:underline"
             target="_blank">
             <PiArrowSquareOut className="mr-1 text-base" />

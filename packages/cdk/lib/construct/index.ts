@@ -11,5 +11,5 @@ export * from './guardrail';
 export * from './speech-to-speech';
 export * from './mcp-api';
 export * from './litellm-proxy-server';
-export * from './tenant-iam-role';
 export * from './multi-tenant-role';
+export * from './tenant-dynamodb';

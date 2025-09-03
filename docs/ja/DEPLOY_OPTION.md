@@ -1493,27 +1493,27 @@ const envs: Record<string, Partial<StackInput>> = {
 }
 ```
 
-### サインアップできるメールアドレスのドメインを制限する
+### サインアップ時にテナントIDを自動設定する
 
-`allowedSignUpEmailDomains` に 許可するドメインのリストを指定します（デフォルトは`null`）。
+`selfSignUpTenantMap` を利用して、サインアップ可能なユーザーを制御し、テナントIDを自動的に付与できます。
 
-値はstringのlist形式で指定し、各stringには"@"を含めないでください。メールアドレスのドメインが、許可ドメインのいずれか同じであればサインアップできます。`null` を指定すると何も制限されず、すべてのドメインを許可します。`[]` を指定するとすべて禁止し、どのドメインのメールアドレスでも登録できません。
+マップは `tenantId` と任意の `domains` または `emails` から構成されます。ユーザーがサインアップすると、Pre Sign-up の Lambda が入力されたメールアドレスをマップと照合します。
 
-設定すると、許可ドメインでないユーザは、Webのサインアップ画面で「アカウントを作る」を実行したときにエラーになり、GenU へのサインアップができなくなります。また、AWSマネジメントコンソールで、Cognitoのサービス画面から「ユーザを作成」を実行したときにエラーになります。
-
-既にCognitoに作成されているユーザには影響ありません。新規にサインアップ・作成しようとしているユーザのみに適用されます。
+- メールアドレスまたはそのドメインが一致した場合、サインアップ処理が続行され、Post Confirmation の Lambda によって `tenantId` がユーザーに付与されます。
+- いずれにも一致しない場合はサインアップが拒否されます。
 
 設定例
 
-- `amazon.com` のドメインのメールアドレスであればサインアップできるように設定する例
-
 **[parameter.ts](/packages/cdk/parameter.ts) を編集**
 
 ```typescript
 // parameter.ts
 const envs: Record<string, Partial<StackInput>> = {
   dev: {
-    allowedSignUpEmailDomains: ['amazon.com'],
+    selfSignUpTenantMap: [
+      { tenantId: 'tenant-a', domains: ['example.com'] },
+      { tenantId: 'tenant-b', emails: ['user@another.com'] },
+    ],
   },
 };
 ```
@@ -1524,31 +1524,16 @@ const envs: Record<string, Partial<StackInput>> = {
 // cdk.json
 {
   "context": {
-    "allowedSignUpEmailDomains": ["amazon.com"] // null から、許可ドメインを指定することで有効化
-  }
-}
-```
-
-- `amazon.com` か `amazon.jp` のどちらかのドメインのメールアドレスであればサインアップできるように設定する例
-
-**[parameter.ts](/packages/cdk/parameter.ts) を編集**
-
-```typescript
-// parameter.ts
-const envs: Record<string, Partial<StackInput>> = {
-  dev: {
-    allowedSignUpEmailDomains: ['amazon.com', 'amazon.jp'],
-  },
-};
-```
-
-**[packages/cdk/cdk.json](/packages/cdk/cdk.json) を編集**
-
-```json
-// cdk.json
-{
-  "context": {
-    "allowedSignUpEmailDomains": ["amazon.com", "amazon.jp"] // null から、許可ドメインを指定することで有効化
+    "selfSignUpTenantMap": [
+      {
+        "tenantId": "tenant-a",
+        "domains": ["example.com"]
+      },
+      {
+        "tenantId": "tenant-b",
+        "emails": ["user@another.com"]
+      }
+    ]
   }
 }
 ```
@@ -1632,6 +1617,7 @@ Google Workspace や Microsoft Entra ID (旧 Azure Active Directory) などの I
 const envs: Record<string, Partial<StackInput>> = {
   dev: {
     samlAuthEnabled: true,
+    samlDefaultAuthEnabled: true,
     samlCognitoDomainName:
       'your-preferred-name.auth.ap-northeast-1.amazoncognito.com',
     samlCognitoFederatedIdentityProviderName: 'EntraID',
@@ -1646,13 +1632,15 @@ const envs: Record<string, Partial<StackInput>> = {
 {
   "context": {
     "samlAuthEnabled": true,
+    "samlDefaultAuthEnabled": true,
     "samlCognitoDomainName": "your-preferred-name.auth.ap-northeast-1.amazoncognito.com",
     "samlCognitoFederatedIdentityProviderName": "EntraID"
   }
 }
 ```
 
-- samlAuthEnabled : `true` にすることで、SAML 専用の認証画面に切り替わります。Cognito user pools を利用した従来の認証機能は利用できなくなります。
+- samlAuthEnabled : `true` にすることで、SAML 認証が有効になります。`samlDefaultAuthEnabled` が `false` の場合、Cognito user pools を利用した従来の認証機能は利用できなくなります。
+- samlDefaultAuthEnabled : `true` に設定すると、SAML 認証が有効な場合でも、ログイン画面で Cognito user pools を利用した従来の認証方法を選択できます。
 - samlCognitoDomainName : Cognito の App integration で設定する Cognito Domain 名を指定します。
 - samlCognitoFederatedIdentityProviderName : Cognito の Sign-in experience で設定する Identity Provider の名前を指定します。
 
