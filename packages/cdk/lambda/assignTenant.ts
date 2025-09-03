@@ -15,9 +15,10 @@ const findTenantId = (email: string): string | null => {
   if (email.split('@').length !== 2) {
     return null;
   }
-  const domain = email.split('@')[1];
+  const lowerEmail = email.toLowerCase();
+  const domain = lowerEmail.split('@')[1];
   for (const entry of TENANT_MAP) {
-    if (entry.emails && entry.emails.includes(email)) {
+    if (entry.emails && entry.emails.includes(lowerEmail)) {
       return entry.tenantId;
     }
     if (entry.domains && entry.domains.includes(domain)) {

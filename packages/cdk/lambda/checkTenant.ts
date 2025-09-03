@@ -8,9 +8,10 @@ const isAllowed = (email: string): boolean => {
   if (email.split('@').length !== 2) {
     return false;
   }
-  const domain = email.split('@')[1];
+  const lowerEmail = email.toLowerCase();
+  const domain = lowerEmail.split('@')[1];
   for (const entry of TENANT_MAP) {
-    if (entry.emails && entry.emails.includes(email)) {
+    if (entry.emails && entry.emails.includes(lowerEmail)) {
       return true;
     }
     if (entry.domains && entry.domains.includes(domain)) {
