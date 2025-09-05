@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
-import { Duration } from 'aws-cdk-lib';
-import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
+import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { Table, AttributeType, BillingMode, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { Key, KeyUsage, KeySpec } from 'aws-cdk-lib/aws-kms';
 import {
   PolicyStatement,
@@ -30,12 +30,12 @@ export class TenantManager extends Construct {
         type: AttributeType.STRING,
       },
       billingMode: BillingMode.PAY_PER_REQUEST,
-      encryption: 'AWS_MANAGED',
+      encryption: TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: true,
       // Retain table in production for data safety
       removalPolicy: props.environment === 'prod' 
-        ? 'RETAIN' 
-        : 'DESTROY',
+        ? RemovalPolicy.RETAIN 
+        : RemovalPolicy.DESTROY,
     });
 
     // KMS Key for tenant data encryption (Phase 2)
@@ -45,8 +45,8 @@ export class TenantManager extends Construct {
       enableKeyRotation: true,
       // Retain key in production for data safety
       removalPolicy: props.environment === 'prod' 
-        ? 'RETAIN' 
-        : 'DESTROY',
+        ? RemovalPolicy.RETAIN 
+        : RemovalPolicy.DESTROY,
     });
 
     // Grant permissions to Lambda service
@@ -64,7 +64,7 @@ export class TenantManager extends Construct {
         resources: ['*'],
         conditions: {
           StringEquals: {
-            'kms:ViaService': `dynamodb.${this.stack.region}.amazonaws.com`,
+            'kms:ViaService': `dynamodb.${Stack.of(this).region}.amazonaws.com`,
           },
         },
       })

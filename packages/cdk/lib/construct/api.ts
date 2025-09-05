@@ -248,6 +248,7 @@ export class Api extends Construct {
       },
       bundling: {
         nodeModules: [
+          'aws-jwt-verify',
           '@aws-sdk/client-bedrock-runtime',
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
