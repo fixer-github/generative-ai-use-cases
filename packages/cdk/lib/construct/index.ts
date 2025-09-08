@@ -14,5 +14,4 @@ export * from './litellm-proxy-server';
 export * from './multi-tenant-role';
 export * from './tenant-dynamodb';
 export * from './tenant-manager';
-export * from './tenant-roles';
 export * from './tenant-role';

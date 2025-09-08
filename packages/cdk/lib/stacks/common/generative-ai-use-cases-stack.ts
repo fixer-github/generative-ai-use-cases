@@ -460,10 +460,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ID of the KMS key for tenant data encryption',
     });
 
-    new CfnOutput(this, 'TenantManagerFunctionArn', {
-      value: tenantManager.tenantManagerFunction.functionArn,
-      description: 'ARN of the TenantManager Lambda function',
-    });
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;

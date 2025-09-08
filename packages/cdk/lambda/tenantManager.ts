@@ -1,4 +1,3 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   DynamoDBClient,
   GetItemCommand,
@@ -16,25 +15,6 @@ const TENANTS_KMS_KEY_ID = process.env.TENANTS_KMS_KEY_ID!;
 // DynamoDB and KMS clients
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 const kmsClient = new KMSClient({ region: process.env.AWS_REGION! });
-
-// Common response headers
-const COMMON_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
-
-// Helper functions to reduce code duplication
-const createSuccessResponse = (statusCode: number, data: any) => ({
-  statusCode,
-  headers: COMMON_HEADERS,
-  body: JSON.stringify(data),
-});
-
-const createErrorResponse = (statusCode: number, error: string, message?: string) => ({
-  statusCode,
-  headers: COMMON_HEADERS,
-  body: JSON.stringify({ error, ...(message && { message }) }),
-});
 
 // Tenant status enum
 export enum TenantStatus {
@@ -205,69 +185,3 @@ export async function deactivateTenant(tenantId: string): Promise<Tenant> {
   });
 }
 
-/**
- * Lambda handler for tenant management operations
- */
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  console.log('TenantManager handler called with event:', JSON.stringify(event));
-
-  try {
-    const httpMethod = event.httpMethod;
-    const pathParameters = event.pathParameters || {};
-    const tenantId = pathParameters.tenantId;
-
-    switch (httpMethod) {
-      case 'GET':
-        if (!tenantId) {
-          return createErrorResponse(400, 'Tenant ID is required');
-        }
-
-        const tenant = await getTenant(tenantId);
-        if (!tenant) {
-          return createErrorResponse(404, 'Tenant not found');
-        }
-
-        return createSuccessResponse(200, tenant);
-
-      case 'POST':
-        const registerRequest = JSON.parse(event.body || '{}') as RegisterTenantRequest;
-        if (!registerRequest.tenantId) {
-          return createErrorResponse(400, 'Tenant ID is required');
-        }
-
-        const newTenant = await registerTenant(registerRequest);
-        return createSuccessResponse(201, newTenant);
-
-      case 'PUT':
-        if (!tenantId) {
-          return createErrorResponse(400, 'Tenant ID is required');
-        }
-
-        const updateRequest = JSON.parse(event.body || '{}') as UpdateTenantRequest;
-        updateRequest.tenantId = tenantId;
-
-        const updatedTenant = await updateTenant(updateRequest);
-        return createSuccessResponse(200, updatedTenant);
-
-      case 'DELETE':
-        if (!tenantId) {
-          return createErrorResponse(400, 'Tenant ID is required');
-        }
-
-        const deactivatedTenant = await deactivateTenant(tenantId);
-        return createSuccessResponse(200, deactivatedTenant);
-
-      default:
-        return createErrorResponse(405, 'Method not allowed');
-    }
-  } catch (error) {
-    console.error('TenantManager error:', error);
-    return createErrorResponse(
-      500,
-      'Internal server error',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-  }
-};

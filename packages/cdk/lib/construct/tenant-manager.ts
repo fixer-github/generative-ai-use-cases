@@ -17,7 +17,6 @@ export interface TenantManagerProps {
 export class TenantManager extends Construct {
   public readonly tenantsTable: Table;
   public readonly kmsKey: Key;
-  public readonly tenantManagerFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: TenantManagerProps) {
     super(scope, id);
@@ -70,42 +69,5 @@ export class TenantManager extends Construct {
       })
     );
 
-    // TenantManager Lambda function
-    this.tenantManagerFunction = new NodejsFunction(this, 'TenantManagerFunction', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/tenantManager.ts',
-      handler: 'handler',
-      timeout: Duration.minutes(5),
-      environment: {
-        TENANTS_TABLE_NAME: this.tenantsTable.tableName,
-        TENANTS_KMS_KEY_ID: this.kmsKey.keyId,
-      },
-      bundling: {
-        nodeModules: [
-          '@aws-sdk/client-dynamodb',
-          '@aws-sdk/client-kms',
-          '@aws-sdk/util-dynamodb',
-        ],
-      },
-    });
-
-    // Grant Lambda permissions to access DynamoDB table
-    this.tenantsTable.grantReadWriteData(this.tenantManagerFunction);
-
-    // Grant Lambda permissions to use KMS key
-    this.kmsKey.grantEncryptDecrypt(this.tenantManagerFunction);
-
-    // Add additional KMS permissions for key management operations
-    this.tenantManagerFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: [
-          'kms:CreateGrant',
-          'kms:DescribeKey',
-          'kms:GenerateDataKey*',
-        ],
-        resources: [this.kmsKey.keyArn],
-      })
-    );
   }
 }
