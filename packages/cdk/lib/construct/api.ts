@@ -451,15 +451,10 @@ export class Api extends Construct {
       bundling: {
         nodeModules: ['aws-jwt-verify'],
       },
-      environment: {
+      environment: getBaseEnvironment({
         BUCKET_NAME: fileBucket.bucketName,
-        ENVIRONMENT: props.environment || 'dev',
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
         USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
-      },
+      }),
     });
     // Grant S3 write permissions with source IP condition
     if (getSignedUrlFunction.role) {
@@ -489,7 +484,6 @@ export class Api extends Construct {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
           BUCKET_NAME: fileBucket.bucketName,
           USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
-          CDK_ACCOUNT_ID: Stack.of(this).account || '',
         }),
       }
     );
@@ -776,7 +770,6 @@ export class Api extends Construct {
       timeout: Duration.minutes(15),
       environment: getBaseEnvironment({
         BUCKET_NAME: fileBucket.bucketName,
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
       }),
     });
     fileBucket.grantDelete(deleteFileFunction);
