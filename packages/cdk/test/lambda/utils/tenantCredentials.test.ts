@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getTenantCredentials } from './tenantCredentials';
-import { extractTenantId } from './assumeRoleWithWebIdentity';
+import { getTenantCredentials } from '../../../lambda/utils/tenantCredentials';
+import { extractTenantId } from '../../../lambda/utils/assumeRoleWithWebIdentity';
 
 // Mock environment variables
 const mockEnv = {

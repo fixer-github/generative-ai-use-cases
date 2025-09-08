@@ -5,16 +5,14 @@ import {
   UpdateItemCommand,
   QueryCommand,
 } from '@aws-sdk/client-dynamodb';
-import { KMSClient } from '@aws-sdk/client-kms';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
 const TENANTS_KMS_KEY_ID = process.env.TENANTS_KMS_KEY_ID!;
 
-// DynamoDB and KMS clients
+// DynamoDB client
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
-const kmsClient = new KMSClient({ region: process.env.AWS_REGION! });
 
 // Tenant status enum
 export enum TenantStatus {

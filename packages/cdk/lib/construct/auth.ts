@@ -1,6 +1,5 @@
-import { Duration, Stack, CfnJson } from 'aws-cdk-lib';
+import { Duration } from 'aws-cdk-lib';
 import {
-  // CfnIdentityPoolPrincipalTag, // PHASE 1: Removed - no longer needed for ABAC pattern
   LambdaVersion,
   StringAttribute,
   UserPool,
@@ -200,31 +199,6 @@ export class Auth extends Construct {
       preTokenGenerationFunction,
       LambdaVersion.V2_0
     );
-
-    // PHASE 1: ABAC Pattern Removed - Principal tag mapping no longer needed
-    // Phase 1 uses AssumeRoleWithWebIdentity with tenant-specific roles instead of principal tags
-    // The Identity Pool is kept for backwards compatibility but principal tags are removed
-    
-    // Configure principal tag mapping using CfnIdentityPoolPrincipalTag
-    // This maps JWT claims to principal tags for ABAC
-    // COMMENTED OUT FOR PHASE 1 - ABAC pattern replaced with tenant-specific roles
-    /*
-    const principalTagMapping = new CfnIdentityPoolPrincipalTag(
-      this,
-      'IdentityPoolPrincipalTag',
-      {
-        identityPoolId: idPool.identityPoolId,
-        identityProviderName: userPool.userPoolProviderName,
-        principalTags: {
-          TenantID: 'custom:tenant_id',
-        },
-        useDefaults: false,
-      }
-    );
-
-    // Ensure the principal tag mapping depends on the trust relationship being configured
-    principalTagMapping.node.addDependency(authenticatedRole);
-    */
 
     this.client = client;
     this.userPool = userPool;

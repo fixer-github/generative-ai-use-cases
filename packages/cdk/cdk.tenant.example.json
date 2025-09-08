@@ -2,7 +2,7 @@
   "context": {
     "accountId": "YOUR_AWS_ACCOUNT_ID",
     "tenantId": "tenant123",
-    "environment": "dev", 
+    "environment": "dev",
     "tenantRegion": "us-east-1",
     "enableAutoDelete": false,
     "userPoolId": "us-east-1_EXAMPLE123",

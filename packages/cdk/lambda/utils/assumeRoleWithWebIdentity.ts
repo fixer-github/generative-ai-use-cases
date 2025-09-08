@@ -10,9 +10,10 @@ import {
   GetOpenIdTokenCommand,
 } from '@aws-sdk/client-cognito-identity';
 
-// Maximum retries for AssumeRole operations
+// Constants for AssumeRole operations
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // milliseconds
+const RETRY_DELAY_MS = 1000;
+const SESSION_DURATION_SECONDS = 3600;
 
 /**
  * Assume role using Identity Pool token exchange from Cognito User Pool JWT
@@ -105,7 +106,7 @@ export async function assumeRoleWithWebIdentity(
           RoleArn: roleArn,
           WebIdentityToken: getOpenIdTokenResponse.Token, // Use Identity Pool token, NOT User Pool JWT
           RoleSessionName: sessionName,
-          DurationSeconds: 3600, // 1 hour session
+          DurationSeconds: SESSION_DURATION_SECONDS,
         })
       );
 
@@ -134,9 +135,9 @@ export async function assumeRoleWithWebIdentity(
 
       if (attempt < MAX_RETRIES) {
         // Exponential backoff
-        console.log(`Retrying in ${RETRY_DELAY * attempt}ms...`);
+        console.log(`Retrying in ${RETRY_DELAY_MS * attempt}ms...`);
         await new Promise((resolve) =>
-          setTimeout(resolve, RETRY_DELAY * attempt)
+          setTimeout(resolve, RETRY_DELAY_MS * attempt)
         );
       }
     }
