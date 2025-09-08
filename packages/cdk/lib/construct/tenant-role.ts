@@ -14,9 +14,10 @@ export interface TenantRoleProps {
   readonly tenantId: string;
   readonly userPool: IUserPool;
   readonly identityPool: IIdentityPool;
+  readonly userPoolClientId: string;
   readonly region: string;
   readonly account: string;
-  readonly env?: string;
+  readonly env: string;
 }
 
 /**
@@ -68,7 +69,7 @@ export class TenantRole extends Construct {
               resources: [
                 // Bucket-level permissions for clean tenant naming
                 `arn:aws:s3:::*-${props.env}-tenant-${props.tenantId}-*`,
-                // Object-level permissions for clean tenant naming  
+                // Object-level permissions for clean tenant naming
                 `arn:aws:s3:::*-${props.env}-tenant-${props.tenantId}-*/*`,
               ],
             }),
@@ -91,8 +92,8 @@ export class TenantRole extends Construct {
               ],
               resources: [
                 // Allow access to tables with tenant-specific naming pattern
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-${props.tenantId}`,
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-${props.tenantId}/index/*`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/*${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/*${props.env}-tenant-${props.tenantId}/index/*`,
               ],
             }),
 
@@ -130,26 +131,6 @@ export class TenantRole extends Construct {
               resources: ['*'], // Polly doesn't have tenant-specific resources
             }),
 
-            // Explicit deny for other tenant resources to prevent cross-tenant access
-            new PolicyStatement({
-              sid: 'DenyOtherTenantResources',
-              effect: Effect.DENY,
-              actions: ['dynamodb:*', 's3:*'],
-              resources: [
-                // Deny access to other tenant DynamoDB tables
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*`,
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/*-tenant-*/index/*`,
-                // Deny access to other tenant S3 buckets
-                `arn:aws:s3:::*-tenant-*`,
-                `arn:aws:s3:::*-tenant-*/*`,
-              ],
-              conditions: {
-                StringNotLike: {
-                  // Allow only this tenant's resource patterns
-                  's3:prefix': [`*-tenant-${props.tenantId}-*/*`],
-                },
-              },
-            }),
           ],
         }),
       },

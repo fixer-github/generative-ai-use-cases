@@ -45,7 +45,7 @@ export async function getTenantCredentials(
   try {
     // Phase 1: Build role ARN for same account tenant-specific role
     // Phase 2: This will be replaced with cross-account role ARN retrieval from tenant metadata
-    const roleArn = buildTenantRoleArn(accountId, region, tenantId);
+    const roleArn = buildTenantRoleArn(accountId, tenantId);
 
     console.log(`Assuming role: ${roleArn}`);
 

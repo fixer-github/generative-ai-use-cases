@@ -120,6 +120,13 @@ export class Api extends Construct {
       ...additionalEnvVars,
     });
 
+    // Shared policy for Lambda functions to assume tenant roles
+    const stsAssumeRolePolicy = new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['sts:AssumeRoleWithWebIdentity'],
+      resources: ['*'], // Allow assuming any role with web identity
+    });
+
     // Validate Model Names
     for (const model of modelIds) {
       if (!BEDROCK_TEXT_MODELS.includes(model.modelId)) {
@@ -466,6 +473,7 @@ export class Api extends Construct {
         }
       );
     }
+    getSignedUrlFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const getFileDownloadSignedUrlFunction = new NodejsFunction(
       this,
@@ -497,6 +505,7 @@ export class Api extends Construct {
         }
       );
     }
+    getFileDownloadSignedUrlFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     // If SageMaker Endpoint exists, grant permission
     if (endpointNames.length > 0) {
@@ -587,6 +596,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantWriteData(createChatFunction);
+    createChatFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const deleteChatFunction = new NodejsFunction(this, 'DeleteChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -595,6 +605,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(deleteChatFunction);
+    deleteChatFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const createMessagesFunction = new NodejsFunction(this, 'CreateMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -611,6 +622,7 @@ export class Api extends Construct {
     });
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
+    createMessagesFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const updateChatTitleFunction = new NodejsFunction(
       this,
@@ -619,34 +631,23 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateTitle.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(updateChatTitleFunction);
+    updateChatTitleFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const listChatsFunction = new NodejsFunction(this, 'ListChats', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listChats.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
+      environment: getBaseEnvironment({
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
     });
     table.grantReadData(listChatsFunction);
+    listChatsFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const findChatbyIdFunction = new NodejsFunction(this, 'FindChatbyId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -655,6 +656,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadData(findChatbyIdFunction);
+    findChatbyIdFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const listMessagesFunction = new NodejsFunction(this, 'ListMessages', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -663,6 +665,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadData(listMessagesFunction);
+    listMessagesFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const updateFeedbackFunction = new NodejsFunction(this, 'UpdateFeedback', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -671,6 +674,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(updateFeedbackFunction);
+    updateFeedbackFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -685,6 +689,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(createShareId);
+    createShareId.addToRolePolicy(stsAssumeRolePolicy);
 
     const getSharedChat = new NodejsFunction(this, 'GetSharedChat', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -693,6 +698,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadData(getSharedChat);
+    getSharedChat.addToRolePolicy(stsAssumeRolePolicy);
 
     const findShareId = new NodejsFunction(this, 'FindShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -701,6 +707,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadData(findShareId);
+    findShareId.addToRolePolicy(stsAssumeRolePolicy);
 
     const deleteShareId = new NodejsFunction(this, 'DeleteShareId', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -709,6 +716,7 @@ export class Api extends Construct {
       environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(deleteShareId);
+    deleteShareId.addToRolePolicy(stsAssumeRolePolicy);
 
     const listSystemContextsFunction = new NodejsFunction(
       this,
@@ -717,17 +725,11 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/listSystemContexts.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadData(listSystemContextsFunction);
+    listSystemContextsFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const createSystemContextFunction = new NodejsFunction(
       this,
@@ -736,17 +738,11 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/createSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantWriteData(createSystemContextFunction);
+    createSystemContextFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const updateSystemContextTitleFunction = new NodejsFunction(
       this,
@@ -755,17 +751,11 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateSystemContextTitle.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
+    updateSystemContextTitleFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const deleteSystemContextFunction = new NodejsFunction(
       this,
@@ -774,17 +764,11 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/deleteSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);
+    deleteSystemContextFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     const deleteFileFunction = new NodejsFunction(this, 'DeleteFileFunction', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -796,6 +780,7 @@ export class Api extends Construct {
       }),
     });
     fileBucket.grantDelete(deleteFileFunction);
+    deleteFileFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     // Lambda function for getting token usage
     const getTokenUsageFunction = new NodejsFunction(this, 'GetTokenUsage', {
@@ -808,6 +793,7 @@ export class Api extends Construct {
     });
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
+    getTokenUsageFunction.addToRolePolicy(stsAssumeRolePolicy);
 
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for

@@ -4,53 +4,106 @@ import {
   AssumeRoleWithWebIdentityCommand,
   Credentials,
 } from '@aws-sdk/client-sts';
+import {
+  CognitoIdentityClient,
+  GetIdCommand,
+  GetOpenIdTokenCommand,
+} from '@aws-sdk/client-cognito-identity';
 
 // Maximum retries for AssumeRole operations
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // milliseconds
 
 /**
- * Assume role using JWT token from Cognito User Pool via AssumeRoleWithWebIdentity
- * This is the new authentication flow for Phase 1 that replaces Identity Pool GetCredentialsForIdentity
+ * Assume role using Identity Pool token exchange from Cognito User Pool JWT
+ * Phase 1: Exchange User Pool JWT → Identity Pool token → AssumeRoleWithWebIdentity
  */
 export async function assumeRoleWithWebIdentity(
   event: APIGatewayProxyEvent,
   roleArn: string
 ): Promise<Credentials> {
 
-  // Extract tenant ID for logging and session naming
+  // Extract tenant ID and user ID from claims
   const tenantId =
-    event.requestContext?.authorizer?.claims?.['custom:tenant_id'] || 'default';
-
-  // Extract user ID for logging and session naming
+    event.requestContext?.authorizer?.claims?.['custom:tenant_id'];
   const userId =
-    event.requestContext?.authorizer?.claims?.['cognito:username'] || 'unknown';
+    event.requestContext?.authorizer?.claims?.['cognito:username'];
 
-  // Extract JWT token from Authorization header
-  const idToken = event.headers.Authorization || event.headers.authorization;
-  if (!idToken) {
+  // Extract User Pool JWT token from Authorization header
+  const userPoolToken = event.headers.Authorization;
+  if (!userPoolToken) {
     throw new Error('No valid authorization token found');
   }
 
+  // Get environment variables
+  const identityPoolId = process.env.IDENTITY_POOL_ID;
+  const userPoolId = process.env.USER_POOL_ID;
+  const region = process.env.AWS_REGION!;
+
+  if (!identityPoolId || !userPoolId) {
+    throw new Error('IDENTITY_POOL_ID or USER_POOL_ID not configured');
+  }
+
   console.log(
-    `AssumeRoleWithWebIdentity for tenant: ${tenantId}, user: ${userId}, role: ${roleArn}`
+    `Starting Identity Pool token exchange for tenant: ${tenantId}, user: ${userId}, role: ${roleArn}`
   );
 
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const stsClient = new STSClient({ region: process.env.AWS_REGION! });
+      const cognitoIdentityClient = new CognitoIdentityClient({ region });
+      const stsClient = new STSClient({ region });
 
-      // Create unique session name for better traceability
-      const sessionName = `TenantSession-${tenantId}-${userId}-${Date.now()}`;
+      // Step 1: Exchange User Pool token for Identity ID
+      console.log(`Attempt ${attempt}: Getting Identity ID from Identity Pool`);
+      const userPoolProviderName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
 
-      console.log(`Attempting AssumeRoleWithWebIdentity, attempt ${attempt}`);
+      const getIdResponse = await cognitoIdentityClient.send(
+        new GetIdCommand({
+          IdentityPoolId: identityPoolId,
+          Logins: {
+            [userPoolProviderName]: userPoolToken,
+          },
+        })
+      );
+
+      if (!getIdResponse.IdentityId) {
+        throw new Error('Failed to get Identity ID from Identity Pool');
+      }
+
+      console.log(`Got Identity ID: ${getIdResponse.IdentityId}`);
+
+      // Step 2: Get OpenID token from Identity Pool
+      console.log(`Getting OpenID token from Identity Pool`);
+      const getOpenIdTokenResponse = await cognitoIdentityClient.send(
+        new GetOpenIdTokenCommand({
+          IdentityId: getIdResponse.IdentityId,
+          Logins: {
+            [userPoolProviderName]: userPoolToken,
+          },
+        })
+      );
+
+      if (!getOpenIdTokenResponse.Token) {
+        throw new Error('Failed to get OpenID token from Identity Pool');
+      }
+
+      console.log(`Got OpenID token, proceeding with AssumeRoleWithWebIdentity`);
+
+      // Step 3: Use Identity Pool OpenID token with AssumeRoleWithWebIdentity
+      // Create unique session name for better traceability (must be <= 64 characters)
+      const timestamp = Date.now().toString().slice(-8); // Last 8 digits
+      const shortTenantId = tenantId.substring(0, 16); // Max 16 chars
+      const shortUserId = userId.substring(0, 8); // First 8 chars
+      const sessionName = `TS-${shortTenantId}-${shortUserId}-${timestamp}`;
+
+      console.log(`Attempting AssumeRoleWithWebIdentity using Identity Pool token, attempt ${attempt}`);
 
       const assumeRoleResponse = await stsClient.send(
         new AssumeRoleWithWebIdentityCommand({
           RoleArn: roleArn,
-          WebIdentityToken: idToken,
+          WebIdentityToken: getOpenIdTokenResponse.Token, // Use Identity Pool token, NOT User Pool JWT
           RoleSessionName: sessionName,
           DurationSeconds: 3600, // 1 hour session
         })
@@ -101,7 +154,6 @@ export async function assumeRoleWithWebIdentity(
  */
 export function buildTenantRoleArn(
   accountId: string,
-  region: string,
   tenantId: string
 ): string {
   return `arn:aws:iam::${accountId}:role/TenantRole-${tenantId}`;
@@ -113,10 +165,10 @@ export function buildTenantRoleArn(
 export function extractTenantId(event: APIGatewayProxyEvent): string {
   const tenantId =
     event.requestContext?.authorizer?.claims?.['custom:tenant_id'];
-  
+
   if (!tenantId) {
     throw new Error('Tenant ID not found in JWT claims');
   }
-  
+
   return tenantId;
 }

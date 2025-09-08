@@ -48,6 +48,9 @@ export class TenantIAMStack extends cdk.Stack {
     // Get environment (required parameter)
     const environment = props?.environment!;
 
+    // Get account ID from context or use deployment account
+    const accountId = this.node.tryGetContext('accountId') || this.account;
+
     // Get or create UserPool and IdentityPool references
     let userPool: IUserPool;
     let identityPool: IIdentityPool;
@@ -56,6 +59,7 @@ export class TenantIAMStack extends cdk.Stack {
     // Since main stack and tenant stacks are separate deployments
     const userPoolId = this.node.tryGetContext('userPoolId');
     const identityPoolId = this.node.tryGetContext('identityPoolId');
+    const userPoolClientId = this.node.tryGetContext('userPoolClientId');
 
     if (!userPoolId) {
       throw new Error(
@@ -69,6 +73,12 @@ export class TenantIAMStack extends cdk.Stack {
       );
     }
 
+    if (!userPoolClientId) {
+      throw new Error(
+        'userPoolClientId must be provided via context (--context userPoolClientId=<value> or in cdk.tenant.json)'
+      );
+    }
+
     // Import existing pools using the context values from main stack
     userPool = UserPool.fromUserPoolId(this, 'ImportedUserPool', userPoolId);
     identityPool = IdentityPool.fromIdentityPoolId(this, 'ImportedIdentityPool', identityPoolId);
@@ -78,8 +88,9 @@ export class TenantIAMStack extends cdk.Stack {
       tenantId: this.tenantId,
       userPool: userPool,
       identityPool: identityPool,
+      userPoolClientId: userPoolClientId,
       region: this.region,
-      account: this.account,
+      account: accountId,
       env: environment,
     });
 
