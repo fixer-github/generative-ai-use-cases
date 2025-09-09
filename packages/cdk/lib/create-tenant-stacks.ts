@@ -12,7 +12,7 @@ export interface TenantStackInput {
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
-  // Phase 1: Tenant IAM Stack (create first for role ARN export)
+  // Tenant IAM Stack (create first for role ARN export)
   // Note: UserPool and IdentityPool are imported via CloudFormation parameters
   const tenantIAMStack = new TenantIAMStack(
     app,

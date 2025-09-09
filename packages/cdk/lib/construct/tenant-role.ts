@@ -22,8 +22,7 @@ export interface TenantRoleProps {
 
 /**
  * Creates a single tenant-specific IAM role for AssumeRoleWithWebIdentity authentication
- * Phase 1: Same-account role
- * Phase 2: Cross-account role (when deployed in tenant account with control plane Identity Pool ID)
+ * Supports both same-account and cross-account deployment scenarios
  * This construct is designed to be used within tenant-specific stacks
  */
 export class TenantRole extends Construct {

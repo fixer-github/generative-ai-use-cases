@@ -24,8 +24,8 @@ export interface TenantIAMStackProps extends cdk.StackProps {
 
 /**
  * Stack for creating tenant-specific IAM roles
- * Phase 1: Creates IAM roles for same-account AssumeRoleWithWebIdentity authentication
- * Phase 2: Creates IAM roles for cross-account access (deploy in tenant account with control plane Identity Pool ID)
+ * Supports both same-account and cross-account AssumeRoleWithWebIdentity authentication
+ * For cross-account access, deploy in tenant account with control plane Identity Pool ID
  */
 export class TenantIAMStack extends cdk.Stack {
   /**
@@ -52,7 +52,7 @@ export class TenantIAMStack extends cdk.Stack {
 
     // For tenant stacks, use CDK context variables to import from main stack
     // Since main stack and tenant stacks are separate deployments
-    // Phase 2: When deployed in tenant account, use control plane's Identity Pool ID for cross-account trust
+    // When deployed in tenant account, use control plane's Identity Pool ID for cross-account trust
     const userPoolId = this.node.tryGetContext('userPoolId');
     const identityPoolId = this.node.tryGetContext('identityPoolId');
     const userPoolClientId = this.node.tryGetContext('userPoolClientId');

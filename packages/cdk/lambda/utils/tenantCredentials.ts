@@ -22,7 +22,7 @@ const validateEnvironment = () => {
 };
 
 /**
- * Get tenant role ARN - Phase 2 with cross-account support
+ * Get tenant role ARN with cross-account support
  * Checks tenant metadata for cross-account role, falls back to same-account role
  */
 async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Promise<string> {
@@ -30,13 +30,13 @@ async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Pr
     // Try to get tenant metadata from DynamoDB
     const tenant = await getTenant(tenantId);
     
-    // If tenant has cross-account role ARN (Phase 2), use it
+    // If tenant has cross-account role ARN, use it
     if (tenant && tenant.crossAccountRoleArn) {
       console.log(`Using cross-account role ARN for tenant ${tenantId}: ${tenant.crossAccountRoleArn}`);
       return tenant.crossAccountRoleArn;
     }
     
-    // Fall back to same-account role ARN (Phase 1 backward compatibility)
+    // Fall back to same-account role ARN for backward compatibility
     const fallbackRoleArn = buildTenantRoleArn(fallbackAccountId, tenantId);
     console.log(`Using same-account role ARN for tenant ${tenantId}: ${fallbackRoleArn}`);
     return fallbackRoleArn;
@@ -51,7 +51,7 @@ async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Pr
 
 /**
  * Get tenant credentials using AssumeRoleWithWebIdentity
- * Phase 2: Supports both cross-account and same-account roles with automatic fallback
+ * Supports both cross-account and same-account roles with automatic fallback
  * NOTE: No caching to ensure proper user isolation within tenants
  */
 export async function getTenantCredentials(
@@ -72,7 +72,7 @@ export async function getTenantCredentials(
   );
 
   try {
-    // Phase 2: Get role ARN from tenant metadata or fallback to same-account
+    // Get role ARN from tenant metadata or fallback to same-account
     const roleArn = await getTenantRoleArn(tenantId, accountId);
 
     console.log(`Assuming role: ${roleArn}`);

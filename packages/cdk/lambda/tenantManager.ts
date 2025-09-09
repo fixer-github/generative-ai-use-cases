@@ -3,7 +3,6 @@ import {
   GetItemCommand,
   PutItemCommand,
   UpdateItemCommand,
-  QueryCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
@@ -29,9 +28,8 @@ export interface Tenant {
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, any>;
-  // Phase 2 cross-account fields
-  accountId?: string;
-  crossAccountRoleArn?: string;
+  accountId: string;
+  crossAccountRoleArn: string;
 }
 
 // Request interfaces
@@ -39,9 +37,8 @@ interface RegisterTenantRequest {
   tenantId: string;
   region?: string;
   metadata?: Record<string, any>;
-  // Phase 2 cross-account fields
-  accountId?: string;
-  crossAccountRoleArn?: string;
+  accountId: string;
+  crossAccountRoleArn: string;
 }
 
 interface UpdateTenantRequest {
@@ -49,7 +46,6 @@ interface UpdateTenantRequest {
   status?: TenantStatus;
   region?: string;
   metadata?: Record<string, any>;
-  // Phase 2 cross-account fields
   accountId?: string;
   crossAccountRoleArn?: string;
 }
@@ -91,7 +87,6 @@ export async function registerTenant(
     createdAt: now,
     updatedAt: now,
     metadata: request.metadata || {},
-    // Phase 2 cross-account fields
     accountId: request.accountId,
     crossAccountRoleArn: request.crossAccountRoleArn,
   };
@@ -156,7 +151,7 @@ export async function updateTenant(
       expressionAttributeValues[':metadata'] = request.metadata;
     }
 
-    // Phase 2 cross-account fields
+    // Cross-account fields
     if (request.accountId !== undefined) {
       updateExpression.push('#accountId = :accountId');
       expressionAttributeNames['#accountId'] = 'accountId';

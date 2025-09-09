@@ -60,7 +60,7 @@ export interface BackendApiProps {
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
-  // Phase 1: Tenant Management
+  // Tenant Management
   readonly tenantManager?: TenantManager;
 
   // LangChain Credentials
