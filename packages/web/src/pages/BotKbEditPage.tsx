@@ -16,8 +16,6 @@ import { MODELS } from '../hooks/useModel';
 import { useNavigate } from 'react-router-dom';
 
 const BotKbEditPage: React.FC = () => {
-  const acceptedFileTypes = ['image/png', 'image/jpeg'];
-
   const navigate = useNavigate();
 
   const { modelIds } = MODELS;
@@ -25,6 +23,7 @@ const BotKbEditPage: React.FC = () => {
   const [botTitle, setBotTitle] = useState('');
   const [botDescription, setBotDescription] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
+  const [publicInOrg, setPublicInOrg] = useState(false);
   const [useFixedModel, setUseFixedModel] = useState(false);
   const [model, setModel] = useState(modelIds[0]);
   const [attachFile, setAttachFile] = useState(false);
@@ -39,6 +38,8 @@ const BotKbEditPage: React.FC = () => {
     }
     setFiles(Array.from(files));
   };
+
+  // const acceptedFileTypes = ['image/png', 'image/jpeg'];
 
   return (
     <>
@@ -71,6 +72,16 @@ const BotKbEditPage: React.FC = () => {
           />
           <Text variation="secondary" fontSize="0.75rem">
             ユーザーの入力を受け付けないユースケースは作成できません。プロンプトテンプレートにPlaceholderを定義するか、ファイル添付をONにしてください。
+          </Text>
+          <CheckboxField
+            id="publicInOrg"
+            name="publicInOrg"
+            label="組織内で公開する"
+            checked={publicInOrg}
+            onChange={(e) => setPublicInOrg(e.currentTarget.checked)}
+          />
+          <Text variation="secondary" fontSize="0.75rem">
+            チェックをいれると、組織内の全員がBotを使用できるようになります。
           </Text>
         </Fieldset>
 
@@ -121,7 +132,7 @@ const BotKbEditPage: React.FC = () => {
             参考文献として使用する資料を追加することができます
           </Text>
           <DropZone
-            acceptedFileTypes={acceptedFileTypes}
+            // acceptedFileTypes={acceptedFileTypes}
             onDropComplete={({ acceptedFiles }) => {
               setFiles(acceptedFiles);
             }}>
@@ -138,7 +149,7 @@ const BotKbEditPage: React.FC = () => {
                 ref={hiddenInput}
                 onChange={onFilePickerChange}
                 multiple={true}
-                accept={acceptedFileTypes.join(',')}
+                // accept={acceptedFileTypes.join(',')}
               />
             </VisuallyHidden>
           </DropZone>
