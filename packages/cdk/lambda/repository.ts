@@ -8,6 +8,7 @@ import {
   UpdateFeedbackRequest,
   ListChatsResponse,
   TokenUsageStats,
+  BotEntity,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -20,6 +21,7 @@ import {
   QueryCommand,
   TransactWriteCommand,
   UpdateCommand,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId } from './utils/tenantUtils';
@@ -129,17 +131,14 @@ export const createChat = async (
     updatedDate: '',
   };
 
-  await executeDynamoDBOperation(
-    event,
-    async (client, tableName) => {
-      return client.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: item,
-        })
-      );
-    }
-  );
+  await executeDynamoDBOperation(event, async (client, tableName) => {
+    return client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: item,
+      })
+    );
+  });
 
   return item;
 };
@@ -928,4 +927,46 @@ export const aggregateTokenUsage = async (
     console.error('Error aggregating token usage:', error);
     throw error;
   }
+};
+
+export const createBot = async (
+  item: BotEntity,
+  event: APIGatewayProxyEvent
+): Promise<BotEntity> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
+
+  return item;
+};
+
+export const listBot = async (
+  userId: string,
+  event: APIGatewayProxyEvent
+): Promise<BotEntity[]> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  // TODO: 現状はScanコマンドで取得して絞り込んでいるが、効率が悪いのでどうにかする
+  // そもそもRDBに移行すべき
+  const command = new ScanCommand({
+    TableName: tableName,
+    FilterExpression: 'userId = :u OR publicInOrg = :p',
+    ExpressionAttributeValues: {
+      ':u': userId,
+      ':p': true,
+    },
+  });
+
+  const res = await dynamoDbDocument.send(command);
+
+  const items = res.Items as BotEntity[];
+
+  return items;
 };

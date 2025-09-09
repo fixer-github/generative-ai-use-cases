@@ -106,7 +106,9 @@ export class Api extends Construct {
     const agents: Agent[] = [...(props.agents ?? []), ...props.customAgents];
 
     // Helper function to generate consistent environment variables for Lambda functions
-    const getBaseEnvironment = (additionalEnvVars: Record<string, string> = {}) => ({
+    const getBaseEnvironment = (
+      additionalEnvVars: Record<string, string> = {}
+    ) => ({
       TABLE_NAME: TABLE_PREFIX,
       DEFAULT_TABLE_NAME: props.table.tableName,
       DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
@@ -114,12 +116,13 @@ export class Api extends Construct {
       IDENTITY_POOL_ID: props.idPool.identityPoolId,
       USER_POOL_ID: props.userPool.userPoolId,
       AWS_ACCOUNT_ID: Stack.of(this).account!,
-      ...(props.tenantManager ? {
-        TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-      } : {}),
+      ...(props.tenantManager
+        ? {
+            TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+          }
+        : {}),
       ...additionalEnvVars,
     });
-
 
     // Validate Model Names
     for (const model of modelIds) {
@@ -153,7 +156,7 @@ export class Api extends Construct {
     if (duplicateModelIds.size > 0) {
       throw new Error(
         'Duplicate model IDs detected. Using the same model ID multiple times is not supported:\n' +
-        [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
+          [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
       );
     }
 
@@ -207,11 +210,13 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
@@ -251,11 +256,13 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
@@ -272,7 +279,7 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(predictStreamFunction);
@@ -292,15 +299,17 @@ export class Api extends Construct {
       },
       environment: {
         MODEL_REGION: modelRegion,
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
     });
     invokeFlowFunction.grantInvoke(idPool.authenticatedRole);
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(invokeFlowFunction);
@@ -340,17 +349,19 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
     });
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(generateImageFunction);
@@ -537,7 +548,8 @@ export class Api extends Construct {
         actions: ['sagemaker:DescribeEndpoint', 'sagemaker:InvokeEndpoint'],
         resources: endpointNames.map(
           (endpointName) =>
-            `arn:aws:sagemaker:${modelRegion}:${Stack.of(this).account
+            `arn:aws:sagemaker:${modelRegion}:${
+              Stack.of(this).account
             }:endpoint/${endpointName}`
         ),
       });
@@ -797,6 +809,22 @@ export class Api extends Construct {
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
 
+    // Lambda functions for Bots
+    const listBotsFunction = new NodejsFunction(this, 'ListBots', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/listBots.ts',
+      timeout: Duration.minutes(15),
+    });
+    table.grantReadData(listBotsFunction);
+
+    const createBotFunction = new NodejsFunction(this, 'CreateBot', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/createBot.ts',
+      timeout: Duration.minutes(15),
+    });
+    table.grantWriteData(createBotFunction);
+    fileBucket.grantPut(createBotFunction);
+
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
@@ -814,30 +842,40 @@ export class Api extends Construct {
       props.tenantManager.tenantsTable.grantReadData(listMessagesFunction);
       props.tenantManager.tenantsTable.grantReadData(updateFeedbackFunction);
       props.tenantManager.tenantsTable.grantReadData(predictTitleFunction);
-      
+
       // Share-related functions
       props.tenantManager.tenantsTable.grantReadData(createShareId);
       props.tenantManager.tenantsTable.grantReadData(getSharedChat);
       props.tenantManager.tenantsTable.grantReadData(findShareId);
       props.tenantManager.tenantsTable.grantReadData(deleteShareId);
-      
+
       // System context functions
-      props.tenantManager.tenantsTable.grantReadData(listSystemContextsFunction);
-      props.tenantManager.tenantsTable.grantReadData(createSystemContextFunction);
-      props.tenantManager.tenantsTable.grantReadData(updateSystemContextTitleFunction);
-      props.tenantManager.tenantsTable.grantReadData(deleteSystemContextFunction);
-      
+      props.tenantManager.tenantsTable.grantReadData(
+        listSystemContextsFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        createSystemContextFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        updateSystemContextTitleFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        deleteSystemContextFunction
+      );
+
       // Video-related functions
       props.tenantManager.tenantsTable.grantReadData(generateVideoFunction);
       props.tenantManager.tenantsTable.grantReadData(copyVideoJob);
       props.tenantManager.tenantsTable.grantReadData(listVideoJobs);
       props.tenantManager.tenantsTable.grantReadData(deleteVideoJob);
-      
+
       // File operations (for S3 cross-account access)
       props.tenantManager.tenantsTable.grantReadData(deleteFileFunction);
       props.tenantManager.tenantsTable.grantReadData(getSignedUrlFunction);
-      props.tenantManager.tenantsTable.grantReadData(getFileDownloadSignedUrlFunction);
-      
+      props.tenantManager.tenantsTable.grantReadData(
+        getFileDownloadSignedUrlFunction
+      );
+
       // Token usage
       props.tenantManager.tenantsTable.grantReadData(getTokenUsageFunction);
     }
@@ -1106,7 +1144,9 @@ export class Api extends Construct {
     // POST: /tenant-registration (API key protected for tenant self-registration)
     // Only create if tenantManager is provided
     if (props.tenantManager) {
-      const tenantRegistrationResource = api.root.addResource('tenant-registration');
+      const tenantRegistrationResource = api.root.addResource(
+        'tenant-registration'
+      );
       tenantRegistrationResource.addMethod(
         'POST',
         new LambdaIntegration(props.tenantManager.registrationLambda),
@@ -1117,23 +1157,29 @@ export class Api extends Construct {
       );
 
       // Create API key for tenant registration
-      const tenantRegistrationApiKey = api.addApiKey('TenantRegistrationApiKey', {
-        apiKeyName: `tenant-registration-key-${props.environment}`,
-        description: 'API key for tenant self-registration',
-      });
+      const tenantRegistrationApiKey = api.addApiKey(
+        'TenantRegistrationApiKey',
+        {
+          apiKeyName: `tenant-registration-key-${props.environment}`,
+          description: 'API key for tenant self-registration',
+        }
+      );
 
       // Create usage plan with rate limiting
-      const tenantRegistrationUsagePlan = api.addUsagePlan('TenantRegistrationUsagePlan', {
-        name: `tenant-registration-plan-${props.environment}`,
-        throttle: {
-          rateLimit: 10,    // 10 requests per second
-          burstLimit: 20,   // Burst of 20 requests
-        },
-        quota: {
-          limit: 1000,      // 1000 requests per month
-          period: Period.MONTH,
-        },
-      });
+      const tenantRegistrationUsagePlan = api.addUsagePlan(
+        'TenantRegistrationUsagePlan',
+        {
+          name: `tenant-registration-plan-${props.environment}`,
+          throttle: {
+            rateLimit: 10, // 10 requests per second
+            burstLimit: 20, // Burst of 20 requests
+          },
+          quota: {
+            limit: 1000, // 1000 requests per month
+            period: Period.MONTH,
+          },
+        }
+      );
 
       tenantRegistrationUsagePlan.addApiStage({
         stage: api.deploymentStage,
@@ -1153,6 +1199,20 @@ export class Api extends Construct {
         exportName: `${Stack.of(this).stackName}-TenantRegApiKeyId`,
       });
     }
+    // GET: /bot
+    const botResource = api.root.addResource('bot');
+    botResource.addMethod(
+      'GET',
+      new LambdaIntegration(listBotsFunction),
+      commonAuthorizerProps
+    );
+
+    // POST: /bot
+    botResource.addMethod(
+      'POST',
+      new LambdaIntegration(createBotFunction),
+      commonAuthorizerProps
+    );
 
     this.api = api;
     this.predictStreamFunction = predictStreamFunction;
