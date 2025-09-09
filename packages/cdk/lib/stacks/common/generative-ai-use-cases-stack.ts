@@ -443,6 +443,11 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ID of the KMS key for tenant data encryption',
     });
 
+    new CfnOutput(this, 'TenantRegistrationLambdaArn', {
+      value: tenantManager.registrationLambda.functionArn,
+      description: 'ARN of the tenant registration Lambda function',
+    });
+
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
 

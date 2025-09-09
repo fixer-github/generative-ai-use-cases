@@ -9,11 +9,27 @@ import { StackInput } from '../lib/stack-input';
 const app = new cdk.App();
 
 // Read tenant configuration from cdk.tenant.json
-let tenantConfig: Partial<StackInput> = {};
+interface TenantConfig {
+  tenantId?: string;
+  environment?: string;
+  tenantRegion?: string;
+  enableAutoDelete?: boolean;
+  controlPlane?: {
+    account: string;
+    region: string;
+    tenantsTableName: string;
+    registrationLambdaArn: string;
+    userPoolId: string;
+    identityPoolId: string;
+    userPoolClientId: string;
+  };
+}
+
+let tenantConfig: TenantConfig = {};
 const tenantConfigPath = path.join(__dirname, '..', 'cdk.tenant.json');
 if (fs.existsSync(tenantConfigPath)) {
   const configContent = fs.readFileSync(tenantConfigPath, 'utf-8');
-  const config: Record<string, Partial<StackInput>> = JSON.parse(configContent);
+  const config: { context?: TenantConfig } = JSON.parse(configContent);
   tenantConfig = config.context || {};
 }
 
