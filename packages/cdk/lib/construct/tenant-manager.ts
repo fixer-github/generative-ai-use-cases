@@ -36,7 +36,7 @@ export class TenantManager extends Construct {
         : RemovalPolicy.RETAIN,
     });
 
-    // KMS Key for tenant data encryption
+    // KMS Key for tenant data encryption (Phase 2)
     this.kmsKey = new Key(this, 'TenantsKmsKey', {
       alias: `TenantsKey-${props.environment}`,
       description: 'KMS key for tenant cross-account role ARN encryption',
