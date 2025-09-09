@@ -48,12 +48,6 @@ export class TenantIAMStack extends cdk.Stack {
     // Get environment (required parameter)
     const environment = props?.environment!;
 
-    // Get account ID from context or use deployment account
-    const accountId = this.node.tryGetContext('accountId') || this.account;
-
-    // Get or create UserPool and IdentityPool references
-    let userPool: IUserPool;
-    let identityPool: IIdentityPool;
 
     // For tenant stacks, use CDK context variables to import from main stack
     // Since main stack and tenant stacks are separate deployments
@@ -80,8 +74,8 @@ export class TenantIAMStack extends cdk.Stack {
     }
 
     // Import existing pools using the context values from main stack
-    userPool = UserPool.fromUserPoolId(this, 'ImportedUserPool', userPoolId);
-    identityPool = IdentityPool.fromIdentityPoolId(this, 'ImportedIdentityPool', identityPoolId);
+    const userPool = UserPool.fromUserPoolId(this, 'ImportedUserPool', userPoolId);
+    const identityPool = IdentityPool.fromIdentityPoolId(this, 'ImportedIdentityPool', identityPoolId);
 
     // Create the tenant role construct
     this.tenantRole = new TenantRole(this, 'TenantRole', {
@@ -90,7 +84,7 @@ export class TenantIAMStack extends cdk.Stack {
       identityPool: identityPool,
       userPoolClientId: userPoolClientId,
       region: this.region,
-      account: accountId,
+      account: this.account,
       env: environment,
     });
 
