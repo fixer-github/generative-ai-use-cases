@@ -72,6 +72,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     // Tenant Management
     const tenantManager = new TenantManager(this, 'TenantManager', {
       environment: params.env,
+      enableAutoDelete: params.enableAutoDelete,
     });
 
     // LiteLLM Proxy Server (must be created before API)

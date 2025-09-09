@@ -1,17 +1,16 @@
 import { Construct } from 'constructs';
-import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Table, AttributeType, BillingMode, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
-import { Key, KeyUsage, KeySpec } from 'aws-cdk-lib/aws-kms';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import {
   PolicyStatement,
   Effect,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface TenantManagerProps {
   readonly environment: string;
+  readonly enableAutoDelete?: boolean;
 }
 
 export class TenantManager extends Construct {
@@ -31,10 +30,10 @@ export class TenantManager extends Construct {
       billingMode: BillingMode.PAY_PER_REQUEST,
       encryption: TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: true,
-      // Retain table in production for data safety
-      removalPolicy: props.environment === 'prod' 
-        ? RemovalPolicy.RETAIN 
-        : RemovalPolicy.DESTROY,
+      // Removal policy based on enableAutoDelete context parameter
+      removalPolicy: props.enableAutoDelete
+        ? RemovalPolicy.DESTROY
+        : RemovalPolicy.RETAIN,
     });
 
     // KMS Key for tenant data encryption (Phase 2)
@@ -42,10 +41,10 @@ export class TenantManager extends Construct {
       alias: `TenantsKey-${props.environment}`,
       description: 'KMS key for tenant cross-account role ARN encryption',
       enableKeyRotation: true,
-      // Retain key in production for data safety
-      removalPolicy: props.environment === 'prod' 
-        ? RemovalPolicy.RETAIN 
-        : RemovalPolicy.DESTROY,
+      // Removal policy based on enableAutoDelete context parameter
+      removalPolicy: props.enableAutoDelete
+        ? RemovalPolicy.DESTROY
+        : RemovalPolicy.RETAIN,
     });
 
     // Grant permissions to Lambda service
