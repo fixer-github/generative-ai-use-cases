@@ -9,7 +9,6 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
-const TENANTS_KMS_KEY_ID = process.env.TENANTS_KMS_KEY_ID!;
 
 // DynamoDB client
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
@@ -30,9 +29,9 @@ export interface Tenant {
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, any>;
-  // Phase 2 fields (placeholder, not used in Phase 1)
+  // Phase 2 cross-account fields
   accountId?: string;
-  encryptedCrossAccountRoleArn?: string;
+  crossAccountRoleArn?: string;
 }
 
 // Request interfaces
@@ -40,6 +39,9 @@ interface RegisterTenantRequest {
   tenantId: string;
   region?: string;
   metadata?: Record<string, any>;
+  // Phase 2 cross-account fields
+  accountId?: string;
+  crossAccountRoleArn?: string;
 }
 
 interface UpdateTenantRequest {
@@ -47,6 +49,9 @@ interface UpdateTenantRequest {
   status?: TenantStatus;
   region?: string;
   metadata?: Record<string, any>;
+  // Phase 2 cross-account fields
+  accountId?: string;
+  crossAccountRoleArn?: string;
 }
 
 /**
@@ -86,6 +91,9 @@ export async function registerTenant(
     createdAt: now,
     updatedAt: now,
     metadata: request.metadata || {},
+    // Phase 2 cross-account fields
+    accountId: request.accountId,
+    crossAccountRoleArn: request.crossAccountRoleArn,
   };
 
   try {
@@ -146,6 +154,19 @@ export async function updateTenant(
       updateExpression.push('#metadata = :metadata');
       expressionAttributeNames['#metadata'] = 'metadata';
       expressionAttributeValues[':metadata'] = request.metadata;
+    }
+
+    // Phase 2 cross-account fields
+    if (request.accountId !== undefined) {
+      updateExpression.push('#accountId = :accountId');
+      expressionAttributeNames['#accountId'] = 'accountId';
+      expressionAttributeValues[':accountId'] = request.accountId;
+    }
+
+    if (request.crossAccountRoleArn !== undefined) {
+      updateExpression.push('#crossAccountRoleArn = :crossAccountRoleArn');
+      expressionAttributeNames['#crossAccountRoleArn'] = 'crossAccountRoleArn';
+      expressionAttributeValues[':crossAccountRoleArn'] = request.crossAccountRoleArn;
     }
 
     // Always update updatedAt

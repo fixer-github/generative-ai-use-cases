@@ -5,6 +5,7 @@ import {
   buildTenantRoleArn,
   extractTenantId,
 } from './assumeRoleWithWebIdentity';
+import { getTenant } from '../tenantManager';
 
 // Environment validation helper
 const validateEnvironment = () => {
@@ -21,8 +22,36 @@ const validateEnvironment = () => {
 };
 
 /**
+ * Get tenant role ARN - Phase 2 with cross-account support
+ * Checks tenant metadata for cross-account role, falls back to same-account role
+ */
+async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Promise<string> {
+  try {
+    // Try to get tenant metadata from DynamoDB
+    const tenant = await getTenant(tenantId);
+    
+    // If tenant has cross-account role ARN (Phase 2), use it
+    if (tenant && tenant.crossAccountRoleArn) {
+      console.log(`Using cross-account role ARN for tenant ${tenantId}: ${tenant.crossAccountRoleArn}`);
+      return tenant.crossAccountRoleArn;
+    }
+    
+    // Fall back to same-account role ARN (Phase 1 backward compatibility)
+    const fallbackRoleArn = buildTenantRoleArn(fallbackAccountId, tenantId);
+    console.log(`Using same-account role ARN for tenant ${tenantId}: ${fallbackRoleArn}`);
+    return fallbackRoleArn;
+  } catch (error) {
+    console.warn(`Failed to get tenant metadata for ${tenantId}, falling back to same-account role:`, error);
+    // Fall back to same-account role ARN if tenant lookup fails
+    const fallbackRoleArn = buildTenantRoleArn(fallbackAccountId, tenantId);
+    console.log(`Using fallback same-account role ARN for tenant ${tenantId}: ${fallbackRoleArn}`);
+    return fallbackRoleArn;
+  }
+}
+
+/**
  * Get tenant credentials using AssumeRoleWithWebIdentity
- * This is the new Phase 1 authentication flow that replaces Identity Pool GetCredentialsForIdentity
+ * Phase 2: Supports both cross-account and same-account roles with automatic fallback
  * NOTE: No caching to ensure proper user isolation within tenants
  */
 export async function getTenantCredentials(
@@ -43,9 +72,8 @@ export async function getTenantCredentials(
   );
 
   try {
-    // Phase 1: Build role ARN for same account tenant-specific role
-    // Phase 2: This will be replaced with cross-account role ARN retrieval from tenant metadata
-    const roleArn = buildTenantRoleArn(accountId, tenantId);
+    // Phase 2: Get role ARN from tenant metadata or fallback to same-account
+    const roleArn = await getTenantRoleArn(tenantId, accountId);
 
     console.log(`Assuming role: ${roleArn}`);
 
