@@ -66,16 +66,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
     });
 
-    // Multi-Tenant Role (Phase 1: Deprecated - replaced with tenant-specific IAM roles)
-    // const multiTenantRole = new MultiTenantRole(this, 'MultiTenantRole', {
-    //   userPool: auth.userPool,
-    //   userPoolClient: auth.client,
-    //   identityPool: auth.idPool,
-    //   region: this.region,
-    //   account: this.account,
-    //   env: params.env,
-    // });
-
     // Database
     const database = new Database(this, 'Database');
 
@@ -124,7 +114,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailIdentify: props.guardrailIdentifier,
       guardrailVersion: props.guardrailVersion,
       environment: params.env,
-      // Phase 1: Add tenant management
       tenantManager: tenantManager,
 
       // LangChain Credentials
@@ -443,13 +432,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: litellmEndpoint ?? '',
     });
 
-    // Phase 1: Deprecated - MultiTenantRole replaced with tenant-specific IAM roles
-    // new CfnOutput(this, 'MultiTenantRoleArn', {
-    //   value: multiTenantRole.role.roleArn,
-    //   description: 'ARN of the single role for multi-tenant resource access (Phase 1: Deprecated)',
-    // });
-
-    // Phase 1: Tenant Management Outputs
     new CfnOutput(this, 'TenantsTableName', {
       value: tenantManager.tenantsTable.tableName,
       description: 'Name of the DynamoDB Tenants table',
@@ -459,7 +441,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: tenantManager.kmsKey.keyId,
       description: 'ID of the KMS key for tenant data encryption',
     });
-
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
