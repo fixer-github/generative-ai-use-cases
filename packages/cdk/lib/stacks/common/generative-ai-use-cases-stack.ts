@@ -282,6 +282,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         api: api.api,
         idPool: auth.idPool,
         environment: params.env,
+        tenantManager: tenantManager,
       });
     }
 
