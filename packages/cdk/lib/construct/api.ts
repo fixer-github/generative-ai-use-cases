@@ -814,6 +814,11 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listBots.ts',
       timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: TABLE_PREFIX,
+        DEFAULT_TABLE_NAME: props.table.tableName,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+      },
     });
     table.grantReadData(listBotsFunction);
 
@@ -821,6 +826,12 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createBot.ts',
       timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: TABLE_PREFIX,
+        DEFAULT_TABLE_NAME: props.table.tableName,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        BUCKET_NAME: fileBucket.bucketName,
+      },
     });
     table.grantWriteData(createBotFunction);
     fileBucket.grantPut(createBotFunction);

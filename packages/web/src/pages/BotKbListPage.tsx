@@ -19,11 +19,13 @@ type BotCardProps = {
   bot: BotListResponseItem;
 };
 
-const BotCard: React.FC<BotCardProps> = ({ bot }) => {
+const BotCard: React.FC<BotCardProps> = ({ bot, ...props }) => {
+  console.debug('Bot: ', JSON.stringify(bot));
+
   return (
-    <Card id={bot.id} variation="elevated" width="400px">
+    <Card variation="elevated" width="400px" {...props}>
       <Flex direction="column">
-        <Heading level={5}>{bot.name}</Heading>
+        <Heading level={5}>{bot.title}</Heading>
         <Text variation="secondary" grow={1}>
           {bot.description}
         </Text>
@@ -74,13 +76,17 @@ const BotKbListPage: React.FC = () => {
           grow={1}
         />
         <SelectField label="Status" labelHidden>
-          {status.map((value) => (
-            <option value={value}>{value}</option>
+          {status.map((value, index) => (
+            <option key={index} value={value}>
+              {value}
+            </option>
           ))}
         </SelectField>
         <SelectField label="Visibility" labelHidden>
-          {visibility.map((value) => (
-            <option value={value}>{value}</option>
+          {visibility.map((value, index) => (
+            <option key={index} value={value}>
+              {value}
+            </option>
           ))}
         </SelectField>
         <SelectField label="Sort" labelHidden>
@@ -96,10 +102,10 @@ const BotKbListPage: React.FC = () => {
           direction="row"
           gap="small"
           wrap="wrap"
-          items={bots?.bots || []}
+          items={bots?.items ?? []}
           type="list"
           margin="small">
-          {(bot) => <BotCard bot={bot} />}
+          {(bot) => <BotCard key={bot.id} bot={bot} />}
         </Collection>
       )}
     </View>

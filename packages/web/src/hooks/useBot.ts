@@ -10,11 +10,11 @@ const useBot = () => {
 
   return {
     createBot: async (req: BotCreateRequest): Promise<BotCreateResponse> => {
-      const res = await http.post<BotCreateResponse>('/bot', req);
+      const res = await http.post<BotCreateResponse>('bot', req);
       return res.data;
     },
     listBots: () => {
-      return http.get<BotListResponse>('/bot');
+      return http.get<BotListResponse>('bot');
     },
   };
 };

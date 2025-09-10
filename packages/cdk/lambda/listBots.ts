@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { listBot } from './repository';
+import * as repository from './repository';
+import { BotListResponse } from 'generative-ai-use-cases';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -8,7 +9,17 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
 
-    const res = await listBot(userId, event);
+    const bots = await repository.listBot(userId, event);
+
+    const res: BotListResponse = {
+      items: bots.map((bot) => ({
+        id: bot.id,
+        title: bot.title,
+        description: bot.description,
+        publicInOrg: bot.publicInOrg,
+        userId: bot.userId,
+      })),
+    };
 
     return {
       statusCode: 200,

@@ -966,7 +966,11 @@ export const listBot = async (
 
   const res = await dynamoDbDocument.send(command);
 
+  console.debug('res: ', JSON.stringify(res));
+
   const items = res.Items as BotEntity[];
+
+  console.debug('Items count: ', items.length);
 
   return items;
 };

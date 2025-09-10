@@ -1,5 +1,6 @@
 export type BotEntity = {
   id: string;
+  createdDate: string;
   userId: string;
   title: string;
   description: string;
@@ -40,13 +41,13 @@ export type BotCreateResponse = {
 };
 
 export type BotListResponse = {
-  bots: BotListResponseItem[];
+  items: BotListResponseItem[];
 };
 
 export type BotListResponseItem = {
   id: string;
   userId: string;
-  name: string;
+  title: string;
   description: string;
   publicInOrg: boolean;
 };

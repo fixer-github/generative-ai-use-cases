@@ -6,7 +6,7 @@ import {
   BotCreateRequestKnouledgeFile,
   BotEntity,
 } from 'generative-ai-use-cases';
-import { createBot } from './repository';
+import * as repository from './repository';
 
 const BUCKET_NAME: string = process.env.BUCKET_NAME!;
 
@@ -49,6 +49,7 @@ export const handler = async (
     const files = content.knouledgeFiles;
 
     const id = randomUUID();
+    const createdDate = new Date().toISOString();
 
     const fileSavedResults = await Promise.all(
       files.map((file) => saveFileToS3(id, file))
@@ -58,6 +59,7 @@ export const handler = async (
 
     const item: BotEntity = {
       id: id,
+      createdDate: createdDate,
       userId: userId,
       title: content.title,
       description: content.description,
@@ -69,7 +71,7 @@ export const handler = async (
       knouledgeFiles: fileSavedResults,
     };
 
-    const res = await createBot(item, event);
+    const res = await repository.createBot(item, event);
 
     return {
       statusCode: 204,
