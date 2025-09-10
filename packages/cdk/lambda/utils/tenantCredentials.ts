@@ -2,10 +2,15 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 import { Credentials } from '@aws-sdk/client-sts';
 import {
   assumeRoleWithWebIdentity,
-  buildTenantRoleArn,
   extractTenantId,
 } from './assumeRoleWithWebIdentity';
-import { getTenant } from '../tenantManager';
+import { getTenant, Tenant } from '../tenantManager';
+
+// Interface for returning both credentials and tenant info
+export interface TenantCredentialsWithInfo {
+  credentials: Credentials;
+  tenant: Tenant;
+}
 
 // Environment validation helper
 const validateEnvironment = () => {
@@ -21,33 +26,6 @@ const validateEnvironment = () => {
   };
 };
 
-/**
- * Get tenant role ARN with cross-account support
- * Checks tenant metadata for cross-account role, falls back to same-account role
- */
-async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Promise<string> {
-  try {
-    // Try to get tenant metadata from DynamoDB
-    const tenant = await getTenant(tenantId);
-    
-    // If tenant has cross-account role ARN, use it
-    if (tenant && tenant.crossAccountRoleArn) {
-      console.log(`Using cross-account role ARN for tenant ${tenantId}: ${tenant.crossAccountRoleArn}`);
-      return tenant.crossAccountRoleArn;
-    }
-    
-    // Fall back to same-account role ARN for backward compatibility
-    const fallbackRoleArn = buildTenantRoleArn(fallbackAccountId, tenantId);
-    console.log(`Using same-account role ARN for tenant ${tenantId}: ${fallbackRoleArn}`);
-    return fallbackRoleArn;
-  } catch (error) {
-    console.warn(`Failed to get tenant metadata for ${tenantId}, falling back to same-account role:`, error);
-    // Fall back to same-account role ARN if tenant lookup fails
-    const fallbackRoleArn = buildTenantRoleArn(fallbackAccountId, tenantId);
-    console.log(`Using fallback same-account role ARN for tenant ${tenantId}: ${fallbackRoleArn}`);
-    return fallbackRoleArn;
-  }
-}
 
 /**
  * Get tenant credentials using AssumeRoleWithWebIdentity
@@ -56,7 +34,7 @@ async function getTenantRoleArn(tenantId: string, fallbackAccountId: string): Pr
  */
 export async function getTenantCredentials(
   event: APIGatewayProxyEvent
-): Promise<Credentials> {
+): Promise<TenantCredentialsWithInfo> {
   // Validate environment variables
   const { region, accountId } = validateEnvironment();
 
@@ -72,19 +50,30 @@ export async function getTenantCredentials(
   );
 
   try {
-    // Get role ARN from tenant metadata or fallback to same-account
-    const roleArn = await getTenantRoleArn(tenantId, accountId);
+    // Get tenant metadata - required for cross-account access
+    const tenant = await getTenant(tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant ${tenantId} not found in tenants table`);
+    }
 
-    console.log(`Assuming role: ${roleArn}`);
+    // Check if tenant has role ARN configured
+    if (!tenant.roleArn) {
+      throw new Error(`Tenant ${tenantId} is missing roleArn configuration`);
+    }
+
+    console.log(`Assuming role for tenant ${tenantId}: ${tenant.roleArn}`);
 
     // Use AssumeRoleWithWebIdentity to get tenant credentials
-    const credentials = await assumeRoleWithWebIdentity(event, roleArn);
+    const credentials = await assumeRoleWithWebIdentity(event, tenant.roleArn);
 
     console.log(
       `Successfully obtained tenant credentials for tenant: ${tenantId}, user: ${userId}`
     );
 
-    return credentials;
+    return {
+      credentials,
+      tenant,
+    };
   } catch (error) {
     console.error(
       `Failed to get tenant credentials for tenant: ${tenantId}, user: ${userId}:`,
