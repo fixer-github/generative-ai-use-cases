@@ -93,7 +93,7 @@ export class Embedding extends Construct {
       "UpdateSyncStatusHandler",
       {
         code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
+          path.join(__dirname, "../backend"),
           {
             platform: Platform.LINUX_AMD64,
             file: "lambda.Dockerfile",
@@ -122,7 +122,7 @@ export class Embedding extends Construct {
       "FetchStackOutputHandler",
       {
         code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
+          path.join(__dirname, "../backend"),
           {
             platform: Platform.LINUX_AMD64,
             file: "lambda.Dockerfile",
@@ -146,7 +146,7 @@ export class Embedding extends Construct {
       "StoreKnowledgeBaseIdHandler",
       {
         code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
+          path.join(__dirname, "../backend"),
           {
             platform: Platform.LINUX_AMD64,
             file: "lambda.Dockerfile",
@@ -174,7 +174,7 @@ export class Embedding extends Construct {
       "StoreGuardrailArnHandler",
       {
         code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
+          path.join(__dirname, "../backend"),
           {
             platform: Platform.LINUX_AMD64,
             file: "lambda.Dockerfile",

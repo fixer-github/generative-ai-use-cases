@@ -1,5 +1,8 @@
 [tool.poetry]
-package-mode = false
+name = "bedrock-chat-backend"
+version = "0.1.0"
+description = "Backend for Bedrock Chat"
+authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.13.0"

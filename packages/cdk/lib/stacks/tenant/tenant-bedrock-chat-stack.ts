@@ -11,6 +11,7 @@ import { WebSocket } from '../../temp-bedrock-chat/constructs/websocket';
 import { Embedding } from '../../temp-bedrock-chat/constructs/embedding';
 import { UsageAnalysis } from '../../temp-bedrock-chat/constructs/usage-analysis';
 import { BotStore, Language } from '../../temp-bedrock-chat/constructs/bot-store';
+import { excludeDockerImage } from '../../temp-bedrock-chat/constants/docker';
 
 /**
  * テナント専用のBedrock Chatスタックのプロパティ定義
@@ -222,7 +223,11 @@ export class TenantBedrockChatStack extends cdk.Stack {
     const apiHandler = new PythonFunction(this, 'ApiHandler', {
       entry: path.join(__dirname, '../../temp-bedrock-chat/backend'),
       index: 'app/main.py',
-      runtime: Runtime.PYTHON_3_12,
+      bundling: {
+        assetExcludes: [...excludeDockerImage],
+        buildArgs: { POETRY_VERSION: "1.8.3" },
+      },
+      runtime: Runtime.PYTHON_3_13,
       architecture: Architecture.X86_64,
       memorySize: 1024,
       timeout: Duration.minutes(15),
