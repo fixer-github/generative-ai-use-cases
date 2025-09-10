@@ -25,6 +25,7 @@ export interface Tenant {
   tenantId: string;
   status: TenantStatus;
   region: string;
+  environment: string;
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, any>;
@@ -36,6 +37,7 @@ export interface Tenant {
 interface RegisterTenantRequest {
   tenantId: string;
   region?: string;
+  environment?: string;
   metadata?: Record<string, any>;
   accountId: string;
   roleArn: string;
@@ -84,6 +86,7 @@ export async function registerTenant(
     tenantId: request.tenantId,
     status: TenantStatus.PROVISIONING,
     region: request.region || process.env.AWS_REGION!,
+    environment: request.environment || process.env.ENVIRONMENT!,
     createdAt: now,
     updatedAt: now,
     metadata: request.metadata || {},
