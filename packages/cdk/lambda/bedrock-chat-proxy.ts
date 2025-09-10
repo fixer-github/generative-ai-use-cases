@@ -6,8 +6,7 @@ import {
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getTenantId } from './utils/tenantUtils';
 import { getTenant } from './tenantManager';
-
-const lambdaClient = new LambdaClient({});
+import { getTenantCredentials } from './utils/tenantCredentials';
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'dev';
 
@@ -102,11 +101,27 @@ export const handler = async (
     const targetLambdaArn = await getTenantLambdaArn(tenantId);
     console.log('Target Lambda ARN:', targetLambdaArn);
 
-    // Step 3: Transform the event for the target Lambda
+    // Step 3: Get tenant-specific credentials using AssumeRoleWithWebIdentity
+    // This ensures that we can only invoke Lambda functions for the authenticated tenant
+    const tenantCredentials = await getTenantCredentials(event);
+    console.log('Obtained tenant-specific credentials for cross-tenant access prevention');
+
+    // Step 4: Create a new Lambda client with tenant-specific credentials
+    // This client can only access resources allowed by the tenant's IAM role
+    const lambdaClient = new LambdaClient({
+      credentials: {
+        accessKeyId: tenantCredentials.AccessKeyId!,
+        secretAccessKey: tenantCredentials.SecretAccessKey!,
+        sessionToken: tenantCredentials.SessionToken!,
+      },
+      region: process.env.AWS_REGION,
+    });
+
+    // Step 5: Transform the event for the target Lambda
     const transformedEvent = transformEventForTarget(event);
     transformedEvent._proxyMetadata.tenantId = tenantId;
 
-    // Step 4: Invoke the tenant-specific Lambda function
+    // Step 6: Invoke the tenant-specific Lambda function with tenant credentials
     const invokeCommand = new InvokeCommand({
       FunctionName: targetLambdaArn,
       InvocationType: 'RequestResponse',
@@ -115,7 +130,7 @@ export const handler = async (
 
     const invokeResponse = await lambdaClient.send(invokeCommand);
     
-    // Step 5: Parse and return the response
+    // Step 7: Parse and return the response
     if (invokeResponse.Payload) {
       const payloadString = new TextDecoder().decode(invokeResponse.Payload);
       const response = JSON.parse(payloadString);

@@ -132,6 +132,22 @@ export class TenantRole extends Construct {
               resources: ['*'], // Polly doesn't have tenant-specific resources
             }),
 
+            // Lambda invoke access for tenant-specific Bedrock Chat functions
+            new PolicyStatement({
+              sid: 'LambdaInvokeTenantFunctions',
+              effect: Effect.ALLOW,
+              actions: [
+                'lambda:InvokeFunction',
+                'lambda:InvokeAsync',
+              ],
+              resources: [
+                // Allow invoking only Lambda functions for this specific tenant
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-*`,
+                // Specifically allow Bedrock Chat tenant functions
+                `arn:aws:lambda:${props.region}:${props.account}:function:*-${props.tenantId}-TenantBedrockChatStack-*`,
+              ],
+            }),
+
           ],
         }),
       },
