@@ -51,3 +51,15 @@ export type BotListResponseItem = {
   description: string;
   publicInOrg: boolean;
 };
+
+export type BotGetResponse = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  promptTemplate: string;
+  publicInOrg: boolean;
+  useFixedModel: boolean;
+  modelId: string;
+  fileAttachEnabled: boolean;
+};

@@ -133,6 +133,19 @@ const BotKbEditPage: React.FC = () => {
     console.log(JSON.stringify(result));
   };
 
+  // プロンプトテンプレート関連
+  // const placeholders = useMemo(() => {
+  //   return extractPlaceholdersFromPromptTemplate(promptTemplate);
+  // }, [promptTemplate]);
+  //
+  // const items = useMemo(() => {
+  //   return getItemsFromPlaceholders(placeholders);
+  // }, [placeholders]);
+  //
+  // const textFormItems = useMemo(() => {
+  //   return getTextFormItemsFromItems(items);
+  // }, [items]);
+
   return (
     <>
       <Heading level={1}>新規作成</Heading>

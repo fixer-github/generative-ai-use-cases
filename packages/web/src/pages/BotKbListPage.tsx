@@ -20,7 +20,7 @@ type BotCardProps = {
 };
 
 const BotCard: React.FC<BotCardProps> = ({ bot, ...props }) => {
-  console.debug('Bot: ', JSON.stringify(bot));
+  const navigate = useNavigate();
 
   return (
     <Card variation="elevated" width="400px" {...props}>
@@ -29,7 +29,10 @@ const BotCard: React.FC<BotCardProps> = ({ bot, ...props }) => {
         <Text variation="secondary" grow={1}>
           {bot.description}
         </Text>
-        <Button variation="primary" alignSelf="flex-end">
+        <Button
+          variation="primary"
+          alignSelf="flex-end"
+          onClick={() => navigate(`/bot/chat/${bot.id}`)}>
           開く
         </Button>
       </Flex>

@@ -22,6 +22,7 @@ import {
   TransactWriteCommand,
   UpdateCommand,
   ScanCommand,
+  GetCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId } from './utils/tenantUtils';
@@ -973,4 +974,42 @@ export const listBot = async (
   console.debug('Items count: ', items.length);
 
   return items;
+};
+
+export const getBot = async (
+  botId: string,
+  userId: string,
+  event: APIGatewayProxyEvent
+): Promise<BotEntity | null> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  console.debug('botId: ', botId);
+
+  const command = new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: '#id = :id',
+    ExpressionAttributeNames: {
+      '#id': 'id',
+    },
+    ExpressionAttributeValues: {
+      ':id': botId,
+    },
+  });
+
+  const res = await dynamoDbDocument.send(command);
+
+  if (!res.Items) {
+    // アイテムが存在しなかった場合
+    return null;
+  }
+
+  const item = res.Items[0] as BotEntity;
+
+  if (item.userId !== userId && item.publicInOrg === false) {
+    // InternalでUserIdが違う場合は存在しないことにする（本来は見ることのできないものなので）
+    return null;
+  }
+
+  return item;
 };

@@ -47,6 +47,7 @@ import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
 import BotKbEditPage from './pages/BotKbEditPage.tsx';
 import BotKbListPage from './pages/BotKbListPage.tsx';
+import BotKbChatPage from './pages/BotKbChatPage.tsx';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -101,6 +102,10 @@ const routes: RouteObject[] = [
   {
     path: '/bot/new',
     element: <BotKbEditPage />,
+  },
+  {
+    path: '/bot/chat/:botId',
+    element: <BotKbChatPage />,
   },
   enabled('generate')
     ? {

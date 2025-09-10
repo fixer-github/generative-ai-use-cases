@@ -836,6 +836,19 @@ export class Api extends Construct {
     table.grantWriteData(createBotFunction);
     fileBucket.grantPut(createBotFunction);
 
+    const findBotByIdFunction = new NodejsFunction(this, 'FindBotById', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/findBotById.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: TABLE_PREFIX,
+        DEFAULT_TABLE_NAME: props.table.tableName,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        BUCKET_NAME: fileBucket.bucketName,
+      },
+    });
+    table.grantReadData(findBotByIdFunction);
+
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
@@ -1215,6 +1228,14 @@ export class Api extends Construct {
     botResource.addMethod(
       'GET',
       new LambdaIntegration(listBotsFunction),
+      commonAuthorizerProps
+    );
+
+    // GET: /bot/{botId}
+    const botGetResource = botResource.addResource('{botId}');
+    botGetResource.addMethod(
+      'GET',
+      new LambdaIntegration(findBotByIdFunction),
       commonAuthorizerProps
     );
 

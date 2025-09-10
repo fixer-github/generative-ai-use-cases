@@ -2,6 +2,7 @@ import {
   BotCreateRequest,
   BotCreateResponse,
   BotListResponse,
+  BotGetResponse,
 } from 'generative-ai-use-cases';
 import useHttp from './useHttp';
 
@@ -15,6 +16,9 @@ const useBot = () => {
     },
     listBots: () => {
       return http.get<BotListResponse>('bot');
+    },
+    findBotById: (botId: string) => {
+      return http.get<BotGetResponse>(`bot/${botId}`);
     },
   };
 };
