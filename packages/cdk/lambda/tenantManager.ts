@@ -29,7 +29,7 @@ export interface Tenant {
   updatedAt: string;
   metadata?: Record<string, any>;
   accountId: string;
-  crossAccountRoleArn: string;
+  roleArn: string;
 }
 
 // Request interfaces
@@ -38,7 +38,7 @@ interface RegisterTenantRequest {
   region?: string;
   metadata?: Record<string, any>;
   accountId: string;
-  crossAccountRoleArn: string;
+  roleArn: string;
 }
 
 interface UpdateTenantRequest {
@@ -47,7 +47,7 @@ interface UpdateTenantRequest {
   region?: string;
   metadata?: Record<string, any>;
   accountId?: string;
-  crossAccountRoleArn?: string;
+  roleArn?: string;
 }
 
 /**
@@ -88,7 +88,7 @@ export async function registerTenant(
     updatedAt: now,
     metadata: request.metadata || {},
     accountId: request.accountId,
-    crossAccountRoleArn: request.crossAccountRoleArn,
+    roleArn: request.roleArn,
   };
 
   try {
@@ -158,10 +158,10 @@ export async function updateTenant(
       expressionAttributeValues[':accountId'] = request.accountId;
     }
 
-    if (request.crossAccountRoleArn !== undefined) {
-      updateExpression.push('#crossAccountRoleArn = :crossAccountRoleArn');
-      expressionAttributeNames['#crossAccountRoleArn'] = 'crossAccountRoleArn';
-      expressionAttributeValues[':crossAccountRoleArn'] = request.crossAccountRoleArn;
+    if (request.roleArn !== undefined) {
+      updateExpression.push('#roleArn = :roleArn');
+      expressionAttributeNames['#roleArn'] = 'roleArn';
+      expressionAttributeValues[':roleArn'] = request.roleArn;
     }
 
     // Always update updatedAt
