@@ -27,35 +27,29 @@
 
 **実装箇所**: `/packages/cdk/lambda/bedrock-chat-proxy.ts` で `import { getTenantId } from './utils/tenantUtils';` を使用
 
-### 2. getTenantLambdaArn の実装
+### 2. getTenantLambdaArn の実装 ✅ 完了
 
 **目的**: テナントIDからLambda ARNを取得する
 
-**実装オプション**:
+**実装済み**: DynamoDB Option A を採用し、metadata フィールドを使用
+- 既存の `tenantManager.ts` の `getTenant` 関数を利用
+- `metadata.bedrockChatLambdaArn` からARNを取得
+- metadataにARNが存在しない場合は命名規則によるフォールバック処理を実装
 
-#### Option A: DynamoDB を使用
+**実装詳細**:
 ```typescript
 // Tenantsテーブルのスキーマ例
 {
   tenantId: "tenant-001",
-  bedrockChatLambdaArn: "arn:aws:lambda:region:account:function:name",
-  websocketEndpoint: "wss://xxx.execute-api.region.amazonaws.com/prod",
-  createdAt: "2024-01-01T00:00:00Z"
+  metadata: {
+    bedrockChatLambdaArn: "arn:aws:lambda:region:account:function:name",
+    // その他のメタデータ
+  },
+  status: "active",
+  region: "ap-northeast-1",
+  createdAt: "2024-01-01T00:00:00Z",
+  updatedAt: "2024-01-01T00:00:00Z"
 }
-```
-
-#### Option B: SSM Parameter Store を使用
-```typescript
-const parameterName = `/tenants/${tenantId}/bedrock-chat/lambda-arn`;
-const ssmClient = new SSMClient({});
-const response = await ssmClient.send(new GetParameterCommand({ Name: parameterName }));
-return response.Parameter.Value;
-```
-
-#### Option C: CloudFormation Exports を使用
-```typescript
-const exportName = `${tenantId}-TenantBedrockChatStack-ApiHandlerArn`;
-// CloudFormation ListExports APIを使用
 ```
 
 **実装箇所**: `/packages/cdk/lambda/bedrock-chat-proxy.ts` の getTenantLambdaArn 関数
@@ -134,10 +128,15 @@ await cloudwatch.send(new PutMetricDataCommand({
 cdk deploy *-TenantBedrockChatStack --context tenantId=tenant-001
 ```
 
-2. Lambda ARNの登録（DynamoDB使用の場合）
+2. Lambda ARNの登録（DynamoDB metadata フィールド使用）
 ```bash
-aws dynamodb put-item --table-name Tenants-dev \
-  --item '{"tenantId": {"S": "tenant-001"}, "bedrockChatLambdaArn": {"S": "arn:..."}}'
+# 既存のテナントのmetadataを更新
+aws dynamodb update-item --table-name Tenants-dev \
+  --key '{"tenantId": {"S": "tenant-001"}}' \
+  --update-expression "SET metadata.bedrockChatLambdaArn = :arn" \
+  --expression-attribute-values '{":arn": {"S": "arn:aws:lambda:region:account:function:name"}}'
+
+# または、tenantManager のupdateTenant関数を使用してプログラムで更新
 ```
 
 3. メインスタックの更新

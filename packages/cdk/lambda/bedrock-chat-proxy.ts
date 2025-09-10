@@ -4,51 +4,47 @@ import {
   Context,
 } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { getTenantId } from './utils/tenantUtils';
+import { getTenant } from './tenantManager';
 
 const lambdaClient = new LambdaClient({});
-const dynamoClient = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(dynamoClient);
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'dev';
-const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME;
 
 /**
  * Get the Lambda function ARN for a specific tenant's Bedrock Chat function
- * 
- * TODO: Implement one of these strategies:
- * 1. Query DynamoDB Tenants table for Lambda ARN
- * 2. Use SSM Parameter Store with pattern /tenants/{tenantId}/bedrock-chat/lambda-arn
- * 3. Use CloudFormation exports with pattern {tenantId}-BedrockChatLambdaArn
+ * Uses DynamoDB Tenants table to retrieve the Lambda ARN from metadata field
  */
 async function getTenantLambdaArn(tenantId: string): Promise<string> {
-  // FIXME: This is a placeholder implementation
-  // Replace with actual ARN lookup logic
-  
-  if (TENANTS_TABLE_NAME) {
-    try {
-      // Option 1: Get from DynamoDB
-      const response = await ddbDocClient.send(
-        new GetCommand({
-          TableName: TENANTS_TABLE_NAME,
-          Key: { tenantId },
-        })
-      );
-      
-      if (response.Item?.bedrockChatLambdaArn) {
-        return response.Item.bedrockChatLambdaArn;
-      }
-    } catch (error) {
-      console.error('Error fetching tenant Lambda ARN from DynamoDB:', error);
+  try {
+    // Get tenant information from DynamoDB
+    const tenant = await getTenant(tenantId);
+    
+    if (!tenant) {
+      throw new Error(`Tenant ${tenantId} not found`);
     }
+    
+    // Check if Lambda ARN exists in metadata
+    const lambdaArn = tenant.metadata?.bedrockChatLambdaArn;
+    
+    if (lambdaArn) {
+      console.log(`Found Bedrock Chat Lambda ARN for tenant ${tenantId}: ${lambdaArn}`);
+      return lambdaArn;
+    }
+    
+    // Fallback: Construct ARN based on naming convention if not found in metadata
+    // This is temporary until all tenants have their ARNs stored in metadata
+    console.warn(`Bedrock Chat Lambda ARN not found in metadata for tenant ${tenantId}, using fallback pattern`);
+    const functionName = `${ENVIRONMENT}-${tenantId}-TenantBedrockChatStack-HandlerV2`;
+    const fallbackArn = `arn:aws:lambda:${process.env.AWS_REGION}:${process.env.AWS_ACCOUNT_ID}:function:${functionName}`;
+    
+    console.log(`Using fallback ARN for tenant ${tenantId}: ${fallbackArn}`);
+    return fallbackArn;
+    
+  } catch (error) {
+    console.error(`Error fetching tenant Lambda ARN for ${tenantId}:`, error);
+    throw new Error(`Failed to get Lambda ARN for tenant ${tenantId}: ${error}`);
   }
-
-  // Option 2: Construct ARN based on naming convention
-  // TODO: Replace with actual pattern based on your stack naming
-  const functionName = `${ENVIRONMENT}-${tenantId}-TenantBedrockChatStack-HandlerV2`;
-  return `arn:aws:lambda:${process.env.AWS_REGION}:${process.env.AWS_ACCOUNT_ID}:function:${functionName}`;
 }
 
 /**
@@ -86,7 +82,7 @@ function transformEventForTarget(event: APIGatewayProxyEvent): any {
  */
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Bedrock Chat Proxy - Incoming request:', {
     path: event.path,
@@ -218,10 +214,10 @@ export const handler = async (
  * 
  * 1. ✅ COMPLETED: getTenantIdFromEvent() - Using existing getTenantId from utils/tenantUtils
  * 
- * 2. Implement getTenantLambdaArn():
- *    - Choose strategy: DynamoDB, SSM Parameter Store, or CloudFormation exports
- *    - Add caching mechanism to reduce API calls
- *    - Implement fallback mechanism if primary lookup fails
+ * 2. ✅ COMPLETED: getTenantLambdaArn() - Using DynamoDB Tenants table with metadata field
+ *    - Implemented DynamoDB strategy using metadata.bedrockChatLambdaArn
+ *    - Added fallback mechanism with naming convention if ARN not found in metadata
+ *    - TODO: Add caching mechanism to reduce API calls (future optimization)
  * 
  * 3. Add monitoring and metrics:
  *    - CloudWatch custom metrics for proxy latency
