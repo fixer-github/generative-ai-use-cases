@@ -16,27 +16,16 @@
 
 ## 残実装タスク
 
-### 1. getTenantIdFromEvent の実装
+### 1. getTenantIdFromEvent の実装 ✅ 完了
 
 **目的**: リクエストからテナントIDを抽出する
 
-**実装オプション**:
-```typescript
-// Option 1: Cognitoカスタム属性から取得（推奨）
-const claims = event.requestContext?.authorizer?.claims;
-const tenantId = claims['custom:tenantId'];
+**実装済み**: 既存の共通メソッド `getTenantId` を `utils/tenantUtils.ts` から利用
+- Cognitoカスタム属性 `custom:tenant_id` から取得
+- 既存システムの命名規則（アンダースコア使用）に統一
+- フォールバックとして `DEFAULT_TENANT_ID` 環境変数またはデフォルト値 'default' を使用
 
-// Option 2: JWTトークンから直接抽出
-const token = event.headers.Authorization?.replace('Bearer ', '');
-const decoded = jwt.decode(token);
-const tenantId = decoded['custom:tenantId'];
-
-// Option 3: APIキーベースのマッピング
-const apiKey = event.headers['x-api-key'];
-const tenantId = await getTenantFromApiKey(apiKey);
-```
-
-**実装箇所**: `/packages/cdk/lambda/bedrock-chat-proxy.ts` の getTenantIdFromEvent 関数
+**実装箇所**: `/packages/cdk/lambda/bedrock-chat-proxy.ts` で `import { getTenantId } from './utils/tenantUtils';` を使用
 
 ### 2. getTenantLambdaArn の実装
 
@@ -71,19 +60,20 @@ const exportName = `${tenantId}-TenantBedrockChatStack-ApiHandlerArn`;
 
 **実装箇所**: `/packages/cdk/lambda/bedrock-chat-proxy.ts` の getTenantLambdaArn 関数
 
-### 3. 認証情報の共有
+### 3. 認証情報の共有 ✅ 完了
 
 **問題**: テナント専用スタックのLambda関数がCognito認証情報を必要とする
 
-**解決方法**:
-1. メインスタックのCognito User Pool IDとClient IDを環境変数として共有
-2. または、プロキシLambdaからイベントオブジェクトに認証情報を追加
+**実装済み**: cdk.tenant.jsonに定義されている認証情報を使用
+- `userPoolId`、`identityPoolId`、`userPoolClientId`がcdk.tenant.jsonから読み込まれる
+- bin/generative-ai-use-cases-tenant.ts経由でTenantBedrockChatStackに渡される
+- Lambda関数の環境変数`USER_POOL_ID`と`CLIENT_ID`に設定される
 
 ```typescript
-// tenant-bedrock-chat-stack.ts
+// tenant-bedrock-chat-stack.ts (実装済み)
 environment: {
-  USER_POOL_ID: props.userPoolId, // メインスタックから渡す
-  CLIENT_ID: props.clientId,       // メインスタックから渡す
+  USER_POOL_ID: props.userPoolId || '',
+  CLIENT_ID: props.userPoolClientId || '',
 }
 ```
 

@@ -12,6 +12,9 @@ export interface TenantStackInput {
   removalPolicy: boolean;
   bedrockRegion?: string;
   enableBedrockChat?: boolean;
+  userPoolId?: string;
+  identityPoolId?: string;
+  userPoolClientId?: string;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -76,6 +79,9 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         removalPolicy: params.removalPolicy
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
+        userPoolId: params.userPoolId,
+        identityPoolId: params.identityPoolId,
+        userPoolClientId: params.userPoolClientId,
       }
     );
   }

@@ -89,6 +89,24 @@ export interface TenantBedrockChatStackProps extends cdk.StackProps {
    * @default RemovalPolicy.RETAIN
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
+
+  /**
+   * メインスタックのCognito User Pool ID
+   * 認証に使用されるユーザープールの識別子
+   */
+  readonly userPoolId?: string;
+
+  /**
+   * メインスタックのCognito Identity Pool ID
+   * 認証に使用されるアイデンティティプールの識別子
+   */
+  readonly identityPoolId?: string;
+
+  /**
+   * メインスタックのCognito User Pool Client ID
+   * 認証に使用されるユーザープールクライアントの識別子
+   */
+  readonly userPoolClientId?: string;
 }
 
 /**
@@ -215,10 +233,9 @@ export class TenantBedrockChatStack extends cdk.Stack {
         ENV_PREFIX: props.envPrefix || '',
         // CORS設定はメインスタックのものを使用
         CORS_ALLOW_ORIGINS: '*',
-        // TODO: 認証情報はメインスタックから渡される必要がある
-        // プロキシ経由でユーザプールIDとクライアントIDを受け取る仕組みが必要
-        USER_POOL_ID: '', // FIXME: メインスタックの認証情報を参照
-        CLIENT_ID: '', // FIXME: メインスタックの認証情報を参照
+        // メインスタックの認証情報を使用
+        USER_POOL_ID: props.userPoolId || '',
+        CLIENT_ID: props.userPoolClientId || '',
         ACCOUNT: Stack.of(this).account,
         REGION: Stack.of(this).region,
         BEDROCK_REGION: props.bedrockRegion,

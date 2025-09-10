@@ -6,6 +6,7 @@ import {
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { getTenantId } from './utils/tenantUtils';
 
 const lambdaClient = new LambdaClient({});
 const dynamoClient = new DynamoDBClient({});
@@ -13,32 +14,6 @@ const ddbDocClient = DynamoDBDocumentClient.from(dynamoClient);
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'dev';
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME;
-
-/**
- * Extract tenant ID from the authenticated user's context
- * 
- * TODO: Implement proper tenant extraction logic
- * This should extract tenant ID from:
- * 1. Cognito custom attributes (preferred)
- * 2. JWT token claims
- * 3. Request headers
- * 4. Path parameters (if tenant is part of the URL)
- */
-async function getTenantIdFromEvent(event: APIGatewayProxyEvent): Promise<string> {
-  // FIXME: This is a placeholder implementation
-  // Replace with actual tenant extraction logic from Cognito claims
-  
-  // Example of extracting from authorizer context (Cognito)
-  const claims = event.requestContext?.authorizer?.claims;
-  if (claims && claims['custom:tenantId']) {
-    return claims['custom:tenantId'];
-  }
-
-  // Fallback to default tenant for testing
-  // TODO: Remove this fallback in production
-  console.warn('No tenant ID found in request, using default tenant');
-  return 'default';
-}
 
 /**
  * Get the Lambda function ARN for a specific tenant's Bedrock Chat function
@@ -124,7 +99,7 @@ export const handler = async (
 
   try {
     // Step 1: Extract tenant ID from the request
-    const tenantId = await getTenantIdFromEvent(event);
+    const tenantId = getTenantId(event);
     console.log('Tenant ID:', tenantId);
 
     // Step 2: Get the target Lambda function ARN
@@ -241,10 +216,7 @@ export const handler = async (
 /**
  * TODO List for completing the implementation:
  * 
- * 1. Implement getTenantIdFromEvent():
- *    - Extract tenant ID from Cognito custom attributes
- *    - Add validation to ensure tenant ID exists
- *    - Consider caching tenant ID for performance
+ * 1. ✅ COMPLETED: getTenantIdFromEvent() - Using existing getTenantId from utils/tenantUtils
  * 
  * 2. Implement getTenantLambdaArn():
  *    - Choose strategy: DynamoDB, SSM Parameter Store, or CloudFormation exports
