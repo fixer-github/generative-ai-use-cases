@@ -1,6 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as path from 'path';
+import { Stack, Duration, CfnResource } from 'aws-cdk-lib';
+import { Architecture, Runtime, LayerVersion } from 'aws-cdk-lib/aws-lambda';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { Database } from '../../temp-bedrock-chat/constructs/database';
 import { WebSocket } from '../../temp-bedrock-chat/constructs/websocket';
 import { Embedding } from '../../temp-bedrock-chat/constructs/embedding';
@@ -191,12 +196,81 @@ export class TenantBedrockChatStack extends cdk.Stack {
       autoDeleteObjects: props.removalPolicy === cdk.RemovalPolicy.DESTROY,
     });
 
-    // 注意: APIコンストラクトは認証（Auth）とCodeBuildプロジェクトが必要なため、
-    // メインスタックで管理されます。フェーズ4でメインスタックから
-    // このテナントスタックへのルーティングを実装する際に追加予定です。
+    // ==============================================
+    // 4. API Lambda関数の作成
+    // ==============================================
+    // Bedrock ChatのAPI処理を行うLambda関数
+    // メインスタックのプロキシから呼び出される
+    const apiHandler = new PythonFunction(this, 'ApiHandler', {
+      entry: path.join(__dirname, '../../temp-bedrock-chat/backend'),
+      index: 'app/main.py',
+      runtime: Runtime.PYTHON_3_12,
+      architecture: Architecture.X86_64,
+      memorySize: 1024,
+      timeout: Duration.minutes(15),
+      environment: {
+        CONVERSATION_TABLE_NAME: this.database.conversationTable.tableName,
+        BOT_TABLE_NAME: this.database.botTable.tableName,
+        ENV_NAME: props.environment,
+        ENV_PREFIX: props.envPrefix || '',
+        // CORS設定はメインスタックのものを使用
+        CORS_ALLOW_ORIGINS: '*',
+        // TODO: 認証情報はメインスタックから渡される必要がある
+        // プロキシ経由でユーザプールIDとクライアントIDを受け取る仕組みが必要
+        USER_POOL_ID: '', // FIXME: メインスタックの認証情報を参照
+        CLIENT_ID: '', // FIXME: メインスタックの認証情報を参照
+        ACCOUNT: Stack.of(this).account,
+        REGION: Stack.of(this).region,
+        BEDROCK_REGION: props.bedrockRegion,
+        TABLE_ACCESS_ROLE_ARN: '', // TODO: 必要に応じて設定
+        DOCUMENT_BUCKET: this.documentBucket.bucketName,
+        LARGE_MESSAGE_BUCKET: largeMessageBucket.bucketName,
+        OPENSEARCH_DOMAIN_ENDPOINT: this.botStore?.openSearchEndpoint || '',
+        ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
+          props.enableBedrockCrossRegionInference?.toString() || 'false',
+        GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels 
+          ? JSON.stringify(props.globalAvailableModels)
+          : '[]',
+        // Lambda Web Adapter設定
+        AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
+        PORT: '8000',
+      },
+      layers: [
+        LayerVersion.fromLayerVersionArn(
+          this,
+          'LwaLayer',
+          `arn:aws:lambda:${Stack.of(this).region}:753240598075:layer:LambdaAdapterLayerX86:23`
+        ),
+      ],
+    });
+
+    // Lambda Web Adapterのハンドラー設定
+    (apiHandler.node.defaultChild as CfnResource).addPropertyOverride(
+      'Handler',
+      'run.sh'
+    );
+
+    // 必要な権限を付与
+    this.database.conversationTable.grantReadWriteData(apiHandler);
+    this.database.botTable.grantReadWriteData(apiHandler);
+    this.documentBucket.grantReadWrite(apiHandler);
+    largeMessageBucket.grantReadWrite(apiHandler);
+
+    // Bedrockへのアクセス権限
+    apiHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:*'],
+        resources: ['*'],
+      })
+    );
+
+    // TODO: 他に必要な権限があれば追加
+    // - UsageAnalysisへのアクセス権限
+    // - BotStoreへのアクセス権限
+    // - CodeBuildプロジェクトへの権限（必要な場合）
 
     // ==============================================
-    // 4. WebSocket APIの作成
+    // 5. WebSocket APIの作成
     // ==============================================
     // リアルタイムの双方向通信を実現するWebSocket API
     // ストリーミングレスポンスやリアルタイムチャットに使用
@@ -277,6 +351,13 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // ==============================================
     // 他のスタックやアプリケーションから参照するための出力値
     
+    // API Lambda関数のARN（プロキシから呼び出すため）
+    new cdk.CfnOutput(this, 'ApiHandlerArn', {
+      value: apiHandler.functionArn,
+      description: `テナント ${tenantId} のAPI Lambda関数ARN`,
+      exportName: `${this.stackName}-ApiHandlerArn`,
+    });
+
     // WebSocketエンドポイントのURL
     new cdk.CfnOutput(this, 'WebSocketEndpoint', {
       value: this.websocket.apiEndpoint,
