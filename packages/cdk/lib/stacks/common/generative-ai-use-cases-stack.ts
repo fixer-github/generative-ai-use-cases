@@ -438,11 +438,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'Name of the DynamoDB Tenants table',
     });
 
-    new CfnOutput(this, 'TenantsKmsKeyId', {
-      value: tenantManager.kmsKey.keyId,
-      description: 'ID of the KMS key for tenant data encryption',
-    });
-
     new CfnOutput(this, 'TenantRegistrationLambdaArn', {
       value: tenantManager.registrationLambda.functionArn,
       description: 'ARN of the tenant registration Lambda function',

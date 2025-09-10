@@ -29,7 +29,8 @@ aws cloudformation describe-stacks --stack-name YourMainStackName --query 'Stack
 
 You'll need:
 - `TenantsTableName` (e.g., "Tenants-dev")
-- `TenantRegistrationLambdaArn` 
+- `TenantRegistrationApiEndpoint` (API Gateway endpoint URL)
+- `TenantRegistrationApiKeyId` (to retrieve the actual API key value)
 - `UserPoolId`, `IdentityPoolId`, `UserPoolClientId` (from Cognito)
 
 ### 2. Configure Tenant Deployment
@@ -53,7 +54,8 @@ Edit `cdk.tenant.json`:
       "account": "111111111111",
       "region": "us-east-1",
       "tenantsTableName": "Tenants-dev",
-      "registrationLambdaArn": "arn:aws:lambda:us-east-1:111111111111:function:TenantRegistration-dev",
+      "registrationApiEndpoint": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/tenant-registration",
+      "registrationApiKey": "your-api-key-here",
       "userPoolId": "us-east-1_XXXXXXXXX",
       "identityPoolId": "us-east-1:xxx-xxx-xxx",
       "userPoolClientId": "xxxxxxxxxxxxxx"
@@ -62,6 +64,12 @@ Edit `cdk.tenant.json`:
     "enableAutoDelete": false
   }
 }
+```
+
+**Getting the API Key Value:**
+The stack outputs provide the API key ID, but you need the actual key value. Retrieve it using:
+```bash
+aws apigateway get-api-key --api-key YOUR_API_KEY_ID --include-value --query 'value' --output text
 ```
 
 ### 3. Set Up AWS Profile (for cross-account deployment)
