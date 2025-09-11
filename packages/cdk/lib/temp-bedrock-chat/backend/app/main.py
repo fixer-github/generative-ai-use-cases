@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+import json
 from typing import Callable
 
 from app.dependencies import get_current_user
@@ -105,26 +106,77 @@ app.add_exception_handler(Exception, error_handler_factory(500))
 def add_current_user_to_request(request: Request, call_next: ASGIApp):
     if is_running_on_lambda():
         if not is_published_api:
-            authorization = request.headers.get("Authorization")
-            if authorization:
-                token_str = authorization.split(" ")[1]
-                token = HTTPAuthorizationCredentials(
-                    scheme="Bearer", credentials=token_str
+            # Check if this is a proxy request with pre-validated user information
+            is_proxy_validated = request.headers.get("X-Proxy-Validated") == "true"
+            
+            if is_proxy_validated:
+                # Extract user information from custom headers set by the proxy
+                user_id = request.headers.get("X-User-Id", "unknown")
+                user_name = request.headers.get("X-User-Name", "unknown")
+                user_email = request.headers.get("X-User-Email", "")
+                user_groups_str = request.headers.get("X-User-Groups", "[]")
+                
+                try:
+                    user_groups = json.loads(user_groups_str)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse user groups: {user_groups_str}")
+                    user_groups = []
+                
+                logger.info(f"Using proxy-validated user: {user_name} (ID: {user_id})")
+                request.state.current_user = User(
+                    id=user_id,
+                    name=user_name,
+                    email=user_email,
+                    groups=user_groups
                 )
-                request.state.current_user = get_current_user(token)
+            else:
+                # Fallback to original Cognito authentication (shouldn't happen in tenant stack)
+                authorization = request.headers.get("Authorization")
+                if authorization:
+                    token_str = authorization.split(" ")[1]
+                    token = HTTPAuthorizationCredentials(
+                        scheme="Bearer", credentials=token_str
+                    )
+                    request.state.current_user = get_current_user(token)
+                else:
+                    # No authentication provided
+                    logger.warning("No authentication provided and not a proxy-validated request")
+                    request.state.current_user = None
         else:
             assert PUBLISHED_API_ID is not None, "PUBLISHED_API_ID is not set."
             request.state.current_user = User.from_published_api_id(PUBLISHED_API_ID)
     else:
-        authorization = request.headers.get("Authorization")
-        if authorization:
-            token_str = authorization.split(" ")[1]
-            token = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token_str)
-            request.state.current_user = get_current_user(token)
-        else:
+        # Local development mode
+        # Check for proxy headers first
+        is_proxy_validated = request.headers.get("X-Proxy-Validated") == "true"
+        
+        if is_proxy_validated:
+            user_id = request.headers.get("X-User-Id", "test_user")
+            user_name = request.headers.get("X-User-Name", "test_user")
+            user_email = request.headers.get("X-User-Email", "user@example.com")
+            user_groups_str = request.headers.get("X-User-Groups", "[]")
+            
+            try:
+                user_groups = json.loads(user_groups_str)
+            except json.JSONDecodeError:
+                user_groups = []
+            
             request.state.current_user = User(
-                id="test_user", name="test_user", email="user@example.com", groups=[]
+                id=user_id,
+                name=user_name,
+                email=user_email,
+                groups=user_groups
             )
+        else:
+            authorization = request.headers.get("Authorization")
+            if authorization:
+                token_str = authorization.split(" ")[1]
+                token = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token_str)
+                request.state.current_user = get_current_user(token)
+            else:
+                request.state.current_user = User(
+                    id="test_user", name="test_user", email="user@example.com", groups=[]
+                )
 
     response = call_next(request)  # type: ignore
     return response

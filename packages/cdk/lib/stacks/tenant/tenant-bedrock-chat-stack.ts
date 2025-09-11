@@ -85,23 +85,8 @@ export interface TenantBedrockChatStackProps extends cdk.StackProps {
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
 
-  /**
-   * メインスタックのCognito User Pool ID
-   * 認証に使用されるユーザープールの識別子
-   */
-  readonly userPoolId?: string;
-
-  /**
-   * メインスタックのCognito Identity Pool ID
-   * 認証に使用されるアイデンティティプールの識別子
-   */
-  readonly identityPoolId?: string;
-
-  /**
-   * メインスタックのCognito User Pool Client ID
-   * 認証に使用されるユーザープールクライアントの識別子
-   */
-  readonly userPoolClientId?: string;
+  // Cognito関連のプロパティは削除済み
+  // クロスアカウント環境ではプロキシ経由でユーザー情報を受け取るため不要
 }
 
 /**
@@ -246,9 +231,9 @@ export class TenantBedrockChatStack extends cdk.Stack {
         ENV_PREFIX: props.envPrefix || '',
         // CORS設定はメインスタックのものを使用
         CORS_ALLOW_ORIGINS: '*',
-        // メインスタックの認証情報を使用
-        USER_POOL_ID: props.userPoolId || '',
-        CLIENT_ID: props.userPoolClientId || '',
+        // Cognito認証は使用しない（プロキシ経由でユーザー情報を受け取る）
+        USER_POOL_ID: '',
+        CLIENT_ID: '',
         ACCOUNT: Stack.of(this).account,
         REGION: Stack.of(this).region,
         BEDROCK_REGION: props.bedrockRegion,
@@ -303,21 +288,8 @@ export class TenantBedrockChatStack extends cdk.Stack {
       })
     );
     
-    // Cognito権限（ユーザー情報の取得用）
-    if (props.userPoolId) {
-      handlerRole.addToPolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: [
-            'cognito-idp:AdminGetUser',
-            'cognito-idp:AdminListGroupsForUser',
-            'cognito-idp:ListUsers',
-            'cognito-idp:ListGroups',
-          ],
-          resources: [`arn:aws:cognito-idp:${Stack.of(this).region}:${Stack.of(this).account}:userpool/${props.userPoolId}`],
-        })
-      );
-    }
+    // Cognito権限は削除（クロスアカウントアクセス不可のため）
+    // ユーザー情報はプロキシLambdaからカスタムヘッダー経由で受け取る
 
     // OpenSearchへのアクセス権限（BotStore使用時）
     if (this.botStore?.openSearchEndpoint) {

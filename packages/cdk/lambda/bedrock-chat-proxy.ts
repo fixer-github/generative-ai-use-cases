@@ -47,10 +47,33 @@ async function getTenantLambdaArn(tenantId: string): Promise<string> {
 }
 
 /**
+ * Extract user information from the Cognito authorizer context
+ */
+function extractUserInfoFromEvent(event: APIGatewayProxyEvent): any {
+  const claims = event.requestContext?.authorizer?.claims;
+  
+  if (!claims) {
+    console.warn('No claims found in authorizer context');
+    return null;
+  }
+
+  // Extract user information from Cognito claims
+  const userInfo = {
+    id: claims.sub || claims['cognito:username'] || 'unknown',
+    name: claims['cognito:username'] || claims.name || 'unknown',
+    email: claims.email || '',
+    groups: claims['cognito:groups'] ? claims['cognito:groups'].split(',') : [],
+  };
+
+  console.log('Extracted user info:', { ...userInfo, email: userInfo.email ? '[REDACTED]' : '' });
+  return userInfo;
+}
+
+/**
  * Transform the API Gateway event for the target Lambda function
  * Adjusts the path to match Bedrock Chat's expected format
  */
-function transformEventForTarget(event: APIGatewayProxyEvent): any {
+function transformEventForTarget(event: APIGatewayProxyEvent, userInfo: any): any {
   // Remove 'bedrock-chat' prefix from the path
   const originalPath = event.path;
   const transformedPath = originalPath.replace(/^\/bedrock-chat/, '');
@@ -59,10 +82,21 @@ function transformEventForTarget(event: APIGatewayProxyEvent): any {
   const proxy = event.pathParameters?.proxy;
   const transformedProxy = proxy?.replace(/^bedrock-chat\//, '');
 
-  // Fix Authorization header format - add Bearer prefix if missing
+  // Create transformed headers with user information
   const transformedHeaders = { ...event.headers };
-  if (transformedHeaders.Authorization && !transformedHeaders.Authorization.startsWith('Bearer ')) {
-    transformedHeaders.Authorization = `Bearer ${transformedHeaders.Authorization}`;
+  
+  // Remove the original Authorization header since it won't work cross-account
+  delete transformedHeaders.Authorization;
+  delete transformedHeaders.authorization;
+  
+  // Add user information as custom headers for the Bedrock Chat Lambda
+  if (userInfo) {
+    transformedHeaders['X-User-Id'] = userInfo.id;
+    transformedHeaders['X-User-Name'] = userInfo.name;
+    transformedHeaders['X-User-Email'] = userInfo.email;
+    transformedHeaders['X-User-Groups'] = JSON.stringify(userInfo.groups);
+    // Add a flag to indicate this is a proxy request with pre-validated user
+    transformedHeaders['X-Proxy-Validated'] = 'true';
   }
 
   return {
@@ -79,6 +113,7 @@ function transformEventForTarget(event: APIGatewayProxyEvent): any {
       transformedPath,
       tenantId: null, // Will be set later
       timestamp: new Date().toISOString(),
+      userInfo: userInfo,
     },
   };
 }
@@ -124,11 +159,17 @@ export const handler = async (
       region: process.env.AWS_REGION,
     });
 
-    // Step 5: Transform the event for the target Lambda
-    const transformedEvent = transformEventForTarget(event);
+    // Step 5: Extract user information from the Cognito token
+    const userInfo = extractUserInfoFromEvent(event);
+    if (!userInfo) {
+      console.warn('No user information found, request may fail authorization');
+    }
+
+    // Step 6: Transform the event for the target Lambda
+    const transformedEvent = transformEventForTarget(event, userInfo);
     transformedEvent._proxyMetadata.tenantId = tenantId;
 
-    // Step 6: Invoke the tenant-specific Lambda function with tenant credentials
+    // Step 7: Invoke the tenant-specific Lambda function with tenant credentials
     const invokeCommand = new InvokeCommand({
       FunctionName: targetLambdaArn,
       InvocationType: 'RequestResponse',
@@ -137,7 +178,7 @@ export const handler = async (
 
     const invokeResponse = await lambdaClient.send(invokeCommand);
     
-    // Step 7: Parse and return the response
+    // Step 8: Parse and return the response
     if (invokeResponse.Payload) {
       const payloadString = new TextDecoder().decode(invokeResponse.Payload);
       const response = JSON.parse(payloadString);

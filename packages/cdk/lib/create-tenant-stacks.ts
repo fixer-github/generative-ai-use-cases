@@ -79,9 +79,6 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         removalPolicy: params.removalPolicy
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
-        userPoolId: params.userPoolId,
-        identityPoolId: params.identityPoolId,
-        userPoolClientId: params.userPoolClientId,
       }
     );
   }
