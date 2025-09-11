@@ -25,6 +25,7 @@ export interface TranscribeProps {
   readonly api: RestApi;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
+  readonly tenantManager?: any; // ITenantManager interface would be imported if available
 }
 
 export class Transcribe extends Construct {
@@ -74,6 +75,43 @@ export class Transcribe extends Construct {
       );
     }
 
+    // Common environment variables for tenant-aware functions
+    const commonEnvVars = {
+      DEFAULT_TENANT_ID: process.env.DEFAULT_TENANT_ID!,
+      IDENTITY_POOL_ID: props.idPool.identityPoolId,
+      USER_POOL_ID: props.userPool.userPoolId,
+      AWS_ACCOUNT_ID: this.node.tryGetContext('aws:cdk:lookup:account-id') || process.env.CDK_DEFAULT_ACCOUNT!,
+      ENVIRONMENT: process.env.ENVIRONMENT!,
+      ...(props.tenantManager ? {
+        TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+      } : {}),
+    };
+
+    // Common policies for transcription functions
+    const commonPolicies = [
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['transcribe:*'],
+        resources: ['*'],
+      }),
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'sts:AssumeRoleWithWebIdentity',
+          'cognito-identity:GetId',
+          'cognito-identity:GetOpenIdToken',
+        ],
+        resources: ['*'],
+      }),
+      ...(props.tenantManager ? [
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['dynamodb:GetItem'],
+          resources: [props.tenantManager.tenantsTable.tableArn],
+        })
+      ] : []),
+    ];
+
     const startTranscriptionFunction = new NodejsFunction(
       this,
       'StartTranscription',
@@ -82,15 +120,10 @@ export class Transcribe extends Construct {
         entry: './lambda/startTranscription.ts',
         timeout: Duration.minutes(15),
         environment: {
+          ...commonEnvVars,
           TRANSCRIPT_BUCKET_NAME: transcriptBucket.bucketName,
         },
-        initialPolicy: [
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['transcribe:*'],
-            resources: ['*'],
-          }),
-        ],
+        initialPolicy: commonPolicies,
       }
     );
     audioBucket.grantRead(startTranscriptionFunction);
@@ -103,13 +136,8 @@ export class Transcribe extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/getTranscription.ts',
         timeout: Duration.minutes(15),
-        initialPolicy: [
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['transcribe:*'],
-            resources: ['*'],
-          }),
-        ],
+        environment: commonEnvVars,
+        initialPolicy: commonPolicies,
       }
     );
     transcriptBucket.grantRead(getTranscriptionFunction);
