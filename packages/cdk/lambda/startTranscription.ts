@@ -36,15 +36,15 @@ export const handler = async (
           outputBucketName: process.env.TRANSCRIPT_BUCKET_NAME!,
         };
       }
-      
+
       console.log(`Creating tenant-specific Transcribe client for tenant: ${tenantId}`);
-      
+
       // Get tenant info for bucket name generation
       const tenant = await getTenant(tenantId);
       if (!tenant?.roleArn) {
         throw new Error(`Tenant ${tenantId} missing role ARN`);
       }
-      
+
       const tenantAccountId = extractAccountIdFromRoleArn(tenant.roleArn);
       if (!tenantAccountId || !tenant.region || !tenant.environment) {
         throw new Error(`Incomplete tenant information for ${tenantId}: accountId=${tenantAccountId}, region=${tenant.region}, environment=${tenant.environment}`);
@@ -61,7 +61,7 @@ export const handler = async (
       );
 
       console.log(`Using tenant transcript bucket: ${tenantBucketName}`);
-      
+
       // Get tenant credentials for AWS service access
       const { credentials } = await getTenantCredentials(event);
 
