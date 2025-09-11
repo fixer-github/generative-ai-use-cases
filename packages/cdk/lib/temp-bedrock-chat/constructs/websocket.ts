@@ -6,7 +6,7 @@ import { IFunction, Runtime, SnapStartConf } from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { CfnOutput, Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import { Auth } from "./auth";
+import { IAuth } from "./auth";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { CfnRouteResponse } from "aws-cdk-lib/aws-apigatewayv2";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -17,7 +17,7 @@ import { Database } from "./database";
 
 export interface WebSocketProps {
   readonly database: Database;
-  readonly auth: Auth;
+  readonly auth: IAuth;
   readonly bedrockRegion: string;
   readonly documentBucket: s3.IBucket;
   readonly websocketSessionTable: ITable;
@@ -105,7 +105,7 @@ export class WebSocket extends Construct {
     props.documentBucket.grantRead(handlerRole);
 
     const handler = new PythonFunction(this, "HandlerV2", {
-      entry: path.join(__dirname, "../../../backend"),
+      entry: path.join(__dirname, "../backend"),
       index: "app/websocket.py",
       bundling: {
         assetExcludes: [...excludeDockerImage],

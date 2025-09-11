@@ -34,6 +34,11 @@ export interface AuthProps {
   readonly tokenValidity: Duration;
 }
 
+export interface IAuth {
+  readonly userPool: UserPool;
+  readonly client: UserPoolClient;
+}
+
 export class Auth extends Construct {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
@@ -164,7 +169,7 @@ export class Auth extends Construct {
           index: "check_email_domain.py",
           entry: path.join(
             __dirname,
-            "../../../backend/auth/check_email_domain"
+            "../backend/auth/check_email_domain"
           ),
           timeout: Duration.minutes(1),
           environment: {
@@ -222,7 +227,7 @@ export class Auth extends Construct {
           index: "add_user_to_groups.py",
           entry: path.join(
             __dirname,
-            "../../../backend/auth/add_user_to_groups"
+            "../backend/auth/add_user_to_groups"
           ),
           timeout: Duration.minutes(1),
           environment: {

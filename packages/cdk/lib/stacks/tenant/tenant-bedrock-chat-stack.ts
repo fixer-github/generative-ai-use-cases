@@ -55,12 +55,6 @@ export interface TenantBedrockChatStackProps extends cdk.StackProps {
   readonly enableLambdaSnapStart?: boolean;
 
   /**
-   * ボットストア機能を有効化するかどうか
-   * カスタムボットの定義と管理を行う機能
-   */
-  readonly enableBotStore?: boolean;
-
-  /**
    * ボットストアのレプリカを有効化するかどうか
    * ボットストアの可用性と読み取り性能を向上
    */
@@ -123,12 +117,6 @@ export class TenantBedrockChatStack extends cdk.Stack {
    * チャット履歴、ボット情報、WebSocketセッションなどを管理するDynamoDBテーブル群
    */
   public readonly database: Database;
-
-  /**
-   * WebSocketコンストラクト
-   * リアルタイムのチャット通信を実現するWebSocket API
-   */
-  public readonly websocket: WebSocket;
 
   /**
    * Embeddingコンストラクト（オプション）
@@ -291,30 +279,6 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // - BotStoreへのアクセス権限
     // - CodeBuildプロジェクトへの権限（必要な場合）
 
-    // ==============================================
-    // 5. WebSocket APIの作成
-    // ==============================================
-    // リアルタイムの双方向通信を実現するWebSocket API
-    // ストリーミングレスポンスやリアルタイムチャットに使用
-    this.websocket = new WebSocket(this, 'WebSocket', {
-      database: this.database,
-      websocketSessionTable: this.database.websocketSessionTable,  // WebSocketセッション管理用テーブル
-      auth: undefined as any, // フェーズ4でメインスタックの認証機能と統合予定
-      bedrockRegion,
-      largeMessageBucket,  // 大容量メッセージの一時保存用
-      documentBucket: this.documentBucket,  // ドキュメント保存用
-      enableBedrockCrossRegionInference: props.enableBedrockCrossRegionInference || false,
-      enableLambdaSnapStart: props.enableLambdaSnapStart || false,
-      // WebSocketのアクセスログ保存用バケット
-      accessLogBucket: new s3.Bucket(this, 'WebSocketAccessLogBucket', {
-        bucketName: `bedrock-chat-ws-logs-${environment}-${tenantId}`,
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        enforceSSL: true,
-        removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
-        autoDeleteObjects: props.removalPolicy === cdk.RemovalPolicy.DESTROY,
-      }),
-    });
 
     // ==============================================
     // 5. Embedding（ベクトル化）機能の作成（オプション）
@@ -326,7 +290,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
         bedrockRegion,
         database: this.database,
         documentBucket: this.documentBucket,
-        bedrockCustomBotProject: undefined as any, // フェーズ4でCodeBuildプロジェクトと統合予定
+        // bedrockCustomBotProject: undefined as any,
         enableRagReplicas: props.enableRagReplicas || false,  // レプリカによる高可用性
       });
     }
@@ -358,15 +322,13 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // ==============================================
     // カスタムボットの定義、管理、検索機能を提供
     // OpenSearchを使用した高度な検索が可能
-    if (props.enableBotStore) {
-      this.botStore = new BotStore(this, 'BotStore', {
-        envPrefix: props.envPrefix || '',
-        botTable: this.database.botTable,  // ボット定義を保存するテーブル
-        conversationTable: this.database.conversationTable,  // 会話履歴テーブル
-        language: props.botStoreLanguage || 'ja',  // デフォルトは日本語
-        enableBotStoreReplicas: props.enableBotStoreReplicas || false,  // レプリカによる高可用性
-      });
-    }
+    this.botStore = new BotStore(this, 'BotStore', {
+      envPrefix: props.envPrefix || '',
+      botTable: this.database.botTable,  // ボット定義を保存するテーブル
+      conversationTable: this.database.conversationTable,  // 会話履歴テーブル
+      language: props.botStoreLanguage || 'ja',  // デフォルトは日本語
+      enableBotStoreReplicas: props.enableBotStoreReplicas || false,  // レプリカによる高可用性
+    });
 
     // ==============================================
     // 8. スタック出力の定義
@@ -378,13 +340,6 @@ export class TenantBedrockChatStack extends cdk.Stack {
       value: apiHandler.functionArn,
       description: `テナント ${tenantId} のAPI Lambda関数ARN`,
       exportName: `${this.stackName}-ApiHandlerArn`,
-    });
-
-    // WebSocketエンドポイントのURL
-    new cdk.CfnOutput(this, 'WebSocketEndpoint', {
-      value: this.websocket.apiEndpoint,
-      description: `テナント ${tenantId} のWebSocketエンドポイント`,
-      exportName: `${this.stackName}-WebSocketEndpoint`,  // 他のスタックから参照可能
     });
 
     // ドキュメントバケット名

@@ -15,7 +15,7 @@ import {
   HttpApi,
   HttpMethod,
 } from "aws-cdk-lib/aws-apigatewayv2";
-import { Auth } from "./auth";
+import { IAuth } from "./auth";
 import { Stack } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -32,7 +32,7 @@ export interface ApiProps {
   readonly envName: string;
   readonly envPrefix: string;
   readonly corsAllowOrigins?: string[];
-  readonly auth: Auth;
+  readonly auth: IAuth;
   readonly bedrockRegion: string;
   readonly documentBucket: IBucket;
   readonly largeMessageBucket: IBucket;
@@ -229,7 +229,7 @@ export class Api extends Construct {
     props.largeMessageBucket.grantReadWrite(handlerRole);
 
     const handler = new PythonFunction(this, "HandlerV2", {
-      entry: path.join(__dirname, "../../../backend"),
+      entry: path.join(__dirname, "../backend"),
       index: "app/main.py",
       bundling: {
         assetExcludes: [...excludeDockerImage],
