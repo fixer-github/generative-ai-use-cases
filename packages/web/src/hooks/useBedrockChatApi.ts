@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const bedrockChatApi = axios.create({
   baseURL: import.meta.env.VITE_APP_API_ENDPOINT
-    ? `${import.meta.env.VITE_APP_API_ENDPOINT}/bedrock-chat`
+    ? `${import.meta.env.VITE_APP_API_ENDPOINT}bedrock-chat`
     : '/api/bedrock-chat',
 });
 
