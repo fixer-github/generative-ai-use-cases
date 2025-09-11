@@ -18,19 +18,21 @@ export const handler = async (
 
     console.debug('Item: ', JSON.stringify(item));
 
-    if (!item) {
+    // Return 404 when item is not found or requeted user cannot show item
+    if (!item || (item.userId !== userId && item.publicInOrg === false)) {
       console.error('Item not found');
 
       return {
-        statusCode: 400,
+        statusCode: 404,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
         },
-        body: JSON.stringify({ message: 'Bot is not found.' }),
+        body: JSON.stringify({ message: 'Item not found.' }),
       };
     }
 
+    // Create response object
     const response: BotGetResponse = {
       id: item.id,
       userId: item.userId,

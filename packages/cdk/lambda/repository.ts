@@ -976,40 +976,26 @@ export const listBot = async (
   return items;
 };
 
+// Get bot data specified by primary key
 export const getBot = async (
   botId: string,
-  userId: string,
   event: APIGatewayProxyEvent
-): Promise<BotEntity | null> => {
+): Promise<BotEntity | undefined> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
+  const createdDate = new Date().toISOString();
 
-  console.debug('botId: ', botId);
-
-  const command = new QueryCommand({
+  const command = new GetCommand({
     TableName: tableName,
-    KeyConditionExpression: '#id = :id',
-    ExpressionAttributeNames: {
-      '#id': 'id',
-    },
-    ExpressionAttributeValues: {
-      ':id': botId,
+    Key: {
+      id: botId,
+      createdDate: createdDate,
     },
   });
 
   const res = await dynamoDbDocument.send(command);
 
-  if (!res.Items) {
-    // アイテムが存在しなかった場合
-    return null;
-  }
-
-  const item = res.Items[0] as BotEntity;
-
-  if (item.userId !== userId && item.publicInOrg === false) {
-    // InternalでUserIdが違う場合は存在しないことにする（本来は見ることのできないものなので）
-    return null;
-  }
+  const item = res.Item as BotEntity | undefined;
 
   return item;
 };

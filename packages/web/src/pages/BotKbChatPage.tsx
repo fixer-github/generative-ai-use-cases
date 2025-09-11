@@ -7,14 +7,14 @@ import {
   getItemsFromPlaceholders,
   getTextFormItemsFromItems,
 } from '../utils/UseCaseBuilderUtils';
-import { Heading, TextAreaField } from '@aws-amplify/ui-react';
+import { Alert, Heading, TextAreaField } from '@aws-amplify/ui-react';
 
 const BotKbChatPage: React.FC = () => {
   const { botId } = useParams<{ botId: string }>();
   const { findBotById } = useBot();
 
   // TODO: Null系をどうにかする
-  const { data: bot, isLoading } = findBotById(botId ?? '');
+  const { data: bot, isLoading, error } = findBotById(botId ?? '');
 
   const promptTemplate = bot?.promptTemplate ?? '';
 
@@ -34,6 +34,10 @@ const BotKbChatPage: React.FC = () => {
 
   if (isLoading) {
     return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <Alert heading={error.name}>{error.message}</Alert>;
   }
 
   return (
