@@ -206,6 +206,26 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // ==============================================
     // 4. API Lambda関数の作成
     // ==============================================
+    // Lambda関数用のIAMロールを作成
+    const handlerRole = new iam.Role(this, 'HandlerRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    
+    // 基本的なLambda実行権限を付与
+    handlerRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        'service-role/AWSLambdaBasicExecutionRole'
+      )
+    );
+    
+    // tableAccessRoleをAssumeRoleできる権限を付与
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: [this.database.tableAccessRole.roleArn],
+      })
+    );
+    
     // Bedrock ChatのAPI処理を行うLambda関数
     // メインスタックのプロキシから呼び出される
     const apiHandler = new PythonFunction(this, 'ApiHandler', {
@@ -232,7 +252,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
         ACCOUNT: Stack.of(this).account,
         REGION: Stack.of(this).region,
         BEDROCK_REGION: props.bedrockRegion,
-        TABLE_ACCESS_ROLE_ARN: '', // TODO: 必要に応じて設定
+        TABLE_ACCESS_ROLE_ARN: this.database.tableAccessRole.roleArn,
         DOCUMENT_BUCKET: this.documentBucket.bucketName,
         LARGE_MESSAGE_BUCKET: largeMessageBucket.bucketName,
         OPENSEARCH_DOMAIN_ENDPOINT: this.botStore?.openSearchEndpoint || '',
@@ -241,6 +261,13 @@ export class TenantBedrockChatStack extends cdk.Stack {
         GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels 
           ? JSON.stringify(props.globalAvailableModels)
           : '[]',
+        // UsageAnalysis関連の環境変数
+        USAGE_ANALYSIS_DATABASE: this.usageAnalysis?.database.databaseName || '',
+        USAGE_ANALYSIS_TABLE: this.usageAnalysis?.ddbExportTable.tableName || '',
+        USAGE_ANALYSIS_WORKGROUP: this.usageAnalysis?.workgroupName || '',
+        USAGE_ANALYSIS_OUTPUT_LOCATION: this.usageAnalysis
+          ? `s3://${this.usageAnalysis.resultOutputBucket.bucketName}`
+          : '',
         // Lambda Web Adapter設定
         AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
         PORT: '8000',
@@ -252,6 +279,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
           `arn:aws:lambda:${Stack.of(this).region}:753240598075:layer:LambdaAdapterLayerX86:23`
         ),
       ],
+      role: handlerRole,
     });
 
     // Lambda Web Adapterのハンドラー設定
@@ -260,24 +288,138 @@ export class TenantBedrockChatStack extends cdk.Stack {
       'run.sh'
     );
 
-    // 必要な権限を付与
-    this.database.conversationTable.grantReadWriteData(apiHandler);
-    this.database.botTable.grantReadWriteData(apiHandler);
+    // S3バケットへのアクセス権限を付与
     this.documentBucket.grantReadWrite(apiHandler);
     largeMessageBucket.grantReadWrite(apiHandler);
+    
+    // WebSocketセッションテーブルへのアクセス権限を付与（32KB超のメッセージ処理用）
+    this.database.websocketSessionTable.grantReadWriteData(apiHandler);
 
     // Bedrockへのアクセス権限
-    apiHandler.addToRolePolicy(
+    handlerRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:*'],
         resources: ['*'],
       })
     );
+    
+    // Cognito権限（ユーザー情報の取得用）
+    if (props.userPoolId) {
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'cognito-idp:AdminGetUser',
+            'cognito-idp:AdminListGroupsForUser',
+            'cognito-idp:ListUsers',
+            'cognito-idp:ListGroups',
+          ],
+          resources: [`arn:aws:cognito-idp:${Stack.of(this).region}:${Stack.of(this).account}:userpool/${props.userPoolId}`],
+        })
+      );
+    }
 
-    // TODO: 他に必要な権限があれば追加
-    // - UsageAnalysisへのアクセス権限
-    // - BotStoreへのアクセス権限
-    // - CodeBuildプロジェクトへの権限（必要な場合）
+    // OpenSearchへのアクセス権限（BotStore使用時）
+    if (this.botStore?.openSearchEndpoint) {
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'aoss:APIAccessAll',
+            'aoss:DescribeCollection',
+            'aoss:GetCollection',
+            'aoss:SearchCollections',
+            'aoss:BatchGetCollection',
+            'aoss:ListCollections',
+          ],
+          resources: ['*'],
+        })
+      );
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['aoss:DescribeIndex', 'aoss:ReadDocument'],
+          resources: [
+            `arn:aws:aoss:${Stack.of(this).region}:${Stack.of(this).account}:collection/*`,
+          ],
+        })
+      );
+    }
+    
+    // SecretManager権限（Firecrawl APIキーなどの管理用）
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'secretsmanager:CreateSecret',
+          'secretsmanager:GetSecretValue',
+          'secretsmanager:DescribeSecret',
+          'secretsmanager:RestoreSecret',
+          'secretsmanager:PutSecretValue',
+          'secretsmanager:UpdateSecretVersionStage',
+          'secretsmanager:DeleteSecret',
+          'secretsmanager:RotateSecret',
+          'secretsmanager:CancelRotateSecret',
+          'secretsmanager:UpdateSecret',
+          'secretsmanager:TagResource',
+        ],
+        resources: [
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret:firecrawl/*/*`,
+        ],
+      })
+    );
+    
+    // UsageAnalysis関連の権限（使用状況分析機能用）
+    if (this.usageAnalysis) {
+      // Athenaクエリ実行権限
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'athena:GetWorkGroup',
+            'athena:StartQueryExecution',
+            'athena:StopQueryExecution',
+            'athena:GetQueryExecution',
+            'athena:GetQueryResults',
+            'athena:GetDataCatalog',
+          ],
+          resources: [this.usageAnalysis.workgroupArn || ''],
+        })
+      );
+      
+      // Glueデータカタログへのアクセス権限
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['glue:GetDatabase', 'glue:GetDatabases'],
+          resources: [
+            this.usageAnalysis.database.databaseArn || '',
+            this.usageAnalysis.database.catalogArn || '',
+          ],
+        })
+      );
+      
+      handlerRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'glue:GetDatabase',
+            'glue:GetTable',
+            'glue:GetTables',
+            'glue:GetPartition',
+            'glue:GetPartitions',
+          ],
+          resources: [
+            this.usageAnalysis.database.databaseArn || '',
+            this.usageAnalysis.database.catalogArn || '',
+            this.usageAnalysis.ddbExportTable.tableArn || '',
+          ],
+        })
+      );
+      
+      // S3バケットへのアクセス権限
+      this.usageAnalysis.resultOutputBucket.grantReadWrite(handlerRole);
+      this.usageAnalysis.ddbBucket.grantRead(handlerRole);
+    }
 
 
     // ==============================================
