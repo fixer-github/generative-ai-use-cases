@@ -64,7 +64,7 @@ export const validateUrl = (url: string): boolean => {
   try {
     // For absolute URLs, try to parse them to ensure they're well-formed
     if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
-      const parsedUrl = new URL(url);
+      new URL(url); // Validate URL format
       // Additional checks could go here (e.g., domain whitelist)
       return true;
     }
