@@ -14,7 +14,9 @@ export const handler = async (
       throw new Error('botId is null!');
     }
 
-    const item = await repository.getBot(botId, userId, event);
+    console.debug('botId: ', botId);
+
+    const item = await repository.getBot(botId, event);
 
     console.debug('Item: ', JSON.stringify(item));
 
@@ -40,6 +42,7 @@ export const handler = async (
       description: item.description,
       promptTemplate: item.promptTemplate,
       publicInOrg: item.publicInOrg,
+      inputExamples: item.inputExamples,
       useFixedModel: item.useFixedModel,
       modelId: item.modelId,
       fileAttachEnabled: item.fileAttachEnabled,

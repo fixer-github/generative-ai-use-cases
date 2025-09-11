@@ -6,6 +6,7 @@ export type BotEntity = {
   description: string;
   promptTemplate: string;
   publicInOrg: boolean;
+  inputExamples: BotInputExample[];
   useFixedModel: boolean;
   modelId: string;
   fileAttachEnabled: boolean;
@@ -22,6 +23,7 @@ export type BotCreateRequest = {
   description: string;
   promptTemplate: string;
   publicInOrg: boolean;
+  inputExamples: BotCreateRequestInputExample[];
   useFixedModel: boolean;
   modelId: string;
   fileAttachEnabled: boolean;
@@ -59,7 +61,16 @@ export type BotGetResponse = {
   description: string;
   promptTemplate: string;
   publicInOrg: boolean;
+  inputExamples: BotGetResponseInputExample[];
   useFixedModel: boolean;
   modelId: string;
   fileAttachEnabled: boolean;
 };
+
+export type BotInputExample = {
+  title: string;
+  examples: Record<string, string>;
+};
+
+export type BotCreateRequestInputExample = BotInputExample;
+export type BotGetResponseInputExample = BotInputExample;

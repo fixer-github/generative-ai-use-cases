@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import useBot from '../hooks/useBot';
+import useBot from '../hooks/useBotApi';
 import {
   NOLABEL,
   extractPlaceholdersFromPromptTemplate,

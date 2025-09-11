@@ -12,7 +12,7 @@ import {
 } from '@aws-amplify/ui-react';
 import { PiPlusBold, PiUpload } from 'react-icons/pi';
 import { useNavigate } from 'react-router-dom';
-import useBot from '../hooks/useBot';
+import useBot from '../hooks/useBotApi';
 import { BotListResponseItem } from 'generative-ai-use-cases';
 
 type BotCardProps = {

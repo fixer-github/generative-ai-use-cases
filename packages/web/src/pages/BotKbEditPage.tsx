@@ -9,15 +9,26 @@ import {
   TextAreaField,
   TextField,
   VisuallyHidden,
+  Fieldset as AmplifyFieldset,
+  View,
 } from '@aws-amplify/ui-react';
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { MODELS } from '../hooks/useModel';
 import { useNavigate } from 'react-router-dom';
 import {
   BotCreateRequest,
   BotCreateRequestKnouledgeFile,
 } from 'generative-ai-use-cases';
-import useBot from '../hooks/useBot';
+import useBot from '../hooks/useBotApi';
+import useBotState from '../hooks/useBotState';
+import {
+  NOLABEL,
+  extractPlaceholdersFromPromptTemplate,
+  getItemsFromPlaceholders,
+  getTextFormItemsFromItems,
+} from '../utils/UseCaseBuilderUtils';
+import { PiPlus, PiTrash } from 'react-icons/pi';
+import { produce } from 'immer';
 
 type InputFieldDescriptionProps = {
   children: React.ReactNode;
@@ -41,10 +52,9 @@ type FieldsetProps = {
 
 const Fieldset: React.FC<FieldsetProps> = ({ legend, children, ...props }) => {
   return (
-    <fieldset className="" {...props}>
-      <legend>{legend}</legend>
+    <AmplifyFieldset legend={legend} variation="outlined" {...props}>
       {children}
-    </fieldset>
+    </AmplifyFieldset>
   );
 };
 
@@ -55,15 +65,36 @@ const BotKbEditPage: React.FC = () => {
 
   const { createBot } = useBot();
 
-  // TODO: 入力値をオブジェクトで管理する
-  const [botTitle, setBotTitle] = useState('');
-  const [botDescription, setBotDescription] = useState('');
-  const [promptTemplate, setPromptTemplate] = useState('');
-  const [publicInOrg, setPublicInOrg] = useState(false);
-  const [useFixedModel, setUseFixedModel] = useState(false);
-  const [model, setModel] = useState(modelIds[0]);
-  const [attachFile, setAttachFile] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const {
+    title,
+    setTitle,
+
+    description,
+    setDescription,
+
+    promptTemplate,
+    setPromptTemplate,
+
+    publicInOrg,
+    setPublicInOrg,
+
+    inputExamples,
+    pushInputExample,
+    removeInputExample,
+    setInputExample,
+
+    useFixedModel,
+    setUseFixedModel,
+
+    modelId,
+    setModelId,
+
+    enableAttachFile,
+    setEnableAttachFile,
+
+    files,
+    setFiles,
+  } = useBotState();
 
   const hiddenInput = React.useRef<HTMLInputElement>(null);
 
@@ -82,7 +113,7 @@ const BotKbEditPage: React.FC = () => {
     event.preventDefault();
 
     // Validation
-    if (!botTitle) {
+    if (!title) {
       console.error('ボットのタイトルは必要です');
       return;
     }
@@ -118,33 +149,37 @@ const BotKbEditPage: React.FC = () => {
     );
 
     const request: BotCreateRequest = {
-      title: botTitle,
-      description: botDescription,
+      title: title,
+      description: description,
       promptTemplate: promptTemplate,
       publicInOrg: publicInOrg,
+      inputExamples: inputExamples,
       useFixedModel: useFixedModel,
-      modelId: model,
-      fileAttachEnabled: attachFile,
+      modelId: modelId,
+      fileAttachEnabled: enableAttachFile,
       knouledgeFiles: knouledgeFiles,
     };
 
     const result = await createBot(request);
 
     console.log(JSON.stringify(result));
+
+    navigate(`/bot`, { replace: true });
   };
 
-  // プロンプトテンプレート関連
-  // const placeholders = useMemo(() => {
-  //   return extractPlaceholdersFromPromptTemplate(promptTemplate);
-  // }, [promptTemplate]);
-  //
-  // const items = useMemo(() => {
-  //   return getItemsFromPlaceholders(placeholders);
-  // }, [placeholders]);
-  //
-  // const textFormItems = useMemo(() => {
-  //   return getTextFormItemsFromItems(items);
-  // }, [items]);
+  // Placeholders in the prompt template
+  const placeholders = useMemo(() => {
+    return extractPlaceholdersFromPromptTemplate(promptTemplate);
+  }, [promptTemplate]);
+
+  // Convert placeholders to an Object
+  const items = useMemo(() => {
+    return getItemsFromPlaceholders(placeholders);
+  }, [placeholders]);
+
+  const textFormItems = useMemo(() => {
+    return getTextFormItemsFromItems(items);
+  }, [items]);
 
   return (
     <>
@@ -158,15 +193,15 @@ const BotKbEditPage: React.FC = () => {
               label="タイトル"
               placeholder="入力してください"
               required
-              value={botTitle}
-              onChange={(e) => setBotTitle(e.currentTarget.value)}
+              value={title}
+              onChange={(e) => setTitle(e.currentTarget.value)}
             />
             <TextField
               id="description"
               label="説明"
               placeholder="入力してください"
-              value={botDescription}
-              onChange={(e) => setBotDescription(e.currentTarget.value)}
+              value={description}
+              onChange={(e) => setDescription(e.currentTarget.value)}
             />
             <TextAreaField
               label="プロンプトテンプレート"
@@ -192,7 +227,75 @@ const BotKbEditPage: React.FC = () => {
           </Fieldset>
 
           <Fieldset legend="入力例">
-            <AmplifyText variation="error">TODO</AmplifyText>
+            <Flex direction="column" gap={12}>
+              {inputExamples.map((inputExample, idx) => (
+                <View key={idx}>
+                  <Flex direction="row" position="relative" gap={6}>
+                    <TextField
+                      label="タイトル"
+                      value={inputExample.title}
+                      onChange={(e) => {
+                        setInputExample(idx, {
+                          ...inputExample,
+                          title: e.currentTarget.value,
+                        });
+                        // setIsDisabledUpdate(false);
+                      }}
+                      grow={1}
+                      required
+                    />
+
+                    <Button
+                      variation="destructive"
+                      padding={0}
+                      width={24}
+                      height={24}
+                      top={-1}
+                      right={-1}
+                      position="absolute"
+                      onClick={() => {
+                        removeInputExample(idx);
+                      }}>
+                      <PiTrash />
+                    </Button>
+                  </Flex>
+
+                  {textFormItems.map((item, itemIndex) => (
+                    <TextAreaField
+                      key={itemIndex}
+                      label={item.label !== NOLABEL ? item.label : undefined}
+                      rows={item.inputType === 'text' ? 2 : 1}
+                      value={inputExample.examples[item.label] ?? ''}
+                      onChange={(e) => {
+                        setInputExample(idx, {
+                          title: inputExample.title,
+                          examples: produce(inputExample.examples, (draft) => {
+                            draft[item.label] = e.currentTarget.value;
+                          }),
+                        });
+                        // setIsDisabledUpdate(false);
+                      }}
+                    />
+                  ))}
+                </View>
+              ))}
+              <Button
+                size="small"
+                alignSelf="end"
+                onClick={() => {
+                  const examples: Record<string, string> = {};
+                  items.forEach((item) => {
+                    examples[item.label] = '';
+                  });
+                  pushInputExample({
+                    title: '',
+                    examples,
+                  });
+                }}>
+                <PiPlus className="pr-2 text-xl" />
+                追加
+              </Button>
+            </Flex>
           </Fieldset>
 
           <Fieldset legend="モデル選択">
@@ -211,8 +314,8 @@ const BotKbEditPage: React.FC = () => {
                 id="model"
                 label="モデルを選択"
                 labelHidden
-                value={model}
-                onChange={(e) => setModel(e.currentTarget.value)}>
+                value={modelId}
+                onChange={(e) => setModelId(e.currentTarget.value)}>
                 {modelIds.map((model) => (
                   <option value={model}>{model}</option>
                 ))}
@@ -225,8 +328,8 @@ const BotKbEditPage: React.FC = () => {
               id="attachFile"
               name="attachFile"
               label="ファイルを添付可能にする"
-              checked={attachFile}
-              onChange={(e) => setAttachFile(e.currentTarget.checked)}
+              checked={enableAttachFile}
+              onChange={(e) => setEnableAttachFile(e.currentTarget.checked)}
             />
             <InputFieldDescription>
               添付可能なファイルはモデルによって異なります

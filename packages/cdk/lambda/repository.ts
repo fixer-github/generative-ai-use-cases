@@ -958,13 +958,14 @@ export const listBot = async (
   // そもそもRDBに移行すべき
   const command = new ScanCommand({
     TableName: tableName,
-    FilterExpression: 'userId = :u OR publicInOrg = :p',
+    FilterExpression:
+      'begins_with(id, :prefix) AND (userId = :u OR publicInOrg = :p)',
     ExpressionAttributeValues: {
+      ':prefix': 'bot#',
       ':u': userId,
       ':p': true,
     },
   });
-
   const res = await dynamoDbDocument.send(command);
 
   console.debug('res: ', JSON.stringify(res));
@@ -983,12 +984,12 @@ export const getBot = async (
 ): Promise<BotEntity | undefined> => {
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
-  const createdDate = new Date().toISOString();
+  const createdDate = new Date(0).toISOString();
 
   const command = new GetCommand({
     TableName: tableName,
     Key: {
-      id: botId,
+      id: `bot#${botId}`,
       createdDate: createdDate,
     },
   });

@@ -2,6 +2,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import * as repository from './repository';
 import { BotListResponse } from 'generative-ai-use-cases';
 
+const removeBotPrefix = (botId: string) => botId.replace('bot#', '');
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -13,7 +15,7 @@ export const handler = async (
 
     const res: BotListResponse = {
       items: bots.map((bot) => ({
-        id: bot.id,
+        id: removeBotPrefix(bot.id),
         title: bot.title,
         description: bot.description,
         publicInOrg: bot.publicInOrg,

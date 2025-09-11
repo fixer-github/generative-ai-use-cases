@@ -58,13 +58,14 @@ export const handler = async (
     console.debug(JSON.stringify(fileSavedResults));
 
     const item: BotEntity = {
-      id: id,
+      id: `bot#${id}`,
       createdDate: createdDate,
       userId: userId,
       title: content.title,
       description: content.description,
       promptTemplate: content.promptTemplate,
       publicInOrg: content.publicInOrg,
+      inputExamples: content.inputExamples,
       useFixedModel: content.useFixedModel,
       modelId: content.modelId,
       fileAttachEnabled: content.fileAttachEnabled,
