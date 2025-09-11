@@ -49,7 +49,7 @@ export const handler = async (
     const files = content.knouledgeFiles;
 
     const id = randomUUID();
-    const createdDate = new Date().toISOString();
+    const createdDate = new Date(0).toISOString();
 
     const fileSavedResults = await Promise.all(
       files.map((file) => saveFileToS3(id, file))
