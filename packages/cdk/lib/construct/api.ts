@@ -1165,15 +1165,12 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/bedrock-chat-proxy.ts',
         timeout: Duration.minutes(15),
-        environment: {
+        environment: getBaseEnvironment({
           ENVIRONMENT: props.environment,
-          // TODO: Add tenant-specific Lambda ARN mapping
-          // This should be populated from CloudFormation outputs or Parameter Store
-          // TENANT_LAMBDA_MAPPING: JSON.stringify({})
           ...(props.tenantManager ? {
             TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
           } : {}),
-        },
+        }),
       }
     );
 

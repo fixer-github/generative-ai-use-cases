@@ -103,16 +103,16 @@ export const handler = async (
 
     // Step 3: Get tenant-specific credentials using AssumeRoleWithWebIdentity
     // This ensures that we can only invoke Lambda functions for the authenticated tenant
-    const tenantCredentials = await getTenantCredentials(event);
+    const tenantCredentialsInfo = await getTenantCredentials(event);
     console.log('Obtained tenant-specific credentials for cross-tenant access prevention');
 
     // Step 4: Create a new Lambda client with tenant-specific credentials
     // This client can only access resources allowed by the tenant's IAM role
     const lambdaClient = new LambdaClient({
       credentials: {
-        accessKeyId: tenantCredentials.AccessKeyId!,
-        secretAccessKey: tenantCredentials.SecretAccessKey!,
-        sessionToken: tenantCredentials.SessionToken!,
+        accessKeyId: tenantCredentialsInfo.credentials.AccessKeyId!,
+        secretAccessKey: tenantCredentialsInfo.credentials.SecretAccessKey!,
+        sessionToken: tenantCredentialsInfo.credentials.SessionToken!,
       },
       region: process.env.AWS_REGION,
     });
