@@ -59,8 +59,15 @@ function transformEventForTarget(event: APIGatewayProxyEvent): any {
   const proxy = event.pathParameters?.proxy;
   const transformedProxy = proxy?.replace(/^bedrock-chat\//, '');
 
+  // Fix Authorization header format - add Bearer prefix if missing
+  const transformedHeaders = { ...event.headers };
+  if (transformedHeaders.Authorization && !transformedHeaders.Authorization.startsWith('Bearer ')) {
+    transformedHeaders.Authorization = `Bearer ${transformedHeaders.Authorization}`;
+  }
+
   return {
     ...event,
+    headers: transformedHeaders,
     path: transformedPath || '/',
     pathParameters: {
       ...event.pathParameters,
