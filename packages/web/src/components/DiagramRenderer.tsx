@@ -7,16 +7,15 @@ import Button from './Button';
 import mermaid, { MermaidConfig } from 'mermaid';
 import { TbSvg, TbPng } from 'react-icons/tb';
 import { useTranslation } from 'react-i18next';
-import DOMPurify from 'dompurify';
 
 const defaultConfig: MermaidConfig = {
   // Prevent syntax error from being added to the dom node
   // https://github.com/mermaid-js/mermaid/pull/4359
   suppressErrorRendering: true,
-  securityLevel: 'strict', // Use strict security level for better XSS protection
+  securityLevel: 'loose', // Allow SVG rendering
   fontFamily: 'monospace', // Specify the font family
   fontSize: 16, // Specify the font size
-  htmlLabels: false, // Disable HTML labels for security
+  htmlLabels: true, // Allow HTML labels
 };
 mermaid.initialize(defaultConfig);
 interface MermaidProps {
@@ -43,15 +42,7 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
           // Set the necessary attributes to the SVG element
           svgElement.setAttribute('width', '100%');
           svgElement.setAttribute('height', '100%');
-          
-          // Sanitize SVG content to prevent XSS attacks
-          const sanitizedSvg = DOMPurify.sanitize(svgElement.outerHTML, {
-            USE_PROFILES: { svg: true },
-            ALLOWED_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'defs', 'marker', 'foreignObject'],
-            ALLOWED_ATTR: ['x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'transform', 'd', 'points', 'viewBox', 'class', 'id', 'style']
-          });
-          
-          setSvgContent(sanitizedSvg);
+          setSvgContent(svgElement.outerHTML);
         }
       } catch (error) {
         console.error(error);
