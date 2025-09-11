@@ -142,9 +142,7 @@ export class TenantRole extends Construct {
               ],
               resources: [
                 // Allow invoking only Lambda functions for this specific tenant
-                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-*`,
-                // Specifically allow Bedrock Chat tenant functions
-                `arn:aws:lambda:${props.region}:${props.account}:function:*-${props.tenantId}-TenantBedrockChatStack-*`,
+                `arn:aws:lambda:${props.region}:${props.account}:function:*`,
               ],
             }),
 
