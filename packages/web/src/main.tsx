@@ -43,6 +43,7 @@ import UseCaseBuilderMyUseCasePage from './pages/useCaseBuilder/UseCaseBuilderMy
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
 import WriterPage from './pages/WriterPage.tsx';
+import BedrockChatTest from './pages/BedrockChatTest.tsx';
 import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
 
@@ -202,6 +203,10 @@ const routes: RouteObject[] = [
         element: <McpChatPage />,
       }
     : null,
+  {
+    path: '/bedrock-chat-test',
+    element: <BedrockChatTest />,
+  },
   {
     path: '*',
     element: <NotFound />,

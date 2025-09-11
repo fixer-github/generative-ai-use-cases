@@ -23,6 +23,7 @@ import {
   PiTreeStructure,
   PiNotebook,
   PiGraph,
+  PiTestTube,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -248,6 +249,12 @@ const App: React.FC = () => {
           display: 'tool' as const,
         }
       : null,
+    {
+      label: 'Bedrock Chat Test',
+      to: '/bedrock-chat-test',
+      icon: <PiTestTube />,
+      display: 'tool' as const,
+    },
   ].flatMap((i) => (i !== null ? [i] : []));
 
   const label = useMemo(() => {
