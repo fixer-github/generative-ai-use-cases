@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseProps } from '../@types/common';
 import ButtonIcon from './ButtonIcon';
 import { PiFile, PiSpinnerGap, PiX } from 'react-icons/pi';
+import { getSafeUrl, sanitizeFilename } from '../utils/xssProtection';
 
 type Props = BaseProps & {
   filename?: string;
@@ -14,6 +15,9 @@ type Props = BaseProps & {
 };
 
 const FileCard: React.FC<Props> = (props) => {
+  const safeUrl = getSafeUrl(props.url || '');
+  const safeFilename = sanitizeFilename(props.filename || 'file');
+
   return (
     <div className={props.className}>
       <div className="group relative cursor-pointer">
@@ -25,9 +29,9 @@ const FileCard: React.FC<Props> = (props) => {
           }`}>
           <PiFile className="mb-1 mr-1 inline size-4" />
           {props.url ? (
-            <a href={props.url}>{props.filename}</a>
+            <a href={safeUrl} target="_blank" rel="noopener noreferrer">{safeFilename}</a>
           ) : (
-            props.filename
+            safeFilename
           )}
         </div>
         {(props.loading || props.deleting) && (

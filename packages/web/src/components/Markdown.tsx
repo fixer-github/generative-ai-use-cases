@@ -7,6 +7,7 @@ import ButtonCopy from './ButtonCopy';
 import useRagFile from '../hooks/useRagFile';
 import { PiSpinnerGap } from 'react-icons/pi';
 import useFileApi from '../hooks/useFileApi';
+import { getSafeUrl } from '../utils/xssProtection';
 
 // Reduce bundle size by registering only the languages used in the project
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -100,9 +101,9 @@ const LinkRenderer = (props: any) => {
       ) : (
         <a
           id={props.id}
-          href={props.href}
+          href={getSafeUrl(props.href, '#')}
           target={props.href.startsWith('#') ? '_self' : '_blank'}
-          rel="noreferrer">
+          rel="noopener noreferrer">
           {props.children}
         </a>
       )}
@@ -114,15 +115,15 @@ const LinkRenderer = (props: any) => {
 const ImageRenderer = (props: any) => {
   const { isS3Url } = useRagFile();
   const { getFileDownloadSignedUrl } = useFileApi();
-  const [src, setSrc] = useState(props.src);
+  const [src, setSrc] = useState(getSafeUrl(props.src, ''));
 
   useEffect(() => {
     if (isS3Url(props.src)) {
-      getFileDownloadSignedUrl(props.src).then((url) => setSrc(url));
+      getFileDownloadSignedUrl(props.src).then((url) => setSrc(getSafeUrl(url, '')));
     }
   }, [getFileDownloadSignedUrl, isS3Url, props.src]);
 
-  return <img id={props.id} src={src} />;
+  return src ? <img id={props.id} src={src} alt={props.alt || ''} /> : null;
 };
 
 const CodeRenderer = memo(

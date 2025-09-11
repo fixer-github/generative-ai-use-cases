@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BaseProps } from '../@types/common';
 import ButtonIcon from './ButtonIcon';
 import { PiSpinnerGap, PiX } from 'react-icons/pi';
+import { getSafeUrl } from '../utils/xssProtection';
 
 type Props = BaseProps & {
   src?: string;
@@ -14,6 +15,7 @@ type Props = BaseProps & {
 
 const ZoomUpImage: React.FC<Props> = (props) => {
   const [zoom, setZoom] = useState(false);
+  const safeSrc = getSafeUrl(props.src || '');
 
   return (
     <div className={props.className}>
@@ -24,7 +26,7 @@ const ZoomUpImage: React.FC<Props> = (props) => {
           } bg-aws-squid-ink/20 rounded border object-cover object-center ${
             props.size === 's' ? 'size-24' : 'size-32'
           }`}
-          src={props.src}
+          src={safeSrc}
           onClick={() => {
             setZoom(true);
           }}
@@ -57,7 +59,7 @@ const ZoomUpImage: React.FC<Props> = (props) => {
           onClick={() => {
             setZoom(false);
           }}>
-          <img src={props.src} className="max-h-[90vh]" />
+          <img src={safeSrc} className="max-h-[90vh]" />
         </div>
       )}
     </div>

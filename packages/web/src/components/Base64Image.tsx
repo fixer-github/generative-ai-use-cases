@@ -3,6 +3,7 @@ import { BaseProps } from '../@types/common';
 import { PiFileX, PiImageLight, PiDownload } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
 import ButtonIcon from '../components/ButtonIcon';
+import { validateUrl, sanitizeFilename } from '../utils/xssProtection';
 
 type Props = BaseProps & {
   imageBase64: string | null;
@@ -24,9 +25,12 @@ const Base64Image: React.FC<Props> = (props) => {
   }, [props]);
 
   const src = useMemo(() => {
-    return props.imageBase64?.startsWith('data')
+    const potentialSrc = props.imageBase64?.startsWith('data')
       ? props.imageBase64
       : `data:image/png;base64,${props.imageBase64}`;
+    
+    // Validate the data URL to ensure it's safe
+    return validateUrl(potentialSrc) ? potentialSrc : '';
   }, [props.imageBase64]);
 
   const extension = useMemo(() => {
@@ -34,9 +38,15 @@ const Base64Image: React.FC<Props> = (props) => {
   }, [src]);
 
   const download = useCallback(() => {
+    if (!src || !validateUrl(src)) {
+      console.error('Invalid or unsafe image source for download');
+      return;
+    }
+    
+    const safeFilename = sanitizeFilename(props.downloadFileName || 'image');
     const link = document.createElement('a');
     link.href = src;
-    link.download = `${props.downloadFileName}.${extension}`;
+    link.download = `${safeFilename}.${extension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
