@@ -117,10 +117,15 @@ const useMicrophone = () => {
 
     const audioStream = async function* () {
       for await (const chunk of mic as unknown as Buffer[]) {
-        if (chunk.length <= MAX_AUDIO_CHUNK_SIZE) {
+        for (
+          let offset = 0;
+          offset < chunk.length;
+          offset += MAX_AUDIO_CHUNK_SIZE
+        ) {
+          const slice = chunk.subarray(offset, offset + MAX_AUDIO_CHUNK_SIZE);
           yield {
             AudioEvent: {
-              AudioChunk: pcmEncodeChunk(chunk),
+              AudioChunk: pcmEncodeChunk(slice),
             },
           };
         }
