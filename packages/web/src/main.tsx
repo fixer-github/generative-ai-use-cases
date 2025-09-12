@@ -44,6 +44,10 @@ import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
 import WriterPage from './pages/WriterPage.tsx';
 import BedrockChatTest from './pages/BedrockChatTest.tsx';
+import RagChatBotPage from './pages/RagChatBotPage.tsx';
+import RagChatBotEditPage from './pages/RagChatBotEditPage.tsx';
+import RagChatBotChatPage from './pages/RagChatBotChatPage.tsx';
+import RagChatBotHistoryPage from './pages/RagChatBotHistoryPage.tsx';
 import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
 
@@ -206,6 +210,30 @@ const routes: RouteObject[] = [
   {
     path: '/bedrock-chat-test',
     element: <BedrockChatTest />,
+  },
+  {
+    path: '/rag-chat-bot',
+    element: <RagChatBotPage />,
+  },
+  {
+    path: '/rag-chat-bot/create',
+    element: <RagChatBotEditPage />,
+  },
+  {
+    path: '/rag-chat-bot/edit/:botId',
+    element: <RagChatBotEditPage />,
+  },
+  {
+    path: '/rag-chat-bot/chat/:botId',
+    element: <RagChatBotChatPage />,
+  },
+  {
+    path: '/rag-chat-bot/chat/:botId/:conversationId',
+    element: <RagChatBotChatPage />,
+  },
+  {
+    path: '/rag-chat-bot/history',
+    element: <RagChatBotHistoryPage />,
   },
   {
     path: '*',

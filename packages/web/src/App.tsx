@@ -255,6 +255,13 @@ const App: React.FC = () => {
       icon: <PiTestTube />,
       display: 'tool' as const,
     },
+    {
+      label: t('navigation.ragChatBot'),
+      to: '/rag-chat-bot',
+      icon: <PiRobot />,
+      display: 'usecase' as const,
+      sub: 'Bot Management',
+    },
   ].flatMap((i) => (i !== null ? [i] : []));
 
   const label = useMemo(() => {
