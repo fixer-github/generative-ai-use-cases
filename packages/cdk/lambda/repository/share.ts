@@ -1,17 +1,8 @@
-import {
-  ShareId,
-  UserIdAndChatId,
-} from 'generative-ai-use-cases';
+import { ShareId, UserIdAndChatId } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
-import {
-  QueryCommand,
-  TransactWriteCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import {
-  getTenantDynamoDBDocument,
-  getTableName,
-} from './common';
+import { getTenantDynamoDBDocument, getTableName } from './common';
 
 export const createShareId = async (
   _userId: string,
@@ -167,3 +158,4 @@ export const deleteShareId = async (
     })
   );
 };
+

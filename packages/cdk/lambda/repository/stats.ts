@@ -1,14 +1,7 @@
-import {
-  TokenUsageStats,
-} from 'generative-ai-use-cases';
-import {
-  BatchGetCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { TokenUsageStats } from 'generative-ai-use-cases';
+import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import {
-  getTenantDynamoDBDocument,
-  getStatsTableName,
-} from './common';
+import { getTenantDynamoDBDocument, getStatsTableName } from './common';
 
 export const aggregateTokenUsage = async (
   startDate: string,
@@ -93,3 +86,4 @@ export const aggregateTokenUsage = async (
     throw error;
   }
 };
+

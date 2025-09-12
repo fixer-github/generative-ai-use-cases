@@ -84,3 +84,4 @@ export async function executeDynamoDBOperation<T>(
 
   return await operation(dynamoDbDocument, tableName);
 }
+

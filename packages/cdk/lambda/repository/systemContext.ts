@@ -1,6 +1,4 @@
-import {
-  SystemContext,
-} from 'generative-ai-use-cases';
+import { SystemContext } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import {
   DeleteCommand,
@@ -164,3 +162,4 @@ export const deleteSystemContext = async (
     })
   );
 };
+
