@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
 import {
   PiArrowLeft,
   PiFloppyDisk,
@@ -30,11 +31,14 @@ const RagChatBotEditPage: React.FC = () => {
   const { getPrivateBot, createBot, updateBot, getBotPresignedUrl, deleteBotUploadedFile } = useBedrockChatApi();
 
   const isEditMode = !!botId;
+  const tempBotId = useMemo(() => uuidv4(), []);
+  const currentBotId = botId || tempBotId;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<BedrockChatBotInput>({
+    id: tempBotId,
     title: '',
     description: '',
     instruction: '',
@@ -121,16 +125,11 @@ const RagChatBotEditPage: React.FC = () => {
   };
 
   const handleFileUpload = async (files: FileList) => {
-    if (!botId && !isEditMode) {
-      alert(t('ragChatBot.edit.saveBeforeUpload'));
-      return;
-    }
-
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
         const { url } = await getBotPresignedUrl(
-          botId || 'temp',
+          currentBotId,
           file.name,
           file.type
         );
@@ -158,9 +157,9 @@ const RagChatBotEditPage: React.FC = () => {
   };
 
   const handleDeleteFile = async (filename: string) => {
-    if (botId) {
+    if (currentBotId) {
       try {
-        await deleteBotUploadedFile(botId, filename);
+        await deleteBotUploadedFile(currentBotId, filename);
       } catch (error) {
         console.error('Failed to delete file:', error);
       }

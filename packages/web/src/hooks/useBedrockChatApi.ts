@@ -74,6 +74,7 @@ export interface BedrockChatBot {
 }
 
 export interface BedrockChatBotInput {
+  id?: string;
   title: string;
   description?: string;
   instruction: string;
@@ -248,7 +249,7 @@ const useBedrockChatApi = () => {
     try {
       const botData = {
         ...bot,
-        id: uuidv4(),
+        id: bot.id || uuidv4(),
         active_models: {
           claude_v4_opus: true,
           claude_v4_1_opus: true,
