@@ -109,6 +109,22 @@ export interface BedrockChatPresignedUrlResponse {
   url: string;
 }
 
+// Helper function to convert snake_case to camelCase
+const toCamelCase = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(toCamelCase);
+  if (typeof obj !== 'object') return obj;
+  
+  const converted: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+      converted[camelKey] = toCamelCase(obj[key]);
+    }
+  }
+  return converted;
+};
+
 const useBedrockChatApi = () => {
   const testConnection = async () => {
     try {
@@ -242,14 +258,97 @@ const useBedrockChatApi = () => {
     try {
       const botData = {
         ...bot,
-        id: `bot-${Date.now()}`,
+        id: `01K4Y4874NRM6VP55SERA6GB0V`,
         active_models: {
-          claude_3_5_sonnet_v2: true,
-          claude_3_5_haiku: false,
-          claude_3_opus: false,
+          claude_v4_opus: true,
+          claude_v4_1_opus: true,
+          claude_v4_sonnet: true,
+          claude_v3_5_sonnet: true,
+          claude_v3_5_sonnet_v2: true,
+          claude_v3_7_sonnet: true,
+          claude_v3_5_haiku: true,
+          claude_v3_haiku: true,
+          claude_v3_opus: true,
+          mistral_7b_instruct: true,
+          mixtral_8x7b_instruct: true,
+          mistral_large: true,
+          mistral_large_2: true,
+          amazon_nova_pro: true,
+          amazon_nova_lite: true,
+          amazon_nova_micro: true,
+          deepseek_r1: true,
+          llama3_3_70b_instruct: true,
+          llama3_2_1b_instruct: true,
+          llama3_2_3b_instruct: true,
+          llama3_2_11b_instruct: true,
+          llama3_2_90b_instruct: true,
+          gpt_oss_20b: true,
+          gpt_oss_120b: true,
         },
+        // Add missing required fields with default values
+        agent: {
+          tools: []
+        },
+        bedrockKnowledgeBase: {
+          knowledgeBaseId: null,
+          existKnowledgeBaseId: null,
+          embeddingsModel: 'titan_v2',
+          chunkingConfiguration: {
+            chunkingStrategy: 'default'
+          },
+          openSearch: {
+            analyzer: {
+              characterFilters: ['icu_normalizer'],
+              tokenizer: 'kuromoji_tokenizer',
+              tokenFilters: [
+                'kuromoji_baseform',
+                'kuromoji_part_of_speech',
+                'kuromoji_stemmer',
+                'cjk_width',
+                'ja_stop',
+                'lowercase',
+                'icu_folding'
+              ]
+            }
+          },
+          searchParams: {
+            maxResults: 5,
+            searchType: 'hybrid'
+          },
+          webCrawlingScope: 'DEFAULT',
+          webCrawlingFilters: {
+            includePatterns: [''],
+            excludePatterns: ['']
+          }
+        },
+        bedrockGuardrails: {
+          isGuardrailEnabled: false,
+          hateThreshold: 0,
+          insultsThreshold: 0,
+          sexualThreshold: 0,
+          violenceThreshold: 0,
+          misconductThreshold: 0,
+          groundingThreshold: 0,
+          relevanceThreshold: 0,
+          guardrailArn: '',
+          guardrailVersion: ''
+        }
       };
-      const response = await bedrockChatApi.post<BedrockChatBot>('/bot', botData);
+      
+      // Convert snake_case to camelCase
+      const camelCaseData = toCamelCase(botData);
+      // Add stopSequences if not present
+      if (camelCaseData.generationParams && !camelCaseData.generationParams.stopSequences) {
+        camelCaseData.generationParams.stopSequences = [''];
+      }
+      // Add reasoningParams if not present
+      if (camelCaseData.generationParams && !camelCaseData.generationParams.reasoningParams) {
+        camelCaseData.generationParams.reasoningParams = {
+          budgetTokens: 1024
+        };
+      }
+      
+      const response = await bedrockChatApi.post<BedrockChatBot>('/bot', camelCaseData);
       return response.data;
     } catch (error) {
       console.error('BedrockChat create bot failed:', error);
@@ -259,7 +358,9 @@ const useBedrockChatApi = () => {
 
   const updateBot = async (botId: string, bot: Partial<BedrockChatBotInput>) => {
     try {
-      const response = await bedrockChatApi.patch(`/bot/${botId}`, bot);
+      // Convert snake_case to camelCase
+      const camelCaseData = toCamelCase(bot);
+      const response = await bedrockChatApi.patch(`/bot/${botId}`, camelCaseData);
       return response.data;
     } catch (error) {
       console.error('BedrockChat update bot failed:', error);
