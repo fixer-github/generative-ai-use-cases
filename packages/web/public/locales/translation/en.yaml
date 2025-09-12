@@ -1377,6 +1377,12 @@ ragChatBot:
   confirmDelete: Are you sure you want to delete this bot?
   shared: Shared
   lastUsed: Last used
+  edit: Edit
+  delete: Delete
+  syncStatus:
+    completed: Sync Complete
+    syncing: Syncing
+    failed: Sync Failed
   edit:
     back: Back
     editTitle: Edit Bot

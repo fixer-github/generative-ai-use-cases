@@ -12,6 +12,7 @@ import { Embedding } from '../../temp-bedrock-chat/constructs/embedding';
 import { UsageAnalysis } from '../../temp-bedrock-chat/constructs/usage-analysis';
 import { BotStore, Language } from '../../temp-bedrock-chat/constructs/bot-store';
 import { excludeDockerImage } from '../../temp-bedrock-chat/constants/docker';
+import { BedrockCustomBotCodebuild } from '../../temp-bedrock-chat/constructs/bedrock-custom-bot-codebuild';
 
 /**
  * テナント専用のBedrock Chatスタックのプロパティ定義
@@ -394,7 +395,28 @@ export class TenantBedrockChatStack extends cdk.Stack {
 
 
     // ==============================================
-    // 5. Embedding（ベクトル化）機能の作成（オプション）
+    // 5. CodeBuildプロジェクトの作成（Knowledge Base用）
+    // ==============================================
+    // CodeBuildプロジェクト用のソースバケットを作成
+    const codeBuildSourceBucket = new s3.Bucket(this, 'CodeBuildSourceBucket', {
+      bucketName: `bedrock-chat-codebuild-src-${environment}-${tenantId}`,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
+      autoDeleteObjects: props.removalPolicy === cdk.RemovalPolicy.DESTROY,
+    });
+    
+    // Knowledge Base構築用のCodeBuildプロジェクトを作成
+    const bedrockCustomBotCodebuild = new BedrockCustomBotCodebuild(this, 'BedrockCustomBotCodebuild', {
+      envName: environment,
+      envPrefix: props.envPrefix || '',
+      bedrockRegion: bedrockRegion,
+      sourceBucket: codeBuildSourceBucket,
+    });
+
+    // ==============================================
+    // 6. Embedding（ベクトル化）機能の作成（オプション）
     // ==============================================
     // RAG（Retrieval-Augmented Generation）機能のための文書ベクトル化
     // 文書をAIが理解できる数値ベクトルに変換し、類似検索を可能にする
@@ -403,13 +425,13 @@ export class TenantBedrockChatStack extends cdk.Stack {
         bedrockRegion,
         database: this.database,
         documentBucket: this.documentBucket,
-        // bedrockCustomBotProject: undefined as any,
+        bedrockCustomBotProject: bedrockCustomBotCodebuild.project,
         enableRagReplicas: props.enableRagReplicas || false,  // レプリカによる高可用性
       });
     }
 
     // ==============================================
-    // 6. 使用状況分析機能の作成
+    // 7. 使用状況分析機能の作成
     // ==============================================
     // チャットの利用状況を分析するためのログ収集とAthenaクエリ環境
     // アクセスログ保存用バケットの作成
@@ -431,7 +453,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     });
 
     // ==============================================
-    // 7. ボットストア機能の作成（オプション）
+    // 8. ボットストア機能の作成（オプション）
     // ==============================================
     // カスタムボットの定義、管理、検索機能を提供
     // OpenSearchを使用した高度な検索が可能
@@ -444,7 +466,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     });
 
     // ==============================================
-    // 8. スタック出力の定義
+    // 9. スタック出力の定義
     // ==============================================
     // 他のスタックやアプリケーションから参照するための出力値
     
@@ -463,7 +485,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     });
 
     // ==============================================
-    // 9. リソースタグの追加
+    // 10. リソースタグの追加
     // ==============================================
     // コスト管理とリソース識別のためのタグ付け
     cdk.Tags.of(this).add('TenantId', tenantId.toString());  // テナント識別用

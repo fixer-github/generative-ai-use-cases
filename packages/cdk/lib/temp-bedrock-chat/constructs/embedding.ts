@@ -7,7 +7,7 @@ import { CfnPipe } from "aws-cdk-lib/aws-pipes";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-// import * as codebuild from "aws-cdk-lib/aws-codebuild";
+import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import { excludeDockerImage } from "../constants/docker";
 import {
   DockerImageCode,
@@ -24,7 +24,7 @@ export interface EmbeddingProps {
   readonly database: Database;
   readonly bedrockRegion: string;
   readonly documentBucket: IBucket;
-  // readonly bedrockCustomBotProject: codebuild.IProject;
+  readonly bedrockCustomBotProject: codebuild.IProject;
   readonly enableRagReplicas: boolean;
 }
 
@@ -214,54 +214,54 @@ export class Embedding extends Construct {
       resultPath: "$",
     });
 
-    // const startCustomBotBuild = new tasks.CodeBuildStartBuild(
-    //   this,
-    //   "StartCustomBotBuild",
-    //   {
-    //     project: props.bedrockCustomBotProject,
-    //     integrationPattern: sfn.IntegrationPattern.RUN_JOB,
-    //     environmentVariablesOverride: {
-    //       PK: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: sfn.JsonPath.stringAt("$.dynamodb.NewImage.PK.S"),
-    //       },
-    //       SK: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: sfn.JsonPath.stringAt("$.dynamodb.NewImage.SK.S"),
-    //       },
-    //       // Bucket name provisioned by the bedrock stack
-    //       BEDROCK_CLAUDE_CHAT_DOCUMENT_BUCKET_NAME: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: props.documentBucket.bucketName,
-    //       },
-    //       // Source info e.g. file names, URLs, etc.
-    //       KNOWLEDGE: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: sfn.JsonPath.stringAt(
-    //           "States.JsonToString($.dynamodb.NewImage.Knowledge.M)"
-    //         ),
-    //       },
-    //       // Bedrock Knowledge Base configuration
-    //       BEDROCK_KNOWLEDGE_BASE: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: sfn.JsonPath.stringAt(
-    //           "States.JsonToString($.dynamodb.NewImage.BedrockKnowledgeBase.M)"
-    //         ),
-    //       },
-    //       BEDROCK_GUARDRAILS: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: sfn.JsonPath.stringAt(
-    //           "States.JsonToString($.dynamodb.NewImage.GuardrailsParams.M)"
-    //         ),
-    //       },
-    //       ENABLE_RAG_REPLICAS: {
-    //         type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-    //         value: props.enableRagReplicas.toString(),
-    //       },
-    //     },
-    //     resultPath: "$.Build",
-    //   }
-    // );
+    const startCustomBotBuild = new tasks.CodeBuildStartBuild(
+      this,
+      "StartCustomBotBuild",
+      {
+        project: props.bedrockCustomBotProject,
+        integrationPattern: sfn.IntegrationPattern.RUN_JOB,
+        environmentVariablesOverride: {
+          PK: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: sfn.JsonPath.stringAt("$.dynamodb.NewImage.PK.S"),
+          },
+          SK: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: sfn.JsonPath.stringAt("$.dynamodb.NewImage.SK.S"),
+          },
+          // Bucket name provisioned by the bedrock stack
+          BEDROCK_CLAUDE_CHAT_DOCUMENT_BUCKET_NAME: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: props.documentBucket.bucketName,
+          },
+          // Source info e.g. file names, URLs, etc.
+          KNOWLEDGE: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: sfn.JsonPath.stringAt(
+              "States.JsonToString($.dynamodb.NewImage.Knowledge.M)"
+            ),
+          },
+          // Bedrock Knowledge Base configuration
+          BEDROCK_KNOWLEDGE_BASE: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: sfn.JsonPath.stringAt(
+              "States.JsonToString($.dynamodb.NewImage.BedrockKnowledgeBase.M)"
+            ),
+          },
+          BEDROCK_GUARDRAILS: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: sfn.JsonPath.stringAt(
+              "States.JsonToString($.dynamodb.NewImage.GuardrailsParams.M)"
+            ),
+          },
+          ENABLE_RAG_REPLICAS: {
+            type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
+            value: props.enableRagReplicas.toString(),
+          },
+        },
+        resultPath: "$.Build",
+      }
+    );
 
     const updateSyncStatusRunning = this.createUpdateSyncStatusTask(
       "UpdateSyncStatusRunning",
@@ -292,7 +292,7 @@ export class Embedding extends Construct {
         error: "Knowledge base sync failed",
       })
     );
-    // startCustomBotBuild.addCatch(fallback);
+    startCustomBotBuild.addCatch(fallback);
 
     const fetchStackOutput = new tasks.LambdaInvoke(this, "FetchStackOutput", {
       lambdaFunction: this._fetchStackOutputHandler,
@@ -432,7 +432,7 @@ export class Embedding extends Construct {
 
     const definition = extractFirstElement
       .next(updateSyncStatusRunning)
-      // .next(startCustomBotBuild)
+      .next(startCustomBotBuild)
       .next(fetchStackOutput)
       .next(storeKnowledgeBaseId)
       .next(storeGuardrailArn)

@@ -29,7 +29,7 @@ type FilterOption = 'all' | 'private' | 'public' | 'starred';
 const RagChatBotPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { getAllBots, setStarredStatus, deleteBot } = useBedrockChatApi();
+  const { getAllBots, setStarredStatus, deleteBot, getPrivateBot } = useBedrockChatApi();
 
   const [bots, setBots] = useState<BedrockChatBot[]>([]);
   const [filteredBots, setFilteredBots] = useState<BedrockChatBot[]>([]);
@@ -69,6 +69,38 @@ const RagChatBotPage: React.FC = () => {
     }
   }, [viewMode, showOnlyStarred, getAllBots]);
 
+  // Function to update only sync status without full reload
+  const updateSyncStatuses = useCallback(async () => {
+    const botsToUpdate = bots.filter(bot => 
+      bot.syncStatus !== 'RUNNING' && bot.syncStatus !== 'IDLE' && bot.syncStatus !== 'SUCCEEDED'
+    );
+
+    if (botsToUpdate.length === 0) return;
+
+    try {
+      const updates = await Promise.all(
+        botsToUpdate.map(async (bot) => {
+          try {
+            const updatedBot = await getPrivateBot(bot.id);
+            return { id: bot.id, syncStatus: updatedBot.syncStatus };
+          } catch (error) {
+            console.error(`Failed to update sync status for bot ${bot.id}:`, error);
+            return null;
+          }
+        })
+      );
+
+      setBots(prevBots => 
+        prevBots.map(bot => {
+          const update = updates.find(u => u && u.id === bot.id);
+          return update ? { ...bot, syncStatus: update.syncStatus } : bot;
+        })
+      );
+    } catch (error) {
+      console.error('Failed to update sync statuses:', error);
+    }
+  }, [bots, getPrivateBot]);
+
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
@@ -81,7 +113,7 @@ const RagChatBotPage: React.FC = () => {
 
     if (shouldPoll) {
       pollingInterval.current = setInterval(() => {
-        fetchBots();
+        updateSyncStatuses();
       }, 10000); // Poll every 10 seconds
     } else {
       if (pollingInterval.current) {
@@ -95,7 +127,7 @@ const RagChatBotPage: React.FC = () => {
         clearInterval(pollingInterval.current);
       }
     };
-  }, [filteredBots, fetchBots]);
+  }, [filteredBots, updateSyncStatuses]);
 
   useEffect(() => {
     let filtered = [...bots];
@@ -171,19 +203,19 @@ const RagChatBotPage: React.FC = () => {
       case 'SUCCEEDED':
       case 'IDLE':
         return {
-          text: t('ragChatBot.syncStatus.completed') || '同期完了',
+          text: t('ragChatBot.syncStatus.completed'),
           icon: <PiCheckCircle className="text-green-600" />,
           className: 'text-green-600',
         };
       case 'RUNNING':
         return {
-          text: t('ragChatBot.syncStatus.syncing') || '同期中',
+          text: t('ragChatBot.syncStatus.syncing'),
           icon: <PiClockCountdown className="text-blue-600 animate-pulse" />,
           className: 'text-blue-600',
         };
       case 'FAILED':
         return {
-          text: t('ragChatBot.syncStatus.failed') || '同期失敗',
+          text: t('ragChatBot.syncStatus.failed'),
           icon: <PiWarningCircle className="text-red-600" />,
           className: 'text-red-600',
         };
@@ -272,7 +304,7 @@ const RagChatBotPage: React.FC = () => {
                         setOpenMenuId(null);
                       }}
                     >
-                      <PiPencil /> {t('ragChatBot.edit') || '編集'}
+                      <PiPencil /> {t('ragChatBot.edit')}
                     </button>
                     <button
                       className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
@@ -282,7 +314,7 @@ const RagChatBotPage: React.FC = () => {
                         setOpenMenuId(null);
                       }}
                     >
-                      <PiTrash /> {t('ragChatBot.delete') || '削除'}
+                      <PiTrash /> {t('ragChatBot.delete')}
                     </button>
                   </div>
                 )}
