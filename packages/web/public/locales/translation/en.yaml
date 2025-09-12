@@ -1377,7 +1377,7 @@ ragChatBot:
   confirmDelete: Are you sure you want to delete this bot?
   shared: Shared
   lastUsed: Last used
-  edit: Edit
+  editTitle: Edit
   delete: Delete
   syncStatus:
     completed: Sync Complete

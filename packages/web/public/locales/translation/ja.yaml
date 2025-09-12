@@ -1112,7 +1112,7 @@ ragChatBot:
   confirmDelete: このボットを削除してもよろしいですか？
   shared: 共有中
   lastUsed: 最終使用
-  edit: 編集
+  editTitle: 編集
   delete: 削除
   syncStatus:
     completed: 同期完了

@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
 import { Stack, Duration, CfnResource } from 'aws-cdk-lib';
@@ -405,6 +406,14 @@ export class TenantBedrockChatStack extends cdk.Stack {
       enforceSSL: true,
       removalPolicy: props.removalPolicy || cdk.RemovalPolicy.RETAIN,
       autoDeleteObjects: props.removalPolicy === cdk.RemovalPolicy.DESTROY,
+    });
+    
+    // CodeBuild用のソースコードをS3バケットにデプロイ
+    new s3deploy.BucketDeployment(this, 'CodeBuildSourceDeployment', {
+      sources: [
+        s3deploy.Source.asset(path.join(__dirname, '../../temp-bedrock-chat/codebuild-source')),
+      ],
+      destinationBucket: codeBuildSourceBucket,
     });
     
     // Knowledge Base構築用のCodeBuildプロジェクトを作成
