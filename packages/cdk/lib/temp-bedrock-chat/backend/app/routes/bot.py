@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, Literal
 
-from app.dependencies import check_creating_bot_allowed
 from app.repositories.custom_bot import find_bot_by_id
 from app.routes.schemas.bot import (
     ActiveModelsOutput,
@@ -50,7 +49,6 @@ router = APIRouter(tags=["bot"])
 def post_bot(
     request: Request,
     bot_input: BotInput,
-    create_bot_check=Depends(check_creating_bot_allowed),
 ):
     """Create new private owned bot."""
     current_user: User = request.state.current_user

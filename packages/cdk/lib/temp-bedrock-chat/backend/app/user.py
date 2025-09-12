@@ -29,7 +29,7 @@ class User(UserWithoutGroups):
         return "Admin" in self.groups
 
     def is_creating_bot_allowed(self) -> bool:
-        return self.is_admin() or "CreatingBotAllowed" in self.groups
+        return True
 
     def is_publish_allowed(self) -> bool:
         return self.is_admin() or "PublishAllowed" in self.groups

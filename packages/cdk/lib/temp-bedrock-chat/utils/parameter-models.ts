@@ -84,7 +84,7 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
     .default([]),
   userPoolDomainPrefix: z.string().default(""),
   allowedSignUpEmailDomains: z.array(z.string()).default([]),
-  autoJoinUserGroups: z.array(z.string()).default(["CreatingBotAllowed"]),
+  autoJoinUserGroups: z.array(z.string()).default([]),
   selfSignUpEnabled: z.boolean().default(true),
 
   // Performance and availability
