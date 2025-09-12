@@ -48,9 +48,12 @@ const RagChatBotChatPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showBotInfo, setShowBotInfo] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (botId) {
@@ -76,6 +79,54 @@ const RagChatBotChatPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    // Cleanup polling on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Start or stop polling based on isPolling flag
+    if (isPolling && conversationId) {
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const updatedConversation = await getConversation(conversationId);
+          const updatedMessages = updatedConversation.messages || [];
+          
+          // Check for new messages
+          setMessages((prevMessages) => {
+            if (updatedMessages.length > prevMessages.length) {
+              // Check if the last message is from assistant
+              const lastMessage = updatedMessages[updatedMessages.length - 1];
+              if (lastMessage && lastMessage.role === 'assistant') {
+                setIsPolling(false);
+                setSending(false);
+              }
+              return updatedMessages;
+            }
+            return prevMessages;
+          });
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 5000);
+    } else if (!isPolling && pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [isPolling, conversationId, getConversation]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -99,14 +150,23 @@ const RagChatBotChatPage: React.FC = () => {
     
     setLoading(true);
     try {
-      const conv = await getConversation(conversationId);
-      setConversation(conv);
-      setMessages(conv.messages || []);
+      const conversationData = await getConversation(conversationId);
+      setConversation(conversationData);
+      setMessages(conversationData.messages || []);
     } catch (error) {
       console.error('Failed to fetch conversation:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const startPolling = () => {
+    setIsPolling(true);
+  };
+
+  const stopPolling = () => {
+    setIsPolling(false);
+    setSending(false);
   };
 
 
@@ -133,7 +193,7 @@ const RagChatBotChatPage: React.FC = () => {
       
       // Extract text content from the response
       const messageContent = response.message.content
-        .filter((item: any) => item.content_type === 'text')
+        .filter((item: any) => item.contentType === 'text')
         .map((item: any) => item.body)
         .join('\n');
       
@@ -145,26 +205,45 @@ const RagChatBotChatPage: React.FC = () => {
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      const errorMessage: BedrockChatMessage = {
-        id: `msg-error-${Date.now()}`,
-        content: t('ragChatBot.chatPage.sendError'),
-        role: 'system',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
       setSending(false);
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      
+      // Check if it's a 504 Gateway Timeout error
+      if (error.response?.status === 504) {
+        // Start polling for conversation updates
+        console.log('Gateway timeout detected, starting polling...');
+        startPolling();
+      } else {
+        // For other errors, show error message
+        const errorMessage: BedrockChatMessage = {
+          id: `msg-error-${Date.now()}`,
+          content: t('ragChatBot.chatPage.sendError'),
+          role: 'system',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        setSending(false);
+      }
+    } finally {
       inputRef.current?.focus();
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 日本語入力の変換中はEnterキーで送信しない
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = () => {
+    setIsComposing(false);
   };
 
   const handleClearConversation = async () => {
@@ -385,7 +464,9 @@ const RagChatBotChatPage: React.FC = () => {
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             placeholder={t('ragChatBot.chatPage.inputPlaceholder')}
             disabled={sending || !conversation}
             className="flex-1 rounded border border-black/30 p-1.5 outline-none"

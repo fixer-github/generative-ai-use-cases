@@ -40,8 +40,18 @@ const RagChatBotPage: React.FC = () => {
   const [showOnlyStarred, setShowOnlyStarred] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchBots = useCallback(async () => {
+    // Cancel previous request if it exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     setLoading(true);
     try {
       let params = {};
@@ -59,13 +69,22 @@ const RagChatBotPage: React.FC = () => {
         params = { ...params, starred: true };
       }
 
-      const data = await getAllBots(params);
-      setBots(data || []);
+      const data = await getAllBots(params, signal);
+      // Only update state if request wasn't cancelled
+      if (!signal.aborted) {
+        setBots(data || []);
+      }
     } catch (error) {
-      console.error('Failed to fetch bots:', error);
-      setBots([]);
+      // Only update state if request wasn't cancelled
+      if (!abortControllerRef.current?.signal.aborted) {
+        console.error('Failed to fetch bots:', error);
+        setBots([]);
+      }
     } finally {
-      setLoading(false);
+      // Only set loading to false if request wasn't cancelled
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [viewMode, showOnlyStarred, getAllBots]);
 
@@ -340,6 +359,15 @@ const RagChatBotPage: React.FC = () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [openMenuId]);
+
+  // Cleanup AbortController on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">

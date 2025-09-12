@@ -211,13 +211,18 @@ const useBedrockChatApi = () => {
     kind?: 'private' | 'mixed';
     starred?: boolean;
     limit?: number;
-  }) => {
+  }, signal?: AbortSignal) => {
     try {
       const response = await bedrockChatApi.get<BedrockChatBot[]>('/bot', {
         params,
+        signal,
       });
       return response.data;
     } catch (error) {
+      if (axios.isCancel(error)) {
+        console.log('BedrockChat get all bots cancelled');
+        return [];
+      }
       console.error('BedrockChat get all bots failed:', error);
       throw error;
     }
