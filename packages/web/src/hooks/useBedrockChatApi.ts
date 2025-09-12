@@ -1,6 +1,7 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 import axios from 'axios';
 import { useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 const bedrockChatApi = axios.create({
   baseURL: import.meta.env.VITE_APP_API_ENDPOINT
@@ -247,7 +248,7 @@ const useBedrockChatApi = () => {
     try {
       const botData = {
         ...bot,
-        id: `01K4Y4874NRM6VP55SERA6GB0V`,
+        id: uuidv4(),
         active_models: {
           claude_v4_opus: true,
           claude_v4_1_opus: true,
