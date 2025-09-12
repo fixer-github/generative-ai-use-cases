@@ -82,9 +82,28 @@ app.add_middleware(
 
 
 def error_handler_factory(status_code: int) -> Callable[[Request, Exception], Response]:
-    def error_handler(_: Request, exc: Exception) -> JSONResponse:
-        logger.error(exc)
-        logger.error("".join(traceback.format_tb(exc.__traceback__)))
+    def error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.error(f"[ERROR] Status Code: {status_code}")
+        logger.error(f"[ERROR] Exception Type: {type(exc).__name__}")
+        logger.error(f"[ERROR] Exception Message: {str(exc)}")
+        logger.error(f"[ERROR] Request Path: {request.url.path}")
+        logger.error(f"[ERROR] Request Method: {request.method}")
+        
+        # Log request body if available
+        try:
+            if hasattr(request, '_body'):
+                body = request._body.decode('utf-8') if request._body else 'No body'
+                logger.error(f"[ERROR] Request Body: {body[:500]}")
+        except:
+            pass
+            
+        # Log current user if available
+        if hasattr(request.state, 'current_user') and request.state.current_user:
+            logger.error(f"[ERROR] Current User ID: {request.state.current_user.id}")
+            logger.error(f"[ERROR] Current User Name: {request.state.current_user.name}")
+        
+        logger.error(f"[ERROR] Full Traceback:\n{''.join(traceback.format_tb(exc.__traceback__))}")
+        
         return JSONResponse({"errors": [str(exc)]}, status_code=status_code)
 
     return error_handler  # type: ignore

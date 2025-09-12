@@ -66,13 +66,15 @@ def prepare_conversation(
     user: User,
     chat_input: ChatInput,
 ) -> tuple[str, ConversationModel, BotModel | None]:
+    logger.info(f"[prepare_conversation] Starting with user_id={user.id}, conversation_id={chat_input.conversation_id}")
     current_time = get_current_time()
     bot = None
 
     try:
         # Fetch existing conversation
+        logger.info(f"[prepare_conversation] Attempting to find existing conversation...")
         conversation = find_conversation_by_id(user.id, chat_input.conversation_id)
-        logger.info(f"Found conversation: {conversation}")
+        logger.info(f"[prepare_conversation] Found existing conversation: {conversation.id}")
         parent_id = chat_input.message.parent_message_id
         if chat_input.message.parent_message_id == "system" and chat_input.bot_id:
             # The case editing first user message and use bot
@@ -82,10 +84,10 @@ def prepare_conversation(
         if chat_input.bot_id:
             logger.info("Bot id is provided. Fetching bot.")
             owned, bot = fetch_bot(user, chat_input.bot_id)
-    except RecordNotFoundError:
+    except RecordNotFoundError as e:
         # The case for new conversation. Note that editing first user message is not considered as new conversation.
         logger.info(
-            f"No conversation found with id: {chat_input.conversation_id}. Creating new conversation."
+            f"[prepare_conversation] RecordNotFoundError: {str(e)}. Creating new conversation for id: {chat_input.conversation_id}"
         )
 
         initial_message_map = {
@@ -109,10 +111,15 @@ def prepare_conversation(
         }
         parent_id = "system"
         if chat_input.bot_id:
-            logger.info("Bot id is provided. Fetching bot.")
+            logger.info(f"[prepare_conversation] Bot id provided: {chat_input.bot_id}. Fetching bot...")
             parent_id = "instruction"
             # Fetch bot and append instruction
-            owned, bot = fetch_bot(user, chat_input.bot_id)
+            try:
+                owned, bot = fetch_bot(user, chat_input.bot_id)
+                logger.info(f"[prepare_conversation] Bot fetched successfully. Owned: {owned}, Bot title: {bot.title}")
+            except Exception as bot_error:
+                logger.error(f"[prepare_conversation] Error fetching bot: {type(bot_error).__name__}: {str(bot_error)}")
+                raise
             initial_message_map["instruction"] = MessageModel(
                 role="instruction",
                 content=[
@@ -217,7 +224,15 @@ def chat(
     on_tool_result: Callable[[ToolRunResult], None] | None = None,
     on_reasoning: Callable[[str], None] | None = None,
 ) -> tuple[ConversationModel, MessageModel]:
-    user_msg_id, conversation, bot = prepare_conversation(user, chat_input)
+    logger.info(f"[chat] Starting chat function with user_id={user.id}, conversation_id={chat_input.conversation_id}")
+    try:
+        user_msg_id, conversation, bot = prepare_conversation(user, chat_input)
+        logger.info(f"[chat] prepare_conversation completed. user_msg_id={user_msg_id}, bot={'exists' if bot else 'None'}")
+    except Exception as e:
+        logger.error(f"[chat] Error in prepare_conversation: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"[chat] Traceback:\n{traceback.format_exc()}")
+        raise
 
     # # Set tools only when tooluse is supported
     tools: Dict[str, AgentTool] = {}

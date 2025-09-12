@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ulid } from 'ulid';
 import {
   PiArrowLeft,
   PiPaperPlaneTilt,
@@ -35,7 +36,6 @@ const RagChatBotChatPage: React.FC = () => {
   
   const {
     getBotSummary,
-    createConversation,
     getConversation,
     sendMessage,
     deleteConversation,
@@ -59,7 +59,16 @@ const RagChatBotChatPage: React.FC = () => {
     if (conversationId) {
       fetchConversation();
     } else if (botId) {
-      createNewConversation();
+      // Generate a new conversation ID for new chats
+      const newConversationId = ulid();
+      setConversation({
+        id: newConversationId,
+        title: `Chat with Bot ${botId}`,
+        bot_id: botId,
+        messages: [],
+        created_at: new Date().toISOString(),
+      });
+      navigate(`/rag-chat-bot/chat/${botId}/${newConversationId}`, { replace: true });
     }
   }, [botId, conversationId]);
 
@@ -100,23 +109,6 @@ const RagChatBotChatPage: React.FC = () => {
     }
   };
 
-  const createNewConversation = async () => {
-    if (!botId) return;
-    
-    try {
-      const conv = await createConversation(`Chat with Bot ${botId}`);
-      setConversation({
-        id: conv.conversation_id,
-        title: conv.title,
-        bot_id: botId,
-        messages: [],
-        created_at: new Date().toISOString(),
-      });
-      navigate(`/rag-chat-bot/chat/${botId}/${conv.conversation_id}`);
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !conversation) return;
@@ -139,9 +131,15 @@ const RagChatBotChatPage: React.FC = () => {
         botId
       );
       
+      // Extract text content from the response
+      const messageContent = response.message.content
+        .filter((item: any) => item.content_type === 'text')
+        .map((item: any) => item.body)
+        .join('\n');
+      
       const assistantMessage: BedrockChatMessage = {
         id: response.message_id || `msg-${Date.now() + 1}`,
-        content: response.message?.content || response.content || '',
+        content: messageContent,
         role: 'assistant',
         timestamp: new Date().toISOString(),
       };
@@ -173,8 +171,17 @@ const RagChatBotChatPage: React.FC = () => {
     if (conversation && window.confirm(t('ragChatBot.chatPage.confirmClear'))) {
       try {
         await deleteConversation(conversation.id);
-        createNewConversation();
+        // Generate a new conversation ID
+        const newConversationId = ulid();
+        setConversation({
+          id: newConversationId,
+          title: `Chat with Bot ${botId}`,
+          bot_id: botId || '',
+          messages: [],
+          created_at: new Date().toISOString(),
+        });
         setMessages([]);
+        navigate(`/rag-chat-bot/chat/${botId}/${newConversationId}`, { replace: true });
       } catch (error) {
         console.error('Failed to clear conversation:', error);
       }

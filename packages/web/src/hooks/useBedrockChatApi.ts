@@ -156,17 +156,6 @@ const useBedrockChatApi = () => {
     }
   };
 
-  const createConversation = async (title?: string) => {
-    try {
-      const response = await bedrockChatApi.post('/conversation', {
-        title: title || 'Test Conversation',
-      });
-      return response.data;
-    } catch (error) {
-      console.error('BedrockChat conversation creation failed:', error);
-      throw error;
-    }
-  };
 
   const deleteConversation = async (conversationId: string) => {
     try {
@@ -442,17 +431,25 @@ const useBedrockChatApi = () => {
   const sendMessage = async (
     conversationId: string,
     message: string,
-    botId?: string
+    botId?: string,
+    model: string = 'claude-v4-sonnet'
   ) => {
     try {
       const response = await bedrockChatApi.post('/conversation', {
         conversation_id: conversationId,
         message: {
           role: 'user',
-          content: message,
+          content: [
+            {
+              content_type: 'text',
+              body: message,
+            },
+          ],
+          model: model,
+          parent_message_id: null,
+          message_id: null,
         },
         bot_id: botId,
-        stream: false,
       });
       return response.data;
     } catch (error) {
@@ -477,7 +474,6 @@ const useBedrockChatApi = () => {
     testConnection,
     getConfig,
     getConversations,
-    createConversation,
     deleteConversation,
     searchConversations,
     searchStore,

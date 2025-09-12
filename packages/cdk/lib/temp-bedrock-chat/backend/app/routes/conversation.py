@@ -42,11 +42,30 @@ def health():
 @router.post("/conversation", response_model=ChatOutput)
 def post_message(request: Request, chat_input: ChatInput):
     """Send chat message"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[POST /conversation] Started processing")
+    logger.info(f"[POST /conversation] Chat Input: conversation_id={chat_input.conversation_id}, bot_id={chat_input.bot_id}")
+    logger.info(f"[POST /conversation] Message: role={chat_input.message.role}, model={chat_input.message.model}")
+    
     current_user: User = request.state.current_user
-
-    conversation, message = chat(user=current_user, chat_input=chat_input)
-    output = chat_output_from_message(conversation=conversation, message=message)
-    return output
+    logger.info(f"[POST /conversation] Current User: id={current_user.id}, name={current_user.name}, email={current_user.email}")
+    
+    try:
+        logger.info(f"[POST /conversation] Calling chat function...")
+        conversation, message = chat(user=current_user, chat_input=chat_input)
+        logger.info(f"[POST /conversation] Chat function completed successfully")
+        logger.info(f"[POST /conversation] Conversation ID: {conversation.id}, Title: {conversation.title}")
+        
+        output = chat_output_from_message(conversation=conversation, message=message)
+        logger.info(f"[POST /conversation] Response prepared successfully")
+        return output
+    except Exception as e:
+        logger.error(f"[POST /conversation] Error occurred: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"[POST /conversation] Traceback:\n{traceback.format_exc()}")
+        raise
 
 
 @router.get(

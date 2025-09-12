@@ -4,6 +4,7 @@ import useBedrockChatApi from '../hooks/useBedrockChatApi';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { PiCheckCircle, PiWarningCircle, PiX } from 'react-icons/pi';
+import { ulid } from 'ulid';
 
 type TestResult = {
   endpoint: string;
@@ -101,27 +102,27 @@ const BedrockChatTest: React.FC<BaseProps> = () => {
       });
     }
 
-    // Test 4: Create Conversation
+    // Test 4: Simulate Conversation Creation (conversation will be created on first message)
     try {
       addResult({
         endpoint: '/bedrock-chat/conversation',
         status: 'pending',
-        message: 'Creating new conversation...',
+        message: 'Generating conversation ID...',
       });
-      const newConversation = await bedrockChatApi.createConversation('Test Conversation from Frontend');
-      setCreatedConversationId(newConversation?.conversationId || newConversation?.id);
+      const newConversationId = ulid();
+      setCreatedConversationId(newConversationId);
       addResult({
         endpoint: '/bedrock-chat/conversation',
         status: 'success',
-        message: 'Conversation created successfully',
-        data: newConversation,
+        message: 'Conversation ID generated (will be created on first message)',
+        data: { conversationId: newConversationId },
       });
     } catch (error: any) {
       addResult({
         endpoint: '/bedrock-chat/conversation',
         status: 'error',
-        message: 'Conversation creation failed',
-        error: error.response?.data || error.message,
+        message: 'Failed to generate conversation ID',
+        error: error.message,
       });
     }
 

@@ -327,11 +327,14 @@ def fetch_bot(user: User, bot_id: str) -> tuple[bool, BotModel]:
     `True` means the bot is owned by the user.
     `False` means the bot is shared by another user.
     """
+    logger.info(f"[fetch_bot] Starting with user_id={user.id}, bot_id={bot_id}")
     try:
         bot = find_bot_by_id(bot_id)
+        logger.info(f"[fetch_bot] Bot found: id={bot.id}, owner={bot.owner_user_id}")
     except RecordNotFoundError as e:
         # NOTE: If the bot is not found, it must be an alias.
-        logger.info(f"Bot {bot_id} is not found. Update alias.")
+        logger.error(f"[fetch_bot] Bot {bot_id} is not found. Error: {str(e)}")
+        logger.info(f"[fetch_bot] Updating alias for user_id={user.id}, bot_id={bot_id}")
         update_alias_is_origin_accessible(user.id, bot_id, False)
         raise e
 

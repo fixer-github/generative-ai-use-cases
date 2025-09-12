@@ -149,13 +149,22 @@ def find_conversation_by_user_id(user_id: str) -> list[ConversationMeta]:
 
 
 def find_conversation_by_id(user_id: str, conversation_id: str) -> ConversationModel:
-    logger.info(f"Finding conversation: {conversation_id}")
+    logger.info(f"[find_conversation_by_id] Finding conversation: user_id={user_id}, conversation_id={conversation_id}")
     table = get_conversation_table_client(user_id)
+    
+    # Log the composed key
+    composed_key = compose_conv_id(user_id, conversation_id)
+    logger.info(f"[find_conversation_by_id] Composed SK: {composed_key}")
+    
     response = table.query(
         IndexName="SKIndex",
-        KeyConditionExpression=Key("SK").eq(compose_conv_id(user_id, conversation_id)),
+        KeyConditionExpression=Key("SK").eq(composed_key),
     )
+    
+    logger.info(f"[find_conversation_by_id] Query response items count: {len(response.get('Items', []))}")
+    
     if len(response["Items"]) == 0:
+        logger.error(f"[find_conversation_by_id] No conversation found with id: {conversation_id}")
         raise RecordNotFoundError(f"No conversation found with id: {conversation_id}")
 
     # NOTE: conversation is unique

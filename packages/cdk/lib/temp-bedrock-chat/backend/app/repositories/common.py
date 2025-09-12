@@ -40,7 +40,11 @@ class ResourceConflictError(Exception):
 
 def compose_conv_id(user_id: str, conversation_id: str):
     # Add user_id prefix for row level security to match with `LeadingKeys` condition
-    return f"{user_id}#CONV#{conversation_id}"
+    import logging
+    logger = logging.getLogger(__name__)
+    result = f"{user_id}#CONV#{conversation_id}"
+    logger.info(f"[compose_conv_id] user_id={user_id}, conversation_id={conversation_id} -> {result}")
+    return result
 
 
 def decompose_conv_id(conv_id: str):

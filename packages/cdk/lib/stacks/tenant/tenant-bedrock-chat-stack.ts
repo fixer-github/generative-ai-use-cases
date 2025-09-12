@@ -241,8 +241,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
         DOCUMENT_BUCKET: this.documentBucket.bucketName,
         LARGE_MESSAGE_BUCKET: largeMessageBucket.bucketName,
         OPENSEARCH_DOMAIN_ENDPOINT: this.botStore?.openSearchEndpoint || '',
-        ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
-          props.enableBedrockCrossRegionInference?.toString() || 'false',
+        ENABLE_BEDROCK_CROSS_REGION_INFERENCE: 'true',
         GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels 
           ? JSON.stringify(props.globalAvailableModels)
           : '[]',
