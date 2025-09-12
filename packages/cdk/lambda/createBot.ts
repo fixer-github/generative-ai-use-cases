@@ -72,7 +72,7 @@ export const handler = async (
       knouledgeFiles: fileSavedResults,
     };
 
-    const res = await repository.createBot(item, event);
+    const res = await repository.upsertBot(item, event);
 
     return {
       statusCode: 204,

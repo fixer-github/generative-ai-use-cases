@@ -930,7 +930,7 @@ export const aggregateTokenUsage = async (
   }
 };
 
-export const createBot = async (
+export const upsertBot = async (
   item: BotEntity,
   event: APIGatewayProxyEvent
 ): Promise<BotEntity> => {

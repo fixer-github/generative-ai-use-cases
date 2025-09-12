@@ -42,6 +42,18 @@ export type BotCreateResponse = {
   description: string;
 };
 
+export type BotUpsertRequest = {
+  id: string;
+  title: string;
+  description: string;
+  promptTemplate: string;
+  publicInOrg: boolean;
+  inputExamples: BotUpsertRequestInputExample[];
+  useFixedModel: boolean;
+  modelId: string;
+  fileAttachEnabled: boolean;
+};
+
 export type BotListResponse = {
   items: BotListResponseItem[];
 };
@@ -73,4 +85,5 @@ export type BotInputExample = {
 };
 
 export type BotCreateRequestInputExample = BotInputExample;
+export type BotUpsertRequestInputExample = BotInputExample;
 export type BotGetResponseInputExample = BotInputExample;
