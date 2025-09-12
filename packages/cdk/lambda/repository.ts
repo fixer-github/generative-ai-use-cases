@@ -1000,3 +1000,21 @@ export const getBot = async (
 
   return item;
 };
+
+export const deleteBot = async (
+  botId: string,
+  event: APIGatewayProxyEvent
+): Promise<void> => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+  // const createdDate = new Date(0).toISOString();
+
+  const command = new DeleteCommand({
+    TableName: tableName,
+    Key: {
+      id: botId,
+    },
+  });
+
+  await dynamoDbDocument.send(command);
+};
