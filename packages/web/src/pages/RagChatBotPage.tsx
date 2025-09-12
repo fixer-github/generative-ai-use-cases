@@ -132,7 +132,7 @@ const RagChatBotPage: React.FC = () => {
   };
 
   const renderBotCard = (bot: BedrockChatBot) => {
-    const isOwner = bot.owner_user_id === 'current_user'; // TODO: Get actual current user ID
+    const isOwner = bot.owned === true;
     
     return (
       <Card key={bot.id} className="mb-4 hover:shadow-lg transition-shadow">

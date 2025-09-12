@@ -49,7 +49,9 @@ export interface BedrockChatBot {
   instruction: string;
   create_time: number;
   last_used_time: number;
-  owner_user_id: string;
+  owned?: boolean;
+  available?: boolean;
+  shared_status?: string;
   shared_scope: 'private' | 'partial' | 'all';
   is_starred?: boolean;
   sync_status?: string;
