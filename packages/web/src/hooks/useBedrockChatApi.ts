@@ -47,32 +47,32 @@ export interface BedrockChatBot {
   title: string;
   description?: string;
   instruction: string;
-  create_time: number;
-  last_used_time: number;
+  createTime: number;
+  lastUsedTime: number;
   owned?: boolean;
   available?: boolean;
-  shared_status?: string;
-  shared_scope: 'private' | 'partial' | 'all';
-  is_starred?: boolean;
-  sync_status?: string;
-  display_retrieved_chunks?: boolean;
-  conversation_quick_starters?: Array<{
+  sharedStatus?: string;
+  sharedScope: 'private' | 'partial' | 'all';
+  isStarred?: boolean;
+  syncStatus: string;
+  displayRetrievedChunks?: boolean;
+  conversationQuickStarters?: Array<{
     title: string;
     example: string;
   }>;
-  generation_params?: {
-    max_tokens?: number;
+  generationParams?: {
+    maxTokens?: number;
     temperature?: number;
-    top_p?: number;
-    top_k?: number;
+    topP?: number;
+    topK?: number;
   };
   knowledge?: {
-    source_urls: string[];
-    sitemap_urls: string[];
+    sourceUrls: string[];
+    sitemapUrls: string[];
     filenames: string[];
-    s3_urls: string[];
+    s3Urls: string[];
   };
-  prompt_caching_enabled?: boolean;
+  promptCachingEnabled?: boolean;
 }
 
 export interface BedrockChatBotInput {
@@ -80,21 +80,21 @@ export interface BedrockChatBotInput {
   title: string;
   description?: string;
   instruction: string;
-  generation_params?: {
-    max_tokens?: number;
+  generationParams?: {
+    maxTokens?: number;
     temperature?: number;
-    top_p?: number;
-    top_k?: number;
+    topP?: number;
+    topK?: number;
   };
   knowledge?: {
-    source_urls: string[];
-    sitemap_urls: string[];
+    sourceUrls: string[];
+    sitemapUrls: string[];
     filenames: string[];
-    s3_urls: string[];
+    s3Urls: string[];
   };
-  display_retrieved_chunks?: boolean;
-  prompt_caching_enabled?: boolean;
-  conversation_quick_starters?: Array<{
+  displayRetrievedChunks?: boolean;
+  promptCachingEnabled?: boolean;
+  conversationQuickStarters?: Array<{
     title: string;
     example: string;
   }>;
@@ -105,8 +105,8 @@ export interface BedrockChatBotSummary {
   title: string;
   description?: string;
   available: boolean;
-  has_bedrock_knowledge_base: boolean;
-  has_knowledge: boolean;
+  hasBedrockKnowledgeBase: boolean;
+  hasKnowledge: boolean;
 }
 
 export interface BedrockChatPresignedUrlResponse {

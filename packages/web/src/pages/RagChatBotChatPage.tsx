@@ -329,10 +329,8 @@ const RagChatBotChatPage: React.FC = () => {
           <h3 className="font-semibold mb-2">{t('ragChatBot.chatPage.botInfo')}</h3>
           <div className="text-sm space-y-1">
             <p><strong>{t('ragChatBot.chatPage.instruction')}:</strong> {bot.instruction}</p>
-            {bot.sync_status && (
-              <p><strong>{t('ragChatBot.chatPage.syncStatus')}:</strong> {bot.sync_status}</p>
-            )}
-            {bot.display_retrieved_chunks && (
+            <p><strong>{t('ragChatBot.chatPage.syncStatus')}:</strong> {bot.syncStatus}</p>
+            {bot.displayRetrievedChunks && (
               <p className="text-green-600">{t('ragChatBot.chatPage.chunksEnabled')}</p>
             )}
           </div>
@@ -344,11 +342,11 @@ const RagChatBotChatPage: React.FC = () => {
           <div className="text-center py-12">
             <PiRobot className="text-6xl text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">{t('ragChatBot.chatPage.noMessages')}</p>
-            {bot?.conversation_quick_starters && bot.conversation_quick_starters.length > 0 && (
+            {bot?.conversationQuickStarters && bot.conversationQuickStarters.length > 0 && (
               <div className="mt-6">
                 <p className="text-sm text-gray-600 mb-3">{t('ragChatBot.chatPage.quickStarters')}</p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {bot.conversation_quick_starters.map((starter: { title: string; example: string }, index: number) => (
+                  {bot.conversationQuickStarters.map((starter: { title: string; example: string }, index: number) => (
                     <Button
                       key={index}
                       outlined

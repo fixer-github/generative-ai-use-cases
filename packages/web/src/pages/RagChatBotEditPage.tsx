@@ -42,21 +42,21 @@ const RagChatBotEditPage: React.FC = () => {
     title: '',
     description: '',
     instruction: '',
-    generation_params: {
-      max_tokens: 2000,
+    generationParams: {
+      maxTokens: 2000,
       temperature: 0.7,
-      top_p: 0.9,
-      top_k: 50,
+      topP: 0.9,
+      topK: 50,
     },
     knowledge: {
-      source_urls: [],
-      sitemap_urls: [],
+      sourceUrls: [],
+      sitemapUrls: [],
       filenames: [],
-      s3_urls: [],
+      s3Urls: [],
     },
-    display_retrieved_chunks: false,
-    prompt_caching_enabled: true,
-    conversation_quick_starters: [],
+    displayRetrievedChunks: false,
+    promptCachingEnabled: true,
+    conversationQuickStarters: [],
   });
 
   const [newUrl, setNewUrl] = useState('');
@@ -78,21 +78,21 @@ const RagChatBotEditPage: React.FC = () => {
         title: bot.title,
         description: bot.description || '',
         instruction: bot.instruction,
-        generation_params: bot.generation_params || {
-          max_tokens: 2000,
+        generationParams: bot.generationParams || {
+          maxTokens: 2000,
           temperature: 0.7,
-          top_p: 0.9,
-          top_k: 50,
+          topP: 0.9,
+          topK: 50,
         },
         knowledge: bot.knowledge || {
-          source_urls: [],
-          sitemap_urls: [],
+          sourceUrls: [],
+          sitemapUrls: [],
           filenames: [],
-          s3_urls: [],
+          s3Urls: [],
         },
-        display_retrieved_chunks: bot.display_retrieved_chunks || false,
-        prompt_caching_enabled: bot.prompt_caching_enabled ?? true,
-        conversation_quick_starters: bot.conversation_quick_starters || [],
+        displayRetrievedChunks: bot.displayRetrievedChunks || false,
+        promptCachingEnabled: bot.promptCachingEnabled ?? true,
+        conversationQuickStarters: bot.conversationQuickStarters || [],
       });
       setUploadedFiles(bot.knowledge?.filenames || []);
     } catch (error) {
@@ -181,7 +181,7 @@ const RagChatBotEditPage: React.FC = () => {
         ...prev,
         knowledge: {
           ...prev.knowledge!,
-          source_urls: [...prev.knowledge!.source_urls, newUrl],
+          sourceUrls: [...prev.knowledge!.sourceUrls, newUrl],
         },
       }));
       setNewUrl('');
@@ -218,8 +218,8 @@ const RagChatBotEditPage: React.FC = () => {
     if (newQuickStarter.title && newQuickStarter.example) {
       setFormData((prev) => ({
         ...prev,
-        conversation_quick_starters: [
-          ...(prev.conversation_quick_starters || []),
+        conversationQuickStarters: [
+          ...(prev.conversationQuickStarters || []),
           newQuickStarter,
         ],
       }));
@@ -288,16 +288,16 @@ const RagChatBotEditPage: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.maxTokens')}: {formData.generation_params?.max_tokens}
+              {t('ragChatBot.edit.maxTokens')}: {formData.generationParams?.maxTokens}
             </label>
             <Slider
-              value={formData.generation_params?.max_tokens || 2000}
+              value={formData.generationParams?.maxTokens || 2000}
               onChange={(value: number) =>
                 setFormData({
                   ...formData,
-                  generation_params: {
-                    ...formData.generation_params!,
-                    max_tokens: value,
+                  generationParams: {
+                    ...formData.generationParams!,
+                    maxTokens: value,
                   },
                 })
               }
@@ -309,15 +309,15 @@ const RagChatBotEditPage: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.temperature')}: {formData.generation_params?.temperature}
+              {t('ragChatBot.edit.temperature')}: {formData.generationParams?.temperature}
             </label>
             <Slider
-              value={formData.generation_params?.temperature || 0.7}
+              value={formData.generationParams?.temperature || 0.7}
               onChange={(value: number) =>
                 setFormData({
                   ...formData,
-                  generation_params: {
-                    ...formData.generation_params!,
+                  generationParams: {
+                    ...formData.generationParams!,
                     temperature: value,
                   },
                 })
@@ -330,16 +330,16 @@ const RagChatBotEditPage: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.topP')}: {formData.generation_params?.top_p}
+              {t('ragChatBot.edit.topP')}: {formData.generationParams?.topP}
             </label>
             <Slider
-              value={formData.generation_params?.top_p || 0.9}
+              value={formData.generationParams?.topP || 0.9}
               onChange={(value: number) =>
                 setFormData({
                   ...formData,
-                  generation_params: {
-                    ...formData.generation_params!,
-                    top_p: value,
+                  generationParams: {
+                    ...formData.generationParams!,
+                    topP: value,
                   },
                 })
               }
@@ -351,16 +351,16 @@ const RagChatBotEditPage: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.topK')}: {formData.generation_params?.top_k}
+              {t('ragChatBot.edit.topK')}: {formData.generationParams?.topK}
             </label>
             <Slider
-              value={formData.generation_params?.top_k || 50}
+              value={formData.generationParams?.topK || 50}
               onChange={(value: number) =>
                 setFormData({
                   ...formData,
-                  generation_params: {
-                    ...formData.generation_params!,
-                    top_k: value,
+                  generationParams: {
+                    ...formData.generationParams!,
+                    topK: value,
                   },
                 })
               }
@@ -396,7 +396,7 @@ const RagChatBotEditPage: React.FC = () => {
               </Button>
             </div>
             <div className="space-y-1">
-              {formData.knowledge?.source_urls.map((url, index) => (
+              {formData.knowledge?.sourceUrls.map((url, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm">
                   <PiGlobe className="text-gray-500" />
                   <span className="flex-1">{url}</span>
@@ -408,7 +408,7 @@ const RagChatBotEditPage: React.FC = () => {
                         ...formData,
                         knowledge: {
                           ...formData.knowledge!,
-                          source_urls: formData.knowledge!.source_urls.filter(
+                          sourceUrls: formData.knowledge!.sourceUrls.filter(
                             (_, i) => i !== index
                           ),
                         },
@@ -450,17 +450,17 @@ const RagChatBotEditPage: React.FC = () => {
 
           <Switch
             label={t('ragChatBot.edit.displayRetrievedChunks')}
-            checked={formData.display_retrieved_chunks || false}
+            checked={formData.displayRetrievedChunks || false}
             onSwitch={(value: boolean) =>
-              setFormData({ ...formData, display_retrieved_chunks: value })
+              setFormData({ ...formData, displayRetrievedChunks: value })
             }
           />
           
           <Switch
             label={t('ragChatBot.edit.promptCaching')}
-            checked={formData.prompt_caching_enabled || false}
+            checked={formData.promptCachingEnabled || false}
             onSwitch={(value: boolean) =>
-              setFormData({ ...formData, prompt_caching_enabled: value })
+              setFormData({ ...formData, promptCachingEnabled: value })
             }
           />
         </div>
@@ -497,7 +497,7 @@ const RagChatBotEditPage: React.FC = () => {
           </div>
           
           <div className="space-y-2">
-            {formData.conversation_quick_starters?.map((starter, index) => (
+            {formData.conversationQuickStarters?.map((starter, index) => (
               <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                 <div className="flex-1">
                   <div className="font-medium text-sm">{starter.title}</div>
@@ -509,8 +509,8 @@ const RagChatBotEditPage: React.FC = () => {
                   onClick={() =>
                     setFormData({
                       ...formData,
-                      conversation_quick_starters:
-                        formData.conversation_quick_starters?.filter(
+                      conversationQuickStarters:
+                        formData.conversationQuickStarters?.filter(
                           (_, i) => i !== index
                         ),
                     })

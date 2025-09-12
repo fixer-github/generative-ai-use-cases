@@ -83,11 +83,11 @@ const RagChatBotPage: React.FC = () => {
 
     // Apply filter option
     if (filterOption === 'private') {
-      filtered = filtered.filter((bot) => bot.shared_scope === 'private');
+      filtered = filtered.filter((bot) => bot.sharedScope === 'private');
     } else if (filterOption === 'public') {
-      filtered = filtered.filter((bot) => bot.shared_scope !== 'private');
+      filtered = filtered.filter((bot) => bot.sharedScope !== 'private');
     } else if (filterOption === 'starred') {
-      filtered = filtered.filter((bot) => bot.is_starred);
+      filtered = filtered.filter((bot) => bot.isStarred);
     }
 
     setFilteredBots(filtered);
@@ -141,10 +141,10 @@ const RagChatBotPage: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <PiRobot className="text-2xl text-blue-600" />
               <h3 className="text-lg font-semibold">{bot.title}</h3>
-              {bot.shared_scope !== 'private' && (
+              {bot.sharedScope !== 'private' && (
                 <PiShareNetwork className="text-gray-500" title={t('ragChatBot.shared')} />
               )}
-              {bot.is_starred && (
+              {bot.isStarred && (
                 <PiStarFill className="text-yellow-500" />
               )}
             </div>
@@ -152,16 +152,14 @@ const RagChatBotPage: React.FC = () => {
               <p className="text-gray-600 text-sm mb-3">{bot.description}</p>
             )}
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              {bot.last_used_time && (
+              {bot.lastUsedTime && (
                 <span>
-                  {t('ragChatBot.lastUsed')}: {new Date(bot.last_used_time * 1000).toLocaleDateString()}
+                  {t('ragChatBot.lastUsed')}: {new Date(bot.lastUsedTime * 1000).toLocaleDateString()}
                 </span>
               )}
-              {bot.sync_status && (
-                <span className="px-2 py-1 bg-gray-100 rounded">
-                  {bot.sync_status}
-                </span>
-              )}
+              <span className="px-2 py-1 bg-gray-100 rounded">
+                {bot.syncStatus}
+              </span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -184,10 +182,10 @@ const RagChatBotPage: React.FC = () => {
                 </Button>
                 <Button
                   outlined
-                  onClick={() => handleToggleStar(bot.id, bot.is_starred)}
+                  onClick={() => handleToggleStar(bot.id, bot.isStarred)}
                   className="text-sm"
                 >
-                  {bot.is_starred ? <PiStarFill /> : <PiStar />}
+                  {bot.isStarred ? <PiStarFill /> : <PiStar />}
                 </Button>
                 <Button
                   outlined
