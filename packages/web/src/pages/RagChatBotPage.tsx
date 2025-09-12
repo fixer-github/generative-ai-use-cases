@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,16 +7,18 @@ import {
   PiRobot,
   PiStar,
   PiStarFill,
-  PiChatCircleText,
   PiPencil,
   PiTrash,
   PiShareNetwork,
   PiCaretDown,
   PiUser,
+  PiDotsThreeVertical,
+  PiCheckCircle,
+  PiClockCountdown,
+  PiWarningCircle,
 } from 'react-icons/pi';
 import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 import Button from '../components/Button';
-import Card from '../components/Card';
 import Select from '../components/Select';
 import Switch from '../components/Switch';
 import LoadingWave from '../components/LoadingWave';
@@ -36,6 +38,8 @@ const RagChatBotPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const [showOnlyStarred, setShowOnlyStarred] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchBots = useCallback(async () => {
     setLoading(true);
@@ -68,6 +72,30 @@ const RagChatBotPage: React.FC = () => {
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
+
+  // Polling for sync status
+  useEffect(() => {
+    const shouldPoll = filteredBots.some(bot => 
+      bot.syncStatus !== 'RUNNING' && bot.syncStatus !== 'IDLE' && bot.syncStatus !== 'SUCCEEDED'
+    );
+
+    if (shouldPoll) {
+      pollingInterval.current = setInterval(() => {
+        fetchBots();
+      }, 10000); // Poll every 10 seconds
+    } else {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+    }
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, [filteredBots, fetchBots]);
 
   useEffect(() => {
     let filtered = [...bots];
@@ -114,9 +142,16 @@ const RagChatBotPage: React.FC = () => {
   const handleToggleStar = async (botId: string, currentStarred?: boolean) => {
     try {
       await setStarredStatus(botId, !currentStarred);
-      await fetchBots();
+      // Update only the specific bot instead of refetching all
+      setBots(prevBots => 
+        prevBots.map(bot => 
+          bot.id === botId ? { ...bot, isStarred: !currentStarred } : bot
+        )
+      );
     } catch (error) {
       console.error('Failed to toggle star status:', error);
+      // Rollback on error
+      await fetchBots();
     }
   };
 
@@ -131,76 +166,148 @@ const RagChatBotPage: React.FC = () => {
     }
   };
 
+  const getSyncStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+      case 'IDLE':
+        return {
+          text: t('ragChatBot.syncStatus.completed') || '同期完了',
+          icon: <PiCheckCircle className="text-green-600" />,
+          className: 'text-green-600',
+        };
+      case 'RUNNING':
+        return {
+          text: t('ragChatBot.syncStatus.syncing') || '同期中',
+          icon: <PiClockCountdown className="text-blue-600 animate-pulse" />,
+          className: 'text-blue-600',
+        };
+      case 'FAILED':
+        return {
+          text: t('ragChatBot.syncStatus.failed') || '同期失敗',
+          icon: <PiWarningCircle className="text-red-600" />,
+          className: 'text-red-600',
+        };
+      default:
+        return {
+          text: status,
+          icon: null,
+          className: 'text-gray-500',
+        };
+    }
+  };
+
   const renderBotCard = (bot: BedrockChatBot) => {
     const isOwner = bot.owned === true;
+    const syncStatusDisplay = getSyncStatusDisplay(bot.syncStatus);
+    const isMenuOpen = openMenuId === bot.id;
     
     return (
-      <Card key={bot.id} className="mb-4 hover:shadow-lg transition-shadow">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <PiRobot className="text-2xl text-blue-600" />
-              <h3 className="text-lg font-semibold">{bot.title}</h3>
-              {bot.sharedScope !== 'private' && (
-                <PiShareNetwork className="text-gray-500" title={t('ragChatBot.shared')} />
+      <div
+        key={bot.id}
+        className="mb-4 hover:shadow-lg transition-shadow cursor-pointer relative border-aws-font-color/20 rounded-lg border p-5 shadow"
+        onClick={(e) => {
+          // Check if click is on card itself, not on buttons
+          const target = e.target as HTMLElement;
+          if (!target.closest('button')) {
+            handleChatWithBot(bot.id);
+          }
+        }}
+      >
+        <div className="flex items-stretch justify-between h-full">
+          <div className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <PiRobot className="text-2xl text-blue-600" />
+                <h3 className="text-lg font-semibold">{bot.title}</h3>
+                {bot.sharedScope !== 'private' && (
+                  <PiShareNetwork className="text-gray-500" title={t('ragChatBot.shared')} />
+                )}
+              </div>
+              {bot.description && (
+                <p className="text-gray-600 text-sm">{bot.description}</p>
               )}
-              {bot.isStarred && (
-                <PiStarFill className="text-yellow-500" />
-              )}
-            </div>
-            {bot.description && (
-              <p className="text-gray-600 text-sm mb-3">{bot.description}</p>
-            )}
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              {bot.lastUsedTime && (
-                <span>
-                  {t('ragChatBot.lastUsed')}: {new Date(bot.lastUsedTime * 1000).toLocaleDateString()}
-                </span>
-              )}
-              <span className="px-2 py-1 bg-gray-100 rounded">
-                {bot.syncStatus}
-              </span>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              outlined
-              onClick={() => handleChatWithBot(bot.id)}
-              className="text-sm flex items-center gap-1"
-            >
-              <PiChatCircleText />
-              {t('ragChatBot.chat')}
-            </Button>
-            {isOwner && (
-              <>
-                <Button
-                  outlined
-                  onClick={() => handleEditBot(bot.id)}
-                  className="text-sm"
-                >
-                  <PiPencil />
-                </Button>
-                <Button
-                  outlined
+          <div className="flex items-center gap-2 ml-4">
+            {/* Sync Status Display */}
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
+              {syncStatusDisplay.icon}
+              <span className={`text-xs font-medium ${syncStatusDisplay.className}`}>
+                {syncStatusDisplay.text}
+              </span>
+            </div>
+            
+            {/* Star Button */}
+            {(bot.isStarred || isOwner) && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <button
                   onClick={() => handleToggleStar(bot.id, bot.isStarred)}
-                  className="text-sm"
+                  className="p-2 hover:bg-gray-100 rounded transition-colors"
                 >
-                  {bot.isStarred ? <PiStarFill /> : <PiStar />}
-                </Button>
-                <Button
-                  outlined
-                  onClick={() => handleDeleteBot(bot.id)}
-                  className="text-sm text-red-600 hover:bg-red-50"
+                  {bot.isStarred ? (
+                    <PiStarFill className="text-yellow-500 text-xl" />
+                  ) : (
+                    <PiStar className="text-gray-500 text-xl hover:text-gray-700" />
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {/* Three Dots Menu */}
+            {isOwner && (
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setOpenMenuId(isMenuOpen ? null : bot.id)}
+                  className="p-2 hover:bg-gray-100 rounded transition-colors"
                 >
-                  <PiTrash />
-                </Button>
-              </>
+                  <PiDotsThreeVertical className="text-gray-500 text-xl hover:text-gray-700" />
+                </button>
+                {isMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditBot(bot.id);
+                        setOpenMenuId(null);
+                      }}
+                    >
+                      <PiPencil /> {t('ragChatBot.edit') || '編集'}
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteBot(bot.id);
+                        setOpenMenuId(null);
+                      }}
+                    >
+                      <PiTrash /> {t('ragChatBot.delete') || '削除'}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
-      </Card>
+      </div>
     );
   };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenMenuId(null);
+    };
+
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [openMenuId]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -216,7 +323,7 @@ const RagChatBotPage: React.FC = () => {
             placeholder={t('ragChatBot.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSearch()}
             className="flex-1 rounded border border-black/30 p-1.5 outline-none"
           />
           <Button
