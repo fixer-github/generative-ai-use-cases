@@ -38,7 +38,7 @@ const RagChatBotPage: React.FC = () => {
   const [showOnlyStarred] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [visibilityModalBotId, setVisibilityModalBotId] = useState<string | null>(null);
-  const [newVisibility, setNewVisibility] = useState<'private' | 'partial'>('private');
+  const [newVisibility, setNewVisibility] = useState<'private' | 'partial' | 'all'>('private');
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -202,7 +202,7 @@ const RagChatBotPage: React.FC = () => {
     }
   };
 
-  const handleChangeVisibility = async (botId: string, visibility: 'private' | 'partial') => {
+  const handleChangeVisibility = async (botId: string, visibility: 'private' | 'partial' | 'all') => {
     try {
       await setBotVisibility(botId, visibility);
       setBots(prevBots => 
@@ -291,7 +291,7 @@ const RagChatBotPage: React.FC = () => {
                 <button
                   onClick={() => {
                     setVisibilityModalBotId(bot.id);
-                    setNewVisibility(bot.sharedScope === 'private' ? 'private' : 'partial');
+                    setNewVisibility(bot.sharedScope === 'private' ? 'private' : 'all');
                   }}
                   className="p-2 hover:bg-gray-100 rounded transition-colors"
                   title={bot.sharedScope === 'private' ? t('ragChatBot.private') : t('ragChatBot.organizationPublic')}
@@ -491,9 +491,9 @@ const RagChatBotPage: React.FC = () => {
                 <input
                   type="radio"
                   name="visibility"
-                  value="partial"
-                  checked={newVisibility === 'partial'}
-                  onChange={(e) => setNewVisibility(e.target.value as 'partial')}
+                  value="all"
+                  checked={newVisibility === 'all'}
+                  onChange={(e) => setNewVisibility(e.target.value as 'all')}
                   className="w-4 h-4"
                 />
                 <PiUsers className="text-xl text-blue-500" />

@@ -393,9 +393,25 @@ const useBedrockChatApi = () => {
     visibility: 'private' | 'partial' | 'all'
   ) => {
     try {
-      const response = await bedrockChatApi.patch(`/bot/${botId}/visibility`, {
-        visibility,
-      });
+      let requestBody: any;
+      
+      if (visibility === 'private') {
+        requestBody = {
+          target_shared_scope: 'private'
+        };
+      } else if (visibility === 'partial') {
+        requestBody = {
+          target_shared_scope: 'partial',
+          target_allowed_user_ids: [],
+          target_allowed_group_ids: []
+        };
+      } else if (visibility === 'all') {
+        requestBody = {
+          target_shared_scope: 'all'
+        };
+      }
+      
+      const response = await bedrockChatApi.patch(`/bot/${botId}/visibility`, requestBody);
       return response.data;
     } catch (error) {
       console.error('BedrockChat set bot visibility failed:', error);
