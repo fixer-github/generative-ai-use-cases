@@ -58,10 +58,6 @@ export type BotUpsertResponse = {
   id: string;
 };
 
-export type BotDeleteRequest = {
-  id: string;
-};
-
 export type BotListResponse = {
   items: BotListResponseItem[];
 };

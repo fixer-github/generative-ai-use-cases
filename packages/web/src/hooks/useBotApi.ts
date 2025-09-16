@@ -3,6 +3,8 @@ import {
   BotCreateResponse,
   BotListResponse,
   BotGetResponse,
+  BotUpsertRequest,
+  BotUpsertResponse,
 } from 'generative-ai-use-cases';
 import useHttp from './useHttp';
 
@@ -19,6 +21,13 @@ const useBot = () => {
     },
     findBotById: (botId: string) => {
       return http.get<BotGetResponse>(`bot/${botId}`);
+    },
+    updateBot: async (req: BotUpsertRequest): Promise<BotUpsertResponse> => {
+      const res = await http.put<BotCreateResponse>('bot', req);
+      return res.data;
+    },
+    deleteBot: async (botId: string) => {
+      return await http.delete<void>(`bot/${botId}`);
     },
   };
 };

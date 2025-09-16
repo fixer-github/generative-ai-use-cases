@@ -5,6 +5,8 @@ import {
   Collection,
   Flex,
   Heading,
+  Menu,
+  MenuItem,
   SearchField,
   SelectField,
   Text,
@@ -20,12 +22,20 @@ type BotCardProps = {
 };
 
 const BotCard: React.FC<BotCardProps> = ({ bot, ...props }) => {
+  const { deleteBot } = useBot();
+
   const navigate = useNavigate();
 
   return (
     <Card variation="elevated" width="400px" {...props}>
       <Flex direction="column">
-        <Heading level={5}>{bot.title}</Heading>
+        <Flex direction="row" justifyContent="space-between">
+          <Heading level={5}>{bot.title}</Heading>
+          <Menu menuAlign="center" size="small">
+            <MenuItem>編集</MenuItem>
+            <MenuItem onClick={() => deleteBot(bot.id)}>削除</MenuItem>
+          </Menu>
+        </Flex>
         <Text variation="secondary" grow={1}>
           {bot.description}
         </Text>

@@ -1,5 +1,4 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { BotDeleteRequest } from 'generative-ai-use-cases';
 import * as repository from './repository';
 import { ableToAccessThisBot } from './utils/botUtils';
 
@@ -9,9 +8,11 @@ export const handler = async (
   try {
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
+    const botId = event.pathParameters?.botId;
 
-    const request: BotDeleteRequest = JSON.parse(event.body!);
-    const botId = request.id;
+    if (!botId) {
+      throw new Error('botId is null!');
+    }
 
     const existingBot = await repository.getBot(botId, event);
 

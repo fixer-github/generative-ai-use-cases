@@ -849,6 +849,19 @@ export class Api extends Construct {
     });
     table.grantReadData(findBotByIdFunction);
 
+    const deleteBotFunction = new NodejsFunction(this, 'DeleteBot', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/deleteBot.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: TABLE_PREFIX,
+        DEFAULT_TABLE_NAME: props.table.tableName,
+        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+        BUCKET_NAME: fileBucket.bucketName,
+      },
+    });
+    table.grantReadWriteData(deleteBotFunction);
+
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
@@ -1232,10 +1245,17 @@ export class Api extends Construct {
     );
 
     // GET: /bot/{botId}
-    const botGetResource = botResource.addResource('{botId}');
-    botGetResource.addMethod(
+    const botIdResource = botResource.addResource('{botId}');
+    botIdResource.addMethod(
       'GET',
       new LambdaIntegration(findBotByIdFunction),
+      commonAuthorizerProps
+    );
+
+    // DELETE: /bot/{botId}
+    botIdResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteBotFunction),
       commonAuthorizerProps
     );
 
