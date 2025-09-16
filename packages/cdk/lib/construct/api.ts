@@ -1,4 +1,4 @@
-import { Stack, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack, Duration, RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
@@ -6,6 +6,7 @@ import {
   LambdaIntegration,
   RestApi,
   ResponseType,
+  Period,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
@@ -28,8 +29,9 @@ import {
   BEDROCK_TEXT_MODELS,
 } from '@generative-ai-use-cases/common';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { LAMBDA_RUNTIME_NODEJS, DEFAULT_TENANT_ID } from '../../consts';
 import { LitellmProxyServer } from './litellm-proxy-server';
+import { TenantManager } from './tenant-manager';
 
 export interface BackendApiProps {
   // Context Params
@@ -59,6 +61,8 @@ export interface BackendApiProps {
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
+  // Tenant Management
+  readonly tenantManager?: TenantManager;
 
   // LangChain Credentials
   readonly openai?: {
@@ -101,6 +105,22 @@ export class Api extends Construct {
     } = props;
     const agents: Agent[] = [...(props.agents ?? []), ...props.customAgents];
 
+    // Helper function to generate consistent environment variables for Lambda functions
+    const getBaseEnvironment = (additionalEnvVars: Record<string, string> = {}) => ({
+      TABLE_NAME: TABLE_PREFIX,
+      DEFAULT_TABLE_NAME: props.table.tableName,
+      DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+      ENVIRONMENT: props.environment || 'dev',
+      IDENTITY_POOL_ID: props.idPool.identityPoolId,
+      USER_POOL_ID: props.userPool.userPoolId,
+      AWS_ACCOUNT_ID: Stack.of(this).account!,
+      ...(props.tenantManager ? {
+        TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+      } : {}),
+      ...additionalEnvVars,
+    });
+
+
     // Validate Model Names
     for (const model of modelIds) {
       if (!BEDROCK_TEXT_MODELS.includes(model.modelId)) {
@@ -133,7 +153,7 @@ export class Api extends Construct {
     if (duplicateModelIds.size > 0) {
       throw new Error(
         'Duplicate model IDs detected. Using the same model ID multiple times is not supported:\n' +
-          [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
+        [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
       );
     }
 
@@ -149,7 +169,6 @@ export class Api extends Construct {
     // Table name prefixes for constructing tenant-specific table names
     const TABLE_PREFIX = 'ChatHistory';
     const STATS_TABLE_PREFIX = 'TokenUsageStats';
-    const DEFAULT_TENANT_ID = 'default';
 
     // S3 (File Bucket)
     const fileBucket = new Bucket(this, 'FileBucket', {
@@ -187,6 +206,11 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
+        
+        // Tenant Management Environment Variables
+        ...(props.tenantManager ? {
+          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+        } : {}),
       },
       bundling: {
         nodeModules: [
@@ -226,9 +250,15 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
+        
+        // Tenant Management Environment Variables
+        ...(props.tenantManager ? {
+          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+        } : {}),
       },
       bundling: {
         nodeModules: [
+          'aws-jwt-verify',
           '@aws-sdk/client-bedrock-runtime',
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
@@ -241,6 +271,12 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+    
+    // Grant tenants table read access if tenant manager is available
+    if (props.tenantManager) {
+      props.tenantManager.tenantsTable.grantReadData(predictStreamFunction);
+      props.tenantManager.tenantsTable.grantReadData(predictFunction);
+    }
 
     // Add Flow Lambda Function
     const invokeFlowFunction = new NodejsFunction(this, 'InvokeFlow', {
@@ -255,9 +291,19 @@ export class Api extends Construct {
       },
       environment: {
         MODEL_REGION: modelRegion,
+        
+        // Tenant Management Environment Variables
+        ...(props.tenantManager ? {
+          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+        } : {}),
       },
     });
     invokeFlowFunction.grantInvoke(idPool.authenticatedRole);
+    
+    // Grant tenants table read access if tenant manager is available
+    if (props.tenantManager) {
+      props.tenantManager.tenantsTable.grantReadData(invokeFlowFunction);
+    }
 
     const predictTitleFunction = new NodejsFunction(this, 'PredictTitle', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -266,13 +312,7 @@ export class Api extends Construct {
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
+      environment: getBaseEnvironment({
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -284,7 +324,7 @@ export class Api extends Construct {
         ...(props.guardrailVersion
           ? { GUARDRAIL_VERSION: props.guardrailVersion }
           : {}),
-      },
+      }),
     });
     table.grantWriteData(predictTitleFunction);
 
@@ -299,17 +339,27 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
+        
+        // Tenant Management Environment Variables
+        ...(props.tenantManager ? {
+          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+        } : {}),
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
     });
+    
+    // Grant tenants table read access if tenant manager is available
+    if (props.tenantManager) {
+      props.tenantManager.tenantsTable.grantReadData(generateImageFunction);
+    }
 
     const generateVideoFunction = new NodejsFunction(this, 'GenerateVideo', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/generateVideo.ts',
       timeout: Duration.minutes(15),
-      environment: {
+      environment: getBaseEnvironment({
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -318,14 +368,8 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
@@ -350,7 +394,7 @@ export class Api extends Construct {
       entry: './lambda/copyVideoJob.ts',
       timeout: Duration.minutes(15),
       memorySize: 512,
-      environment: {
+      environment: getBaseEnvironment({
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -358,13 +402,7 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
@@ -389,7 +427,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listVideoJobs.ts',
       timeout: Duration.minutes(15),
-      environment: {
+      environment: getBaseEnvironment({
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -397,14 +435,8 @@ export class Api extends Construct {
         VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
         COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
-      },
+      }),
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
@@ -416,17 +448,11 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteVideoJob.ts',
       timeout: Duration.minutes(15),
-      environment: {
+      environment: getBaseEnvironment({
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
     });
     table.grantWriteData(deleteVideoJob);
 
@@ -454,15 +480,10 @@ export class Api extends Construct {
       bundling: {
         nodeModules: ['aws-jwt-verify'],
       },
-      environment: {
+      environment: getBaseEnvironment({
         BUCKET_NAME: fileBucket.bucketName,
-        ENVIRONMENT: props.environment || 'dev',
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
         USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
-      },
+      }),
     });
     // Grant S3 write permissions with source IP condition
     if (getSignedUrlFunction.role) {
@@ -487,16 +508,11 @@ export class Api extends Construct {
         bundling: {
           nodeModules: ['aws-jwt-verify'],
         },
-        environment: {
+        environment: getBaseEnvironment({
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-          ENVIRONMENT: props.environment || 'dev',
-            DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
           BUCKET_NAME: fileBucket.bucketName,
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
           USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
-          CDK_ACCOUNT_ID: Stack.of(this).account || '',
-        },
+        }),
       }
     );
     // Grant S3 read permissions with source IP condition
@@ -520,8 +536,7 @@ export class Api extends Construct {
         actions: ['sagemaker:DescribeEndpoint', 'sagemaker:InvokeEndpoint'],
         resources: endpointNames.map(
           (endpointName) =>
-            `arn:aws:sagemaker:${modelRegion}:${
-              Stack.of(this).account
+            `arn:aws:sagemaker:${modelRegion}:${Stack.of(this).account
             }:endpoint/${endpointName}`
         ),
       });
@@ -598,14 +613,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createChat.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantWriteData(createChatFunction);
 
@@ -613,14 +621,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteChat.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(deleteChatFunction);
 
@@ -628,20 +629,14 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createMessages.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
+      environment: getBaseEnvironment({
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment,
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
         BUCKET_NAME: fileBucket.bucketName,
         CHAT_BUCKET_BASE: 'chat',
         DOCS_BUCKET_BASE: 'docs',
         CDK_ACCOUNT_ID: Stack.of(this).account!,
-      },
+      }),
     });
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
@@ -653,14 +648,7 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateTitle.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(updateChatTitleFunction);
@@ -669,16 +657,10 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listChats.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
+      environment: getBaseEnvironment({
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
     });
     table.grantReadData(listChatsFunction);
 
@@ -686,14 +668,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findChatById.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadData(findChatbyIdFunction);
 
@@ -701,14 +676,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listMessages.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadData(listMessagesFunction);
 
@@ -716,14 +684,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/updateFeedback.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(updateFeedbackFunction);
 
@@ -737,14 +698,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createShareId.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(createShareId);
 
@@ -752,14 +706,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getSharedChat.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadData(getSharedChat);
 
@@ -767,14 +714,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findShareId.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadData(findShareId);
 
@@ -782,14 +722,7 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteShareId.ts',
       timeout: Duration.minutes(15),
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      environment: getBaseEnvironment(),
     });
     table.grantReadWriteData(deleteShareId);
 
@@ -800,14 +733,7 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/listSystemContexts.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadData(listSystemContextsFunction);
@@ -819,14 +745,7 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/createSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantWriteData(createSystemContextFunction);
@@ -838,14 +757,7 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateSystemContextTitle.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
@@ -857,14 +769,7 @@ export class Api extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/deleteSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: {
-          TABLE_NAME: TABLE_PREFIX,
-          DEFAULT_TABLE_NAME: props.table.tableName,
-          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-          ENVIRONMENT: props.environment || 'dev',
-          IDENTITY_POOL_ID: props.idPool.identityPoolId,
-          USER_POOL_ID: props.userPool.userPoolId,
-        },
+        environment: getBaseEnvironment(),
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);
@@ -873,14 +778,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteFile.ts',
       timeout: Duration.minutes(15),
-      environment: {
+      environment: getBaseEnvironment({
         BUCKET_NAME: fileBucket.bucketName,
-        ENVIRONMENT: props.environment,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-        CDK_ACCOUNT_ID: Stack.of(this).account!,
-      },
+      }),
     });
     fileBucket.grantDelete(deleteFileFunction);
 
@@ -888,16 +788,10 @@ export class Api extends Construct {
     const getTokenUsageFunction = new NodejsFunction(this, 'GetTokenUsage', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getTokenUsage.ts',
-      environment: {
-        TABLE_NAME: TABLE_PREFIX,
-        DEFAULT_TABLE_NAME: props.table.tableName,
-        DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+      environment: getBaseEnvironment({
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: props.statsTable.tableName,
-        ENVIRONMENT: props.environment || 'dev',
-        IDENTITY_POOL_ID: props.idPool.identityPoolId,
-        USER_POOL_ID: props.userPool.userPoolId,
-      },
+      }),
     });
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
@@ -905,6 +799,47 @@ export class Api extends Construct {
     // Note: The unified multi-tenant approach handles AssumeRoleWithWebIdentity
     // directly within each Lambda function, so separate Lambda functions for
     // tenant operations are no longer needed.
+
+    // Grant tenants table read access to all Lambda functions that need to access DynamoDB/S3
+    // This is required because getTenantCredentials() now reads tenant metadata from the tenants table
+    if (props.tenantManager) {
+      // Chat-related functions
+      props.tenantManager.tenantsTable.grantReadData(createChatFunction);
+      props.tenantManager.tenantsTable.grantReadData(deleteChatFunction);
+      props.tenantManager.tenantsTable.grantReadData(createMessagesFunction);
+      props.tenantManager.tenantsTable.grantReadData(updateChatTitleFunction);
+      props.tenantManager.tenantsTable.grantReadData(listChatsFunction);
+      props.tenantManager.tenantsTable.grantReadData(findChatbyIdFunction);
+      props.tenantManager.tenantsTable.grantReadData(listMessagesFunction);
+      props.tenantManager.tenantsTable.grantReadData(updateFeedbackFunction);
+      props.tenantManager.tenantsTable.grantReadData(predictTitleFunction);
+      
+      // Share-related functions
+      props.tenantManager.tenantsTable.grantReadData(createShareId);
+      props.tenantManager.tenantsTable.grantReadData(getSharedChat);
+      props.tenantManager.tenantsTable.grantReadData(findShareId);
+      props.tenantManager.tenantsTable.grantReadData(deleteShareId);
+      
+      // System context functions
+      props.tenantManager.tenantsTable.grantReadData(listSystemContextsFunction);
+      props.tenantManager.tenantsTable.grantReadData(createSystemContextFunction);
+      props.tenantManager.tenantsTable.grantReadData(updateSystemContextTitleFunction);
+      props.tenantManager.tenantsTable.grantReadData(deleteSystemContextFunction);
+      
+      // Video-related functions
+      props.tenantManager.tenantsTable.grantReadData(generateVideoFunction);
+      props.tenantManager.tenantsTable.grantReadData(copyVideoJob);
+      props.tenantManager.tenantsTable.grantReadData(listVideoJobs);
+      props.tenantManager.tenantsTable.grantReadData(deleteVideoJob);
+      
+      // File operations (for S3 cross-account access)
+      props.tenantManager.tenantsTable.grantReadData(deleteFileFunction);
+      props.tenantManager.tenantsTable.grantReadData(getSignedUrlFunction);
+      props.tenantManager.tenantsTable.grantReadData(getFileDownloadSignedUrlFunction);
+      
+      // Token usage
+      props.tenantManager.tenantsTable.grantReadData(getTokenUsageFunction);
+    }
 
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
@@ -1164,6 +1099,109 @@ export class Api extends Construct {
     tokenUsageResource.addMethod(
       'GET',
       new LambdaIntegration(getTokenUsageFunction),
+      commonAuthorizerProps
+    );
+
+    // POST: /tenant-registration (API key protected for tenant self-registration)
+    // Only create if tenantManager is provided
+    if (props.tenantManager) {
+      const tenantRegistrationResource = api.root.addResource('tenant-registration');
+      tenantRegistrationResource.addMethod(
+        'POST',
+        new LambdaIntegration(props.tenantManager.registrationLambda),
+        {
+          authorizationType: AuthorizationType.NONE,
+          apiKeyRequired: true,
+        }
+      );
+
+      // Create API key for tenant registration
+      const tenantRegistrationApiKey = api.addApiKey('TenantRegistrationApiKey', {
+        apiKeyName: `tenant-registration-key-${props.environment}`,
+        description: 'API key for tenant self-registration',
+      });
+
+      // Create usage plan with rate limiting
+      const tenantRegistrationUsagePlan = api.addUsagePlan('TenantRegistrationUsagePlan', {
+        name: `tenant-registration-plan-${props.environment}`,
+        throttle: {
+          rateLimit: 10,    // 10 requests per second
+          burstLimit: 20,   // Burst of 20 requests
+        },
+        quota: {
+          limit: 1000,      // 1000 requests per month
+          period: Period.MONTH,
+        },
+      });
+
+      tenantRegistrationUsagePlan.addApiStage({
+        stage: api.deploymentStage,
+      });
+      tenantRegistrationUsagePlan.addApiKey(tenantRegistrationApiKey);
+
+      // Output the API endpoint and key for tenant configuration
+      new CfnOutput(this, 'TenantRegistrationEndpoint', {
+        value: `${api.url}tenant-registration`,
+        description: 'API endpoint for tenant self-registration',
+        exportName: `${Stack.of(this).stackName}-TenantRegEndpoint`,
+      });
+
+      new CfnOutput(this, 'TenantRegistrationApiKeyId', {
+        value: tenantRegistrationApiKey.keyId,
+        description: 'API key ID for tenant registration',
+        exportName: `${Stack.of(this).stackName}-TenantRegApiKeyId`,
+      });
+    }
+
+    const bedrockChatResource = api.root.addResource('bedrock-chat');
+    const bedrockChatProxyResource = bedrockChatResource.addResource('{proxy+}');
+
+    // Create proxy Lambda function for Bedrock Chat
+    const bedrockChatProxyFunction = new NodejsFunction(
+      this,
+      'BedrockChatProxy',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/bedrock-chat-proxy.ts',
+        timeout: Duration.minutes(15),
+        environment: getBaseEnvironment({
+          ENVIRONMENT: props.environment,
+          ...(props.tenantManager ? {
+            TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+          } : {}),
+        }),
+      }
+    );
+
+    // Grant permissions to invoke tenant Lambda functions
+    bedrockChatProxyFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        // TODO: Restrict to specific tenant Lambda functions pattern
+        // For now, allow invoking any Lambda in the account that matches the pattern
+        resources: [
+          `arn:aws:lambda:${Stack.of(this).region}:${Stack.of(this).account}:function:*-TenantBedrockChatStack-*`
+        ],
+      })
+    );
+
+    // Grant access to Tenants table if tenant manager exists
+    if (props.tenantManager) {
+      props.tenantManager.tenantsTable.grantReadData(bedrockChatProxyFunction);
+    }
+
+    // Add ALL methods proxy to Bedrock Chat proxy Lambda
+    bedrockChatProxyResource.addMethod(
+      'ANY',
+      new LambdaIntegration(bedrockChatProxyFunction),
+      commonAuthorizerProps
+    );
+
+    // Also handle direct /bedrock-chat endpoint
+    bedrockChatResource.addMethod(
+      'ANY',
+      new LambdaIntegration(bedrockChatProxyFunction),
       commonAuthorizerProps
     );
 

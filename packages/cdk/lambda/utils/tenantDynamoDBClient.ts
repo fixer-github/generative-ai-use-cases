@@ -11,23 +11,29 @@ export async function createTenantDynamoDBClient(
   event: APIGatewayProxyEvent
 ): Promise<DynamoDBClient> {
   try {
-    // Get fresh credentials for each request to ensure proper user isolation
-    const credentials = await getTenantCredentials(event);
+    // Get fresh credentials and tenant info for each request to ensure proper user isolation
+    const { credentials, tenant } = await getTenantCredentials(event);
 
-    if (!credentials.AccessKeyId || !credentials.SecretKey) {
+    if (!credentials.AccessKeyId || !credentials.SecretAccessKey) {
       throw new Error(
-        'Invalid credentials received from Cognito Identity Pool'
+        'Invalid credentials received from AssumeRoleWithWebIdentity'
       );
     }
 
-    // Create DynamoDB client with Identity Pool credentials
+    if (!tenant.region) {
+      throw new Error(`Tenant ${tenant.tenantId} is missing region information`);
+    }
+
+    console.log(`Creating DynamoDB client for tenant ${tenant.tenantId} in region ${tenant.region}`);
+
+    // Create DynamoDB client with tenant role credentials and tenant's region
     return new DynamoDBClient({
       credentials: {
         accessKeyId: credentials.AccessKeyId,
-        secretAccessKey: credentials.SecretKey,
+        secretAccessKey: credentials.SecretAccessKey,
         sessionToken: credentials.SessionToken,
       },
-      region: process.env.AWS_REGION,
+      region: tenant.region,
     });
   } catch (error) {
     console.error('Failed to create tenant DynamoDB client:', error);
