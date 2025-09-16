@@ -5,6 +5,25 @@
  * in AWS Lambda functions to prevent XSS and injection attacks.
  */
 
+// Type definitions for Lambda events and validation
+interface LambdaEvent {
+  body?: string | Record<string, unknown>;
+  queryStringParameters?: Record<string, string> | null;
+  pathParameters?: Record<string, string> | null;
+}
+
+type SanitizedValue = string | number | boolean | null | undefined | SanitizedObject | SanitizedValue[];
+
+interface SanitizedObject {
+  [key: string]: SanitizedValue;
+}
+
+interface ValidationResult {
+  body: SanitizedObject | null;
+  queryStringParameters: Record<string, string>;
+  pathParameters: Record<string, string>;
+}
+
 /**
  * XSS attack patterns to detect and remove
  */
@@ -109,13 +128,13 @@ export const validateUrl = (url: string): boolean => {
  * @returns Sanitized object
  */
 export const validateAndSanitizeObject = (
-  obj: any,
+  obj: unknown,
   maxDepth: number = 5,
   currentDepth: number = 0
-): any => {
+): SanitizedValue => {
   if (currentDepth >= maxDepth) {
     console.warn('Maximum validation depth reached, skipping deeper properties');
-    return obj;
+    return obj as SanitizedValue;
   }
 
   if (obj === null || obj === undefined) {
@@ -131,12 +150,12 @@ export const validateAndSanitizeObject = (
   }
 
   if (typeof obj === 'object') {
-    const sanitizedObj: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+    const sanitizedObj: SanitizedObject = {};
+    for (const key in obj as Record<string, unknown>) {
+      if ((obj as Record<string, unknown>).hasOwnProperty(key)) {
         const sanitizedKey = validateAndSanitizeInput(key, 100); // Limit key length
         sanitizedObj[sanitizedKey] = validateAndSanitizeObject(
-          obj[key], 
+          (obj as Record<string, unknown>)[key], 
           maxDepth, 
           currentDepth + 1
         );
@@ -153,7 +172,7 @@ export const validateAndSanitizeObject = (
  * @param event - AWS Lambda event object
  * @returns Sanitized event body
  */
-export const validateLambdaEventBody = (event: any): any => {
+export const validateLambdaEventBody = (event: LambdaEvent): SanitizedObject => {
   try {
     let body = event.body;
     
@@ -169,7 +188,7 @@ export const validateLambdaEventBody = (event: any): any => {
       throw new Error('Request body must be a valid object');
     }
 
-    return validateAndSanitizeObject(body);
+    return validateAndSanitizeObject(body) as SanitizedObject;
   } catch (error) {
     console.error('Input validation error:', error);
     throw error;
@@ -285,8 +304,8 @@ export const createValidationMiddleware = (options: {
   validatePath?: boolean;
   maxBodySize?: number;
 } = {}) => {
-  return (event: any) => {
-    const result: any = {
+  return (event: LambdaEvent): ValidationResult => {
+    const result: ValidationResult = {
       body: null,
       queryStringParameters: {},
       pathParameters: {}
