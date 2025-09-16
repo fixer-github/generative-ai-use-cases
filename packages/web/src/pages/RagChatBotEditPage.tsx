@@ -7,10 +7,8 @@ import {
   PiFloppyDisk,
   PiPlus,
   PiTrash,
-  PiGear,
   PiGlobe,
   PiFile,
-  PiRocket,
 } from 'react-icons/pi';
 import useBedrockChatApi, {
   BedrockChatBotInput,
@@ -19,8 +17,6 @@ import Button from '../components/Button';
 import InputText from '../components/InputText';
 import Textarea from '../components/Textarea';
 import Card from '../components/Card';
-import Switch from '../components/Switch';
-import Slider from '../components/Slider';
 import LoadingWave from '../components/LoadingWave';
 import FileUploader from '../components/FileUploader';
 
@@ -43,9 +39,9 @@ const RagChatBotEditPage: React.FC = () => {
     description: '',
     instruction: '',
     generationParams: {
-      maxTokens: 2000,
-      temperature: 0.7,
-      topP: 0.9,
+      maxTokens: 63991,
+      temperature: 0.1,
+      topP: 0.5,
       topK: 50,
     },
     knowledge: {
@@ -60,7 +56,6 @@ const RagChatBotEditPage: React.FC = () => {
   });
 
   const [newUrl, setNewUrl] = useState('');
-  const [newQuickStarter, setNewQuickStarter] = useState({ title: '', example: '' });
 
   useEffect(() => {
     if (isEditMode) {
@@ -78,10 +73,10 @@ const RagChatBotEditPage: React.FC = () => {
         title: bot.title,
         description: bot.description || '',
         instruction: bot.instruction,
-        generationParams: bot.generationParams || {
-          maxTokens: 2000,
-          temperature: 0.7,
-          topP: 0.9,
+        generationParams: {
+          maxTokens: 63991,
+          temperature: 0.1,
+          topP: 0.5,
           topK: 50,
         },
         knowledge: bot.knowledge || {
@@ -214,19 +209,6 @@ const RagChatBotEditPage: React.FC = () => {
   //   }
   // };
 
-  const addQuickStarter = () => {
-    if (newQuickStarter.title && newQuickStarter.example) {
-      setFormData((prev) => ({
-        ...prev,
-        conversationQuickStarters: [
-          ...(prev.conversationQuickStarters || []),
-          newQuickStarter,
-        ],
-      }));
-      setNewQuickStarter({ title: '', example: '' });
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -276,99 +258,6 @@ const RagChatBotEditPage: React.FC = () => {
             rows={6}
             required
           />
-        </div>
-      </Card>
-
-      <Card className="mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <PiGear />
-          {t('ragChatBot.edit.generationParams')}
-        </h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.maxTokens')}: {formData.generationParams?.maxTokens}
-            </label>
-            <Slider
-              value={formData.generationParams?.maxTokens || 2000}
-              onChange={(value: number) =>
-                setFormData({
-                  ...formData,
-                  generationParams: {
-                    ...formData.generationParams!,
-                    maxTokens: value,
-                  },
-                })
-              }
-              min={100}
-              max={4000}
-              step={100}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.temperature')}: {formData.generationParams?.temperature}
-            </label>
-            <Slider
-              value={formData.generationParams?.temperature || 0.7}
-              onChange={(value: number) =>
-                setFormData({
-                  ...formData,
-                  generationParams: {
-                    ...formData.generationParams!,
-                    temperature: value,
-                  },
-                })
-              }
-              min={0}
-              max={1}
-              step={0.1}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.topP')}: {formData.generationParams?.topP}
-            </label>
-            <Slider
-              value={formData.generationParams?.topP || 0.9}
-              onChange={(value: number) =>
-                setFormData({
-                  ...formData,
-                  generationParams: {
-                    ...formData.generationParams!,
-                    topP: value,
-                  },
-                })
-              }
-              min={0}
-              max={1}
-              step={0.1}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {t('ragChatBot.edit.topK')}: {formData.generationParams?.topK}
-            </label>
-            <Slider
-              value={formData.generationParams?.topK || 50}
-              onChange={(value: number) =>
-                setFormData({
-                  ...formData,
-                  generationParams: {
-                    ...formData.generationParams!,
-                    topK: value,
-                  },
-                })
-              }
-              min={1}
-              max={100}
-              step={1}
-            />
-          </div>
         </div>
       </Card>
 
@@ -448,79 +337,6 @@ const RagChatBotEditPage: React.FC = () => {
             </div>
           </div>
 
-          <Switch
-            label={t('ragChatBot.edit.displayRetrievedChunks')}
-            checked={formData.displayRetrievedChunks || false}
-            onSwitch={(value: boolean) =>
-              setFormData({ ...formData, displayRetrievedChunks: value })
-            }
-          />
-          
-          <Switch
-            label={t('ragChatBot.edit.promptCaching')}
-            checked={formData.promptCachingEnabled || false}
-            onSwitch={(value: boolean) =>
-              setFormData({ ...formData, promptCachingEnabled: value })
-            }
-          />
-        </div>
-      </Card>
-
-      <Card className="mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <PiRocket />
-          {t('ragChatBot.edit.quickStarters')}
-        </h2>
-        
-        <div className="space-y-4">
-          <div className="flex gap-2">
-            <InputText
-              value={newQuickStarter.title}
-              onChange={(value: string) =>
-                setNewQuickStarter({ ...newQuickStarter, title: value })
-              }
-              placeholder={t('ragChatBot.edit.quickStarterTitle')}
-              className="flex-1"
-            />
-            <InputText
-              value={newQuickStarter.example}
-              onChange={(value: string) =>
-                setNewQuickStarter({ ...newQuickStarter, example: value })
-              }
-              placeholder={t('ragChatBot.edit.quickStarterExample')}
-              className="flex-2"
-            />
-            <Button onClick={addQuickStarter} outlined className="flex items-center gap-1">
-              <PiPlus />
-              {t('ragChatBot.edit.add')}
-            </Button>
-          </div>
-          
-          <div className="space-y-2">
-            {formData.conversationQuickStarters?.map((starter, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                <div className="flex-1">
-                  <div className="font-medium text-sm">{starter.title}</div>
-                  <div className="text-xs text-gray-600">{starter.example}</div>
-                </div>
-                <Button
-                  outlined
-                  className="text-sm"
-                  onClick={() =>
-                    setFormData({
-                      ...formData,
-                      conversationQuickStarters:
-                        formData.conversationQuickStarters?.filter(
-                          (_, i) => i !== index
-                        ),
-                    })
-                  }
-                >
-                  <PiTrash />
-                </Button>
-              </div>
-            ))}
-          </div>
         </div>
       </Card>
 
