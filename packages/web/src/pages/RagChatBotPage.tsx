@@ -34,8 +34,8 @@ const RagChatBotPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('popular');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterOption, setFilterOption] = useState<FilterOption>('all');
-  const [showOnlyStarred, setShowOnlyStarred] = useState(false);
+  const [filterOption] = useState<FilterOption>('all');
+  const [showOnlyStarred] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);

@@ -201,12 +201,6 @@ const RagChatBotChatPage: React.FC = () => {
     setIsPolling(true);
   };
 
-  const stopPolling = () => {
-    setIsPolling(false);
-    setSending(false);
-  };
-
-
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !conversation) return;
     
