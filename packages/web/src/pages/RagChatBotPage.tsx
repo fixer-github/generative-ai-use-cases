@@ -19,8 +19,6 @@ import {
 } from 'react-icons/pi';
 import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 import Button from '../components/Button';
-import Select from '../components/Select';
-import Switch from '../components/Switch';
 import LoadingWave from '../components/LoadingWave';
 
 type ViewMode = 'popular' | 'search' | 'mybot' | 'all';
@@ -394,26 +392,6 @@ const RagChatBotPage: React.FC = () => {
             <PiMagnifyingGlass />
             {t('ragChatBot.search')}
           </Button>
-        </div>
-        
-        <Select
-          label={t('ragChatBot.filter')}
-          value={filterOption}
-          onChange={(val: string) => setFilterOption(val as FilterOption)}
-          options={[
-            { value: 'all', label: t('ragChatBot.filterAll') },
-            { value: 'private', label: t('ragChatBot.filterPrivate') },
-            { value: 'public', label: t('ragChatBot.filterPublic') },
-            { value: 'starred', label: t('ragChatBot.filterStarred') },
-          ]}
-        />
-
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={showOnlyStarred}
-            onSwitch={setShowOnlyStarred}
-            label={t('ragChatBot.showStarredOnly')}
-          />
         </div>
 
         <Button

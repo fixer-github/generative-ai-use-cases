@@ -564,7 +564,7 @@ navigation:
   meetingMinutes: 議事録生成
   promptOptimization: プロンプト最適化
   ragChat: RAG チャット
-  ragChatBot: RAG ChatBot
+  ragChatBot: RAG チャットボット
   settings: 設定
   speechRecognition: 音声認識
   summary: 要約

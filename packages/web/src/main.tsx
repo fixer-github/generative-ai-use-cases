@@ -43,7 +43,6 @@ import UseCaseBuilderMyUseCasePage from './pages/useCaseBuilder/UseCaseBuilderMy
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
 import WriterPage from './pages/WriterPage.tsx';
-import BedrockChatTest from './pages/BedrockChatTest.tsx';
 import RagChatBotPage from './pages/RagChatBotPage.tsx';
 import RagChatBotEditPage from './pages/RagChatBotEditPage.tsx';
 import RagChatBotChatPage from './pages/RagChatBotChatPage.tsx';
@@ -207,10 +206,6 @@ const routes: RouteObject[] = [
         element: <McpChatPage />,
       }
     : null,
-  {
-    path: '/bedrock-chat-test',
-    element: <BedrockChatTest />,
-  },
   {
     path: '/rag-chat-bot',
     element: <RagChatBotPage />,

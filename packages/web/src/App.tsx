@@ -23,7 +23,6 @@ import {
   PiTreeStructure,
   PiNotebook,
   PiGraph,
-  PiTestTube,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -110,6 +109,13 @@ const App: React.FC = () => {
           sub: 'Knowledge Base',
         }
       : null,
+    {
+      label: t('navigation.ragChatBot'),
+      to: '/rag-chat-bot',
+      icon: <PiChatCircleText />,
+      display: 'usecase' as const,
+      sub: 'Experimental',
+    },
     agentEnabled && !inlineAgents
       ? {
           label: t('navigation.agentChat'),
@@ -249,19 +255,6 @@ const App: React.FC = () => {
           display: 'tool' as const,
         }
       : null,
-    {
-      label: 'Bedrock Chat Test',
-      to: '/bedrock-chat-test',
-      icon: <PiTestTube />,
-      display: 'tool' as const,
-    },
-    {
-      label: t('navigation.ragChatBot'),
-      to: '/rag-chat-bot',
-      icon: <PiRobot />,
-      display: 'usecase' as const,
-      sub: 'Bot Management',
-    },
   ].flatMap((i) => (i !== null ? [i] : []));
 
   const label = useMemo(() => {
