@@ -1,0 +1,239 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { 
+  CognitoIdentityProviderClient, 
+  AdminCreateUserCommand, 
+  MessageActionType,
+  DeliveryMediumType,
+  AttributeType
+} from '@aws-sdk/client-cognito-identity-provider';
+import { verifyToken } from './utils/auth';
+import crypto from 'crypto';
+
+const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
+const USER_POOL_ID = process.env.USER_POOL_ID!;
+
+export interface InviteUserRequest {
+  emails: string[];
+  sendEmail?: boolean;
+}
+
+export interface InviteResult {
+  email: string;
+  success: boolean;
+  username?: string;
+  temporaryPassword?: string;
+  error?: string;
+}
+
+// Generate a secure temporary password
+function generateTemporaryPassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let password = '';
+  
+  // Ensure password meets requirements: uppercase, lowercase, number, symbol, 8+ chars
+  password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 26)); // uppercase
+  password += 'abcdefghijklmnopqrstuvwxyz'.charAt(Math.floor(Math.random() * 26)); // lowercase
+  password += '0123456789'.charAt(Math.floor(Math.random() * 10)); // number
+  password += '!@#$%^&*'.charAt(Math.floor(Math.random() * 8)); // symbol
+  
+  // Fill remaining characters
+  for (let i = 4; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
+// Validate email format
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  console.log('Event:', JSON.stringify(event, null, 2));
+
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+
+  try {
+    // Verify JWT token and admin status
+    const token = event.headers.Authorization || event.headers.authorization;
+    if (!token) {
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Missing authorization token' }),
+      };
+    }
+
+    const claims = await verifyToken(token);
+    if (!claims) {
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid token' }),
+      };
+    }
+
+    const tenantId = claims['custom:tenant_id'];
+    const isAdmin = claims['custom:tenantAdmin'] === 'true';
+
+    if (!isAdmin) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Access denied. Admin privileges required.' }),
+      };
+    }
+
+    if (!tenantId) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Tenant ID not found in token' }),
+      };
+    }
+
+    // Parse request body
+    let requestBody: InviteUserRequest;
+    try {
+      requestBody = JSON.parse(event.body || '{}');
+    } catch (error) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid JSON in request body' }),
+      };
+    }
+
+    const { emails, sendEmail = false } = requestBody;
+
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'emails array is required and must not be empty' }),
+      };
+    }
+
+    if (emails.length > 100) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Maximum 100 users can be invited at once' }),
+      };
+    }
+
+    // Validate all emails
+    const invalidEmails = emails.filter(email => !isValidEmail(email));
+    if (invalidEmails.length > 0) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          message: 'Invalid email addresses found', 
+          invalidEmails 
+        }),
+      };
+    }
+
+    // Check for duplicate emails
+    const uniqueEmails = [...new Set(emails)];
+    if (uniqueEmails.length !== emails.length) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Duplicate emails found in request' }),
+      };
+    }
+
+    // Invite users
+    const results: InviteResult[] = [];
+
+    for (const email of uniqueEmails) {
+      try {
+        const temporaryPassword = generateTemporaryPassword();
+        
+        // Ensure invited users have the same tenant ID as the admin who is inviting them
+        const userAttributes: AttributeType[] = [
+          { Name: 'email', Value: email },
+          { Name: 'email_verified', Value: 'true' },
+          { Name: 'custom:tenant_id', Value: tenantId }, // Same tenant as the admin
+          { Name: 'custom:tenantAdmin', Value: 'false' }, // New users are not admins by default
+        ];
+
+        const command = new AdminCreateUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: email,
+          UserAttributes: userAttributes,
+          TemporaryPassword: temporaryPassword,
+          MessageAction: sendEmail ? MessageActionType.RESEND : MessageActionType.SUPPRESS,
+          DesiredDeliveryMediums: sendEmail ? [DeliveryMediumType.EMAIL] : undefined,
+        });
+
+        const response = await cognitoClient.send(command);
+
+        results.push({
+          email,
+          success: true,
+          username: response.User?.Username,
+          temporaryPassword: sendEmail ? undefined : temporaryPassword, // Only return password if not sending email
+        });
+
+        console.log(`Successfully created user: ${email}`);
+
+      } catch (error: any) {
+        console.error(`Failed to create user ${email}:`, error);
+        
+        let errorMessage = 'Unknown error';
+        if (error.name === 'UsernameExistsException') {
+          errorMessage = 'User already exists';
+        } else if (error.name === 'InvalidParameterException') {
+          errorMessage = 'Invalid parameters';
+        } else if (error.name === 'InvalidPasswordException') {
+          errorMessage = 'Invalid password format';
+        }
+
+        results.push({
+          email,
+          success: false,
+          error: errorMessage,
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    console.log(`Invitation results: ${successCount} successful, ${failCount} failed`);
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        results,
+        summary: {
+          totalRequested: uniqueEmails.length,
+          successful: successCount,
+          failed: failCount,
+        },
+      }),
+    };
+
+  } catch (error) {
+    console.error('Error inviting users:', error);
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ 
+        message: 'Failed to invite users',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    };
+  }
+};

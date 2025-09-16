@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import Switch from '../components/Switch';
 import { MODELS } from '../hooks/useModel';
 import useGitHub, { PullRequest } from '../hooks/useGitHub';
-import { PiGithubLogoFill, PiArrowSquareOut } from 'react-icons/pi';
+import { PiGithubLogoFill, PiArrowSquareOut, PiShieldCheck } from 'react-icons/pi';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useCallback } from 'react';
 import { useSWRConfig } from 'swr';
@@ -50,7 +50,7 @@ const Setting = () => {
   const { cache } = useSWRConfig();
   const { getHasUpdate } = useVersion();
   const { getClosedPullRequests } = useGitHub();
-  const { signOut } = useAuthenticator();
+  const { signOut, user } = useAuthenticator();
   const { i18n, t } = useTranslation();
 
   const hasUpdate = getHasUpdate();
@@ -170,6 +170,20 @@ const Setting = () => {
               <PiArrowSquareOut className="text-base" />
             </Link>
           }></SettingItem>
+
+        {/* Admin Portal Button - Only show for tenant admins */}
+        {user?.signInUserSession?.idToken?.payload?.['custom:tenantAdmin'] === 'true' && (
+          <SettingItem
+            name="Admin Portal"
+            value={
+              <Link to="/admin" className="flex items-center">
+                <PiShieldCheck className="mr-1 text-base" />
+                Manage Users{' '}
+                <PiArrowSquareOut className="text-base ml-1" />
+              </Link>
+            }
+          />
+        )}
       </div>
 
       <div className="mb-3 mt-9 flex justify-center font-semibold">
