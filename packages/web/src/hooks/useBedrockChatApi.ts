@@ -28,7 +28,7 @@ export interface BedrockChatConversation {
 export interface BedrockChatMessage {
   id: string;
   content: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant'; // Removed 'system' as we don't display system messages
   timestamp?: string;
 }
 
@@ -460,7 +460,10 @@ const useBedrockChatApi = () => {
         },
         bot_id: botId,
       });
-      return response.data;
+      
+      // Convert response to camelCase
+      const camelCaseResponse = toCamelCase(response.data);
+      return camelCaseResponse;
     } catch (error) {
       console.error('BedrockChat send message failed:', error);
       throw error;
@@ -472,7 +475,79 @@ const useBedrockChatApi = () => {
       const response = await bedrockChatApi.get(
         `/conversation/${conversationId}`
       );
-      return response.data;
+      
+      // Convert snake_case to camelCase and transform message_map to messages array
+      const data = response.data;
+      const camelCaseData = toCamelCase(data);
+      
+      // Transform messageMap object to messages array
+      if (camelCaseData.messageMap) {
+        const messages: BedrockChatMessage[] = [];
+        const messageMap = camelCaseData.messageMap;
+        
+        // Convert message map to array and sort by timestamp
+        for (const msgId in messageMap) {
+          const msg = messageMap[msgId];
+          
+          // Skip system messages
+          if (msg.role === 'system' || msgId === 'system') {
+            continue;
+          }
+          
+          // Extract text content from message
+          const textContent = msg.content
+            ?.filter((c: any) => c.contentType === 'text')
+            .map((c: any) => c.body)
+            .join('\n') || '';
+          
+          // Map role correctly: 'assistant' for AI responses (not 'bot')
+          const messageRole: 'user' | 'assistant' = msg.role === 'user' ? 'user' : 'assistant';
+          
+          messages.push({
+            id: msgId,
+            content: textContent,
+            role: messageRole,
+            timestamp: new Date().toISOString(), // Use current time as fallback
+          });
+        }
+        
+        // Sort messages by their position in the conversation tree
+        // We'll need to traverse from the last message backwards
+        const sortedMessages: BedrockChatMessage[] = [];
+        let currentMsgId = camelCaseData.lastMessageId;
+        
+        while (currentMsgId) {
+          const msg = messageMap[currentMsgId];
+          if (msg) {
+            // Skip system messages
+            if (msg.role !== 'system' && currentMsgId !== 'system') {
+              const textContent = msg.content
+                ?.filter((c: any) => c.contentType === 'text')
+                .map((c: any) => c.body)
+                .join('\n') || '';
+              
+              // Map role correctly: 'assistant' for AI responses (not 'bot')
+              const messageRole: 'user' | 'assistant' = msg.role === 'user' ? 'user' : 'assistant';
+              
+              sortedMessages.unshift({
+                id: currentMsgId,
+                content: textContent,
+                role: messageRole,
+                timestamp: new Date().toISOString(),
+              });
+            }
+            
+            // Move to parent message
+            currentMsgId = msg.parent;
+          } else {
+            break;
+          }
+        }
+        
+        camelCaseData.messages = sortedMessages;
+      }
+      
+      return camelCaseData;
     } catch (error) {
       console.error('BedrockChat get conversation failed:', error);
       throw error;

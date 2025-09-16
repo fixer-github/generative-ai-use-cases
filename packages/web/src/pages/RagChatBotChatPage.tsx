@@ -97,16 +97,40 @@ const RagChatBotChatPage: React.FC = () => {
           const updatedConversation = await getConversation(conversationId);
           const updatedMessages = updatedConversation.messages || [];
           
+          console.log('Polling - Updated messages count:', updatedMessages.length);
+          
           // Check for new messages
           setMessages((prevMessages) => {
+            // Compare message count or check if there's a new assistant message
             if (updatedMessages.length > prevMessages.length) {
+              console.log('New messages detected:', updatedMessages.length - prevMessages.length);
+              
               // Check if the last message is from assistant
               const lastMessage = updatedMessages[updatedMessages.length - 1];
               if (lastMessage && lastMessage.role === 'assistant') {
+                console.log('Assistant message received, stopping polling');
                 setIsPolling(false);
                 setSending(false);
               }
               return updatedMessages;
+            } else if (updatedMessages.length === prevMessages.length && prevMessages.length > 0) {
+              // Check if the last message content has changed (for streaming responses)
+              const lastUpdatedMsg = updatedMessages[updatedMessages.length - 1];
+              const lastPrevMsg = prevMessages[prevMessages.length - 1];
+              
+              if (lastUpdatedMsg && lastPrevMsg && 
+                  lastUpdatedMsg.id === lastPrevMsg.id && 
+                  lastUpdatedMsg.content !== lastPrevMsg.content) {
+                console.log('Message content updated');
+                
+                // Check if it's an assistant message with content
+                if (lastUpdatedMsg.role === 'assistant' && lastUpdatedMsg.content) {
+                  console.log('Assistant message completed, stopping polling');
+                  setIsPolling(false);
+                  setSending(false);
+                }
+                return updatedMessages;
+              }
             }
             return prevMessages;
           });
@@ -151,8 +175,21 @@ const RagChatBotChatPage: React.FC = () => {
     setLoading(true);
     try {
       const conversationData = await getConversation(conversationId);
-      setConversation(conversationData);
-      setMessages(conversationData.messages || []);
+      console.log('Fetched conversation data:', conversationData);
+      
+      // Update conversation metadata
+      setConversation({
+        id: conversationData.id,
+        title: conversationData.title,
+        bot_id: conversationData.botId || botId || '',
+        messages: conversationData.messages || [],
+        created_at: new Date(conversationData.createTime * 1000).toISOString(),
+      });
+      
+      // Update messages array
+      const messages = conversationData.messages || [];
+      console.log('Setting messages:', messages.length);
+      setMessages(messages);
     } catch (error) {
       console.error('Failed to fetch conversation:', error);
     } finally {
@@ -173,32 +210,36 @@ const RagChatBotChatPage: React.FC = () => {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !conversation) return;
     
+    const userMessageId = `msg-${Date.now()}`;
     const userMessage: BedrockChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: userMessageId,
       content: inputMessage,
       role: 'user',
       timestamp: new Date().toISOString(),
     };
     
+    // Add user message optimistically
     setMessages((prev) => [...prev, userMessage]);
+    const sentMessage = inputMessage;
     setInputMessage('');
     setSending(true);
     
     try {
       const response = await sendMessage(
         conversation.id,
-        inputMessage,
+        sentMessage,
         botId
       );
       
       // Extract text content from the response
-      const messageContent = response.message.content
-        .filter((item: any) => item.contentType === 'text')
+      const messageData = response.message || response;
+      const messageContent = messageData.content
+        ?.filter((item: any) => item.contentType === 'text')
         .map((item: any) => item.body)
-        .join('\n');
+        .join('\n') || '';
       
       const assistantMessage: BedrockChatMessage = {
-        id: response.message_id || `msg-${Date.now() + 1}`,
+        id: response.messageId || response.message_id || `msg-${Date.now() + 1}`,
         content: messageContent,
         role: 'assistant',
         timestamp: new Date().toISOString(),
@@ -211,19 +252,34 @@ const RagChatBotChatPage: React.FC = () => {
       
       // Check if it's a 504 Gateway Timeout error
       if (error.response?.status === 504) {
-        // Start polling for conversation updates
         console.log('Gateway timeout detected, starting polling...');
+        
+        // Remove the optimistically added user message as it will come from the API
+        setMessages((prev) => {
+          // Keep the user message for now, but mark that we're polling
+          // The polling will replace all messages with the server state
+          return prev;
+        });
+        
+        // Start polling for conversation updates
+        // First do an immediate fetch to get the current state
+        try {
+          const conversationData = await getConversation(conversation.id);
+          const serverMessages = conversationData.messages || [];
+          if (serverMessages.length > 0) {
+            setMessages(serverMessages);
+          }
+        } catch (fetchError) {
+          console.error('Failed to fetch conversation after timeout:', fetchError);
+        }
+        
+        // Start regular polling
         startPolling();
       } else {
-        // For other errors, show error message
-        const errorMessage: BedrockChatMessage = {
-          id: `msg-error-${Date.now()}`,
-          content: t('ragChatBot.chatPage.sendError'),
-          role: 'system',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        // For other errors, show error message but don't add to messages
+        console.error('Error sending message:', error);
         setSending(false);
+        // Could show a toast or alert here instead of adding a system message
       }
     } finally {
       inputRef.current?.focus();
@@ -287,24 +343,23 @@ const RagChatBotChatPage: React.FC = () => {
 
   const renderMessage = (message: BedrockChatMessage) => {
     const isUser = message.role === 'user';
-    const isSystem = message.role === 'system';
+    const isAssistant = message.role === 'assistant';
+    
+    // Only render user and assistant messages
+    if (message.role !== 'user' && message.role !== 'assistant') {
+      return null;
+    }
     
     return (
       <div
         key={message.id}
         className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}
       >
-        {!isUser && (
+        {isAssistant && (
           <div className="flex-shrink-0">
-            {isSystem ? (
-              <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                <PiInfo className="text-yellow-600" />
-              </div>
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <PiRobot className="text-blue-600" />
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <PiRobot className="text-blue-600" />
+            </div>
           </div>
         )}
         
@@ -312,8 +367,6 @@ const RagChatBotChatPage: React.FC = () => {
           className={`max-w-[70%] ${
             isUser
               ? 'bg-blue-600 text-white rounded-l-lg rounded-br-lg'
-              : isSystem
-              ? 'bg-yellow-50 text-yellow-900 rounded-lg border border-yellow-200'
               : 'bg-gray-100 text-gray-900 rounded-r-lg rounded-bl-lg'
           } p-3`}
         >
@@ -323,17 +376,15 @@ const RagChatBotChatPage: React.FC = () => {
             <Markdown>{message.content}</Markdown>
           )}
           
-          {!isSystem && (
-            <div className="mt-2 flex gap-2 justify-end">
-              <button
-                onClick={() => handleCopyMessage(message.content)}
-                className="text-xs opacity-60 hover:opacity-100"
-                title={t('ragChatBot.chatPage.copy')}
-              >
-                <PiCopy />
-              </button>
-            </div>
-          )}
+          <div className="mt-2 flex gap-2 justify-end">
+            <button
+              onClick={() => handleCopyMessage(message.content)}
+              className="text-xs opacity-60 hover:opacity-100"
+              title={t('ragChatBot.chatPage.copy')}
+            >
+              <PiCopy />
+            </button>
+          </div>
         </div>
         
         {isUser && (
