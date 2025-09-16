@@ -1383,6 +1383,11 @@ ragChatBot:
     completed: Sync Complete
     syncing: Syncing
     failed: Sync Failed
+  changeVisibility: Change Visibility
+  private: Private
+  privateDescription: Only you can use this bot
+  organizationPublic: Organization Public
+  organizationPublicDescription: Members of your organization can use this bot
   edit:
     back: Back
     editTitle: Edit Bot
