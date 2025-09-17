@@ -1203,6 +1203,10 @@ ragChatBot:
   privateDescription: 自分だけが利用できます
   organizationPublic: 組織内公開
   organizationPublicDescription: 組織内のメンバーが利用できます
+  tenantPublic: テナント内公開
+  tenantPublicDescription: テナント内のメンバーが利用できます
+  star: スター
+  unstar: スター解除
   edit:
     back: 戻る
     editTitle: ボットを編集
