@@ -1102,6 +1102,9 @@ ragChatBot:
   filterPublic: パブリック
   filterStarred: スター付き
   showStarredOnly: スター付きのみ表示
+  scopeFilter: 公開範囲
+  all: すべて
+  starredOnly: スター付きのみ
   createNew: 新規ボット作成
   popularBots: 人気のボット
   myBots: マイボット

@@ -1367,6 +1367,9 @@ ragChatBot:
   filterPublic: Public
   filterStarred: Starred
   showStarredOnly: Show starred only
+  scopeFilter: Scope
+  all: All
+  starredOnly: Starred Only
   createNew: Create New Bot
   popularBots: Popular Bots
   myBots: My Bots
