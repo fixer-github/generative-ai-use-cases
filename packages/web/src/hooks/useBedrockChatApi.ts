@@ -184,7 +184,7 @@ const useBedrockChatApi = () => {
   };
 
   // Test basic store endpoints
-  const searchStore = async (query?: string, limit?: number) => {
+  const searchStore = useCallback(async (query?: string, limit?: number) => {
     try {
       const params: any = {};
       if (query) params.query = query;
@@ -196,7 +196,7 @@ const useBedrockChatApi = () => {
       console.error('BedrockChat store search failed:', error);
       throw error;
     }
-  };
+  }, []);
 
   const getPopularBots = async () => {
     try {
@@ -230,7 +230,7 @@ const useBedrockChatApi = () => {
     }
   }, []);
 
-  const getPrivateBot = async (botId: string) => {
+  const getPrivateBot = useCallback(async (botId: string) => {
     try {
       const response = await bedrockChatApi.get<BedrockChatBot>(
         `/bot/private/${botId}`
@@ -240,7 +240,7 @@ const useBedrockChatApi = () => {
       console.error('BedrockChat get private bot failed:', error);
       throw error;
     }
-  };
+  }, []);
 
   const getBotSummary = async (botId: string) => {
     try {
@@ -390,13 +390,13 @@ const useBedrockChatApi = () => {
     }
   }, []);
 
-  const setBotVisibility = async (
+  const setBotVisibility = useCallback(async (
     botId: string,
     visibility: 'private' | 'partial' | 'all'
   ) => {
     try {
       let requestBody: any;
-      
+
       if (visibility === 'private') {
         requestBody = {
           target_shared_scope: 'private'
@@ -412,14 +412,14 @@ const useBedrockChatApi = () => {
           target_shared_scope: 'all'
         };
       }
-      
+
       const response = await bedrockChatApi.patch(`/bot/${botId}/visibility`, requestBody);
       return response.data;
     } catch (error) {
       console.error('BedrockChat set bot visibility failed:', error);
       throw error;
     }
-  };
+  }, []);
 
   const getBotPresignedUrl = async (
     botId: string,
