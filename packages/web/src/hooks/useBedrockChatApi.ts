@@ -184,10 +184,16 @@ const useBedrockChatApi = () => {
   };
 
   // Test basic store endpoints
-  const searchStore = async (query?: string) => {
+  const searchStore = async (params?: {
+    query?: string;
+    scope?: 'all' | 'organization' | 'private';
+    starred?: boolean;
+    limit?: number;
+    sort?: 'usage' | 'relevance';
+  }) => {
     try {
       const response = await bedrockChatApi.get('/store/search', {
-        params: query ? { query } : {},
+        params: params || {},
       });
       return response.data;
     } catch (error) {
