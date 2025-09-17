@@ -81,64 +81,64 @@ def find_bots_by_query(
     if scope is None:
         filter_should = [
             {"term": {"SharedScope.keyword": "all"}},  # Everyone can get
-        # Owner AND (no SharedScope i.e. private OR SharedScope = "partial")
-        {
-            "bool": {
-                "must": [
-                    {"term": {"PK.keyword": user.id}},
-                    {
-                        "bool": {
-                            "should": [
-                                {
-                                    "bool": {
-                                        "must_not": {"exists": {"field": "SharedScope"}}
-                                    }
-                                },
-                                {"term": {"SharedScope.keyword": "partial"}},
-                            ],
-                            "minimum_should_match": 1,
-                        }
-                    },
-                ]
-            }
-        },
-    ]
-
-    if user.is_admin():
-        # Administrator can get all partial shared bots
-        filter_should.append({"term": {"SharedScope.keyword": "partial"}})
-    else:
-        # For non-admin users, check the permissions of partial shared bots
-        filter_should.append(
+            # Owner AND (no SharedScope i.e. private OR SharedScope = "partial")
             {
                 "bool": {
                     "must": [
-                        {"term": {"SharedScope.keyword": "partial"}},
+                        {"term": {"PK.keyword": user.id}},
                         {
                             "bool": {
                                 "should": [
-                                    {"term": {"AllowedCognitoUsers.keyword": user.id}},
                                     {
-                                        "script": {
-                                            "script": {
-                                                "source": (
-                                                    "for (group in doc['AllowedCognitoGroups.keyword']) { "
-                                                    "if (params.user_groups.contains(group)) { return true; } } "
-                                                    "return false;"
-                                                ),
-                                                "params": {"user_groups": user.groups},
-                                                "lang": "painless",
-                                            }
+                                        "bool": {
+                                            "must_not": {"exists": {"field": "SharedScope"}}
                                         }
                                     },
+                                    {"term": {"SharedScope.keyword": "partial"}},
                                 ],
                                 "minimum_should_match": 1,
                             }
                         },
                     ]
                 }
-            }
-        )
+            },
+        ]
+
+        if user.is_admin():
+            # Administrator can get all partial shared bots
+            filter_should.append({"term": {"SharedScope.keyword": "partial"}})
+        else:
+            # For non-admin users, check the permissions of partial shared bots
+            filter_should.append(
+                {
+                    "bool": {
+                        "must": [
+                            {"term": {"SharedScope.keyword": "partial"}},
+                            {
+                                "bool": {
+                                    "should": [
+                                        {"term": {"AllowedCognitoUsers.keyword": user.id}},
+                                        {
+                                            "script": {
+                                                "script": {
+                                                    "source": (
+                                                        "for (group in doc['AllowedCognitoGroups.keyword']) { "
+                                                        "if (params.user_groups.contains(group)) { return true; } } "
+                                                        "return false;"
+                                                    ),
+                                                    "params": {"user_groups": user.groups},
+                                                    "lang": "painless",
+                                                }
+                                            }
+                                        },
+                                    ],
+                                    "minimum_should_match": 1,
+                                }
+                            },
+                        ]
+                    }
+                }
+            )
     else:
         # If specific scope is set, still need to check access permissions
         if scope == "private":
