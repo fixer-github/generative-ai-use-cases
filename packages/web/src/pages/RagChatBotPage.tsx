@@ -8,6 +8,7 @@ import {
   PiPencil,
   PiTrash,
   PiStar,
+  PiStarFill,
   PiDotsThreeVertical,
   PiCheckCircle,
   PiClockCountdown,
@@ -19,13 +20,14 @@ import {
 import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 import Button from '../components/Button';
 import LoadingWave from '../components/LoadingWave';
+import Switch from '../components/Switch';
 
-type ScopeFilter = 'all' | 'organization' | 'private';
+type ScopeFilter = 'all' | 'private';
 
 const RagChatBotPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { searchStore, deleteBot, getPrivateBot, setBotVisibility } = useBedrockChatApi();
+  const { searchStore, deleteBot, getPrivateBot, setBotVisibility, setStarredStatus } = useBedrockChatApi();
 
   const [bots, setBots] = useState<BedrockChatBot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,19 @@ const RagChatBotPage: React.FC = () => {
     }
   };
 
+  const handleToggleStar = async (botId: string, currentStarred: boolean) => {
+    try {
+      await setStarredStatus(botId, !currentStarred);
+      setBots(prevBots =>
+        prevBots.map(bot =>
+          bot.id === botId ? { ...bot, isStarred: !currentStarred } : bot
+        )
+      );
+    } catch (error) {
+      console.error('Failed to toggle star status:', error);
+    }
+  };
+
   const handleChangeVisibility = async (botId: string, visibility: 'private' | 'partial' | 'all') => {
     try {
       await setBotVisibility(botId, visibility);
@@ -237,6 +252,21 @@ const RagChatBotPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
+            {/* Star Button */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => handleToggleStar(bot.id, bot.isStarred || false)}
+                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                title={bot.isStarred ? t('ragChatBot.unstar') : t('ragChatBot.star')}
+              >
+                {bot.isStarred ? (
+                  <PiStarFill className="text-yellow-500 text-xl" />
+                ) : (
+                  <PiStar className="text-gray-400 text-xl hover:text-yellow-500" />
+                )}
+              </button>
+            </div>
+
             {/* Sync Status Display */}
             <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
               {syncStatusDisplay.icon}
@@ -254,7 +284,7 @@ const RagChatBotPage: React.FC = () => {
                     setNewVisibility(bot.sharedScope === 'private' ? 'private' : 'all');
                   }}
                   className="p-2 hover:bg-gray-100 rounded transition-colors"
-                  title={bot.sharedScope === 'private' ? t('ragChatBot.private') : t('ragChatBot.organizationPublic')}
+                  title={bot.sharedScope === 'private' ? t('ragChatBot.private') : t('ragChatBot.tenantPublic')}
                 >
                   {bot.sharedScope === 'private' ? (
                     <PiLock className="text-gray-500 text-xl" />
@@ -332,9 +362,19 @@ const RagChatBotPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{t('ragChatBot.title')}</h1>
-        <p className="text-gray-600">{t('ragChatBot.description')}</p>
+      <div className="mb-8 flex items-end justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">{t('ragChatBot.title')}</h1>
+          <p className="text-gray-600">{t('ragChatBot.description')}</p>
+        </div>
+        {/* 新規作成ボタン */}
+        <Button
+          onClick={handleCreateBot}
+          className="flex items-center gap-1"
+        >
+          <PiPlus />
+          {t('ragChatBot.createNew')}
+        </Button>
       </div>
 
       {/* 検索・フィルタリング設定部分 */}
@@ -371,34 +411,20 @@ const RagChatBotPage: React.FC = () => {
                 onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
                 className="rounded border border-black/30 px-3 py-1.5 outline-none"
               >
-                <option value="all">{t('ragChatBot.all')}</option>
-                <option value="organization">{t('ragChatBot.organizationPublic')}</option>
+                <option value="all">{t('ragChatBot.tenantPublic')}</option>
                 <option value="private">{t('ragChatBot.private')}</option>
               </select>
             </div>
 
             {/* スター付きのみ表示 */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showOnlyStarred}
-                onChange={(e) => setShowOnlyStarred(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
+            <div className="flex items-center gap-2">
               <PiStar className={`text-lg ${showOnlyStarred ? 'text-yellow-500' : 'text-gray-400'}`} />
-              <span className="text-sm font-medium text-gray-700">
-                {t('ragChatBot.starredOnly')}
-              </span>
-            </label>
-
-            {/* 新規作成ボタン */}
-            <Button
-              onClick={handleCreateBot}
-              className="flex items-center gap-1 ml-auto"
-            >
-              <PiPlus />
-              {t('ragChatBot.createNew')}
-            </Button>
+              <Switch
+                checked={showOnlyStarred}
+                onSwitch={setShowOnlyStarred}
+                label={t('ragChatBot.starredOnly')}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -461,8 +487,8 @@ const RagChatBotPage: React.FC = () => {
                 />
                 <PiUsers className="text-xl text-blue-500" />
                 <div className="flex-1">
-                  <div className="font-medium">{t('ragChatBot.organizationPublic')}</div>
-                  <div className="text-sm text-gray-600">{t('ragChatBot.organizationPublicDescription')}</div>
+                  <div className="font-medium">{t('ragChatBot.tenantPublic')}</div>
+                  <div className="text-sm text-gray-600">{t('ragChatBot.tenantPublicDescription')}</div>
                 </div>
               </label>
             </div>
