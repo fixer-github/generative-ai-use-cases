@@ -27,7 +27,7 @@ type FilterOption = 'all' | 'private' | 'public' | 'starred';
 const RagChatBotPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { getAllBots, deleteBot, getPrivateBot, setBotVisibility } = useBedrockChatApi();
+  const { getAllBots, deleteBot, getPrivateBot, setBotVisibility, searchStore } = useBedrockChatApi();
 
   const [bots, setBots] = useState<BedrockChatBot[]>([]);
   const [filteredBots, setFilteredBots] = useState<BedrockChatBot[]>([]);
@@ -54,22 +54,32 @@ const RagChatBotPage: React.FC = () => {
 
     setLoading(true);
     try {
-      let params = {};
-      if (viewMode === 'popular') {
-        params = { kind: 'mixed', limit: 10 };
-      } else if (viewMode === 'mybot') {
-        params = { kind: 'private' };
-      } else if (viewMode === 'all') {
-        params = { kind: 'mixed', limit: 100 };
-      } else if (viewMode === 'search') {
-        params = { kind: 'mixed' };
+      let data;
+
+      if (viewMode === 'search' && searchQuery) {
+        // Use searchStore for search queries
+        data = await searchStore(searchQuery, 20);
+      } else {
+        // Use getAllBots for other modes
+        let params = {};
+        if (viewMode === 'popular') {
+          params = { kind: 'mixed', limit: 10 };
+        } else if (viewMode === 'mybot') {
+          params = { kind: 'private' };
+        } else if (viewMode === 'all') {
+          params = { kind: 'mixed', limit: 100 };
+        } else if (viewMode === 'search') {
+          // Fallback to mixed for empty search
+          params = { kind: 'mixed' };
+        }
+
+        if (showOnlyStarred) {
+          params = { ...params, starred: true };
+        }
+
+        data = await getAllBots(params, signal);
       }
 
-      if (showOnlyStarred) {
-        params = { ...params, starred: true };
-      }
-
-      const data = await getAllBots(params, signal);
       // Only update state if request wasn't cancelled
       if (!signal.aborted) {
         setBots(data || []);
@@ -86,7 +96,7 @@ const RagChatBotPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [viewMode, showOnlyStarred, getAllBots]);
+  }, [viewMode, showOnlyStarred, searchQuery, getAllBots, searchStore]);
 
   // Function to update only sync status without full reload
   const updateSyncStatuses = useCallback(async () => {
@@ -151,8 +161,8 @@ const RagChatBotPage: React.FC = () => {
   useEffect(() => {
     let filtered = [...bots];
 
-    // Apply search filter
-    if (searchQuery) {
+    // Apply search filter only if not in search mode (as search mode uses server-side filtering)
+    if (searchQuery && viewMode !== 'search') {
       filtered = filtered.filter(
         (bot) =>
           bot.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -170,7 +180,7 @@ const RagChatBotPage: React.FC = () => {
     }
 
     setFilteredBots(filtered);
-  }, [bots, searchQuery, filterOption]);
+  }, [bots, searchQuery, filterOption, viewMode]);
 
   const handleSearch = () => {
     if (searchQuery) {

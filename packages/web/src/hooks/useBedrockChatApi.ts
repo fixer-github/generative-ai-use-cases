@@ -184,11 +184,13 @@ const useBedrockChatApi = () => {
   };
 
   // Test basic store endpoints
-  const searchStore = async (query?: string) => {
+  const searchStore = async (query?: string, limit?: number) => {
     try {
-      const response = await bedrockChatApi.get('/store/search', {
-        params: query ? { query } : {},
-      });
+      const params: any = {};
+      if (query) params.query = query;
+      if (limit) params.limit = limit;
+
+      const response = await bedrockChatApi.get('/store/search', { params });
       return response.data;
     } catch (error) {
       console.error('BedrockChat store search failed:', error);
