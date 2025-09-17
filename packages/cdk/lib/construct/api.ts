@@ -1161,6 +1161,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listTenantUsers.ts',
       timeout: Duration.minutes(5),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: getBaseEnvironment({
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       }),
@@ -1170,6 +1173,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/inviteTenantUsers.ts',
       timeout: Duration.minutes(5),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: getBaseEnvironment({
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       }),
@@ -1179,6 +1185,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/updateUserRole.ts',
       timeout: Duration.minutes(5),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: getBaseEnvironment({
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       }),
@@ -1188,6 +1197,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/removeTenantUser.ts',
       timeout: Duration.minutes(5),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: getBaseEnvironment({
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       }),
@@ -1197,6 +1209,9 @@ export class Api extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/checkAdminStatus.ts',
       timeout: Duration.minutes(2),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
       environment: getBaseEnvironment({
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       }),

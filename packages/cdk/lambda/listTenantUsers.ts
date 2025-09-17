@@ -28,32 +28,39 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const { tenantId } = adminResult;
 
-    // List users in the tenant
+    // TODO: This approach fetches all users and filters in-memory, which is inefficient for large user pools.
+    // Consider implementing DynamoDB-based tenant user mapping or Cognito Groups for better scalability.
+
+    // List all users and filter by tenant in memory
     const users: TenantUser[] = [];
     let paginationToken: string | undefined;
 
     do {
       const command = new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `custom:tenant_id = "${tenantId}"`,
         Limit: 60, // Maximum allowed by Cognito
         PaginationToken: paginationToken,
       });
 
       const response = await cognitoClient.send(command);
-      
+
       if (response.Users) {
         for (const user of response.Users) {
-          users.push({
-            username: user.Username || '',
-            email: getAttributeValue(user.Attributes, 'email'),
-            tenantId: getAttributeValue(user.Attributes, 'custom:tenant_id'),
-            tenantAdmin: getAttributeValue(user.Attributes, 'custom:tenantAdmin') === 'true',
-            enabled: user.Enabled || false,
-            userStatus: user.UserStatus || '',
-            createdDate: user.UserCreateDate?.toISOString() || '',
-            lastModifiedDate: user.UserLastModifiedDate?.toISOString() || '',
-          });
+          const userTenantId = getAttributeValue(user.Attributes, 'custom:tenant_id');
+
+          // Only include users from the admin's tenant
+          if (userTenantId === tenantId) {
+            users.push({
+              username: user.Username || '',
+              email: getAttributeValue(user.Attributes, 'email'),
+              tenantId: userTenantId,
+              tenantAdmin: getAttributeValue(user.Attributes, 'custom:tenantAdmin') === 'true',
+              enabled: user.Enabled || false,
+              userStatus: user.UserStatus || '',
+              createdDate: user.UserCreateDate?.toISOString() || '',
+              lastModifiedDate: user.UserLastModifiedDate?.toISOString() || '',
+            });
+          }
         }
       }
 
@@ -76,7 +83,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Failed to list tenant users',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),

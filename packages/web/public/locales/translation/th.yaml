@@ -1,3 +1,69 @@
+adminPortal:
+  title: พอร์ทัลผู้ดูแลระบบ
+  manageTenant: 'จัดการผู้ใช้สำหรับเทนเทนต์: {{tenantId}}'
+  inviteUsers: เชิญผู้ใช้
+  userManagement: การจัดการผู้ใช้
+  stats:
+    totalUsers: ผู้ใช้ทั้งหมด
+    admins: ผู้ดูแลระบบ
+    regularUsers: ผู้ใช้ทั่วไป
+    disabledUsers: ผู้ใช้ที่ถูกปิดใช้งาน
+  table:
+    user: ผู้ใช้
+    role: บทบาท
+    status: สถานะ
+    created: วันที่สร้าง
+    actions: การดำเนินการ
+  roles:
+    regularUser: ผู้ใช้ทั่วไป
+    admin: ผู้ดูแลระบบ
+  status:
+    disabled: ปิดใช้งาน
+  actions:
+    remove: ลบ
+  messages:
+    loading: กำลังโหลด...
+    failedToCheckAdminStatus: ไม่สามารถตรวจสอบสถานะผู้ดูแลระบบได้
+    failedToLoadUsers: ไม่สามารถโหลดผู้ใช้ได้
+    failedToUpdateUserRole: ไม่สามารถอัปเดตบทบาทผู้ใช้ได้
+    failedToRemoveUser: ไม่สามารถลบผู้ใช้ได้
+    removeUserConfirmation: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ {{username}}? การดำเนินการนี้ไม่สามารถยกเลิกได้'
+    noUsersFound: ไม่พบผู้ใช้
+  invite:
+    title: เชิญผู้ใช้
+    mode:
+      single: ผู้ใช้เดี่ยว
+      bulk: เชิญจำนวนมาก
+    singleUser:
+      emailLabel: ที่อยู่อีเมล
+      emailPlaceholder: user@example.com
+    bulkMode:
+      csvUpload: อัปโหลดไฟล์ CSV
+      csvFormat: 'รูปแบบ CSV: คอลัมน์แรกควรมีที่อยู่อีเมล'
+      csvSelected: 'เลือกแล้ว: {{filename}}'
+      manualEntry: การป้อนด้วยตนเอง (หนึ่งอีเมลต่อบรรทัด)
+      manualPlaceholder: user1@example.com
+      or: หรือ
+    options:
+      sendEmail: ส่งอีเมลเชิญอัตโนมัติ
+      sendEmailHelp: ผู้ใช้จะได้รับอีเมลพร้อมคำแนะนำในการเข้าสู่ระบบ
+      noSendEmailHelp: คุณจะต้องแชร์ข้อมูลประจำตัวการเข้าสู่ระบบกับผู้ใช้ด้วยตนเอง
+    errors:
+      invalidFile: กรุณาเลือกไฟล์ CSV ที่ถูกต้อง
+      noEmailsProvided: กรุณาระบุที่อยู่อีเมลอย่างน้อยหนึ่งที่
+      tooManyEmails: สามารถเชิญผู้ใช้ได้สูงสุด 100 คนในครั้งเดียว
+      invitationFailed: ไม่สามารถเชิญผู้ใช้ได้
+    results:
+      title: ผลการเชิญ
+      summary: 'รวม: {{total}} | สำเร็จ: {{successful}} | ล้มเหลว: {{failed}}'
+      invited: ✓ เชิญแล้ว
+      failed: '✗ {{error}}'
+      warning: '<strong>สำคัญ:</strong> เนื่องจากอีเมลอัตโนมัติถูกปิดใช้งาน คุณจำเป็นต้องแชร์รหัสผ่านชั่วคราวกับผู้ใช้ที่ได้รับเชิญด้วยตนเอง'
+    actions:
+      cancel: ยกเลิก
+      close: ปิด
+      sendInvitations: ส่งคำเชิญ
+      inviting: กำลังเชิญ...
 agent:
   drop_files: วางไฟล์เพื่ออัปโหลด
   title: Agent Chat

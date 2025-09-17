@@ -1,13 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { 
-  CognitoIdentityProviderClient, 
-  AdminCreateUserCommand, 
+import {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
   MessageActionType,
   DeliveryMediumType,
   AttributeType
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyAdminAccess, isAdminContext, CORS_HEADERS } from './utils/adminAuth';
-import * as crypto from 'crypto';
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
 const USER_POOL_ID = process.env.USER_POOL_ID!;
@@ -29,18 +28,18 @@ export interface InviteResult {
 function generateTemporaryPassword(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
   let password = '';
-  
+
   // Ensure password meets requirements: uppercase, lowercase, number, symbol, 8+ chars
   password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 26)); // uppercase
   password += 'abcdefghijklmnopqrstuvwxyz'.charAt(Math.floor(Math.random() * 26)); // lowercase
   password += '0123456789'.charAt(Math.floor(Math.random() * 10)); // number
   password += '!@#$%^&*'.charAt(Math.floor(Math.random() * 8)); // symbol
-  
+
   // Fill remaining characters
   for (let i = 4; i < 12; i++) {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  
+
   // Shuffle the password
   return password.split('').sort(() => 0.5 - Math.random()).join('');
 }
@@ -99,9 +98,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ 
-          message: 'Invalid email addresses found', 
-          invalidEmails 
+        body: JSON.stringify({
+          message: 'Invalid email addresses found',
+          invalidEmails
         }),
       };
     }
@@ -122,7 +121,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     for (const email of uniqueEmails) {
       try {
         const temporaryPassword = generateTemporaryPassword();
-        
+
         // Ensure invited users have the same tenant ID as the admin who is inviting them
         const userAttributes: AttributeType[] = [
           { Name: 'email', Value: email },
@@ -153,7 +152,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       } catch (error: any) {
         console.error(`Failed to create user ${email}:`, error);
-        
+
         let errorMessage = 'Unknown error';
         if (error.name === 'UsernameExistsException') {
           errorMessage = 'User already exists';
@@ -194,7 +193,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Failed to invite users',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),

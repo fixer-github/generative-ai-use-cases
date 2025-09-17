@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PiX, PiUserPlus, PiEnvelope, PiUpload } from 'react-icons/pi';
+import { useTranslation } from 'react-i18next';
 import Button from './Button';
 import InputText from './InputText';
 import Textarea from './Textarea';
@@ -35,8 +36,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
   onClose,
   onInviteSuccess,
 }) => {
+  const { t } = useTranslation();
   const { api } = useHttp();
-  
+
   const [inviteMode, setInviteMode] = useState<'single' | 'bulk'>('single');
   const [singleEmail, setSingleEmail] = useState('');
   const [bulkEmails, setBulkEmails] = useState('');
@@ -62,17 +64,17 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       setCsvFile(file);
       setBulkEmails(''); // Clear manual input when file is selected
     } else {
-      alert('Please select a valid CSV file');
+      alert(t('adminPortal.invite.errors.invalidFile'));
     }
   };
 
   const parseCSV = (csvContent: string): string[] => {
     const lines = csvContent.trim().split('\n');
     const emails: string[] = [];
-    
+
     // Skip header line if it contains 'email'
     const startIndex = lines[0]?.toLowerCase().includes('email') ? 1 : 0;
-    
+
     for (let i = startIndex; i < lines.length; i++) {
       const line = lines[i].trim();
       if (line) {
@@ -83,7 +85,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         }
       }
     }
-    
+
     return emails;
   };
 
@@ -91,38 +93,38 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     if (inviteMode === 'single') {
       return singleEmail ? [singleEmail.trim()] : [];
     }
-    
+
     // Bulk mode
     if (csvFile) {
       const csvContent = await csvFile.text();
       return parseCSV(csvContent);
     }
-    
+
     if (bulkEmails) {
       return bulkEmails
         .split('\n')
         .map(email => email.trim())
         .filter(email => email && email.includes('@'));
     }
-    
+
     return [];
   };
 
   const handleInvite = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const emails = await getEmailsToInvite();
-      
+
       if (emails.length === 0) {
-        setError('Please provide at least one email address');
+        setError(t('adminPortal.invite.errors.noEmailsProvided'));
         setLoading(false);
         return;
       }
 
       if (emails.length > 100) {
-        setError('Maximum 100 users can be invited at once');
+        setError(t('adminPortal.invite.errors.tooManyEmails'));
         setLoading(false);
         return;
       }
@@ -133,13 +135,13 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       });
 
       setResults(response.data);
-      
+
       if (onInviteSuccess) {
         onInviteSuccess();
       }
     } catch (error: any) {
       console.error('Failed to invite users:', error);
-      setError(error.response?.data?.message || 'Failed to invite users');
+      setError(error.response?.data?.message || t('adminPortal.invite.errors.invitationFailed'));
     } finally {
       setLoading(false);
     }
@@ -151,14 +153,14 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
-        
+
         <div className="inline-block w-full max-w-2xl transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PiUserPlus className="mr-3 text-2xl text-blue-600" />
               <h3 className="text-lg font-semibold text-gray-900">
-                Invite Users
+                {t('adminPortal.invite.title')}
               </h3>
             </div>
             <button
@@ -173,26 +175,24 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           <div className="mb-6">
             <div className="flex rounded-lg border border-gray-300 p-1">
               <button
-                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
-                  inviteMode === 'single'
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${inviteMode === 'single'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                  }`}
                 onClick={() => setInviteMode('single')}
               >
                 <PiEnvelope className="mr-2 inline" />
-                Single User
+                {t('adminPortal.invite.mode.single')}
               </button>
               <button
-                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
-                  inviteMode === 'bulk'
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${inviteMode === 'bulk'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                  }`}
                 onClick={() => setInviteMode('bulk')}
               >
                 <PiUpload className="mr-2 inline" />
-                Bulk Invite
+                {t('adminPortal.invite.mode.bulk')}
               </button>
             </div>
           </div>
@@ -201,12 +201,12 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           {inviteMode === 'single' && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                {t('adminPortal.invite.singleUser.emailLabel')}
               </label>
               <InputText
                 value={singleEmail}
                 onChange={setSingleEmail}
-                placeholder="user@example.com"
+                placeholder={t('adminPortal.invite.singleUser.emailPlaceholder')}
                 className="w-full"
               />
             </div>
@@ -217,7 +217,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
             <div className="mb-6">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CSV File Upload
+                  {t('adminPortal.invite.bulkMode.csvUpload')}
                 </label>
                 <input
                   type="file"
@@ -227,11 +227,11 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 />
                 {csvFile && (
                   <p className="mt-2 text-sm text-green-600">
-                    Selected: {csvFile.name}
+                    {t('adminPortal.invite.bulkMode.csvSelected', { filename: csvFile.name })}
                   </p>
                 )}
                 <p className="mt-2 text-sm text-gray-500">
-                  CSV format: First column should contain email addresses
+                  {t('adminPortal.invite.bulkMode.csvFormat')}
                 </p>
               </div>
 
@@ -240,18 +240,18 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                   <div className="w-full border-t border-gray-300" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="bg-white px-2 text-gray-500">or</span>
+                  <span className="bg-white px-2 text-gray-500">{t('adminPortal.invite.bulkMode.or')}</span>
                 </div>
               </div>
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Manual Entry (one email per line)
+                  {t('adminPortal.invite.bulkMode.manualEntry')}
                 </label>
                 <Textarea
                   value={bulkEmails}
                   onChange={setBulkEmails}
-                  placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com"
+                  placeholder={t('adminPortal.invite.bulkMode.manualPlaceholder')}
                   rows={6}
                   className="w-full"
                   disabled={!!csvFile}
@@ -270,13 +270,13 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 className="mr-2"
               />
               <span className="text-sm text-gray-700">
-                Send invitation email automatically
+                {t('adminPortal.invite.options.sendEmail')}
               </span>
             </label>
             <p className="ml-6 text-xs text-gray-500">
-              {sendEmail 
-                ? 'Users will receive email with login instructions'
-                : 'You will need to manually share login credentials with users'
+              {sendEmail
+                ? t('adminPortal.invite.options.sendEmailHelp')
+                : t('adminPortal.invite.options.noSendEmailHelp')
               }
             </p>
           </div>
@@ -292,28 +292,29 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
             <div className="mb-6">
               <div className="rounded-lg border border-gray-200 p-4">
                 <h4 className="font-semibold text-gray-900 mb-3">
-                  Invitation Results
+                  {t('adminPortal.invite.results.title')}
                 </h4>
                 <div className="mb-3 text-sm text-gray-600">
-                  Total: {results.summary.totalRequested} | 
-                  Successful: {results.summary.successful} | 
-                  Failed: {results.summary.failed}
+                  {t('adminPortal.invite.results.summary', {
+                    total: results.summary.totalRequested,
+                    successful: results.summary.successful,
+                    failed: results.summary.failed
+                  })}
                 </div>
-                
+
                 <div className="max-h-60 overflow-y-auto">
                   {results.results.map((result, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-between p-2 rounded ${
-                        result.success ? 'bg-green-50' : 'bg-red-50'
-                      }`}
+                      className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50' : 'bg-red-50'
+                        }`}
                     >
                       <span className="text-sm">{result.email}</span>
                       {result.success ? (
-                        <span className="text-xs text-green-600">✓ Invited</span>
+                        <span className="text-xs text-green-600">{t('adminPortal.invite.results.invited')}</span>
                       ) : (
                         <span className="text-xs text-red-600">
-                          ✗ {result.error}
+                          {t('adminPortal.invite.results.failed', { error: result.error })}
                         </span>
                       )}
                     </div>
@@ -323,8 +324,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 {!sendEmail && results.summary.successful > 0 && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded">
                     <p className="text-sm text-yellow-800">
-                      <strong>Important:</strong> Since automatic emails are disabled, 
-                      you need to manually share the temporary passwords with invited users.
+                      {t('adminPortal.invite.results.warning')}
                     </p>
                   </div>
                 )}
@@ -339,7 +339,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
               onClick={handleClose}
               disabled={loading}
             >
-              {results ? 'Close' : 'Cancel'}
+              {results ? t('adminPortal.invite.actions.close') : t('adminPortal.invite.actions.cancel')}
             </Button>
             {!results && (
               <Button
@@ -350,12 +350,12 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 {loading ? (
                   <>
                     <LoadingWave />
-                    Inviting...
+                    {t('adminPortal.invite.actions.inviting')}
                   </>
                 ) : (
                   <>
                     <PiUserPlus className="mr-2" />
-                    Send Invitations
+                    {t('adminPortal.invite.actions.sendInvitations')}
                   </>
                 )}
               </Button>

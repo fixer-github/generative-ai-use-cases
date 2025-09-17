@@ -28,9 +28,9 @@ interface TenantUser {
 
 const AdminPortal: React.FC = () => {
   const { user: _user } = useAuthenticator();
-  const { t: _t } = useTranslation();
+  const { t } = useTranslation();
   const { api } = useHttp();
-  
+
   const [adminStatus, setAdminStatus] = useState<AdminStatusResponse | null>(null);
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,13 +43,13 @@ const AdminPortal: React.FC = () => {
       try {
         const response = await api.get('/admin/status');
         setAdminStatus(response.data);
-        
+
         if (response.data.isAdmin) {
           await loadUsers();
         }
       } catch (error: any) {
         console.error('Failed to check admin status:', error);
-        setError('Failed to verify admin status');
+        setError(t('adminPortal.messages.failedToCheckAdminStatus'));
       } finally {
         setLoading(false);
       }
@@ -64,7 +64,7 @@ const AdminPortal: React.FC = () => {
       setUsers(response.data.users || []);
     } catch (error: any) {
       console.error('Failed to load users:', error);
-      setError('Failed to load users');
+      setError(t('adminPortal.messages.failedToLoadUsers'));
     }
   };
 
@@ -74,17 +74,17 @@ const AdminPortal: React.FC = () => {
         username,
         tenantAdmin: isAdmin,
       });
-      
+
       // Reload users to reflect changes
       await loadUsers();
     } catch (error: any) {
       console.error('Failed to update user role:', error);
-      setError('Failed to update user role');
+      setError(t('adminPortal.messages.failedToUpdateUserRole'));
     }
   };
 
   const handleRemoveUser = async (username: string) => {
-    if (!confirm(`Are you sure you want to remove user ${username}? This action cannot be undone.`)) {
+    if (!confirm(t('adminPortal.messages.removeUserConfirmation', { username }))) {
       return;
     }
 
@@ -92,12 +92,12 @@ const AdminPortal: React.FC = () => {
       await api.delete(`/admin/users/${username}`, {
         data: { username, action: 'disable' }, // Default to disable instead of delete
       });
-      
+
       // Reload users to reflect changes
       await loadUsers();
     } catch (error: any) {
       console.error('Failed to remove user:', error);
-      setError('Failed to remove user');
+      setError(t('adminPortal.messages.failedToRemoveUser'));
     }
   };
 
@@ -107,7 +107,7 @@ const AdminPortal: React.FC = () => {
   }
 
   if (loading) {
-    return <LoadingOverlay>Loading...</LoadingOverlay>;
+    return <LoadingOverlay>{t('adminPortal.messages.loading')}</LoadingOverlay>;
   }
 
   return (
@@ -119,10 +119,10 @@ const AdminPortal: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 <PiShieldCheck className="mr-3 inline text-3xl text-blue-600" />
-                Admin Portal
+                {t('adminPortal.title')}
               </h1>
               <p className="mt-1 text-sm text-gray-600">
-                Manage users for tenant: <span className="font-semibold">{adminStatus?.tenantId}</span>
+                {t('adminPortal.manageTenant', { tenantId: adminStatus?.tenantId })}
               </p>
             </div>
             <div className="flex space-x-3">
@@ -131,7 +131,7 @@ const AdminPortal: React.FC = () => {
                 onClick={() => setShowInviteDialog(true)}
               >
                 <PiUserPlus className="mr-2" />
-                Invite Users
+                {t('adminPortal.inviteUsers')}
               </Button>
             </div>
           </div>
@@ -152,11 +152,11 @@ const AdminPortal: React.FC = () => {
               <PiUsers className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <div className="text-2xl font-semibold text-gray-900">{users.length}</div>
-                <div className="text-sm text-gray-600">Total Users</div>
+                <div className="text-sm text-gray-600">{t('adminPortal.stats.totalUsers')}</div>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white p-6 rounded-lg shadow border">
             <div className="flex items-center">
               <PiShieldCheck className="h-8 w-8 text-green-600" />
@@ -164,7 +164,7 @@ const AdminPortal: React.FC = () => {
                 <div className="text-2xl font-semibold text-gray-900">
                   {users.filter(u => u.tenantAdmin).length}
                 </div>
-                <div className="text-sm text-gray-600">Admins</div>
+                <div className="text-sm text-gray-600">{t('adminPortal.stats.admins')}</div>
               </div>
             </div>
           </div>
@@ -176,7 +176,7 @@ const AdminPortal: React.FC = () => {
                 <div className="text-2xl font-semibold text-gray-900">
                   {users.filter(u => !u.tenantAdmin).length}
                 </div>
-                <div className="text-sm text-gray-600">Regular Users</div>
+                <div className="text-sm text-gray-600">{t('adminPortal.stats.regularUsers')}</div>
               </div>
             </div>
           </div>
@@ -188,7 +188,7 @@ const AdminPortal: React.FC = () => {
                 <div className="text-2xl font-semibold text-gray-900">
                   {users.filter(u => !u.enabled).length}
                 </div>
-                <div className="text-sm text-gray-600">Disabled Users</div>
+                <div className="text-sm text-gray-600">{t('adminPortal.stats.disabledUsers')}</div>
               </div>
             </div>
           </div>
@@ -197,27 +197,27 @@ const AdminPortal: React.FC = () => {
         {/* User Management Table */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">User Management</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('adminPortal.userManagement')}</h2>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
+                    {t('adminPortal.table.user')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
+                    {t('adminPortal.table.role')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    {t('adminPortal.table.status')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
+                    {t('adminPortal.table.created')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('adminPortal.table.actions')}
                   </th>
                 </tr>
               </thead>
@@ -237,19 +237,18 @@ const AdminPortal: React.FC = () => {
                         disabled={user.username === adminStatus?.username}
                         className="text-sm rounded border border-gray-300 px-2 py-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
-                        <option value="user">Regular User</option>
-                        <option value="admin">Admin</option>
+                        <option value="user">{t('adminPortal.roles.regularUser')}</option>
+                        <option value="admin">{t('adminPortal.roles.admin')}</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 text-xs font-semibold rounded-full ${
-                        user.enabled 
-                          ? user.userStatus === 'CONFIRMED' 
-                            ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex px-2 text-xs font-semibold rounded-full ${user.enabled
+                          ? user.userStatus === 'CONFIRMED'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-yellow-100 text-yellow-800'
                           : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.enabled ? user.userStatus : 'DISABLED'}
+                        }`}>
+                        {user.enabled ? user.userStatus : t('adminPortal.status.disabled')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -262,7 +261,7 @@ const AdminPortal: React.FC = () => {
                           className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
                           onClick={() => handleRemoveUser(user.username)}
                         >
-                          Remove
+                          {t('adminPortal.actions.remove')}
                         </Button>
                       )}
                     </td>
@@ -271,7 +270,7 @@ const AdminPortal: React.FC = () => {
                 {users.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                      No users found
+                      {t('adminPortal.messages.noUsersFound')}
                     </td>
                   </tr>
                 )}
@@ -280,7 +279,7 @@ const AdminPortal: React.FC = () => {
           </div>
         </div>
 
-        <UserInviteDialog 
+        <UserInviteDialog
           isOpen={showInviteDialog}
           onClose={() => setShowInviteDialog(false)}
           onInviteSuccess={loadUsers}
