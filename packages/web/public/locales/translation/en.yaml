@@ -39,7 +39,7 @@ adminPortal:
       emailPlaceholder: user@example.com
     bulkMode:
       csvUpload: CSV File Upload
-      csvFormat: 'CSV format: First column should contain email addresses'
+      csvFormat: 'CSV format: Email in first column. Example: john@example.com,John Doe,Sales'
       csvSelected: 'Selected: {{filename}}'
       manualEntry: Manual Entry (one email per line)
       manualPlaceholder: user1@example.com

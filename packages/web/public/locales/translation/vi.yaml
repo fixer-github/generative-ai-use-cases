@@ -39,7 +39,7 @@ adminPortal:
       emailPlaceholder: user@example.com
     bulkMode:
       csvUpload: Tải Lên File CSV
-      csvFormat: 'Định dạng CSV: Cột đầu tiên phải chứa địa chỉ email'
+      csvFormat: 'Định dạng CSV: Email ở cột đầu. Ví dụ: john@example.com,John Doe,Kinh doanh'
       csvSelected: 'Đã chọn: {{filename}}'
       manualEntry: Nhập Thủ Công (một email mỗi dòng)
       manualPlaceholder: user1@example.com

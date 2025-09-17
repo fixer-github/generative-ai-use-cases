@@ -39,7 +39,7 @@ adminPortal:
       emailPlaceholder: user@example.com
     bulkMode:
       csvUpload: CSVファイルアップロード
-      csvFormat: 'CSVフォーマット: 最初の列にメールアドレスを含める必要があります'
+      csvFormat: 'CSVフォーマット: 最初の列にメール。例: john@example.com,John Doe,営業部'
       csvSelected: '選択済み: {{filename}}'
       manualEntry: 手動入力（1行に1つのメール）
       manualPlaceholder: user1@example.com

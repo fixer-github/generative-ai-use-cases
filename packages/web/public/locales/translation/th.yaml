@@ -39,7 +39,7 @@ adminPortal:
       emailPlaceholder: user@example.com
     bulkMode:
       csvUpload: อัปโหลดไฟล์ CSV
-      csvFormat: 'รูปแบบ CSV: คอลัมน์แรกควรมีที่อยู่อีเมล'
+      csvFormat: 'รูปแบบ CSV: อีเมลในคอลัมน์แรก ตัวอย่าง: john@example.com,John Doe,ฝ่ายขาย'
       csvSelected: 'เลือกแล้ว: {{filename}}'
       manualEntry: การป้อนด้วยตนเอง (หนึ่งอีเมลต่อบรรทัด)
       manualPlaceholder: user1@example.com

@@ -60,10 +60,32 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'text/csv') {
+    
+    if (!file) return;
+    
+    // Accept common CSV MIME types
+    const acceptedMimeTypes = [
+      'text/csv',
+      'application/csv',
+      'application/vnd.ms-excel',
+      'text/plain',
+      'text/x-csv',
+      'application/x-csv',
+      'text/comma-separated-values',
+      'text/x-comma-separated-values'
+    ];
+    
+    // Check MIME type OR file extension as fallback
+    const isValidCSV = 
+      acceptedMimeTypes.includes(file.type) || 
+      file.type === '' || // Handle empty MIME type
+      file.name.toLowerCase().endsWith('.csv');
+    
+    if (isValidCSV) {
       setCsvFile(file);
       setBulkEmails(''); // Clear manual input when file is selected
     } else {
+      console.error(`Invalid file type: ${file.type}, name: ${file.name}`);
       alert(t('adminPortal.invite.errors.invalidFile'));
     }
   };

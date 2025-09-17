@@ -39,7 +39,7 @@ adminPortal:
       emailPlaceholder: user@example.com
     bulkMode:
       csvUpload: CSV文件上传
-      csvFormat: 'CSV格式: 第一列应包含邮箱地址'
+      csvFormat: 'CSV格式: 第一列为邮箱。示例: john@example.com,张三,销售部'
       csvSelected: '已选择: {{filename}}'
       manualEntry: 手动输入（每行一个邮箱）
       manualPlaceholder: user1@example.com
