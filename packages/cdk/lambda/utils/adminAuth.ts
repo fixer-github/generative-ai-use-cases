@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { 
-  CognitoIdentityProviderClient, 
+import {
+  CognitoIdentityProviderClient,
   AdminGetUserCommand,
-  AttributeType 
+  AttributeType
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyToken } from './auth';
 
@@ -104,7 +104,7 @@ export async function verifyTenantMembership(
     });
 
     const userResponse = await cognitoClient.send(getUserCommand);
-    
+
     if (!userResponse.UserAttributes) {
       return {
         statusCode: 404,
@@ -122,8 +122,8 @@ export async function verifyTenantMembership(
       return {
         statusCode: 403,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ 
-          message: 'Cannot access user from different tenant' 
+        body: JSON.stringify({
+          message: 'Cannot access user from different tenant'
         }),
       };
     }
@@ -148,7 +148,7 @@ export async function verifyTenantMembership(
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Failed to verify user access',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
