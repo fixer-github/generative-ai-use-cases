@@ -7,8 +7,7 @@ import {
   PiRobot,
   PiPencil,
   PiTrash,
-  PiCaretDown,
-  PiUser,
+  PiStar,
   PiDotsThreeVertical,
   PiCheckCircle,
   PiClockCountdown,
@@ -21,21 +20,18 @@ import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 import Button from '../components/Button';
 import LoadingWave from '../components/LoadingWave';
 
-type ViewMode = 'popular' | 'search' | 'mybot' | 'all';
-type FilterOption = 'all' | 'private' | 'public' | 'starred';
+type ScopeFilter = 'all' | 'organization' | 'private';
 
 const RagChatBotPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { getAllBots, deleteBot, getPrivateBot, setBotVisibility } = useBedrockChatApi();
+  const { searchStore, deleteBot, getPrivateBot, setBotVisibility } = useBedrockChatApi();
 
   const [bots, setBots] = useState<BedrockChatBot[]>([]);
-  const [filteredBots, setFilteredBots] = useState<BedrockChatBot[]>([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('mybot');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterOption] = useState<FilterOption>('all');
-  const [showOnlyStarred] = useState(false);
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
+  const [showOnlyStarred, setShowOnlyStarred] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [visibilityModalBotId, setVisibilityModalBotId] = useState<string | null>(null);
   const [newVisibility, setNewVisibility] = useState<'private' | 'partial' | 'all'>('private');
@@ -54,22 +50,15 @@ const RagChatBotPage: React.FC = () => {
 
     setLoading(true);
     try {
-      let params = {};
-      if (viewMode === 'popular') {
-        params = { kind: 'mixed', limit: 10 };
-      } else if (viewMode === 'mybot') {
-        params = { kind: 'private' };
-      } else if (viewMode === 'all') {
-        params = { kind: 'mixed', limit: 100 };
-      } else if (viewMode === 'search') {
-        params = { kind: 'mixed' };
-      }
+      const params = {
+        query: searchQuery || undefined,
+        scope: scopeFilter,
+        starred: showOnlyStarred || undefined,
+        limit: 50,
+        sort: 'usage' as const,
+      };
 
-      if (showOnlyStarred) {
-        params = { ...params, starred: true };
-      }
-
-      const data = await getAllBots(params, signal);
+      const data = await searchStore(params);
       // Only update state if request wasn't cancelled
       if (!signal.aborted) {
         setBots(data || []);
@@ -86,7 +75,7 @@ const RagChatBotPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [viewMode, showOnlyStarred, getAllBots]);
+  }, [searchQuery, scopeFilter, showOnlyStarred, searchStore]);
 
   // Function to update only sync status without full reload
   const updateSyncStatuses = useCallback(async () => {
@@ -120,13 +109,14 @@ const RagChatBotPage: React.FC = () => {
     }
   }, [bots, getPrivateBot]);
 
+  // Fetch bots on filter changes
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
 
   // Polling for sync status
   useEffect(() => {
-    const shouldPoll = filteredBots.some(bot => 
+    const shouldPoll = bots.some(bot =>
       bot.syncStatus === 'RUNNING'
     );
 
@@ -146,37 +136,7 @@ const RagChatBotPage: React.FC = () => {
         clearInterval(pollingInterval.current);
       }
     };
-  }, [filteredBots, updateSyncStatuses]);
-
-  useEffect(() => {
-    let filtered = [...bots];
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (bot) =>
-          bot.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          bot.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply filter option
-    if (filterOption === 'private') {
-      filtered = filtered.filter((bot) => bot.sharedScope === 'private');
-    } else if (filterOption === 'public') {
-      filtered = filtered.filter((bot) => bot.sharedScope !== 'private');
-    } else if (filterOption === 'starred') {
-      filtered = filtered.filter((bot) => bot.isStarred);
-    }
-
-    setFilteredBots(filtered);
-  }, [bots, searchQuery, filterOption]);
-
-  const handleSearch = () => {
-    if (searchQuery) {
-      setViewMode('search');
-    }
-  };
+  }, [bots, updateSyncStatuses]);
 
   const handleCreateBot = () => {
     navigate('/rag-chat-bot/create');
@@ -377,82 +337,85 @@ const RagChatBotPage: React.FC = () => {
         <p className="text-gray-600">{t('ragChatBot.description')}</p>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-4 items-center">
-        <div className="flex-1 flex gap-2">
-          <input
-            type="text"
-            placeholder={t('ragChatBot.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSearch()}
-            className="flex-1 rounded border border-black/30 p-1.5 outline-none"
-          />
-          <Button
-            onClick={handleSearch}
-            outlined
-            className="flex items-center gap-1"
-          >
-            <PiMagnifyingGlass />
-            {t('ragChatBot.search')}
-          </Button>
+      {/* 検索・フィルタリング設定部分 */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex flex-col gap-4">
+          {/* 検索入力フォーム */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder={t('ragChatBot.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 rounded border border-black/30 p-2 outline-none"
+            />
+            <Button
+              outlined
+              className="flex items-center gap-1"
+              onClick={fetchBots}
+            >
+              <PiMagnifyingGlass />
+              {t('ragChatBot.search')}
+            </Button>
+          </div>
+
+          {/* フィルタリングオプション */}
+          <div className="flex flex-wrap items-center gap-4">
+            {/* 公開範囲フィルタリング */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">
+                {t('ragChatBot.scopeFilter')}:
+              </label>
+              <select
+                value={scopeFilter}
+                onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
+                className="rounded border border-black/30 px-3 py-1.5 outline-none"
+              >
+                <option value="all">{t('ragChatBot.all')}</option>
+                <option value="organization">{t('ragChatBot.organizationPublic')}</option>
+                <option value="private">{t('ragChatBot.private')}</option>
+              </select>
+            </div>
+
+            {/* スター付きのみ表示 */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showOnlyStarred}
+                onChange={(e) => setShowOnlyStarred(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <PiStar className={`text-lg ${showOnlyStarred ? 'text-yellow-500' : 'text-gray-400'}`} />
+              <span className="text-sm font-medium text-gray-700">
+                {t('ragChatBot.starredOnly')}
+              </span>
+            </label>
+
+            {/* 新規作成ボタン */}
+            <Button
+              onClick={handleCreateBot}
+              className="flex items-center gap-1 ml-auto"
+            >
+              <PiPlus />
+              {t('ragChatBot.createNew')}
+            </Button>
+          </div>
         </div>
-
-        <Button
-          onClick={handleCreateBot}
-          className="flex items-center gap-1"
-        >
-          <PiPlus />
-          {t('ragChatBot.createNew')}
-        </Button>
       </div>
 
-      <div className="mb-6 flex gap-2">
-        <Button
-          outlined={viewMode !== 'mybot'}
-          onClick={() => setViewMode('mybot')}
-          className="flex items-center gap-1"
-        >
-          <PiUser />
-          {t('ragChatBot.myBots')}
-        </Button>
-        <Button
-          outlined={viewMode !== 'all'}
-          onClick={() => setViewMode('all')}
-        >
-          {t('ragChatBot.allBots')}
-        </Button>
-        <Button
-          outlined={viewMode !== 'popular'}
-          onClick={() => setViewMode('popular')}
-        >
-          {t('ragChatBot.popularBots')}
-        </Button>
-      </div>
-
+      {/* ボット一覧表示部分 */}
       {loading ? (
         <div className="flex justify-center py-12">
           <LoadingWave />
         </div>
-      ) : filteredBots.length === 0 ? (
+      ) : bots.length === 0 ? (
         <div className="text-center py-12">
           <PiRobot className="text-6xl text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">{t('ragChatBot.noBots')}</p>
         </div>
       ) : (
         <div>
-          {filteredBots.map((bot) => renderBotCard(bot))}
-          {viewMode === 'popular' && filteredBots.length >= 10 && (
-            <div className="text-center mt-6">
-              <Button
-                outlined
-                onClick={() => setViewMode('all')}
-                className="flex items-center gap-1"
-              >
-                <PiCaretDown />
-                {t('ragChatBot.viewMore')}
-              </Button>
-            </div>
-          )}
+          {bots.map((bot) => renderBotCard(bot))}
         </div>
       )}
 

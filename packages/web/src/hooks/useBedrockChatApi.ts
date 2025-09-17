@@ -184,7 +184,7 @@ const useBedrockChatApi = () => {
   };
 
   // Test basic store endpoints
-  const searchStore = async (params?: {
+  const searchStore = useCallback(async (params?: {
     query?: string;
     scope?: 'all' | 'organization' | 'private';
     starred?: boolean;
@@ -200,7 +200,7 @@ const useBedrockChatApi = () => {
       console.error('BedrockChat store search failed:', error);
       throw error;
     }
-  };
+  }, []);
 
   const getPopularBots = async () => {
     try {
