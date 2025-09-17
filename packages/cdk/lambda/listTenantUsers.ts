@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CognitoIdentityProviderClient, ListUsersCommand, AttributeType } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyToken } from './utils/auth';
+import { verifyAdminAccess, isAdminContext, getAttributeValue, CORS_HEADERS } from './utils/adminAuth';
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
 const USER_POOL_ID = process.env.USER_POOL_ID!;
@@ -19,50 +19,14 @@ export interface TenantUser {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  };
-
   try {
-    // Verify JWT token and admin status
-    const token = event.headers.Authorization || event.headers.authorization;
-    if (!token) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Missing authorization token' }),
-      };
+    // Verify admin access
+    const adminResult = await verifyAdminAccess(event);
+    if (!isAdminContext(adminResult)) {
+      return adminResult;
     }
 
-    const claims = await verifyToken(token);
-    if (!claims) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token' }),
-      };
-    }
-
-    const tenantId = claims['custom:tenant_id'];
-    const isAdmin = claims['custom:tenantAdmin'] === 'true';
-
-    if (!isAdmin) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Access denied. Admin privileges required.' }),
-      };
-    }
-
-    if (!tenantId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Tenant ID not found in token' }),
-      };
-    }
+    const { tenantId } = adminResult;
 
     // List users in the tenant
     const users: TenantUser[] = [];
@@ -80,10 +44,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       
       if (response.Users) {
         for (const user of response.Users) {
-          const getAttributeValue = (attributes: AttributeType[] | undefined, name: string): string => {
-            return attributes?.find(attr => attr.Name === name)?.Value || '';
-          };
-
           users.push({
             username: user.Username || '',
             email: getAttributeValue(user.Attributes, 'email'),
@@ -104,7 +64,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         users,
         totalCount: users.length,
@@ -115,7 +75,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Error listing tenant users:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ 
         message: 'Failed to list tenant users',
         error: error instanceof Error ? error.message : 'Unknown error',

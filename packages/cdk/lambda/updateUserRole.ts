@@ -1,11 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { 
   CognitoIdentityProviderClient, 
-  AdminUpdateUserAttributesCommand,
-  AdminGetUserCommand,
-  AttributeType
+  AdminUpdateUserAttributesCommand
 } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyToken } from './utils/auth';
+import { verifyAdminAccessWithUser, isAdminUserResult, CORS_HEADERS } from './utils/adminAuth';
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
 const USER_POOL_ID = process.env.USER_POOL_ID!;
@@ -18,60 +16,15 @@ export interface UpdateUserRoleRequest {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'PUT, OPTIONS',
-  };
-
   try {
-    // Verify JWT token and admin status
-    const token = event.headers.Authorization || event.headers.authorization;
-    if (!token) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Missing authorization token' }),
-      };
-    }
-
-    const claims = await verifyToken(token);
-    if (!claims) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token' }),
-      };
-    }
-
-    const currentUserTenantId = claims['custom:tenant_id'];
-    const currentUsername = claims['cognito:username'] || claims.username;
-    const isCurrentUserAdmin = claims['custom:tenantAdmin'] === 'true';
-
-    if (!isCurrentUserAdmin) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Access denied. Admin privileges required.' }),
-      };
-    }
-
-    if (!currentUserTenantId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Tenant ID not found in token' }),
-      };
-    }
-
-    // Parse request body
+    // Parse request body first to get username
     let requestBody: UpdateUserRoleRequest;
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Invalid JSON in request body' }),
       };
     }
@@ -81,57 +34,34 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!username || typeof tenantAdmin !== 'boolean') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ 
           message: 'username (string) and tenantAdmin (boolean) are required' 
         }),
       };
     }
 
+    // Verify admin access and user membership in same tenant
+    const result = await verifyAdminAccessWithUser(event, username);
+    if (!isAdminUserResult(result)) {
+      return result;
+    }
+
+    const { admin } = result;
+
     // Prevent admin from removing their own admin status
-    if (username === currentUsername && !tenantAdmin) {
+    if (username === admin.username && !tenantAdmin) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ 
           message: 'Cannot remove admin privileges from yourself' 
         }),
       };
     }
 
-    // Get target user details to verify tenant membership
+    // Update user role
     try {
-      const getUserCommand = new AdminGetUserCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: username,
-      });
-
-      const userResponse = await cognitoClient.send(getUserCommand);
-      
-      if (!userResponse.UserAttributes) {
-        return {
-          statusCode: 404,
-          headers: corsHeaders,
-          body: JSON.stringify({ message: 'User not found' }),
-        };
-      }
-
-      // Check if user belongs to the same tenant
-      const userTenantId = userResponse.UserAttributes.find(
-        attr => attr.Name === 'custom:tenant_id'
-      )?.Value;
-
-      if (userTenantId !== currentUserTenantId) {
-        return {
-          statusCode: 403,
-          headers: corsHeaders,
-          body: JSON.stringify({ 
-            message: 'Cannot modify user from different tenant' 
-          }),
-        };
-      }
-
-      // Update user role
       const updateCommand = new AdminUpdateUserAttributesCommand({
         UserPoolId: USER_POOL_ID,
         Username: username,
@@ -149,7 +79,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           message: 'User role updated successfully',
           username,
@@ -157,13 +87,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Failed to update user ${username}:`, error);
 
-      if (error.name === 'UserNotFoundException') {
+      if (error instanceof Error && error.name === 'UserNotFoundException') {
         return {
           statusCode: 404,
-          headers: corsHeaders,
+          headers: CORS_HEADERS,
           body: JSON.stringify({ message: 'User not found' }),
         };
       }
@@ -175,7 +105,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Error updating user role:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ 
         message: 'Failed to update user role',
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -6,8 +6,8 @@ import {
   DeliveryMediumType,
   AttributeType
 } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyToken } from './utils/auth';
-import crypto from 'crypto';
+import { verifyAdminAccess, isAdminContext, CORS_HEADERS } from './utils/adminAuth';
+import * as crypto from 'crypto';
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
 const USER_POOL_ID = process.env.USER_POOL_ID!;
@@ -54,50 +54,14 @@ function isValidEmail(email: string): boolean {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
-
   try {
-    // Verify JWT token and admin status
-    const token = event.headers.Authorization || event.headers.authorization;
-    if (!token) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Missing authorization token' }),
-      };
+    // Verify admin access
+    const adminResult = await verifyAdminAccess(event);
+    if (!isAdminContext(adminResult)) {
+      return adminResult;
     }
 
-    const claims = await verifyToken(token);
-    if (!claims) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token' }),
-      };
-    }
-
-    const tenantId = claims['custom:tenant_id'];
-    const isAdmin = claims['custom:tenantAdmin'] === 'true';
-
-    if (!isAdmin) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Access denied. Admin privileges required.' }),
-      };
-    }
-
-    if (!tenantId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Tenant ID not found in token' }),
-      };
-    }
+    const { tenantId } = adminResult;
 
     // Parse request body
     let requestBody: InviteUserRequest;
@@ -106,7 +70,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } catch (error) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Invalid JSON in request body' }),
       };
     }
@@ -116,7 +80,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'emails array is required and must not be empty' }),
       };
     }
@@ -124,7 +88,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (emails.length > 100) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Maximum 100 users can be invited at once' }),
       };
     }
@@ -134,7 +98,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (invalidEmails.length > 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ 
           message: 'Invalid email addresses found', 
           invalidEmails 
@@ -143,11 +107,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Check for duplicate emails
-    const uniqueEmails = [...new Set(emails)];
+    const uniqueEmails = Array.from(new Set(emails));
     if (uniqueEmails.length !== emails.length) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Duplicate emails found in request' }),
       };
     }
@@ -214,7 +178,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         results,
         summary: {
@@ -229,7 +193,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Error inviting users:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ 
         message: 'Failed to invite users',
         error: error instanceof Error ? error.message : 'Unknown error',

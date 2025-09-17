@@ -1,4 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { verifyAdminAccess, CORS_HEADERS, JWTClaims } from './utils/adminAuth';
 import { verifyToken } from './utils/auth';
 
 export interface AdminStatusResponse {
@@ -10,40 +11,35 @@ export interface AdminStatusResponse {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  };
-
   try {
-    // Verify JWT token
+    // For checkAdminStatus, we still need to handle non-admin users
+    // So we verify the token directly instead of using verifyAdminAccess
     const token = event.headers.Authorization || event.headers.authorization;
     if (!token) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Missing authorization token' }),
       };
     }
 
-    const claims = await verifyToken(token);
+    const claims = await verifyToken(token) as JWTClaims | null;
     if (!claims) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Invalid token' }),
       };
     }
 
     const tenantId = claims['custom:tenant_id'];
     const isAdmin = claims['custom:tenantAdmin'] === 'true';
-    const username = claims['cognito:username'] || claims.username;
+    const username = claims['cognito:username'] || claims.username || '';
 
     if (!tenantId) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: 'Tenant ID not found in token' }),
       };
     }
@@ -58,7 +54,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify(response),
     };
 
@@ -66,7 +62,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Error checking admin status:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ 
         message: 'Failed to check admin status',
         error: error instanceof Error ? error.message : 'Unknown error',
