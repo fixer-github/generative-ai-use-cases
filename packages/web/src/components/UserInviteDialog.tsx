@@ -204,7 +204,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 Email Address
               </label>
               <InputText
-                type="email"
                 value={singleEmail}
                 onChange={setSingleEmail}
                 placeholder="user@example.com"
@@ -336,7 +335,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           {/* Actions */}
           <div className="flex justify-end space-x-3">
             <Button
-              variant="outline"
+              outlined={true}
               onClick={handleClose}
               disabled={loading}
             >

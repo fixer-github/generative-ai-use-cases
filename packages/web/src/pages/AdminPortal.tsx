@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
-import { PiUsers, PiUserPlus, PiShieldCheck, PiDownload } from 'react-icons/pi';
+import { PiUsers, PiUserPlus, PiShieldCheck } from 'react-icons/pi';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -27,8 +27,8 @@ interface TenantUser {
 }
 
 const AdminPortal: React.FC = () => {
-  const { user } = useAuthenticator();
-  const { t } = useTranslation();
+  const { user: _user } = useAuthenticator();
+  const { t: _t } = useTranslation();
   const { api } = useHttp();
   
   const [adminStatus, setAdminStatus] = useState<AdminStatusResponse | null>(null);
@@ -107,7 +107,7 @@ const AdminPortal: React.FC = () => {
   }
 
   if (loading) {
-    return <LoadingOverlay />;
+    return <LoadingOverlay>Loading...</LoadingOverlay>;
   }
 
   return (
@@ -258,8 +258,7 @@ const AdminPortal: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       {user.username !== adminStatus?.username && (
                         <Button
-                          variant="outline"
-                          size="sm"
+                          outlined={true}
                           className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
                           onClick={() => handleRemoveUser(user.username)}
                         >

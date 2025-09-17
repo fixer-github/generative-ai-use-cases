@@ -1,5 +1,6 @@
 import useVersion from '../hooks/useVersion';
 import useUserSetting from '../hooks/useUserSetting';
+import useAdminAuth from '../hooks/useAdminAuth';
 import { Link } from 'react-router-dom';
 import Help from '../components/Help';
 import Alert from '../components/Alert';
@@ -50,8 +51,9 @@ const Setting = () => {
   const { cache } = useSWRConfig();
   const { getHasUpdate } = useVersion();
   const { getClosedPullRequests } = useGitHub();
-  const { signOut, user } = useAuthenticator();
+  const { signOut, user: _user } = useAuthenticator();
   const { i18n, t } = useTranslation();
+  const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
   const hasUpdate = getHasUpdate();
   const closedPullRequests = getClosedPullRequests();
@@ -172,11 +174,25 @@ const Setting = () => {
           }></SettingItem>
 
         {/* Admin Portal Button - Only show for tenant admins */}
-        {user?.signInUserSession?.idToken?.payload?.['custom:tenantAdmin'] === 'true' && (
+        {/* Show loading state while checking admin status */}
+        {isAdminLoading && (
           <SettingItem
             name="Admin Portal"
             value={
-              <Link to="/admin" className="flex items-center">
+              <div className="flex items-center text-gray-500">
+                <PiShieldCheck className="mr-1 text-base animate-pulse" />
+                Checking permissions...
+              </div>
+            }
+          />
+        )}
+
+        {/* Show admin portal link for verified admins */}
+        {!isAdminLoading && isAdmin && (
+          <SettingItem
+            name="Admin Portal"
+            value={
+              <Link to="/admin" className="flex items-center text-blue-600 hover:text-blue-800">
                 <PiShieldCheck className="mr-1 text-base" />
                 Manage Users{' '}
                 <PiArrowSquareOut className="text-base ml-1" />
