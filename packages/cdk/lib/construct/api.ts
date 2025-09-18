@@ -21,7 +21,12 @@ import {
   BucketEncryption,
   HttpMethods,
 } from 'aws-cdk-lib/aws-s3';
-import { Agent, AgentMap, ModelConfiguration, SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import {
+  Agent,
+  AgentMap,
+  ModelConfiguration,
+  SelfSignUpTenantMapEntry,
+} from 'generative-ai-use-cases';
 import {
   BEDROCK_IMAGE_GEN_MODELS,
   BEDROCK_VIDEO_GEN_MODELS,
@@ -107,7 +112,9 @@ export class Api extends Construct {
     const agents: Agent[] = [...(props.agents ?? []), ...props.customAgents];
 
     // Helper function to generate consistent environment variables for Lambda functions
-    const getBaseEnvironment = (additionalEnvVars: Record<string, string> = {}) => ({
+    const getBaseEnvironment = (
+      additionalEnvVars: Record<string, string> = {}
+    ) => ({
       TABLE_NAME: TABLE_PREFIX,
       DEFAULT_TABLE_NAME: props.table.tableName,
       DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
@@ -115,12 +122,13 @@ export class Api extends Construct {
       IDENTITY_POOL_ID: props.idPool.identityPoolId,
       USER_POOL_ID: props.userPool.userPoolId,
       AWS_ACCOUNT_ID: Stack.of(this).account!,
-      ...(props.tenantManager ? {
-        TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-      } : {}),
+      ...(props.tenantManager
+        ? {
+            TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+          }
+        : {}),
       ...additionalEnvVars,
     });
-
 
     // Validate Model Names
     for (const model of modelIds) {
@@ -154,7 +162,7 @@ export class Api extends Construct {
     if (duplicateModelIds.size > 0) {
       throw new Error(
         'Duplicate model IDs detected. Using the same model ID multiple times is not supported:\n' +
-        [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
+          [...duplicateModelIds].map((s) => `- ${s}\n`).join('\n')
       );
     }
 
@@ -207,11 +215,13 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
@@ -251,11 +261,13 @@ export class Api extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: props.openai?.apiKey ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
@@ -272,7 +284,7 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(predictStreamFunction);
@@ -292,15 +304,17 @@ export class Api extends Construct {
       },
       environment: {
         MODEL_REGION: modelRegion,
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
     });
     invokeFlowFunction.grantInvoke(idPool.authenticatedRole);
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(invokeFlowFunction);
@@ -340,17 +354,19 @@ export class Api extends Construct {
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
-        
+
         // Tenant Management Environment Variables
-        ...(props.tenantManager ? {
-          TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-        } : {}),
+        ...(props.tenantManager
+          ? {
+              TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
     });
-    
+
     // Grant tenants table read access if tenant manager is available
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(generateImageFunction);
@@ -537,7 +553,8 @@ export class Api extends Construct {
         actions: ['sagemaker:DescribeEndpoint', 'sagemaker:InvokeEndpoint'],
         resources: endpointNames.map(
           (endpointName) =>
-            `arn:aws:sagemaker:${modelRegion}:${Stack.of(this).account
+            `arn:aws:sagemaker:${modelRegion}:${
+              Stack.of(this).account
             }:endpoint/${endpointName}`
         ),
       });
@@ -814,30 +831,40 @@ export class Api extends Construct {
       props.tenantManager.tenantsTable.grantReadData(listMessagesFunction);
       props.tenantManager.tenantsTable.grantReadData(updateFeedbackFunction);
       props.tenantManager.tenantsTable.grantReadData(predictTitleFunction);
-      
+
       // Share-related functions
       props.tenantManager.tenantsTable.grantReadData(createShareId);
       props.tenantManager.tenantsTable.grantReadData(getSharedChat);
       props.tenantManager.tenantsTable.grantReadData(findShareId);
       props.tenantManager.tenantsTable.grantReadData(deleteShareId);
-      
+
       // System context functions
-      props.tenantManager.tenantsTable.grantReadData(listSystemContextsFunction);
-      props.tenantManager.tenantsTable.grantReadData(createSystemContextFunction);
-      props.tenantManager.tenantsTable.grantReadData(updateSystemContextTitleFunction);
-      props.tenantManager.tenantsTable.grantReadData(deleteSystemContextFunction);
-      
+      props.tenantManager.tenantsTable.grantReadData(
+        listSystemContextsFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        createSystemContextFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        updateSystemContextTitleFunction
+      );
+      props.tenantManager.tenantsTable.grantReadData(
+        deleteSystemContextFunction
+      );
+
       // Video-related functions
       props.tenantManager.tenantsTable.grantReadData(generateVideoFunction);
       props.tenantManager.tenantsTable.grantReadData(copyVideoJob);
       props.tenantManager.tenantsTable.grantReadData(listVideoJobs);
       props.tenantManager.tenantsTable.grantReadData(deleteVideoJob);
-      
+
       // File operations (for S3 cross-account access)
       props.tenantManager.tenantsTable.grantReadData(deleteFileFunction);
       props.tenantManager.tenantsTable.grantReadData(getSignedUrlFunction);
-      props.tenantManager.tenantsTable.grantReadData(getFileDownloadSignedUrlFunction);
-      
+      props.tenantManager.tenantsTable.grantReadData(
+        getFileDownloadSignedUrlFunction
+      );
+
       // Token usage
       props.tenantManager.tenantsTable.grantReadData(getTokenUsageFunction);
     }
@@ -1106,7 +1133,9 @@ export class Api extends Construct {
     // POST: /tenant-registration (API key protected for tenant self-registration)
     // Only create if tenantManager is provided
     if (props.tenantManager) {
-      const tenantRegistrationResource = api.root.addResource('tenant-registration');
+      const tenantRegistrationResource = api.root.addResource(
+        'tenant-registration'
+      );
       tenantRegistrationResource.addMethod(
         'POST',
         new LambdaIntegration(props.tenantManager.registrationLambda),
@@ -1117,23 +1146,29 @@ export class Api extends Construct {
       );
 
       // Create API key for tenant registration
-      const tenantRegistrationApiKey = api.addApiKey('TenantRegistrationApiKey', {
-        apiKeyName: `tenant-registration-key-${props.environment}`,
-        description: 'API key for tenant self-registration',
-      });
+      const tenantRegistrationApiKey = api.addApiKey(
+        'TenantRegistrationApiKey',
+        {
+          apiKeyName: `tenant-registration-key-${props.environment}`,
+          description: 'API key for tenant self-registration',
+        }
+      );
 
       // Create usage plan with rate limiting
-      const tenantRegistrationUsagePlan = api.addUsagePlan('TenantRegistrationUsagePlan', {
-        name: `tenant-registration-plan-${props.environment}`,
-        throttle: {
-          rateLimit: 10,    // 10 requests per second
-          burstLimit: 20,   // Burst of 20 requests
-        },
-        quota: {
-          limit: 1000,      // 1000 requests per month
-          period: Period.MONTH,
-        },
-      });
+      const tenantRegistrationUsagePlan = api.addUsagePlan(
+        'TenantRegistrationUsagePlan',
+        {
+          name: `tenant-registration-plan-${props.environment}`,
+          throttle: {
+            rateLimit: 10, // 10 requests per second
+            burstLimit: 20, // Burst of 20 requests
+          },
+          quota: {
+            limit: 1000, // 1000 requests per month
+            period: Period.MONTH,
+          },
+        }
+      );
 
       tenantRegistrationUsagePlan.addApiStage({
         stage: api.deploymentStage,
@@ -1158,29 +1193,37 @@ export class Api extends Construct {
     const adminResource = api.root.addResource('admin');
 
     // Lambda functions for admin operations
-    const listTenantUsersFunction = new NodejsFunction(this, 'ListTenantUsers', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/listTenantUsers.ts',
-      timeout: Duration.minutes(5),
-      bundling: {
-        nodeModules: ['aws-jwt-verify'],
-      },
-      environment: getBaseEnvironment({
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-      }),
-    });
+    const listTenantUsersFunction = new NodejsFunction(
+      this,
+      'ListTenantUsers',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/listTenantUsers.ts',
+        timeout: Duration.minutes(5),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment({
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        }),
+      }
+    );
 
-    const inviteTenantUsersFunction = new NodejsFunction(this, 'InviteTenantUsers', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/inviteTenantUsers.ts',
-      timeout: Duration.minutes(5),
-      bundling: {
-        nodeModules: ['aws-jwt-verify'],
-      },
-      environment: getBaseEnvironment({
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-      }),
-    });
+    const inviteTenantUsersFunction = new NodejsFunction(
+      this,
+      'InviteTenantUsers',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/inviteTenantUsers.ts',
+        timeout: Duration.minutes(5),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment({
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        }),
+      }
+    );
 
     const updateUserRoleFunction = new NodejsFunction(this, 'UpdateUserRole', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -1194,42 +1237,56 @@ export class Api extends Construct {
       }),
     });
 
-    const removeTenantUserFunction = new NodejsFunction(this, 'RemoveTenantUser', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/removeTenantUser.ts',
-      timeout: Duration.minutes(5),
-      bundling: {
-        nodeModules: ['aws-jwt-verify'],
-      },
-      environment: getBaseEnvironment({
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-      }),
-    });
+    const removeTenantUserFunction = new NodejsFunction(
+      this,
+      'RemoveTenantUser',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/removeTenantUser.ts',
+        timeout: Duration.minutes(5),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment({
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        }),
+      }
+    );
 
-    const checkAdminStatusFunction = new NodejsFunction(this, 'CheckAdminStatus', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/checkAdminStatus.ts',
-      timeout: Duration.minutes(2),
-      bundling: {
-        nodeModules: ['aws-jwt-verify'],
-      },
-      environment: getBaseEnvironment({
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-      }),
-    });
+    const checkAdminStatusFunction = new NodejsFunction(
+      this,
+      'CheckAdminStatus',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/checkAdminStatus.ts',
+        timeout: Duration.minutes(2),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment({
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        }),
+      }
+    );
 
-    const validateInvitationDomainsFunction = new NodejsFunction(this, 'ValidateInvitationDomains', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/validateInvitationDomains.ts',
-      timeout: Duration.minutes(2),
-      bundling: {
-        nodeModules: ['aws-jwt-verify'],
-      },
-      environment: getBaseEnvironment({
-        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-        SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap || []),
-      }),
-    });
+    const validateInvitationDomainsFunction = new NodejsFunction(
+      this,
+      'ValidateInvitationDomains',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/validateInvitationDomains.ts',
+        timeout: Duration.minutes(2),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment({
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(
+            props.selfSignUpTenantMap || []
+          ),
+        }),
+      }
+    );
 
     // Grant Cognito permissions to admin functions
     const adminFunctions = [
@@ -1279,7 +1336,8 @@ export class Api extends Construct {
     );
 
     // POST /admin/users/invite/validate-domains - Validate domains before invitation
-    const validateDomainsResource = inviteResource.addResource('validate-domains');
+    const validateDomainsResource =
+      inviteResource.addResource('validate-domains');
     validateDomainsResource.addMethod(
       'POST',
       new LambdaIntegration(validateInvitationDomainsFunction),
@@ -1310,7 +1368,8 @@ export class Api extends Construct {
     );
 
     const bedrockChatResource = api.root.addResource('bedrock-chat');
-    const bedrockChatProxyResource = bedrockChatResource.addResource('{proxy+}');
+    const bedrockChatProxyResource =
+      bedrockChatResource.addResource('{proxy+}');
 
     // Create proxy Lambda function for Bedrock Chat
     const bedrockChatProxyFunction = new NodejsFunction(
@@ -1322,9 +1381,11 @@ export class Api extends Construct {
         timeout: Duration.minutes(15),
         environment: getBaseEnvironment({
           ENVIRONMENT: props.environment,
-          ...(props.tenantManager ? {
-            TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-          } : {}),
+          ...(props.tenantManager
+            ? {
+                TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
+              }
+            : {}),
         }),
       }
     );
@@ -1337,7 +1398,7 @@ export class Api extends Construct {
         // TODO: Restrict to specific tenant Lambda functions pattern
         // For now, allow invoking any Lambda in the account that matches the pattern
         resources: [
-          `arn:aws:lambda:${Stack.of(this).region}:${Stack.of(this).account}:function:*-TenantBedrockChatStack-*`
+          `arn:aws:lambda:${Stack.of(this).region}:${Stack.of(this).account}:function:*-TenantBedrockChatStack-*`,
         ],
       })
     );
