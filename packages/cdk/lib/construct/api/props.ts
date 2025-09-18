@@ -12,9 +12,6 @@ import { TenantManager } from '../tenant-manager';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
-/**
- * @deprecated 後でいい感じにする
- */
 export type GenericApiProps = {
   // Context Params
   readonly modelRegion: string;
