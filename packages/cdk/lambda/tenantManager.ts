@@ -5,6 +5,7 @@ import {
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { HiddenUseCases } from 'generative-ai-use-cases';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
@@ -31,6 +32,7 @@ export interface Tenant {
   metadata?: Record<string, any>;
   accountId: string;
   roleArn: string;
+  hiddenFeatures?: HiddenUseCases;
 }
 
 // Request interfaces
@@ -41,6 +43,7 @@ interface RegisterTenantRequest {
   metadata?: Record<string, any>;
   accountId: string;
   roleArn: string;
+  hiddenFeatures?: HiddenUseCases;
 }
 
 interface UpdateTenantRequest {
@@ -50,6 +53,7 @@ interface UpdateTenantRequest {
   metadata?: Record<string, any>;
   accountId?: string;
   roleArn?: string;
+  hiddenFeatures?: HiddenUseCases;
 }
 
 /**
@@ -92,6 +96,7 @@ export async function registerTenant(
     metadata: request.metadata || {},
     accountId: request.accountId,
     roleArn: request.roleArn,
+    hiddenFeatures: request.hiddenFeatures || {},
   };
 
   try {
@@ -152,6 +157,12 @@ export async function updateTenant(
       updateExpression.push('#metadata = :metadata');
       expressionAttributeNames['#metadata'] = 'metadata';
       expressionAttributeValues[':metadata'] = request.metadata;
+    }
+
+    if (request.hiddenFeatures !== undefined) {
+      updateExpression.push('#hiddenFeatures = :hiddenFeatures');
+      expressionAttributeNames['#hiddenFeatures'] = 'hiddenFeatures';
+      expressionAttributeValues[':hiddenFeatures'] = request.hiddenFeatures;
     }
 
     // Cross-account fields

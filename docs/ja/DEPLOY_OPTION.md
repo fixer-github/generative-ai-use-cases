@@ -799,54 +799,23 @@ Prompt optimization のサポート状況は [こちら](https://docs.aws.amazon
 
 ### 特定のユースケースを非表示にする
 
-以下のオプションで指定できるユースケースは非表示にできます。
-特に指定がない場合や false を指定した場合は表示されます。
+ユースケースの表示／非表示はテナントごとに制御できます。DynamoDB の
+`Tenants-<ENVIRONMENT>` テーブルに格納されたテナントレコードには
+`hiddenFeatures` マップがあり、値を `true` に設定すると該当するユースケース
+が非表示になります（キーを省略するか `false` にすると表示されます）。
 
-**[parameter.ts](/packages/cdk/parameter.ts) を編集**
+AWS CLI での更新例:
 
-```typescript
-// parameter.ts
-const envs: Record<string, Partial<StackInput>> = {
-  dev: {
-    hiddenUseCases: {
-      generate: true, // 文章生成を非表示
-      summarize: true, // 要約を非表示
-      writer: true, // 執筆を非表示
-      translate: true, // 翻訳を非表示
-      webContent: true, // Web コンテンツ抽出を非表示
-      image: true, // 画像生成を非表示
-      video: true, // 動画生成を非表示
-      videoAnalyzer: true, // 映像分析を非表示
-      diagram: true, // ダイアグラム生成を非表示
-      meetingMinutes: true, // 議事録生成を非表示
-      voiceChat: true, // 音声チャットを非表示
-    },
-  },
-};
+```bash
+aws dynamodb update-item \
+  --table-name Tenants-<ENVIRONMENT> \
+  --key '{"tenantId": {"S": "tenant-a"}}' \
+  --update-expression 'SET hiddenFeatures = :hidden' \
+  --expression-attribute-values '{":hidden": {"M": {"generate": {"BOOL": true}, "image": {"BOOL": true}}}}'
 ```
 
-**[packages/cdk/cdk.json](/packages/cdk/cdk.json) を編集**
-
-```json
-// cdk.json
-{
-  "context": {
-    "hiddenUseCases": {
-      "generate": true,
-      "summarize": true,
-      "writer": true,
-      "translate": true,
-      "webContent": true,
-      "image": true,
-      "video": true,
-      "videoAnalyzer": true,
-      "diagram": true,
-      "meetingMinutes": true,
-      "voiceChat": true
-    }
-  }
-}
-```
+クライアントアプリケーションは認証後に `/tenants/config` エンドポイントを
+呼び出し、この設定に従って自動的にユースケースを非表示にします。
 
 ## ユースケースビルダーの設定
 

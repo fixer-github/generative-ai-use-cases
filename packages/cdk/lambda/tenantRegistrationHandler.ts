@@ -80,6 +80,7 @@ export const handler = async (
         source: 'api-registration',
         registeredVia: 'tenant-stack',
       },
+      hiddenFeatures: {},
     };
 
     await dynamoClient.send(

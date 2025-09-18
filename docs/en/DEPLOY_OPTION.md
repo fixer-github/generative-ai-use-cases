@@ -784,54 +784,23 @@ For Prompt optimization support status, please refer to [this link](https://docs
 
 ### Hiding Specific Use Cases
 
-You can hide use cases with the following options.
-If not specified or set to false, the use case will be displayed.
+Use case visibility can now be controlled per tenant. Each tenant record in the
+`Tenants-<ENVIRONMENT>` DynamoDB table contains a `hiddenFeatures` map. Set a
+feature flag to `true` to hide it for that tenant (omit the key or set it to
+`false` to keep it visible).
 
-**Edit [parameter.ts](/packages/cdk/parameter.ts)**
+Example using the AWS CLI:
 
-```typescript
-// parameter.ts
-const envs: Record<string, Partial<StackInput>> = {
-  dev: {
-    hiddenUseCases: {
-      generate: true, // Hide text generation
-      summarize: true, // Hide summarization
-      writer: true, // Hide writing
-      translate: true, // Hide translation
-      webContent: true, // Hide Web content extraction
-      image: true, // Hide image generation
-      video: true, // Hide video generation
-      videoAnalyzer: true, // Hide video analysis
-      diagram: true, // Hide diagram generation
-      meetingMinutes: true, // Hide meeting minutes generation
-      voiceChat: true, // Hide voice chat
-    },
-  },
-};
+```bash
+aws dynamodb update-item \
+  --table-name Tenants-<ENVIRONMENT> \
+  --key '{"tenantId": {"S": "tenant-a"}}' \
+  --update-expression 'SET hiddenFeatures = :hidden' \
+  --expression-attribute-values '{":hidden": {"M": {"generate": {"BOOL": true}, "image": {"BOOL": true}}}}'
 ```
 
-**Edit [packages/cdk/cdk.json](/packages/cdk/cdk.json)**
-
-```json
-// cdk.json
-{
-  "context": {
-    "hiddenUseCases": {
-      "generate": true,
-      "summarize": true,
-      "writer": true,
-      "translate": true,
-      "webContent": true,
-      "image": true,
-      "video": true,
-      "videoAnalyzer": true,
-      "diagram": true,
-      "meetingMinutes": true,
-      "voiceChat": true
-    }
-  }
-}
-```
+Client applications call the `/tenants/config` endpoint after authentication
+and automatically hide the configured features.
 
 ## Use Case Builder Configuration
 

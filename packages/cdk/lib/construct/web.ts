@@ -16,11 +16,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { ARecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
-import {
-  Flow,
-  HiddenUseCases,
-  ModelConfiguration,
-} from 'generative-ai-use-cases';
+import { Flow, ModelConfiguration } from 'generative-ai-use-cases';
 import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 
 export interface WebProps {
@@ -53,7 +49,6 @@ export interface WebProps {
   readonly domainName?: string | null;
   readonly hostedZoneId?: string | null;
   readonly useCaseBuilderEnabled: boolean;
-  readonly hiddenUseCases: HiddenUseCases;
   readonly speechToSpeechNamespace: string;
   readonly speechToSpeechEventApiEndpoint: string;
   readonly speechToSpeechModelIds: ModelConfiguration[];
@@ -258,7 +253,6 @@ export class Web extends Construct {
         VITE_APP_INLINE_AGENTS: props.inlineAgents.toString(),
         VITE_APP_USE_CASE_BUILDER_ENABLED:
           props.useCaseBuilderEnabled.toString(),
-        VITE_APP_HIDDEN_USE_CASES: JSON.stringify(props.hiddenUseCases),
         VITE_APP_SPEECH_TO_SPEECH_NAMESPACE: props.speechToSpeechNamespace,
         VITE_APP_SPEECH_TO_SPEECH_EVENT_API_ENDPOINT:
           props.speechToSpeechEventApiEndpoint,

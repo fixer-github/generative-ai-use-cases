@@ -1,5 +1,5 @@
 import './i18n/config';
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import AuthWithUserpool from './components/AuthWithUserpool';
 import AuthWithSAML from './components/AuthWithSAML';
@@ -50,6 +50,7 @@ import RagChatBotChatPage from './pages/RagChatBotChatPage.tsx';
 import RagChatBotHistoryPage from './pages/RagChatBotHistoryPage.tsx';
 import AdminPortal from './pages/AdminPortal.tsx';
 import useUseCases from './hooks/useUseCases';
+import { TenantConfigProvider } from './providers/TenantConfigProvider';
 import { Toaster } from 'sonner';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
@@ -70,253 +71,275 @@ const {
 } = MODELS;
 const useCaseBuilderEnabled: boolean =
   import.meta.env.VITE_APP_USE_CASE_BUILDER_ENABLED === 'true';
-// eslint-disable-next-line  react-hooks/rules-of-hooks
-const { enabled } = useUseCases();
 
-const routes: RouteObject[] = [
-  {
-    path: '/',
-    element: <LandingPage />,
-  },
-  {
-    path: '/setting',
-    element: <Setting />,
-  },
-  {
-    path: '/stats',
-    element: <StatPage />,
-  },
-  {
-    path: '/chat',
-    element: <ChatPage />,
-  },
-  {
-    path: '/chat/:chatId',
-    element: <ChatPage />,
-  },
-  {
-    path: '/share/:shareId',
-    element: <SharedChatPage />,
-  },
-  enabled('generate')
-    ? {
-        path: '/generate',
-        element: <GenerateTextPage />,
-      }
-    : null,
-  enabled('summarize')
-    ? {
-        path: '/summarize',
-        element: <SummarizePage />,
-      }
-    : null,
-  enabled('meetingMinutes')
-    ? {
-        path: '/meeting-minutes',
-        element: <MeetingMinutesPage />,
-      }
-    : null,
-  enabled('writer')
-    ? {
-        path: '/writer',
-        element: <WriterPage />,
-      }
-    : null,
-  enabled('translate')
-    ? {
-        path: '/translate',
-        element: <TranslatePage />,
-      }
-    : null,
-  enabled('webContent')
-    ? {
-        path: '/web-content',
-        element: <WebContent />,
-      }
-    : null,
-  imageGenModelIds.length > 0 && enabled('image')
-    ? {
-        path: '/image',
-        element: <GenerateImagePage />,
-      }
-    : null,
-  videoGenModelIds.length > 0 && enabled('video')
-    ? {
-        path: '/video',
-        element: <GenerateVideoPage />,
-      }
-    : null,
-  enabled('diagram')
-    ? {
-        path: '/diagram',
-        element: <GenerateDiagramPage />,
-      }
-    : null,
-  optimizePromptEnabled
-    ? {
-        path: '/optimize',
-        element: <OptimizePromptPage />,
-      }
-    : null,
-  {
-    path: '/transcribe',
-    element: <TranscribePage />,
-  },
-  {
-    path: '/flow-chat',
-    element: <FlowChatPage />,
-  },
-  visionEnabled && enabled('videoAnalyzer')
-    ? {
-        path: '/video-analyzer',
-        element: <VideoAnalyzerPage />,
-      }
-    : null,
-  ragEnabled
-    ? {
-        path: '/rag',
-        element: <RagPage />,
-      }
-    : null,
-  ragKnowledgeBaseEnabled
-    ? {
-        path: '/rag-knowledge-base',
-        element: <RagKnowledgeBasePage />,
-      }
-    : null,
-  agentEnabled && !inlineAgents
-    ? {
-        path: '/agent',
-        element: <AgentChatPage />,
-      }
-    : null,
-  agentEnabled && inlineAgents
-    ? {
-        path: '/agent/:agentName',
-        element: <AgentChatPage />,
-      }
-    : null,
-  speechToSpeechModelIds.length > 0 && enabled('voiceChat')
-    ? {
-        path: '/voice-chat',
-        element: <VoiceChatPage />,
-      }
-    : null,
-  mcpEnabled
-    ? {
-        path: '/mcp',
-        element: <McpChatPage />,
-      }
-    : null,
-  {
-    path: '/rag-chat-bot',
-    element: <RagChatBotPage />,
-  },
-  {
-    path: '/rag-chat-bot/create',
-    element: <RagChatBotEditPage />,
-  },
-  {
-    path: '/rag-chat-bot/edit/:botId',
-    element: <RagChatBotEditPage />,
-  },
-  {
-    path: '/rag-chat-bot/chat/:botId',
-    element: <RagChatBotChatPage />,
-  },
-  {
-    path: '/rag-chat-bot/chat/:botId/:conversationId',
-    element: <RagChatBotChatPage />,
-  },
-  {
-    path: '/rag-chat-bot/history',
-    element: <RagChatBotHistoryPage />,
-  },
-  {
-    path: '/admin',
-    element: <AdminPortal />,
-  },
-  {
-    path: '*',
-    element: <NotFound />,
-  },
-].flatMap((r) => (r !== null ? [r] : []));
+type UseCaseEnabledChecker = ReturnType<typeof useUseCases>['enabled'];
 
-const useCaseBuilderRoutes: RouteObject[] = [
-  {
-    path: '/use-case-builder',
-    element: <UseCaseBuilderSamplesPage />,
-  },
-  {
-    path: `/use-case-builder/my-use-case`,
-    element: <UseCaseBuilderMyUseCasePage />,
-  },
-  {
-    path: `/use-case-builder/new`,
-    element: <UseCaseBuilderEditPage />,
-  },
-  {
-    path: `/use-case-builder/edit/:useCaseId`,
-    element: <UseCaseBuilderEditPage />,
-  },
-  {
-    path: `/use-case-builder/execute/:useCaseId`,
-    element: <UseCaseBuilderExecutePage />,
-  },
-  {
-    path: `/use-case-builder/setting`,
-    element: <Setting />,
-  },
-  {
-    path: '*',
-    element: <NotFound />,
-  },
-].flatMap((r) => (r !== null ? [r] : []));
+const buildRoutes = (enabled: UseCaseEnabledChecker): RouteObject[] => {
+  const routeCandidates: Array<RouteObject | null> = [
+    {
+      path: '/',
+      element: <LandingPage />,
+    },
+    {
+      path: '/setting',
+      element: <Setting />,
+    },
+    {
+      path: '/stats',
+      element: <StatPage />,
+    },
+    {
+      path: '/chat',
+      element: <ChatPage />,
+    },
+    {
+      path: '/chat/:chatId',
+      element: <ChatPage />,
+    },
+    {
+      path: '/share/:shareId',
+      element: <SharedChatPage />,
+    },
+    enabled('generate')
+      ? {
+          path: '/generate',
+          element: <GenerateTextPage />,
+        }
+      : null,
+    enabled('summarize')
+      ? {
+          path: '/summarize',
+          element: <SummarizePage />,
+        }
+      : null,
+    enabled('meetingMinutes')
+      ? {
+          path: '/meeting-minutes',
+          element: <MeetingMinutesPage />,
+        }
+      : null,
+    enabled('writer')
+      ? {
+          path: '/writer',
+          element: <WriterPage />,
+        }
+      : null,
+    enabled('translate')
+      ? {
+          path: '/translate',
+          element: <TranslatePage />,
+        }
+      : null,
+    enabled('webContent')
+      ? {
+          path: '/web-content',
+          element: <WebContent />,
+        }
+      : null,
+    imageGenModelIds.length > 0 && enabled('image')
+      ? {
+          path: '/image',
+          element: <GenerateImagePage />,
+        }
+      : null,
+    videoGenModelIds.length > 0 && enabled('video')
+      ? {
+          path: '/video',
+          element: <GenerateVideoPage />,
+        }
+      : null,
+    enabled('diagram')
+      ? {
+          path: '/diagram',
+          element: <GenerateDiagramPage />,
+        }
+      : null,
+    optimizePromptEnabled
+      ? {
+          path: '/optimize',
+          element: <OptimizePromptPage />,
+        }
+      : null,
+    {
+      path: '/transcribe',
+      element: <TranscribePage />,
+    },
+    {
+      path: '/flow-chat',
+      element: <FlowChatPage />,
+    },
+    visionEnabled && enabled('videoAnalyzer')
+      ? {
+          path: '/video-analyzer',
+          element: <VideoAnalyzerPage />,
+        }
+      : null,
+    ragEnabled
+      ? {
+          path: '/rag',
+          element: <RagPage />,
+        }
+      : null,
+    ragKnowledgeBaseEnabled
+      ? {
+          path: '/rag-knowledge-base',
+          element: <RagKnowledgeBasePage />,
+        }
+      : null,
+    agentEnabled && !inlineAgents
+      ? {
+          path: '/agent',
+          element: <AgentChatPage />,
+        }
+      : null,
+    agentEnabled && inlineAgents
+      ? {
+          path: '/agent/:agentName',
+          element: <AgentChatPage />,
+        }
+      : null,
+    speechToSpeechModelIds.length > 0 && enabled('voiceChat')
+      ? {
+          path: '/voice-chat',
+          element: <VoiceChatPage />,
+        }
+      : null,
+    mcpEnabled
+      ? {
+          path: '/mcp',
+          element: <McpChatPage />,
+        }
+      : null,
+    {
+      path: '/rag-chat-bot',
+      element: <RagChatBotPage />,
+    },
+    {
+      path: '/rag-chat-bot/create',
+      element: <RagChatBotEditPage />,
+    },
+    {
+      path: '/rag-chat-bot/edit/:botId',
+      element: <RagChatBotEditPage />,
+    },
+    {
+      path: '/rag-chat-bot/chat/:botId',
+      element: <RagChatBotChatPage />,
+    },
+    {
+      path: '/rag-chat-bot/chat/:botId/:conversationId',
+      element: <RagChatBotChatPage />,
+    },
+    {
+      path: '/rag-chat-bot/history',
+      element: <RagChatBotHistoryPage />,
+    },
+    {
+      path: '/admin',
+      element: <AdminPortal />,
+    },
+    {
+      path: '*',
+      element: <NotFound />,
+    },
+  ];
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: samlAuthEnabled ? (
-      samlDefaultAuthEnabled ? (
-        <AuthWithSamlOrUserpool>
-          <App />
-        </AuthWithSamlOrUserpool>
+  return routeCandidates.flatMap((route) => (route ? [route] : []));
+};
+
+const buildUseCaseBuilderRoutes = (): RouteObject[] => {
+  return [
+    {
+      path: '/use-case-builder',
+      element: <UseCaseBuilderSamplesPage />,
+    },
+    {
+      path: `/use-case-builder/my-use-case`,
+      element: <UseCaseBuilderMyUseCasePage />,
+    },
+    {
+      path: `/use-case-builder/new`,
+      element: <UseCaseBuilderEditPage />,
+    },
+    {
+      path: `/use-case-builder/edit/:useCaseId`,
+      element: <UseCaseBuilderEditPage />,
+    },
+    {
+      path: `/use-case-builder/execute/:useCaseId`,
+      element: <UseCaseBuilderExecutePage />,
+    },
+    {
+      path: `/use-case-builder/setting`,
+      element: <Setting />,
+    },
+    {
+      path: '*',
+      element: <NotFound />,
+    },
+  ].flatMap((route) => (route ? [route] : []));
+};
+
+const createRouteConfig = (enabled: UseCaseEnabledChecker): RouteObject[] => {
+  const baseRoutes = buildRoutes(enabled);
+
+  const config: RouteObject[] = [
+    {
+      path: '/',
+      element: samlAuthEnabled ? (
+        samlDefaultAuthEnabled ? (
+          <AuthWithSamlOrUserpool>
+            <App />
+          </AuthWithSamlOrUserpool>
+        ) : (
+          <AuthWithSAML>
+            <App />
+          </AuthWithSAML>
+        )
       ) : (
-        <AuthWithSAML>
+        <AuthWithUserpool>
           <App />
-        </AuthWithSAML>
-      )
-    ) : (
-      <AuthWithUserpool>
-        <App />
-      </AuthWithUserpool>
-    ),
-    children: routes,
-  },
-  ...(useCaseBuilderEnabled
-    ? [
-        {
-          path: '/use-case-builder',
-          element: samlAuthEnabled ? (
-            samlDefaultAuthEnabled ? (
-              <AuthWithSamlOrUserpool>
-                <UseCaseBuilderRoot />
-              </AuthWithSamlOrUserpool>
-            ) : (
-              <AuthWithSAML>
-                <UseCaseBuilderRoot />
-              </AuthWithSAML>
-            )
-          ) : (
-            <AuthWithUserpool>
-              <UseCaseBuilderRoot />
-            </AuthWithUserpool>
-          ),
-          children: useCaseBuilderRoutes,
-        },
-      ]
-    : []),
-]);
+        </AuthWithUserpool>
+      ),
+      children: baseRoutes,
+    },
+  ];
+
+  if (useCaseBuilderEnabled) {
+    config.push({
+      path: '/use-case-builder',
+      element: samlAuthEnabled ? (
+        samlDefaultAuthEnabled ? (
+          <AuthWithSamlOrUserpool>
+            <UseCaseBuilderRoot />
+          </AuthWithSamlOrUserpool>
+        ) : (
+          <AuthWithSAML>
+            <UseCaseBuilderRoot />
+          </AuthWithSAML>
+        )
+      ) : (
+        <AuthWithUserpool>
+          <UseCaseBuilderRoot />
+        </AuthWithUserpool>
+      ),
+      children: buildUseCaseBuilderRoutes(),
+    });
+  }
+
+  return config;
+};
+
+const AppRouter = () => {
+  const { enabled } = useUseCases();
+
+  const router = useMemo(() => {
+    const routeConfig = createRouteConfig(enabled);
+    return createBrowserRouter(routeConfig);
+  }, [enabled]);
+
+  return <RouterProvider router={router} />;
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -330,9 +353,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             revalidateOnMount: true,
           }}
         >
-          <RouterProvider router={router} />
+          <TenantConfigProvider>
+            <AppRouter />
+            <Toaster />
+          </TenantConfigProvider>
         </SWRConfig>
-        <Toaster />
       </Authenticator.Provider>
     </React.Suspense>
   </React.StrictMode>

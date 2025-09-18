@@ -45,6 +45,7 @@ import FileApi from './file';
 import FileBucket from '../file-bucket';
 import ShareApi from './share';
 import AdminApi from './admin';
+import TenantApi from './tenant';
 
 export interface BackendApiProps {
   // Context Params
@@ -330,6 +331,10 @@ export class Api extends Construct {
     new VideoApi(this, 'VideoAPI', apiProps);
     new WebTextApi(this, 'WebTextAPI', apiProps);
     new AdminApi(this, 'AdminAPI', apiProps);
+
+    if (tenantManager) {
+      new TenantApi(this, 'TenantAPI', apiProps);
+    }
 
     // Add ALL methods proxy to Bedrock Chat proxy Lambda
     this.restApi = api;

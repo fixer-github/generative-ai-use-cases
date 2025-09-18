@@ -1,20 +1,34 @@
+import { useCallback, useMemo } from 'react';
 import { HiddenUseCases, HiddenUseCasesKeys } from 'generative-ai-use-cases';
+import { useTenantConfig } from '../providers/TenantConfigProvider';
 
-const hiddenUseCases: HiddenUseCases = JSON.parse(
-  import.meta.env.VITE_APP_HIDDEN_USE_CASES
-);
+const EMPTY_HIDDEN_USE_CASES: HiddenUseCases = {};
 
 const useUseCases = () => {
-  const enabledSingle = (useCase: HiddenUseCasesKeys): boolean => {
-    return !hiddenUseCases[useCase];
-  };
+  const { hiddenFeatures, isLoading } = useTenantConfig();
 
-  const enabled = (...useCases: HiddenUseCasesKeys[]): boolean => {
-    return useCases.every(enabledSingle);
-  };
+  const hiddenUseCases = useMemo(() => {
+    return hiddenFeatures ?? EMPTY_HIDDEN_USE_CASES;
+  }, [hiddenFeatures]);
+
+  const enabledSingle = useCallback(
+    (useCase: HiddenUseCasesKeys): boolean => {
+      return !hiddenUseCases[useCase];
+    },
+    [hiddenUseCases]
+  );
+
+  const enabled = useCallback(
+    (...useCases: HiddenUseCasesKeys[]): boolean => {
+      return useCases.every(enabledSingle);
+    },
+    [enabledSingle]
+  );
 
   return {
     enabled,
+    hiddenUseCases,
+    isLoading,
   };
 };
 
