@@ -8,6 +8,7 @@ import {
   PutItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
+import { TenantRegistrationRequest, TenantStatus } from '../lib/types/tenant-registration';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
@@ -15,22 +16,6 @@ const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
 // DynamoDB client
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 
-// Tenant status enum
-enum TenantStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  PROVISIONING = 'provisioning',
-  ERROR = 'error',
-}
-
-// Request interface
-interface TenantRegistrationRequest {
-  tenantId: string;
-  accountId: string;
-  region: string;
-  environment: string;
-  roleArn?: string;
-}
 
 /**
  * API Gateway handler for tenant registration
@@ -52,7 +37,7 @@ export const handler = async (
     }
 
     const request: TenantRegistrationRequest = JSON.parse(event.body);
-    const { tenantId, accountId, region, environment, roleArn } = request;
+    const { tenantId, accountId, region, environment, roleArn, bedrockChatApiArn } = request;
 
     // Validate required fields
     if (!tenantId || !accountId || !region || !environment) {
@@ -74,6 +59,7 @@ export const handler = async (
       region,
       environment,
       roleArn,
+      bedrockChatApiArn,
       createdAt: now,
       updatedAt: now,
       metadata: {

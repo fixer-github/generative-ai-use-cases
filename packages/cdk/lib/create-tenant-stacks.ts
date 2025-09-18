@@ -3,6 +3,7 @@ import { TenantDynamoDBStack } from './stacks/tenant/tenant-dynamodb-stack';
 import { TenantS3Stack } from './stacks/tenant/tenant-s3-stack';
 import { TenantIAMStack } from './stacks/tenant/tenant-iam-stack';
 import { TenantBedrockChatStack } from './stacks/tenant/tenant-bedrock-chat-stack';
+import { TenantRegistrationStack } from './stacks/tenant/tenant-registration-stack';
 
 export interface TenantStackInput {
   account?: string;
@@ -83,10 +84,36 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     );
   }
 
+  // Tenant Registration Stack (last, after all other stacks)
+  // This stack collects information from other stacks and registers them
+  const tenantRegistrationStack = new TenantRegistrationStack(
+    app,
+    `TenantRegistrationStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      iamRoleArn: tenantIAMStack.getRoleArn(),
+      bedrockChatApiArn: tenantBedrockChatStack?.apiHandler.functionArn,
+    }
+  );
+
+  // Ensure registration stack is deployed after all other stacks
+  tenantRegistrationStack.addDependency(tenantIAMStack);
+  tenantRegistrationStack.addDependency(tenantDynamoDBStack);
+  tenantRegistrationStack.addDependency(tenantS3Stack);
+  if (tenantBedrockChatStack) {
+    tenantRegistrationStack.addDependency(tenantBedrockChatStack);
+  }
+
   return {
     tenantIAMStack,
     tenantDynamoDBStack,
     tenantS3Stack,
     tenantBedrockChatStack,
+    tenantRegistrationStack,
   };
 };

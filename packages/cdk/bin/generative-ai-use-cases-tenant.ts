@@ -93,7 +93,7 @@ const params = {
   userPoolId: context.controlPlane?.userPoolId!,
   identityPoolId: context.controlPlane?.identityPoolId!,
   userPoolClientId: context.controlPlane?.userPoolClientId!,
-  enableBedrockChat: true, // Bedrock Chatスタックを有効化
+  enableBedrockChat: context.enableBedrockChat || false,
   bedrockRegion: context.bedrockRegion || context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 

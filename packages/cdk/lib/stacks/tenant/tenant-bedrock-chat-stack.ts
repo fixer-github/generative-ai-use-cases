@@ -123,6 +123,12 @@ export class TenantBedrockChatStack extends cdk.Stack {
    */
   public readonly documentBucket: s3.Bucket;
 
+  /**
+   * API Lambda関数
+   * メインスタックのプロキシから呼び出されるLambda関数
+   */
+  public readonly apiHandler: PythonFunction;
+
   constructor(scope: Construct, id: string, props: TenantBedrockChatStackProps) {
     super(scope, id, props);
 
@@ -235,7 +241,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
 
     // Bedrock ChatのAPI処理を行うLambda関数
     // メインスタックのプロキシから呼び出される
-    const apiHandler = new PythonFunction(this, 'ApiHandler', {
+    this.apiHandler = new PythonFunction(this, 'ApiHandler', {
       entry: path.join(__dirname, '../../temp-bedrock-chat/backend'),
       index: 'app/main.py',
       bundling: {
@@ -287,17 +293,17 @@ export class TenantBedrockChatStack extends cdk.Stack {
     });
 
     // Lambda Web Adapterのハンドラー設定
-    (apiHandler.node.defaultChild as CfnResource).addPropertyOverride(
+    (this.apiHandler.node.defaultChild as CfnResource).addPropertyOverride(
       'Handler',
       'run.sh'
     );
 
     // S3バケットへのアクセス権限を付与
-    this.documentBucket.grantReadWrite(apiHandler);
-    largeMessageBucket.grantReadWrite(apiHandler);
+    this.documentBucket.grantReadWrite(this.apiHandler);
+    largeMessageBucket.grantReadWrite(this.apiHandler);
     
     // WebSocketセッションテーブルへのアクセス権限を付与（32KB超のメッセージ処理用）
-    this.database.websocketSessionTable.grantReadWriteData(apiHandler);
+    this.database.websocketSessionTable.grantReadWriteData(this.apiHandler);
 
     // Bedrockへのアクセス権限
     handlerRole.addToPolicy(
@@ -473,7 +479,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     
     // API Lambda関数のARN（プロキシから呼び出すため）
     new cdk.CfnOutput(this, 'ApiHandlerArn', {
-      value: apiHandler.functionArn,
+      value: this.apiHandler.functionArn,
       description: `テナント ${tenantId} のAPI Lambda関数ARN`,
       exportName: `${this.stackName}-ApiHandlerArn`,
     });
