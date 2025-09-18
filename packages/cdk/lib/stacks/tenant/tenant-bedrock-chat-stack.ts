@@ -75,12 +75,6 @@ export interface TenantBedrockChatStackProps extends cdk.StackProps {
   readonly globalAvailableModels?: string[];
 
   /**
-   * 環境プレフィックス
-   * リソース名の先頭に付与される識別子（例：prod-、dev- など）
-   */
-  readonly envPrefix?: string;
-
-  /**
    * リソースの削除ポリシー
    * RETAIN（保持）またはDESTROY（削除）を指定
    * @default RemovalPolicy.RETAIN
@@ -144,6 +138,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // 必須パラメータの取得
     const environment = props.environment;  // 環境名（dev, staging, prod など）
     const bedrockRegion = props.bedrockRegion;  // Bedrockを使用するリージョン
+    const envPrefix = props.environment ?? '';  // リソース名で使用する環境プレフィックス
 
     // ==============================================
     // 1. ドキュメントバケットの作成
@@ -222,7 +217,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // 使用状況分析機能の作成
     // DynamoDBのデータをエクスポートし、Athenaで分析可能にする
     this.usageAnalysis = new UsageAnalysis(this, 'UsageAnalysis', {
-      envPrefix: props.envPrefix || '',
+      envPrefix,
       accessLogBucket,  // ログの保存先
       sourceDatabase: this.database,  // 分析対象のデータベース
     });
@@ -231,7 +226,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // カスタムボットの定義、管理、検索機能を提供
     // OpenSearchを使用した高度な検索が可能
     this.botStore = new BotStore(this, 'BotStore', {
-      envPrefix: props.envPrefix || '',
+      envPrefix,
       botTable: this.database.botTable,  // ボット定義を保存するテーブル
       conversationTable: this.database.conversationTable,  // 会話履歴テーブル
       language: props.botStoreLanguage || 'ja',  // デフォルトは日本語
@@ -255,7 +250,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
         CONVERSATION_TABLE_NAME: this.database.conversationTable.tableName,
         BOT_TABLE_NAME: this.database.botTable.tableName,
         ENV_NAME: props.environment,
-        ENV_PREFIX: props.envPrefix || '',
+        ENV_PREFIX: envPrefix,
         // CORS設定はメインスタックのものを使用
         CORS_ALLOW_ORIGINS: '*',
         // Cognito認証は使用しない（プロキシ経由でユーザー情報を受け取る）
@@ -343,7 +338,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
 
       // BotStoreにLambda関数のロールのアクセス権限を追加
       this.botStore.addDataAccessPolicy(
-        props.envPrefix || '',
+        envPrefix,
         'LambdaDataAccessPolicy',
         handlerRole,
         ['aoss:DescribeCollectionItems', 'aoss:CreateCollectionItems', 'aoss:UpdateCollectionItems'],
@@ -451,7 +446,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // Knowledge Base構築用のCodeBuildプロジェクトを作成
     const bedrockCustomBotCodebuild = new BedrockCustomBotCodebuild(this, 'BedrockCustomBotCodebuild', {
       envName: environment,
-      envPrefix: props.envPrefix || '',
+      envPrefix,
       bedrockRegion: bedrockRegion,
       sourceBucket: codeBuildSourceBucket,
     });
