@@ -16,7 +16,12 @@ import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { Agent, AgentMap, ModelConfiguration } from 'generative-ai-use-cases';
+import {
+  Agent,
+  AgentMap,
+  ModelConfiguration,
+  SelfSignUpTenantMapEntry,
+} from 'generative-ai-use-cases';
 import {
   BEDROCK_IMAGE_GEN_MODELS,
   BEDROCK_VIDEO_GEN_MODELS,
@@ -39,6 +44,7 @@ import WebTextApi from './web-text';
 import FileApi from './file';
 import FileBucket from '../file-bucket';
 import ShareApi from './share';
+import AdminApi from './admin';
 
 export interface BackendApiProps {
   // Context Params
@@ -57,6 +63,7 @@ export interface BackendApiProps {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
+  readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
 
   // Resource
   readonly userPool: UserPool;
@@ -322,6 +329,7 @@ export class Api extends Construct {
     new TokenUsageApi(this, 'TokenUsageAPI', apiProps);
     new VideoApi(this, 'VideoAPI', apiProps);
     new WebTextApi(this, 'WebTextAPI', apiProps);
+    new AdminApi(this, 'AdminAPI', apiProps);
 
     // Add ALL methods proxy to Bedrock Chat proxy Lambda
     this.restApi = api;

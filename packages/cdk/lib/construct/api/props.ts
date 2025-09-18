@@ -3,7 +3,12 @@ import {
   CognitoUserPoolsAuthorizer,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
-import { Agent, AgentMap, ModelConfiguration } from 'generative-ai-use-cases';
+import {
+  Agent,
+  AgentMap,
+  ModelConfiguration,
+  SelfSignUpTenantMapEntry,
+} from 'generative-ai-use-cases';
 import { LitellmProxyServer } from '../litellm-proxy-server';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
@@ -63,4 +68,6 @@ export type GenericApiProps = {
   bedrockPolicy?: PolicyStatement;
   logsPolicy?: PolicyStatement;
   assumeRolePolicy?: PolicyStatement;
+
+  selfSignUpTenantMap?: SelfSignUpTenantMapEntry[];
 };
