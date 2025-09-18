@@ -1,7 +1,7 @@
 from app.routes.schemas.bot import BotMetaOutput
 from app.usecases.bot_store import fetch_pickup_bots, fetch_popular_bots, search_bots
 from app.user import User
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(tags=["bot_store"])
 
@@ -25,14 +25,17 @@ def search_bots_by_query(
     """
     current_user: User = request.state.current_user
 
-    bots = search_bots(
-        current_user,
-        query=query,
-        scope=scope,
-        starred=starred,
-        limit=limit,
-        sort=sort
-    )
+    try:
+        bots = search_bots(
+            current_user,
+            query=query,
+            scope=scope,
+            starred=starred,
+            limit=limit,
+            sort=sort
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return bots
 
 
