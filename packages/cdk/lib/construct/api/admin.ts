@@ -134,6 +134,8 @@ class AdminApi extends Construct {
             'cognito-idp:AdminGetUser',
             'cognito-idp:AdminCreateUser',
             'cognito-idp:AdminUpdateUserAttributes',
+            'cognito-idp:AdminUserGlobalSignOut',
+            'cognito-idp:RevokeToken',
             'cognito-idp:AdminDeleteUser',
             'cognito-idp:AdminDisableUser',
             'cognito-idp:AdminEnableUser',

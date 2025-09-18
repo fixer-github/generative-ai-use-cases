@@ -1,7 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   CognitoIdentityProviderClient,
-  AdminUpdateUserAttributesCommand
+  AdminUpdateUserAttributesCommand,
+  AdminUserGlobalSignOutCommand,
+  AdminGetUserCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyAdminAccessWithUser, isAdminUserResult, CORS_HEADERS } from './utils/adminAuth';
 
@@ -60,6 +62,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Check current admin status to avoid unnecessary sign-outs
+    const getUserCommand = new AdminGetUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
+    });
+    const currentUser = await cognitoClient.send(getUserCommand);
+    const currentIsAdmin = currentUser.UserAttributes?.find(
+      attr => attr.Name === 'custom:tenantAdmin'
+    )?.Value === 'true';
+
     // Update user role
     try {
       const updateCommand = new AdminUpdateUserAttributesCommand({
@@ -77,6 +89,34 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       console.log(`Successfully updated user ${username} tenantAdmin status to ${tenantAdmin}`);
 
+      // Only sign out if this is actually a demotion (was admin, now isn't)
+      let sessionInvalidated = false;
+      if (currentIsAdmin && !tenantAdmin) {
+        try {
+          const signOutCommand = new AdminUserGlobalSignOutCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: username,
+          });
+          await cognitoClient.send(signOutCommand);
+
+          console.log(`Global sign-out successful for demoted user: ${username}`);
+          sessionInvalidated = true;
+        } catch (signOutError) {
+          console.error(`CRITICAL: Role updated but failed to invalidate tokens for ${username}:`, signOutError);
+
+          return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+              message: 'User role updated but sessions remain active. User should sign out manually.',
+              username,
+              tenantAdmin,
+              warning: 'SESSION_INVALIDATION_FAILED',
+            }),
+          };
+        }
+      }
+
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
@@ -84,6 +124,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'User role updated successfully',
           username,
           tenantAdmin,
+          sessionInvalidated,
         }),
       };
 

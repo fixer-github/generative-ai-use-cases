@@ -113,6 +113,10 @@ const AdminPortal: React.FC = () => {
         setTimeout(() => {
           window.dispatchEvent(new Event('focus'));
         }, 1000);
+      } else if (response.data.warning === 'SESSION_INVALIDATION_FAILED') {
+        setError(
+          `Role updated but user sessions remain active. The user "${username}" should be asked to sign out manually for security.`
+        );
       }
 
       // Clear pending change and reload users to reflect server state
