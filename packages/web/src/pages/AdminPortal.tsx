@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchAuthSession, signOut } from 'aws-amplify/auth';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
@@ -28,7 +27,6 @@ interface TenantUser {
 }
 
 const AdminPortal: React.FC = () => {
-  const { user: _user } = useAuthenticator();
   const { t } = useTranslation();
   const { api } = useHttp();
 
@@ -41,6 +39,16 @@ const AdminPortal: React.FC = () => {
   const [pendingRoleChanges, setPendingRoleChanges] = useState<Map<string, boolean>>(new Map());
   const [refreshingToken, setRefreshingToken] = useState<boolean>(false);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/users');
+      setUsers(response.data.users || []);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      setError(t('adminPortal.messages.failedToLoadUsers'));
+    }
+  }, [api, t]);
+
   // Check admin status on component mount
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -51,7 +59,7 @@ const AdminPortal: React.FC = () => {
         if (response.data.isAdmin) {
           await loadUsers();
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Failed to check admin status:', error);
         setError(t('adminPortal.messages.failedToCheckAdminStatus'));
       } finally {
@@ -60,17 +68,7 @@ const AdminPortal: React.FC = () => {
     };
 
     checkAdminStatus();
-  }, [api]);
-
-  const loadUsers = async () => {
-    try {
-      const response = await api.get('/admin/users');
-      setUsers(response.data.users || []);
-    } catch (error: any) {
-      console.error('Failed to load users:', error);
-      setError(t('adminPortal.messages.failedToLoadUsers'));
-    }
-  };
+  }, [api, t, loadUsers]);
 
   const handleRoleChange = async (username: string, isAdmin: boolean) => {
     // Store the original role value for potential rollback
@@ -85,7 +83,7 @@ const AdminPortal: React.FC = () => {
     setUpdatingUsernames(prev => new Set(prev).add(username));
 
     try {
-      await api.put(`/admin/users/${username}/role`, {
+      const response = await api.put(`/admin/users/${username}/role`, {
         username,
         tenantAdmin: isAdmin,
       });
@@ -110,6 +108,13 @@ const AdminPortal: React.FC = () => {
         }
       }
 
+      // If session was invalidated, force all clients to re-check their status
+      if (response.data.sessionInvalidated) {
+        setTimeout(() => {
+          window.dispatchEvent(new Event('focus'));
+        }, 1000);
+      }
+
       // Clear pending change and reload users to reflect server state
       setPendingRoleChanges(prev => {
         const newMap = new Map(prev);
@@ -117,7 +122,7 @@ const AdminPortal: React.FC = () => {
         return newMap;
       });
       await loadUsers();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to update user role:', error);
       setError(t('adminPortal.messages.failedToUpdateUserRole'));
 
@@ -149,7 +154,7 @@ const AdminPortal: React.FC = () => {
 
       // Reload users to reflect changes
       await loadUsers();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to remove user:', error);
       setError(t('adminPortal.messages.failedToRemoveUser'));
     }
