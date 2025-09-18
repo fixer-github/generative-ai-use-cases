@@ -77,8 +77,6 @@ def find_bots_by_query(
     if starred is not None:
         if starred:
             filter_must.append({"term": {"IsStarred": True}})
-        else:
-            filter_must.append({"term": {"IsStarred": False}})
 
     # Condition for bots that can be acquired
     filter_should = []
