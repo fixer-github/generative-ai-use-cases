@@ -75,7 +75,6 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         },
         tenantId: params.tenantId,
         environment: params.environment,
-        envPrefix: params.environment,
         bedrockRegion: params.bedrockRegion || params.region,
         removalPolicy: params.removalPolicy
           ? cdk.RemovalPolicy.DESTROY
