@@ -24,7 +24,7 @@ class ShareApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findShareId.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
 
     table.grantReadData(findShareId);
@@ -40,7 +40,7 @@ class ShareApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createShareId.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadWriteData(createShareId);
 
@@ -59,7 +59,7 @@ class ShareApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getSharedChat.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadData(getSharedChat);
 
@@ -74,7 +74,7 @@ class ShareApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteShareId.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
 
     table.grantReadWriteData(deleteShareId);

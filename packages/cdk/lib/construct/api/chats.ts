@@ -28,7 +28,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createChat.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantWriteData(createChatFunction);
 
@@ -36,7 +36,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteChat.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadWriteData(deleteChatFunction);
 
@@ -44,7 +44,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/createMessages.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: statsTable.tableName,
         BUCKET_NAME: fileBucket.bucketName,
@@ -63,7 +63,7 @@ class ChatApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateTitle.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(),
+        environment: getBaseEnvironment(this, props),
       }
     );
     table.grantReadWriteData(updateChatTitleFunction);
@@ -72,7 +72,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listChats.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: statsTable.tableName,
       }),
@@ -83,7 +83,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/findChatById.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadData(findChatbyIdFunction);
 
@@ -91,7 +91,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listMessages.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadData(listMessagesFunction);
 
@@ -99,7 +99,7 @@ class ChatApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/updateFeedback.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(),
+      environment: getBaseEnvironment(this, props),
     });
     table.grantReadWriteData(updateFeedbackFunction);
 

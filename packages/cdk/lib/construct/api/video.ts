@@ -37,7 +37,7 @@ class VideoApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/generateVideo.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -72,7 +72,7 @@ class VideoApi extends Construct {
       entry: './lambda/copyVideoJob.ts',
       timeout: Duration.minutes(15),
       memorySize: 512,
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -105,7 +105,7 @@ class VideoApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/listVideoJobs.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -126,7 +126,7 @@ class VideoApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteVideoJob.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
         VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),

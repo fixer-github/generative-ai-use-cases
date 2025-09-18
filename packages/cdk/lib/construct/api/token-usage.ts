@@ -22,7 +22,7 @@ class TokenUsageApi extends Construct {
     const getTokenUsageFunction = new NodejsFunction(this, 'GetTokenUsage', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getTokenUsage.ts',
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         STATS_TABLE_NAME: STATS_TABLE_PREFIX,
         DEFAULT_STATS_TABLE_NAME: statsTable.tableName,
       }),

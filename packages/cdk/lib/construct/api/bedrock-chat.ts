@@ -23,7 +23,7 @@ class BedrockChatApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/bedrock-chat-proxy.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment({
+        environment: getBaseEnvironment(this, props, {
           ENVIRONMENT: environment,
           ...(tenantManager
             ? {

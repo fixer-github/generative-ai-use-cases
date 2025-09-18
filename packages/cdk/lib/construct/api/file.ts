@@ -32,7 +32,7 @@ class FileApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/deleteFile.ts',
       timeout: Duration.minutes(15),
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         BUCKET_NAME: fileBucket.bucketName,
       }),
     });
@@ -56,7 +56,7 @@ class FileApi extends Construct {
       bundling: {
         nodeModules: ['aws-jwt-verify'],
       },
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         BUCKET_NAME: fileBucket.bucketName,
         USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
       }),
@@ -91,7 +91,7 @@ class FileApi extends Construct {
         bundling: {
           nodeModules: ['aws-jwt-verify'],
         },
-        environment: getBaseEnvironment({
+        environment: getBaseEnvironment(this, props, {
           CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
           BUCKET_NAME: fileBucket.bucketName,
           USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,

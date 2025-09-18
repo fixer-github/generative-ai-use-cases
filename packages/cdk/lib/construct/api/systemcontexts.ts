@@ -21,7 +21,7 @@ class SystemContextApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/listSystemContexts.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(),
+        environment: getBaseEnvironment(this, props),
       }
     );
     table.grantReadData(listSystemContextsFunction);
@@ -33,7 +33,7 @@ class SystemContextApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/createSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(),
+        environment: getBaseEnvironment(this, props),
       }
     );
     table.grantWriteData(createSystemContextFunction);
@@ -45,7 +45,7 @@ class SystemContextApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/updateSystemContextTitle.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(),
+        environment: getBaseEnvironment(this, props),
       }
     );
     table.grantReadWriteData(updateSystemContextTitleFunction);
@@ -57,7 +57,7 @@ class SystemContextApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/deleteSystemContext.ts',
         timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(),
+        environment: getBaseEnvironment(this, props),
       }
     );
     table.grantReadWriteData(deleteSystemContextFunction);

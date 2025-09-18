@@ -136,7 +136,7 @@ class PredictApi extends Construct {
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
       },
-      environment: getBaseEnvironment({
+      environment: getBaseEnvironment(this, props, {
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
