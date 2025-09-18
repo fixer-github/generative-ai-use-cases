@@ -69,5 +69,5 @@ export type GenericApiProps = {
   logsPolicy?: PolicyStatement;
   assumeRolePolicy?: PolicyStatement;
 
-  selfSignUpTenantMap?: SelfSignUpTenantMapEntry[];
+  selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
 };
