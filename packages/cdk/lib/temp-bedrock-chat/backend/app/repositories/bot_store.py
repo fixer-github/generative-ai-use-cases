@@ -14,6 +14,8 @@ INDEX_NAME = f"{env_prefix}bot"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+VALID_SCOPES = {"private", "organization", "all"}
+
 
 def find_bots_by_query(
     query: str,
@@ -51,6 +53,10 @@ def find_bots_by_query(
     """
     client = client or get_opensearch_client()
     logger.info(f"Searching bots with query: {query}, scope: {scope}, starred: {starred}, sort: {sort}")
+
+    if scope is not None and scope not in VALID_SCOPES:
+        logger.warning("Received invalid scope value '%s'", scope)
+        raise ValueError(f"Invalid scope '{scope}'. Valid options are: {sorted(VALID_SCOPES)}.")
 
     # Include only BOT items
     filter_must = [{"prefix": {"SK.keyword": "BOT"}}]
