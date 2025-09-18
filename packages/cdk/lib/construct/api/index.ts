@@ -78,7 +78,7 @@ export interface BackendApiProps {
 }
 
 export class Api extends Construct {
-  readonly api: RestApi;
+  readonly restApi: RestApi;
   readonly predictStreamFunction: NodejsFunction;
   readonly invokeFlowFunction: NodejsFunction;
   readonly optimizePromptFunction: NodejsFunction;
@@ -324,7 +324,7 @@ export class Api extends Construct {
     new WebTextApi(this, 'WebTextAPI', apiProps);
 
     // Add ALL methods proxy to Bedrock Chat proxy Lambda
-    this.api = api;
+    this.restApi = api;
     this.predictStreamFunction = predictApi.predictStreamFunction;
     this.invokeFlowFunction = invokeFlowApi.invokeFlowFunction;
     this.optimizePromptFunction = optimizePromptApi.optimizePromptFunction;
