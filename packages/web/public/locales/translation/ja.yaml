@@ -23,9 +23,11 @@ adminPortal:
     remove: 削除
   messages:
     loading: 読み込み中...
+    refreshingSession: セッションを更新中...
     failedToCheckAdminStatus: 管理者ステータスの確認に失敗しました
     failedToLoadUsers: ユーザーの読み込みに失敗しました
     failedToUpdateUserRole: ユーザーの役割更新に失敗しました
+    failedToRefreshSession: 認証セッションの更新に失敗しました
     failedToRemoveUser: ユーザーの削除に失敗しました
     removeUserConfirmation: 'ユーザー {{username}} を削除してもよろしいですか？この操作は元に戻せません。'
     noUsersFound: ユーザーが見つかりません
@@ -58,12 +60,18 @@ adminPortal:
       summary: '合計: {{total}} | 成功: {{successful}} | 失敗: {{failed}}'
       invited: ✓ 招待済み
       failed: '✗ {{error}}'
-      warning: '<strong>重要:</strong> 自動メールが無効になっているため、一時パスワードを招待されたユーザーと手動で共有する必要があります。'
+      warning: '重要: 自動メールが無効になっているため、一時パスワードを招待されたユーザーと手動で共有する必要があります。'
     actions:
       cancel: キャンセル
       close: 閉じる
       sendInvitations: 招待を送信
       inviting: 招待中...
+    unconfiguredDomain:
+      title: ドメイン設定警告
+      message: 以下のメールアドレスのドメインは自動サインアップ用に設定されていません。これらのユーザーは招待後にシステムにアクセスするために管理者の支援が必要になります。
+      affectedUsers: '未設定ドメインのユーザー:'
+      cancel: キャンセル
+      proceedAnyway: とにかく続行
 agent:
   drop_files: ファイルをドロップしてアップロード
   title: Agent チャット
@@ -688,6 +696,9 @@ setting:
     {{region}} にて指定したモデルを有効化しているか確認してください。それぞれのやり方については
     <1>generative-ai-use-cases</1> をご参照ください。
   items:
+    admin_portal: 管理者ポータル
+    admin_portal_checking: 権限を確認中...
+    admin_portal_manage_users: ユーザーを管理
     agent_enabled: Agent 有効
     language: 言語設定
     language_help: 表示言語を変更できます

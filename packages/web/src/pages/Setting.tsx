@@ -177,11 +177,11 @@ const Setting = () => {
         {/* Show loading state while checking admin status */}
         {isAdminLoading && (
           <SettingItem
-            name="Admin Portal"
+            name={t('setting.items.admin_portal')}
             value={
               <div className="flex items-center text-gray-500">
                 <PiShieldCheck className="mr-1 text-base animate-pulse" />
-                Checking permissions...
+                {t('setting.items.admin_portal_checking')}
               </div>
             }
           />
@@ -190,11 +190,11 @@ const Setting = () => {
         {/* Show admin portal link for verified admins */}
         {!isAdminLoading && isAdmin && (
           <SettingItem
-            name="Admin Portal"
+            name={t('setting.items.admin_portal')}
             value={
               <Link to="/admin" className="flex items-center text-blue-600 hover:text-blue-800">
                 <PiShieldCheck className="mr-1 text-base" />
-                Manage Users{' '}
+                {t('setting.items.admin_portal_manage_users')}{' '}
                 <PiArrowSquareOut className="text-base ml-1" />
               </Link>
             }

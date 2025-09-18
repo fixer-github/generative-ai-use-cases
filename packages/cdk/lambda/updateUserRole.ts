@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { 
-  CognitoIdentityProviderClient, 
+import {
+  CognitoIdentityProviderClient,
   AdminUpdateUserAttributesCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyAdminAccessWithUser, isAdminUserResult, CORS_HEADERS } from './utils/adminAuth';
@@ -35,8 +35,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ 
-          message: 'username (string) and tenantAdmin (boolean) are required' 
+        body: JSON.stringify({
+          message: 'username (string) and tenantAdmin (boolean) are required'
         }),
       };
     }
@@ -54,8 +54,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ 
-          message: 'Cannot remove admin privileges from yourself' 
+        body: JSON.stringify({
+          message: 'Cannot remove admin privileges from yourself'
         }),
       };
     }
@@ -106,7 +106,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Failed to update user role',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),

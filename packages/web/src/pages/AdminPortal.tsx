@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
+import { fetchAuthSession, signOut } from 'aws-amplify/auth';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { PiUsers, PiUserPlus, PiShieldCheck } from 'react-icons/pi';
@@ -36,6 +37,9 @@ const AdminPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [updatingUsernames, setUpdatingUsernames] = useState<Set<string>>(new Set());
+  const [pendingRoleChanges, setPendingRoleChanges] = useState<Map<string, boolean>>(new Map());
+  const [refreshingToken, setRefreshingToken] = useState<boolean>(false);
 
   // Check admin status on component mount
   useEffect(() => {
@@ -69,17 +73,67 @@ const AdminPortal: React.FC = () => {
   };
 
   const handleRoleChange = async (username: string, isAdmin: boolean) => {
+    // Store the original role value for potential rollback
+    const originalUser = users.find(u => u.username === username);
+    const originalIsAdmin = originalUser?.tenantAdmin ?? false;
+    const isCurrentUser = username === adminStatus?.username;
+
+    // Set optimistic update
+    setPendingRoleChanges(prev => new Map(prev).set(username, isAdmin));
+
+    // Add username to updating set
+    setUpdatingUsernames(prev => new Set(prev).add(username));
+
     try {
       await api.put(`/admin/users/${username}/role`, {
         username,
         tenantAdmin: isAdmin,
       });
 
-      // Reload users to reflect changes
+      // If current user's role changed, refresh auth session to get updated token
+      if (isCurrentUser) {
+        setRefreshingToken(true);
+        try {
+          // Force refresh the auth session to get new token with updated claims
+          await fetchAuthSession({ forceRefresh: true });
+
+          // If user is no longer admin, sign them out to trigger redirect
+          if (!isAdmin) {
+            await signOut();
+            return; // Early return to prevent further processing
+          }
+        } catch (tokenError) {
+          console.error('Failed to refresh auth session:', tokenError);
+          setError(t('adminPortal.messages.failedToRefreshSession'));
+        } finally {
+          setRefreshingToken(false);
+        }
+      }
+
+      // Clear pending change and reload users to reflect server state
+      setPendingRoleChanges(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(username);
+        return newMap;
+      });
       await loadUsers();
     } catch (error: any) {
       console.error('Failed to update user role:', error);
       setError(t('adminPortal.messages.failedToUpdateUserRole'));
+
+      // Revert to original value on failure
+      setPendingRoleChanges(prev => {
+        const newMap = new Map(prev);
+        newMap.set(username, originalIsAdmin);
+        return newMap;
+      });
+    } finally {
+      // Remove username from updating set
+      setUpdatingUsernames(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(username);
+        return newSet;
+      });
     }
   };
 
@@ -108,6 +162,10 @@ const AdminPortal: React.FC = () => {
 
   if (loading) {
     return <LoadingOverlay>{t('adminPortal.messages.loading')}</LoadingOverlay>;
+  }
+
+  if (refreshingToken) {
+    return <LoadingOverlay>{t('adminPortal.messages.refreshingSession')}</LoadingOverlay>;
   }
 
   return (
@@ -232,10 +290,14 @@ const AdminPortal: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
-                        value={user.tenantAdmin ? 'admin' : 'user'}
+                        value={
+                          pendingRoleChanges.has(user.username)
+                            ? pendingRoleChanges.get(user.username) ? 'admin' : 'user'
+                            : user.tenantAdmin ? 'admin' : 'user'
+                        }
                         onChange={(e) => handleRoleChange(user.username, e.target.value === 'admin')}
-                        disabled={user.username === adminStatus?.username}
-                        className="text-sm rounded border border-gray-300 px-2 py-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={user.username === adminStatus?.username || updatingUsernames.has(user.username) || refreshingToken}
+                        className="text-sm rounded border border-gray-300 px-2 py-1 w-32 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="user">{t('adminPortal.roles.regularUser')}</option>
                         <option value="admin">{t('adminPortal.roles.admin')}</option>
@@ -243,10 +305,10 @@ const AdminPortal: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 text-xs font-semibold rounded-full ${user.enabled
-                          ? user.userStatus === 'CONFIRMED'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                        ? user.userStatus === 'CONFIRMED'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
                         }`}>
                         {user.enabled ? user.userStatus : t('adminPortal.status.disabled')}
                       </span>

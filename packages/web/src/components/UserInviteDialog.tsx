@@ -47,6 +47,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<InviteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showUnconfiguredWarning, setShowUnconfiguredWarning] = useState(false);
+  const [pendingInvitation, setPendingInvitation] = useState<{emails: string[], sendEmail: boolean} | null>(null);
+  const [unconfiguredEmails, setUnconfiguredEmails] = useState<string[]>([]);
 
   const handleClose = () => {
     setSingleEmail('');
@@ -55,6 +58,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     setSendEmail(false);
     setResults(null);
     setError(null);
+    setShowUnconfiguredWarning(false);
+    setPendingInvitation(null);
+    setUnconfiguredEmails([]);
     onClose();
   };
 
@@ -132,28 +138,14 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     return [];
   };
 
-  const handleInvite = async () => {
+  const performInvitation = async (emails: string[], sendEmailFlag: boolean) => {
     setLoading(true);
     setError(null);
 
     try {
-      const emails = await getEmailsToInvite();
-
-      if (emails.length === 0) {
-        setError(t('adminPortal.invite.errors.noEmailsProvided'));
-        setLoading(false);
-        return;
-      }
-
-      if (emails.length > 100) {
-        setError(t('adminPortal.invite.errors.tooManyEmails'));
-        setLoading(false);
-        return;
-      }
-
       const response = await api.post('/admin/users/invite', {
         emails,
-        sendEmail,
+        sendEmail: sendEmailFlag,
       });
 
       setResults(response.data);
@@ -167,6 +159,70 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateDomains = async (emails: string[]) => {
+    try {
+      const response = await api.post('/admin/users/invite/validate-domains', {
+        emails,
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to validate domains:', error);
+      throw error;
+    }
+  };
+
+  const handleInvite = async () => {
+    setError(null);
+
+    try {
+      const emails = await getEmailsToInvite();
+
+      if (emails.length === 0) {
+        setError(t('adminPortal.invite.errors.noEmailsProvided'));
+        return;
+      }
+
+      if (emails.length > 100) {
+        setError(t('adminPortal.invite.errors.tooManyEmails'));
+        return;
+      }
+
+      // First, validate domains
+      const domainValidation = await validateDomains(emails);
+      
+      // Store pending invitation
+      setPendingInvitation({ emails, sendEmail });
+
+      if (domainValidation.hasAnyUnconfiguredDomains) {
+        // Show warning before proceeding
+        setUnconfiguredEmails(domainValidation.unconfiguredEmails);
+        setShowUnconfiguredWarning(true);
+      } else {
+        // No unconfigured domains, proceed directly
+        await performInvitation(emails, sendEmail);
+      }
+
+    } catch (error: any) {
+      console.error('Failed to prepare invitation:', error);
+      setError(t('adminPortal.invite.errors.invitationFailed'));
+    }
+  };
+
+  const handleConfirmInvitation = async () => {
+    if (pendingInvitation) {
+      setShowUnconfiguredWarning(false);
+      // Now proceed with the actual invitation
+      await performInvitation(pendingInvitation.emails, pendingInvitation.sendEmail);
+    }
+  };
+
+  const handleCancelInvitation = () => {
+    setShowUnconfiguredWarning(false);
+    setPendingInvitation(null);
+    setUnconfiguredEmails([]);
   };
 
   if (!isOpen) return null;
@@ -346,7 +402,10 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 {!sendEmail && results.summary.successful > 0 && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded">
                     <p className="text-sm text-yellow-800">
-                      {t('adminPortal.invite.results.warning')}
+                      <span className="font-semibold">
+                        {t('adminPortal.invite.results.warning').split(':')[0]}:
+                      </span>
+                      {t('adminPortal.invite.results.warning').split(':').slice(1).join(':')}
                     </p>
                   </div>
                 )}
@@ -385,6 +444,65 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Unconfigured Domain Warning Dialog */}
+      {showUnconfiguredWarning && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+
+            <div className="inline-block w-full max-w-lg transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-orange-800">
+                  {t('adminPortal.invite.unconfiguredDomain.title')}
+                </h3>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 mb-3">
+                  {t('adminPortal.invite.unconfiguredDomain.message')}
+                </p>
+
+                <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                  <h4 className="text-sm font-medium text-orange-800 mb-2">
+                    {t('adminPortal.invite.unconfiguredDomain.affectedUsers')}
+                  </h4>
+                  <ul className="text-sm text-orange-700 space-y-1">
+                    {unconfiguredEmails.map((email, index) => (
+                      <li key={index} className="font-mono">
+                        {email}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  outlined={true}
+                  onClick={handleCancelInvitation}
+                >
+                  {t('adminPortal.invite.unconfiguredDomain.cancel')}
+                </Button>
+                <Button
+                  onClick={handleConfirmInvitation}
+                  disabled={loading}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {loading ? (
+                    <>
+                      <LoadingWave />
+                      {t('adminPortal.invite.actions.inviting')}
+                    </>
+                  ) : (
+                    t('adminPortal.invite.unconfiguredDomain.proceedAnyway')
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

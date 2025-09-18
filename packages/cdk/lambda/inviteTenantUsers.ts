@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   CognitoIdentityProviderClient,
   AdminCreateUserCommand,
+  AdminGetUserCommand,
   MessageActionType,
   DeliveryMediumType,
   AttributeType
@@ -22,6 +23,7 @@ export interface InviteResult {
   username?: string;
   temporaryPassword?: string;
   error?: string;
+  message?: string;
 }
 
 // Generate a secure temporary password
@@ -49,6 +51,7 @@ function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
+
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -120,46 +123,84 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     for (const email of uniqueEmails) {
       try {
-        const temporaryPassword = generateTemporaryPassword();
+        // First, check if user already exists
+        let userExists = false;
+        let userStatus = '';
+        
+        try {
+          const getUserCommand = new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: email,
+          });
+          
+          const existingUser = await cognitoClient.send(getUserCommand);
+          userExists = true;
+          userStatus = existingUser.UserStatus || '';
+          
+          console.log(`User ${email} already exists with status: ${userStatus}`);
+          
+        } catch (getUserError: any) {
+          if (getUserError.name !== 'UserNotFoundException') {
+            throw getUserError; // Re-throw if it's not a "user not found" error
+          }
+          // User doesn't exist, proceed with creation
+        }
 
-        // Ensure invited users have the same tenant ID as the admin who is inviting them
-        const userAttributes: AttributeType[] = [
-          { Name: 'email', Value: email },
-          { Name: 'email_verified', Value: 'true' },
-          { Name: 'custom:tenant_id', Value: tenantId }, // Same tenant as the admin
-          { Name: 'custom:tenantAdmin', Value: 'false' }, // New users are not admins by default
-        ];
+        if (userExists) {
+          // User already exists - mark as failed
+          results.push({
+            email,
+            success: false,
+            error: 'User already exists',
+          });
+          
+          console.log(`User ${email} already exists with status: ${userStatus}`);
+        } else {
+          // Create new user
+          const temporaryPassword = generateTemporaryPassword();
 
-        const command = new AdminCreateUserCommand({
-          UserPoolId: USER_POOL_ID,
-          Username: email,
-          UserAttributes: userAttributes,
-          TemporaryPassword: temporaryPassword,
-          MessageAction: sendEmail ? MessageActionType.RESEND : MessageActionType.SUPPRESS,
-          DesiredDeliveryMediums: sendEmail ? [DeliveryMediumType.EMAIL] : undefined,
-        });
+          // Ensure invited users have the same tenant ID as the admin who is inviting them
+          const userAttributes: AttributeType[] = [
+            { Name: 'email', Value: email },
+            { Name: 'email_verified', Value: 'true' },
+            { Name: 'custom:tenant_id', Value: tenantId }, // Same tenant as the admin
+            { Name: 'custom:tenantAdmin', Value: 'false' }, // New users are not admins by default
+          ];
 
-        const response = await cognitoClient.send(command);
+          const command = new AdminCreateUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: email,
+            UserAttributes: userAttributes,
+            TemporaryPassword: temporaryPassword,
+            MessageAction: sendEmail ? undefined : MessageActionType.SUPPRESS,
+            DesiredDeliveryMediums: sendEmail ? [DeliveryMediumType.EMAIL] : undefined,
+          });
 
-        results.push({
-          email,
-          success: true,
-          username: response.User?.Username,
-          temporaryPassword: sendEmail ? undefined : temporaryPassword, // Only return password if not sending email
-        });
+          const response = await cognitoClient.send(command);
 
-        console.log(`Successfully created user: ${email}`);
+          results.push({
+            email,
+            success: true,
+            username: response.User?.Username,
+            temporaryPassword: sendEmail ? undefined : temporaryPassword, // Only return password if not sending email
+            message: 'New user created successfully',
+          });
+
+          console.log(`Successfully created new user: ${email}`);
+        }
 
       } catch (error: any) {
-        console.error(`Failed to create user ${email}:`, error);
+        console.error(`Failed to process user ${email}:`, error);
 
         let errorMessage = 'Unknown error';
-        if (error.name === 'UsernameExistsException') {
-          errorMessage = 'User already exists';
-        } else if (error.name === 'InvalidParameterException') {
+        if (error.name === 'InvalidParameterException') {
           errorMessage = 'Invalid parameters';
         } else if (error.name === 'InvalidPasswordException') {
           errorMessage = 'Invalid password format';
+        } else if (error.name === 'UnsupportedUserStateException') {
+          errorMessage = 'Cannot resend invitation - user is not in correct status';
+        } else if (error.name === 'UserNotFoundException') {
+          errorMessage = 'User not found for resend operation';
         }
 
         results.push({

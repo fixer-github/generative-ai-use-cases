@@ -6,8 +6,8 @@ adminPortal:
   stats:
     totalUsers: Total Users
     admins: Admins
-    regularUsers: Regular Users
-    disabledUsers: Disabled Users
+    regularUsers: Regular
+    disabledUsers: Disabled
   table:
     user: User
     role: Role
@@ -23,9 +23,11 @@ adminPortal:
     remove: Remove
   messages:
     loading: Loading...
+    refreshingSession: Refreshing session...
     failedToCheckAdminStatus: Failed to verify admin status
     failedToLoadUsers: Failed to load users
     failedToUpdateUserRole: Failed to update user role
+    failedToRefreshSession: Failed to refresh authentication session
     failedToRemoveUser: Failed to remove user
     removeUserConfirmation: 'Are you sure you want to remove user {{username}}? This action cannot be undone.'
     noUsersFound: No users found
@@ -58,12 +60,18 @@ adminPortal:
       summary: 'Total: {{total}} | Successful: {{successful}} | Failed: {{failed}}'
       invited: ✓ Invited
       failed: '✗ {{error}}'
-      warning: '<strong>Important:</strong> Since automatic emails are disabled, you need to manually share the temporary passwords with invited users.'
+      warning: 'Important: Since automatic emails are disabled, you need to manually share the temporary passwords with invited users.'
     actions:
       cancel: Cancel
       close: Close
       sendInvitations: Send Invitations
       inviting: Inviting...
+    unconfiguredDomain:
+      title: Domain Configuration Warning
+      message: The following email addresses have domains that are not configured for self-signup. These users will need admin assistance to access the system after invitation.
+      affectedUsers: 'Users with unconfigured domains:'
+      cancel: Cancel
+      proceedAnyway: Proceed Anyway
 agent:
   drop_files: Drop files to upload
   title: Agent Chat
@@ -847,6 +855,9 @@ setting:
     enabled the specified models in {{region}}. For details on how to do this,
     please refer to <1>generative-ai-use-cases</1>.
   items:
+    admin_portal: Admin Portal
+    admin_portal_checking: Checking permissions...
+    admin_portal_manage_users: Manage Users
     agent_enabled: Agent Enabled
     language: Language
     language_help: Change display language

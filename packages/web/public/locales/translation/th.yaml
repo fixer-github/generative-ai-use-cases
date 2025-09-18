@@ -23,9 +23,11 @@ adminPortal:
     remove: ลบ
   messages:
     loading: กำลังโหลด...
+    refreshingSession: กำลังรีเฟรชเซสชัน...
     failedToCheckAdminStatus: ไม่สามารถตรวจสอบสถานะผู้ดูแลระบบได้
     failedToLoadUsers: ไม่สามารถโหลดผู้ใช้ได้
     failedToUpdateUserRole: ไม่สามารถอัปเดตบทบาทผู้ใช้ได้
+    failedToRefreshSession: ไม่สามารถรีเฟรชเซสชันการยืนยันตัวตนได้
     failedToRemoveUser: ไม่สามารถลบผู้ใช้ได้
     removeUserConfirmation: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ {{username}}? การดำเนินการนี้ไม่สามารถยกเลิกได้'
     noUsersFound: ไม่พบผู้ใช้
@@ -58,12 +60,18 @@ adminPortal:
       summary: 'รวม: {{total}} | สำเร็จ: {{successful}} | ล้มเหลว: {{failed}}'
       invited: ✓ เชิญแล้ว
       failed: '✗ {{error}}'
-      warning: '<strong>สำคัญ:</strong> เนื่องจากอีเมลอัตโนมัติถูกปิดใช้งาน คุณจำเป็นต้องแชร์รหัสผ่านชั่วคราวกับผู้ใช้ที่ได้รับเชิญด้วยตนเอง'
+      warning: 'สำคัญ: เนื่องจากอีเมลอัตโนมัติถูกปิดใช้งาน คุณจำเป็นต้องแชร์รหัสผ่านชั่วคราวกับผู้ใช้ที่ได้รับเชิญด้วยตนเอง'
     actions:
       cancel: ยกเลิก
       close: ปิด
       sendInvitations: ส่งคำเชิญ
       inviting: กำลังเชิญ...
+    unconfiguredDomain:
+      title: คำเตือนการกำหนดค่าโดเมน
+      message: ที่อยู่อีเมลต่อไปนี้มีโดเมนที่ไม่ได้กำหนดค่าสำหรับการสมัครสมาชิกอัตโนมัติ ผู้ใช้เหล่านี้จะต้องการความช่วยเหลือจากผู้ดูแลระบบเพื่อเข้าถึงระบบหลังจากได้รับการเชิญ
+      affectedUsers: 'ผู้ใช้ที่มีโดเมนที่ไม่ได้กำหนดค่า:'
+      cancel: ยกเลิก
+      proceedAnyway: ดำเนินการต่อไปอยู่ดี
 agent:
   drop_files: วางไฟล์เพื่ออัปโหลด
   title: Agent Chat
@@ -736,6 +744,9 @@ setting:
   config_message: >-
     การตั้งค่าสามารถเปลี่ยนแปลงได้โดยใช้ <0>AWS CDK</0> ไม่ใช่บนหน้าจอนี้ หากคุณพบข้อผิดพลาดเมื่อใช้ use cases โปรดตรวจสอบว่าคุณได้เปิดใช้งานโมเดลที่ระบุใน {{region}} สำหรับรายละเอียดเกี่ยวกับวิธีการทำเช่นนี้ โปรดดูที่ <1>generative-ai-use-cases</1>
   items:
+    admin_portal: พอร์ทัลผู้ดูแล
+    admin_portal_checking: กำลังตรวจสอบสิทธิ์...
+    admin_portal_manage_users: จัดการผู้ใช้
     agent_enabled: เปิดใช้งานตัวแทน
     language: ภาษา
     language_help: เปลี่ยนภาษาที่แสดง
