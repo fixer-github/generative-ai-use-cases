@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
+import { GenericApiProps } from './props';
 
 export type ShareApiProps = GenericApiProps;
 
