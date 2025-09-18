@@ -5,7 +5,6 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
-import { LitellmProxyServer } from '../litellm-proxy-server';
 
 export type PredictApiProps = GenericApiProps;
 
