@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   PiPlus,
-  PiMagnifyingGlass,
   PiRobot,
   PiPencil,
   PiTrash,
@@ -22,7 +21,7 @@ import Button from '../components/Button';
 import LoadingWave from '../components/LoadingWave';
 import Switch from '../components/Switch';
 
-type ScopeFilter = 'all' | 'private';
+type ScopeFilter = 'none' | 'all' | 'private';
 
 const RagChatBotPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,13 +31,15 @@ const RagChatBotPage: React.FC = () => {
   const [bots, setBots] = useState<BedrockChatBot[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('none');
   const [showOnlyStarred, setShowOnlyStarred] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [visibilityModalBotId, setVisibilityModalBotId] = useState<string | null>(null);
   const [newVisibility, setNewVisibility] = useState<'private' | 'partial' | 'all'>('private');
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const fetchBots = useCallback(async () => {
     // Cancel previous request if it exists
@@ -54,7 +55,7 @@ const RagChatBotPage: React.FC = () => {
     try {
       const params = {
         query: searchQuery || undefined,
-        scope: scopeFilter,
+        scope: scopeFilter === 'none' ? undefined : scopeFilter,
         starred: showOnlyStarred || undefined,
         limit: 50,
         sort: 'usage' as const,
@@ -110,6 +111,23 @@ const RagChatBotPage: React.FC = () => {
       console.error('Failed to update sync statuses:', error);
     }
   }, [bots, getPrivateBot]);
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    searchDebounceTimer.current = setTimeout(() => {
+      setSearchQuery(searchInputValue);
+    }, 300); // 300ms debounce delay
+
+    return () => {
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
+      }
+    };
+  }, [searchInputValue]);
 
   // Fetch bots on filter changes
   useEffect(() => {
@@ -252,6 +270,14 @@ const RagChatBotPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
+            {/* Sync Status Display */}
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
+              {syncStatusDisplay.icon}
+              <span className={`text-xs font-medium ${syncStatusDisplay.className}`}>
+                {syncStatusDisplay.text}
+              </span>
+            </div>
+
             {/* Star Button */}
             <div onClick={(e) => e.stopPropagation()}>
               <button
@@ -267,14 +293,6 @@ const RagChatBotPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Sync Status Display */}
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
-              {syncStatusDisplay.icon}
-              <span className={`text-xs font-medium ${syncStatusDisplay.className}`}>
-                {syncStatusDisplay.text}
-              </span>
-            </div>
-            
             {/* Visibility Button */}
             {isOwner && (
               <div onClick={(e) => e.stopPropagation()}>
@@ -294,7 +312,7 @@ const RagChatBotPage: React.FC = () => {
                 </button>
               </div>
             )}
-            
+
             {/* Three Dots Menu */}
             {isOwner && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -379,53 +397,33 @@ const RagChatBotPage: React.FC = () => {
 
       {/* 検索・フィルタリング設定部分 */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <div className="flex flex-col gap-4">
-          {/* 検索入力フォーム */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder={t('ragChatBot.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 rounded border border-black/30 p-2 outline-none"
-            />
-            <Button
-              outlined
-              className="flex items-center gap-1"
-              onClick={fetchBots}
-            >
-              <PiMagnifyingGlass />
-              {t('ragChatBot.search')}
-            </Button>
-          </div>
+        <div className="flex gap-2 items-center">
+          {/* 検索入力フォーム - 可変幅 */}
+          <input
+            type="text"
+            placeholder={t('ragChatBot.searchPlaceholder')}
+            value={searchInputValue}
+            onChange={(e) => setSearchInputValue(e.target.value)}
+            className="flex-1 rounded border border-black/30 p-2 outline-none"
+          />
 
-          {/* フィルタリングオプション */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* 公開範囲フィルタリング */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                {t('ragChatBot.scopeFilter')}:
-              </label>
-              <select
-                value={scopeFilter}
-                onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
-                className="rounded border border-black/30 px-3 py-1.5 outline-none"
-              >
-                <option value="all">{t('ragChatBot.tenantPublic')}</option>
-                <option value="private">{t('ragChatBot.private')}</option>
-              </select>
-            </div>
+          {/* 公開範囲フィルタリング - 固定幅 */}
+          <select
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
+            className="w-40 rounded border border-black/30 px-3 py-2 outline-none"
+          >
+            <option value="none">{t('ragChatBot.noFilter', '指定なし')}</option>
+            <option value="all">{t('ragChatBot.tenantPublic')}</option>
+            <option value="private">{t('ragChatBot.private')}</option>
+          </select>
 
-            {/* スター付きのみ表示 */}
-            <div className="flex items-center gap-2">
-              <PiStar className={`text-lg ${showOnlyStarred ? 'text-yellow-500' : 'text-gray-400'}`} />
-              <Switch
-                checked={showOnlyStarred}
-                onSwitch={setShowOnlyStarred}
-                label={t('ragChatBot.starredOnly')}
-              />
-            </div>
-          </div>
+          {/* スター付きのみ表示 */}
+          <Switch
+            checked={showOnlyStarred}
+            onSwitch={setShowOnlyStarred}
+            label={t('ragChatBot.starredOnly')}
+          />
         </div>
       </div>
 
