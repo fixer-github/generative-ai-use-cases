@@ -10,6 +10,7 @@ import {
   createBrowserRouter,
   RouteObject,
 } from 'react-router-dom';
+import { SWRConfig } from 'swr';
 import LandingPage from './pages/LandingPage';
 import Setting from './pages/Setting';
 import StatPage from './pages/StatPage.tsx';
@@ -47,6 +48,7 @@ import RagChatBotPage from './pages/RagChatBotPage.tsx';
 import RagChatBotEditPage from './pages/RagChatBotEditPage.tsx';
 import RagChatBotChatPage from './pages/RagChatBotChatPage.tsx';
 import RagChatBotHistoryPage from './pages/RagChatBotHistoryPage.tsx';
+import AdminPortal from './pages/AdminPortal.tsx';
 import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
 
@@ -231,6 +233,10 @@ const routes: RouteObject[] = [
     element: <RagChatBotHistoryPage />,
   },
   {
+    path: '/admin',
+    element: <AdminPortal />,
+  },
+  {
     path: '*',
     element: <NotFound />,
   },
@@ -317,7 +323,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
     <React.Suspense fallback={<div>Loading...</div>}>
       <Authenticator.Provider>
-        <RouterProvider router={router} />
+        <SWRConfig
+          value={{
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            revalidateOnMount: true,
+          }}
+        >
+          <RouterProvider router={router} />
+        </SWRConfig>
         <Toaster />
       </Authenticator.Provider>
     </React.Suspense>
