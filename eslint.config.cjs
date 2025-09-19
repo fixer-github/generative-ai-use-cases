@@ -36,18 +36,6 @@ module.exports = defineConfig([
       'i18nhelper/no-jp-comment': 'warn',
     },
   },
-  {
-    ignores: [
-      'packages/cdk/cdk.out/**',
-      'packages/{cdk,common}/*.config.cjs',
-      'dist/**',
-      'build/**',
-      'node_modules/**',
-      '*.config.js',
-      '*.config.cjs',
-      '*.config.mjs',
-    ],
-  },
   // For web
   {
     files: ['packages/web/**/*.{js,jsx,ts,tsx}'],
@@ -118,5 +106,18 @@ module.exports = defineConfig([
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',
     },
+  },
+  {
+    ignores: [
+      'packages/cdk/cdk.out/**',
+      'packages/{cdk,common}/*.config.cjs',
+      '**/dist/**',
+      '**/build/**',
+      '**/node_modules/**',
+      '**/*.config.js',
+      '**/*.config.cjs',
+      '**/*.config.mjs',
+      '**/*.config.ts',
+    ],
   },
 ]);
