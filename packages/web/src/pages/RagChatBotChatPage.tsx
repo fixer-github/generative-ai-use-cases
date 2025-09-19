@@ -369,7 +369,7 @@ const RagChatBotChatPage: React.FC = () => {
         key={message.id}
         className={`mb-4 flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
         {isAssistant && (
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
               <PiRobot className="text-blue-600" />
             </div>
@@ -399,7 +399,7 @@ const RagChatBotChatPage: React.FC = () => {
         </div>
 
         {isUser && (
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
               <PiUser className="text-green-600" />
             </div>

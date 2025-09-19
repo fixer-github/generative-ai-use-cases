@@ -246,7 +246,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           onClick={handleClose}
         />
 
-        <div className="inline-block w-full max-w-2xl transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
+        <div className="inline-block w-full max-w-2xl overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center">
@@ -475,7 +475,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
 
-            <div className="inline-block w-full max-w-lg transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
+            <div className="inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-orange-800">
                   {t('adminPortal.invite.unconfiguredDomain.title')}
