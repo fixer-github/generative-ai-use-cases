@@ -117,14 +117,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       }
 
+      // Determine the action type for better frontend handling
+      const actionType = currentIsAdmin === tenantAdmin 
+        ? 'no_change' 
+        : tenantAdmin ? 'promoted' : 'demoted';
+      
+      let userMessage = 'User role updated successfully';
+      if (actionType === 'promoted') {
+        userMessage = 'User has been promoted to admin. They will have administrative privileges on their next session refresh.';
+      } else if (actionType === 'demoted') {
+        userMessage = sessionInvalidated 
+          ? 'User has been demoted to regular user. Their admin sessions have been terminated.'
+          : 'User has been demoted to regular user.';
+      }
+
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
         body: JSON.stringify({
-          message: 'User role updated successfully',
+          message: userMessage,
           username,
           tenantAdmin,
           sessionInvalidated,
+          actionType,
+          requiresRefresh: actionType === 'promoted',
         }),
       };
 
