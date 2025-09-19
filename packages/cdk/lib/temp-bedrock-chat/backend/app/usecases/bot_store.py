@@ -36,32 +36,29 @@ def search_bots(
         if not starred_bot_ids:
             return []
 
-        # Get bots from OpenSearch
+        # Get bots from OpenSearch with starred bot IDs filter
         if not query and sort == "usage":
             bots = find_bots_by_filters(
                 user,
                 scope=scope,
-                limit=limit * 3,  # Get more results to filter
+                limit=limit,
+                starred_bot_ids=starred_bot_ids,
             )
         else:
             bots = find_bots_by_query(
                 query,
                 user,
                 scope=scope,
-                limit=limit * 3,  # Get more results to filter
+                limit=limit,
                 sort=sort,
+                starred_bot_ids=starred_bot_ids,
             )
 
-        # Filter to only starred bots and set is_starred flag
-        filtered_bots = []
+        # Set is_starred flag for all results (they're all starred by definition)
         for bot in bots:
-            if bot.id in starred_bot_ids:
-                bot.is_starred = True
-                filtered_bots.append(bot)
-                if len(filtered_bots) >= limit:
-                    break
+            bot.is_starred = True
 
-        bot_metas = [bot.to_output() for bot in filtered_bots]
+        bot_metas = [bot.to_output() for bot in bots]
         return bot_metas
 
     # Normal search without starred filter
