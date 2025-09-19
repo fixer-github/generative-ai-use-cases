@@ -1,4 +1,4 @@
-// eslint.config.cjs
+const { defineConfig } = require('eslint/config');
 const js = require('@eslint/js');
 const globals = require('globals');
 const typescriptPlugin = require('@typescript-eslint/eslint-plugin');
@@ -11,9 +11,46 @@ const yamlParser = require('yaml-eslint-parser');
 const i18nhelperPlugin = require('eslint-plugin-i18nhelper');
 const shopifyPlugin = require('@shopify/eslint-plugin');
 
-module.exports = [
+module.exports = defineConfig([
+  js.configs.recommended,
+  // For cdk, common
   {
-    files: ['**/*.{js,jsx,ts,tsx}'],
+    files: ['packages/{cdk,common}/**/*.{ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': typescriptPlugin,
+      i18nhelper: i18nhelperPlugin,
+    },
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        project: './tsconfig.json',
+      },
+    },
+    rules: {
+      ...typescriptPlugin.configs['eslint-recommended'].rules,
+      ...typescriptPlugin.configs.recommended.rules,
+      '@typescript-eslint/no-namespace': 'off',
+      'i18nhelper/no-jp-string': 'warn',
+      'i18nhelper/no-jp-comment': 'warn',
+    },
+  },
+  {
+    ignores: [
+      'packages/cdk/cdk.out/**',
+      'packages/{cdk,common}/*.config.cjs',
+      'dist/**',
+      'build/**',
+      'node_modules/**',
+      '*.config.js',
+      '*.config.cjs',
+      '*.config.mjs',
+    ],
+  },
+  // For web
+  {
+    files: ['packages/web/**/*.{js,jsx,ts,tsx}'],
     plugins: {
       '@typescript-eslint': typescriptPlugin,
       'react-hooks': reactHooksPlugin,
@@ -57,6 +94,7 @@ module.exports = [
       '@shopify/jsx-no-hardcoded-content': 'warn',
     },
   },
+  // For yaml files
   {
     files: ['**/*.{yaml,yml}'],
     plugins: {
@@ -71,14 +109,14 @@ module.exports = [
       'yml/quotes': ['error', { prefer: 'single', avoidEscape: true }],
     },
   },
+  // General rules
   {
-    ignores: [
-      'dist/**',
-      'build/**',
-      'node_modules/**',
-      '*.config.js',
-      '*.config.cjs',
-      '*.config.mjs',
-    ],
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': typescriptPlugin,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
   },
-];
+]);

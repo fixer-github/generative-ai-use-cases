@@ -4,11 +4,5 @@
   "main": "src/index.ts",
   "dependencies": {
     "aws-jwt-verify": "^4.0.0"
-  },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "8.44.0",
-    "@typescript-eslint/parser": "8.44.0",
-    "eslint": "9.35.0",
-    "eslint-plugin-i18nhelper": "file:../eslint-plugin-i18nhelper"
   }
 }
