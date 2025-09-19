@@ -24,6 +24,7 @@ import {
   PiTreeStructure,
   PiNotebook,
   PiGraph,
+  PiPresentation,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -239,6 +240,14 @@ const App: React.FC = () => {
           label: t('navigation.diagramGeneration'),
           to: '/diagram',
           icon: <PiTreeStructure />,
+          display: 'usecase' as const,
+        }
+      : null,
+    enabled('pptx')
+      ? {
+          label: t('navigation.pptxGeneration'),
+          to: '/pptx',
+          icon: <PiPresentation />,
           display: 'usecase' as const,
         }
       : null,

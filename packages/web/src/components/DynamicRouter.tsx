@@ -35,6 +35,7 @@ import FlowChatPage from '../pages/FlowChatPage';
 import VoiceChatPage from '../pages/VoiceChatPage';
 import McpChatPage from '../pages/McpChatPage';
 import GenerateDiagramPage from '../pages/GenerateDiagramPage';
+import PptxGenerationPage from '../pages/PptxGenerationPage';
 import WriterPage from '../pages/WriterPage';
 import RagChatBotPage from '../pages/RagChatBotPage';
 import RagChatBotEditPage from '../pages/RagChatBotEditPage';
@@ -164,6 +165,12 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
       ? {
           path: '/diagram',
           element: <GenerateDiagramPage />,
+        }
+      : null,
+    enabled('pptx')
+      ? {
+          path: '/pptx',
+          element: <PptxGenerationPage />,
         }
       : null,
     optimizePromptEnabled

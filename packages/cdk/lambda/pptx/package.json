@@ -1,0 +1,26 @@
+{
+  "name": "pptx-lambda-functions",
+  "version": "1.0.0",
+  "description": "Lambda functions for PPTX generation API",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.x.x",
+    "@aws-sdk/client-s3": "^3.x.x",
+    "@aws-sdk/client-sqs": "^3.x.x",
+    "@aws-sdk/lib-dynamodb": "^3.x.x",
+    "@aws-sdk/s3-request-presigner": "^3.x.x",
+    "@aws-sdk/s3-presigned-post": "^3.x.x",
+    "aws-lambda": "^1.x.x",
+    "uuid": "^9.x.x"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.x.x",
+    "@types/node": "^18.x.x",
+    "@types/uuid": "^9.x.x",
+    "typescript": "^5.x.x"
+  }
+}
