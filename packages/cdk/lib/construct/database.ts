@@ -20,6 +20,7 @@ export class Database extends Construct {
         type: ddb.AttributeType.STRING,
       },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      encryption: ddb.TableEncryption.AWS_MANAGED,
     });
 
     table.addGlobalSecondaryIndex({
@@ -41,6 +42,7 @@ export class Database extends Construct {
         type: ddb.AttributeType.STRING,
       },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      encryption: ddb.TableEncryption.AWS_MANAGED,
     });
 
     this.table = table;

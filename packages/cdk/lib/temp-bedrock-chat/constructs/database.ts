@@ -94,6 +94,7 @@ export class Database extends Construct {
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
       timeToLiveAttribute: 'expire',
+      encryption: TableEncryption.AWS_MANAGED,
     });
 
     this.conversationTable = conversationTable;

@@ -127,6 +127,7 @@ export class TenantDynamoDB extends Construct {
       },
       billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: removalPolicy,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags to Chat History table
@@ -158,6 +159,7 @@ export class TenantDynamoDB extends Construct {
         },
         billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: removalPolicy,
+        encryption: dynamodb.TableEncryption.AWS_MANAGED,
       }
     );
 
@@ -191,6 +193,7 @@ export class TenantDynamoDB extends Construct {
       },
       billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: removalPolicy,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
 
     // Add tags to Use Case Builder table
