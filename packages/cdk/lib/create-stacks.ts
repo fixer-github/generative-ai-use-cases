@@ -110,6 +110,10 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
   const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
 
   const authStack = new AuthStack(app, 'AuthStack', {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
     selfSignUpEnabled: params.selfSignUpEnabled,
     allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
     allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
