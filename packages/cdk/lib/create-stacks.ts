@@ -10,6 +10,8 @@ import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
 import process from 'node:process';
 import AuthStack from './stacks/common/auth-stack';
+import ApiStack from './stacks/common/api-stack';
+import FileBucketStack from './stacks/common/file-bucket-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -122,6 +124,17 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
   });
 
+  const fileBucketStack = new FileBucketStack(app, 'FileBucketStack', {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+  });
+
+  const apiStack = new ApiStack(app, 'ApiStack', {
+    fileBucket: fileBucketStack.fileBucket,
+  });
+
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
     app,
     `GenerativeAiUseCasesStack${params.env}`,
@@ -153,9 +166,28 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       // Image build environment
       isSageMakerStudio,
 
+      // AuthStack
       userPool: authStack.userPool,
       client: authStack.client,
       idPool: authStack.idPool,
+
+      // S3
+      fileBucket: fileBucketStack.fileBucket,
+
+      // ApiStack
+      restApi: apiStack.restApi,
+      agentNames: apiStack.agentNames,
+      endpointNames: apiStack.endpointNames,
+
+      getFileDownloadSignedUrlFunction:
+        apiStack.getFileDownloadSignedUrlFunction,
+      imageGenerationModelIds: apiStack.imageGenerationModelIds,
+      videoGenerationModelIds: apiStack.videoGenerationModelIds,
+      invokeFlowFunction: apiStack.invokeFlowFunction,
+      modelIds: apiStack.modelIds,
+      modelRegion: apiStack.modelRegion,
+      optimizePromptFunction: apiStack.optimizePromptFunction,
+      predictStreamFunction: apiStack.predictStreamFunction,
     }
   );
 

@@ -3,7 +3,6 @@ import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
-  Api,
   Web,
   Database,
   Rag,
@@ -18,11 +17,14 @@ import {
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
-import { Agent } from 'generative-ai-use-cases';
+import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
 import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -47,6 +49,25 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly userPool: cognito.UserPool;
   readonly client: cognito.UserPoolClient;
   readonly idPool: IdentityPool;
+
+  // From other stack
+  readonly modelRegion: string;
+  readonly modelIds: ModelConfiguration[];
+  readonly imageGenerationModelIds: ModelConfiguration[];
+  readonly videoGenerationModelIds: ModelConfiguration[];
+  readonly endpointNames: string[];
+  readonly agentNames: string[];
+
+  // S3
+  readonly fileBucket: Bucket;
+
+  // Api
+  readonly restApi: RestApi;
+
+  readonly predictStreamFunction: NodejsFunction;
+  readonly invokeFlowFunction: NodejsFunction;
+  readonly optimizePromptFunction: NodejsFunction;
+  readonly getFileDownloadSignedUrlFunction: NodejsFunction;
 }
 
 export class GenerativeAiUseCasesStack extends Stack {
@@ -86,39 +107,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       litellmEndpoint = litellmProxy.endpoint;
     }
 
-    // API
-    const api = new Api(this, 'API', {
-      modelRegion: params.modelRegion,
-      modelIds: params.modelIds,
-      imageGenerationModelIds: params.imageGenerationModelIds,
-      videoGenerationModelIds: params.videoGenerationModelIds,
-      videoBucketRegionMap: props.videoBucketRegionMap,
-      endpointNames: params.endpointNames,
-      customAgents: params.agents,
-      queryDecompositionEnabled: params.queryDecompositionEnabled,
-      rerankingModelId: params.rerankingModelId,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      litellmEndpoint: litellmEndpoint,
-      litellmProxy: litellmProxy,
-      selfSignUpTenantMap: params.selfSignUpTenantMap,
-      userPool: props.userPool,
-      idPool: props.idPool,
-      userPoolClient: props.client,
-      table: database.table,
-      statsTable: database.statsTable,
-      knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
-      agents: props.agents,
-      guardrailIdentify: props.guardrailIdentifier,
-      guardrailVersion: props.guardrailVersion,
-      environment: params.env,
-      tenantManager: tenantManager,
-
-      // LangChain Credentials
-      openai: params.openai,
-    });
-
     // WAF
     if (
       params.allowedIpV4AddressRanges ||
@@ -132,7 +120,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         allowedCountryCodes: params.allowedCountryCodes,
       });
       new CfnWebACLAssociation(this, 'ApiWafAssociation', {
-        resourceArn: api.restApi.deploymentStage.stageArn,
+        resourceArn: props.restApi.deploymentStage.stageArn,
         webAclArn: regionalWaf.webAclArn,
       });
       new CfnWebACLAssociation(this, 'UserPoolWafAssociation', {
@@ -144,7 +132,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     // SpeechToSpeech (for bidirectional communication)
     const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
       envSuffix: params.env,
-      api: api.restApi,
+      api: props.restApi,
       userPool: props.userPool,
       speechToSpeechModelIds: params.speechToSpeechModelIds,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
@@ -156,7 +144,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       const mcpApi = new McpApi(this, 'McpApi', {
         idPool: props.idPool,
         isSageMakerStudio: props.isSageMakerStudio,
-        fileBucket: api.fileBucket,
+        fileBucket: props.fileBucket,
       });
       mcpEndpoint = mcpApi.endpoint;
     }
@@ -179,21 +167,21 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlCognitoFederatedIdentityProviderName:
         params.samlCognitoFederatedIdentityProviderName,
       // Backend
-      apiEndpointUrl: api.restApi.url,
-      predictStreamFunctionArn: api.predictStreamFunction.functionArn,
+      apiEndpointUrl: props.restApi.url,
+      predictStreamFunctionArn: props.predictStreamFunction.functionArn,
       ragEnabled: params.ragEnabled,
       ragKnowledgeBaseEnabled: params.ragKnowledgeBaseEnabled,
       agentEnabled: params.agentEnabled || params.agents.length > 0,
       flows: params.flows,
-      flowStreamFunctionArn: api.invokeFlowFunction.functionArn,
-      optimizePromptFunctionArn: api.optimizePromptFunction.functionArn,
+      flowStreamFunctionArn: props.invokeFlowFunction.functionArn,
+      optimizePromptFunctionArn: props.optimizePromptFunction.functionArn,
       webAclId: props.webAclId,
-      modelRegion: api.modelRegion,
-      modelIds: api.modelIds,
-      imageGenerationModelIds: api.imageGenerationModelIds,
-      videoGenerationModelIds: api.videoGenerationModelIds,
-      endpointNames: api.endpointNames,
-      agentNames: api.agentNames,
+      modelRegion: props.modelRegion,
+      modelIds: props.modelIds,
+      imageGenerationModelIds: props.imageGenerationModelIds,
+      videoGenerationModelIds: props.videoGenerationModelIds,
+      endpointNames: props.endpointNames,
+      agentNames: props.agentNames,
       inlineAgents: params.inlineAgents,
       useCaseBuilderEnabled: params.useCaseBuilderEnabled,
       speechToSpeechNamespace: speechToSpeech.namespace,
@@ -221,7 +209,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         kendraIndexScheduleCreateCron: params.kendraIndexScheduleCreateCron,
         kendraIndexScheduleDeleteCron: params.kendraIndexScheduleDeleteCron,
         userPool: props.userPool,
-        api: api.restApi,
+        api: props.restApi,
       });
 
       // Allow downloading files from the File API to the data source Bucket
@@ -229,11 +217,11 @@ export class GenerativeAiUseCasesStack extends Stack {
       // In that case, rag.dataSourceBucketName will be undefined and the permission will not be granted
       if (
         rag.dataSourceBucketName &&
-        api.getFileDownloadSignedUrlFunction.role
+        props.getFileDownloadSignedUrlFunction.role
       ) {
         allowS3AccessWithSourceIpCondition(
           rag.dataSourceBucketName,
-          api.getFileDownloadSignedUrlFunction.role,
+          props.getFileDownloadSignedUrlFunction.role,
           'read',
           {
             ipv4: params.allowedIpV4AddressRanges,
@@ -253,16 +241,16 @@ export class GenerativeAiUseCasesStack extends Stack {
           crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
           knowledgeBaseId: knowledgeBaseId,
           userPool: props.userPool,
-          api: api.restApi,
+          api: props.restApi,
         });
         // Allow downloading files from the File API to the data source Bucket
         if (
           props.knowledgeBaseDataSourceBucketName &&
-          api.getFileDownloadSignedUrlFunction.role
+          props.getFileDownloadSignedUrlFunction.role
         ) {
           allowS3AccessWithSourceIpCondition(
             props.knowledgeBaseDataSourceBucketName,
-            api.getFileDownloadSignedUrlFunction.role,
+            props.getFileDownloadSignedUrlFunction.role,
             'read',
             {
               ipv4: params.allowedIpV4AddressRanges,
@@ -277,7 +265,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     if (params.useCaseBuilderEnabled) {
       new UseCaseBuilder(this, 'UseCaseBuilder', {
         userPool: props.userPool,
-        api: api.restApi,
+        api: props.restApi,
         idPool: props.idPool,
         environment: params.env,
         tenantManager: tenantManager,
@@ -288,7 +276,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     new Transcribe(this, 'Transcribe', {
       userPool: props.userPool,
       idPool: props.idPool,
-      api: api.restApi,
+      api: props.restApi,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       tenantManager: tenantManager,
@@ -311,7 +299,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     new CfnOutput(this, 'ApiEndpoint', {
-      value: api.restApi.url,
+      value: props.restApi.url,
     });
 
     new CfnOutput(this, 'UserPoolId', { value: props.userPool.userPoolId });
@@ -323,15 +311,15 @@ export class GenerativeAiUseCasesStack extends Stack {
     new CfnOutput(this, 'IdPoolId', { value: props.idPool.identityPoolId });
 
     new CfnOutput(this, 'PredictStreamFunctionArn', {
-      value: api.predictStreamFunction.functionArn,
+      value: props.predictStreamFunction.functionArn,
     });
 
     new CfnOutput(this, 'OptimizePromptFunctionArn', {
-      value: api.optimizePromptFunction.functionArn,
+      value: props.optimizePromptFunction.functionArn,
     });
 
     new CfnOutput(this, 'InvokeFlowFunctionArn', {
-      value: api.invokeFlowFunction.functionArn,
+      value: props.invokeFlowFunction.functionArn,
     });
 
     new CfnOutput(this, 'Flows', {
@@ -355,23 +343,23 @@ export class GenerativeAiUseCasesStack extends Stack {
     });
 
     new CfnOutput(this, 'ModelRegion', {
-      value: api.modelRegion,
+      value: props.modelRegion,
     });
 
     new CfnOutput(this, 'ModelIds', {
-      value: JSON.stringify(api.modelIds),
+      value: JSON.stringify(props.modelIds),
     });
 
     new CfnOutput(this, 'ImageGenerateModelIds', {
-      value: JSON.stringify(api.imageGenerationModelIds),
+      value: JSON.stringify(props.imageGenerationModelIds),
     });
 
     new CfnOutput(this, 'VideoGenerateModelIds', {
-      value: JSON.stringify(api.videoGenerationModelIds),
+      value: JSON.stringify(props.videoGenerationModelIds),
     });
 
     new CfnOutput(this, 'EndpointNames', {
-      value: JSON.stringify(api.endpointNames),
+      value: JSON.stringify(props.endpointNames),
     });
 
     new CfnOutput(this, 'SamlAuthEnabled', {
@@ -391,7 +379,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     });
 
     new CfnOutput(this, 'AgentNames', {
-      value: Buffer.from(JSON.stringify(api.agentNames)).toString('base64'),
+      value: Buffer.from(JSON.stringify(props.agentNames)).toString('base64'),
     });
 
     new CfnOutput(this, 'InlineAgents', {
