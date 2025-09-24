@@ -115,6 +115,26 @@ class AdminApi extends Construct {
       }
     );
 
+    // HACK: Consolidated admin operations to avoid CloudFormation 500 resource limit
+    // This combines use case configuration operations that should ideally be separate Lambda functions
+    // TODO: Split into multiple stacks or use nested stacks when the application grows
+    const adminOperationsFunction = new NodejsFunction(
+      this,
+      'AdminOperations',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/adminOperations.ts',
+        timeout: Duration.minutes(5),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment(this, props, {
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          HIDDEN_USE_CASES: JSON.stringify(props.hiddenUseCases || {}),
+        }),
+      }
+    );
+
     // Grant Cognito permissions to admin functions
     const adminFunctions = [
       listTenantUsersFunction,
@@ -124,6 +144,11 @@ class AdminApi extends Construct {
       checkAdminStatusFunction,
       validateInvitationDomainsFunction,
     ];
+
+    // Grant DynamoDB permissions to consolidated admin operations function
+    if (props.tenantsTable) {
+      props.tenantsTable.grantReadWriteData(adminOperationsFunction);
+    }
 
     adminFunctions.forEach((func) => {
       func.addToRolePolicy(
@@ -193,6 +218,24 @@ class AdminApi extends Construct {
     statusResource.addMethod(
       'GET',
       new LambdaIntegration(checkAdminStatusFunction),
+      commonAuthorizerProps
+    );
+
+    // HACK: Use case configuration routes using consolidated handler
+    // This reduces API Gateway resources but couples operations together
+    const useCaseConfigResource = adminResource.addResource('use-case-config');
+    
+    // GET /admin/use-case-config - Get tenant use case configuration
+    useCaseConfigResource.addMethod(
+      'GET',
+      new LambdaIntegration(adminOperationsFunction),
+      commonAuthorizerProps
+    );
+
+    // PUT /admin/use-case-config - Update tenant use case configuration
+    useCaseConfigResource.addMethod(
+      'PUT',
+      new LambdaIntegration(adminOperationsFunction),
       commonAuthorizerProps
     );
   }

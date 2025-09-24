@@ -5,6 +5,7 @@ import {
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { HiddenUseCases } from 'generative-ai-use-cases';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
@@ -31,6 +32,11 @@ export interface Tenant {
   metadata?: Record<string, any>;
   accountId: string;
   roleArn: string;
+  useCaseConfiguration?: {
+    hiddenUseCases: HiddenUseCases;
+    updatedAt: string;
+    updatedBy: string;
+  };
 }
 
 // Request interfaces
@@ -50,6 +56,12 @@ interface UpdateTenantRequest {
   metadata?: Record<string, any>;
   accountId?: string;
   roleArn?: string;
+}
+
+interface UpdateTenantUseCaseConfigurationRequest {
+  tenantId: string;
+  hiddenUseCases: HiddenUseCases;
+  updatedBy: string;
 }
 
 /**
@@ -200,4 +212,69 @@ export async function deactivateTenant(tenantId: string): Promise<Tenant> {
     tenantId,
     status: TenantStatus.INACTIVE,
   });
+}
+
+/**
+ * Update tenant use case configuration
+ */
+export async function updateTenantUseCaseConfiguration(
+  request: UpdateTenantUseCaseConfigurationRequest
+): Promise<Tenant> {
+  try {
+    // Verify tenant exists
+    const existing = await getTenant(request.tenantId);
+    if (!existing) {
+      throw new Error(`Tenant ${request.tenantId} not found`);
+    }
+
+    const now = new Date().toISOString();
+    const useCaseConfiguration = {
+      hiddenUseCases: request.hiddenUseCases,
+      updatedAt: now,
+      updatedBy: request.updatedBy,
+    };
+
+    const response = await dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: TENANTS_TABLE_NAME,
+        Key: marshall({ tenantId: request.tenantId }),
+        UpdateExpression: 'SET #useCaseConfiguration = :useCaseConfiguration, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#useCaseConfiguration': 'useCaseConfiguration',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: marshall({
+          ':useCaseConfiguration': useCaseConfiguration,
+          ':updatedAt': now,
+        }),
+        ReturnValues: 'ALL_NEW',
+      })
+    );
+
+    const updatedTenant = unmarshall(response.Attributes!) as Tenant;
+    console.log(`Successfully updated use case configuration for tenant: ${request.tenantId}`);
+    return updatedTenant;
+  } catch (error) {
+    console.error(`Failed to update use case configuration for tenant ${request.tenantId}:`, error);
+    throw new Error(`Failed to update use case configuration: ${error}`);
+  }
+}
+
+/**
+ * Get tenant use case configuration with fallback to global configuration
+ */
+export async function getTenantUseCaseConfiguration(
+  tenantId: string,
+  globalHiddenUseCases: HiddenUseCases = {}
+): Promise<HiddenUseCases> {
+  try {
+    const tenant = await getTenant(tenantId);
+    
+    // Return tenant-specific configuration if it exists, otherwise return global configuration
+    return tenant?.useCaseConfiguration?.hiddenUseCases ?? globalHiddenUseCases;
+  } catch (error) {
+    console.error(`Failed to get use case configuration for tenant ${tenantId}:`, error);
+    // Return global configuration as fallback on error
+    return globalHiddenUseCases;
+  }
 }

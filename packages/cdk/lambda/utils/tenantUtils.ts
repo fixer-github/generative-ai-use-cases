@@ -18,3 +18,21 @@ export const getTenantId = (event: APIGatewayProxyEvent): string => {
 
   return tenantId;
 };
+
+/**
+ * Alias for getTenantId for consistency with new naming convention
+ */
+export const getUserTenantId = (event: APIGatewayProxyEvent): string => {
+  return getTenantId(event);
+};
+
+/**
+ * Extract user ID from the JWT claims in the API Gateway event
+ */
+export const getUserId = (event: APIGatewayProxyEvent): string | null => {
+  // Try to get user ID from authorizer claims
+  return event.requestContext?.authorizer?.claims?.['sub'] ||
+         event.requestContext?.authorizer?.claims?.['cognito:username'] ||
+         event.requestContext?.authorizer?.['sub'] ||
+         null;
+};

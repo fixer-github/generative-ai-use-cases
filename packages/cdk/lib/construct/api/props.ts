@@ -8,6 +8,7 @@ import {
   AgentMap,
   ModelConfiguration,
   SelfSignUpTenantMapEntry,
+  HiddenUseCases,
 } from 'generative-ai-use-cases';
 import { LitellmProxyServer } from '../litellm-proxy-server';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
@@ -34,6 +35,7 @@ export type GenericApiProps = {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
+  readonly hiddenUseCases?: HiddenUseCases;
 
   // Resource
   readonly userPool: UserPool;
@@ -47,6 +49,7 @@ export type GenericApiProps = {
   readonly guardrailVersion?: string;
   // Tenant Management
   readonly tenantManager?: TenantManager;
+  readonly tenantsTable?: Table;
 
   // LangChain Credentials
   readonly openai?: {
