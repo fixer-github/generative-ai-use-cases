@@ -70,7 +70,12 @@ describe('GenerativeAiUseCases', () => {
       ragKnowledgeBaseStack,
       agentStack,
       guardrail,
-      generativeAiUseCasesStack,
+      authStack,
+      databaseStack,
+      apiStack,
+      extensionStack,
+      ragStack,
+      webStack,
       dashboardStack,
     } = createStacks(app, params);
 
@@ -80,7 +85,11 @@ describe('GenerativeAiUseCases', () => {
       !ragKnowledgeBaseStack ||
       !agentStack ||
       !guardrail ||
-      !generativeAiUseCasesStack ||
+      !authStack ||
+      !databaseStack ||
+      !apiStack ||
+      !extensionStack ||
+      !webStack ||
       !dashboardStack
     ) {
       throw new Error('Not all stacks are created');
@@ -89,9 +98,11 @@ describe('GenerativeAiUseCases', () => {
     const ragKnowledgeBaseTemplate = Template.fromStack(ragKnowledgeBaseStack);
     const agentTemplate = Template.fromStack(agentStack);
     const guardrailTemplate = Template.fromStack(guardrail);
-    const generativeAiUseCasesTemplate = Template.fromStack(
-      generativeAiUseCasesStack
-    );
+    const authTemplate = Template.fromStack(authStack);
+    const databaseTemplate = Template.fromStack(databaseStack);
+    const apiTemplate = Template.fromStack(apiStack);
+    const extensionTemplate = Template.fromStack(extensionStack);
+    const webTemplate = Template.fromStack(webStack);
     const dashboardTemplate = Template.fromStack(dashboardStack);
 
     // Assert
@@ -99,7 +110,11 @@ describe('GenerativeAiUseCases', () => {
     expect(ragKnowledgeBaseTemplate.toJSON()).toMatchSnapshot();
     expect(agentTemplate.toJSON()).toMatchSnapshot();
     expect(guardrailTemplate.toJSON()).toMatchSnapshot();
-    expect(generativeAiUseCasesTemplate.toJSON()).toMatchSnapshot();
+    expect(authTemplate.toJSON()).toMatchSnapshot();
+    expect(databaseTemplate.toJSON()).toMatchSnapshot();
+    expect(apiTemplate.toJSON()).toMatchSnapshot();
+    expect(extensionTemplate.toJSON()).toMatchSnapshot();
+    expect(webTemplate.toJSON()).toMatchSnapshot();
     expect(dashboardTemplate.toJSON()).toMatchSnapshot();
   });
 });
