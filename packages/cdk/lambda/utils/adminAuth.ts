@@ -4,7 +4,7 @@ import {
   AdminGetUserCommand,
   AttributeType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyToken } from './auth';
+import { verifyToken, verifyTokenWithRoleCheck } from './auth';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,
@@ -92,6 +92,72 @@ export async function verifyAdminAccess(
     tenantId,
     username,
     isAdmin,
+    claims,
+  };
+}
+
+/**
+ * Enhanced admin verification with real-time role checking
+ * Handles cases where token claims might be outdated after role changes
+ */
+export async function verifyAdminAccessEnhanced(event: APIGatewayProxyEvent): Promise<AdminContext | APIGatewayProxyResult> {
+  // Extract token
+  const token = event.headers.Authorization || event.headers.authorization;
+  if (!token) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Missing authorization token' }),
+    };
+  }
+
+  // Verify token with real-time role checking
+  const verificationResult = await verifyTokenWithRoleCheck(token, true);
+  if (!verificationResult) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Invalid token' }),
+    };
+  }
+
+  const { claims, isCurrentlyAdmin, tokenClaimAdmin } = verificationResult;
+  const tenantId = claims['custom:tenant_id'];
+  const username = claims['cognito:username'] || claims.username || '';
+
+  // Check tenant ID
+  if (!tenantId) {
+    return {
+      statusCode: 400,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Tenant ID not found in token' }),
+    };
+  }
+
+  // Use current admin status from Cognito, not token claim
+  if (!isCurrentlyAdmin) {
+    // Provide different messages based on token vs current status
+    const message = tokenClaimAdmin 
+      ? 'Admin privileges have been revoked. Please refresh your session.'
+      : 'Access denied. Admin privileges required.';
+    
+    const statusCode = tokenClaimAdmin ? 409 : 403; // 409 for role mismatch, 403 for no privileges
+    
+    return {
+      statusCode,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ 
+        message,
+        roleChanged: tokenClaimAdmin !== isCurrentlyAdmin,
+        refreshRequired: tokenClaimAdmin && !isCurrentlyAdmin
+      }),
+    };
+  }
+
+  return {
+    tenantId,
+    username,
+    isAdmin: isCurrentlyAdmin,
     claims,
   };
 }
