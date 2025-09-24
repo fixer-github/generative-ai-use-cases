@@ -1,3 +1,5 @@
+import process from 'process';
+import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
