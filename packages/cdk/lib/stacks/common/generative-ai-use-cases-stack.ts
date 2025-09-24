@@ -3,7 +3,6 @@ import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
-  Auth,
   Api,
   Web,
   Database,
@@ -23,6 +22,7 @@ import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -42,6 +42,11 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly cert?: ICertificate;
   // Image build environment
   readonly isSageMakerStudio: boolean;
+
+  // Auth
+  readonly userPool: cognito.UserPool;
+  readonly client: cognito.UserPoolClient;
+  readonly idPool: IdentityPool;
 }
 
 export class GenerativeAiUseCasesStack extends Stack {
@@ -58,16 +63,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     const params = props.params;
 
-    // Auth
-    const auth = new Auth(this, 'Auth', {
-      selfSignUpEnabled: params.selfSignUpEnabled,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      selfSignUpTenantMap: params.selfSignUpTenantMap,
-      samlAuthEnabled: params.samlAuthEnabled,
-      samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
-    });
-
     // Database
     const database = new Database(this, 'Database');
 
@@ -82,7 +77,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     let litellmProxy: LitellmProxyServer | null = null;
     if (params.litellmProxyEnabled) {
       litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
-        idPool: auth.idPool,
+        idPool: props.idPool,
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
         crossAccountBedrockRoleArn:
@@ -108,9 +103,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       litellmEndpoint: litellmEndpoint,
       litellmProxy: litellmProxy,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
-      userPool: auth.userPool,
-      idPool: auth.idPool,
-      userPoolClient: auth.client,
+      userPool: props.userPool,
+      idPool: props.idPool,
+      userPoolClient: props.client,
       table: database.table,
       statsTable: database.statsTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
@@ -141,7 +136,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         webAclArn: regionalWaf.webAclArn,
       });
       new CfnWebACLAssociation(this, 'UserPoolWafAssociation', {
-        resourceArn: auth.userPool.userPoolArn,
+        resourceArn: props.userPool.userPoolArn,
         webAclArn: regionalWaf.webAclArn,
       });
     }
@@ -150,7 +145,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
       envSuffix: params.env,
       api: api.restApi,
-      userPool: auth.userPool,
+      userPool: props.userPool,
       speechToSpeechModelIds: params.speechToSpeechModelIds,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
     });
@@ -159,7 +154,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     let mcpEndpoint: string | null = null;
     if (params.mcpEnabled) {
       const mcpApi = new McpApi(this, 'McpApi', {
-        idPool: auth.idPool,
+        idPool: props.idPool,
         isSageMakerStudio: props.isSageMakerStudio,
         fileBucket: api.fileBucket,
       });
@@ -174,9 +169,9 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     const web = new Web(this, 'Api', {
       // Auth
-      userPoolId: auth.userPool.userPoolId,
-      userPoolClientId: auth.client.userPoolClientId,
-      idPoolId: auth.idPool.identityPoolId,
+      userPoolId: props.userPool.userPoolId,
+      userPoolClientId: props.client.userPoolClientId,
+      idPoolId: props.idPool.identityPoolId,
       selfSignUpEnabled: selfSignUpEnabledForWeb,
       samlAuthEnabled: params.samlAuthEnabled,
       samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
@@ -225,7 +220,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         kendraIndexScheduleEnabled: params.kendraIndexScheduleEnabled,
         kendraIndexScheduleCreateCron: params.kendraIndexScheduleCreateCron,
         kendraIndexScheduleDeleteCron: params.kendraIndexScheduleDeleteCron,
-        userPool: auth.userPool,
+        userPool: props.userPool,
         api: api.restApi,
       });
 
@@ -257,7 +252,7 @@ export class GenerativeAiUseCasesStack extends Stack {
           modelRegion: params.modelRegion,
           crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
           knowledgeBaseId: knowledgeBaseId,
-          userPool: auth.userPool,
+          userPool: props.userPool,
           api: api.restApi,
         });
         // Allow downloading files from the File API to the data source Bucket
@@ -281,9 +276,9 @@ export class GenerativeAiUseCasesStack extends Stack {
     // Usecase builder
     if (params.useCaseBuilderEnabled) {
       new UseCaseBuilder(this, 'UseCaseBuilder', {
-        userPool: auth.userPool,
+        userPool: props.userPool,
         api: api.restApi,
-        idPool: auth.idPool,
+        idPool: props.idPool,
         environment: params.env,
         tenantManager: tenantManager,
       });
@@ -291,8 +286,8 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     // Transcribe
     new Transcribe(this, 'Transcribe', {
-      userPool: auth.userPool,
-      idPool: auth.idPool,
+      userPool: props.userPool,
+      idPool: props.idPool,
       api: api.restApi,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
@@ -319,13 +314,13 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: api.restApi.url,
     });
 
-    new CfnOutput(this, 'UserPoolId', { value: auth.userPool.userPoolId });
+    new CfnOutput(this, 'UserPoolId', { value: props.userPool.userPoolId });
 
     new CfnOutput(this, 'UserPoolClientId', {
-      value: auth.client.userPoolClientId,
+      value: props.client.userPoolClientId,
     });
 
-    new CfnOutput(this, 'IdPoolId', { value: auth.idPool.identityPoolId });
+    new CfnOutput(this, 'IdPoolId', { value: props.idPool.identityPoolId });
 
     new CfnOutput(this, 'PredictStreamFunctionArn', {
       value: api.predictStreamFunction.functionArn,
@@ -449,8 +444,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ARN of the tenant registration Lambda function',
     });
 
-    this.userPool = auth.userPool;
-    this.userPoolClient = auth.client;
+    this.userPool = props.userPool;
+    this.userPoolClient = props.client;
 
     this.exportValue(this.userPool.userPoolId);
     this.exportValue(this.userPoolClient.userPoolClientId);

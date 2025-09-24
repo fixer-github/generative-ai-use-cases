@@ -1,4 +1,4 @@
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
   LambdaVersion,
   StringAttribute,
@@ -19,11 +19,11 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
+import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../../consts';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 
-export interface AuthProps {
+interface AuthStackProps extends StackProps {
   readonly selfSignUpEnabled: boolean;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
@@ -32,13 +32,13 @@ export interface AuthProps {
   readonly samlDefaultAuthEnabled: boolean;
 }
 
-export class Auth extends Construct {
+class AuthStack extends Stack {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
 
-  constructor(scope: Construct, id: string, props: AuthProps) {
-    super(scope, id);
+  constructor(scope: Construct, id: string, props: AuthStackProps) {
+    super(scope, id, props);
 
     const userPool = new UserPool(this, 'UserPool', {
       // If SAML authentication is enabled and default auth is disabled, do not use self-sign-up with UserPool. Be aware of security.
@@ -219,3 +219,5 @@ export class Auth extends Construct {
     this.idPool = idPool;
   }
 }
+
+export default AuthStack;
