@@ -106,39 +106,39 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
   }
 
   // GenU Stack
-  const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
-  const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
-    app,
-    `GenerativeAiUseCasesStack${params.env}`,
-    {
-      env: {
-        account: params.account,
-        region: params.region,
-      },
-      description: params.anonymousUsageTracking
-        ? 'Generative AI Use Cases (uksb-1tupboc48)'
-        : undefined,
-      params: params,
-      crossRegionReferences: true,
-      // RAG Knowledge Base
-      knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
-      knowledgeBaseDataSourceBucketName:
-        ragKnowledgeBaseStack?.dataSourceBucketName,
-      // Agent
-      agents: agentStack?.agents,
-      // Video Generation
-      videoBucketRegionMap,
-      // Guardrail
-      guardrailIdentifier: guardrail?.guardrailIdentifier,
-      guardrailVersion: 'DRAFT',
-      // WAF
-      webAclId: cloudFrontWafStack?.webAclArn,
-      // Custom Domain
-      cert: cloudFrontWafStack?.cert,
-      // Image build environment
-      isSageMakerStudio,
-    }
-  );
+  // const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
+  // const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
+  //   app,
+  //   `GenerativeAiUseCasesStack${params.env}`,
+  //   {
+  //     env: {
+  //       account: params.account,
+  //       region: params.region,
+  //     },
+  //     description: params.anonymousUsageTracking
+  //       ? 'Generative AI Use Cases (uksb-1tupboc48)'
+  //       : undefined,
+  //     params: params,
+  //     crossRegionReferences: true,
+  //     // RAG Knowledge Base
+  //     knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
+  //     knowledgeBaseDataSourceBucketName:
+  //       ragKnowledgeBaseStack?.dataSourceBucketName,
+  //     // Agent
+  //     agents: agentStack?.agents,
+  //     // Video Generation
+  //     videoBucketRegionMap,
+  //     // Guardrail
+  //     guardrailIdentifier: guardrail?.guardrailIdentifier,
+  //     guardrailVersion: 'DRAFT',
+  //     // WAF
+  //     webAclId: cloudFrontWafStack?.webAclArn,
+  //     // Custom Domain
+  //     cert: cloudFrontWafStack?.cert,
+  //     // Image build environment
+  //     isSageMakerStudio,
+  //   }
+  // );
 
   cdk.Aspects.of(generativeAiUseCasesStack).add(
     new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
