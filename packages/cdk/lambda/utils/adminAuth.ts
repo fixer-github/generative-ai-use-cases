@@ -39,68 +39,12 @@ export const CORS_HEADERS = {
 };
 
 /**
- * Verify JWT token and admin status, return admin context or error response
+ * Verify JWT token and admin status with real-time role checking
+ * Handles cases where token claims might be outdated after role changes
  */
 export async function verifyAdminAccess(
   event: APIGatewayProxyEvent
 ): Promise<AdminContext | APIGatewayProxyResult> {
-  // Extract token
-  const token = event.headers.Authorization || event.headers.authorization;
-  if (!token) {
-    return {
-      statusCode: 401,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Missing authorization token' }),
-    };
-  }
-
-  // Verify token
-  const claims = (await verifyToken(token)) as JWTClaims | null;
-  if (!claims) {
-    return {
-      statusCode: 401,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Invalid token' }),
-    };
-  }
-
-  const tenantId = claims['custom:tenant_id'];
-  const isAdmin = claims['custom:tenantAdmin'] === 'true';
-  const username = claims['cognito:username'] || claims.username || '';
-
-  // Check tenant ID
-  if (!tenantId) {
-    return {
-      statusCode: 400,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Tenant ID not found in token' }),
-    };
-  }
-
-  // Check admin status
-  if (!isAdmin) {
-    return {
-      statusCode: 403,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        message: 'Access denied. Admin privileges required.',
-      }),
-    };
-  }
-
-  return {
-    tenantId,
-    username,
-    isAdmin,
-    claims,
-  };
-}
-
-/**
- * Enhanced admin verification with real-time role checking
- * Handles cases where token claims might be outdated after role changes
- */
-export async function verifyAdminAccessEnhanced(event: APIGatewayProxyEvent): Promise<AdminContext | APIGatewayProxyResult> {
   // Extract token
   const token = event.headers.Authorization || event.headers.authorization;
   if (!token) {
@@ -161,6 +105,7 @@ export async function verifyAdminAccessEnhanced(event: APIGatewayProxyEvent): Pr
     claims,
   };
 }
+
 
 /**
  * Verify that a user belongs to the same tenant as the admin

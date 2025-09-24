@@ -83,7 +83,9 @@ const AdminPortal: React.FC = () => {
       }
     } catch (refreshError) {
       console.error('Failed to refresh role:', refreshError);
-      if (refreshError.response?.status === 403 || refreshError.response?.status === 409) {
+      if (refreshError && typeof refreshError === 'object' && 'response' in refreshError && 
+          refreshError.response && typeof refreshError.response === 'object' && 'status' in refreshError.response &&
+          (refreshError.response.status === 403 || refreshError.response.status === 409)) {
         setError('Your admin privileges have been revoked. Redirecting to settings...');
         setTimeout(() => {
           window.location.href = '/settings';
@@ -108,7 +110,9 @@ const AdminPortal: React.FC = () => {
         console.error('Failed to check admin status:', error);
         
         // Check if this is a role mismatch error
-        if (error.response?.status === 403 || error.response?.status === 409) {
+        if (error && typeof error === 'object' && 'response' in error &&
+            error.response && typeof error.response === 'object' && 'status' in error.response &&
+            (error.response.status === 403 || error.response.status === 409)) {
           // Try to refresh role status first
           await refreshUserRole();
         } else {
@@ -140,7 +144,7 @@ const AdminPortal: React.FC = () => {
         tenantAdmin: isAdmin,
       });
 
-      const { actionType, requiresRefresh, sessionInvalidated } = response.data;
+      const { actionType, sessionInvalidated } = response.data;
 
       // Handle different role change scenarios
       if (isCurrentUser) {
@@ -211,7 +215,9 @@ const AdminPortal: React.FC = () => {
       console.error('Failed to update user role:', error);
       
       // Check for specific role mismatch errors
-      if (error.response?.status === 409) {
+      if (error && typeof error === 'object' && 'response' in error &&
+          error.response && typeof error.response === 'object' && 'status' in error.response &&
+          error.response.status === 409) {
         setError('Your admin privileges have been revoked. Redirecting to settings...');
         setTimeout(() => {
           window.location.href = '/settings';
