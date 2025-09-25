@@ -91,8 +91,13 @@ fi
 # Execute deployment
 $deploy_cmd
 
-# Get the url of the deployed CloudFront
-weburl=`aws cloudformation describe-stacks --stack-name GenerativeAiUseCasesStack --output json | jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"WebUrl\") | .OutputValue"`
+# Get the url of the deployed CloudFront from the new FrontendStack
+# Use the environment name if specified, otherwise use the default
+stack_suffix=""
+if [[ -n "$env_name" ]]; then
+    stack_suffix="$env_name"
+fi
+weburl=`aws cloudformation describe-stacks --stack-name "FrontendStack${stack_suffix}" --output json | jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"WebUrl\") | .OutputValue"`
 
 echo "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
 echo "Welcome to GenU: $weburl"
