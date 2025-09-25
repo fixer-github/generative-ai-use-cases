@@ -7,8 +7,6 @@ import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import {
   Rag,
   RagKnowledgeBase,
-  Transcribe,
-  UseCaseBuilder,
 } from '../../construct';
 import { TenantManager } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
@@ -93,24 +91,5 @@ export class AIServicesStack extends Stack {
       }
     }
 
-    if (params.useCaseBuilderEnabled) {
-      new UseCaseBuilder(this, 'UseCaseBuilder', {
-        userPool: props.userPool,
-        api: props.restApi,
-        idPool: props.idPool,
-        environment: params.env,
-        tenantManager: props.tenantManager,
-      });
-    }
-
-    new Transcribe(this, 'Transcribe', {
-      userPool: props.userPool,
-      idPool: props.idPool,
-      api: props.restApi,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      tenantManager: props.tenantManager,
-      environment: params.env,
-    });
   }
 }

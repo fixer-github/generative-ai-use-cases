@@ -14,6 +14,8 @@ import {
   McpApi,
   CommonWebAcl,
   SpeechToSpeech,
+  UseCaseBuilder,
+  Transcribe,
 } from '../../construct';
 import { TenantManager } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
@@ -129,6 +131,28 @@ export class ApiStack extends Stack {
       });
       this.mcpEndpoint = mcpApi.endpoint;
     }
+
+    // Create UseCaseBuilder in ApiStack to avoid circular dependencies
+    if (params.useCaseBuilderEnabled) {
+      new UseCaseBuilder(this, 'UseCaseBuilder', {
+        userPool: props.userPool,
+        api: api.restApi,
+        idPool: props.idPool,
+        environment: params.env,
+        tenantManager: props.tenantManager,
+      });
+    }
+
+    // Create Transcribe in ApiStack to avoid circular dependencies
+    new Transcribe(this, 'Transcribe', {
+      userPool: props.userPool,
+      idPool: props.idPool,
+      api: api.restApi,
+      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
+      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      tenantManager: props.tenantManager,
+      environment: params.env,
+    });
 
     // Create SpeechToSpeech in ApiStack to avoid circular dependencies
     const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
