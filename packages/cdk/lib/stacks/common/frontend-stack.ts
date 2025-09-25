@@ -5,7 +5,7 @@ import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
-import { Web, SpeechToSpeech } from '../../construct';
+import { Web } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
 import { ModelConfiguration } from 'generative-ai-use-cases';
 
@@ -29,25 +29,17 @@ export interface FrontendStackProps extends StackProps {
   readonly webAclId?: string;
   readonly cert?: ICertificate;
   readonly mcpEndpoint?: string;
+  readonly speechToSpeechNamespace: string;
+  readonly speechToSpeechEventApiEndpoint: string;
 }
 
 export class FrontendStack extends Stack {
   public readonly distribution: Distribution;
-  public readonly speechToSpeechNamespace: string;
-  public readonly speechToSpeechEventApiEndpoint: string;
 
   constructor(scope: Construct, id: string, props: FrontendStackProps) {
     super(scope, id, props);
 
     const params = props.params;
-
-    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
-      envSuffix: params.env,
-      api: props.restApi,
-      userPool: props.userPool,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-    });
 
     const selfSignUpEnabledForWeb =
       params.samlAuthEnabled && !params.samlDefaultAuthEnabled
@@ -81,8 +73,8 @@ export class FrontendStack extends Stack {
       agentNames: props.agentNames,
       inlineAgents: params.inlineAgents,
       useCaseBuilderEnabled: params.useCaseBuilderEnabled,
-      speechToSpeechNamespace: speechToSpeech.namespace,
-      speechToSpeechEventApiEndpoint: speechToSpeech.eventApiEndpoint,
+      speechToSpeechNamespace: props.speechToSpeechNamespace,
+      speechToSpeechEventApiEndpoint: props.speechToSpeechEventApiEndpoint,
       speechToSpeechModelIds: params.speechToSpeechModelIds,
       mcpEnabled: params.mcpEnabled,
       mcpEndpoint: props.mcpEndpoint ?? null,
@@ -94,8 +86,6 @@ export class FrontendStack extends Stack {
     });
 
     this.distribution = web.distribution;
-    this.speechToSpeechNamespace = speechToSpeech.namespace;
-    this.speechToSpeechEventApiEndpoint = speechToSpeech.eventApiEndpoint;
 
     new CfnOutput(this, 'Region', {
       value: this.region,
@@ -175,12 +165,12 @@ export class FrontendStack extends Stack {
     });
 
     new CfnOutput(this, 'SpeechToSpeechNamespace', {
-      value: speechToSpeech.namespace,
+      value: props.speechToSpeechNamespace,
       exportName: `${this.stackName}-SpeechToSpeechNamespace`,
     });
 
     new CfnOutput(this, 'SpeechToSpeechEventApiEndpoint', {
-      value: speechToSpeech.eventApiEndpoint,
+      value: props.speechToSpeechEventApiEndpoint,
       exportName: `${this.stackName}-SpeechToSpeechEventApiEndpoint`,
     });
 

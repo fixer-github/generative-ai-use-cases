@@ -1,6 +1,7 @@
 import { Construct } from 'constructs';
 import { GenericApiProps } from './props';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 
@@ -29,7 +30,13 @@ class OptimizePromptApi extends Construct {
         },
       }
     );
-    optimizePromptFunction.grantInvoke(idPool.authenticatedRole);
+
+    // Add resource-based policy to allow invocation by authenticated identity pool users
+    // This avoids circular dependencies between stacks
+    optimizePromptFunction.addPermission('AllowAuthenticatedInvoke', {
+      principal: new ServicePrincipal('cognito-identity.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+    });
 
     if (bedrockPolicy) {
       optimizePromptFunction.role?.addToPrincipalPolicy(bedrockPolicy);

@@ -2,6 +2,7 @@ import { Construct } from 'constructs';
 import { GenericApiProps } from './props';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Duration } from 'aws-cdk-lib';
+import { ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 
 export type InvokeFlowApiProps = GenericApiProps;
@@ -43,7 +44,13 @@ class InvokeFlowApi extends Construct {
           : {}),
       },
     });
-    invokeFlowFunction.grantInvoke(idPool.authenticatedRole);
+
+    // Add resource-based policy to allow invocation by authenticated identity pool users
+    // This avoids circular dependencies between stacks
+    invokeFlowFunction.addPermission('AllowAuthenticatedInvoke', {
+      principal: new ServicePrincipal('cognito-identity.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+    });
 
     if (tenantManager) {
       tenantManager.tenantsTable.grantReadData(invokeFlowFunction);

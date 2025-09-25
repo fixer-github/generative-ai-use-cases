@@ -183,6 +183,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     webAclId: cloudFrontWafStack?.webAclArn,
     cert: cloudFrontWafStack?.cert,
     mcpEndpoint: apiStack.mcpEndpoint || undefined,
+    speechToSpeechNamespace: apiStack.speechToSpeechNamespace,
+    speechToSpeechEventApiEndpoint: apiStack.speechToSpeechEventApiEndpoint,
     crossRegionReferences: true,
   });
 

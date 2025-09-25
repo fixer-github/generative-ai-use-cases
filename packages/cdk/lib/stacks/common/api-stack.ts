@@ -8,7 +8,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
-import { Api, LitellmProxyServer, McpApi, CommonWebAcl } from '../../construct';
+import { Api, LitellmProxyServer, McpApi, CommonWebAcl, SpeechToSpeech } from '../../construct';
 import { TenantManager } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
 import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
@@ -44,6 +44,8 @@ export class ApiStack extends Stack {
   public readonly getFileDownloadSignedUrlFunction: IFunction;
   public readonly litellmEndpoint: string | null = null;
   public readonly mcpEndpoint: string | null = null;
+  public readonly speechToSpeechNamespace: string;
+  public readonly speechToSpeechEventApiEndpoint: string;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -122,7 +124,18 @@ export class ApiStack extends Stack {
       this.mcpEndpoint = mcpApi.endpoint;
     }
 
+    // Create SpeechToSpeech in ApiStack to avoid circular dependencies
+    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
+      envSuffix: params.env,
+      api: api.restApi,
+      userPool: props.userPool,
+      speechToSpeechModelIds: params.speechToSpeechModelIds,
+      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
+    });
+
     this.restApi = api.restApi;
+    this.speechToSpeechNamespace = speechToSpeech.namespace;
+    this.speechToSpeechEventApiEndpoint = speechToSpeech.eventApiEndpoint;
     this.predictStreamFunction = api.predictStreamFunction;
     this.invokeFlowFunction = api.invokeFlowFunction;
     this.optimizePromptFunction = api.optimizePromptFunction;
