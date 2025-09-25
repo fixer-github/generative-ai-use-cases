@@ -99,11 +99,12 @@ export class RagStack extends Stack {
           props.knowledgeBaseDataSourceBucketName &&
           props.getFileDownloadSignedUrlFunctionArn
         ) {
-          const getFileDownloadSignedUrlFunction = lambda.Function.fromFunctionArn(
-            this,
-            'ImportedGetFileDownloadSignedUrlFunctionKB',
-            props.getFileDownloadSignedUrlFunctionArn
-          );
+          const getFileDownloadSignedUrlFunction =
+            lambda.Function.fromFunctionArn(
+              this,
+              'ImportedGetFileDownloadSignedUrlFunctionKB',
+              props.getFileDownloadSignedUrlFunctionArn
+            );
 
           if (getFileDownloadSignedUrlFunction.role) {
             allowS3AccessWithSourceIpCondition(

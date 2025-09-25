@@ -146,7 +146,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     tableName: databaseStack.table.tableName,
     statsTableName: databaseStack.statsTable.tableName,
     tenantManagerTableName: databaseStack.tenantManager.tenantsTable.tableName,
-    tenantRegistrationLambdaArn: databaseStack.tenantManager.registrationLambda.functionArn,
+    tenantRegistrationLambdaArn:
+      databaseStack.tenantManager.registrationLambda.functionArn,
     knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
     agents: agentStack?.agents,
     guardrailIdentifier: guardrail?.guardrailIdentifier,
@@ -157,59 +158,68 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
   });
 
   // 4. WAF Association Stack (optional)
-  const wafAssociationStack = (
+  const wafAssociationStack =
     params.allowedIpV4AddressRanges ||
     params.allowedIpV6AddressRanges ||
     params.allowedCountryCodes
-  )
-    ? new WafAssociationStack(app, `WafAssociationStack${params.env}`, {
-        env: {
-          account: params.account,
-          region: params.region,
-        },
-        params: params,
-        apiGatewayArn: apiStack.restApiArn,
-        userPoolArn: authStack.userPool.userPoolArn,
-        crossRegionReferences: true,
-      })
-    : null;
+      ? new WafAssociationStack(app, `WafAssociationStack${params.env}`, {
+          env: {
+            account: params.account,
+            region: params.region,
+          },
+          params: params,
+          apiGatewayArn: apiStack.restApiArn,
+          userPoolArn: authStack.userPool.userPoolArn,
+          crossRegionReferences: true,
+        })
+      : null;
 
   // 5. Extension Stack
-  const extensionStack = new ExtensionStack(app, `ExtensionStack${params.env}`, {
-    env: {
-      account: params.account,
-      region: params.region,
-    },
-    params: params,
-    userPoolId: authStack.userPool.userPoolId,
-    idPoolId: authStack.idPool.identityPoolId,
-    apiRestApiId: apiStack.restApiId,
-    apiRestApiRootResourceId: apiStack.restApiRootResourceId,
-    fileBucketName: apiStack.fileBucketName,
-    tenantManagerTableName: databaseStack.tenantManager.tenantsTable.tableName,
-    tenantRegistrationLambdaArn: databaseStack.tenantManager.registrationLambda.functionArn,
-    isSageMakerStudio,
-    crossRegionReferences: true,
-  });
+  const extensionStack = new ExtensionStack(
+    app,
+    `ExtensionStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
+      userPoolId: authStack.userPool.userPoolId,
+      idPoolId: authStack.idPool.identityPoolId,
+      apiRestApiId: apiStack.restApiId,
+      apiRestApiRootResourceId: apiStack.restApiRootResourceId,
+      fileBucketName: apiStack.fileBucketName,
+      tenantManagerTableName:
+        databaseStack.tenantManager.tenantsTable.tableName,
+      tenantRegistrationLambdaArn:
+        databaseStack.tenantManager.registrationLambda.functionArn,
+      isSageMakerStudio,
+      crossRegionReferences: true,
+    }
+  );
 
   // 6. RAG Stack (optional)
-  const ragStack = (params.ragEnabled || params.ragKnowledgeBaseEnabled)
-    ? new RagStack(app, `RagStack${params.env}`, {
-        env: {
-          account: params.account,
-          region: params.region,
-        },
-        params: params,
-        userPoolId: authStack.userPool.userPoolId,
-        apiRestApiId: apiStack.restApiId,
-        apiRestApiRootResourceId: apiStack.restApiRootResourceId,
-        getFileDownloadSignedUrlFunctionArn: apiStack.getFileDownloadSignedUrlFunctionArn,
-        getFileDownloadSignedUrlFunctionRoleArn: apiStack.getFileDownloadSignedUrlFunctionRoleArn,
-        knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
-        knowledgeBaseDataSourceBucketName: ragKnowledgeBaseStack?.dataSourceBucketName,
-        crossRegionReferences: true,
-      })
-    : null;
+  const ragStack =
+    params.ragEnabled || params.ragKnowledgeBaseEnabled
+      ? new RagStack(app, `RagStack${params.env}`, {
+          env: {
+            account: params.account,
+            region: params.region,
+          },
+          params: params,
+          userPoolId: authStack.userPool.userPoolId,
+          apiRestApiId: apiStack.restApiId,
+          apiRestApiRootResourceId: apiStack.restApiRootResourceId,
+          getFileDownloadSignedUrlFunctionArn:
+            apiStack.getFileDownloadSignedUrlFunctionArn,
+          getFileDownloadSignedUrlFunctionRoleArn:
+            apiStack.getFileDownloadSignedUrlFunctionRoleArn,
+          knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
+          knowledgeBaseDataSourceBucketName:
+            ragKnowledgeBaseStack?.dataSourceBucketName,
+          crossRegionReferences: true,
+        })
+      : null;
 
   // 7. Web Stack
   const webStack = new WebStack(app, `WebStack${params.env}`, {
@@ -232,7 +242,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     endpointNames: apiStack.endpointNames,
     agentNames: apiStack.agentNames,
     speechToSpeechNamespace: extensionStack.speechToSpeechNamespace,
-    speechToSpeechEventApiEndpoint: extensionStack.speechToSpeechEventApiEndpoint,
+    speechToSpeechEventApiEndpoint:
+      extensionStack.speechToSpeechEventApiEndpoint,
     mcpEndpoint: extensionStack.mcpEndpoint ?? undefined,
     webAclId: cloudFrontWafStack?.webAclArn,
     cert: cloudFrontWafStack?.cert,

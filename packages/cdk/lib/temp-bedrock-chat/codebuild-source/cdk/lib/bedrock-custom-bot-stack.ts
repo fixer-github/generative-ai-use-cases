@@ -325,7 +325,7 @@ export class BedrockCustomBotStack extends Stack {
       // });
       kb = {
         knowledgeBaseId: props.existKnowledgeBaseId!,
-        knowledgeBaseArn: `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/${props.existKnowledgeBaseId}`
+        knowledgeBaseArn: `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/${props.existKnowledgeBaseId}`,
       } as any; // Temporary workaround
     }
 

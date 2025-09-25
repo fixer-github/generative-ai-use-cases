@@ -7,12 +7,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { ProcessedStackInput } from '../../stack-input';
-
-type ModelConfig = {
-  modelId: string;
-  region: string;
-};
-import { Agent } from 'generative-ai-use-cases';
+import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
 import { TenantManager } from '../../construct/tenant-manager';
 
 export interface ApiStackProps extends StackProps {
@@ -42,9 +37,9 @@ export class ApiStack extends Stack {
   public readonly optimizePromptFunctionArn: string;
   public readonly fileBucketName: string;
   public readonly modelRegion: string;
-  public readonly modelIds: ModelConfig[];
-  public readonly imageGenerationModelIds: ModelConfig[];
-  public readonly videoGenerationModelIds: ModelConfig[];
+  public readonly modelIds: ModelConfiguration[];
+  public readonly imageGenerationModelIds: ModelConfiguration[];
+  public readonly videoGenerationModelIds: ModelConfiguration[];
   public readonly endpointNames: string[];
   public readonly agentNames: string[];
   public readonly litellmEndpoint: string | null = null;
@@ -98,9 +93,11 @@ export class ApiStack extends Stack {
       props.tenantRegistrationLambdaArn
     );
 
+    // Note: TenantManager requires concrete classes, not interfaces
+    // CDK's fromXXX methods return interfaces, so casting is necessary
     const tenantManager = {
-      tenantsTable,
-      registrationLambda: registrationLambda,
+      tenantsTable: tenantsTable as dynamodb.Table,
+      registrationLambda: registrationLambda as any,
     } as TenantManager;
 
     let litellmProxy: LitellmProxyServer | null = null;
@@ -159,8 +156,10 @@ export class ApiStack extends Stack {
     this.videoGenerationModelIds = api.videoGenerationModelIds;
     this.endpointNames = api.endpointNames;
     this.agentNames = api.agentNames;
-    this.getFileDownloadSignedUrlFunctionArn = api.getFileDownloadSignedUrlFunction?.functionArn;
-    this.getFileDownloadSignedUrlFunctionRoleArn = api.getFileDownloadSignedUrlFunction?.role?.roleArn;
+    this.getFileDownloadSignedUrlFunctionArn =
+      api.getFileDownloadSignedUrlFunction?.functionArn;
+    this.getFileDownloadSignedUrlFunctionRoleArn =
+      api.getFileDownloadSignedUrlFunction?.role?.roleArn;
 
     new CfnOutput(this, 'ApiEndpoint', {
       value: api.restApi.url,
