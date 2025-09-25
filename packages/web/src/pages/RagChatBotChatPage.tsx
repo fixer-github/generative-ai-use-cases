@@ -279,8 +279,7 @@ const RagChatBotChatPage: React.FC = () => {
           if (serverMessages.length > 0) {
             setMessages(serverMessages);
 
-            const lastServerMessage =
-              serverMessages[serverMessages.length - 1];
+            const lastServerMessage = serverMessages[serverMessages.length - 1];
             if (
               lastServerMessage &&
               lastServerMessage.role === 'assistant' &&
