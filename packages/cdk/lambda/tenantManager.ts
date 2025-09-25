@@ -58,11 +58,6 @@ interface UpdateTenantRequest {
   roleArn?: string;
 }
 
-interface UpdateTenantUseCaseConfigurationRequest {
-  tenantId: string;
-  hiddenUseCases: HiddenUseCases;
-  updatedBy: string;
-}
 
 /**
  * Get tenant information by tenant ID
@@ -214,51 +209,6 @@ export async function deactivateTenant(tenantId: string): Promise<Tenant> {
   });
 }
 
-/**
- * Update tenant use case configuration
- */
-export async function updateTenantUseCaseConfiguration(
-  request: UpdateTenantUseCaseConfigurationRequest
-): Promise<Tenant> {
-  try {
-    // Verify tenant exists
-    const existing = await getTenant(request.tenantId);
-    if (!existing) {
-      throw new Error(`Tenant ${request.tenantId} not found`);
-    }
-
-    const now = new Date().toISOString();
-    const useCaseConfiguration = {
-      hiddenUseCases: request.hiddenUseCases,
-      updatedAt: now,
-      updatedBy: request.updatedBy,
-    };
-
-    const response = await dynamoClient.send(
-      new UpdateItemCommand({
-        TableName: TENANTS_TABLE_NAME,
-        Key: marshall({ tenantId: request.tenantId }),
-        UpdateExpression: 'SET #useCaseConfiguration = :useCaseConfiguration, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-          '#useCaseConfiguration': 'useCaseConfiguration',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: marshall({
-          ':useCaseConfiguration': useCaseConfiguration,
-          ':updatedAt': now,
-        }),
-        ReturnValues: 'ALL_NEW',
-      })
-    );
-
-    const updatedTenant = unmarshall(response.Attributes!) as Tenant;
-    console.log(`Successfully updated use case configuration for tenant: ${request.tenantId}`);
-    return updatedTenant;
-  } catch (error) {
-    console.error(`Failed to update use case configuration for tenant ${request.tenantId}:`, error);
-    throw new Error(`Failed to update use case configuration: ${error}`);
-  }
-}
 
 /**
  * Get tenant use case configuration with fallback to global configuration

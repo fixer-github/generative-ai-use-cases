@@ -235,22 +235,3 @@ export function isAdminUserResult(
   return 'admin' in result;
 }
 
-/**
- * Simple admin verification that returns a boolean result for inline checks
- */
-export function verifyAdminAuth(event: APIGatewayProxyEvent): { isAuthorized: boolean; message?: string } {
-  try {
-    // Check if tenant admin claim exists in the request context
-    const isAdmin = 
-      event.requestContext?.authorizer?.claims?.['custom:tenantAdmin'] === 'true' ||
-      event.requestContext?.authorizer?.['custom:tenantAdmin'] === 'true';
-
-    if (!isAdmin) {
-      return { isAuthorized: false, message: 'Admin privileges required' };
-    }
-
-    return { isAuthorized: true };
-  } catch (error) {
-    return { isAuthorized: false, message: 'Error verifying admin status' };
-  }
-}
