@@ -6,6 +6,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export interface RagStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -13,6 +14,7 @@ export interface RagStackProps extends StackProps {
   readonly apiRestApiId: string;
   readonly apiRestApiRootResourceId: string;
   readonly getFileDownloadSignedUrlFunctionArn?: string;
+  readonly getFileDownloadSignedUrlFunctionRoleArn?: string;
   readonly knowledgeBaseId?: string;
   readonly knowledgeBaseDataSourceBucketName?: string;
 }
@@ -54,25 +56,23 @@ export class RagStack extends Stack {
 
       if (
         rag.dataSourceBucketName &&
-        props.getFileDownloadSignedUrlFunctionArn
+        props.getFileDownloadSignedUrlFunctionRoleArn
       ) {
-        const getFileDownloadSignedUrlFunction = lambda.Function.fromFunctionArn(
+        const getFileDownloadSignedUrlRole = iam.Role.fromRoleArn(
           this,
-          'ImportedGetFileDownloadSignedUrlFunction',
-          props.getFileDownloadSignedUrlFunctionArn
+          'ImportedGetFileDownloadSignedUrlRole',
+          props.getFileDownloadSignedUrlFunctionRoleArn
         );
 
-        if (getFileDownloadSignedUrlFunction.role) {
-          allowS3AccessWithSourceIpCondition(
-            rag.dataSourceBucketName,
-            getFileDownloadSignedUrlFunction.role,
-            'read',
-            {
-              ipv4: params.allowedIpV4AddressRanges,
-              ipv6: params.allowedIpV6AddressRanges,
-            }
-          );
-        }
+        allowS3AccessWithSourceIpCondition(
+          rag.dataSourceBucketName,
+          getFileDownloadSignedUrlRole,
+          'read',
+          {
+            ipv4: params.allowedIpV4AddressRanges,
+            ipv6: params.allowedIpV6AddressRanges,
+          }
+        );
       }
 
       if (rag.dataSourceBucketName) {

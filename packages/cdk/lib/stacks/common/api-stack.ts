@@ -4,8 +4,14 @@ import { Api, LitellmProxyServer } from '../../construct';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { ProcessedStackInput } from '../../stack-input';
+
+type ModelConfig = {
+  modelId: string;
+  region: string;
+};
 import { Agent } from 'generative-ai-use-cases';
 import { TenantManager } from '../../construct/tenant-manager';
 
@@ -36,13 +42,14 @@ export class ApiStack extends Stack {
   public readonly optimizePromptFunctionArn: string;
   public readonly fileBucketName: string;
   public readonly modelRegion: string;
-  public readonly modelIds: any;
-  public readonly imageGenerationModelIds: any;
-  public readonly videoGenerationModelIds: any;
-  public readonly endpointNames: any;
-  public readonly agentNames: any;
+  public readonly modelIds: ModelConfig[];
+  public readonly imageGenerationModelIds: ModelConfig[];
+  public readonly videoGenerationModelIds: ModelConfig[];
+  public readonly endpointNames: string[];
+  public readonly agentNames: string[];
   public readonly litellmEndpoint: string | null = null;
   public readonly getFileDownloadSignedUrlFunctionArn?: string;
+  public readonly getFileDownloadSignedUrlFunctionRoleArn?: string;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -85,7 +92,7 @@ export class ApiStack extends Stack {
       props.tenantManagerTableName
     );
 
-    const registrationLambda = iam.Role.fromRoleArn(
+    const registrationLambda = lambda.Function.fromFunctionArn(
       this,
       'ImportedRegistrationLambda',
       props.tenantRegistrationLambdaArn
@@ -93,13 +100,13 @@ export class ApiStack extends Stack {
 
     const tenantManager = {
       tenantsTable,
-      registrationLambda: { functionArn: props.tenantRegistrationLambdaArn } as any,
+      registrationLambda: registrationLambda,
     } as TenantManager;
 
     let litellmProxy: LitellmProxyServer | null = null;
     if (params.litellmProxyEnabled) {
       litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
-        idPool: idPool as any,
+        idPool: idPool as IdentityPool,
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
         crossAccountBedrockRoleArn:
@@ -125,7 +132,7 @@ export class ApiStack extends Stack {
       litellmProxy: litellmProxy,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
       userPool: userPool as cognito.UserPool,
-      idPool: idPool as any,
+      idPool: idPool as IdentityPool,
       userPoolClient: userPoolClient as cognito.UserPoolClient,
       table: table as dynamodb.Table,
       statsTable: statsTable as dynamodb.Table,
@@ -153,6 +160,7 @@ export class ApiStack extends Stack {
     this.endpointNames = api.endpointNames;
     this.agentNames = api.agentNames;
     this.getFileDownloadSignedUrlFunctionArn = api.getFileDownloadSignedUrlFunction?.functionArn;
+    this.getFileDownloadSignedUrlFunctionRoleArn = api.getFileDownloadSignedUrlFunction?.role?.roleArn;
 
     new CfnOutput(this, 'ApiEndpoint', {
       value: api.restApi.url,

@@ -204,6 +204,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
         apiRestApiId: apiStack.restApiId,
         apiRestApiRootResourceId: apiStack.restApiRootResourceId,
         getFileDownloadSignedUrlFunctionArn: apiStack.getFileDownloadSignedUrlFunctionArn,
+        getFileDownloadSignedUrlFunctionRoleArn: apiStack.getFileDownloadSignedUrlFunctionRoleArn,
         knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
         knowledgeBaseDataSourceBucketName: ragKnowledgeBaseStack?.dataSourceBucketName,
         crossRegionReferences: true,
