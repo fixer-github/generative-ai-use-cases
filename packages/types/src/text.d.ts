@@ -19,11 +19,16 @@ export type UsecaseConverseInferenceParams = {
   [key: string]: ConverseInferenceParams;
 };
 
+export type ChatbotRequestFields = {
+  botId: string;
+};
+
 export type AdditionalModelRequestFields = {
   reasoningConfig?: {
     type: 'enabled' | 'disabled';
     budgetTokens?: number;
   };
+  chatbotConfig?: ChatbotRequestFields;
 };
 
 export type BaseGuardrailConfigParams = {

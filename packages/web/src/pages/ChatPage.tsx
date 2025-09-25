@@ -95,6 +95,7 @@ const ChatPage: React.FC = () => {
     setSaveSystemContextTitle,
   } = useChatPageState();
   const { pathname, search } = useLocation();
+  const [selectedBotId, setSelectedBotId] = useState<string | undefined>();
   const {
     clear: clearFiles,
     uploadedFiles,
@@ -144,6 +145,21 @@ const ChatPage: React.FC = () => {
   const [overrideModelParameters, setOverrideModelParameters] = useState<
     AdditionalModelRequestFields | undefined
   >(undefined);
+  const effectiveOverrideModelParameters = useMemo(() => {
+    if (selectedBotId) {
+      return {
+        ...(overrideModelParameters ?? {}),
+        chatbotConfig: { botId: selectedBotId },
+      };
+    }
+
+    if (!overrideModelParameters) {
+      return undefined;
+    }
+
+    const { chatbotConfig: _ignored, ...rest } = overrideModelParameters;
+    return Object.keys(rest).length > 0 ? rest : undefined;
+  }, [overrideModelParameters, selectedBotId]);
   const [showSetting, setShowSetting] = useState(false);
   const { t } = useTranslation();
   const [forceExpandPromptList, setForceExpandPromptList] = useState<
@@ -187,6 +203,11 @@ const ChatPage: React.FC = () => {
 
     if (search !== '') {
       const params = queryString.parse(search) as ChatPageQueryParams;
+      if (typeof params.botId === 'string' && params.botId.length > 0) {
+        setSelectedBotId(params.botId);
+      } else {
+        setSelectedBotId(undefined);
+      }
       if (params.systemContext && params.systemContext !== '') {
         updateSystemContext(params.systemContext);
       } else {
@@ -200,10 +221,11 @@ const ChatPage: React.FC = () => {
           : _modelId
       );
     } else {
+      setSelectedBotId(undefined);
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, setContent, availableModels, pathname]);
+  }, [search, setContent, availableModels, pathname, setSelectedBotId]);
 
   const onSend = useCallback(() => {
     setFollowing(true);
@@ -215,15 +237,22 @@ const ChatPage: React.FC = () => {
       undefined,
       fileUpload ? uploadedFiles : undefined,
       undefined,
-      undefined,
+      selectedBotId ? 'chatbot' : undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      effectiveOverrideModelParameters
     );
     setContent('');
     clearFiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, base64Cache, fileUpload, setFollowing, overrideModelParameters]);
+  }, [
+    content,
+    base64Cache,
+    fileUpload,
+    setFollowing,
+    effectiveOverrideModelParameters,
+    selectedBotId,
+  ]);
 
   const onRetry = useCallback(() => {
     retryGeneration(
@@ -234,11 +263,17 @@ const ChatPage: React.FC = () => {
       undefined,
       undefined,
       undefined,
+      selectedBotId ? 'chatbot' : undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      effectiveOverrideModelParameters
     );
-  }, [retryGeneration, base64Cache, overrideModelParameters]);
+  }, [
+    retryGeneration,
+    base64Cache,
+    effectiveOverrideModelParameters,
+    selectedBotId,
+  ]);
 
   const onReset = useCallback(() => {
     clear();
@@ -260,13 +295,19 @@ const ChatPage: React.FC = () => {
         undefined,
         undefined,
         undefined,
-        undefined,
+        selectedBotId ? 'chatbot' : undefined,
         undefined,
         base64Cache,
-        overrideModelParameters
+        effectiveOverrideModelParameters
       );
     },
-    [editChat, base64Cache, setFollowing, overrideModelParameters]
+    [
+      editChat,
+      base64Cache,
+      setFollowing,
+      effectiveOverrideModelParameters,
+      selectedBotId,
+    ]
   );
 
   const [creatingShareId, setCreatingShareId] = useState(false);

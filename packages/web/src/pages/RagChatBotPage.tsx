@@ -176,7 +176,7 @@ const RagChatBotPage: React.FC = () => {
   };
 
   const handleChatWithBot = (botId: string) => {
-    navigate(`/rag-chat-bot/chat/${botId}`);
+    navigate(`/chat?botId=${botId}`);
   };
 
   const handleDeleteBot = async (botId: string) => {

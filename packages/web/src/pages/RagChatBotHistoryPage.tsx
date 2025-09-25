@@ -150,9 +150,11 @@ const RagChatBotHistoryPage: React.FC = () => {
 
   const handleOpenConversation = (conversation: ConversationWithBot) => {
     if (conversation.bot_id) {
-      navigate(`/rag-chat-bot/chat/${conversation.bot_id}/${conversation.id}`);
+      navigate(
+        `/chat?botId=${conversation.bot_id}&conversationId=${conversation.id}`
+      );
     } else {
-      navigate(`/rag-chat-bot/chat/unknown/${conversation.id}`);
+      navigate('/chat');
     }
   };
 

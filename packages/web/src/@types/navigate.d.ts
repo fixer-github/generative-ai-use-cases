@@ -23,6 +23,8 @@ export type BaseQueryParams = {
 export type ChatPageQueryParams = BaseQueryParams & {
   content?: string;
   systemContext?: string;
+  botId?: string;
+  conversationId?: string;
 };
 
 export type WriterPageQueryParams = BaseQueryParams & {

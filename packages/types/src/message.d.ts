@@ -11,7 +11,8 @@ export type Model = {
     | 'bedrockKb'
     | 'sagemaker'
     | 'liteLlm'
-    | 'langchain';
+    | 'langchain'
+    | 'chatbot';
   modelId: string;
   modelParameters?: AdditionalModelRequestFields;
   sessionId?: string;
