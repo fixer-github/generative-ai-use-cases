@@ -1,15 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getTenantUseCaseConfiguration, getTenant } from './tenantManager';
+import { getTenant } from './tenantManager';
 import { getUserTenantId } from './utils/tenantUtils';
 import { createResponse } from './utils/api';
-import { 
-  parseGlobalHiddenUseCases, 
-  createUseCaseConfigResponse 
-} from './utils/useCaseConfig';
 
 /**
- * This endpoint provides tenant-aware use case configuration for the frontend.
- * It combines global configuration with tenant-specific overrides.
+ * This endpoint provides tenant-specific use case configuration for the frontend.
+ * It only returns configuration stored in the tenant's database record.
  * Unlike the admin endpoint, this doesn't require admin privileges - any authenticated user can access their tenant's configuration.
  */
 export const handler = async (
@@ -18,45 +14,35 @@ export const handler = async (
   console.log(`[getTenantAwareUseCaseConfig] Called with event: ${JSON.stringify(event)}`);
 
   try {
-    const globalHiddenUseCases = parseGlobalHiddenUseCases();
-    
     // Extract tenant ID from user claims
     const tenantId = getUserTenantId(event);
     if (!tenantId) {
-      console.log('[getTenantAwareUseCaseConfig] No tenant ID found, using global configuration');
-      // If no tenant ID, return global configuration
-      return createResponse(200, createUseCaseConfigResponse(null, globalHiddenUseCases, 'global'));
+      console.log('[getTenantAwareUseCaseConfig] No tenant ID found');
+      return createResponse(400, { message: 'No tenant ID found in user claims' });
     }
 
     console.log(`[getTenantAwareUseCaseConfig] Getting configuration for tenant: ${tenantId}`);
 
-    // Get tenant-specific use case configuration with fallback to global
-    const effectiveHiddenUseCases = await getTenantUseCaseConfiguration(
-      tenantId,
-      globalHiddenUseCases
-    );
-
-    // Determine if configuration came from tenant-specific settings or global fallback
+    // Get tenant-specific use case configuration from database
     const tenant = await getTenant(tenantId);
-    const hasTenantSpecificConfig = tenant?.useCaseConfiguration && 
-      Object.keys(tenant.useCaseConfiguration.hiddenUseCases || {}).length > 0;
+    
+    if (!tenant) {
+      console.log(`[getTenantAwareUseCaseConfig] Tenant ${tenantId} not found`);
+      return createResponse(404, { message: 'Tenant not found' });
+    }
 
-    return createResponse(200, createUseCaseConfigResponse(
+    const response = {
       tenantId,
-      effectiveHiddenUseCases,
-      hasTenantSpecificConfig ? 'tenant' : 'global',
-      { globalHiddenUseCases }
-    ));
+      hiddenUseCases: tenant.useCaseConfiguration?.hiddenUseCases || {},
+      source: 'tenant'
+    };
+
+    return createResponse(200, response);
   } catch (error) {
     console.error('[getTenantAwareUseCaseConfig] Error:', error);
-    
-    // In case of error, return global configuration as fallback
-    const globalHiddenUseCases = parseGlobalHiddenUseCases();
-    return createResponse(200, createUseCaseConfigResponse(
-      null,
-      globalHiddenUseCases,
-      'global_fallback',
-      { error: error instanceof Error ? error.message : 'Unknown error' }
-    ));
+    return createResponse(500, { 
+      message: 'Failed to get tenant use case configuration',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };

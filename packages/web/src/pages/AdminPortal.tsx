@@ -7,7 +7,6 @@ import Button from '../components/Button';
 import Alert from '../components/Alert';
 import LoadingOverlay from '../components/LoadingOverlay';
 import UserInviteDialog from '../components/UserInviteDialog';
-import TenantUseCaseManagement from '../components/TenantUseCaseManagement';
 import useHttp from '../hooks/useHttp';
 
 interface AdminStatusResponse {
@@ -397,8 +396,6 @@ const AdminPortal: React.FC = () => {
           </div>
         </div>
 
-        {/* Use Case Management */}
-        <TenantUseCaseManagement className="mt-8" />
 
         <UserInviteDialog
           isOpen={showInviteDialog}

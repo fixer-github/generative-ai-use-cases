@@ -221,23 +221,6 @@ class AdminApi extends Construct {
       commonAuthorizerProps
     );
 
-    // HACK: Use case configuration routes using consolidated handler
-    // This reduces API Gateway resources but couples operations together
-    const useCaseConfigResource = adminResource.addResource('use-case-config');
-    
-    // GET /admin/use-case-config - Get tenant use case configuration
-    useCaseConfigResource.addMethod(
-      'GET',
-      new LambdaIntegration(adminOperationsFunction),
-      commonAuthorizerProps
-    );
-
-    // PUT /admin/use-case-config - Update tenant use case configuration
-    useCaseConfigResource.addMethod(
-      'PUT',
-      new LambdaIntegration(adminOperationsFunction),
-      commonAuthorizerProps
-    );
   }
 }
 
