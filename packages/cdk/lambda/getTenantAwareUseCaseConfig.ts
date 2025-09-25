@@ -1,7 +1,20 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getTenant } from './tenantManager';
 import { getUserTenantId } from './utils/tenantUtils';
-import { createResponse } from './utils/api';
+
+/**
+ * Helper function to create standardized API Gateway responses
+ */
+const createResponse = (statusCode: number, body: any): APIGatewayProxyResult => {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify(body),
+  };
+};
 
 /**
  * This endpoint provides tenant-specific use case configuration for the frontend.
