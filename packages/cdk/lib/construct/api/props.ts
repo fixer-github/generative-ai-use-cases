@@ -35,7 +35,6 @@ export type GenericApiProps = {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
-  readonly hiddenUseCases?: HiddenUseCases;
 
   // Resource
   readonly userPool: UserPool;

@@ -66,7 +66,6 @@ export interface BackendApiProps {
   readonly litellmEndpoint?: string | null;
   readonly litellmProxy?: LitellmProxyServer | null;
   readonly environment: string;
-  readonly hiddenUseCases?: HiddenUseCases;
   readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
 
   // Resource
@@ -328,9 +327,7 @@ export class Api extends Construct {
         bundling: {
           nodeModules: ['aws-jwt-verify'],
         },
-        environment: getBaseEnvironment(this, apiProps, {
-          HIDDEN_USE_CASES: JSON.stringify(props.hiddenUseCases || {}),
-        }),
+        environment: getBaseEnvironment(this, apiProps, {}),
       }
     );
 
