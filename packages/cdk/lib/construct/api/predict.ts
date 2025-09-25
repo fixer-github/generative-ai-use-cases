@@ -5,6 +5,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export type PredictApiProps = GenericApiProps;
 
@@ -126,7 +127,9 @@ class PredictApi extends Construct {
       },
     });
     fileBucket.grantReadWrite(predictStreamFunction);
-    predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+    // Type assertion needed: IIdentityPool doesn't expose authenticatedRole
+    // but IdentityPool concrete class has it
+    predictStreamFunction.grantInvoke((idPool as IdentityPool).authenticatedRole);
 
     const predictTitleFunction = new NodejsFunction(this, 'PredictTitle', {
       runtime: LAMBDA_RUNTIME_NODEJS,

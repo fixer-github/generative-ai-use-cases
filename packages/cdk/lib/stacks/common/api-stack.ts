@@ -8,7 +8,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { ProcessedStackInput } from '../../stack-input';
 import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
-import { TenantManager } from '../../construct/tenant-manager';
+import { ITenantManager } from '../../construct/tenant-manager-interface';
 
 export interface ApiStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -93,16 +93,17 @@ export class ApiStack extends Stack {
       props.tenantRegistrationLambdaArn
     );
 
-    // Note: TenantManager requires concrete classes, not interfaces
-    // CDK's fromXXX methods return interfaces, so casting is necessary
-    const tenantManager = {
-      tenantsTable: tenantsTable as dynamodb.Table,
-      registrationLambda: registrationLambda as any,
-    } as TenantManager;
+    // Create ITenantManager object using imported resources
+    const tenantManager: ITenantManager = {
+      tenantsTable: tenantsTable,
+      registrationLambda: registrationLambda,
+    };
 
     let litellmProxy: LitellmProxyServer | null = null;
     if (params.litellmProxyEnabled) {
       litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
+        // LitellmProxyServer requires IdentityPool concrete class
+        // Type assertion needed as CDK returns IIdentityPool
         idPool: idPool as IdentityPool,
         isSageMakerStudio: props.isSageMakerStudio,
         modelRegion: params.modelRegion,
@@ -128,6 +129,8 @@ export class ApiStack extends Stack {
       litellmEndpoint: this.litellmEndpoint,
       litellmProxy: litellmProxy,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
+      // Api construct requires concrete classes
+      // Type assertions needed as CDK fromXXX methods return interfaces
       userPool: userPool as cognito.UserPool,
       idPool: idPool as IdentityPool,
       userPoolClient: userPoolClient as cognito.UserPoolClient,

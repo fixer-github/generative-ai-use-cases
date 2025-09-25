@@ -10,18 +10,18 @@ import {
   NodejsFunctionProps,
 } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Duration, Stack } from 'aws-cdk-lib';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { IUserPool } from 'aws-cdk-lib/aws-cognito';
+import { IIdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import * as ddb from 'aws-cdk-lib/aws-dynamodb';
 import { LAMBDA_RUNTIME_NODEJS, DEFAULT_TENANT_ID } from '../../consts';
-import { TenantManager } from './tenant-manager';
+import { ITenantManager } from './tenant-manager-interface';
 
 export interface UseCaseBuilderProps {
-  readonly userPool: UserPool;
+  readonly userPool: IUserPool;
   readonly api: RestApi;
-  readonly idPool: IdentityPool;
+  readonly idPool: IIdentityPool;
   readonly environment: string;
-  readonly tenantManager?: TenantManager;
+  readonly tenantManager?: ITenantManager;
 }
 export class UseCaseBuilder extends Construct {
   constructor(scope: Construct, id: string, props: UseCaseBuilderProps) {

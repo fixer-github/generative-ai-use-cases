@@ -10,13 +10,14 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Tracing } from 'aws-cdk-lib/aws-lambda';
 import * as path from 'path';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { ITenantManager } from './tenant-manager-interface';
 
 export interface TenantManagerProps {
   readonly environment: string;
   readonly enableAutoDelete?: boolean;
 }
 
-export class TenantManager extends Construct {
+export class TenantManager extends Construct implements ITenantManager {
   public readonly tenantsTable: Table;
   public readonly registrationLambda: NodejsFunction;
 

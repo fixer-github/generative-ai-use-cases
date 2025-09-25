@@ -10,10 +10,10 @@ import {
   SelfSignUpTenantMapEntry,
 } from 'generative-ai-use-cases';
 import { LitellmProxyServer } from '../litellm-proxy-server';
-import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
-import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { TenantManager } from '../tenant-manager';
+import { IUserPool, IUserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { IIdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { ITenantManager } from '../tenant-manager-interface';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
@@ -36,17 +36,17 @@ export type GenericApiProps = {
   readonly environment: string;
 
   // Resource
-  readonly userPool: UserPool;
-  readonly idPool: IdentityPool;
-  readonly userPoolClient: UserPoolClient;
-  readonly table: Table;
-  readonly statsTable: Table;
+  readonly userPool: IUserPool;
+  readonly idPool: IIdentityPool;
+  readonly userPoolClient: IUserPoolClient;
+  readonly table: ITable;
+  readonly statsTable: ITable;
   readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
   // Tenant Management
-  readonly tenantManager?: TenantManager;
+  readonly tenantManager?: ITenantManager;
 
   // LangChain Credentials
   readonly openai?: {

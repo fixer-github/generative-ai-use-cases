@@ -5,8 +5,8 @@ import {
   LambdaIntegration,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { IUserPool } from 'aws-cdk-lib/aws-cognito';
+import { IIdentityPool, IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
@@ -18,15 +18,15 @@ import {
 import { Construct } from 'constructs';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS, DEFAULT_TENANT_ID } from '../../consts';
-import { TenantManager } from './tenant-manager';
+import { ITenantManager } from './tenant-manager-interface';
 
 export interface TranscribeProps {
-  readonly userPool: UserPool;
-  readonly idPool: IdentityPool;
+  readonly userPool: IUserPool;
+  readonly idPool: IIdentityPool;
   readonly api: RestApi;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly tenantManager?: TenantManager;
+  readonly tenantManager?: ITenantManager;
   readonly environment: string;
 }
 
@@ -207,7 +207,9 @@ export class Transcribe extends Construct {
 
     // add Policy for Amplify User
     // grant access policy transcribe stream and translate
-    props.idPool.authenticatedRole.attachInlinePolicy(
+    // Type assertion needed: IIdentityPool doesn't expose authenticatedRole
+    // but IdentityPool concrete class has it
+    (props.idPool as IdentityPool).authenticatedRole.attachInlinePolicy(
       new Policy(this, 'GrantAccessTranscribeStream', {
         statements: [
           new PolicyStatement({

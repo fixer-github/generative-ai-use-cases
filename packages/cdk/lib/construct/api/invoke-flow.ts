@@ -3,6 +3,7 @@ import { GenericApiProps } from './props';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Duration } from 'aws-cdk-lib';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export type InvokeFlowApiProps = GenericApiProps;
 
@@ -43,7 +44,9 @@ class InvokeFlowApi extends Construct {
           : {}),
       },
     });
-    invokeFlowFunction.grantInvoke(idPool.authenticatedRole);
+    // Type assertion needed: IIdentityPool doesn't expose authenticatedRole
+    // but IdentityPool concrete class has it
+    invokeFlowFunction.grantInvoke((idPool as IdentityPool).authenticatedRole);
 
     if (tenantManager) {
       tenantManager.tenantsTable.grantReadData(invokeFlowFunction);

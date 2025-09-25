@@ -3,6 +3,7 @@ import { GenericApiProps } from './props';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export type OptimizePromptApiProps = GenericApiProps;
 
@@ -29,7 +30,9 @@ class OptimizePromptApi extends Construct {
         },
       }
     );
-    optimizePromptFunction.grantInvoke(idPool.authenticatedRole);
+    // Type assertion needed: IIdentityPool doesn't expose authenticatedRole
+    // but IdentityPool concrete class has it
+    optimizePromptFunction.grantInvoke((idPool as IdentityPool).authenticatedRole);
 
     if (bedrockPolicy) {
       optimizePromptFunction.role?.addToPrincipalPolicy(bedrockPolicy);

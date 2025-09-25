@@ -7,7 +7,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { ProcessedStackInput } from '../../stack-input';
-import { TenantManager } from '../../construct/tenant-manager';
+import { ITenantManager } from '../../construct/tenant-manager-interface';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 
@@ -63,15 +63,16 @@ export class ExtensionStack extends Stack {
       props.tenantRegistrationLambdaArn
     );
 
-    // Note: TenantManager requires concrete classes, not interfaces
-    // CDK's fromXXX methods return interfaces, so casting is necessary
-    const tenantManager = {
-      tenantsTable: tenantsTable as dynamodb.Table,
-      registrationLambda: registrationLambda as any,
-    } as TenantManager;
+    // Create ITenantManager object using imported resources
+    const tenantManager: ITenantManager = {
+      tenantsTable: tenantsTable,
+      registrationLambda: registrationLambda,
+    };
 
     const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
       envSuffix: params.env,
+      // SpeechToSpeech requires concrete classes
+      // Type assertions needed as CDK fromXXX methods return interfaces
       api: restApi as apigateway.RestApi,
       userPool: userPool as cognito.UserPool,
       speechToSpeechModelIds: params.speechToSpeechModelIds,
@@ -89,6 +90,8 @@ export class ExtensionStack extends Stack {
       );
 
       const mcpApi = new McpApi(this, 'McpApi', {
+        // McpApi requires concrete classes
+        // Type assertions needed as CDK fromXXX methods return interfaces
         idPool: idPool as IdentityPool,
         isSageMakerStudio: props.isSageMakerStudio,
         fileBucket: fileBucket as s3.Bucket,
@@ -100,6 +103,7 @@ export class ExtensionStack extends Stack {
       new UseCaseBuilder(this, 'UseCaseBuilder', {
         userPool: userPool as cognito.UserPool,
         api: restApi as apigateway.RestApi,
+        // UseCaseBuilder requires IdentityPool concrete class
         idPool: idPool as IdentityPool,
         environment: params.env,
         tenantManager: tenantManager,
@@ -108,6 +112,7 @@ export class ExtensionStack extends Stack {
 
     new Transcribe(this, 'Transcribe', {
       userPool: userPool as cognito.UserPool,
+      // Transcribe requires IdentityPool concrete class
       idPool: idPool as IdentityPool,
       api: restApi as apigateway.RestApi,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,

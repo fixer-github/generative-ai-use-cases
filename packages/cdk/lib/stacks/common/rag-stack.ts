@@ -48,6 +48,8 @@ export class RagStack extends Stack {
         kendraIndexScheduleEnabled: params.kendraIndexScheduleEnabled,
         kendraIndexScheduleCreateCron: params.kendraIndexScheduleCreateCron,
         kendraIndexScheduleDeleteCron: params.kendraIndexScheduleDeleteCron,
+        // Rag construct requires concrete classes
+        // Type assertions needed as CDK fromXXX methods return interfaces
         userPool: userPool as cognito.UserPool,
         api: restApi as apigateway.RestApi,
       });
