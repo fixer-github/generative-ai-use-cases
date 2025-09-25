@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
-import { GenerativeAiUseCasesStack } from './stacks/common/generative-ai-use-cases-stack';
 import { CloudFrontWafStack } from './stacks/common/cloud-front-waf-stack';
 import { DashboardStack } from './stacks/common/dashboard-stack';
 import { AgentStack } from './stacks/common/agent-stack';
@@ -8,6 +7,11 @@ import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack'
 import { GuardrailStack } from './stacks/common/guardrail-stack';
 import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
+import { AuthenticationStack } from './stacks/common/authentication-stack';
+import { DataStack } from './stacks/common/data-stack';
+import { ApiStack } from './stacks/common/api-stack';
+import { FrontendStack } from './stacks/common/frontend-stack';
+import { AIServicesStack } from './stacks/common/ai-services-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -104,42 +108,121 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     videoBucketRegionMap[region] = videoTmpBucketStack.bucketName;
   }
 
-  // GenU Stack
-  const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
-  const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
+  // Authentication Stack
+  const authenticationStack = new AuthenticationStack(
     app,
-    `GenerativeAiUseCasesStack${params.env}`,
+    `AuthenticationStack${params.env}`,
     {
       env: {
         account: params.account,
         region: params.region,
       },
-      description: params.anonymousUsageTracking
-        ? 'Generative AI Use Cases (uksb-1tupboc48)'
-        : undefined,
       params: params,
       crossRegionReferences: true,
-      // RAG Knowledge Base
-      knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
-      knowledgeBaseDataSourceBucketName:
-        ragKnowledgeBaseStack?.dataSourceBucketName,
-      // Agent
-      agents: agentStack?.agents,
-      // Video Generation
-      videoBucketRegionMap,
-      // Guardrail
-      guardrailIdentifier: guardrail?.guardrailIdentifier,
-      guardrailVersion: 'DRAFT',
-      // WAF
-      webAclId: cloudFrontWafStack?.webAclArn,
-      // Custom Domain
-      cert: cloudFrontWafStack?.cert,
-      // Image build environment
-      isSageMakerStudio,
     }
   );
 
-  cdk.Aspects.of(generativeAiUseCasesStack).add(
+  // Data Stack
+  const dataStack = new DataStack(app, `DataStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params: params,
+    crossRegionReferences: true,
+  });
+
+  // API Stack
+  const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
+  const apiStack = new ApiStack(app, `ApiStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    description: params.anonymousUsageTracking
+      ? 'Generative AI Use Cases API (uksb-1tupboc48)'
+      : undefined,
+    params: params,
+    userPool: authenticationStack.userPool,
+    userPoolClient: authenticationStack.userPoolClient,
+    idPool: authenticationStack.auth.idPool,
+    table: dataStack.table,
+    statsTable: dataStack.statsTable,
+    tenantManager: dataStack.tenantManager,
+    knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
+    agents: agentStack?.agents,
+    videoBucketRegionMap,
+    guardrailIdentifier: guardrail?.guardrailIdentifier,
+    guardrailVersion: 'DRAFT',
+    isSageMakerStudio,
+    crossRegionReferences: true,
+  });
+
+  // Frontend Stack
+  const frontendStack = new FrontendStack(app, `FrontendStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params: params,
+    userPoolId: authenticationStack.userPool.userPoolId,
+    userPoolClientId: authenticationStack.userPoolClient.userPoolClientId,
+    idPoolId: authenticationStack.idPoolId,
+    userPool: authenticationStack.userPool,
+    apiEndpointUrl: apiStack.restApi.url,
+    restApi: apiStack.restApi,
+    predictStreamFunctionArn: apiStack.predictStreamFunction.functionArn,
+    invokeFlowFunctionArn: apiStack.invokeFlowFunction.functionArn,
+    optimizePromptFunctionArn: apiStack.optimizePromptFunction.functionArn,
+    modelRegion: apiStack.modelRegion,
+    modelIds: apiStack.modelIds,
+    imageGenerationModelIds: apiStack.imageGenerationModelIds,
+    videoGenerationModelIds: apiStack.videoGenerationModelIds,
+    endpointNames: apiStack.endpointNames,
+    agentNames: apiStack.agentNames,
+    webAclId: cloudFrontWafStack?.webAclArn,
+    cert: cloudFrontWafStack?.cert,
+    mcpEndpoint: apiStack.mcpEndpoint || undefined,
+    crossRegionReferences: true,
+  });
+
+  // AI Services Stack
+  const aiServicesStack = new AIServicesStack(
+    app,
+    `AIServicesStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
+      userPool: authenticationStack.userPool,
+      idPool: authenticationStack.auth.idPool,
+      restApi: apiStack.restApi,
+      tenantManager: dataStack.tenantManager,
+      knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
+      knowledgeBaseDataSourceBucketName:
+        ragKnowledgeBaseStack?.dataSourceBucketName,
+      getFileDownloadSignedUrlFunction:
+        apiStack.getFileDownloadSignedUrlFunction,
+      crossRegionReferences: true,
+    }
+  );
+
+  // Apply deletion policy to all stacks
+  cdk.Aspects.of(authenticationStack).add(
+    new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
+  );
+  cdk.Aspects.of(dataStack).add(
+    new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
+  );
+  cdk.Aspects.of(apiStack).add(
+    new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
+  );
+  cdk.Aspects.of(frontendStack).add(
+    new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
+  );
+  cdk.Aspects.of(aiServicesStack).add(
     new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
   );
 
@@ -153,8 +236,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
             region: params.modelRegion,
           },
           params: params,
-          userPool: generativeAiUseCasesStack.userPool,
-          userPoolClient: generativeAiUseCasesStack.userPoolClient,
+          userPool: authenticationStack.userPool,
+          userPoolClient: authenticationStack.userPoolClient,
           appRegion: params.region,
           crossRegionReferences: true,
         }
@@ -166,7 +249,11 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     ragKnowledgeBaseStack,
     agentStack,
     guardrail,
-    generativeAiUseCasesStack,
+    authenticationStack,
+    dataStack,
+    apiStack,
+    frontendStack,
+    aiServicesStack,
     dashboardStack,
   };
 };

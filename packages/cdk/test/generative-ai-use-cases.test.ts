@@ -70,7 +70,11 @@ describe('GenerativeAiUseCases', () => {
       ragKnowledgeBaseStack,
       agentStack,
       guardrail,
-      generativeAiUseCasesStack,
+      authenticationStack,
+      dataStack,
+      apiStack,
+      frontendStack,
+      aiServicesStack,
       dashboardStack,
     } = createStacks(app, params);
 
@@ -80,7 +84,11 @@ describe('GenerativeAiUseCases', () => {
       !ragKnowledgeBaseStack ||
       !agentStack ||
       !guardrail ||
-      !generativeAiUseCasesStack ||
+      !authenticationStack ||
+      !dataStack ||
+      !apiStack ||
+      !frontendStack ||
+      !aiServicesStack ||
       !dashboardStack
     ) {
       throw new Error('Not all stacks are created');
@@ -89,9 +97,11 @@ describe('GenerativeAiUseCases', () => {
     const ragKnowledgeBaseTemplate = Template.fromStack(ragKnowledgeBaseStack);
     const agentTemplate = Template.fromStack(agentStack);
     const guardrailTemplate = Template.fromStack(guardrail);
-    const generativeAiUseCasesTemplate = Template.fromStack(
-      generativeAiUseCasesStack
-    );
+    const authenticationTemplate = Template.fromStack(authenticationStack);
+    const dataTemplate = Template.fromStack(dataStack);
+    const apiTemplate = Template.fromStack(apiStack);
+    const frontendTemplate = Template.fromStack(frontendStack);
+    const aiServicesTemplate = Template.fromStack(aiServicesStack);
     const dashboardTemplate = Template.fromStack(dashboardStack);
 
     // Assert
@@ -99,7 +109,11 @@ describe('GenerativeAiUseCases', () => {
     expect(ragKnowledgeBaseTemplate.toJSON()).toMatchSnapshot();
     expect(agentTemplate.toJSON()).toMatchSnapshot();
     expect(guardrailTemplate.toJSON()).toMatchSnapshot();
-    expect(generativeAiUseCasesTemplate.toJSON()).toMatchSnapshot();
+    expect(authenticationTemplate.toJSON()).toMatchSnapshot();
+    expect(dataTemplate.toJSON()).toMatchSnapshot();
+    expect(apiTemplate.toJSON()).toMatchSnapshot();
+    expect(frontendTemplate.toJSON()).toMatchSnapshot();
+    expect(aiServicesTemplate.toJSON()).toMatchSnapshot();
     expect(dashboardTemplate.toJSON()).toMatchSnapshot();
   });
 });
