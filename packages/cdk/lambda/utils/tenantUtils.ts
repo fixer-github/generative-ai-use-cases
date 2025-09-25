@@ -25,4 +25,3 @@ export const getTenantId = (event: APIGatewayProxyEvent): string => {
 export const getUserTenantId = (event: APIGatewayProxyEvent): string => {
   return getTenantId(event);
 };
-

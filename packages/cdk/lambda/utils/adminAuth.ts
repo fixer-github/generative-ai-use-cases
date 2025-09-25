@@ -234,4 +234,3 @@ export function isAdminUserResult(
 ): result is { admin: AdminContext; user?: TenantUser } {
   return 'admin' in result;
 }
-

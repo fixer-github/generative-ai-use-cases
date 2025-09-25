@@ -18,7 +18,10 @@ const api = {
 /**
  * Helper function to create standardized API Gateway responses
  */
-export const createResponse = (statusCode: number, body: any): APIGatewayProxyResult => {
+export const createResponse = (
+  statusCode: number,
+  body: any
+): APIGatewayProxyResult => {
   return {
     statusCode,
     headers: {

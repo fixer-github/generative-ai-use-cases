@@ -396,7 +396,6 @@ const AdminPortal: React.FC = () => {
           </div>
         </div>
 
-
         <UserInviteDialog
           isOpen={showInviteDialog}
           onClose={() => setShowInviteDialog(false)}

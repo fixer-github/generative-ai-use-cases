@@ -195,7 +195,6 @@ class AdminApi extends Construct {
       new LambdaIntegration(checkAdminStatusFunction),
       commonAuthorizerProps
     );
-
   }
 }
 

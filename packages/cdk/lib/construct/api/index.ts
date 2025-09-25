@@ -333,7 +333,9 @@ export class Api extends Construct {
 
     // Grant DynamoDB permissions for tenant data access
     if (tenantManager?.tenantsTable) {
-      tenantManager.tenantsTable.grantReadData(getTenantAwareUseCaseConfigFunction);
+      tenantManager.tenantsTable.grantReadData(
+        getTenantAwareUseCaseConfigFunction
+      );
     }
 
     // Add endpoint for tenant-aware use case configuration

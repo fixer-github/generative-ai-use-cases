@@ -75,8 +75,16 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     speechToSpeechModelIds,
   } = MODELS;
 
+  // Show loading during authentication or while fetching use case configuration
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   const routes: RouteObject[] = [

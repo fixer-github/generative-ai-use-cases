@@ -38,7 +38,10 @@ import { getFormatFromMimeType, getMimeTypeFromFileName } from './media';
 const modelIds: ModelConfiguration[] = (
   JSON.parse(process.env.MODEL_IDS || '[]') as ModelConfiguration[]
 )
-  .filter((model) => model && typeof model === 'object' && model.modelId && model.region)
+  .filter(
+    (model) =>
+      model && typeof model === 'object' && model.modelId && model.region
+  )
   .map((model) => ({
     modelId: model.modelId.trim(),
     region: model.region.trim(),
@@ -60,7 +63,10 @@ const imageGenerationModels: ModelConfiguration[] = (
     process.env.IMAGE_GENERATION_MODEL_IDS || '[]'
   ) as ModelConfiguration[]
 )
-  .filter((model) => model && typeof model === 'object' && model.modelId && model.region)
+  .filter(
+    (model) =>
+      model && typeof model === 'object' && model.modelId && model.region
+  )
   .map(
     (model: ModelConfiguration): ModelConfiguration => ({
       modelId: model.modelId.trim(),
@@ -79,7 +85,10 @@ const videoGenerationModels: ModelConfiguration[] = (
     process.env.VIDEO_GENERATION_MODEL_IDS || '[]'
   ) as ModelConfiguration[]
 )
-  .filter((model) => model && typeof model === 'object' && model.modelId && model.region)
+  .filter(
+    (model) =>
+      model && typeof model === 'object' && model.modelId && model.region
+  )
   .map(
     (model: ModelConfiguration): ModelConfiguration => ({
       modelId: model.modelId.trim(),

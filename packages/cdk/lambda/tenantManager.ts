@@ -58,7 +58,6 @@ interface UpdateTenantRequest {
   roleArn?: string;
 }
 
-
 /**
  * Get tenant information by tenant ID
  */
@@ -209,7 +208,6 @@ export async function deactivateTenant(tenantId: string): Promise<Tenant> {
   });
 }
 
-
 /**
  * Get tenant use case configuration with fallback to global configuration
  */
@@ -219,11 +217,14 @@ export async function getTenantUseCaseConfiguration(
 ): Promise<HiddenUseCases> {
   try {
     const tenant = await getTenant(tenantId);
-    
+
     // Return tenant-specific configuration if it exists, otherwise return global configuration
     return tenant?.useCaseConfiguration?.hiddenUseCases ?? globalHiddenUseCases;
   } catch (error) {
-    console.error(`Failed to get use case configuration for tenant ${tenantId}:`, error);
+    console.error(
+      `Failed to get use case configuration for tenant ${tenantId}:`,
+      error
+    );
     // Return global configuration as fallback on error
     return globalHiddenUseCases;
   }
