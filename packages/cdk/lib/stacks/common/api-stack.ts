@@ -8,7 +8,13 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
-import { Api, LitellmProxyServer, McpApi, CommonWebAcl, SpeechToSpeech } from '../../construct';
+import {
+  Api,
+  LitellmProxyServer,
+  McpApi,
+  CommonWebAcl,
+  SpeechToSpeech,
+} from '../../construct';
 import { TenantManager } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
 import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
