@@ -169,6 +169,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     userPoolClientId: authenticationStack.userPoolClient.userPoolClientId,
     idPoolId: authenticationStack.idPoolId,
     userPool: authenticationStack.userPool,
+    idPool: authenticationStack.auth.idPool,
     apiEndpointUrl: apiStack.restApi.url,
     restApi: apiStack.restApi,
     predictStreamFunctionArn: apiStack.predictStreamFunction.functionArn,

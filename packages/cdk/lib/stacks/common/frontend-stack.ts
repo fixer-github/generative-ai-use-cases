@@ -1,10 +1,12 @@
 import { Stack, StackProps, CfnOutput, Fn } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
+import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { Web } from '../../construct';
 import { ProcessedStackInput } from '../../stack-input';
 import { ModelConfiguration } from 'generative-ai-use-cases';
@@ -15,6 +17,7 @@ export interface FrontendStackProps extends StackProps {
   readonly userPoolClientId: string;
   readonly idPoolId: string;
   readonly userPool: UserPool;
+  readonly idPool: IdentityPool;
   readonly apiEndpointUrl: string;
   readonly restApi: RestApi;
   readonly predictStreamFunctionArn: string;
@@ -40,6 +43,23 @@ export class FrontendStack extends Stack {
     super(scope, id, props);
 
     const params = props.params;
+
+    // Grant invoke permissions for Lambda functions to authenticated users
+    // Build ARN strings manually to avoid circular dependencies
+    const accountId = Stack.of(this).account;
+    const region = Stack.of(this).region;
+
+    props.idPool.authenticatedRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${region}:${accountId}:function:*PredictStream*`,
+          `arn:aws:lambda:${region}:${accountId}:function:*InvokeFlow*`,
+          `arn:aws:lambda:${region}:${accountId}:function:*OptimizePrompt*`,
+        ],
+      })
+    );
 
     const selfSignUpEnabledForWeb =
       params.samlAuthEnabled && !params.samlDefaultAuthEnabled
