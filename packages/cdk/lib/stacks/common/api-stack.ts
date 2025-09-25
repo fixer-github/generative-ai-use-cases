@@ -133,7 +133,8 @@ export class ApiStack extends Stack {
     this.endpointNames = api.endpointNames;
     this.agentNames = api.agentNames;
     this.fileBucket = api.fileBucket;
-    this.getFileDownloadSignedUrlFunction = api.getFileDownloadSignedUrlFunction;
+    this.getFileDownloadSignedUrlFunction =
+      api.getFileDownloadSignedUrlFunction;
 
     new CfnOutput(this, 'ApiEndpoint', {
       value: api.restApi.url,

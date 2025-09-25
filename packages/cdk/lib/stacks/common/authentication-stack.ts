@@ -14,11 +14,7 @@ export class AuthenticationStack extends Stack {
   public readonly idPoolId: string;
   public readonly auth: Auth;
 
-  constructor(
-    scope: Construct,
-    id: string,
-    props: AuthenticationStackProps
-  ) {
+  constructor(scope: Construct, id: string, props: AuthenticationStackProps) {
     super(scope, id, props);
 
     const params = props.params;
