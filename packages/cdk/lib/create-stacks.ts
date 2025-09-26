@@ -135,12 +135,26 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     }
   );
 
-  const apiStack = new ApiStack(app, 'ApiStack', {
-    fileBucket: fileBucketStack.fileBucket,
+  const apiStack = new ApiStack(app, `ApiStack${params.env}`, {
     env: {
       account: params.account,
       region: params.region,
     },
+    params: params,
+
+    knowledgeBaseId:
+      params.ragKnowledgeBaseId || ragKnowledgeBaseStack?.stackId,
+    userPool: authStack.userPool,
+    idPool: authStack.idPool,
+    agents: agentStack?.agents,
+    guardrailIdentify: guardrail?.guardrailIdentifier,
+    guardrailVersion: 'DRAFT',
+    userPoolClient: authStack.client,
+    litellmEndpoint: litellmEndpoint,
+    litellmProxy: litellmProxy,
+    table: database.table,
+    statsTable: database.statsTable,
+    tenantManager: tenantManager,
   });
 
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
@@ -184,16 +198,16 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
       // ApiStack
       restApi: apiStack.restApi,
-      agentNames: apiStack.agentNames,
-      endpointNames: apiStack.endpointNames,
+      agentNames: [''], // TODO: implement
+      endpointNames: params.endpointNames,
 
       getFileDownloadSignedUrlFunction:
         apiStack.getFileDownloadSignedUrlFunction,
-      imageGenerationModelIds: apiStack.imageGenerationModelIds,
-      videoGenerationModelIds: apiStack.videoGenerationModelIds,
+      imageGenerationModelIds: params.imageGenerationModelIds,
+      videoGenerationModelIds: params.videoGenerationModelIds,
       invokeFlowFunction: apiStack.invokeFlowFunction,
-      modelIds: apiStack.modelIds,
-      modelRegion: apiStack.modelRegion,
+      modelIds: params.modelIds,
+      modelRegion: params.modelRegion,
       optimizePromptFunction: apiStack.optimizePromptFunction,
       predictStreamFunction: apiStack.predictStreamFunction,
     }

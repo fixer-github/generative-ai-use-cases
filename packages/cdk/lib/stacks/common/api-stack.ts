@@ -1,15 +1,31 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { ModelConfiguration } from 'generative-ai-use-cases';
+import { Api, LitellmProxyServer, TenantManager } from '../../construct';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { ProcessedStackInput } from '../../stack-input';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { Agent } from 'generative-ai-use-cases';
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
 
 interface ApiStackProps extends StackProps {
-  // From other stack
+  params: ProcessedStackInput;
+  videoBucketRegionMap: Record<string, string>;
+  knowledgeBaseId?: string;
 
-  // S3
-  readonly fileBucket: Bucket;
+  // From other stacks
+  userPool: UserPool;
+  idPool: IdentityPool;
+  agents?: Agent[];
+  guardrailIdentify?: string;
+  guardRailVersion?: string;
+  userPoolClient: UserPoolClient;
+  litellmEndpoint?: string;
+  litellmProxy?: LitellmProxyServer;
+  table: Table;
+  statsTable: Table;
+  tenantManager?: TenantManager;
 }
 
 class ApiStack extends Stack {
@@ -20,15 +36,62 @@ class ApiStack extends Stack {
   readonly optimizePromptFunction: NodejsFunction;
   readonly getFileDownloadSignedUrlFunction: NodejsFunction;
 
-  readonly modelRegion: string;
-  readonly modelIds: ModelConfiguration[];
-  readonly imageGenerationModelIds: ModelConfiguration[];
-  readonly videoGenerationModelIds: ModelConfiguration[];
-  readonly endpointNames: string[];
-  readonly agentNames: string[];
-
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+
+    const {
+      params,
+      videoBucketRegionMap,
+      knowledgeBaseId,
+      userPool,
+      idPool,
+      agents,
+      guardrailIdentify,
+      guardRailVersion,
+      userPoolClient,
+      litellmEndpoint,
+      litellmProxy,
+      table,
+      statsTable,
+      tenantManager,
+    } = props;
+
+    const apiConstruct = new Api(scope, 'Api', {
+      modelRegion: params.modelRegion,
+      modelIds: params.modelIds,
+      imageGenerationModelIds: params.imageGenerationModelIds,
+      videoGenerationModelIds: params.videoGenerationModelIds,
+      videoBucketRegionMap: videoBucketRegionMap,
+      endpointNames: params.endpointNames,
+      customAgents: params.agents,
+      queryDecompositionEnabled: params.queryDecompositionEnabled,
+      rerankingModelId: params.rerankingModelId,
+      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
+      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
+      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      selfSignUpTenantMap: params.selfSignUpTenantMap,
+      environment: params.env,
+
+      knowledgeBaseId: knowledgeBaseId,
+      userPool: userPool,
+      idPool: idPool,
+      agents: agents,
+      guardrailIdentify: guardrailIdentify,
+      guardrailVersion: guardRailVersion,
+      userPoolClient: userPoolClient,
+      litellmEndpoint: litellmEndpoint,
+      litellmProxy: litellmProxy,
+      table: table,
+      statsTable: statsTable,
+      tenantManager: tenantManager,
+    });
+
+    this.restApi = apiConstruct.restApi;
+    this.predictStreamFunction = apiConstruct.predictStreamFunction;
+    this.invokeFlowFunction = apiConstruct.invokeFlowFunction;
+    this.optimizePromptFunction = apiConstruct.optimizePromptFunction;
+    this.getFileDownloadSignedUrlFunction =
+      apiConstruct.getFileDownloadSignedUrlFunction;
   }
 }
 
