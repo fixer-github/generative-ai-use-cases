@@ -2,7 +2,7 @@ import process from 'process';
 import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { RagKnowledgeBase, Transcribe, CommonWebAcl } from '../../construct';
+import { RagKnowledgeBase, CommonWebAcl } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -109,17 +109,6 @@ export class GenerativeAiUseCasesStack extends Stack {
         }
       }
     }
-
-    // Transcribe
-    new Transcribe(this, 'Transcribe', {
-      userPool: props.userPool,
-      idPool: props.idPool,
-      api: props.restApi,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      tenantManager: tenantManager,
-      environment: params.env,
-    });
 
     // Cfn Outputs
     new CfnOutput(this, 'Region', {
