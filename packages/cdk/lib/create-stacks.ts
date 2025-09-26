@@ -261,24 +261,14 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       client: authStack.client,
       idPool: authStack.idPool,
 
-      // S3
-      fileBucket: storageStack.fileBucket,
-
       // ApiStack
-      restApi: apiStack.restApi,
       agentNames: agentNames,
       endpointNames: params.endpointNames,
 
-      getFileDownloadSignedUrlFunction:
-        apiStack.getFileDownloadSignedUrlFunction,
       imageGenerationModelIds: params.imageGenerationModelIds,
       videoGenerationModelIds: params.videoGenerationModelIds,
-      invokeFlowFunction: apiStack.invokeFlowFunction,
       modelIds: params.modelIds,
       modelRegion: params.modelRegion,
-      optimizePromptFunction: apiStack.optimizePromptFunction,
-      predictStreamFunction: apiStack.predictStreamFunction,
-      tenantManager: tenantManagerStack.tenantManager,
     }
   );
 
