@@ -12,37 +12,27 @@ const baseStackInputSchema = z.object({
   selfSignUpEnabled: z.boolean().default(true),
   selfSignUpTenantMap: z
     .array(
-      z.object({
-        tenantId: z.string().min(1, 'Tenant ID cannot be empty'),
-        domains: z.array(z.string().toLowerCase()).optional(),
-        emails: z.array(z.string().email().toLowerCase()).optional(),
-      }).refine(
-        (data) => (data.domains && data.domains.length > 0) ||
-                  (data.emails && data.emails.length > 0),
-        { message: 'Each tenant map entry must have at least one domain or email' }
-      )
+      z
+        .object({
+          tenantId: z.string().min(1, 'Tenant ID cannot be empty'),
+          domains: z.array(z.string().toLowerCase()).optional(),
+          emails: z.array(z.string().email().toLowerCase()).optional(),
+        })
+        .refine(
+          (data) =>
+            (data.domains && data.domains.length > 0) ||
+            (data.emails && data.emails.length > 0),
+          {
+            message:
+              'Each tenant map entry must have at least one domain or email',
+          }
+        )
     )
     .nullish(),
   samlAuthEnabled: z.boolean().default(false),
   samlDefaultAuthEnabled: z.boolean().default(false),
   samlCognitoDomainName: z.string().nullish(),
   samlCognitoFederatedIdentityProviderName: z.string().nullish(),
-  // Frontend
-  hiddenUseCases: z
-    .object({
-      generate: z.boolean().optional(),
-      summarize: z.boolean().optional(),
-      writer: z.boolean().optional(),
-      translate: z.boolean().optional(),
-      webContent: z.boolean().optional(),
-      image: z.boolean().optional(),
-      video: z.boolean().optional(),
-      videoAnalyzer: z.boolean().optional(),
-      diagram: z.boolean().optional(),
-      meetingMinutes: z.boolean().optional(),
-      voiceChat: z.boolean().optional(),
-    })
-    .default({}),
   // API
   modelRegion: z.string().default('us-east-1'),
   modelIds: z

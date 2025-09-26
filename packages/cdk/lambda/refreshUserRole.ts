@@ -1,11 +1,13 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { verifyAdminAccess, CORS_HEADERS, JWTClaims } from './utils/adminAuth';
-import { verifyToken } from './utils/auth';
+import { verifyTokenWithRoleCheck } from './utils/auth';
+import { CORS_HEADERS } from './utils/adminAuth';
 
-export interface AdminStatusResponse {
+export interface RefreshUserRoleResponse {
   isAdmin: boolean;
   tenantId: string;
   username: string;
+  roleChanged: boolean;
+  message: string;
 }
 
 export const handler = async (
@@ -14,8 +16,7 @@ export const handler = async (
   console.log('Event:', JSON.stringify(event, null, 2));
 
   try {
-    // For checkAdminStatus, we still need to handle non-admin users
-    // So we verify the token directly instead of using verifyAdminAccess
+    // Extract token
     const token = event.headers.Authorization || event.headers.authorization;
     if (!token) {
       return {
@@ -25,8 +26,9 @@ export const handler = async (
       };
     }
 
-    const claims = (await verifyToken(token)) as JWTClaims | null;
-    if (!claims) {
+    // Verify token with real-time role checking
+    const verificationResult = await verifyTokenWithRoleCheck(token);
+    if (!verificationResult) {
       return {
         statusCode: 401,
         headers: CORS_HEADERS,
@@ -34,10 +36,11 @@ export const handler = async (
       };
     }
 
+    const { claims, isCurrentlyAdmin, tokenClaimAdmin } = verificationResult;
     const tenantId = claims['custom:tenant_id'];
-    const isAdmin = claims['custom:tenantAdmin'] === 'true';
     const username = claims['cognito:username'] || claims.username || '';
 
+    // Check tenant ID
     if (!tenantId) {
       return {
         statusCode: 400,
@@ -46,14 +49,25 @@ export const handler = async (
       };
     }
 
-    const response: AdminStatusResponse = {
-      isAdmin,
+    const roleChanged = tokenClaimAdmin !== isCurrentlyAdmin;
+    let message = 'Role status verified';
+
+    if (roleChanged) {
+      message = isCurrentlyAdmin
+        ? 'Your role has been upgraded to admin. You now have administrative privileges.'
+        : 'Your admin privileges have been revoked. You are now a regular user.';
+    }
+
+    const response: RefreshUserRoleResponse = {
+      isAdmin: isCurrentlyAdmin,
       tenantId,
       username,
+      roleChanged,
+      message,
     };
 
     console.log(
-      `Admin status check for user ${username}: isAdmin=${isAdmin}, tenantId=${tenantId}`
+      `Role refresh for user ${username}: current=${isCurrentlyAdmin}, token=${tokenClaimAdmin}, changed=${roleChanged}`
     );
 
     return {
@@ -62,12 +76,12 @@ export const handler = async (
       body: JSON.stringify(response),
     };
   } catch (error) {
-    console.error('Error checking admin status:', error);
+    console.error('Error refreshing user role:', error);
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
       body: JSON.stringify({
-        message: 'Failed to check admin status',
+        message: 'Failed to refresh role status',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
     };

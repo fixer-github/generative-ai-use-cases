@@ -2,11 +2,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
-  AttributeType
+  AttributeType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyToken } from './auth';
+import { verifyToken, verifyTokenWithRoleCheck } from './auth';
 
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION!,
+});
 const USER_POOL_ID = process.env.USER_POOL_ID!;
 
 export interface JWTClaims {
@@ -37,9 +39,12 @@ export const CORS_HEADERS = {
 };
 
 /**
- * Verify JWT token and admin status, return admin context or error response
+ * Verify JWT token and admin status with real-time role checking
+ * Handles cases where token claims might be outdated after role changes
  */
-export async function verifyAdminAccess(event: APIGatewayProxyEvent): Promise<AdminContext | APIGatewayProxyResult> {
+export async function verifyAdminAccess(
+  event: APIGatewayProxyEvent
+): Promise<AdminContext | APIGatewayProxyResult> {
   // Extract token
   const token = event.headers.Authorization || event.headers.authorization;
   if (!token) {
@@ -50,9 +55,9 @@ export async function verifyAdminAccess(event: APIGatewayProxyEvent): Promise<Ad
     };
   }
 
-  // Verify token
-  const claims = await verifyToken(token) as JWTClaims | null;
-  if (!claims) {
+  // Verify token with real-time role checking
+  const verificationResult = await verifyTokenWithRoleCheck(token, true);
+  if (!verificationResult) {
     return {
       statusCode: 401,
       headers: CORS_HEADERS,
@@ -60,8 +65,8 @@ export async function verifyAdminAccess(event: APIGatewayProxyEvent): Promise<Ad
     };
   }
 
+  const { claims, isCurrentlyAdmin, tokenClaimAdmin } = verificationResult;
   const tenantId = claims['custom:tenant_id'];
-  const isAdmin = claims['custom:tenantAdmin'] === 'true';
   const username = claims['cognito:username'] || claims.username || '';
 
   // Check tenant ID
@@ -73,19 +78,30 @@ export async function verifyAdminAccess(event: APIGatewayProxyEvent): Promise<Ad
     };
   }
 
-  // Check admin status
-  if (!isAdmin) {
+  // Use current admin status from Cognito, not token claim
+  if (!isCurrentlyAdmin) {
+    // Provide different messages based on token vs current status
+    const message = tokenClaimAdmin
+      ? 'Admin privileges have been revoked. Please refresh your session.'
+      : 'Access denied. Admin privileges required.';
+
+    const statusCode = tokenClaimAdmin ? 409 : 403; // 409 for role mismatch, 403 for no privileges
+
     return {
-      statusCode: 403,
+      statusCode,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Access denied. Admin privileges required.' }),
+      body: JSON.stringify({
+        message,
+        roleChanged: tokenClaimAdmin !== isCurrentlyAdmin,
+        refreshRequired: tokenClaimAdmin && !isCurrentlyAdmin,
+      }),
     };
   }
 
   return {
     tenantId,
     username,
-    isAdmin,
+    isAdmin: isCurrentlyAdmin,
     claims,
   };
 }
@@ -115,7 +131,7 @@ export async function verifyTenantMembership(
 
     // Check if user belongs to the same tenant
     const userTenantId = userResponse.UserAttributes.find(
-      attr => attr.Name === 'custom:tenant_id'
+      (attr) => attr.Name === 'custom:tenant_id'
     )?.Value;
 
     if (userTenantId !== adminTenantId) {
@@ -123,7 +139,7 @@ export async function verifyTenantMembership(
         statusCode: 403,
         headers: CORS_HEADERS,
         body: JSON.stringify({
-          message: 'Cannot access user from different tenant'
+          message: 'Cannot access user from different tenant',
         }),
       };
     }
@@ -133,9 +149,11 @@ export async function verifyTenantMembership(
       tenantId: userTenantId,
       attributes: userResponse.UserAttributes,
     };
-
   } catch (error: unknown) {
-    console.error(`Failed to verify tenant membership for user ${username}:`, error);
+    console.error(
+      `Failed to verify tenant membership for user ${username}:`,
+      error
+    );
 
     if (error instanceof Error && error.name === 'UserNotFoundException') {
       return {
@@ -162,7 +180,7 @@ export async function verifyTenantMembership(
 export async function verifyAdminAccessWithUser(
   event: APIGatewayProxyEvent,
   targetUsername?: string
-): Promise<{ admin: AdminContext; user?: TenantUser; } | APIGatewayProxyResult> {
+): Promise<{ admin: AdminContext; user?: TenantUser } | APIGatewayProxyResult> {
   // First verify admin access
   const adminResult = await verifyAdminAccess(event);
   if ('statusCode' in adminResult) {
@@ -171,7 +189,10 @@ export async function verifyAdminAccessWithUser(
 
   // If target username provided, verify tenant membership
   if (targetUsername) {
-    const userResult = await verifyTenantMembership(targetUsername, adminResult.tenantId);
+    const userResult = await verifyTenantMembership(
+      targetUsername,
+      adminResult.tenantId
+    );
     if ('statusCode' in userResult) {
       return userResult; // Return error response
     }
@@ -190,27 +211,36 @@ export async function verifyAdminAccessWithUser(
 /**
  * Helper to get attribute value from Cognito user attributes
  */
-export function getAttributeValue(attributes: AttributeType[] | undefined, name: string): string {
-  return attributes?.find(attr => attr.Name === name)?.Value || '';
+export function getAttributeValue(
+  attributes: AttributeType[] | undefined,
+  name: string
+): string {
+  return attributes?.find((attr) => attr.Name === name)?.Value || '';
 }
 
 /**
  * Type guard to check if result is AdminContext
  */
-export function isAdminContext(result: AdminContext | APIGatewayProxyResult): result is AdminContext {
+export function isAdminContext(
+  result: AdminContext | APIGatewayProxyResult
+): result is AdminContext {
   return 'tenantId' in result;
 }
 
 /**
  * Type guard to check if result is TenantUser
  */
-export function isTenantUser(result: TenantUser | APIGatewayProxyResult): result is TenantUser {
+export function isTenantUser(
+  result: TenantUser | APIGatewayProxyResult
+): result is TenantUser {
   return 'username' in result && 'tenantId' in result;
 }
 
 /**
  * Type guard to check if result contains admin and user data
  */
-export function isAdminUserResult(result: { admin: AdminContext; user?: TenantUser; } | APIGatewayProxyResult): result is { admin: AdminContext; user?: TenantUser; } {
+export function isAdminUserResult(
+  result: { admin: AdminContext; user?: TenantUser } | APIGatewayProxyResult
+): result is { admin: AdminContext; user?: TenantUser } {
   return 'admin' in result;
 }

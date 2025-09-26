@@ -63,15 +63,24 @@ export class Auth extends Construct {
           mutable: true,
         }),
         tenantAdmin: new StringAttribute({
-          minLen: 4,      // "true" or "false"
+          minLen: 4, // "true" or "false"
           maxLen: 5,
-          mutable: true,  // Allows updating admin status
+          mutable: true, // Allows updating admin status
         }),
       },
     });
 
     const client = userPool.addClient('client', {
       idTokenValidity: Duration.days(1),
+      refreshTokenValidity: Duration.days(30),
+      accessTokenValidity: Duration.hours(1),
+      enableTokenRevocation: true,
+      authFlows: {
+        adminUserPassword: true,
+        custom: true,
+        userPassword: true,
+        userSrp: true,
+      },
     });
 
     const idPool = new IdentityPool(this, 'IdentityPool', {

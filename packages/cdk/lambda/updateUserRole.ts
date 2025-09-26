@@ -1,11 +1,19 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   CognitoIdentityProviderClient,
-  AdminUpdateUserAttributesCommand
+  AdminUpdateUserAttributesCommand,
+  AdminUserGlobalSignOutCommand,
+  AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { verifyAdminAccessWithUser, isAdminUserResult, CORS_HEADERS } from './utils/adminAuth';
+import {
+  verifyAdminAccessWithUser,
+  isAdminUserResult,
+  CORS_HEADERS,
+} from './utils/adminAuth';
 
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION!,
+});
 const USER_POOL_ID = process.env.USER_POOL_ID!;
 
 export interface UpdateUserRoleRequest {
@@ -13,7 +21,9 @@ export interface UpdateUserRoleRequest {
   tenantAdmin: boolean;
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
   try {
@@ -36,7 +46,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers: CORS_HEADERS,
         body: JSON.stringify({
-          message: 'username (string) and tenantAdmin (boolean) are required'
+          message: 'username (string) and tenantAdmin (boolean) are required',
         }),
       };
     }
@@ -55,10 +65,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers: CORS_HEADERS,
         body: JSON.stringify({
-          message: 'Cannot remove admin privileges from yourself'
+          message: 'Cannot remove admin privileges from yourself',
         }),
       };
     }
+
+    // Check current admin status to avoid unnecessary sign-outs
+    const getUserCommand = new AdminGetUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
+    });
+    const currentUser = await cognitoClient.send(getUserCommand);
+    const currentIsAdmin =
+      currentUser.UserAttributes?.find(
+        (attr) => attr.Name === 'custom:tenantAdmin'
+      )?.Value === 'true';
 
     // Update user role
     try {
@@ -75,18 +96,74 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       await cognitoClient.send(updateCommand);
 
-      console.log(`Successfully updated user ${username} tenantAdmin status to ${tenantAdmin}`);
+      console.log(
+        `Successfully updated user ${username} tenantAdmin status to ${tenantAdmin}`
+      );
+
+      // Only sign out if this is actually a demotion (was admin, now isn't)
+      let sessionInvalidated = false;
+      if (currentIsAdmin && !tenantAdmin) {
+        try {
+          const signOutCommand = new AdminUserGlobalSignOutCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: username,
+          });
+          await cognitoClient.send(signOutCommand);
+
+          console.log(
+            `Global sign-out successful for demoted user: ${username}`
+          );
+          sessionInvalidated = true;
+        } catch (signOutError) {
+          console.error(
+            `CRITICAL: Role updated but failed to invalidate tokens for ${username}:`,
+            signOutError
+          );
+
+          return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+              message:
+                'User role updated but sessions remain active. User should sign out manually.',
+              username,
+              tenantAdmin,
+              warning: 'SESSION_INVALIDATION_FAILED',
+            }),
+          };
+        }
+      }
+
+      // Determine the action type for better frontend handling
+      const actionType =
+        currentIsAdmin === tenantAdmin
+          ? 'no_change'
+          : tenantAdmin
+            ? 'promoted'
+            : 'demoted';
+
+      let userMessage = 'User role updated successfully';
+      if (actionType === 'promoted') {
+        userMessage =
+          'User has been promoted to admin. They will have administrative privileges on their next session refresh.';
+      } else if (actionType === 'demoted') {
+        userMessage = sessionInvalidated
+          ? 'User has been demoted to regular user. Their admin sessions have been terminated.'
+          : 'User has been demoted to regular user.';
+      }
 
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
         body: JSON.stringify({
-          message: 'User role updated successfully',
+          message: userMessage,
           username,
           tenantAdmin,
+          sessionInvalidated,
+          actionType,
+          requiresRefresh: actionType === 'promoted',
         }),
       };
-
     } catch (error: unknown) {
       console.error(`Failed to update user ${username}:`, error);
 
@@ -100,7 +177,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       throw error; // Re-throw to be caught by outer catch block
     }
-
   } catch (error) {
     console.error('Error updating user role:', error);
     return {
