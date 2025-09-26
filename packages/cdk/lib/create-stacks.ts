@@ -117,12 +117,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       account: params.account,
       region: params.region,
     },
-    selfSignUpEnabled: params.selfSignUpEnabled,
-    allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-    allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-    selfSignUpTenantMap: params.selfSignUpTenantMap,
-    samlAuthEnabled: params.samlAuthEnabled,
-    samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
+    params: params,
   });
 
   const fileBucketStack = new FileBucketStack(

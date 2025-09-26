@@ -21,15 +21,10 @@ import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../../consts';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
-import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { ProcessedStackInput } from '../../stack-input';
 
 interface AuthStackProps extends StackProps {
-  readonly selfSignUpEnabled: boolean;
-  readonly allowedIpV4AddressRanges?: string[] | null;
-  readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
-  readonly samlAuthEnabled: boolean;
-  readonly samlDefaultAuthEnabled: boolean;
+  readonly params: ProcessedStackInput;
 }
 
 class AuthStack extends Stack {
@@ -40,12 +35,14 @@ class AuthStack extends Stack {
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
+    const { params } = props;
+
     const userPool = new UserPool(this, 'UserPool', {
       // If SAML authentication is enabled and default auth is disabled, do not use self-sign-up with UserPool. Be aware of security.
       selfSignUpEnabled:
-        props.samlAuthEnabled && !props.samlDefaultAuthEnabled
+        params.samlAuthEnabled && !params.samlDefaultAuthEnabled
           ? false
-          : props.selfSignUpEnabled,
+          : params.selfSignUpEnabled,
       signInAliases: {
         username: false,
         email: true,
@@ -122,13 +119,13 @@ class AuthStack extends Stack {
       ],
     };
 
-    if (props.allowedIpV4AddressRanges || props.allowedIpV6AddressRanges) {
+    if (params.allowedIpV4AddressRanges || params.allowedIpV6AddressRanges) {
       const ipRanges = [
-        ...(props.allowedIpV4AddressRanges
-          ? props.allowedIpV4AddressRanges
+        ...(params.allowedIpV4AddressRanges
+          ? params.allowedIpV4AddressRanges
           : []),
-        ...(props.allowedIpV6AddressRanges
-          ? props.allowedIpV6AddressRanges
+        ...(params.allowedIpV6AddressRanges
+          ? params.allowedIpV6AddressRanges
           : []),
       ];
 
@@ -163,13 +160,13 @@ class AuthStack extends Stack {
     );
 
     // Lambda
-    if (props.selfSignUpTenantMap && props.selfSignUpTenantMap.length > 0) {
+    if (params.selfSignUpTenantMap && params.selfSignUpTenantMap.length > 0) {
       const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/checkTenant.ts',
         timeout: Duration.seconds(30),
         environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(params.selfSignUpTenantMap),
         },
       });
 
@@ -180,7 +177,7 @@ class AuthStack extends Stack {
         entry: './lambda/assignTenant.ts',
         timeout: Duration.seconds(30),
         environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(params.selfSignUpTenantMap),
         },
       });
 
