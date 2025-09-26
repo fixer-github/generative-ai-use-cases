@@ -158,6 +158,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     knowledgeBaseId:
       params.ragKnowledgeBaseId || ragKnowledgeBaseStack?.stackId,
 
+    videoBucketRegionMap: videoBucketRegionMap,
+
     userPool: authStack.userPool,
     idPool: authStack.idPool,
     agents: agentStack?.agents,
