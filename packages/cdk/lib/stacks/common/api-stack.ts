@@ -56,7 +56,7 @@ class ApiStack extends Stack {
       tenantManager,
     } = props;
 
-    const apiConstruct = new Api(scope, 'Api', {
+    const apiConstruct = new Api(this, 'Api', {
       modelRegion: params.modelRegion,
       modelIds: params.modelIds,
       imageGenerationModelIds: params.imageGenerationModelIds,
