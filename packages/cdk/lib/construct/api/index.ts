@@ -96,7 +96,7 @@ export class Api extends Construct {
   readonly endpointNames: string[];
   readonly agentNames: string[];
   readonly fileBucket: Bucket;
-  readonly getFileDownloadSignedUrlFunction: IFunction;
+  readonly getFileDownloadSignedUrlFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: BackendApiProps) {
     super(scope, id);
