@@ -7,7 +7,6 @@ import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
-import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
@@ -111,17 +110,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       }
     }
 
-    // Usecase builder
-    if (params.useCaseBuilderEnabled) {
-      new UseCaseBuilder(this, 'UseCaseBuilder', {
-        userPool: props.userPool,
-        api: props.restApi,
-        idPool: props.idPool,
-        environment: params.env,
-        tenantManager: tenantManager,
-      });
-    }
-
     // Transcribe
     new Transcribe(this, 'Transcribe', {
       userPool: props.userPool,
@@ -196,10 +184,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'InlineAgents', {
       value: params.inlineAgents.toString(),
-    });
-
-    new CfnOutput(this, 'UseCaseBuilderEnabled', {
-      value: params.useCaseBuilderEnabled.toString(),
     });
 
     new CfnOutput(this, 'HiddenUseCases', {
