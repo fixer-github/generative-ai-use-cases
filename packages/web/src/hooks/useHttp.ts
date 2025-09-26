@@ -1,5 +1,5 @@
 import { fetchAuthSession, signOut } from 'aws-amplify/auth';
-import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import useSWR, { SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
 
@@ -25,13 +25,13 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// HTTP Response Preprocessing - Combined auth retry and role mismatch handling
+// HTTP Response Preprocessing - Combined auth failure and role mismatch handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle 401 errors with retry logic for auth failures
+    // If we get a 401 and haven't already retried, try to refresh the session
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -49,11 +49,18 @@ api.interceptors.response.use(
       }
     }
 
-    // Handle role mismatch errors (403 Forbidden or 409 Conflict)
+    // Check for role mismatch errors (403 Forbidden or 409 Conflict)
     if (
       error.response &&
       (error.response.status === 403 || error.response.status === 409)
     ) {
+      // Skip role mismatch handling for validate-domains and invite endpoints
+      // Let the calling component handle these errors appropriately
+      const requestUrl = originalRequest.url || '';
+      if (requestUrl.includes('/validate-domains') || requestUrl.includes('/admin/users/invite')) {
+        return Promise.reject(error);
+      }
+
       // Check if this is specifically a role-related error
       const errorMessage = error.response.data?.message || '';
       const isRoleMismatch =
@@ -95,7 +102,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 const fetcher = (url: string) => {
   return api.get(url).then((res) => res.data);
 };
@@ -108,6 +114,112 @@ const useHttp = () => {
   return {
     api,
     fetcher,
+    /**
+     * GET Request
+     * Implemented with SWR
+     * @param url
+     * @returns
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    get: <Data = any, Error = any>(
+      url: string | null,
+      config?: SWRConfiguration
+    ) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useSWR<Data, Error>(url, fetcher, config);
+    },
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getPagination: <Data = any, Error = any>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      getKey: (pageIndex: number, previousPageData: any) => string | null,
+      config?: SWRConfiguration
+    ) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useSWRInfinite<Data, Error>(getKey, fetcher, config);
+    },
+
+    /**
+     * POST Request
+     * @param url
+     * @param data
+     * @returns
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    post: <RES = any, DATA = any>(
+      url: string,
+      data: DATA,
+      reqConfig?: AxiosRequestConfig,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      errorProcess?: (err: any) => void
+    ) => {
+      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
+        api
+          .post<RES, import('axios').AxiosResponse<RES>, DATA>(url, data, reqConfig)
+          .then((data) => {
+            resolve(data);
+          })
+          .catch((err) => {
+            if (errorProcess) {
+              errorProcess(err);
+            }
+            reject(err);
+          });
+      });
+    },
+
+    /**
+     * PUT Request
+     * @param url
+     * @param data
+     * @returns
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    put: <RES = any, DATA = any>(
+      url: string,
+      data: DATA,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      errorProcess?: (err: any) => void
+    ) => {
+      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
+        api
+          .put<RES, import('axios').AxiosResponse<RES>, DATA>(url, data)
+          .then((data) => {
+            resolve(data);
+          })
+          .catch((err) => {
+            if (errorProcess) {
+              errorProcess(err);
+            }
+            reject(err);
+          });
+      });
+    },
+    /**
+     * DELETE Request
+     * @param url
+     * @returns
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete: <RES = any, DATA = any>(
+      url: string,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      errorProcess?: (err: any) => void
+    ) => {
+      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
+        api
+          .delete<RES, import('axios').AxiosResponse<RES>, DATA>(url)
+          .then((data) => {
+            resolve(data);
+          })
+          .catch((err) => {
+            if (errorProcess) {
+              errorProcess(err);
+            }
+            reject(err);
+          });
+      });
+    },
   };
 };
 

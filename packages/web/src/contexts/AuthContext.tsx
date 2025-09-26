@@ -4,7 +4,7 @@ import { useToast } from '../hooks/useToast';
 
 interface AuthContextType {
   isRoleChangeDetected: boolean;
-  handleRoleMismatch: (message: string) => void;
+  handleRoleMismatch: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -17,7 +17,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isRoleChangeDetected, setIsRoleChangeDetected] = useState(false);
   const toast = useToast();
 
-  const handleRoleMismatch = (message: string) => {
+  const handleRoleMismatch = () => {
     if (isRoleChangeDetected) return; // Prevent multiple notifications
 
     setIsRoleChangeDetected(true);
@@ -38,9 +38,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
-    const handleRoleMismatchEvent = (event: CustomEvent) => {
-      const { message } = event.detail;
-      handleRoleMismatch(message || 'Your admin privileges have been revoked.');
+    const handleRoleMismatchEvent = () => {
+      handleRoleMismatch();
     };
 
     // Listen for role mismatch events from API interceptor

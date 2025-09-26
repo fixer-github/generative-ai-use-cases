@@ -7,6 +7,7 @@ import Textarea from './Textarea';
 import Alert from './Alert';
 import LoadingWave from './LoadingWave';
 import useHttp from '../hooks/useHttp';
+import { pauseRoleMonitoring, resumeRoleMonitoring } from '../hooks/useRoleMonitor';
 
 interface UserInviteDialogProps {
   isOpen: boolean;
@@ -64,6 +65,8 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     setShowUnconfiguredWarning(false);
     setPendingInvitation(null);
     setUnconfiguredEmails([]);
+    // Resume role monitoring when dialog closes
+    resumeRoleMonitoring();
     onClose();
   };
 
@@ -167,6 +170,8 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       );
     } finally {
       setLoading(false);
+      // Resume role monitoring after invitation completes
+      resumeRoleMonitoring();
     }
   };
 
@@ -179,6 +184,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       return response.data;
     } catch (error: any) {
       console.error('Failed to validate domains:', error);
+      
+      // Let role monitor handle privilege revocation errors to avoid conflicts
+      // This component will just propagate the error for normal handling
       throw error;
     }
   };
@@ -199,22 +207,41 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         return;
       }
 
-      // First, validate domains
-      const domainValidation = await validateDomains(emails);
+      // Pause role monitoring during the entire invite flow
+      pauseRoleMonitoring();
 
-      // Store pending invitation
-      setPendingInvitation({ emails, sendEmail });
+      try {
+        // First, validate domains
+        const domainValidation = await validateDomains(emails);
 
-      if (domainValidation.hasAnyUnconfiguredDomains) {
-        // Show warning before proceeding
-        setUnconfiguredEmails(domainValidation.unconfiguredEmails);
-        setShowUnconfiguredWarning(true);
-      } else {
-        // No unconfigured domains, proceed directly
-        await performInvitation(emails, sendEmail);
+        // Store pending invitation
+        setPendingInvitation({ emails, sendEmail });
+
+        if (domainValidation.hasAnyUnconfiguredDomains) {
+          // Show warning before proceeding
+          setUnconfiguredEmails(domainValidation.unconfiguredEmails);
+          setShowUnconfiguredWarning(true);
+          // Don't resume monitoring yet - wait for user decision
+        } else {
+          // No unconfigured domains, proceed directly
+          await performInvitation(emails, sendEmail);
+          // performInvitation will handle resuming
+        }
+      } catch (validationError: any) {
+        // Resume monitoring if validation fails
+        resumeRoleMonitoring();
+        throw validationError;
       }
     } catch (error: any) {
       console.error('Failed to prepare invitation:', error);
+
+      // Check for specific admin privilege errors and let role monitor handle them
+      if (error.response?.status === 403 || error.response?.status === 409) {
+        // Let the role monitor handle privilege revocation - just close dialog
+        handleClose();
+        return;
+      }
+
       setError(t('adminPortal.invite.errors.invitationFailed'));
     }
   };
@@ -227,6 +254,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         pendingInvitation.emails,
         pendingInvitation.sendEmail
       );
+      // performInvitation will handle resuming role monitoring
     }
   };
 
@@ -234,19 +262,26 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     setShowUnconfiguredWarning(false);
     setPendingInvitation(null);
     setUnconfiguredEmails([]);
+    // Resume role monitoring since we're canceling
+    resumeRoleMonitoring();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
+    <>
+      {/* Backdrop - only show when warning dialog is not open */}
+      {!showUnconfiguredWarning && (
         <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 z-40 bg-gray-500 bg-opacity-75 transition-opacity"
           onClick={handleClose}
         />
+      )}
 
-        <div className="inline-block w-full max-w-2xl overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
+      {/* Content container */}
+      <div className="fixed inset-0 z-40 overflow-y-auto">
+        <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
+          <div className="inline-block w-full max-w-2xl overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center">
@@ -468,14 +503,18 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           </div>
         </div>
       </div>
+      </div>
 
       {/* Unconfigured Domain Warning Dialog */}
       {showUnconfiguredWarning && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+        <>
+          {/* Warning backdrop */}
+          <div className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 transition-opacity" />
 
-            <div className="inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
+          {/* Warning content container */}
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
+              <div className="inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-orange-800">
                   {t('adminPortal.invite.unconfiguredDomain.title')}
@@ -522,8 +561,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
             </div>
           </div>
         </div>
+        </>
       )}
-    </div>
+    </>
   );
 };
 

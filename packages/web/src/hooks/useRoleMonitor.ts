@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import useHttp from './useHttp';
 import { useAuthContext } from '../contexts/AuthContext';
 
+// Global pause flag for role monitoring during critical operations
+let globalPauseRoleMonitoring = false;
+
+export const pauseRoleMonitoring = () => {
+  globalPauseRoleMonitoring = true;
+};
+
+export const resumeRoleMonitoring = () => {
+  globalPauseRoleMonitoring = false;
+};
+
 interface RoleMonitorConfig {
   pollingInterval?: number; // in milliseconds
   checkOnFocus?: boolean;
@@ -24,17 +35,18 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
   const { api } = useHttp();
   const { handleRoleMismatch, isRoleChangeDetected } = useAuthContext();
   const [lastKnownRole, setLastKnownRole] = useState<boolean | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isCheckingRef = useRef(false);
+  const focusDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkRoleStatus = async () => {
-    if (isCheckingRef.current || isRoleChangeDetected) return;
+    if (isCheckingRef.current || isRoleChangeDetected || globalPauseRoleMonitoring) return;
 
     isCheckingRef.current = true;
 
     try {
       const response = await api.post<RoleStatus>('/admin/refresh-role');
-      const { isAdmin, roleChanged, message } = response.data;
+      const { isAdmin, roleChanged } = response.data;
 
       // Initialize lastKnownRole on first check
       if (lastKnownRole === null) {
@@ -48,9 +60,7 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
 
         // If user was demoted (admin -> regular user)
         if (lastKnownRole === true && isAdmin === false) {
-          handleRoleMismatch(
-            message || 'Your admin privileges have been revoked.'
-          );
+          handleRoleMismatch();
           return;
         }
 
@@ -69,10 +79,9 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
     } catch (error: any) {
       // If we get 403/409, it means role was revoked
       if (error?.response?.status === 403 || error?.response?.status === 409) {
-        const errorMessage = error?.response?.data?.message || 'Access denied';
         if (lastKnownRole === true) {
           // Only if we thought we were admin
-          handleRoleMismatch(errorMessage);
+          handleRoleMismatch();
         }
       }
       // For other errors, we don't need to do anything as they might be network issues
@@ -103,10 +112,18 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
     // Start polling
     startPolling();
 
-    // Check on window focus if enabled
+    // Check on window focus if enabled (with debouncing)
     const handleFocus = () => {
       if (checkOnFocus && !document.hidden) {
-        checkRoleStatus();
+        // Clear existing debounce timeout
+        if (focusDebounceRef.current) {
+          clearTimeout(focusDebounceRef.current);
+        }
+        
+        // Set new debounced timeout
+        focusDebounceRef.current = setTimeout(() => {
+          checkRoleStatus();
+        }, 500); // 500ms debounce
       }
     };
 
@@ -117,6 +134,9 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
 
     return () => {
       stopPolling();
+      if (focusDebounceRef.current) {
+        clearTimeout(focusDebounceRef.current);
+      }
       if (checkOnFocus) {
         window.removeEventListener('focus', handleFocus);
         document.removeEventListener('visibilitychange', handleFocus);
