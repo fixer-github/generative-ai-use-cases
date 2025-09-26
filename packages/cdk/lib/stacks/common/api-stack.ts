@@ -19,7 +19,7 @@ interface ApiStackProps extends StackProps {
   idPool: IdentityPool;
   agents?: Agent[];
   guardrailIdentify?: string;
-  guardRailVersion?: string;
+  guardrailVersion?: string;
   userPoolClient: UserPoolClient;
   litellmEndpoint?: string;
   litellmProxy?: LitellmProxyServer;
@@ -47,7 +47,7 @@ class ApiStack extends Stack {
       idPool,
       agents,
       guardrailIdentify,
-      guardRailVersion,
+      guardrailVersion: guardRailVersion,
       userPoolClient,
       litellmEndpoint,
       litellmProxy,
