@@ -82,12 +82,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     const params = props.params;
 
-    // Tenant Management
-    const tenantManager = new TenantManager(this, 'TenantManager', {
-      environment: params.env,
-      enableAutoDelete: params.enableAutoDelete,
-    });
-
     // WAF
     if (
       params.allowedIpV4AddressRanges ||

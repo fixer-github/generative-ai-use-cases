@@ -14,6 +14,7 @@ import ApiStack from './stacks/common/api-stack';
 import LitellmProxyServerStack from './stacks/common/litellm-proxy-server-stack';
 import StorageStack from './stacks/common/storage-stack';
 import DatabaseStack from './stacks/common/database-stack';
+import TenantManagerStack from './stacks/common/tenant-manager-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -121,6 +122,18 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     params: params,
   });
 
+  const tenantManagerStack = new TenantManagerStack(
+    app,
+    `TenantManagerStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
+    }
+  );
+
   const storageStack = new StorageStack(app, `StorageStack${params.env}`, {
     env: {
       account: params.account,
@@ -171,7 +184,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     litellmProxy: litellmProxyServerStack?.litellmProxy,
     table: databaseStack.database.table,
     statsTable: databaseStack.database.statsTable,
-    tenantManager: tenantManager,
+    tenantManager: tenantManagerStack.tenantManager,
   });
 
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
