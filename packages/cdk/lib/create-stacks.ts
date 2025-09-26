@@ -15,6 +15,7 @@ import LitellmProxyServerStack from './stacks/common/litellm-proxy-server-stack'
 import StorageStack from './stacks/common/storage-stack';
 import DatabaseStack from './stacks/common/database-stack';
 import TenantManagerStack from './stacks/common/tenant-manager-stack';
+import WebStack from './stacks/common/web-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -76,6 +77,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
         crossRegionReferences: true,
       })
     : null;
+
+  const agentNames = ['']; // TODO: implement
 
   // Guardrail
   const guardrail = params.guardrailEnabled
@@ -187,6 +190,26 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     tenantManager: tenantManagerStack.tenantManager,
   });
 
+  const webStack = new WebStack(app, `WebStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params: params,
+    userPool: authStack.userPool,
+    client: authStack.client,
+    idPool: authStack.idPool,
+    restApi: apiStack.restApi,
+    predictStreamFunction: apiStack.predictStreamFunction,
+    invokeFlowFunction: apiStack.invokeFlowFunction,
+    optimizePromptFunction: apiStack.optimizePromptFunction,
+    webAclId: cloudFrontWafStack?.webAclArn,
+    agentNames: agentNames,
+    speechToSpeech: speechToSpeechStack.speechToSpeech,
+    mcpEndpoint: mcpApiStack.endpoint,
+    cert: cloudFrontWafStack?.cert,
+  });
+
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
     app,
     `GenerativeAiUseCasesStack${params.env}`,
@@ -228,7 +251,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
       // ApiStack
       restApi: apiStack.restApi,
-      agentNames: [''], // TODO: implement
+      agentNames: agentNames,
       endpointNames: params.endpointNames,
 
       getFileDownloadSignedUrlFunction:
@@ -240,6 +263,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       modelRegion: params.modelRegion,
       optimizePromptFunction: apiStack.optimizePromptFunction,
       predictStreamFunction: apiStack.predictStreamFunction,
+      tenantManager: tenantManagerStack.tenantManager,
     }
   );
 

@@ -66,6 +66,9 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly invokeFlowFunction: NodejsFunction;
   readonly optimizePromptFunction: NodejsFunction;
   readonly getFileDownloadSignedUrlFunction: NodejsFunction;
+
+  // Temp
+  readonly tenantManager: TenantManager;
 }
 
 export class GenerativeAiUseCasesStack extends Stack {
@@ -80,7 +83,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     super(scope, id, props);
     process.env.overrideWarningsEnabled = 'false';
 
-    const params = props.params;
+    const { params, tenantManager } = props;
 
     // WAF
     if (
@@ -123,55 +126,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
       mcpEndpoint = mcpApi.endpoint;
     }
-
-    // Web Frontend
-    const selfSignUpEnabledForWeb =
-      params.samlAuthEnabled && !params.samlDefaultAuthEnabled
-        ? false
-        : params.selfSignUpEnabled;
-
-    const web = new Web(this, 'Api', {
-      // Auth
-      userPoolId: props.userPool.userPoolId,
-      userPoolClientId: props.client.userPoolClientId,
-      idPoolId: props.idPool.identityPoolId,
-      selfSignUpEnabled: selfSignUpEnabledForWeb,
-      samlAuthEnabled: params.samlAuthEnabled,
-      samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
-      samlCognitoDomainName: params.samlCognitoDomainName,
-      samlCognitoFederatedIdentityProviderName:
-        params.samlCognitoFederatedIdentityProviderName,
-      // Backend
-      apiEndpointUrl: props.restApi.url,
-      predictStreamFunctionArn: props.predictStreamFunction.functionArn,
-      ragEnabled: params.ragEnabled,
-      ragKnowledgeBaseEnabled: params.ragKnowledgeBaseEnabled,
-      agentEnabled: params.agentEnabled || params.agents.length > 0,
-      flows: params.flows,
-      flowStreamFunctionArn: props.invokeFlowFunction.functionArn,
-      optimizePromptFunctionArn: props.optimizePromptFunction.functionArn,
-      webAclId: props.webAclId,
-      modelRegion: props.modelRegion,
-      modelIds: props.modelIds,
-      imageGenerationModelIds: props.imageGenerationModelIds,
-      videoGenerationModelIds: props.videoGenerationModelIds,
-      endpointNames: props.endpointNames,
-      agentNames: props.agentNames,
-      inlineAgents: params.inlineAgents,
-      useCaseBuilderEnabled: params.useCaseBuilderEnabled,
-      speechToSpeechNamespace: speechToSpeech.namespace,
-      speechToSpeechEventApiEndpoint: speechToSpeech.eventApiEndpoint,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      mcpEnabled: params.mcpEnabled,
-      mcpEndpoint,
-      // Frontend
-      hiddenUseCases: params.hiddenUseCases,
-      // Custom Domain
-      cert: props.cert,
-      hostName: params.hostName,
-      domainName: params.domainName,
-      hostedZoneId: params.hostedZoneId,
-    });
 
     // RAG
     if (params.ragEnabled) {
