@@ -7,8 +7,6 @@ import {
   RagKnowledgeBase,
   Transcribe,
   CommonWebAcl,
-  McpApi,
-  TenantManager,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -18,9 +16,6 @@ import { UseCaseBuilder } from '../../construct/use-case-builder';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
