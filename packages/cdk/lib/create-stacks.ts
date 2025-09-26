@@ -294,6 +294,13 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     ragKnowledgeBaseStack,
     agentStack,
     guardrail,
+    authStack,
+    tenantManagerStack,
+    storageStack,
+    databaseStack,
+    litellmProxyServerStack,
+    apiStack,
+    webStack,
     generativeAiUseCasesStack,
     dashboardStack,
   };
