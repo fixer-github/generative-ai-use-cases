@@ -107,15 +107,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // SpeechToSpeech (for bidirectional communication)
-    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
-      envSuffix: params.env,
-      api: props.restApi,
-      userPool: props.userPool,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-    });
-
     // MCP
     let mcpEndpoint: string | null = null;
     if (params.mcpEnabled) {

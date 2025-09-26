@@ -16,6 +16,7 @@ import StorageStack from './stacks/common/storage-stack';
 import DatabaseStack from './stacks/common/database-stack';
 import TenantManagerStack from './stacks/common/tenant-manager-stack';
 import WebStack from './stacks/common/web-stack';
+import SpeechToSpeechStack from './stacks/common/speech-to-speech-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -190,6 +191,20 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     tenantManager: tenantManagerStack.tenantManager,
   });
 
+  const speechToSpeechStack = new SpeechToSpeechStack(
+    app,
+    `SpeechToSpeechStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
+      userPool: authStack.userPool,
+      restApi: apiStack.restApi,
+    }
+  );
+
   const webStack = new WebStack(app, `WebStack${params.env}`, {
     env: {
       account: params.account,
@@ -300,6 +315,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     databaseStack,
     litellmProxyServerStack,
     apiStack,
+    speechToSpeechStack,
     webStack,
     generativeAiUseCasesStack,
     dashboardStack,
