@@ -2,8 +2,7 @@ import process from 'process';
 import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { RagKnowledgeBase, CommonWebAcl } from '../../construct';
-import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
+import { RagKnowledgeBase } from '../../construct';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
@@ -57,28 +56,6 @@ export class GenerativeAiUseCasesStack extends Stack {
     process.env.overrideWarningsEnabled = 'false';
 
     const { params } = props;
-
-    // WAF
-    if (
-      params.allowedIpV4AddressRanges ||
-      params.allowedIpV6AddressRanges ||
-      params.allowedCountryCodes
-    ) {
-      const regionalWaf = new CommonWebAcl(this, 'RegionalWaf', {
-        scope: 'REGIONAL',
-        allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-        allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-        allowedCountryCodes: params.allowedCountryCodes,
-      });
-      new CfnWebACLAssociation(this, 'ApiWafAssociation', {
-        resourceArn: props.restApi.deploymentStage.stageArn,
-        webAclArn: regionalWaf.webAclArn,
-      });
-      new CfnWebACLAssociation(this, 'UserPoolWafAssociation', {
-        resourceArn: props.userPool.userPoolArn,
-        webAclArn: regionalWaf.webAclArn,
-      });
-    }
 
     // RAG Knowledge Base
     if (params.ragKnowledgeBaseEnabled) {

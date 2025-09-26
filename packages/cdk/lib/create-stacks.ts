@@ -21,6 +21,7 @@ import McpStack from './stacks/common/mcp-stack';
 import RagStack from './stacks/common/rag-stack';
 import UseCaseBuilderStack from './stacks/common/use-case-builder-stack';
 import TranscribeStack from './stacks/common/transcribe-stack';
+import WafStack from './stacks/common/waf-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -195,6 +196,21 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     tenantManager: tenantManagerStack.tenantManager,
   });
 
+  const wafStack =
+    params.allowedIpV4AddressRanges ||
+    params.allowedIpV6AddressRanges ||
+    params.allowedCountryCodes
+      ? new WafStack(app, `WafStack${params.env}`, {
+          env: {
+            account: params.account,
+            region: params.region,
+          },
+          params: params,
+          userPool: authStack.userPool,
+          restApi: apiStack.restApi,
+        })
+      : null;
+
   const speechToSpeechStack = new SpeechToSpeechStack(
     app,
     `SpeechToSpeechStack${params.env}`,
@@ -365,6 +381,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     databaseStack,
     litellmProxyServerStack,
     apiStack,
+    wafStack,
     speechToSpeechStack,
     mcpStack,
     useCaseBuilderStack,
