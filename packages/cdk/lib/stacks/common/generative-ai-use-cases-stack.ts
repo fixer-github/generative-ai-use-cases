@@ -277,7 +277,7 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     // Usecase builder (as Nested Stack)
     if (params.useCaseBuilderEnabled) {
-      new UseCaseBuilderStack(this, 'UseCaseBuilderStack', {
+      new UseCaseBuilderStack(this, `UseCaseBuilderStack${params.env}`, {
         userPool: auth.userPool,
         api: api.restApi,
         idPool: auth.idPool,
