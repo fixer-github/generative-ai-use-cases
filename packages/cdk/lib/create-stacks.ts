@@ -133,6 +133,10 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
   const apiStack = new ApiStack(app, 'ApiStack', {
     fileBucket: fileBucketStack.fileBucket,
+    env: {
+      account: params.account,
+      region: params.region,
+    },
   });
 
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
