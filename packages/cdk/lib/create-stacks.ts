@@ -12,6 +12,7 @@ import process from 'node:process';
 import AuthStack from './stacks/common/auth-stack';
 import ApiStack from './stacks/common/api-stack';
 import FileBucketStack from './stacks/common/file-bucket-stack';
+import LitellmProxyServerStack from './stacks/common/litellm-proxy-server-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -135,6 +136,18 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     }
   );
 
+  const litellmProxyServerStack = params.litellmProxyEnabled
+    ? new LitellmProxyServerStack(app, `LitellmProxyServerStack${params.env}`, {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        params,
+        idPool: authStack.idPool,
+        isSageMakerStudio: isSageMakerStudio,
+      })
+    : null;
+
   const apiStack = new ApiStack(app, `ApiStack${params.env}`, {
     env: {
       account: params.account,
@@ -144,14 +157,15 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
     knowledgeBaseId:
       params.ragKnowledgeBaseId || ragKnowledgeBaseStack?.stackId,
+
     userPool: authStack.userPool,
     idPool: authStack.idPool,
     agents: agentStack?.agents,
     guardrailIdentify: guardrail?.guardrailIdentifier,
     guardrailVersion: 'DRAFT',
     userPoolClient: authStack.client,
-    litellmEndpoint: litellmEndpoint,
-    litellmProxy: litellmProxy,
+    litellmEndpoint: litellmProxyServerStack?.endpoint,
+    litellmProxy: litellmProxyServerStack?.litellmProxy,
     table: database.table,
     statsTable: database.statsTable,
     tenantManager: tenantManager,

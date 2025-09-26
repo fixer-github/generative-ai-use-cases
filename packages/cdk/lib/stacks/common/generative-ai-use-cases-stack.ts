@@ -11,7 +11,6 @@ import {
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
-  LitellmProxyServer,
   TenantManager,
 } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
@@ -92,20 +91,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       environment: params.env,
       enableAutoDelete: params.enableAutoDelete,
     });
-
-    // LiteLLM Proxy Server (must be created before API)
-    let litellmEndpoint: string | null = null;
-    let litellmProxy: LitellmProxyServer | null = null;
-    if (params.litellmProxyEnabled) {
-      litellmProxy = new LitellmProxyServer(this, 'LitellmProxyServer', {
-        idPool: props.idPool,
-        isSageMakerStudio: props.isSageMakerStudio,
-        modelRegion: params.modelRegion,
-        crossAccountBedrockRoleArn:
-          params.crossAccountBedrockRoleArn || undefined,
-      });
-      litellmEndpoint = litellmProxy.endpoint;
-    }
 
     // WAF
     if (
@@ -416,10 +401,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'LitellmProxyEnabled', {
       value: params.litellmProxyEnabled.toString(),
-    });
-
-    new CfnOutput(this, 'LitellmProxyEndpoint', {
-      value: litellmEndpoint ?? '',
     });
 
     new CfnOutput(this, 'TenantsTableName', {
