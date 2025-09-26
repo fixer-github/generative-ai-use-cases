@@ -1,4 +1,4 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { ProcessedStackInput } from '../../stack-input';
 import { Construct } from 'constructs';
 import { SpeechToSpeech } from '../../construct';
@@ -26,6 +26,18 @@ class SpeechToSpeechStack extends Stack {
       userPool: userPool,
       speechToSpeechModelIds: params.speechToSpeechModelIds,
       crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
+    });
+
+    new CfnOutput(this, 'SpeechToSpeechNamespace', {
+      value: speechToSpeech.namespace,
+    });
+
+    new CfnOutput(this, 'SpeechToSpeechEventApiEndpoint', {
+      value: speechToSpeech.eventApiEndpoint,
+    });
+
+    new CfnOutput(this, 'SpeechToSpeechModelIds', {
+      value: JSON.stringify(params.speechToSpeechModelIds),
     });
 
     this.speechToSpeech = speechToSpeech;

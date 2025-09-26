@@ -1,4 +1,4 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
 import { Api, LitellmProxyServer, TenantManager } from '../../construct';
@@ -84,6 +84,22 @@ class ApiStack extends Stack {
       table: table,
       statsTable: statsTable,
       tenantManager: tenantManager,
+    });
+
+    new CfnOutput(this, 'ApiEndpoint', {
+      value: apiConstruct.restApi.url,
+    });
+
+    new CfnOutput(this, 'PredictStreamFunctionArn', {
+      value: apiConstruct.predictStreamFunction.functionArn,
+    });
+
+    new CfnOutput(this, 'OptimizePromptFunctionArn', {
+      value: apiConstruct.optimizePromptFunction.functionArn,
+    });
+
+    new CfnOutput(this, 'InvokeFlowFunctionArn', {
+      value: apiConstruct.invokeFlowFunction.functionArn,
     });
 
     this.restApi = apiConstruct.restApi;

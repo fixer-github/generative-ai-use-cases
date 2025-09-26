@@ -1,4 +1,4 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { ProcessedStackInput } from '../../stack-input';
 import { Construct } from 'constructs';
 import { TenantManager } from '../../construct';
@@ -19,6 +19,16 @@ class TenantManagerStack extends Stack {
     const tenantManager = new TenantManager(this, 'TenantManager', {
       environment: params.env,
       enableAutoDelete: params.enableAutoDelete,
+    });
+
+    new CfnOutput(this, 'TenantsTableName', {
+      value: tenantManager.tenantsTable.tableName,
+      description: 'Name of the DynamoDB Tenants table',
+    });
+
+    new CfnOutput(this, 'TenantRegistrationLambdaArn', {
+      value: tenantManager.registrationLambda.functionArn,
+      description: 'ARN of the tenant registration Lambda function',
     });
 
     this.tenantManager = tenantManager;

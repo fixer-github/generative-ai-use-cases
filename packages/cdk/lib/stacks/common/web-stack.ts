@@ -1,4 +1,4 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { ProcessedStackInput } from '../../stack-input';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
@@ -9,23 +9,25 @@ import { SpeechToSpeech, Web } from '../../construct';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 
 interface WebStackProps extends StackProps {
-  params: ProcessedStackInput;
+  readonly params: ProcessedStackInput;
 
-  userPool: UserPool;
-  client: UserPoolClient;
-  idPool: IdentityPool;
-  restApi: RestApi;
-  predictStreamFunction: IFunction;
-  invokeFlowFunction: IFunction;
-  optimizePromptFunction: IFunction;
-  webAclId?: string;
-  agentNames: string[];
-  speechToSpeech: SpeechToSpeech;
-  mcpEndpoint?: string;
-  cert?: ICertificate;
+  readonly userPool: UserPool;
+  readonly client: UserPoolClient;
+  readonly idPool: IdentityPool;
+  readonly restApi: RestApi;
+  readonly predictStreamFunction: IFunction;
+  readonly invokeFlowFunction: IFunction;
+  readonly optimizePromptFunction: IFunction;
+  readonly webAclId?: string;
+  readonly agentNames: string[];
+  readonly speechToSpeech: SpeechToSpeech;
+  readonly mcpEndpoint?: string;
+  readonly cert?: ICertificate;
 }
 
 class WebStack extends Stack {
+  readonly web: Web;
+
   constructor(scope: Construct, id: string, props: WebStackProps) {
     super(scope, id, props);
 
@@ -93,6 +95,18 @@ class WebStack extends Stack {
       domainName: params.domainName,
       hostedZoneId: params.hostedZoneId,
     });
+
+    if (params.hostName && params.domainName) {
+      new CfnOutput(this, 'WebUrl', {
+        value: `https://${params.hostName}.${params.domainName}`,
+      });
+    } else {
+      new CfnOutput(this, 'WebUrl', {
+        value: `https://${web.distribution.domainName}`,
+      });
+    }
+
+    this.web = web;
   }
 }
 

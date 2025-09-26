@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
   LambdaVersion,
   StringAttribute,
@@ -210,6 +210,14 @@ class AuthStack extends Stack {
       preTokenGenerationFunction,
       LambdaVersion.V2_0
     );
+
+    new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
+
+    new CfnOutput(this, 'UserPoolClientId', {
+      value: client.userPoolClientId,
+    });
+
+    new CfnOutput(this, 'IdPoolId', { value: idPool.identityPoolId });
 
     this.client = client;
     this.userPool = userPool;

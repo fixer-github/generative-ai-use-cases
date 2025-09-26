@@ -3,12 +3,10 @@ import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
-  Web,
   Rag,
   RagKnowledgeBase,
   Transcribe,
   CommonWebAcl,
-  SpeechToSpeech,
   McpApi,
   TenantManager,
 } from '../../construct';
@@ -55,20 +53,6 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly videoGenerationModelIds: ModelConfiguration[];
   readonly endpointNames: string[];
   readonly agentNames: string[];
-
-  // S3
-  readonly fileBucket: Bucket;
-
-  // Api
-  readonly restApi: RestApi;
-
-  readonly predictStreamFunction: NodejsFunction;
-  readonly invokeFlowFunction: NodejsFunction;
-  readonly optimizePromptFunction: NodejsFunction;
-  readonly getFileDownloadSignedUrlFunction: NodejsFunction;
-
-  // Temp
-  readonly tenantManager: TenantManager;
 }
 
 export class GenerativeAiUseCasesStack extends Stack {
@@ -83,7 +67,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     super(scope, id, props);
     process.env.overrideWarningsEnabled = 'false';
 
-    const { params, tenantManager } = props;
+    const { params } = props;
 
     // WAF
     if (
@@ -208,40 +192,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: this.region,
     });
 
-    if (params.hostName && params.domainName) {
-      new CfnOutput(this, 'WebUrl', {
-        value: `https://${params.hostName}.${params.domainName}`,
-      });
-    } else {
-      new CfnOutput(this, 'WebUrl', {
-        value: `https://${web.distribution.domainName}`,
-      });
-    }
-
-    new CfnOutput(this, 'ApiEndpoint', {
-      value: props.restApi.url,
-    });
-
-    new CfnOutput(this, 'UserPoolId', { value: props.userPool.userPoolId });
-
-    new CfnOutput(this, 'UserPoolClientId', {
-      value: props.client.userPoolClientId,
-    });
-
-    new CfnOutput(this, 'IdPoolId', { value: props.idPool.identityPoolId });
-
-    new CfnOutput(this, 'PredictStreamFunctionArn', {
-      value: props.predictStreamFunction.functionArn,
-    });
-
-    new CfnOutput(this, 'OptimizePromptFunctionArn', {
-      value: props.optimizePromptFunction.functionArn,
-    });
-
-    new CfnOutput(this, 'InvokeFlowFunctionArn', {
-      value: props.invokeFlowFunction.functionArn,
-    });
-
     new CfnOutput(this, 'Flows', {
       value: Buffer.from(JSON.stringify(params.flows)).toString('base64'),
     });
@@ -314,18 +264,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: JSON.stringify(params.hiddenUseCases),
     });
 
-    new CfnOutput(this, 'SpeechToSpeechNamespace', {
-      value: speechToSpeech.namespace,
-    });
-
-    new CfnOutput(this, 'SpeechToSpeechEventApiEndpoint', {
-      value: speechToSpeech.eventApiEndpoint,
-    });
-
-    new CfnOutput(this, 'SpeechToSpeechModelIds', {
-      value: JSON.stringify(params.speechToSpeechModelIds),
-    });
-
     new CfnOutput(this, 'McpEnabled', {
       value: params.mcpEnabled.toString(),
     });
@@ -336,16 +274,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'LitellmProxyEnabled', {
       value: params.litellmProxyEnabled.toString(),
-    });
-
-    new CfnOutput(this, 'TenantsTableName', {
-      value: tenantManager.tenantsTable.tableName,
-      description: 'Name of the DynamoDB Tenants table',
-    });
-
-    new CfnOutput(this, 'TenantRegistrationLambdaArn', {
-      value: tenantManager.registrationLambda.functionArn,
-      description: 'ARN of the tenant registration Lambda function',
     });
 
     this.userPool = props.userPool;
