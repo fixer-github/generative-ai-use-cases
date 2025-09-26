@@ -111,7 +111,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
   // GenU Stack
   const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
 
-  const authStack = new AuthStack(app, 'AuthStack', {
+  const authStack = new AuthStack(app, `AuthStack${params.env}`, {
     env: {
       account: params.account,
       region: params.region,
@@ -124,12 +124,16 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
   });
 
-  const fileBucketStack = new FileBucketStack(app, 'FileBucketStack', {
-    env: {
-      account: params.account,
-      region: params.region,
-    },
-  });
+  const fileBucketStack = new FileBucketStack(
+    app,
+    `FileBucketStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+    }
+  );
 
   const apiStack = new ApiStack(app, 'ApiStack', {
     fileBucket: fileBucketStack.fileBucket,
