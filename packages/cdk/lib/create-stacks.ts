@@ -18,6 +18,7 @@ import TenantManagerStack from './stacks/common/tenant-manager-stack';
 import WebStack from './stacks/common/web-stack';
 import SpeechToSpeechStack from './stacks/common/speech-to-speech-stack';
 import McpStack from './stacks/common/mcp-stack';
+import RagStack from './stacks/common/rag-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -238,6 +239,20 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     cert: cloudFrontWafStack?.cert,
   });
 
+  const ragStack = params.ragEnabled
+    ? new RagStack(app, `RagStack${params.env}`, {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        params: params,
+        userPool: authStack.userPool,
+        restApi: apiStack.restApi,
+        getFileDownloadSignedUrlFunction:
+          apiStack.getFileDownloadSignedUrlFunction,
+      })
+    : null;
+
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
     app,
     `GenerativeAiUseCasesStack${params.env}`,
@@ -321,6 +336,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     speechToSpeechStack,
     mcpApiStack: mcpStack,
     webStack,
+    ragStack,
     generativeAiUseCasesStack,
     dashboardStack,
   };

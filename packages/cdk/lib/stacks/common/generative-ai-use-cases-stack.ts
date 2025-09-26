@@ -2,12 +2,7 @@ import process from 'process';
 import { Buffer } from 'buffer';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import {
-  Rag,
-  RagKnowledgeBase,
-  Transcribe,
-  CommonWebAcl,
-} from '../../construct';
+import { RagKnowledgeBase, Transcribe, CommonWebAcl } from '../../construct';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -86,39 +81,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // RAG
-    if (params.ragEnabled) {
-      const rag = new Rag(this, 'Rag', {
-        envSuffix: params.env,
-        kendraIndexLanguage: params.kendraIndexLanguage,
-        kendraIndexArnInCdkContext: params.kendraIndexArn,
-        kendraDataSourceBucketName: params.kendraDataSourceBucketName,
-        kendraIndexScheduleEnabled: params.kendraIndexScheduleEnabled,
-        kendraIndexScheduleCreateCron: params.kendraIndexScheduleCreateCron,
-        kendraIndexScheduleDeleteCron: params.kendraIndexScheduleDeleteCron,
-        userPool: props.userPool,
-        api: props.restApi,
-      });
-
-      // Allow downloading files from the File API to the data source Bucket
-      // If you are importing existing Kendra, there is a possibility that the data source is not S3
-      // In that case, rag.dataSourceBucketName will be undefined and the permission will not be granted
-      if (
-        rag.dataSourceBucketName &&
-        props.getFileDownloadSignedUrlFunction.role
-      ) {
-        allowS3AccessWithSourceIpCondition(
-          rag.dataSourceBucketName,
-          props.getFileDownloadSignedUrlFunction.role,
-          'read',
-          {
-            ipv4: params.allowedIpV4AddressRanges,
-            ipv6: params.allowedIpV6AddressRanges,
-          }
-        );
-      }
-    }
-
     // RAG Knowledge Base
     if (params.ragKnowledgeBaseEnabled) {
       const knowledgeBaseId =
@@ -178,10 +140,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'Flows', {
       value: Buffer.from(JSON.stringify(params.flows)).toString('base64'),
-    });
-
-    new CfnOutput(this, 'RagEnabled', {
-      value: params.ragEnabled.toString(),
     });
 
     new CfnOutput(this, 'RagKnowledgeBaseEnabled', {
