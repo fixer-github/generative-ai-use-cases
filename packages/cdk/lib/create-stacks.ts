@@ -13,6 +13,7 @@ import AuthStack from './stacks/common/auth-stack';
 import ApiStack from './stacks/common/api-stack';
 import LitellmProxyServerStack from './stacks/common/litellm-proxy-server-stack';
 import StorageStack from './stacks/common/storage-stack';
+import DatabaseStack from './stacks/common/database-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -128,6 +129,14 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     params,
   });
 
+  const databaseStack = new DatabaseStack(app, `DatabaseStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params,
+  });
+
   const litellmProxyServerStack = params.litellmProxyEnabled
     ? new LitellmProxyServerStack(app, `LitellmProxyServerStack${params.env}`, {
         env: {
@@ -160,8 +169,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     userPoolClient: authStack.client,
     litellmEndpoint: litellmProxyServerStack?.endpoint,
     litellmProxy: litellmProxyServerStack?.litellmProxy,
-    table: database.table,
-    statsTable: database.statsTable,
+    table: databaseStack.database.table,
+    statsTable: databaseStack.database.statsTable,
     tenantManager: tenantManager,
   });
 

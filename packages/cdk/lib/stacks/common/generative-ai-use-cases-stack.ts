@@ -4,7 +4,6 @@ import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   Web,
-  Database,
   Rag,
   RagKnowledgeBase,
   Transcribe,
@@ -82,9 +81,6 @@ export class GenerativeAiUseCasesStack extends Stack {
     process.env.overrideWarningsEnabled = 'false';
 
     const params = props.params;
-
-    // Database
-    const database = new Database(this, 'Database');
 
     // Tenant Management
     const tenantManager = new TenantManager(this, 'TenantManager', {
