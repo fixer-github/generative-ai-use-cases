@@ -91,17 +91,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // MCP
-    let mcpEndpoint: string | null = null;
-    if (params.mcpEnabled) {
-      const mcpApi = new McpApi(this, 'McpApi', {
-        idPool: props.idPool,
-        isSageMakerStudio: props.isSageMakerStudio,
-        fileBucket: props.fileBucket,
-      });
-      mcpEndpoint = mcpApi.endpoint;
-    }
-
     // RAG
     if (params.ragEnabled) {
       const rag = new Rag(this, 'Rag', {
@@ -266,10 +255,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     new CfnOutput(this, 'McpEnabled', {
       value: params.mcpEnabled.toString(),
-    });
-
-    new CfnOutput(this, 'McpEndpoint', {
-      value: mcpEndpoint ?? '',
     });
 
     new CfnOutput(this, 'LitellmProxyEnabled', {

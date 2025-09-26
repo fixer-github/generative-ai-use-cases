@@ -17,6 +17,7 @@ import DatabaseStack from './stacks/common/database-stack';
 import TenantManagerStack from './stacks/common/tenant-manager-stack';
 import WebStack from './stacks/common/web-stack';
 import SpeechToSpeechStack from './stacks/common/speech-to-speech-stack';
+import McpStack from './stacks/common/mcp-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -205,6 +206,18 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     }
   );
 
+  const mcpStack = params.mcpEnabled
+    ? new McpStack(app, `McpStack${params.env}`, {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        idPool: authStack.idPool,
+        isSageMakerStudio: isSageMakerStudio,
+        fileBucket: storageStack.fileBucket,
+      })
+    : null;
+
   const webStack = new WebStack(app, `WebStack${params.env}`, {
     env: {
       account: params.account,
@@ -221,7 +234,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     webAclId: cloudFrontWafStack?.webAclArn,
     agentNames: agentNames,
     speechToSpeech: speechToSpeechStack.speechToSpeech,
-    mcpEndpoint: mcpApiStack.endpoint,
+    mcpEndpoint: mcpStack?.endpoint,
     cert: cloudFrontWafStack?.cert,
   });
 
@@ -306,6 +319,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     litellmProxyServerStack,
     apiStack,
     speechToSpeechStack,
+    mcpApiStack: mcpStack,
     webStack,
     generativeAiUseCasesStack,
     dashboardStack,
