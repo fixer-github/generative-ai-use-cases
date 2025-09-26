@@ -11,8 +11,8 @@ import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
 import process from 'node:process';
 import AuthStack from './stacks/common/auth-stack';
 import ApiStack from './stacks/common/api-stack';
-import FileBucketStack from './stacks/common/file-bucket-stack';
 import LitellmProxyServerStack from './stacks/common/litellm-proxy-server-stack';
+import StorageStack from './stacks/common/storage-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -120,16 +120,13 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     params: params,
   });
 
-  const fileBucketStack = new FileBucketStack(
-    app,
-    `FileBucketStack${params.env}`,
-    {
-      env: {
-        account: params.account,
-        region: params.region,
-      },
-    }
-  );
+  const storageStack = new StorageStack(app, `StorageStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params,
+  });
 
   const litellmProxyServerStack = params.litellmProxyEnabled
     ? new LitellmProxyServerStack(app, `LitellmProxyServerStack${params.env}`, {
@@ -151,7 +148,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     params: params,
 
     knowledgeBaseId:
-      params.ragKnowledgeBaseId || ragKnowledgeBaseStack?.stackId,
+      params.ragKnowledgeBaseId || ragKnowledgeBaseStack?.knowledgeBaseId,
 
     videoBucketRegionMap: videoBucketRegionMap,
 
@@ -205,7 +202,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       idPool: authStack.idPool,
 
       // S3
-      fileBucket: fileBucketStack.fileBucket,
+      fileBucket: storageStack.fileBucket,
 
       // ApiStack
       restApi: apiStack.restApi,
