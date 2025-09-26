@@ -4,37 +4,22 @@ import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { RagKnowledgeBase } from '../../construct';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
-import { Agent, ModelConfiguration } from 'generative-ai-use-cases';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
-import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { IFunction } from 'aws-cdk-lib/aws-lambda';
+import { ModelConfiguration } from 'generative-ai-use-cases';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
-  // RAG Knowledge Base
   readonly knowledgeBaseId?: string;
-  readonly knowledgeBaseDataSourceBucketName?: string;
-  // Agent
-  readonly agents?: Agent[];
-  // Video Generation
-  readonly videoBucketRegionMap: Record<string, string>;
-  // Guardrail
-  readonly guardrailIdentifier?: string;
-  readonly guardrailVersion?: string;
-  // WAF
-  readonly webAclId?: string;
-  // Custom Domain
-  readonly cert?: ICertificate;
-  // Image build environment
-  readonly isSageMakerStudio: boolean;
-
-  // Auth
   readonly userPool: cognito.UserPool;
-  readonly client: cognito.UserPoolClient;
-  readonly idPool: IdentityPool;
+  readonly restApi: RestApi;
+  readonly knowledgeBaseDataSourceBucketName?: string;
+  readonly getFileDownloadSignedUrlFunction: IFunction;
 
-  // From other stack
+  // For CfnOutput
+  // TODO: Remove later
   readonly modelRegion: string;
   readonly modelIds: ModelConfiguration[];
   readonly imageGenerationModelIds: ModelConfiguration[];
@@ -44,9 +29,6 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
 }
 
 export class GenerativeAiUseCasesStack extends Stack {
-  public readonly userPool: cognito.UserPool;
-  public readonly userPoolClient: cognito.UserPoolClient;
-
   constructor(
     scope: Construct,
     id: string,
@@ -164,10 +146,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: params.litellmProxyEnabled.toString(),
     });
 
-    this.userPool = props.userPool;
-    this.userPoolClient = props.client;
-
-    this.exportValue(this.userPool.userPoolId);
-    this.exportValue(this.userPoolClient.userPoolClientId);
+    // this.exportValue(this.userPool.userPoolId);
+    // this.exportValue(this.userPoolClient.userPoolClientId);
   }
 }
