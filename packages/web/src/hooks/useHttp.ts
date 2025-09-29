@@ -1,7 +1,8 @@
-import { fetchAuthSession, signOut } from 'aws-amplify/auth';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import axios, { AxiosRequestConfig } from 'axios';
 import useSWR, { SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
+import { performLogoutAndReload, isRoleMismatchError } from '../utils/auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_ENDPOINT,
@@ -49,67 +50,19 @@ api.interceptors.response.use(
       }
     }
 
-    // Check for role mismatch errors (409 Conflict indicates demoted user)
-    if (error.response?.status === 409) {
-      const responseData = error.response.data;
-      
-      // Check if this indicates a role change that requires immediate action
-      if (responseData?.roleChanged && responseData?.refreshRequired) {
-        console.warn('[useHttp] User has been demoted - triggering immediate logout');
-        
-        try {
-          // Force immediate logout without delay
-          await signOut();
-          
-          // Reload the page to clear all state
-          window.location.reload();
-        } catch (signOutError) {
-          console.error('[useHttp] Failed to sign out demoted user:', signOutError);
-          // Even if signOut fails, reload to clear state
-          window.location.reload();
-        }
-        return; // Don't propagate the error further
-      }
-    }
-
-    // Check for other role mismatch errors (403 Forbidden)
-    if (error.response?.status === 403) {
-      // Skip role mismatch handling for validate-domains and invite endpoints
-      // Let the calling component handle these errors appropriately
+    // Handle role mismatch errors using centralized logic
+    if (isRoleMismatchError(error)) {
+      // Skip role mismatch handling for specific endpoints that should handle their own errors
       const requestUrl = originalRequest.url || '';
       if (requestUrl.includes('/validate-domains') || requestUrl.includes('/admin/users/invite')) {
         return Promise.reject(error);
       }
 
-      // Check if this is specifically a role-related error
-      const errorMessage = error.response.data?.message || '';
-      const isRoleMismatch =
-        errorMessage.includes('admin') ||
-        errorMessage.includes('privilege') ||
-        errorMessage.includes('revoked');
-
-      if (isRoleMismatch) {
-        console.log('[useHttp] Role mismatch detected (403), forcing re-authentication');
-
-        // Dispatch custom event to notify other components
-        window.dispatchEvent(
-          new CustomEvent('role-mismatch-detected', {
-            detail: {
-              status: error.response.status,
-              message: errorMessage,
-            },
-          })
-        );
-
-        // Force immediate sign out without any delay
-        try {
-          await signOut();
-          window.location.reload();
-        } catch (signOutError) {
-          console.error('[useHttp] Failed to sign out after role mismatch:', signOutError);
-          window.location.reload();
-        }
-      }
+      console.log('[useHttp] Role mismatch detected, forcing re-authentication');
+      
+      // Use centralized logout utility
+      await performLogoutAndReload('Role mismatch detected in HTTP interceptor');
+      return; // Don't propagate the error further
     }
 
     return Promise.reject(error);

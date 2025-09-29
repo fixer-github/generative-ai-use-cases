@@ -2,7 +2,6 @@ import './i18n/config';
 import './configureAmplify';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { AuthProvider } from './contexts/AuthContext';
 import './index.css';
 import { SWRConfig } from 'swr';
 import { Authenticator } from '@aws-amplify/ui-react';
@@ -27,26 +26,24 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
     <React.Suspense fallback={<div>Loading...</div>}>
       <Authenticator.Provider>
-        <AuthProvider>
-          <SWRConfig
-            value={{
-              revalidateOnFocus: false,
-              revalidateOnReconnect: true,
-              revalidateOnMount: true,
-            }}>
-            <DynamicRouter
-              ragEnabled={ragEnabled}
-              ragKnowledgeBaseEnabled={ragKnowledgeBaseEnabled}
-              samlAuthEnabled={samlAuthEnabled}
-              samlDefaultAuthEnabled={samlDefaultAuthEnabled}
-              agentEnabled={agentEnabled}
-              inlineAgents={inlineAgents}
-              mcpEnabled={mcpEnabled}
-              useCaseBuilderEnabled={useCaseBuilderEnabled}
-            />
-          </SWRConfig>
-          <Toaster />
-        </AuthProvider>
+        <SWRConfig
+          value={{
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            revalidateOnMount: true,
+          }}>
+          <DynamicRouter
+            ragEnabled={ragEnabled}
+            ragKnowledgeBaseEnabled={ragKnowledgeBaseEnabled}
+            samlAuthEnabled={samlAuthEnabled}
+            samlDefaultAuthEnabled={samlDefaultAuthEnabled}
+            agentEnabled={agentEnabled}
+            inlineAgents={inlineAgents}
+            mcpEnabled={mcpEnabled}
+            useCaseBuilderEnabled={useCaseBuilderEnabled}
+          />
+        </SWRConfig>
+        <Toaster />
       </Authenticator.Provider>
     </React.Suspense>
   </React.StrictMode>

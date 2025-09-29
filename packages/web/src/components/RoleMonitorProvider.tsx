@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRoleMonitor } from '../hooks/useRoleMonitor';
+import useRoleMonitor from '../hooks/useRoleMonitor';
 
 interface RoleMonitorProviderProps {
   children: React.ReactNode;

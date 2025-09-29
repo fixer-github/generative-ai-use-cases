@@ -7,7 +7,6 @@ import Textarea from './Textarea';
 import Alert from './Alert';
 import LoadingWave from './LoadingWave';
 import useHttp from '../hooks/useHttp';
-import { pauseRoleMonitoring, resumeRoleMonitoring } from '../hooks/useRoleMonitor';
 
 interface UserInviteDialogProps {
   isOpen: boolean;
@@ -65,8 +64,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     setShowUnconfiguredWarning(false);
     setPendingInvitation(null);
     setUnconfiguredEmails([]);
-    // Resume role monitoring when dialog closes
-    resumeRoleMonitoring();
     onClose();
   };
 
@@ -170,8 +167,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       );
     } finally {
       setLoading(false);
-      // Resume role monitoring after invitation completes
-      resumeRoleMonitoring();
     }
   };
 
@@ -224,9 +219,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         return;
       }
 
-      // Pause role monitoring during the entire invite flow
-      pauseRoleMonitoring();
-
       try {
         // First, validate domains
         const domainValidation = await validateDomains(emails);
@@ -245,8 +237,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           // performInvitation will handle resuming
         }
       } catch (validationError: any) {
-        // Resume monitoring if validation fails
-        resumeRoleMonitoring();
         throw validationError;
       }
     } catch (error: any) {
@@ -284,8 +274,6 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     setShowUnconfiguredWarning(false);
     setPendingInvitation(null);
     setUnconfiguredEmails([]);
-    // Resume role monitoring since we're canceling
-    resumeRoleMonitoring();
   };
 
   if (!isOpen) return null;
