@@ -8,6 +8,8 @@ import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack'
 import { GuardrailStack } from './stacks/common/guardrail-stack';
 import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
+import TranscribeStack from './stacks/common/transcribe-stack';
+import * as process from 'process';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}

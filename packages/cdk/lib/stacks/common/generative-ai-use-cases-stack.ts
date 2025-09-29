@@ -7,7 +7,6 @@ import {
   Database,
   Rag,
   RagKnowledgeBase,
-  Transcribe,
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
@@ -21,6 +20,11 @@ import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilderStack } from '../nested/use-case-builder-stack';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
+import { env } from 'process';
+import { Buffer } from 'buffer';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import TranscribeStack from './transcribe-stack';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -45,6 +49,9 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
 export class GenerativeAiUseCasesStack extends Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  public readonly idPool: IdentityPool;
+  public readonly restApi: RestApi;
+  public readonly tenantManager: TenantManager;
 
   constructor(
     scope: Construct,
@@ -52,7 +59,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     props: GenerativeAiUseCasesStackProps
   ) {
     super(scope, id, props);
-    process.env.overrideWarningsEnabled = 'false';
+    env.overrideWarningsEnabled = 'false';
 
     const params = props.params;
 
@@ -286,16 +293,21 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // Transcribe
-    new Transcribe(this, 'Transcribe', {
-      userPool: auth.userPool,
-      idPool: auth.idPool,
-      api: api.restApi,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-      tenantManager: tenantManager,
-      environment: params.env,
-    });
+    const transcribeStack = new TranscribeStack(
+      this,
+      `TranscribeStack${params.env}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        params: params,
+        userPool: auth.userPool,
+        idPool: auth.idPool,
+        restApi: api.restApi,
+        tenantManager: tenantManager,
+      }
+    );
 
     // Cfn Outputs
     new CfnOutput(this, 'Region', {
