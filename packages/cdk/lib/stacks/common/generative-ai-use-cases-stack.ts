@@ -7,7 +7,6 @@ import {
   Rag,
   RagKnowledgeBase,
   CommonWebAcl,
-  SpeechToSpeech,
   McpApi,
   LitellmProxyServer,
   TenantManager,
@@ -25,6 +24,7 @@ import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import TranscribeStack from './transcribe-stack';
 import WebStack from './web-stack';
+import SpeechToSpeechStack from './speech-to-speech-stack';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -152,13 +152,16 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // SpeechToSpeech (for bidirectional communication)
-    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
-      envSuffix: params.env,
-      api: api.restApi,
-      userPool: auth.userPool,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-    });
+    const speechToSpeechStack = new SpeechToSpeechStack(
+      this,
+      'SpeechToSpeech',
+      {
+        params: params,
+        api: api,
+        auth: auth,
+      }
+    );
+    const speechToSpeech = speechToSpeechStack.speechToSpeech;
 
     // MCP
     let mcpEndpoint: string | null = null;
