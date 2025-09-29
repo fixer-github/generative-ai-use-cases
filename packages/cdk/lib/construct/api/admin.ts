@@ -58,23 +58,6 @@ class AdminApi extends Construct {
       );
     }
 
-    // Pre Token Generation Lambda for adding custom claims
-    const preTokenGenerationFunction = new PythonFunction(
-      this,
-      'PreTokenGeneration',
-      {
-        runtime: LAMBDA_RUNTIME_PYTHON,
-        entry: './lambda/pre_token_generation',
-        timeout: Duration.seconds(5),
-      }
-    );
-
-    userPool.addTrigger(
-      UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
-      preTokenGenerationFunction,
-      LambdaVersion.V2_0
-    );
-
     // Lambda functions for admin operations
     const listTenantUsersFunction = new NodejsFunction(
       this,

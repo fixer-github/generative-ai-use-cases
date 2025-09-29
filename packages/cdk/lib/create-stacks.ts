@@ -22,6 +22,7 @@ import RagStack from './stacks/common/rag-stack';
 import UseCaseBuilderStack from './stacks/common/use-case-builder-stack';
 import TranscribeStack from './stacks/common/transcribe-stack';
 import WafStack from './stacks/common/waf-stack';
+import SharedStack from './stacks/common/shared-stack';
 
 class DeletionPolicySetter implements cdk.IAspect {
   constructor(private readonly policy: cdk.RemovalPolicy) {}
@@ -170,6 +171,15 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
         isSageMakerStudio: isSageMakerStudio,
       })
     : null;
+
+  const sharedStack = new SharedStack(app, `SharedStack${params.env}`, {
+    env: {
+      account: params.account,
+      region: params.region,
+    },
+    params: params,
+    userPool: authStack.userPool,
+  });
 
   const apiStack = new ApiStack(app, `ApiStack${params.env}`, {
     env: {
@@ -376,5 +386,6 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     ragStack,
     generativeAiUseCasesStack,
     dashboardStack,
+    sharedStack,
   };
 };
