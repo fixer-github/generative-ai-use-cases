@@ -11,6 +11,7 @@ import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Agent } from 'generative-ai-use-cases';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
 
 interface ApiStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -30,6 +31,7 @@ interface ApiStackProps extends StackProps {
   readonly table: Table;
   readonly statsTable: Table;
   readonly tenantManager?: TenantManager;
+  readonly fileBucket: Bucket;
 }
 
 class ApiStack extends Stack {
@@ -58,6 +60,7 @@ class ApiStack extends Stack {
       table,
       statsTable,
       tenantManager,
+      fileBucket,
     } = props;
 
     const apiConstruct = new Api(this, 'Api', {
@@ -89,6 +92,7 @@ class ApiStack extends Stack {
       table: table,
       statsTable: statsTable,
       tenantManager: tenantManager,
+      fileBucket: fileBucket,
     });
 
     new CfnOutput(this, 'ApiEndpoint', {

@@ -41,7 +41,6 @@ import TokenUsageApi from './token-usage';
 import VideoApi from './video';
 import WebTextApi from './web-text';
 import FileApi from './file';
-import FileBucket from '../file-bucket';
 import ShareApi from './share';
 import AdminApi from './admin';
 
@@ -78,6 +77,8 @@ export interface BackendApiProps {
   // Tenant Management
   readonly tenantManager?: TenantManager;
 
+  readonly fileBucket: Bucket;
+
   // LangChain Credentials
   readonly openai?: {
     readonly apiKey: string; // OPENAI_API_KEY
@@ -111,6 +112,7 @@ export class Api extends Construct {
       authorizer,
       rerankingModelId,
       tenantManager,
+      fileBucket,
     } = props;
 
     const agents: Agent[] = [...(props.agents ?? []), ...props.customAgents];
@@ -147,8 +149,6 @@ export class Api extends Construct {
       },
     });
 
-    const fileBucket = new FileBucket(this, 'FileBucket', {});
-
     // Agent Map
     const agentMap: AgentMap = {};
     for (const agent of agents) {
@@ -161,7 +161,7 @@ export class Api extends Construct {
     const apiProps: GenericApiProps = {
       ...props,
       api: api,
-      fileBucket: fileBucket.fileBucket,
+      fileBucket: fileBucket,
       commonAuthorizerProps: commonAuthorizerProps,
       agentMap: agentMap,
     };
@@ -338,7 +338,6 @@ export class Api extends Construct {
     this.videoGenerationModelIds = videoGenerationModelIds;
     this.endpointNames = endpointNames;
     this.agentNames = Object.keys(agentMap);
-    this.fileBucket = fileBucket.fileBucket;
     this.getFileDownloadSignedUrlFunction =
       fileApi.getFileDownloadSignedUrlFunction;
   }

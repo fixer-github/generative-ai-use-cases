@@ -195,6 +195,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     table: databaseStack.database.table,
     statsTable: databaseStack.database.statsTable,
     tenantManager: tenantManagerStack.tenantManager,
+    fileBucket: storageStack.fileBucket,
   });
 
   const wafStack =
