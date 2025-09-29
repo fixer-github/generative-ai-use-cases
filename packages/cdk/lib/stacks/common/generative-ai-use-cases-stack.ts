@@ -293,21 +293,17 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    const transcribeStack = new TranscribeStack(
-      this,
-      `TranscribeStack${params.env}`,
-      {
-        env: {
-          account: params.account,
-          region: params.region,
-        },
-        params: params,
-        userPool: auth.userPool,
-        idPool: auth.idPool,
-        restApi: api.restApi,
-        tenantManager: tenantManager,
-      }
-    );
+    new TranscribeStack(this, `TranscribeStack${params.env}`, {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
+      userPool: auth.userPool,
+      idPool: auth.idPool,
+      restApi: api.restApi,
+      tenantManager: tenantManager,
+    });
 
     // Cfn Outputs
     new CfnOutput(this, 'Region', {
