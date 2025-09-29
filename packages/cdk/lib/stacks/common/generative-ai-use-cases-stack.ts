@@ -7,7 +7,6 @@ import {
   Rag,
   RagKnowledgeBase,
   CommonWebAcl,
-  McpApi,
   LitellmProxyServer,
   TenantManager,
 } from '../../construct';
@@ -25,6 +24,7 @@ import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import TranscribeStack from './transcribe-stack';
 import WebStack from './web-stack';
 import SpeechToSpeechStack from './speech-to-speech-stack';
+import McpApiStack from './mcp-api-stack';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -166,12 +166,13 @@ export class GenerativeAiUseCasesStack extends Stack {
     // MCP
     let mcpEndpoint: string | null = null;
     if (params.mcpEnabled) {
-      const mcpApi = new McpApi(this, 'McpApi', {
-        idPool: auth.idPool,
+      const mcpApiStack = new McpApiStack(this, 'McpApi', {
+        auth: auth,
         isSageMakerStudio: props.isSageMakerStudio,
-        fileBucket: api.fileBucket,
+        api: api,
       });
-      mcpEndpoint = mcpApi.endpoint;
+
+      mcpEndpoint = mcpApiStack.mcpApi.endpoint;
     }
 
     new WebStack(this, 'Web', {
