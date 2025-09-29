@@ -1,0 +1,82 @@
+name: Dagger CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  DAGGER_VERSION: "0.18.19"
+
+jobs:
+  pipeline:
+    name: CI/CD Pipeline
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            dagger/package-lock.json
+
+      - name: Install Dagger CLI
+        run: |
+          curl -fsSL https://releases.dagger.io/dagger/install.sh | sh
+          sudo mv ./bin/dagger /usr/local/bin/dagger
+          dagger version
+
+      - name: Install Dagger dependencies
+        run: |
+          cd dagger
+          npm ci
+
+      - name: Run CI Pipeline
+        run: |
+          cd dagger
+          npm run ci
+        env:
+          CI: true
+
+      - name: Display Error Logs
+        if: failure()
+        run: |
+          echo "=== CI Pipeline Failed ==="
+          echo ""
+          echo "=== Running failed command to show detailed errors ==="
+          cd dagger
+          npm run ci 2>&1 || true
+
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd dagger
+          npm run deploy
+        env:
+          CI: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+      - name: Upload build artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs
+          path: |
+            packages/cdk/cdk.out/
+            packages/web/dist/
+            browser-extension/dist/
+          retention-days: 7
