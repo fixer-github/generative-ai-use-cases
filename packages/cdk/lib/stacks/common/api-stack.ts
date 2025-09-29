@@ -1,5 +1,8 @@
 import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import {
+  CognitoUserPoolsAuthorizer,
+  RestApi,
+} from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
 import { Api, LitellmProxyServer, TenantManager } from '../../construct';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -17,6 +20,7 @@ interface ApiStackProps extends StackProps {
   // From other stacks
   readonly userPool: UserPool;
   readonly idPool: IdentityPool;
+  readonly authorizer: CognitoUserPoolsAuthorizer;
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
   readonly guardrailVersion?: string;
@@ -44,6 +48,7 @@ class ApiStack extends Stack {
       knowledgeBaseId,
       userPool,
       idPool,
+      authorizer,
       agents,
       guardrailIdentify,
       guardrailVersion: guardRailVersion,
@@ -74,6 +79,7 @@ class ApiStack extends Stack {
       knowledgeBaseId: knowledgeBaseId,
       userPool: userPool,
       idPool: idPool,
+      authorizer: authorizer,
       agents: agents,
       guardrailIdentify: guardrailIdentify,
       guardrailVersion: guardRailVersion,

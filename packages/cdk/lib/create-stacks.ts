@@ -185,6 +185,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
     userPool: authStack.userPool,
     idPool: authStack.idPool,
+    authorizer: authStack.authorizer,
     agents: agentStack?.agents,
     guardrailIdentify: guardrail?.guardrailIdentifier,
     guardrailVersion: 'DRAFT',

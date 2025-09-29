@@ -4,6 +4,7 @@ import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Construct } from 'constructs';
 import { ProcessedStackInput } from '../../stack-input';
 import Auth from '../../construct/auth';
+import { CognitoUserPoolsAuthorizer } from 'aws-cdk-lib/aws-apigateway';
 
 interface AuthStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -13,6 +14,7 @@ class AuthStack extends Stack {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
+  readonly authorizer: CognitoUserPoolsAuthorizer;
 
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
@@ -31,6 +33,10 @@ class AuthStack extends Stack {
     const client = auth.client;
     const idPool = auth.idPool;
 
+    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [userPool],
+    });
+
     new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
 
     new CfnOutput(this, 'UserPoolClientId', {
@@ -42,6 +48,7 @@ class AuthStack extends Stack {
     this.client = client;
     this.userPool = userPool;
     this.idPool = idPool;
+    this.authorizer = authorizer;
   }
 }
 

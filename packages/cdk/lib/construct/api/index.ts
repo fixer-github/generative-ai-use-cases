@@ -68,6 +68,7 @@ export interface BackendApiProps {
   readonly userPool: UserPool;
   readonly idPool: IdentityPool;
   readonly userPoolClient: UserPoolClient;
+  readonly authorizer: CognitoUserPoolsAuthorizer;
   readonly table: Table;
   readonly statsTable: Table;
   readonly knowledgeBaseId?: string;
@@ -107,7 +108,7 @@ export class Api extends Construct {
       videoGenerationModelIds,
       endpointNames,
       crossAccountBedrockRoleArn,
-      userPool,
+      authorizer,
       rerankingModelId,
       tenantManager,
     } = props;
@@ -115,10 +116,6 @@ export class Api extends Construct {
     const agents: Agent[] = [...(props.agents ?? []), ...props.customAgents];
 
     // API Gateway
-    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
-      cognitoUserPools: [userPool],
-    });
-
     const commonAuthorizerProps = {
       authorizationType: AuthorizationType.COGNITO,
       authorizer,
