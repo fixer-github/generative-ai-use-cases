@@ -10,27 +10,26 @@ import { Agent } from 'generative-ai-use-cases';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 
 interface ApiStackProps extends StackProps {
-  params: ProcessedStackInput;
-  videoBucketRegionMap: Record<string, string>;
-  knowledgeBaseId?: string;
+  readonly params: ProcessedStackInput;
+  readonly videoBucketRegionMap: Record<string, string>;
+  readonly knowledgeBaseId?: string;
 
   // From other stacks
-  userPool: UserPool;
-  idPool: IdentityPool;
-  agents?: Agent[];
-  guardrailIdentify?: string;
-  guardrailVersion?: string;
-  userPoolClient: UserPoolClient;
-  litellmEndpoint?: string;
-  litellmProxy?: LitellmProxyServer;
-  table: Table;
-  statsTable: Table;
-  tenantManager?: TenantManager;
+  readonly userPool: UserPool;
+  readonly idPool: IdentityPool;
+  readonly agents?: Agent[];
+  readonly guardrailIdentify?: string;
+  readonly guardrailVersion?: string;
+  readonly userPoolClient: UserPoolClient;
+  readonly litellmEndpoint?: string;
+  readonly litellmProxy?: LitellmProxyServer;
+  readonly table: Table;
+  readonly statsTable: Table;
+  readonly tenantManager?: TenantManager;
 }
 
 class ApiStack extends Stack {
   readonly restApi: RestApi;
-
   readonly predictStreamFunction: NodejsFunction;
   readonly invokeFlowFunction: NodejsFunction;
   readonly optimizePromptFunction: NodejsFunction;

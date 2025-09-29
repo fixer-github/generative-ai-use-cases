@@ -312,39 +312,23 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       description: params.anonymousUsageTracking
         ? 'Generative AI Use Cases (uksb-1tupboc48)'
         : undefined,
-      params: params,
       crossRegionReferences: true,
+
+      params: params,
       // RAG Knowledge Base
       knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
       knowledgeBaseDataSourceBucketName:
         ragKnowledgeBaseStack?.dataSourceBucketName,
-      // Agent
-      agents: agentStack?.agents,
-      // Video Generation
-      videoBucketRegionMap,
-      // Guardrail
-      guardrailIdentifier: guardrail?.guardrailIdentifier,
-      guardrailVersion: 'DRAFT',
-      // WAF
-      webAclId: cloudFrontWafStack?.webAclArn,
-      // Custom Domain
-      cert: cloudFrontWafStack?.cert,
-      // Image build environment
-      isSageMakerStudio,
 
       // AuthStack
       userPool: authStack.userPool,
-      client: authStack.client,
-      idPool: authStack.idPool,
 
       // ApiStack
-      agentNames: agentNames,
-      endpointNames: params.endpointNames,
+      restApi: apiStack.restApi,
+      getFileDownloadSignedUrlFunction:
+        apiStack.getFileDownloadSignedUrlFunction,
 
-      imageGenerationModelIds: params.imageGenerationModelIds,
-      videoGenerationModelIds: params.videoGenerationModelIds,
-      modelIds: params.modelIds,
-      modelRegion: params.modelRegion,
+      agentNames: agentNames,
     }
   );
 
@@ -362,8 +346,8 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
             region: params.modelRegion,
           },
           params: params,
-          userPool: generativeAiUseCasesStack.userPool,
-          userPoolClient: generativeAiUseCasesStack.userPoolClient,
+          userPool: authStack.userPool,
+          userPoolClient: authStack.client,
           appRegion: params.region,
           crossRegionReferences: true,
         }

@@ -8,23 +8,17 @@ import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
-import { ModelConfiguration } from 'generative-ai-use-cases';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
   readonly knowledgeBaseId?: string;
+  readonly knowledgeBaseDataSourceBucketName?: string;
   readonly userPool: cognito.UserPool;
   readonly restApi: RestApi;
-  readonly knowledgeBaseDataSourceBucketName?: string;
   readonly getFileDownloadSignedUrlFunction: IFunction;
 
   // For CfnOutput
   // TODO: Remove later
-  readonly modelRegion: string;
-  readonly modelIds: ModelConfiguration[];
-  readonly imageGenerationModelIds: ModelConfiguration[];
-  readonly videoGenerationModelIds: ModelConfiguration[];
-  readonly endpointNames: string[];
   readonly agentNames: string[];
 }
 
@@ -91,23 +85,23 @@ export class GenerativeAiUseCasesStack extends Stack {
     });
 
     new CfnOutput(this, 'ModelRegion', {
-      value: props.modelRegion,
+      value: props.params.modelRegion,
     });
 
     new CfnOutput(this, 'ModelIds', {
-      value: JSON.stringify(props.modelIds),
+      value: JSON.stringify(props.params.modelIds),
     });
 
     new CfnOutput(this, 'ImageGenerateModelIds', {
-      value: JSON.stringify(props.imageGenerationModelIds),
+      value: JSON.stringify(props.params.imageGenerationModelIds),
     });
 
     new CfnOutput(this, 'VideoGenerateModelIds', {
-      value: JSON.stringify(props.videoGenerationModelIds),
+      value: JSON.stringify(props.params.videoGenerationModelIds),
     });
 
     new CfnOutput(this, 'EndpointNames', {
-      value: JSON.stringify(props.endpointNames),
+      value: JSON.stringify(props.params.endpointNames),
     });
 
     new CfnOutput(this, 'SamlAuthEnabled', {
