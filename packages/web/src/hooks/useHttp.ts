@@ -49,11 +49,31 @@ api.interceptors.response.use(
       }
     }
 
-    // Check for role mismatch errors (403 Forbidden or 409 Conflict)
-    if (
-      error.response &&
-      (error.response.status === 403 || error.response.status === 409)
-    ) {
+    // Check for role mismatch errors (409 Conflict indicates demoted user)
+    if (error.response?.status === 409) {
+      const responseData = error.response.data;
+      
+      // Check if this indicates a role change that requires immediate action
+      if (responseData?.roleChanged && responseData?.refreshRequired) {
+        console.warn('[useHttp] User has been demoted - triggering immediate logout');
+        
+        try {
+          // Force immediate logout without delay
+          await signOut();
+          
+          // Reload the page to clear all state
+          window.location.reload();
+        } catch (signOutError) {
+          console.error('[useHttp] Failed to sign out demoted user:', signOutError);
+          // Even if signOut fails, reload to clear state
+          window.location.reload();
+        }
+        return; // Don't propagate the error further
+      }
+    }
+
+    // Check for other role mismatch errors (403 Forbidden)
+    if (error.response?.status === 403) {
       // Skip role mismatch handling for validate-domains and invite endpoints
       // Let the calling component handle these errors appropriately
       const requestUrl = originalRequest.url || '';
@@ -66,11 +86,10 @@ api.interceptors.response.use(
       const isRoleMismatch =
         errorMessage.includes('admin') ||
         errorMessage.includes('privilege') ||
-        errorMessage.includes('revoked') ||
-        error.response.status === 409; // 409 typically indicates role mismatch
+        errorMessage.includes('revoked');
 
       if (isRoleMismatch) {
-        console.log('Role mismatch detected, forcing re-authentication');
+        console.log('[useHttp] Role mismatch detected (403), forcing re-authentication');
 
         // Dispatch custom event to notify other components
         window.dispatchEvent(
@@ -82,20 +101,14 @@ api.interceptors.response.use(
           })
         );
 
-        // Force sign out after a short delay to allow UI to show message
-        setTimeout(async () => {
-          try {
-            await signOut();
-            // Redirect will be handled by auth components
-          } catch (signOutError) {
-            console.error(
-              'Failed to sign out after role mismatch:',
-              signOutError
-            );
-            // Force page reload as fallback
-            window.location.href = '/';
-          }
-        }, 2000);
+        // Force immediate sign out without any delay
+        try {
+          await signOut();
+          window.location.reload();
+        } catch (signOutError) {
+          console.error('[useHttp] Failed to sign out after role mismatch:', signOutError);
+          window.location.reload();
+        }
       }
     }
 

@@ -185,6 +185,23 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
     } catch (error: any) {
       console.error('Failed to validate domains:', error);
       
+      // Provide more specific error messages for domain validation failures
+      if (error.response?.status === 403) {
+        throw new Error(t('adminPortal.invite.errors.noPermission'));
+      } else if (error.response?.status === 409) {
+        throw new Error(t('adminPortal.invite.errors.roleRevoked'));
+      } else if (error.response?.status === 400) {
+        const errorData = error.response?.data;
+        if (errorData?.invalidEmails?.length > 0) {
+          throw new Error(
+            t('adminPortal.invite.errors.invalidEmails', {
+              emails: errorData.invalidEmails.join(', '),
+            })
+          );
+        }
+        throw new Error(errorData?.message || t('adminPortal.invite.errors.invalidRequest'));
+      }
+      
       // Let role monitor handle privilege revocation errors to avoid conflicts
       // This component will just propagate the error for normal handling
       throw error;
@@ -242,7 +259,12 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         return;
       }
 
-      setError(t('adminPortal.invite.errors.invitationFailed'));
+      // Use the specific error message if available, otherwise use generic message
+      const errorMessage = error.message || 
+        error.response?.data?.message ||
+        t('adminPortal.invite.errors.invitationFailed');
+      
+      setError(errorMessage);
     }
   };
 

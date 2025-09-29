@@ -54,37 +54,64 @@ export const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
         return;
       }
 
-      // Check if role changed from our local tracking
-      if (roleChanged || lastKnownRole !== isAdmin) {
-        console.log(`Role change detected: ${lastKnownRole} -> ${isAdmin}`);
+      // Server-side role change detection is authoritative - it compares token claims vs live Cognito attributes
+      if (roleChanged) {
+        console.log(`Server detected role change: current isAdmin=${isAdmin}`);
+
+        // Update our local tracking before handling the change
+        setLastKnownRole(isAdmin);
 
         // If user was demoted (admin -> regular user)
-        if (lastKnownRole === true && isAdmin === false) {
+        if (!isAdmin) {
+          console.log('User was demoted from admin to regular user');
           handleRoleMismatch();
           return;
         }
 
+        // If user was promoted (regular user -> admin)
+        if (isAdmin) {
+          console.log('User was promoted to admin');
+          // Immediate reload to show new admin UI
+          window.location.reload();
+          return;
+        }
+      }
+
+      // Check if role changed from our local tracking (as fallback)
+      if (lastKnownRole !== null && lastKnownRole !== isAdmin) {
+        console.log(`Local role change detected: ${lastKnownRole} -> ${isAdmin}`);
+
         // Update our local tracking
         setLastKnownRole(isAdmin);
 
-        // For promotions, we might want to show a different message or reload
+        // If user was demoted (admin -> regular user)
+        if (lastKnownRole === true && isAdmin === false) {
+          console.log('Local detection: User was demoted from admin to regular user');
+          handleRoleMismatch();
+          return;
+        }
+
+        // For promotions, reload immediately to show new UI
         if (lastKnownRole === false && isAdmin === true) {
-          console.log('User was promoted to admin');
-          // Could show a success message and reload to show new UI
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
+          console.log('Local detection: User was promoted to admin');
+          // Immediate reload to show new admin UI
+          window.location.reload();
         }
       }
     } catch (error: any) {
       // If we get 403/409, it means role was revoked
       if (error?.response?.status === 403 || error?.response?.status === 409) {
+        console.log('Received 403/409 error - admin privileges likely revoked');
         if (lastKnownRole === true) {
           // Only if we thought we were admin
+          console.log('User was previously admin - triggering role mismatch handler');
           handleRoleMismatch();
         }
       }
       // For other errors, we don't need to do anything as they might be network issues
+      else {
+        console.log('Role monitor error (non-auth):', error);
+      }
     } finally {
       isCheckingRef.current = false;
     }

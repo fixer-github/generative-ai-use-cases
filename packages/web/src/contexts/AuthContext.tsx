@@ -26,15 +26,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       'warning'
     );
 
-    // Force sign out after showing the message
+    // Force immediate sign out without delay
     setTimeout(async () => {
       try {
         await signOut();
+        window.location.reload();
       } catch (error) {
         console.error('Failed to sign out after role change:', error);
-        window.location.href = '/';
+        window.location.reload();
       }
-    }, 2000);
+    }, 100); // Minimal delay to allow toast to show briefly
   };
 
   useEffect(() => {
