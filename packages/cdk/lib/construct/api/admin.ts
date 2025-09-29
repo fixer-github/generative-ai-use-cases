@@ -1,11 +1,13 @@
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
-import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
+import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
 import { GenericApiProps } from './props';
 import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { LambdaVersion, UserPoolOperation } from 'aws-cdk-lib/aws-cognito';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 export type AdminApiProps = GenericApiProps;
 
@@ -20,6 +22,58 @@ class AdminApi extends Construct {
       userPoolClient,
       selfSignUpTenantMap,
     } = props;
+
+    // Lambda
+    if (selfSignUpTenantMap && selfSignUpTenantMap.length > 0) {
+      const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/checkTenant.ts',
+        timeout: Duration.seconds(30),
+        environment: {
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(selfSignUpTenantMap),
+        },
+      });
+
+      userPool.addTrigger(UserPoolOperation.PRE_SIGN_UP, checkTenantFunction);
+
+      const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/assignTenant.ts',
+        timeout: Duration.seconds(30),
+        environment: {
+          SELF_SIGNUP_TENANT_MAP: JSON.stringify(selfSignUpTenantMap),
+        },
+      });
+
+      assignTenantFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['cognito-idp:AdminUpdateUserAttributes'],
+          resources: ['*'],
+        })
+      );
+      userPool.addTrigger(
+        UserPoolOperation.POST_CONFIRMATION,
+        assignTenantFunction
+      );
+    }
+
+    // Pre Token Generation Lambda for adding custom claims
+    const preTokenGenerationFunction = new PythonFunction(
+      this,
+      'PreTokenGeneration',
+      {
+        runtime: LAMBDA_RUNTIME_PYTHON,
+        entry: './lambda/pre_token_generation',
+        timeout: Duration.seconds(5),
+      }
+    );
+
+    userPool.addTrigger(
+      UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
+      preTokenGenerationFunction,
+      LambdaVersion.V2_0
+    );
 
     // Lambda functions for admin operations
     const listTenantUsersFunction = new NodejsFunction(
