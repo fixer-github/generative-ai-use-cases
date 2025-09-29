@@ -174,7 +174,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     new WebStack(this, 'Web', {
       params: params,
       auth: auth,
-      api: apiStack.api,
+      api: api,
       speechToSpeech: speechToSpeech,
       webAclId: props.webAclId,
       mcpEndpoint: mcpEndpoint,
