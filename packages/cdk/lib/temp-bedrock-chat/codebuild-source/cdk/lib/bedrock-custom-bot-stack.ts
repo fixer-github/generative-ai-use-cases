@@ -16,11 +16,12 @@ import {
   CrawlingScope,
   CrawlingFilters,
 } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/web-crawler-data-source';
-import { ParsingStategy } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/parsing';
+import { ParsingStrategy } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/parsing';
 
 import {
-  KnowledgeBase,
+  VectorKnowledgeBase,
   IKnowledgeBase,
+  VectorStoreType,
 } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock';
 import { aws_bedrock as bedrock } from 'aws-cdk-lib';
 import {
@@ -99,6 +100,8 @@ export class BedrockCustomBotStack extends Stack {
         // DO NOT CHANGE THIS VALUE
         vectorField: 'bedrock-knowledge-base-default-vector',
         vectorDimensions: props.embeddingsModel.vectorDimensions!,
+        precision: 'float',
+        distanceType: 'l2',
         mappings: [
           {
             mappingField: 'AMAZON_BEDROCK_TEXT_CHUNK',
@@ -114,7 +117,7 @@ export class BedrockCustomBotStack extends Stack {
         analyzer: props.analyzer,
       });
 
-      kb = new KnowledgeBase(this, 'KB', {
+      kb = new VectorKnowledgeBase(this, 'KB', {
         embeddingsModel: props.embeddingsModel,
         vectorStore: vectorCollection,
         vectorIndex: vectorIndex,
@@ -130,8 +133,8 @@ export class BedrockCustomBotStack extends Stack {
           dataSourceName: bucket.bucketName,
           chunkingStrategy: props.chunkingStrategy,
           parsingStrategy: props.parsingModel
-            ? ParsingStategy.foundationModel({
-                parsingModel: props.parsingModel.asIModel(this),
+            ? ParsingStrategy.foundationModel({
+                parsingModel: props.parsingModel,
               })
             : undefined,
           inclusionPrefixes: inclusionPrefixes,
@@ -148,8 +151,8 @@ export class BedrockCustomBotStack extends Stack {
             sourceUrls: props.sourceUrls,
             chunkingStrategy: props.chunkingStrategy,
             parsingStrategy: props.parsingModel
-              ? ParsingStategy.foundationModel({
-                  parsingModel: props.parsingModel.asIModel(this),
+              ? ParsingStrategy.foundationModel({
+                  parsingModel: props.parsingModel,
                 })
               : undefined,
             crawlingScope: props.crawlingScope,
@@ -314,9 +317,10 @@ export class BedrockCustomBotStack extends Stack {
 
       const executionRoleArn = getKnowledgeBase.getResponseField('roleArn');
 
-      kb = KnowledgeBase.fromKnowledgeBaseAttributes(this, 'MyKnowledgeBase', {
+      kb = VectorKnowledgeBase.fromKnowledgeBaseAttributes(this, 'MyKnowledgeBase', {
         knowledgeBaseId: props.existKnowledgeBaseId,
         executionRoleArn: executionRoleArn,
+        vectorStoreType: VectorStoreType.OPENSEARCH_SERVERLESS,
       });
     }
 

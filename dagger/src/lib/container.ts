@@ -16,7 +16,7 @@ export function createNodeContainer(options: BaseContainerOptions): Container {
     .withExec(["apt-get", "install", "-y", "git"])
     .withExec(["npm", "install", "-g", "aws-cdk@latest"])
     .withWorkdir(workdir)
-    .withEnvVariable("NODE_ENV", "production")
+    .withEnvVariable("CI", "true")
     .withEnvVariable("FORCE_COLOR", "1");
 }
 
@@ -39,7 +39,7 @@ export function withSourceCode(container: Container, client: Client, excludePath
 
   return container.withDirectory(
     "/workspace",
-    client.host().directory(".", { exclude: allExcludes })
+    client.host().directory("..", { exclude: allExcludes })
   );
 }
 
@@ -48,8 +48,6 @@ export function withCachedNpmInstall(container: Container, client: Client): Cont
 
   return container
     .withMountedCache("/root/.npm", npmCache)
-    .withFile("/workspace/package.json", client.host().file("package.json"))
-    .withFile("/workspace/package-lock.json", client.host().file("package-lock.json"))
     .withExec(["npm", "ci", "--cache=/root/.npm"]);
 }
 
