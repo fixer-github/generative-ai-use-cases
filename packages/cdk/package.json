@@ -12,13 +12,13 @@
     "postinstall": "pnpm i --ignore-scripts --frozen-lockfile --dir custom-resources"
   },
   "devDependencies": {
+    "@generative-ai-use-cases/types": "workspace:*",
     "@smithy/types": "^4.3.2",
     "@types/aws-lambda": "^8.10.137",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.19.17",
     "@types/sanitize-html": "^2.13.0",
     "aws-cdk": "^2.154.1",
-    "@generative-ai-use-cases/types": "workspace:*",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
@@ -48,6 +48,7 @@
     "@aws-sdk/util-dynamodb": "^3.755.0",
     "@aws-solutions-constructs/aws-cloudfront-s3": "^2.68.0",
     "@cdklabs/generative-ai-cdk-constructs": "^0.1.309",
+    "@generative-ai-use-cases/common": "workspace:*",
     "@langchain/core": "^0.3.72",
     "@langchain/openai": "^0.6.9",
     "@smithy/node-http-handler": "^4.1.1",

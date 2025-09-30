@@ -3,6 +3,10 @@
   "private": true,
   "main": "src/index.ts",
   "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.899.0",
     "aws-jwt-verify": "^4.0.0"
+  },
+  "devDependencies": {
+    "@generative-ai-use-cases/types": "workspace:*"
   }
 }

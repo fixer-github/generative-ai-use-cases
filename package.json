@@ -45,6 +45,7 @@
     "@shopify/eslint-plugin": "50.0.0",
     "@typescript-eslint/eslint-plugin": "8.44.0",
     "@typescript-eslint/parser": "8.44.0",
+    "esbuild": "^0.25.10",
     "eslint": "9.35.0",
     "eslint-plugin-i18nhelper": "workspace:*",
     "eslint-plugin-react-hooks": "5.2.0",
