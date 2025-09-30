@@ -25,6 +25,7 @@
     "@typescript-eslint/parser": "8.44.0",
     "@typescript-eslint/utils": "8.44.0",
     "eslint": "9.35.0",
+    "eslint-plugin-i18nhelper": "workspace:*",
     "typescript": "^5.9.2"
   },
   "peerDependencies": {

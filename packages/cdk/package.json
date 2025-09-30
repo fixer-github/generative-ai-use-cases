@@ -9,7 +9,7 @@
     "cdk": "cdk",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
-    "postinstall": "npm ci --prefix custom-resources"
+    "postinstall": "pnpm i --ignore-scripts --frozen-lockfile --dir custom-resources"
   },
   "devDependencies": {
     "@smithy/types": "^4.3.2",
