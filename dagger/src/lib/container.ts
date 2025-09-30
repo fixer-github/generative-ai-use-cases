@@ -58,19 +58,35 @@ export function withDeploymentTools(container: Container): Container {
     .withExec(["pip3", "install", "--break-system-packages", "awscli"]);
 }
 
-export function withAWSCredentials(container: Container): Container {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  const region = process.env.AWS_DEFAULT_REGION || "us-east-1";
+export function withOIDCCredentials(container: Container): Container {
+  const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
 
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error("AWS credentials not found in environment variables");
-  }
+  // AWS credentials are configured by GitHub Actions aws-actions/configure-aws-credentials
+  // The credentials are available in the environment and ~/.aws directory
+  const homeDir = process.env.HOME || "/root";
 
   return container
-    .withEnvVariable("AWS_ACCESS_KEY_ID", accessKeyId)
-    .withSecretVariable("AWS_SECRET_ACCESS_KEY",
-      container.client().setSecret("aws-secret", secretAccessKey)
+    .withMountedDirectory(
+      `${homeDir}/.aws`,
+      container.client().host().directory(`${homeDir}/.aws`)
     )
+    .withEnvVariable("AWS_REGION", region)
     .withEnvVariable("AWS_DEFAULT_REGION", region);
+}
+
+export function withCDKConfigFromBase64(container: Container): Container {
+  const cdkConfigBase64 = process.env.CDK_CONFIG_BASE64;
+
+  if (!cdkConfigBase64) {
+    throw new Error("CDK_CONFIG_BASE64 environment variable not found. Please set this secret in GitHub.");
+  }
+
+  console.log("📄 Decoding and placing cdk.json...");
+
+  // Decode base64 and write to packages/cdk/cdk.json
+  return container
+    .withExec([
+      "sh", "-c",
+      `echo '${cdkConfigBase64}' | base64 -d > packages/cdk/cdk.json`
+    ]);
 }

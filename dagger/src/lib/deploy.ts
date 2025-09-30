@@ -1,12 +1,15 @@
 import type { Container } from "@dagger.io/dagger";
-import { withDeploymentTools, withAWSCredentials } from "./container.js";
+import { withDeploymentTools, withOIDCCredentials, withCDKConfigFromBase64 } from "./container.js";
 
 export async function bootstrapCDK(container: Container): Promise<Container> {
+  console.log("🔧 Injecting CDK configuration...");
+  let deployContainer = withCDKConfigFromBase64(container);
+
   console.log("🏗️  Checking CDK bootstrap...");
 
-  // Add deployment tools (Python, AWS CLI) then AWS credentials
-  const deployContainer = withDeploymentTools(container);
-  const awsContainer = withAWSCredentials(deployContainer);
+  // Add deployment tools (Python, AWS CLI) then OIDC credentials
+  deployContainer = withDeploymentTools(deployContainer);
+  const awsContainer = withOIDCCredentials(deployContainer);
 
   // Check if bootstrap is needed (this will succeed if already bootstrapped)
   const result = awsContainer
@@ -19,8 +22,8 @@ export async function bootstrapCDK(container: Container): Promise<Container> {
 export async function deployCDK(container: Container): Promise<Container> {
   console.log("🚀 Deploying CDK stacks to production...");
 
-  // Deployment tools already added in bootstrap step, just need credentials
-  const awsContainer = withAWSCredentials(container);
+  // Deployment tools and config already added in bootstrap step, just need credentials
+  const awsContainer = withOIDCCredentials(container);
 
   const result = awsContainer
     .withExec([
@@ -38,7 +41,7 @@ export async function validateDeployment(container: Container): Promise<Containe
   console.log("🔍 Validating deployment...");
 
   // Deployment tools already added, just need credentials
-  const awsContainer = withAWSCredentials(container);
+  const awsContainer = withOIDCCredentials(container);
 
   const result = awsContainer
     .withExec(["npm", "-w", "packages/cdk", "run", "cdk", "ls"])
