@@ -18,6 +18,7 @@
     "@types/node": "^20.19.17",
     "@types/sanitize-html": "^2.13.0",
     "aws-cdk": "^2.154.1",
+    "generative-ai-use-cases": "workspace:*",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
