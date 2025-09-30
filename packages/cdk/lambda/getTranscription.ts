@@ -4,7 +4,10 @@ import {
   GetTranscriptionJobCommand,
 } from '@aws-sdk/client-transcribe';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { GetTranscriptionResponse, Transcript } from '@generative-ai-use-cases/types';
+import {
+  GetTranscriptionResponse,
+  Transcript,
+} from '@generative-ai-use-cases/types';
 import { getTenantId } from './utils/tenantUtils';
 import { getTenantCredentials } from './utils/tenantCredentials';
 import { createTenantS3Client } from './utils/tenantS3Client';

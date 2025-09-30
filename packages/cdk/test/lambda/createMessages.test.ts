@@ -1,7 +1,10 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { handler } from '../../lambda/createMessages';
 import { batchCreateMessages, findChatById } from '../../lambda/repository';
-import { RecordedMessage, ToBeRecordedMessage } from '@generative-ai-use-cases/types';
+import {
+  RecordedMessage,
+  ToBeRecordedMessage,
+} from '@generative-ai-use-cases/types';
 
 // Mock the repository
 jest.mock('../../lambda/repository');

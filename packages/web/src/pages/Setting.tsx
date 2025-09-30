@@ -57,7 +57,9 @@ const Setting = () => {
   const { getClosedPullRequests } = useGitHub();
   const { signOut, user: _user } = useAuthenticator();
   const { i18n, t } = useTranslation();
-  const { isAdmin, isLoading: isAdminLoading } = useRoleMonitor({ enabled: false }); // Only check when needed, don't start polling
+  const { isAdmin, isLoading: isAdminLoading } = useRoleMonitor({
+    enabled: false,
+  }); // Only check when needed, don't start polling
 
   const hasUpdate = getHasUpdate();
   const closedPullRequests = getClosedPullRequests();

@@ -4,7 +4,9 @@ import { signOut } from 'aws-amplify/auth';
  * Centralized logout utility for handling user authentication termination
  * Used when role changes, permissions are revoked, or authentication errors occur
  */
-export const performLogoutAndReload = async (reason?: string): Promise<void> => {
+export const performLogoutAndReload = async (
+  reason?: string
+): Promise<void> => {
   if (reason) {
     console.warn(`[auth] Performing logout due to: ${reason}`);
   }
