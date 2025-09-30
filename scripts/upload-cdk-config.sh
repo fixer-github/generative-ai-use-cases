@@ -147,7 +147,7 @@ fi
 
 # Upload to GitHub Secrets
 echo -e "${GREEN}Uploading to GitHub Secrets...${NC}"
-echo "$BASE64_CONTENT" | gh secret set "$SECRET_NAME"
+echo "$BASE64_CONTENT" | gh secret set "$SECRET_NAME" -R "$REPO"
 
 if [[ $? -eq 0 ]]; then
     echo -e "${GREEN}✓ Successfully uploaded $SECRET_NAME to $REPO${NC}"

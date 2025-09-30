@@ -1,0 +1,46 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            dagger/package-lock.json
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+      - name: Install Dagger CLI
+        run: |
+          curl -fsSL https://releases.dagger.io/dagger/install.sh | sh
+          sudo mv ./bin/dagger /usr/local/bin/dagger
+
+      - name: Install dependencies
+        run: cd dagger && npm ci
+
+      - name: Deploy
+        run: cd dagger && npm run deploy
+        env:
+          CI: true
+          CDK_CONFIG_BASE64: ${{ secrets.CDK_CONFIG_BASE64 }}
