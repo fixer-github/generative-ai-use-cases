@@ -180,6 +180,9 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@generative-ai-use-cases/types':
+        specifier: workspace:*
+        version: link:../types
       '@smithy/types':
         specifier: ^4.3.2
         version: 4.5.0
@@ -198,9 +201,6 @@ importers:
       aws-cdk:
         specifier: ^2.154.1
         version: 2.1029.3
-      generative-ai-use-cases:
-        specifier: workspace:*
-        version: link:../..
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.18)(ts-node@10.9.2(@types/node@20.19.18)(typescript@5.9.2))
