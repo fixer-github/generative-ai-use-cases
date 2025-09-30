@@ -2,7 +2,7 @@ import {
   Model,
   ModelConfiguration,
   ModelMetadata,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   CRI_PREFIX_PATTERN,
   modelMetadata as originalModelMetadata,

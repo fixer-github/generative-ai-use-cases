@@ -1,4 +1,4 @@
-import { TenantUseCaseConfigResponse } from 'generative-ai-use-cases';
+import { TenantUseCaseConfigResponse } from '@generative-ai-use-cases/types';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import useHttp from './useHttp';
 

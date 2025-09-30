@@ -18,7 +18,7 @@ import {
   Model,
   UnrecordedMessage,
   BraveSearchResult,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { streamingChunk } from './streamingChunk';
 import {
   initBedrockAgentClient,

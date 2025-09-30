@@ -15,7 +15,7 @@ import {
   ListChatsResponse,
   AdditionalModelRequestFields,
   Metadata,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { useEffect, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import useChatApi from './useChatApi';

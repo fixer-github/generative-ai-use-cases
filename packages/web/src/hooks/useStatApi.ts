@@ -1,4 +1,4 @@
-import { TokenUsageStats } from 'generative-ai-use-cases';
+import { TokenUsageStats } from '@generative-ai-use-cases/types';
 import useHttp from './useHttp';
 
 const useStatApi = () => {

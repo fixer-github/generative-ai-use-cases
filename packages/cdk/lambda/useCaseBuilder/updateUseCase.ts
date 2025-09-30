@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { UpdateUseCaseRequest } from 'generative-ai-use-cases';
+import { UpdateUseCaseRequest } from '@generative-ai-use-cases/types';
 import { updateUseCase } from './useCaseBuilderRepository';
 
 export const handler = async (

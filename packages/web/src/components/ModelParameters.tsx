@@ -1,7 +1,7 @@
 import {
   AdditionalModelRequestFields,
   FeatureFlags,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import Switch from './Switch';
 import RangeSlider from './RangeSlider';
 import { useTranslation } from 'react-i18next';

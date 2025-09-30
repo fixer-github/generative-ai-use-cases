@@ -5,7 +5,7 @@ import {
   StartTranscriptionJobCommand,
   LanguageCode,
 } from '@aws-sdk/client-transcribe';
-import { StartTranscriptionRequest } from 'generative-ai-use-cases';
+import { StartTranscriptionRequest } from '@generative-ai-use-cases/types';
 import { getTenantId } from './utils/tenantUtils';
 import { getTenantCredentials } from './utils/tenantCredentials';
 import { getTenant } from './tenantManager';

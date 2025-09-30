@@ -21,7 +21,7 @@ import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
-import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { SelfSignUpTenantMapEntry } from '@generative-ai-use-cases/types';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;

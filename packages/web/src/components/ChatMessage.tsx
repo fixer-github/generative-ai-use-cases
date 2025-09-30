@@ -20,7 +20,7 @@ import {
   PiX,
 } from 'react-icons/pi';
 import { BaseProps } from '../@types/common';
-import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
+import { ShownMessage, UpdateFeedbackRequest } from '@generative-ai-use-cases/types';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';

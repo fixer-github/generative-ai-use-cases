@@ -13,7 +13,7 @@ import {
   SpeechToSpeechEventType,
   SpeechToSpeechEvent,
   Model,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { initBedrockRuntimeClient } from './utils/bedrockClient';
 
 Object.assign(global, { WebSocket: require('ws') });

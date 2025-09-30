@@ -28,7 +28,7 @@ import useUseCase from '../../hooks/useCaseBuilder/useUseCase';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ModalDialogDeleteUseCase from '../../components/useCaseBuilder/ModalDialogDeleteUseCase';
 import UseCaseBuilderHelp from '../../components/useCaseBuilder/UseCaseBuilderHelp';
-import { UseCaseInputExample } from 'generative-ai-use-cases';
+import { UseCaseInputExample } from '@generative-ai-use-cases/types';
 import { produce } from 'immer';
 import {
   NOLABEL,

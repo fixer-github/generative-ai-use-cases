@@ -3,7 +3,7 @@ import {
   QueryKendraResponse,
   RetrieveKendraRequest,
   RetrieveKendraResponse,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import useHttp from './useHttp';
 
 const useRagApi = () => {

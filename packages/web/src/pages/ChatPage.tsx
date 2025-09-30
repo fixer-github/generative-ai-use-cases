@@ -28,7 +28,7 @@ import {
   AdditionalModelRequestFields,
   FileLimit,
   SystemContext,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';

@@ -6,7 +6,7 @@ import {
   OptimizePromptCommandInput,
   OptimizePromptCommand,
 } from '@aws-sdk/client-bedrock-agent-runtime';
-import { OptimizePromptRequest } from 'generative-ai-use-cases';
+import { OptimizePromptRequest } from '@generative-ai-use-cases/types';
 
 const client = new BedrockAgentRuntimeClient({
   region: process.env.MODEL_REGION,

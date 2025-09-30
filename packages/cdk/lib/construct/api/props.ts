@@ -9,7 +9,7 @@ import {
   ModelConfiguration,
   SelfSignUpTenantMapEntry,
   HiddenUseCases,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { LitellmProxyServer } from '../litellm-proxy-server';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';

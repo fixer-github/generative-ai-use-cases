@@ -1,4 +1,4 @@
-import { UseCaseAsOutput } from 'generative-ai-use-cases';
+import { UseCaseAsOutput } from '@generative-ai-use-cases/types';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import useDrawer from '../../hooks/useDrawer';

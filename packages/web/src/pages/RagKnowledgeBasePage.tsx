@@ -20,7 +20,7 @@ import KbFilter from '../components/KbFilter';
 import {
   ExplicitFilterConfiguration,
   ExtraData,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { Option, SelectValue } from '../components/FilterSelect';
 import ModalDialog from '../components/ModalDialog';
 import Button from '../components/Button';

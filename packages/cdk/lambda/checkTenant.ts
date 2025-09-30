@@ -1,5 +1,5 @@
 import { PreSignUpTriggerEvent, Context, Callback } from 'aws-lambda';
-import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { SelfSignUpTenantMapEntry } from '@generative-ai-use-cases/types';
 
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
 const TENANT_MAP: SelfSignUpTenantMapEntry[] = JSON.parse(TENANT_MAP_STR);

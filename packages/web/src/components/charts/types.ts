@@ -1,4 +1,4 @@
-import { TokenUsageStats } from 'generative-ai-use-cases';
+import { TokenUsageStats } from '@generative-ai-use-cases/types';
 
 export type ChartType =
   | 'line_chart'

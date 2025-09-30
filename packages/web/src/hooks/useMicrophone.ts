@@ -11,7 +11,7 @@ import { Buffer } from 'buffer';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { Transcript } from 'generative-ai-use-cases';
+import { Transcript } from '@generative-ai-use-cases/types';
 
 const MAX_AUDIO_CHUNK_SIZE = 48000;
 

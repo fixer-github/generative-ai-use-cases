@@ -4,7 +4,7 @@ import { listMessages, updateFeedback } from '../../lambda/repository';
 import {
   RecordedMessage,
   UpdateFeedbackRequest,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 
 // Mock the repository
 jest.mock('../../lambda/repository');

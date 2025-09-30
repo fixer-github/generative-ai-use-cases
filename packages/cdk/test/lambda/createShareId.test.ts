@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { handler } from '../../lambda/createShareId';
 import { createShareId, findChatById } from '../../lambda/repository';
-import { ShareId, UserIdAndChatId } from 'generative-ai-use-cases';
+import { ShareId, UserIdAndChatId } from '@generative-ai-use-cases/types';
 
 // Mock the repository
 jest.mock('../../lambda/repository');

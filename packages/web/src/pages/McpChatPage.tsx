@@ -14,7 +14,7 @@ import ExpandableField from '../components/ExpandableField';
 import InputChatContent from '../components/InputChatContent';
 import Button from '../components/Button';
 import ScrollTopBottom from '../components/ScrollTopBottom';
-import { UnrecordedMessage } from 'generative-ai-use-cases';
+import { UnrecordedMessage } from '@generative-ai-use-cases/types';
 import { McpPageQueryParams } from '../@types/navigate';
 import queryString from 'query-string';
 

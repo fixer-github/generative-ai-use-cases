@@ -6,7 +6,7 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
-import { VideoJob } from 'generative-ai-use-cases';
+import { VideoJob } from '@generative-ai-use-cases/types';
 import { updateJobStatus } from './repositoryVideoJob';
 
 export interface CopyVideoJobParams {

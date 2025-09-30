@@ -1,4 +1,4 @@
-import { SystemContext } from 'generative-ai-use-cases';
+import { SystemContext } from '@generative-ai-use-cases/types';
 import * as crypto from 'crypto';
 import {
   DeleteCommand,

@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/react';
-import { DocumentComment } from 'generative-ai-use-cases';
+import { DocumentComment } from '@generative-ai-use-cases/types';
 import { create } from 'zustand';
 import useWriter from '../../../hooks/useWriter';
 import { removeAIHighlight } from 'novel';

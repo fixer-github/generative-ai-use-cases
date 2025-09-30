@@ -1,4 +1,4 @@
-import { Model, UnrecordedMessage } from 'generative-ai-use-cases';
+import { Model, UnrecordedMessage } from '@generative-ai-use-cases/types';
 import { v4 as uuidv4 } from 'uuid';
 import { MODELS } from '../hooks/useModel';
 

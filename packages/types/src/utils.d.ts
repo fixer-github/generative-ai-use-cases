@@ -3,7 +3,7 @@ import {
   GenerateVideoParams,
   Model,
   UnrecordedMessage,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 
 export type InvokeInterface = (
   model: Model,

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import useChatApi from './useChatApi';
 import { MODELS } from './useModel';
 import { getPrompter } from '../prompts';
-import { UnrecordedMessage, Model } from 'generative-ai-use-cases';
+import { UnrecordedMessage, Model } from '@generative-ai-use-cases/types';
 
 export type MeetingMinutesStyle =
   | 'faq'

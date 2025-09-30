@@ -1,4 +1,4 @@
-import { TokenUsageStats } from 'generative-ai-use-cases';
+import { TokenUsageStats } from '@generative-ai-use-cases/types';
 import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantDynamoDBDocument, getStatsTableName } from './common';

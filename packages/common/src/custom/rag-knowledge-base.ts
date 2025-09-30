@@ -2,7 +2,7 @@ import {
   MetadataAttributeSchema,
   RetrievalFilter,
 } from '@aws-sdk/client-bedrock-agent-runtime';
-import { ExplicitFilterConfiguration } from 'generative-ai-use-cases';
+import { ExplicitFilterConfiguration } from '@generative-ai-use-cases/types';
 import { CognitoIdTokenPayload } from 'aws-jwt-verify/jwt-model';
 
 /*

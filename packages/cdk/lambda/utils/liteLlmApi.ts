@@ -4,7 +4,7 @@ import {
   GenerateVideoParams,
   Model,
   UnrecordedMessage,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
 import { SignatureV4 } from '@smithy/signature-v4';

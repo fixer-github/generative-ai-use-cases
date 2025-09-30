@@ -15,7 +15,7 @@ import {
 } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { CfnAgent, CfnAgentAlias } from 'aws-cdk-lib/aws-bedrock';
-import { Agent as AgentType } from 'generative-ai-use-cases';
+import { Agent as AgentType } from '@generative-ai-use-cases/types';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { StackInput } from '../stack-input';
 

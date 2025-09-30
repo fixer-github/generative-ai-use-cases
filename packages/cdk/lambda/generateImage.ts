@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { GenerateImageRequest } from 'generative-ai-use-cases';
+import { GenerateImageRequest } from '@generative-ai-use-cases/types';
 import api from './utils/api';
 import { defaultImageGenerationModel } from './utils/models';
 

@@ -4,7 +4,7 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from './utils/adminAuth';
-import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { SelfSignUpTenantMapEntry } from '@generative-ai-use-cases/types';
 
 // Load tenant map for domain validation
 const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';

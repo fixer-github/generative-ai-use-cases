@@ -2,7 +2,7 @@ import {
   CreateSystemContextRequest,
   SystemContext,
   UpdateSystemContextTitleResponse,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 
 import useHttp from './useHttp';
 import { decomposeId } from '../utils/ChatUtils';

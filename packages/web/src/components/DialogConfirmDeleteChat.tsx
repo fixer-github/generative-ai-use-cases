@@ -2,7 +2,7 @@ import React from 'react';
 import { BaseProps } from '../@types/common';
 import Button from './Button';
 import ModalDialog from './ModalDialog';
-import { Chat } from 'generative-ai-use-cases';
+import { Chat } from '@generative-ai-use-cases/types';
 import { decomposeId } from '../utils/ChatUtils';
 import { useTranslation } from 'react-i18next';
 

@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DeleteFileRequest } from 'generative-ai-use-cases';
+import { DeleteFileRequest } from '@generative-ai-use-cases/types';
 import { getTenantId } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';
 import {

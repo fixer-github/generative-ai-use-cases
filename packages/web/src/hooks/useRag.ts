@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import useChat from './useChat';
 import useChatApi from './useChatApi';
 import useRagApi from './useRagApi';
-import { ShownMessage } from 'generative-ai-use-cases';
+import { ShownMessage } from '@generative-ai-use-cases/types';
 import { findModelByModelId } from './useModel';
 import { getPrompter } from '../prompts';
 import { RetrieveResultItem, DocumentAttribute } from '@aws-sdk/client-kendra';

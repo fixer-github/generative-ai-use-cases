@@ -1,4 +1,4 @@
-import { StreamingChunk } from 'generative-ai-use-cases';
+import { StreamingChunk } from '@generative-ai-use-cases/types';
 import useChatApi from './useChatApi';
 import { create } from 'zustand';
 import { MODELS } from './useModel';

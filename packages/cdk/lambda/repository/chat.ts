@@ -1,4 +1,4 @@
-import { Chat, ListChatsResponse } from 'generative-ai-use-cases';
+import { Chat, ListChatsResponse } from '@generative-ai-use-cases/types';
 import * as crypto from 'crypto';
 import {
   DeleteCommand,

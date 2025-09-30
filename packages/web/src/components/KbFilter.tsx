@@ -1,4 +1,4 @@
-import { ExplicitFilterConfiguration } from 'generative-ai-use-cases';
+import { ExplicitFilterConfiguration } from '@generative-ai-use-cases/types';
 import { FilterSelect, SelectValue } from '../components/FilterSelect';
 import { Input } from '@aws-amplify/ui-react';
 import { RetrievalFilter } from '@aws-sdk/client-bedrock-agent-runtime';

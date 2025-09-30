@@ -8,7 +8,7 @@ import {
   ListUseCasesResponse,
   ListFavoriteUseCasesResponse,
   ListRecentlyUsedUseCasesResponse,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   DeleteCommand,
   DynamoDBDocumentClient,

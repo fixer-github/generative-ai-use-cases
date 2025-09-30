@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { GetFileDownloadSignedUrlRequest } from 'generative-ai-use-cases';
+import { GetFileDownloadSignedUrlRequest } from '@generative-ai-use-cases/types';
 import { initKnowledgeBaseS3Client } from './utils/bedrockClient';
 import { getTenantId } from './utils/tenantUtils';
 import { createTenantS3Client } from './utils/tenantS3Client';

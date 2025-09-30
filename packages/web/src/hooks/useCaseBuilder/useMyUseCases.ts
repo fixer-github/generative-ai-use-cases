@@ -1,8 +1,8 @@
 import useUseCaseBuilderApi from './useUseCaseBuilderApi';
-import { UseCaseInputExample } from 'generative-ai-use-cases';
+import { UseCaseInputExample } from '@generative-ai-use-cases/types';
 import usePagination from '../usePagination';
 import { produce } from 'immer';
-import { Pagination } from 'generative-ai-use-cases';
+import { Pagination } from '@generative-ai-use-cases/types';
 
 const useMyUseCases = () => {
   const {

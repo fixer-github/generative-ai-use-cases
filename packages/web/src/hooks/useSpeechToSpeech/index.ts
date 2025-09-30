@@ -9,7 +9,7 @@ import {
   SpeechToSpeechEventType,
   SpeechToSpeechEvent,
   Model,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 
 const NAMESPACE = import.meta.env.VITE_APP_SPEECH_TO_SPEECH_NAMESPACE!;
 const MIN_AUDIO_CHUNKS_PER_BATCH = 10;

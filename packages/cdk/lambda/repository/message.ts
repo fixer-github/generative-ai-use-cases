@@ -2,7 +2,7 @@ import {
   RecordedMessage,
   ToBeRecordedMessage,
   UpdateFeedbackRequest,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   BatchWriteCommand,
   QueryCommand,

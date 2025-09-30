@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { toggleShared } from './useCaseBuilderRepository';
-import { IsShared } from 'generative-ai-use-cases';
+import { IsShared } from '@generative-ai-use-cases/types';
 
 export const handler = async (
   event: APIGatewayProxyEvent

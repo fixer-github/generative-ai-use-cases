@@ -23,12 +23,12 @@ import { GenerateImagePageQueryParams } from '../@types/navigate';
 import { MODELS } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
-import { GenerateImageParams } from 'generative-ai-use-cases';
+import { GenerateImageParams } from '@generative-ai-use-cases/types';
 import {
   AmazonBaseImageGenerationMode,
   AmazonUIImageGenerationMode,
   ControlMode,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import InputText from '../components/InputText';
 import { useTranslation } from 'react-i18next';
 

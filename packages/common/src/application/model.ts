@@ -2,7 +2,7 @@ import {
   FeatureFlags,
   PromptCacheField,
   ModelMetadata,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 
 // Manage Model Feature
 // https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html

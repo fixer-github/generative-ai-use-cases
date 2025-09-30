@@ -1,4 +1,4 @@
-import { UseCaseInputExample } from 'generative-ai-use-cases';
+import { UseCaseInputExample } from '@generative-ai-use-cases/types';
 import { ReactNode } from 'react';
 import {
   PiCodeBold,

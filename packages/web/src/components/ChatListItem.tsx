@@ -10,7 +10,7 @@ import { BaseProps } from '../@types/common';
 import { Link } from 'react-router-dom';
 import { PiChat, PiCheck, PiPencilLine, PiTrash, PiX } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
-import { Chat } from 'generative-ai-use-cases';
+import { Chat } from '@generative-ai-use-cases/types';
 import { decomposeId } from '../utils/ChatUtils';
 import DialogConfirmDeleteChat from './DialogConfirmDeleteChat';
 

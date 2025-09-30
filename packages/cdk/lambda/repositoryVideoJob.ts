@@ -10,7 +10,7 @@ import {
   VideoJob,
   ListVideoJobsResponse,
   GenerateVideoRequest,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   GetAsyncInvokeCommand,
   ValidationException,

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { PredictRequest } from 'generative-ai-use-cases';
+import { PredictRequest } from '@generative-ai-use-cases/types';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 

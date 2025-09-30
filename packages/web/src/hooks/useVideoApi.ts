@@ -3,7 +3,7 @@ import {
   GenerateVideoRequest,
   GenerateVideoResponse,
   ListVideoJobsResponse,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import useHttp from './useHttp';
 
 const useVideoApi = () => {

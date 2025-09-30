@@ -7,7 +7,7 @@ import { Sha256 } from '@aws-crypto/sha256-js';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
-import { StreamingChunk, McpRequest, Model } from 'generative-ai-use-cases';
+import { StreamingChunk, McpRequest, Model } from '@generative-ai-use-cases/types';
 import { useTranslation } from 'react-i18next';
 
 const MCP_ENDPOINT = import.meta.env.VITE_APP_MCP_ENDPOINT;

@@ -4,7 +4,7 @@ import {
   InvokeEndpointWithResponseStreamCommand,
 } from '@aws-sdk/client-sagemaker-runtime';
 import { generatePrompt } from './prompter';
-import { ApiInterface, UnrecordedMessage } from 'generative-ai-use-cases';
+import { ApiInterface, UnrecordedMessage } from '@generative-ai-use-cases/types';
 import { getSageMakerModelTemplate } from './models';
 import { streamingChunk } from './streamingChunk';
 

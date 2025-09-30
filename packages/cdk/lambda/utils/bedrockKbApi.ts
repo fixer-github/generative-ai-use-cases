@@ -14,7 +14,7 @@ import {
   ApiInterface,
   Model,
   UnrecordedMessage,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   implicitFilters,
   hiddenStaticExplicitFilters,

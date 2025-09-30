@@ -5,7 +5,7 @@ import {
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { HiddenUseCases } from 'generative-ai-use-cases';
+import { HiddenUseCases } from '@generative-ai-use-cases/types';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;

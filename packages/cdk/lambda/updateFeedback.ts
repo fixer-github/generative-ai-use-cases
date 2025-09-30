@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { UpdateFeedbackRequest } from 'generative-ai-use-cases';
+import { UpdateFeedbackRequest } from '@generative-ai-use-cases/types';
 import { listMessages, updateFeedback } from './repository';
 
 export const handler = async (

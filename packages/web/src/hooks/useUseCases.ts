@@ -1,4 +1,4 @@
-import { HiddenUseCasesKeys } from 'generative-ai-use-cases';
+import { HiddenUseCasesKeys } from '@generative-ai-use-cases/types';
 import useTenantUseCaseConfig from './useTenantUseCaseConfig';
 
 const useUseCases = () => {

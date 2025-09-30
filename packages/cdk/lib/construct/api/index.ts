@@ -22,7 +22,7 @@ import {
   ModelConfiguration,
   SelfSignUpTenantMapEntry,
   HiddenUseCases,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import {
   BEDROCK_IMAGE_GEN_MODELS,
   BEDROCK_VIDEO_GEN_MODELS,

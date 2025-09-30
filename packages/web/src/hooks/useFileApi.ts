@@ -6,7 +6,7 @@ import {
   GetFileDownloadSignedUrlResponse,
   DeleteFileResponse,
   S3Type,
-} from 'generative-ai-use-cases';
+} from '@generative-ai-use-cases/types';
 import useHttp from './useHttp';
 import axios from 'axios';
 

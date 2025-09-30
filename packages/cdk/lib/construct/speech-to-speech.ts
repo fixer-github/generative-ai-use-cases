@@ -5,7 +5,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as agw from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ModelConfiguration } from 'generative-ai-use-cases';
+import { ModelConfiguration } from '@generative-ai-use-cases/types';
 import { BEDROCK_SPEECH_TO_SPEECH_MODELS } from '@generative-ai-use-cases/common';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 

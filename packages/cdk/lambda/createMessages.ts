@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { CreateMessagesRequest, ExtraData } from 'generative-ai-use-cases';
+import { CreateMessagesRequest, ExtraData } from '@generative-ai-use-cases/types';
 import { batchCreateMessages, findChatById } from './repository';
 import { getTenantId } from './utils/tenantUtils';
 import {

@@ -1,4 +1,4 @@
-import { ShareId, UserIdAndChatId } from 'generative-ai-use-cases';
+import { ShareId, UserIdAndChatId } from '@generative-ai-use-cases/types';
 import * as crypto from 'crypto';
 import { QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';

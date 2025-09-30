@@ -1,6 +1,6 @@
 import * as lambda from 'aws-lambda';
 import { RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
-import { RetrieveKnowledgeBaseRequest } from 'generative-ai-use-cases';
+import { RetrieveKnowledgeBaseRequest } from '@generative-ai-use-cases/types';
 import { initBedrockAgentRuntimeClient } from './utils/bedrockClient';
 
 const KNOWLEDGE_BASE_ID = process.env.KNOWLEDGE_BASE_ID;

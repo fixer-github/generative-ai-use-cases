@@ -26,7 +26,7 @@ import Switch from '../components/Switch';
 import RangeSlider from '../components/RangeSlider';
 import ExpandableField from '../components/ExpandableField';
 import Select from '../components/Select';
-import { Transcript } from 'generative-ai-use-cases';
+import { Transcript } from '@generative-ai-use-cases/types';
 import Textarea from '../components/Textarea';
 import { useTranslation, Trans } from 'react-i18next';
 import { toast } from 'sonner';
