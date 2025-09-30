@@ -62,7 +62,7 @@ git clone https://github.com/aws-samples/generative-ai-use-cases
 pushd generative-ai-use-cases
 
 # Install npm packages
-npm ci
+pnpm i --frozen-lockfile
 
 # If cdk.json is specified, overwrite it
 if [[ -n "$cdk_context_path" ]]; then
@@ -78,10 +78,10 @@ if [[ -n "$parameter_file_path" ]]; then
 fi
 
 # Bootstrap CDK
-npx -w packages/cdk cdk bootstrap
+pnpm exec -F cdk cdk bootstrap
 
 # Build deployment command
-deploy_cmd="npm run cdk:deploy:quick"
+deploy_cmd="pnpm cdk:deploy:quick"
 
 # If environment name is specified, add it to the deployment command
 if [[ -n "$env_name" ]]; then

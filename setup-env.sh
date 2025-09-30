@@ -9,7 +9,7 @@ if [ -n "${1:-}" ]; then
 else
     # Parse packages/cdk/cdk.json and get context.env if env is not provided
     echo "No environment provided, using context.env"
-    echo "If you want to specify the environment, please run with argument (i.e. npm run web:devw --env=<env>)"
+    echo "If you want to specify the environment, please run with argument (i.e. pnpm web:devw --env=<env>)"
     env=$(cat packages/cdk/cdk.json | jq -r '.context.env')
 fi
 
