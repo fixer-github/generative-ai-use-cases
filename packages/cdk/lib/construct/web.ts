@@ -225,7 +225,11 @@ export class Web extends Construct {
       destinationBucket: s3BucketInterface,
       distribution: cloudFrontWebDistribution,
       outputSourceDirectory: './packages/web/dist',
-      buildCommands: ['npm ci', 'npm run web:build'],
+      buildCommands: [
+        'npm i -g pnpm',
+        'pnpm i --frozen-lockfile',
+        'npm run web:build',
+      ],
       buildEnvironment: {
         NODE_OPTIONS: '--max-old-space-size=4096', // Memory for CodeBuild at deployment
         VITE_APP_API_ENDPOINT: props.apiEndpointUrl,

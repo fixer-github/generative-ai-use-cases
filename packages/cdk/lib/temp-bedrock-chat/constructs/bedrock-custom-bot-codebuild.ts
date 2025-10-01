@@ -46,7 +46,8 @@ export class BedrockCustomBotCodebuild extends Construct {
           build: {
             commands: [
               'cd cdk',
-              'npm ci',
+              'npm i -g pnpm',
+              'pnpm i --frozen-lockfile',
               // Extract BOT_ID from SK. Note that SK is given like BOT#<bot-id>
               `export BOT_ID=$(echo $SK | awk -F'#' '{print $2}')`,
               // Replace cdk's entrypoint. This is a workaround to avoid the issue that cdk synthesize all stacks.
