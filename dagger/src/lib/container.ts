@@ -60,10 +60,30 @@ export function withDeploymentTools(container: Container): Container {
 
 export function withOIDCCredentials(container: Container, client: Client): Container {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
+  const account = process.env.CDK_DEFAULT_ACCOUNT || "";
 
-  return container
+  let result = container
     .withEnvVariable("AWS_REGION", region)
-    .withEnvVariable("AWS_DEFAULT_REGION", region);
+    .withEnvVariable("AWS_DEFAULT_REGION", region)
+    .withEnvVariable("CDK_DEFAULT_REGION", region)
+    .withEnvVariable("CDK_DEFAULT_ACCOUNT", account);
+
+  // Pass AWS credentials as secrets (set by configure-aws-credentials action)
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const sessionToken = process.env.AWS_SESSION_TOKEN;
+
+  if (accessKeyId) {
+    result = result.withSecretVariable("AWS_ACCESS_KEY_ID", client.setSecret("aws-access-key", accessKeyId));
+  }
+  if (secretAccessKey) {
+    result = result.withSecretVariable("AWS_SECRET_ACCESS_KEY", client.setSecret("aws-secret-key", secretAccessKey));
+  }
+  if (sessionToken) {
+    result = result.withSecretVariable("AWS_SESSION_TOKEN", client.setSecret("aws-session-token", sessionToken));
+  }
+
+  return result;
 }
 
 export function withCDKConfigFromBase64(container: Container): Container {

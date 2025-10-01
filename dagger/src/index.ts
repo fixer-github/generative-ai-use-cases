@@ -8,7 +8,7 @@ const envArg = args.find(arg => arg.startsWith("--env"));
 const envValue = envArg?.includes("=") ? envArg.split("=")[1] : args[args.indexOf(envArg!) + 1];
 
 const isCI = envValue === "ci" || process.env.CI === "true";
-const isDeploy = envValue === "deploy" || (isCI && (process.env.GITHUB_REF === "refs/heads/main" || process.env.GITHUB_REF?.startsWith("refs/tags/v")));
+const isDeploy = envValue === "deploy" || (isCI && (process.env.GITHUB_REF === "refs/heads/main" || process.env.GITHUB_REF?.startsWith("refs/tags/v") === true));
 
 // Validate required environment variables for deployment
 if (isDeploy && !process.env.CDK_CONFIG_BASE64) {
