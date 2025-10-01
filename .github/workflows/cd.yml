@@ -2,8 +2,8 @@ name: CD
 
 on:
   push:
-    branches: [main]
-    tags: ['v*']
+    # branches: [main]
+    # tags: ['v*']
 
 permissions:
   contents: read
@@ -27,6 +27,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: actionsDeployment
           aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
       - name: Install Dagger CLI

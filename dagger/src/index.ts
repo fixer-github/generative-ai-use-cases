@@ -4,8 +4,11 @@ import { connect } from "@dagger.io/dagger";
 import { pipeline } from "./pipeline.js";
 
 const args = process.argv.slice(2);
-const isCI = args.includes("--env=ci") || process.env.CI === "true";
-const isDeploy = args.includes("--env=deploy") || (isCI && (process.env.GITHUB_REF === "refs/heads/main" || process.env.GITHUB_REF?.startsWith("refs/tags/v")));
+const envArg = args.find(arg => arg.startsWith("--env"));
+const envValue = envArg?.includes("=") ? envArg.split("=")[1] : args[args.indexOf(envArg!) + 1];
+
+const isCI = envValue === "ci" || process.env.CI === "true";
+const isDeploy = envValue === "deploy" || (isCI && (process.env.GITHUB_REF === "refs/heads/main" || process.env.GITHUB_REF?.startsWith("refs/tags/v")));
 
 // Validate required environment variables for deployment
 if (isDeploy && !process.env.CDK_CONFIG_BASE64) {
