@@ -1,7 +1,0 @@
-{
-  "mcpServers": {
-    "dev3000": {
-      "httpUrl": "http://localhost:3684/mcp"
-    }
-  }
-}
