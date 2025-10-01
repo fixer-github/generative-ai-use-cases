@@ -15,9 +15,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            dagger/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install Dagger CLI
         run: |
@@ -25,9 +23,9 @@ jobs:
           sudo mv ./bin/dagger /usr/local/bin/dagger
 
       - name: Install dependencies
-        run: cd dagger && npm ci
+        run: npm ci
 
       - name: Run CI Pipeline
-        run: cd dagger && npm run ci
+        run: npm run pipeline:ci
         env:
           CI: true

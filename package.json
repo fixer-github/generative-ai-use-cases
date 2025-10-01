@@ -39,9 +39,9 @@
     "docs:dev": "mkdocs serve",
     "docs:build": "mkdocs build",
     "docs:gh-deploy": "mkdocs gh-deploy --",
-    "pipeline:dev": "cd dagger && npm run dev",
-    "pipeline:ci": "cd dagger && npm run ci",
-    "pipeline:deploy": "cd dagger && npm run deploy"
+    "pipeline:dev": "npm -w dagger run dev",
+    "pipeline:ci": "npm -w dagger run ci",
+    "pipeline:deploy": "npm -w dagger run deploy"
   },
   "devDependencies": {
     "@shopify/eslint-plugin": "50.0.0",
@@ -58,6 +58,7 @@
     "prettier-plugin-tailwindcss": "0.6.14"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "dagger"
   ]
 }

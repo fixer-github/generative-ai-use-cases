@@ -21,9 +21,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            dagger/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,10 +35,10 @@ jobs:
           sudo mv ./bin/dagger /usr/local/bin/dagger
 
       - name: Install dependencies
-        run: cd dagger && npm ci
+        run: npm ci
 
       - name: Deploy
-        run: cd dagger && npm run deploy
+        run: npm run pipeline:deploy
         env:
           CI: true
           CDK_CONFIG_BASE64: ${{ secrets.CDK_CONFIG_BASE64 }}
