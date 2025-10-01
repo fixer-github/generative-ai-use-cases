@@ -24,11 +24,16 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Configure AWS Credentials via OIDC
+        id: configure-aws
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          role-session-name: actionsDeployment
           aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+      - name: Set CDK Environment Variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=${{ steps.configure-aws.outputs.aws-account-id }}" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ steps.configure-aws.outputs.aws-region }}" >> $GITHUB_ENV
 
       - name: Install Dagger CLI
         run: |

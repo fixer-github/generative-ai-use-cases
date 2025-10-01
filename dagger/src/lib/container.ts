@@ -58,18 +58,10 @@ export function withDeploymentTools(container: Container): Container {
     .withExec(["pip3", "install", "--break-system-packages", "awscli"]);
 }
 
-export function withOIDCCredentials(container: Container): Container {
+export function withOIDCCredentials(container: Container, client: Client): Container {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
 
-  // AWS credentials are configured by GitHub Actions aws-actions/configure-aws-credentials
-  // The credentials are available in the environment and ~/.aws directory
-  const homeDir = process.env.HOME || "/root";
-
   return container
-    .withMountedDirectory(
-      `${homeDir}/.aws`,
-      container.client().host().directory(`${homeDir}/.aws`)
-    )
     .withEnvVariable("AWS_REGION", region)
     .withEnvVariable("AWS_DEFAULT_REGION", region);
 }

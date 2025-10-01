@@ -35,7 +35,7 @@ export async function pipeline(client: Client, options: PipelineOptions): Promis
 
   if (isDeploy) {
     console.log("🚀 Running deployment stage...");
-    container = await runDeploy(container);
+    container = await runDeploy(container, client);
   } else {
     console.log("⏭️  Skipping deployment stage");
   }
