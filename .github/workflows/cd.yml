@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    tags: ['v*']
+    # tags: ['v*']
 
 permissions:
   contents: read
@@ -10,7 +10,9 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to Production
+    environment:
+      name: Production
+    name: Deploy to AWS
     runs-on: ubuntu-latest
 
     steps:
