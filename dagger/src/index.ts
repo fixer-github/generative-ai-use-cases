@@ -3,27 +3,11 @@
 import { connect } from "@dagger.io/dagger";
 import { pipeline } from "./pipeline.js";
 
-const args = process.argv.slice(2);
-const envArg = args.find(arg => arg.startsWith("--env"));
-const envValue = envArg?.includes("=") ? envArg.split("=")[1] : args[args.indexOf(envArg!) + 1];
-
-const isCI = envValue === "ci" || process.env.CI === "true";
-const isDeploy = envValue === "deploy" || (isCI && (process.env.GITHUB_REF === "refs/heads/main" || process.env.GITHUB_REF?.startsWith("refs/tags/v") === true));
-
-// Validate required environment variables for deployment
-if (isDeploy && !process.env.CDK_CONFIG_BASE64) {
-  console.error("❌ Error: CDK_CONFIG_BASE64 environment variable is required for deployment");
-  console.error("Please set this secret in GitHub: gh secret set CDK_CONFIG_BASE64 --body \"$(base64 -w 0 < packages/cdk/cdk.json)\"");
-  process.exit(1);
-}
-
 async function main() {
   console.log("🚀 Starting Dagger pipeline...");
-  console.log(`Environment: ${isCI ? "CI" : "Local"}`);
-  console.log(`Deploy enabled: ${isDeploy}`);
 
   await connect(async (client) => {
-    await pipeline(client, { isCI, isDeploy });
+    await pipeline(client);
   }, { LogOutput: process.stderr });
 
   console.log("✅ Pipeline completed successfully");

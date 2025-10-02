@@ -2,16 +2,8 @@ import type { Client } from "@dagger.io/dagger";
 import { createNodeContainer, withSourceCode, withCachedNpmInstall } from "./lib/container.js";
 import { runBuild } from "./lib/build.js";
 import { runQualityChecks } from "./lib/test.js";
-import { runDeploy } from "./lib/deploy.js";
 
-export interface PipelineOptions {
-  isCI: boolean;
-  isDeploy: boolean;
-}
-
-export async function pipeline(client: Client, options: PipelineOptions): Promise<void> {
-  const { isCI, isDeploy } = options;
-
+export async function pipeline(client: Client): Promise<void> {
   console.log("🔧 Setting up base container...");
   let container = createNodeContainer({ client });
 
@@ -29,16 +21,6 @@ export async function pipeline(client: Client, options: PipelineOptions): Promis
   const buildPromise = runBuild(container);
 
   const [qualityResult, buildResult] = await Promise.all([qualityPromise, buildPromise]);
-
-  // Use the build result container for potential deployment
-  container = buildResult;
-
-  if (isDeploy) {
-    console.log("🚀 Running deployment stage...");
-    container = await runDeploy(container, client);
-  } else {
-    console.log("⏭️  Skipping deployment stage");
-  }
 
   console.log("🎉 Pipeline completed!");
 }

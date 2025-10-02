@@ -30,23 +30,28 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
-      - name: Install Dagger CLI
-        run: |
-          curl -fsSL https://releases.dagger.io/dagger/install.sh | sh
-          sudo mv ./bin/dagger /usr/local/bin/dagger
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Deploy
-        run: npm run pipeline:deploy
+      - name: Decode CDK Config
         env:
-          CI: true
           CDK_CONFIG_BASE64: ${{ secrets.CDK_CONFIG_BASE64 }}
+        run: |
+          echo "$CDK_CONFIG_BASE64" | base64 -d > packages/cdk/cdk.json
+
+      - name: Bootstrap CDK
+        run: npm -w packages/cdk run cdk -- bootstrap --verbose
+        env:
           CDK_DEFAULT_ACCOUNT: ${{ steps.configure-aws.outputs.aws-account-id }}
           CDK_DEFAULT_REGION: ${{ steps.configure-aws.outputs.aws-region }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
+
+      - name: Deploy CDK Stacks
+        run: npm -w packages/cdk run cdk -- deploy --all --require-approval never --verbose
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ steps.configure-aws.outputs.aws-account-id }}
+          CDK_DEFAULT_REGION: ${{ steps.configure-aws.outputs.aws-region }}
+
+      - name: Validate Deployment
+        run: |
+          npm -w packages/cdk run cdk -- ls
+          aws sts get-caller-identity
