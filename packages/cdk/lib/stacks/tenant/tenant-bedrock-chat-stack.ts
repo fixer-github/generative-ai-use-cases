@@ -84,6 +84,18 @@ export interface TenantBedrockChatStackProps extends cdk.StackProps {
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
 
+  /**
+   * Managed OpenSearchドメインのエンドポイント
+   * VectorSearchコレクションの代わりに使用
+   */
+  readonly opensearchDomainEndpoint?: string;
+
+  /**
+   * Managed OpenSearchドメインのARN
+   * IAMロールの権限付与に使用
+   */
+  readonly opensearchDomainArn?: string;
+
   // Cognito関連のプロパティは削除済み
   // クロスアカウント環境ではプロキシ経由でユーザー情報を受け取るため不要
 }
@@ -477,6 +489,8 @@ export class TenantBedrockChatStack extends cdk.Stack {
         envPrefix,
         bedrockRegion: bedrockRegion,
         sourceBucket: codeBuildSourceBucket,
+        opensearchDomainEndpoint: props.opensearchDomainEndpoint,
+        opensearchDomainArn: props.opensearchDomainArn,
       }
     );
 

@@ -222,6 +222,14 @@ console.log(
   )
 );
 
+// Get OpenSearch configuration from environment variables
+const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT;
+const opensearchDomainArn = process.env.OPENSEARCH_DOMAIN_ARN;
+
+if (opensearchDomainEndpoint) {
+  console.log('Using managed OpenSearch domain:', opensearchDomainEndpoint);
+}
+
 // Create the stack
 new BedrockCustomBotStack(app, `BrChatKbStack${baseConfig.botId}`, {
   // Environment configuration
@@ -255,6 +263,10 @@ new BedrockCustomBotStack(app, `BrChatKbStack${baseConfig.botId}`, {
 
   // Guardrail configuration
   guardrail: guardrailConfig,
+
+  // Managed OpenSearch configuration
+  opensearchDomainEndpoint: opensearchDomainEndpoint,
+  opensearchDomainArn: opensearchDomainArn,
 });
 
 cdk.Tags.of(app).add('CDKEnvironment', baseConfig.envName);

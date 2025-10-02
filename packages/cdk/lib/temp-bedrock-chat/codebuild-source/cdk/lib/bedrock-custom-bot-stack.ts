@@ -16,7 +16,7 @@ import {
   CrawlingScope,
   CrawlingFilters,
 } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/web-crawler-data-source';
-import { ParsingStategy } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/parsing';
+import { ParsingStrategy } from '@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/parsing';
 
 import {
   KnowledgeBase,
@@ -73,6 +73,10 @@ interface BedrockCustomBotStackProps extends StackProps {
 
   // Guardrail configuration
   readonly guardrail?: BedrockGuardrailProps;
+
+  // Managed OpenSearch configuration
+  readonly opensearchDomainEndpoint?: string;
+  readonly opensearchDomainArn?: string;
 }
 
 export class BedrockCustomBotStack extends Stack {
@@ -85,41 +89,158 @@ export class BedrockCustomBotStack extends Stack {
 
     // if knowledge base arn does not exist
     if (props.existKnowledgeBaseId == undefined) {
-      const vectorCollection = new VectorCollection(this, 'KBVectors', {
-        collectionName: `kb-${props.botId.slice(0, 20).toLowerCase()}`,
-        standbyReplicas:
-          props.enableRagReplicas === true
-            ? VectorCollectionStandbyReplicas.ENABLED
-            : VectorCollectionStandbyReplicas.DISABLED,
-      });
-      const vectorIndex = new VectorIndex(this, 'KBIndex', {
-        collection: vectorCollection,
-        // DO NOT CHANGE THIS VALUE
-        indexName: 'bedrock-knowledge-base-default-index',
-        // DO NOT CHANGE THIS VALUE
-        vectorField: 'bedrock-knowledge-base-default-vector',
-        vectorDimensions: props.embeddingsModel.vectorDimensions!,
-        mappings: [
-          {
-            mappingField: 'AMAZON_BEDROCK_TEXT_CHUNK',
-            dataType: 'text',
-            filterable: true,
-          },
-          {
-            mappingField: 'AMAZON_BEDROCK_METADATA',
-            dataType: 'text',
-            filterable: false,
-          },
-        ],
-        analyzer: props.analyzer,
-      });
+      // Check if managed OpenSearch configuration is provided
+      if (props.opensearchDomainEndpoint && props.opensearchDomainArn) {
+        // Use managed OpenSearch
+        const indexName = `kb-${props.botId.slice(0, 20).toLowerCase()}`;
 
-      kb = new KnowledgeBase(this, 'KB', {
-        embeddingsModel: props.embeddingsModel,
-        vectorStore: vectorCollection,
-        vectorIndex: vectorIndex,
-        instruction: props.instruction,
-      });
+        // Create index in managed OpenSearch using custom resource
+        const createIndexResource = new AwsCustomResource(
+          this,
+          'CreateOpenSearchIndex',
+          {
+            onCreate: {
+              service: 'OpenSearch',
+              action: 'indices.create',
+              parameters: {
+                index: indexName,
+                body: {
+                  settings: {
+                    'index.knn': true,
+                    'index.knn.algo_param.ef_search': 512,
+                  },
+                  mappings: {
+                    properties: {
+                      'bedrock-knowledge-base-default-vector': {
+                        type: 'knn_vector',
+                        dimension: props.embeddingsModel.vectorDimensions!,
+                        method: {
+                          name: 'hnsw',
+                          space_type: 'l2',
+                          engine: 'nmslib',
+                          parameters: {
+                            ef_construction: 512,
+                            m: 16,
+                          },
+                        },
+                      },
+                      AMAZON_BEDROCK_TEXT_CHUNK: {
+                        type: 'text',
+                      },
+                      AMAZON_BEDROCK_METADATA: {
+                        type: 'text',
+                      },
+                    },
+                  },
+                },
+              },
+              physicalResourceId: PhysicalResourceId.of(
+                `opensearch-index-${indexName}`
+              ),
+            },
+            onDelete: {
+              service: 'OpenSearch',
+              action: 'indices.delete',
+              parameters: {
+                index: indexName,
+              },
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+              new iam.PolicyStatement({
+                actions: ['es:*'],
+                resources: [
+                  props.opensearchDomainArn,
+                  `${props.opensearchDomainArn}/*`,
+                ],
+              }),
+            ]),
+          }
+        );
+
+        // Create KnowledgeBase with OpenSearch configuration
+        const kbRole = new iam.Role(this, 'KnowledgeBaseRole', {
+          assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
+        });
+
+        kbRole.addToPolicy(
+          new iam.PolicyStatement({
+            actions: ['es:*'],
+            resources: [
+              props.opensearchDomainArn,
+              `${props.opensearchDomainArn}/*`,
+            ],
+          })
+        );
+
+        // Use CfnKnowledgeBase for managed OpenSearch configuration
+        const cfnKb = new bedrock.CfnKnowledgeBase(this, 'KB', {
+          name: `kb-${props.botId}`,
+          roleArn: kbRole.roleArn,
+          knowledgeBaseConfiguration: {
+            type: 'VECTOR',
+            vectorKnowledgeBaseConfiguration: {
+              embeddingModelArn: props.embeddingsModel.asArn(this),
+            },
+          },
+          storageConfiguration: {
+            type: 'OPENSEARCH_SERVICE',
+            opensearchServiceConfiguration: {
+              collectionArn: props.opensearchDomainArn,
+              vectorIndexName: indexName,
+              fieldMapping: {
+                vectorField: 'bedrock-knowledge-base-default-vector',
+                textField: 'AMAZON_BEDROCK_TEXT_CHUNK',
+                metadataField: 'AMAZON_BEDROCK_METADATA',
+              },
+            },
+          },
+          description: props.instruction,
+        });
+
+        cfnKb.node.addDependency(createIndexResource);
+
+        kb = KnowledgeBase.fromKnowledgeBaseAttributes(this, 'KnowledgeBase', {
+          knowledgeBaseId: cfnKb.attrKnowledgeBaseId,
+          executionRoleArn: kbRole.roleArn,
+        });
+      } else {
+        // Fallback to VectorCollection (legacy)
+        const vectorCollection = new VectorCollection(this, 'KBVectors', {
+          collectionName: `kb-${props.botId.slice(0, 20).toLowerCase()}`,
+          standbyReplicas:
+            props.enableRagReplicas === true
+              ? VectorCollectionStandbyReplicas.ENABLED
+              : VectorCollectionStandbyReplicas.DISABLED,
+        });
+        const vectorIndex = new VectorIndex(this, 'KBIndex', {
+          collection: vectorCollection,
+          // DO NOT CHANGE THIS VALUE
+          indexName: 'bedrock-knowledge-base-default-index',
+          // DO NOT CHANGE THIS VALUE
+          vectorField: 'bedrock-knowledge-base-default-vector',
+          vectorDimensions: props.embeddingsModel.vectorDimensions!,
+          mappings: [
+            {
+              mappingField: 'AMAZON_BEDROCK_TEXT_CHUNK',
+              dataType: 'text',
+              filterable: true,
+            },
+            {
+              mappingField: 'AMAZON_BEDROCK_METADATA',
+              dataType: 'text',
+              filterable: false,
+            },
+          ],
+          analyzer: props.analyzer,
+        });
+
+        kb = new KnowledgeBase(this, 'KB', {
+          embeddingsModel: props.embeddingsModel,
+          vectorStore: vectorCollection,
+          vectorIndex: vectorIndex,
+          instruction: props.instruction,
+        });
+      }
 
       const dataSources = docBucketsAndPrefixes.map(({ bucket, prefix }) => {
         bucket.grantRead(kb.role);
@@ -130,8 +251,8 @@ export class BedrockCustomBotStack extends Stack {
           dataSourceName: bucket.bucketName,
           chunkingStrategy: props.chunkingStrategy,
           parsingStrategy: props.parsingModel
-            ? ParsingStategy.foundationModel({
-                parsingModel: props.parsingModel.asIModel(this),
+            ? ParsingStrategy.foundationModel({
+                parsingModel: props.parsingModel,
               })
             : undefined,
           inclusionPrefixes: inclusionPrefixes,
@@ -148,8 +269,8 @@ export class BedrockCustomBotStack extends Stack {
             sourceUrls: props.sourceUrls,
             chunkingStrategy: props.chunkingStrategy,
             parsingStrategy: props.parsingModel
-              ? ParsingStategy.foundationModel({
-                  parsingModel: props.parsingModel.asIModel(this),
+              ? ParsingStrategy.foundationModel({
+                  parsingModel: props.parsingModel,
                 })
               : undefined,
             crawlingScope: props.crawlingScope,

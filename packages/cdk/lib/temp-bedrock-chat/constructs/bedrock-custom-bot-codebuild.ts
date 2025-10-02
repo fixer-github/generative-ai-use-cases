@@ -8,6 +8,8 @@ export interface BedrockCustomBotCodebuildProps {
   readonly envPrefix: string;
   readonly bedrockRegion: string;
   readonly sourceBucket: s3.Bucket;
+  readonly opensearchDomainEndpoint?: string;
+  readonly opensearchDomainArn?: string;
 }
 
 export class BedrockCustomBotCodebuild extends Construct {
@@ -20,6 +22,28 @@ export class BedrockCustomBotCodebuild extends Construct {
     super(scope, id);
 
     const sourceBucket = props.sourceBucket;
+
+    // Build environment variables
+    const environmentVariables: {
+      [key: string]: codebuild.BuildEnvironmentVariable;
+    } = {
+      ENV_NAME: { value: props.envName },
+      ENV_PREFIX: { value: props.envPrefix },
+      BEDROCK_REGION: { value: props.bedrockRegion },
+    };
+
+    // Add OpenSearch configuration if provided
+    if (props.opensearchDomainEndpoint) {
+      environmentVariables.OPENSEARCH_DOMAIN_ENDPOINT = {
+        value: props.opensearchDomainEndpoint,
+      };
+    }
+    if (props.opensearchDomainArn) {
+      environmentVariables.OPENSEARCH_DOMAIN_ARN = {
+        value: props.opensearchDomainArn,
+      };
+    }
+
     const project = new codebuild.Project(this, 'Project', {
       source: codebuild.Source.s3({
         bucket: sourceBucket,
@@ -29,11 +53,7 @@ export class BedrockCustomBotCodebuild extends Construct {
         buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
         privileged: true,
       },
-      environmentVariables: {
-        ENV_NAME: { value: props.envName },
-        ENV_PREFIX: { value: props.envPrefix },
-        BEDROCK_REGION: { value: props.bedrockRegion },
-      },
+      environmentVariables,
       buildSpec: codebuild.BuildSpec.fromObject({
         version: '0.2',
         phases: {
@@ -66,6 +86,26 @@ export class BedrockCustomBotCodebuild extends Construct {
         resources: ['arn:aws:iam::*:role/cdk-*'],
       })
     );
+
+    // If OpenSearch configuration is provided, grant necessary permissions
+    if (props.opensearchDomainArn) {
+      project.role!.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            'es:*',
+            'bedrock:CreateKnowledgeBase',
+            'bedrock:UpdateKnowledgeBase',
+            'bedrock:DeleteKnowledgeBase',
+            'bedrock:AssociateKnowledgeBaseWithDataSource',
+          ],
+          resources: [
+            props.opensearchDomainArn,
+            `${props.opensearchDomainArn}/*`,
+            'arn:aws:bedrock:*:*:knowledge-base/*',
+          ],
+        })
+      );
+    }
 
     this.project = project;
   }

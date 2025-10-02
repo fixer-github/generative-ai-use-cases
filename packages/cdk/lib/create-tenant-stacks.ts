@@ -3,6 +3,8 @@ import { TenantDynamoDBStack } from './stacks/tenant/tenant-dynamodb-stack';
 import { TenantS3Stack } from './stacks/tenant/tenant-s3-stack';
 import { TenantIAMStack } from './stacks/tenant/tenant-iam-stack';
 import { TenantBedrockChatStack } from './stacks/tenant/tenant-bedrock-chat-stack';
+import { TenantVpcStack } from './stacks/tenant/tenant-vpc-stack';
+import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
 
 export interface TenantStackInput {
   account?: string;
@@ -15,6 +17,9 @@ export interface TenantStackInput {
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
+  opensearchCapacity?: string;
+  vpcCidr?: string;
+  masterUserArn?: string;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -62,6 +67,43 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     }
   );
 
+  // Tenant VPC Stack
+  const tenantVpcStack = new TenantVpcStack(
+    app,
+    `TenantVpcStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      vpcCidr: params.vpcCidr,
+    }
+  );
+
+  // Tenant OpenSearch Stack
+  const tenantOpenSearchStack = new TenantOpenSearchStack(
+    app,
+    `TenantOpenSearchStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      vpc: tenantVpcStack.vpc,
+      opensearchCapacity: params.opensearchCapacity,
+      masterUserArn: params.masterUserArn,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    }
+  );
+  // Add dependency to ensure VPC is created first
+  tenantOpenSearchStack.addDependency(tenantVpcStack);
+
   // Tenant Bedrock Chat Stack (optional)
   let tenantBedrockChatStack;
   if (params.enableBedrockChat) {
@@ -79,14 +121,20 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         removalPolicy: params.removalPolicy
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
+        opensearchDomainEndpoint: tenantOpenSearchStack.domainEndpoint,
+        opensearchDomainArn: tenantOpenSearchStack.domain.domainArn,
       }
     );
+    // Add dependency to ensure OpenSearch is created first
+    tenantBedrockChatStack.addDependency(tenantOpenSearchStack);
   }
 
   return {
     tenantIAMStack,
     tenantDynamoDBStack,
     tenantS3Stack,
+    tenantVpcStack,
+    tenantOpenSearchStack,
     tenantBedrockChatStack,
   };
 };
