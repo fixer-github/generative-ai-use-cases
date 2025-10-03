@@ -48,6 +48,8 @@ import FileApi from './file';
 import FileBucket from '../file-bucket';
 import ShareApi from './share';
 import AdminApi from './admin';
+import PptxApi from './pptx';
+import { PptxDb } from '../pptx-db';
 
 export interface BackendApiProps {
   // Context Params
@@ -80,6 +82,10 @@ export interface BackendApiProps {
   readonly guardrailVersion?: string;
   // Tenant Management
   readonly tenantManager?: TenantManager;
+  // PPTX
+  readonly pptxDb?: PptxDb;
+  readonly pptxTemplatesBucketName?: string;
+  readonly pptxOutputsBucketName?: string;
 
   // LangChain Credentials
   readonly openai?: {
@@ -363,6 +369,16 @@ export class Api extends Construct {
     new VideoApi(this, 'VideoAPI', apiProps);
     new WebTextApi(this, 'WebTextAPI', apiProps);
     new AdminApi(this, 'AdminAPI', apiProps);
+
+    // PPTX API (if resources are provided)
+    if (props.pptxDb && props.pptxTemplatesBucketName && props.pptxOutputsBucketName) {
+      new PptxApi(this, 'PptxAPI', {
+        ...apiProps,
+        pptxDb: props.pptxDb,
+        pptxTemplatesBucketName: props.pptxTemplatesBucketName,
+        pptxOutputsBucketName: props.pptxOutputsBucketName,
+      });
+    }
 
     // Add ALL methods proxy to Bedrock Chat proxy Lambda
     this.restApi = api;

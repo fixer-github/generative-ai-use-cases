@@ -1,44 +1,43 @@
+import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
-import { Architecture, Runtime, Function, Code } from 'aws-cdk-lib/aws-lambda';
-import { 
-  HttpApi, 
-  HttpMethod, 
-  CorsHttpMethod 
-} from 'aws-cdk-lib/aws-apigatewayv2';
-import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
-import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { getBaseEnvironment } from './util';
+import { GenericApiProps } from './props';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { IBucket } from 'aws-cdk-lib/aws-s3';
-import { IQueue } from 'aws-cdk-lib/aws-sqs';
-import { IAuth } from '../../temp-bedrock-chat/constructs/auth';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import { PptxDb } from '../pptx-db';
-import * as path from 'path';
 
-export interface PptxApiProps {
-  readonly api: HttpApi;
-  readonly auth: IAuth;
+export interface PptxApiExtraProps {
   readonly pptxDb: PptxDb;
-  readonly templatesBucket: IBucket;
-  readonly outputsBucket: IBucket;
-  readonly generationQueue: IQueue;
-  readonly corsAllowOrigins?: string[];
+  readonly pptxTemplatesBucketName: string;
+  readonly pptxOutputsBucketName: string;
 }
 
-export class PptxApi extends Construct {
+export type PptxApiProps = GenericApiProps & PptxApiExtraProps;
+
+class PptxApi extends Construct {
+  readonly generationQueue: sqs.Queue;
+
   constructor(scope: Construct, id: string, props: PptxApiProps) {
     super(scope, id);
 
-    const { api, auth, pptxDb, templatesBucket, outputsBucket, generationQueue } = props;
-    const corsAllowOrigins = props.corsAllowOrigins || ['*'];
+    const {
+      api,
+      commonAuthorizerProps,
+      pptxDb,
+      pptxTemplatesBucketName,
+      pptxOutputsBucketName,
+    } = props;
 
-    // Create authorizer
-    const authorizer = new HttpUserPoolAuthorizer('PptxAuthorizer', 
-      auth.userPool,
-      {
-        userPoolClients: [auth.client],
-      }
-    );
+    // Create SQS queue for PPTX generation
+    this.generationQueue = new sqs.Queue(this, 'PptxGenerationQueue', {
+      queueName: `pptx-generation-queue-${props.environment}`,
+      visibilityTimeout: Duration.minutes(15),
+      retentionPeriod: Duration.days(7),
+    });
 
     // Create shared IAM role for Lambda functions
     const lambdaRole = new iam.Role(this, 'PptxLambdaRole', {
@@ -52,166 +51,188 @@ export class PptxApi extends Construct {
     pptxDb.templatesTable.grantFullAccess(lambdaRole);
     pptxDb.generationsTable.grantFullAccess(lambdaRole);
 
-    // Grant S3 permissions
-    templatesBucket.grantReadWrite(lambdaRole);
-    outputsBucket.grantReadWrite(lambdaRole);
-
     // Grant SQS permissions
-    generationQueue.grantSendMessages(lambdaRole);
+    this.generationQueue.grantSendMessages(lambdaRole);
 
     // Common Lambda props
     const commonLambdaProps = {
-      runtime: Runtime.NODEJS_20_X,
-      architecture: Architecture.X86_64,
+      runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.minutes(1),
       role: lambdaRole,
-      environment: {
+      environment: getBaseEnvironment(this, props, {
         PPTX_TEMPLATES_TABLE: pptxDb.templatesTable.tableName,
         PPTX_GENERATIONS_TABLE: pptxDb.generationsTable.tableName,
-        PPTX_TEMPLATES_BUCKET: templatesBucket.bucketName,
-        PPTX_OUTPUTS_BUCKET: outputsBucket.bucketName,
-        PPTX_GENERATION_QUEUE: generationQueue.queueUrl,
-      },
+        PPTX_TEMPLATES_BUCKET: pptxTemplatesBucketName,
+        PPTX_OUTPUTS_BUCKET: pptxOutputsBucketName,
+        PPTX_GENERATION_QUEUE: this.generationQueue.queueUrl,
+      }),
     };
 
     // Template Upload URL Lambda
-    const getTemplateUploadUrlLambda = new Function(this, 'GetTemplateUploadUrl', {
+    const getTemplateUploadUrlLambda = new NodejsFunction(this, 'GetTemplateUploadUrl', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'getTemplateUploadUrl.handler',
+      entry: './lambda/pptx/getTemplateUploadUrl.ts',
+      handler: 'handler',
     });
 
     // Create Template Lambda
-    const createTemplateLambda = new Function(this, 'CreateTemplate', {
+    const createTemplateLambda = new NodejsFunction(this, 'CreateTemplate', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'createTemplate.handler',
+      entry: './lambda/pptx/createTemplate.ts',
+      handler: 'handler',
     });
 
     // List Templates Lambda
-    const listTemplatesLambda = new Function(this, 'ListTemplates', {
+    const listTemplatesLambda = new NodejsFunction(this, 'ListTemplates', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'listTemplates.handler',
+      entry: './lambda/pptx/listTemplates.ts',
+      handler: 'handler',
     });
 
     // Delete Template Lambda
-    const deleteTemplateLambda = new Function(this, 'DeleteTemplate', {
+    const deleteTemplateLambda = new NodejsFunction(this, 'DeleteTemplate', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'deleteTemplate.handler',
+      entry: './lambda/pptx/deleteTemplate.ts',
+      handler: 'handler',
     });
 
     // Generate PPTX Lambda
-    const generatePptxLambda = new Function(this, 'GeneratePptx', {
+    const generatePptxLambda = new NodejsFunction(this, 'GeneratePptx', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'generatePptx.handler',
+      entry: './lambda/pptx/generatePptx.ts',
+      handler: 'handler',
     });
 
     // Get Generation Status Lambda
-    const getGenerationStatusLambda = new Function(this, 'GetGenerationStatus', {
+    const getGenerationStatusLambda = new NodejsFunction(this, 'GetGenerationStatus', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'getGenerationStatus.handler',
+      entry: './lambda/pptx/getGenerationStatus.ts',
+      handler: 'handler',
     });
 
     // List Generations Lambda
-    const listGenerationsLambda = new Function(this, 'ListGenerations', {
+    const listGenerationsLambda = new NodejsFunction(this, 'ListGenerations', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'listGenerations.handler',
+      entry: './lambda/pptx/listGenerations.ts',
+      handler: 'handler',
     });
 
     // Download PPTX Lambda
-    const downloadPptxLambda = new Function(this, 'DownloadPptx', {
+    const downloadPptxLambda = new NodejsFunction(this, 'DownloadPptx', {
       ...commonLambdaProps,
-      code: Code.fromAsset(path.join(__dirname, '../../lambda/pptx')),
-      handler: 'downloadPptx.handler',
+      entry: './lambda/pptx/downloadPptx.ts',
+      handler: 'handler',
     });
 
-    // API Routes
-    // Template upload URL
-    api.addRoutes({
-      path: '/pptx/template/upload-url',
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration('GetTemplateUploadUrlIntegration', getTemplateUploadUrlLambda),
-      authorizer,
+    // PPTX Generation Worker Lambda (SQS Consumer)
+    const pptxGenerationWorkerLambda = new NodejsFunction(this, 'PptxGenerationWorker', {
+      ...commonLambdaProps,
+      entry: './lambda/pptxGeneration.ts',
+      handler: 'handler',
+      timeout: Duration.minutes(5), // Longer timeout for PPTX generation
     });
 
-    // Create template
-    api.addRoutes({
-      path: '/pptx/template',
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration('CreateTemplateIntegration', createTemplateLambda),
-      authorizer,
-    });
+    // Grant SQS consume permissions
+    this.generationQueue.grantConsumeMessages(pptxGenerationWorkerLambda);
 
-    // List templates
-    api.addRoutes({
-      path: '/pptx/template',
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('ListTemplatesIntegration', listTemplatesLambda),
-      authorizer,
-    });
+    // Add SQS event source mapping
+    pptxGenerationWorkerLambda.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.generationQueue, {
+        batchSize: 1,
+        maxBatchingWindow: Duration.seconds(0),
+      })
+    );
 
-    // Delete template
-    api.addRoutes({
-      path: '/pptx/template/{templateId}',
-      methods: [HttpMethod.DELETE],
-      integration: new HttpLambdaIntegration('DeleteTemplateIntegration', deleteTemplateLambda),
-      authorizer,
-    });
-
-    // Generate PPTX
-    api.addRoutes({
-      path: '/pptx/generate',
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration('GeneratePptxIntegration', generatePptxLambda),
-      authorizer,
-    });
-
-    // Get generation status
-    api.addRoutes({
-      path: '/pptx/generation/{generationId}',
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('GetGenerationStatusIntegration', getGenerationStatusLambda),
-      authorizer,
-    });
-
-    // List generations
-    api.addRoutes({
-      path: '/pptx/generation',
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('ListGenerationsIntegration', listGenerationsLambda),
-      authorizer,
-    });
-
-    // Download PPTX
-    api.addRoutes({
-      path: '/pptx/download/{generationId}',
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('DownloadPptxIntegration', downloadPptxLambda),
-      authorizer,
-    });
-
-    // Enable CORS for all routes
-    const corsOptions = {
-      allowCredentials: true,
-      allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key'],
-      allowMethods: [
-        CorsHttpMethod.OPTIONS,
-        CorsHttpMethod.GET,
-        CorsHttpMethod.POST,
-        CorsHttpMethod.PUT,
-        CorsHttpMethod.DELETE,
+    // Grant S3 permissions to all Lambda functions
+    // Note: We can't directly reference buckets since they're tenant-specific,
+    // so we grant permissions via the role using bucket names
+    lambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        's3:GetObject',
+        's3:PutObject',
+        's3:DeleteObject',
+        's3:ListBucket',
       ],
-      allowOrigins: corsAllowOrigins,
-      exposeHeaders: ['Date'],
-      maxAge: Duration.days(10),
-    };
+      resources: [
+        `arn:aws:s3:::${pptxTemplatesBucketName}/*`,
+        `arn:aws:s3:::${pptxTemplatesBucketName}`,
+        `arn:aws:s3:::${pptxOutputsBucketName}/*`,
+        `arn:aws:s3:::${pptxOutputsBucketName}`,
+      ],
+    }));
 
-    // Note: CORS is typically handled at the HttpApi level, not per route
-    // The specific CORS configuration would be applied when creating the HttpApi
+    // API: /pptx
+    const pptxRootResource = api.root.addResource('pptx');
+
+    // API: /pptx/template
+    const templateResource = pptxRootResource.addResource('template');
+
+    // POST: /pptx/template/upload-url
+    const uploadUrlResource = templateResource.addResource('upload-url');
+    uploadUrlResource.addMethod(
+      'POST',
+      new LambdaIntegration(getTemplateUploadUrlLambda),
+      commonAuthorizerProps
+    );
+
+    // POST: /pptx/template
+    templateResource.addMethod(
+      'POST',
+      new LambdaIntegration(createTemplateLambda),
+      commonAuthorizerProps
+    );
+
+    // GET: /pptx/template
+    templateResource.addMethod(
+      'GET',
+      new LambdaIntegration(listTemplatesLambda),
+      commonAuthorizerProps
+    );
+
+    // DELETE: /pptx/template/{templateId}
+    const templateIdResource = templateResource.addResource('{templateId}');
+    templateIdResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteTemplateLambda),
+      commonAuthorizerProps
+    );
+
+    // API: /pptx/generate
+    const generateResource = pptxRootResource.addResource('generate');
+    generateResource.addMethod(
+      'POST',
+      new LambdaIntegration(generatePptxLambda),
+      commonAuthorizerProps
+    );
+
+    // API: /pptx/generation
+    const generationResource = pptxRootResource.addResource('generation');
+
+    // GET: /pptx/generation
+    generationResource.addMethod(
+      'GET',
+      new LambdaIntegration(listGenerationsLambda),
+      commonAuthorizerProps
+    );
+
+    // GET: /pptx/generation/{generationId}
+    const generationIdResource = generationResource.addResource('{generationId}');
+    generationIdResource.addMethod(
+      'GET',
+      new LambdaIntegration(getGenerationStatusLambda),
+      commonAuthorizerProps
+    );
+
+    // API: /pptx/download/{generationId}
+    const downloadResource = pptxRootResource.addResource('download');
+    const downloadIdResource = downloadResource.addResource('{generationId}');
+    downloadIdResource.addMethod(
+      'GET',
+      new LambdaIntegration(downloadPptxLambda),
+      commonAuthorizerProps
+    );
   }
 }
+
+export default PptxApi;

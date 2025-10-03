@@ -47,7 +47,8 @@ const PptxGenerationPage: React.FC = () => {
   // Load templates on mount
   useEffect(() => {
     loadTemplates();
-  }, [loadTemplates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Poll generation status if we have an active generation
   useEffect(() => {
@@ -75,7 +76,7 @@ const PptxGenerationPage: React.FC = () => {
   }, [currentGeneration, checkGenerationStatus]);
 
   const handleGeneratePptx = useCallback(async () => {
-    if (!instructions.trim()) {
+    if (!instructions.trim() || isGenerating) {
       return;
     }
 
@@ -97,6 +98,7 @@ const PptxGenerationPage: React.FC = () => {
     includeTitleSlide,
     includeSummarySlide,
     generatePptx,
+    isGenerating,
   ]);
 
   const handleDownload = useCallback(async () => {

@@ -72,7 +72,7 @@ export class PptxDb extends Construct {
         name: 'tenantId',
         type: dynamodb.AttributeType.STRING,
       },
-      billing: dynamodb.Billing.onDemand(),
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       removalPolicy: removalPolicy,
       deletionProtection: !props.removalPolicy,
@@ -91,7 +91,6 @@ export class PptxDb extends Construct {
         name: 'userId',
         type: dynamodb.AttributeType.STRING,
       },
-      projection: dynamodb.ProjectionType.ALL,
     });
 
     // Add GSI for querying public templates by tenant
@@ -105,7 +104,6 @@ export class PptxDb extends Construct {
         name: 'isPublic',
         type: dynamodb.AttributeType.STRING,
       },
-      projection: dynamodb.ProjectionType.ALL,
     });
 
     // Create PPTX generations table
@@ -119,7 +117,7 @@ export class PptxDb extends Construct {
         name: 'userId',
         type: dynamodb.AttributeType.STRING,
       },
-      billing: dynamodb.Billing.onDemand(),
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       removalPolicy: removalPolicy,
       deletionProtection: !props.removalPolicy,
@@ -138,7 +136,6 @@ export class PptxDb extends Construct {
         name: 'createdAt',
         type: dynamodb.AttributeType.STRING,
       },
-      projection: dynamodb.ProjectionType.ALL,
     });
 
     // Add GSI for querying generations by chat ID
@@ -152,7 +149,6 @@ export class PptxDb extends Construct {
         name: 'createdAt',
         type: dynamodb.AttributeType.STRING,
       },
-      projection: dynamodb.ProjectionType.ALL,
     });
 
     // Add tags to all tables

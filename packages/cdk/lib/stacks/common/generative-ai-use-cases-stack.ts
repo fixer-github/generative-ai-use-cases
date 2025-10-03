@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   Auth,
@@ -10,6 +10,8 @@ import {
   LitellmProxyServer,
   TenantManager,
 } from '../../construct';
+import { PptxDb } from '../../construct/pptx-db';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -82,6 +84,50 @@ export class GenerativeAiUseCasesStack extends Stack {
       enableAutoDelete: params.enableAutoDelete,
     });
 
+    // PPTX Database (using default tenant for now - can be refactored for multi-tenancy later)
+    const pptxDb = new PptxDb(this, 'PptxDb', {
+      tenantId: 'default',
+      environment: params.env,
+      removalPolicy: params.enableAutoDelete,
+    });
+
+    // PPTX S3 Buckets
+    const pptxTemplatesBucket = new s3.Bucket(this, 'PptxTemplatesBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      removalPolicy: params.enableAutoDelete ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
+      autoDeleteObjects: params.enableAutoDelete,
+      cors: [
+        {
+          allowedOrigins: ['*'],
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT, s3.HttpMethods.HEAD, s3.HttpMethods.DELETE],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2', 'x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm'],
+          maxAge: 3000,
+        },
+      ],
+    });
+
+    const pptxOutputsBucket = new s3.Bucket(this, 'PptxOutputsBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      removalPolicy: params.enableAutoDelete ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
+      autoDeleteObjects: params.enableAutoDelete,
+      cors: [
+        {
+          allowedOrigins: ['*'],
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2'],
+          maxAge: 3000,
+        },
+      ],
+    });
+
     // LiteLLM Proxy Server (must be created before API)
     let litellmEndpoint: string | null = null;
     let litellmProxy: LitellmProxyServer | null = null;
@@ -124,6 +170,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailVersion: props.guardrailVersion,
       environment: params.env,
       tenantManager: tenantManager,
+      // PPTX resources
+      pptxDb: pptxDb,
+      pptxTemplatesBucketName: pptxTemplatesBucket.bucketName,
+      pptxOutputsBucketName: pptxOutputsBucket.bucketName,
 
       // LangChain Credentials
       openai: params.openai,
