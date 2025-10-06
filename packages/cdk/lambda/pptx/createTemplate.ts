@@ -3,9 +3,9 @@ import { v4 as uuid4 } from 'uuid';
 import { createTemplate } from './pptxRepository';
 
 interface CreateTemplateRequest {
-  templateName: string;
-  templateDescription?: string;
-  isPublic?: boolean;
+  template_name: string;
+  template_description?: string;
+  is_public?: boolean;
   tags?: string[];
 }
 
@@ -55,7 +55,7 @@ export const handler = async (
     }
 
     // Validate required fields
-    if (!templateInput.templateName || templateInput.templateName.trim().length === 0) {
+    if (!templateInput.template_name || templateInput.template_name.trim().length === 0) {
       return {
         statusCode: 400,
         headers: {
@@ -66,7 +66,7 @@ export const handler = async (
       };
     }
 
-    if (templateInput.templateName.length > 100) {
+    if (templateInput.template_name.length > 100) {
       return {
         statusCode: 400,
         headers: {
@@ -77,7 +77,7 @@ export const handler = async (
       };
     }
 
-    if (templateInput.templateDescription && templateInput.templateDescription.length > 500) {
+    if (templateInput.template_description && templateInput.template_description.length > 500) {
       return {
         statusCode: 400,
         headers: {
@@ -92,13 +92,13 @@ export const handler = async (
     const templateId = uuid4();
     
     const template = await createTemplate(
+      event,
       templateId,
-      tenantId,
       userId,
-      templateInput.templateName,
-      templateInput.templateDescription,
+      templateInput.template_name,
+      templateInput.template_description,
       s3Key,
-      templateInput.isPublic || false,
+      templateInput.is_public || false,
       templateInput.tags || []
     );
 

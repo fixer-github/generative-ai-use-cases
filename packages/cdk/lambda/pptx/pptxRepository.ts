@@ -8,14 +8,40 @@ import {
   DeleteCommand,
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 
-// Initialize DynamoDB client
-const dynamoClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(dynamoClient);
+import { getPptxTemplatesTableName, getPptxGenerationsTableName } from './tenantPptxConfig';
+import { getTenantId } from '../utils/tenantUtils';
+import { createTenantDynamoDBClient } from '../utils/tenantDynamoDBClient';
 
-// Environment variables
-const PPTX_TEMPLATES_TABLE = process.env.PPTX_TEMPLATES_TABLE!;
-const PPTX_GENERATIONS_TABLE = process.env.PPTX_GENERATIONS_TABLE!;
+/**
+ * Get or create a tenant-specific DynamoDB document client
+ * Falls back to default client if tenant-specific access fails
+ */
+async function getTenantDynamoDBDocument(
+  event: APIGatewayProxyEvent
+): Promise<DynamoDBDocumentClient> {
+  const tenantId = getTenantId(event);
+
+  // For default tenant, use standard DynamoDB client
+  if (!tenantId || tenantId === 'default') {
+    return DynamoDBDocumentClient.from(new DynamoDBClient({}));
+  }
+
+  try {
+    // Try to create client with tenant credentials
+    // Each request gets fresh credentials to ensure proper user isolation
+    const dynamoDb = await createTenantDynamoDBClient(event);
+    return DynamoDBDocumentClient.from(dynamoDb);
+  } catch (error) {
+    console.error(
+      'Failed to assume role for tenant access, falling back to default:',
+      error
+    );
+    // Fall back to standard DynamoDB client
+    return DynamoDBDocumentClient.from(new DynamoDBClient({}));
+  }
+}
 
 export interface PptxTemplate {
   templateId: string;
@@ -53,8 +79,8 @@ export interface PptxGeneration {
 
 // Template Operations
 export async function createTemplate(
+  event: APIGatewayProxyEvent,
   templateId: string,
-  tenantId: string,
   userId: string,
   templateName: string,
   templateDescription: string | undefined,
@@ -63,6 +89,8 @@ export async function createTemplate(
   tags: string[] = [],
   thumbnailS3Key?: string
 ): Promise<PptxTemplate> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
   const now = new Date().toISOString();
   const ttl = Math.floor((new Date().getTime() + 365 * 24 * 60 * 60 * 1000) / 1000); // 1 year TTL
 
@@ -82,51 +110,53 @@ export async function createTemplate(
   };
 
   const command = new PutCommand({
-    TableName: PPTX_TEMPLATES_TABLE,
+    TableName: getPptxTemplatesTableName(tenantId),
     Item: item,
   });
 
   await docClient.send(command);
-  console.log(`Created PPTX template: ${templateId}`);
+  console.log(`Created PPTX template: ${templateId} for tenant: ${tenantId}`);
   return item;
 }
 
-export async function findTemplateById(templateId: string): Promise<PptxTemplate | null> {
-  const command = new QueryCommand({
-    TableName: PPTX_TEMPLATES_TABLE,
-    KeyConditionExpression: 'templateId = :templateId',
-    ExpressionAttributeValues: {
-      ':templateId': templateId,
+export async function findTemplateById(event: APIGatewayProxyEvent, templateId: string): Promise<PptxTemplate | null> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
+
+  const command = new GetCommand({
+    TableName: getPptxTemplatesTableName(tenantId),
+    Key: {
+      templateId,
     },
   });
 
   const response = await docClient.send(command);
-  const items = response.Items;
 
-  if (!items || items.length === 0) {
+  if (!response.Item) {
     return null;
   }
 
-  return items[0] as PptxTemplate;
+  return response.Item as PptxTemplate;
 }
 
 export async function findTemplatesByTenant(
-  tenantId: string,
+  event: APIGatewayProxyEvent,
   userId?: string,
   includePublic: boolean = true,
   limit: number = 20,
   offset: number = 0
 ): Promise<PptxTemplate[]> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
   const templates: PptxTemplate[] = [];
 
   // Query user's private templates if userId provided
   if (userId) {
     const userCommand = new QueryCommand({
-      TableName: PPTX_TEMPLATES_TABLE,
-      IndexName: 'TenantUserIndex',
-      KeyConditionExpression: 'tenantId = :tenantId AND userId = :userId',
+      TableName: getPptxTemplatesTableName(tenantId),
+      IndexName: 'UserIndex',
+      KeyConditionExpression: 'userId = :userId',
       ExpressionAttributeValues: {
-        ':tenantId': tenantId,
         ':userId': userId,
       },
       Limit: limit,
@@ -141,11 +171,10 @@ export async function findTemplatesByTenant(
   // Query public templates if requested
   if (includePublic && templates.length < limit) {
     const publicCommand = new QueryCommand({
-      TableName: PPTX_TEMPLATES_TABLE,
-      IndexName: 'TenantPublicIndex',
-      KeyConditionExpression: 'tenantId = :tenantId AND isPublic = :isPublic',
+      TableName: getPptxTemplatesTableName(tenantId),
+      IndexName: 'PublicIndex',
+      KeyConditionExpression: 'isPublic = :isPublic',
       ExpressionAttributeValues: {
-        ':tenantId': tenantId,
         ':isPublic': 'true',
       },
       Limit: limit - templates.length,
@@ -163,30 +192,26 @@ export async function findTemplatesByTenant(
     .slice(offset, offset + limit);
 }
 
-export async function deleteTemplateById(templateId: string): Promise<void> {
-  // First, get the template to get the tenantId (needed for composite key)
-  const template = await findTemplateById(templateId);
-  if (!template) {
-    throw new Error('Template not found');
-  }
+export async function deleteTemplateById(event: APIGatewayProxyEvent, templateId: string): Promise<void> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
 
   const command = new DeleteCommand({
-    TableName: PPTX_TEMPLATES_TABLE,
+    TableName: getPptxTemplatesTableName(tenantId),
     Key: {
       templateId,
-      tenantId: template.tenantId,
     },
   });
 
   await docClient.send(command);
-  console.log(`Deleted PPTX template: ${templateId}`);
+  console.log(`Deleted PPTX template: ${templateId} for tenant: ${tenantId}`);
 }
 
 // Generation Operations
 export async function createGeneration(
+  event: APIGatewayProxyEvent,
   generationId: string,
   userId: string,
-  tenantId: string,
   chatId: string | undefined,
   templateId: string | undefined,
   instructions: string,
@@ -194,6 +219,8 @@ export async function createGeneration(
   includeTitleSlide: boolean = true,
   includeSummarySlide: boolean = false
 ): Promise<PptxGeneration> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
   const now = new Date().toISOString();
   const ttl = Math.floor((new Date().getTime() + 7 * 24 * 60 * 60 * 1000) / 1000); // 7 days TTL
 
@@ -214,18 +241,21 @@ export async function createGeneration(
   };
 
   const command = new PutCommand({
-    TableName: PPTX_GENERATIONS_TABLE,
+    TableName: getPptxGenerationsTableName(tenantId),
     Item: item,
   });
 
   await docClient.send(command);
-  console.log(`Created PPTX generation: ${generationId}`);
+  console.log(`Created PPTX generation: ${generationId} for tenant: ${tenantId}`);
   return item;
 }
 
-export async function findGenerationById(generationId: string): Promise<PptxGeneration | null> {
+export async function findGenerationById(event: APIGatewayProxyEvent, generationId: string): Promise<PptxGeneration | null> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
+
   const command = new QueryCommand({
-    TableName: PPTX_GENERATIONS_TABLE,
+    TableName: getPptxGenerationsTableName(tenantId),
     KeyConditionExpression: 'generationId = :generationId',
     ExpressionAttributeValues: {
       ':generationId': generationId,
@@ -243,12 +273,16 @@ export async function findGenerationById(generationId: string): Promise<PptxGene
 }
 
 export async function findGenerationsByUser(
+  event: APIGatewayProxyEvent,
   userId: string,
   limit: number = 20,
   offset: number = 0
 ): Promise<PptxGeneration[]> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
+
   const command = new QueryCommand({
-    TableName: PPTX_GENERATIONS_TABLE,
+    TableName: getPptxGenerationsTableName(tenantId),
     IndexName: 'UserGenerationsIndex',
     KeyConditionExpression: 'userId = :userId',
     ExpressionAttributeValues: {
@@ -265,6 +299,7 @@ export async function findGenerationsByUser(
 }
 
 export async function updateGenerationStatus(
+  event: APIGatewayProxyEvent,
   generationId: string,
   userId: string,
   status: 'generating' | 'completed' | 'failed',
@@ -272,6 +307,9 @@ export async function updateGenerationStatus(
   errorMessage?: string,
   slides?: any[]
 ): Promise<void> {
+  const tenantId = getTenantId(event);
+  const docClient = await getTenantDynamoDBDocument(event);
+
   let updateExpression = 'SET #status = :status, updatedAt = :updatedAt';
   const expressionAttributeNames: Record<string, string> = {
     '#status': 'status',
@@ -297,7 +335,7 @@ export async function updateGenerationStatus(
   }
 
   const command = new UpdateCommand({
-    TableName: PPTX_GENERATIONS_TABLE,
+    TableName: getPptxGenerationsTableName(tenantId),
     Key: {
       generationId,
       userId,
@@ -308,5 +346,5 @@ export async function updateGenerationStatus(
   });
 
   await docClient.send(command);
-  console.log(`Updated generation status: ${generationId} -> ${status}`);
+  console.log(`Updated generation status: ${generationId} -> ${status} for tenant: ${tenantId}`);
 }

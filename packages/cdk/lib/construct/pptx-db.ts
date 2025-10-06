@@ -63,13 +63,9 @@ export class PptxDb extends Construct {
 
     // Create PPTX templates table
     this.templatesTable = new dynamodb.Table(this, 'PptxTemplatesTable', {
-      tableName: `pptx-templates-${sanitizedTenantId}-${environment}`,
+      tableName: `pptx-templates-${environment}-${sanitizedTenantId}`,
       partitionKey: {
         name: 'templateId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'tenantId',
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -80,35 +76,35 @@ export class PptxDb extends Construct {
       timeToLiveAttribute: 'ttl', // Optional TTL for automatic cleanup
     });
 
-    // Add GSI for querying templates by tenant and user
+    // Add GSI for querying templates by user
     this.templatesTable.addGlobalSecondaryIndex({
-      indexName: 'TenantUserIndex',
+      indexName: 'UserIndex',
       partitionKey: {
-        name: 'tenantId',
+        name: 'userId',
         type: dynamodb.AttributeType.STRING,
       },
       sortKey: {
-        name: 'userId',
+        name: 'createdAt',
         type: dynamodb.AttributeType.STRING,
       },
     });
 
-    // Add GSI for querying public templates by tenant
+    // Add GSI for querying public templates
     this.templatesTable.addGlobalSecondaryIndex({
-      indexName: 'TenantPublicIndex',
+      indexName: 'PublicIndex',
       partitionKey: {
-        name: 'tenantId',
+        name: 'isPublic',
         type: dynamodb.AttributeType.STRING,
       },
       sortKey: {
-        name: 'isPublic',
+        name: 'createdAt',
         type: dynamodb.AttributeType.STRING,
       },
     });
 
     // Create PPTX generations table
     this.generationsTable = new dynamodb.Table(this, 'PptxGenerationsTable', {
-      tableName: `pptx-generations-${sanitizedTenantId}-${environment}`,
+      tableName: `pptx-generations-${environment}-${sanitizedTenantId}`,
       partitionKey: {
         name: 'generationId',
         type: dynamodb.AttributeType.STRING,

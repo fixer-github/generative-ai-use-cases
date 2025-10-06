@@ -8,7 +8,7 @@ export const handler = async (
     // Get user info from Cognito
     const userId = event.requestContext.authorizer?.claims['cognito:username'];
     const tenantId = event.requestContext.authorizer?.claims['custom:tenant_id'];
-    
+
     if (!userId || !tenantId) {
       return {
         statusCode: 401,
@@ -28,7 +28,7 @@ export const handler = async (
 
     // Query templates
     const templates = await findTemplatesByTenant(
-      tenantId,
+      event,
       userOnly ? userId : undefined,
       includePublic,
       limit + 1, // Get one extra to check if there are more

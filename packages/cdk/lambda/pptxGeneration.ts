@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
+import { getPptxGenerationsTableName } from './pptx/tenantPptxConfig';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
@@ -12,7 +13,6 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 // Environment variables
 const PPTX_TEMPLATES_BUCKET = process.env.PPTX_TEMPLATES_BUCKET!;
 const PPTX_OUTPUTS_BUCKET = process.env.PPTX_OUTPUTS_BUCKET!;
-const PPTX_GENERATIONS_TABLE = process.env.PPTX_GENERATIONS_TABLE!;
 
 interface GenerationMessage {
   generation_id: string;
@@ -49,7 +49,7 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
     const message: GenerationMessage = JSON.parse(record.body);
     console.log('Processing generation:', message.generation_id);
 
-    await updateGenerationStatus(message.generation_id, message.user_id, 'generating');
+    await updateGenerationStatus(message.generation_id, message.user_id, message.tenant_id, 'generating');
 
     // Extract slide content from instructions
     const slides = extractSlidesFromInstructions(message);
@@ -71,6 +71,7 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
     await updateGenerationStatus(
       message.generation_id,
       message.user_id,
+      message.tenant_id,
       'completed',
       outputKey,
       undefined,
@@ -81,11 +82,12 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
 
   } catch (error) {
     console.error('Failed to process generation:', error);
-    
+
     const message: GenerationMessage = JSON.parse(record.body);
     await updateGenerationStatus(
       message.generation_id,
       message.user_id,
+      message.tenant_id,
       'failed',
       undefined,
       error instanceof Error ? error.message : 'Unknown error'
@@ -341,6 +343,7 @@ async function uploadPptx(s3Key: string, buffer: Buffer): Promise<void> {
 async function updateGenerationStatus(
   generationId: string,
   userId: string,
+  tenantId: string,
   status: string,
   s3OutputKey?: string,
   errorMessage?: string,
@@ -373,7 +376,7 @@ async function updateGenerationStatus(
   }
 
   const command = new UpdateCommand({
-    TableName: PPTX_GENERATIONS_TABLE,
+    TableName: getPptxGenerationsTableName(tenantId),
     Key: {
       generationId,
       userId,

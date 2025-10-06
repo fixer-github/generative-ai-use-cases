@@ -86,7 +86,7 @@ export const handler = async (
     // Validate template exists if provided
     let template = null;
     if (generationInput.template_id) {
-      template = await findTemplateById(generationInput.template_id);
+      template = await findTemplateById(event, generationInput.template_id);
       if (!template) {
         return {
           statusCode: 404,
@@ -99,8 +99,8 @@ export const handler = async (
       }
 
       // Check if user has access to template
-      if (template.isPublic !== 'true' && 
-          template.userId !== userId && 
+      if (template.isPublic !== 'true' &&
+          template.userId !== userId &&
           template.tenantId !== tenantId) {
         return {
           statusCode: 403,
@@ -115,11 +115,11 @@ export const handler = async (
 
     // Generate generation ID and create generation record
     const generationId = uuid4();
-    
+
     const generation = await createGeneration(
+      event,
       generationId,
       userId,
-      tenantId,
       generationInput.chat_id,
       generationInput.template_id,
       generationInput.instructions,

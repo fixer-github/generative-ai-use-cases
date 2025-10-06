@@ -26,6 +26,7 @@ export const handler = async (
 
     // Query generations
     const generations = await findGenerationsByUser(
+      event,
       userId,
       limit + 1, // Get one extra to check if there are more
       offset

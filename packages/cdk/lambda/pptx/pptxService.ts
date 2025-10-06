@@ -1,8 +1,7 @@
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { v4 as uuid4 } from 'uuid';
-import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
@@ -41,7 +40,7 @@ export async function generatePresignedUploadUrl(
   fileType: string = 'template'
 ): Promise<PresignedUrlResponse> {
   const bucket = fileType === 'template' ? PPTX_TEMPLATES_BUCKET : PPTX_OUTPUTS_BUCKET;
-  const prefix = fileType === 'template' 
+  const prefix = fileType === 'template'
     ? `templates/${tenantId}/${userId}`
     : `outputs/${tenantId}/${userId}`;
 
@@ -54,24 +53,21 @@ export async function generatePresignedUploadUrl(
   const uniqueFilename = `${uuid4()}.${fileExtension}`;
   const s3Key = `${prefix}/${uniqueFilename}`;
 
-  // Generate presigned POST URL for upload
-  const presignedPost = await createPresignedPost(s3Client, {
+  // Generate presigned PUT URL for upload with normalized Content-Type
+  const command = new PutObjectCommand({
     Bucket: bucket,
     Key: s3Key,
-    Fields: {
-      'Content-Type': contentType,
-    },
-    Conditions: [
-      ['content-length-range', 0, 100 * 1024 * 1024], // Max 100MB
-      ['eq', '$Content-Type', contentType],
-    ],
-    Expires: 3600, // 1 hour
+    ContentType: contentType,
+  });
+
+  const presignedUrl = await getSignedUrl(s3Client, command, {
+    expiresIn: 3600, // 1 hour
   });
 
   console.log(`Generated presigned URL for upload: ${s3Key}`);
 
   return {
-    uploadUrl: presignedPost.url,
+    uploadUrl: presignedUrl,
     s3Key,
     expiresIn: 3600,
   };
@@ -161,26 +157,19 @@ export async function loadTemplate(s3Key: string): Promise<Buffer> {
   });
 
   const response = await s3Client.send(command);
-  
+
   if (!response.Body) {
     throw new Error('Template file not found');
   }
 
   const chunks: Uint8Array[] = [];
   const stream = response.Body as any;
-  
+
   for await (const chunk of stream) {
     chunks.push(chunk);
   }
-  
-  return Buffer.concat(chunks);
-}
 
-// Validation helper functions
-export function validateFileExtension(filename: string): boolean {
-  const allowedExtensions = ['.pptx', '.potx'];
-  const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
-  return allowedExtensions.includes(extension);
+  return Buffer.concat(chunks);
 }
 
 export function validateSlideCount(slideCount?: number): boolean {
@@ -190,4 +179,9 @@ export function validateSlideCount(slideCount?: number): boolean {
 
 export function validateInstructions(instructions: string): boolean {
   return instructions.length >= 1 && instructions.length <= 5000;
+}
+
+export function validateFileExtension(filename: string): boolean {
+  const lowerFilename = filename.toLowerCase();
+  return lowerFilename.endsWith('.pptx') || lowerFilename.endsWith('.potx');
 }

@@ -36,8 +36,8 @@ export const handler = async (
     }
 
     // Find the template to check permissions
-    const template = await findTemplateById(templateId);
-    
+    const template = await findTemplateById(event, templateId);
+
     if (!template) {
       return {
         statusCode: 404,
@@ -62,7 +62,7 @@ export const handler = async (
     }
 
     // Delete the template
-    await deleteTemplateById(templateId);
+    await deleteTemplateById(event, templateId);
 
     return {
       statusCode: 200,

@@ -93,9 +93,14 @@ export class TenantRole extends Construct {
                 'dynamodb:DescribeTimeToLive',
               ],
               resources: [
-                // Allow access to tables with tenant-specific naming pattern
+                // Standard tenant tables pattern (chat, etc.)
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/*${props.env}-tenant-${props.tenantId}`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/*${props.env}-tenant-${props.tenantId}/index/*`,
+                // PPTx tables pattern (pptx-templates-{env}-{tenantId}, pptx-generations-{env}-{tenantId})
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-templates-${props.env}-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-templates-${props.env}-${props.tenantId}/index/*`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}/index/*`,
               ],
             }),
 

@@ -35,20 +35,26 @@ export const usePptxTemplates = () => {
     setError(null);
 
     try {
+      // Normalize Content-Type based on file extension
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      const contentType = fileExtension === '.potx'
+        ? 'application/vnd.openxmlformats-officedocument.presentationml.template'
+        : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
       // Step 1: Get presigned URL for upload
       const urlResponse = await http.api.post<PptxPresignedUrl>(
-        `pptx/template/upload-url?filename=${encodeURIComponent(file.name)}&content_type=${encodeURIComponent(file.type)}`,
+        `pptx/template/upload-url?filename=${encodeURIComponent(file.name)}&content_type=${encodeURIComponent(contentType)}`,
         {}
       );
 
       const { upload_url, s3_key } = urlResponse.data;
 
-      // Step 2: Upload file to S3
+      // Step 2: Upload file to S3 with normalized Content-Type
       const uploadResponse = await fetch(upload_url, {
         method: 'PUT',
         body: file,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': contentType,
         },
       });
 

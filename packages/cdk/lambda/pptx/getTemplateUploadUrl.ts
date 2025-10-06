@@ -27,7 +27,7 @@ export const handler = async (
 
     // Parse query parameters
     const filename = event.queryStringParameters?.filename;
-    const contentType = event.queryStringParameters?.contentType || 
+    const contentType = event.queryStringParameters?.content_type ||
       'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
     if (!filename) {

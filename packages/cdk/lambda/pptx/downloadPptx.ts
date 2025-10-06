@@ -36,7 +36,7 @@ export const handler = async (
     }
 
     // Find the generation
-    const generation = await findGenerationById(generationId);
+    const generation = await findGenerationById(event, generationId);
     
     if (!generation) {
       return {
