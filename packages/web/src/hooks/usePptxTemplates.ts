@@ -59,7 +59,21 @@ export const usePptxTemplates = () => {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file to S3');
+        // Capture detailed S3 error information
+        const errorText = await uploadResponse.text();
+        console.error('S3 upload failed:', {
+          status: uploadResponse.status,
+          statusText: uploadResponse.statusText,
+          headers: Object.fromEntries(uploadResponse.headers.entries()),
+          body: errorText,
+          contentType,
+          fileSize: file.size,
+          fileName: file.name,
+        });
+
+        throw new Error(
+          `Failed to upload file to S3: ${uploadResponse.status} ${uploadResponse.statusText}. ${errorText || 'No error details available'}`
+        );
       }
 
       // Step 3: Register template

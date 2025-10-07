@@ -1,15 +1,17 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 import { v4 as uuid4 } from 'uuid';
+import { getPptxTemplatesBucketName, getPptxOutputsBucketName } from './tenantPptxConfig';
+import { createTenantS3Client } from '../utils/tenantS3Client';
+import { isDefaultTenant } from '../utils/tenantS3Utils';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
 const sqsClient = new SQSClient({});
 
 // Environment variables
-const PPTX_TEMPLATES_BUCKET = process.env.PPTX_TEMPLATES_BUCKET!;
-const PPTX_OUTPUTS_BUCKET = process.env.PPTX_OUTPUTS_BUCKET!;
 const PPTX_GENERATION_QUEUE = process.env.PPTX_GENERATION_QUEUE!;
 
 export interface PresignedUrlResponse {
@@ -33,25 +35,47 @@ export interface GenerationMessage {
 }
 
 export async function generatePresignedUploadUrl(
+  event: APIGatewayProxyEvent,
   tenantId: string,
   userId: string,
   filename: string,
   contentType: string = 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   fileType: string = 'template'
 ): Promise<PresignedUrlResponse> {
-  const bucket = fileType === 'template' ? PPTX_TEMPLATES_BUCKET : PPTX_OUTPUTS_BUCKET;
+  // Dynamically resolve bucket name based on tenant using existing utilities
+  const bucket = fileType === 'template'
+    ? await getPptxTemplatesBucketName(tenantId)
+    : await getPptxOutputsBucketName(tenantId);
+
   const prefix = fileType === 'template'
     ? `templates/${tenantId}/${userId}`
     : `outputs/${tenantId}/${userId}`;
 
-  if (!bucket) {
-    throw new Error(`Bucket not configured for file type: ${fileType}`);
-  }
+  // Add detailed logging for debugging
+  console.log('generatePresignedUploadUrl called:', {
+    bucket,
+    fileType,
+    tenantId,
+    userId,
+    filename,
+    contentType,
+  });
 
   // Generate unique S3 key
   const fileExtension = filename.split('.').pop()?.toLowerCase() || 'pptx';
   const uniqueFilename = `${uuid4()}.${fileExtension}`;
   const s3Key = `${prefix}/${uniqueFilename}`;
+
+  // Use tenant-specific S3 client for cross-account access
+  const tenantS3Client: S3Client = isDefaultTenant(tenantId)
+    ? (() => {
+        console.log('Using default S3 client for default tenant');
+        return s3Client;
+      })()
+    : await (() => {
+        console.log('Creating tenant-specific S3 client for presigned URL generation');
+        return createTenantS3Client(event);
+      })();
 
   // Generate presigned PUT URL for upload with normalized Content-Type
   const command = new PutObjectCommand({
@@ -60,11 +84,18 @@ export async function generatePresignedUploadUrl(
     ContentType: contentType,
   });
 
-  const presignedUrl = await getSignedUrl(s3Client, command, {
+  const presignedUrl = await getSignedUrl(tenantS3Client, command, {
     expiresIn: 3600, // 1 hour
   });
 
-  console.log(`Generated presigned URL for upload: ${s3Key}`);
+  console.log(`Generated presigned URL for upload: ${s3Key}`, {
+    bucket,
+    s3Key,
+    contentType,
+    filename,
+    tenantId,
+    userId,
+  });
 
   return {
     uploadUrl: presignedUrl,
@@ -74,15 +105,14 @@ export async function generatePresignedUploadUrl(
 }
 
 export async function getPptxDownloadUrl(
+  tenantId: string,
   s3Key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  if (!PPTX_OUTPUTS_BUCKET) {
-    throw new Error('PPTX outputs bucket not configured');
-  }
+  const bucket = await getPptxOutputsBucketName(tenantId);
 
   const command = new GetObjectCommand({
-    Bucket: PPTX_OUTPUTS_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
   });
 
@@ -90,7 +120,7 @@ export async function getPptxDownloadUrl(
     expiresIn,
   });
 
-  console.log(`Generated presigned URL for download: ${s3Key}`);
+  console.log(`Generated presigned URL for download: ${s3Key}, tenant: ${tenantId}`);
   return presignedUrl;
 }
 
@@ -148,11 +178,13 @@ export async function startPptxGeneration(
   console.log(`Queued PPTX generation: ${generationId}, Message ID: ${response.MessageId}`);
 }
 
-export async function loadTemplate(s3Key: string): Promise<Buffer> {
-  console.log('Loading template from S3:', s3Key);
+export async function loadTemplate(tenantId: string, s3Key: string): Promise<Buffer> {
+  const bucket = await getPptxTemplatesBucketName(tenantId);
+
+  console.log('Loading template from S3:', { bucket, s3Key, tenantId });
 
   const command = new GetObjectCommand({
-    Bucket: PPTX_TEMPLATES_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
   });
 

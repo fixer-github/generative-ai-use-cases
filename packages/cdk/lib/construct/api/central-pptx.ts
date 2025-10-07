@@ -83,13 +83,17 @@ export class CentralPptxApi extends Construct {
     // Grant SQS permissions
     this.generationQueue.grantSendMessages(lambdaRole);
 
-    // Common Lambda props (no hardcoded table/bucket names)
+    // Common Lambda props
     const commonLambdaProps = {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.minutes(1),
       role: lambdaRole,
       environment: getBaseEnvironment(this, props, {
         PPTX_GENERATION_QUEUE: this.generationQueue.queueUrl,
+        // Note: Bucket names are dynamically resolved per-tenant in Lambda code
+        // These serve as fallback patterns for tenant bucket resolution
+        PPTX_TEMPLATES_BUCKET_PATTERN: `pptx-templates-${props.environment}-tenant`,
+        PPTX_OUTPUTS_BUCKET_PATTERN: `pptx-outputs-${props.environment}-tenant`,
       }),
     };
 

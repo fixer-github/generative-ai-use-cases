@@ -13,7 +13,7 @@ export const handler = async (
     // Get user info from Cognito
     const userId = event.requestContext.authorizer?.claims['cognito:username'];
     const tenantId = event.requestContext.authorizer?.claims['custom:tenant_id'];
-    
+
     if (!userId || !tenantId) {
       return {
         statusCode: 401,
@@ -53,8 +53,9 @@ export const handler = async (
       };
     }
 
-    // Generate presigned URL
+    // Generate presigned URL (pass event for tenant role assumption)
     const presignedUrl = await generatePresignedUploadUrl(
+      event,
       tenantId,
       userId,
       filename,

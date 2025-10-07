@@ -1,18 +1,15 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
-import { getPptxGenerationsTableName } from './pptx/tenantPptxConfig';
+import { getPptxGenerationsTableName, getPptxTemplatesBucketName, getPptxOutputsBucketName } from './pptx/tenantPptxConfig';
+import { loadTemplate } from './pptx/pptxService';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
-
-// Environment variables
-const PPTX_TEMPLATES_BUCKET = process.env.PPTX_TEMPLATES_BUCKET!;
-const PPTX_OUTPUTS_BUCKET = process.env.PPTX_OUTPUTS_BUCKET!;
 
 interface GenerationMessage {
   generation_id: string;
@@ -57,7 +54,7 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
     // Load template if provided
     let templateBuffer: Buffer | undefined;
     if (message.template_s3_key) {
-      templateBuffer = await loadTemplate(message.template_s3_key);
+      templateBuffer = await loadTemplate(message.tenant_id, message.template_s3_key);
     }
 
     // Generate PPTX
@@ -65,7 +62,7 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
 
     // Upload to S3
     const outputKey = `outputs/${message.tenant_id}/${message.user_id}/${message.generation_id}.pptx`;
-    await uploadPptx(outputKey, pptxBuffer);
+    await uploadPptx(message.tenant_id, outputKey, pptxBuffer);
 
     // Update generation status to completed
     await updateGenerationStatus(
@@ -196,30 +193,6 @@ function extractSlidesFromInstructions(message: GenerationMessage): SlideContent
   return slides;
 }
 
-async function loadTemplate(s3Key: string): Promise<Buffer> {
-  console.log('Loading template:', s3Key);
-
-  const command = new GetObjectCommand({
-    Bucket: PPTX_TEMPLATES_BUCKET,
-    Key: s3Key,
-  });
-
-  const response = await s3Client.send(command);
-  
-  if (!response.Body) {
-    throw new Error('Template file not found');
-  }
-
-  const chunks: Uint8Array[] = [];
-  const stream = response.Body as any;
-  
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-  
-  return Buffer.concat(chunks);
-}
-
 async function generatePptx(slides: SlideContent[], templateBuffer?: Buffer): Promise<Buffer> {
   console.log('Generating PPTX with', slides.length, 'slides');
 
@@ -326,11 +299,13 @@ async function generatePptx(slides: SlideContent[], templateBuffer?: Buffer): Pr
   return Buffer.from(pptxData);
 }
 
-async function uploadPptx(s3Key: string, buffer: Buffer): Promise<void> {
-  console.log('Uploading PPTX to:', s3Key);
+async function uploadPptx(tenantId: string, s3Key: string, buffer: Buffer): Promise<void> {
+  const bucket = await getPptxOutputsBucketName(tenantId);
+
+  console.log('Uploading PPTX to:', { bucket, s3Key, tenantId });
 
   const command = new PutObjectCommand({
-    Bucket: PPTX_OUTPUTS_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
     Body: buffer,
     ContentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',

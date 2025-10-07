@@ -65,7 +65,7 @@ export const handler = async (
     let downloadUrl = null;
     if (generation.status === 'completed' && generation.s3OutputKey) {
       try {
-        downloadUrl = await getPptxDownloadUrl(generation.s3OutputKey);
+        downloadUrl = await getPptxDownloadUrl(tenantId, generation.s3OutputKey);
       } catch (error) {
         console.error('Error generating download URL:', error);
         // Continue without download URL - don't fail the request
