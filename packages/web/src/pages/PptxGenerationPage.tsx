@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import Slider from '../components/Slider';
 import Switch from '../components/Switch';
+import Select from '../components/Select';
 import LoadingWave from '../components/LoadingWave';
 import Alert from '../components/Alert';
 import { /* PiPlus, */ PiPresentation } from 'react-icons/pi'; // PiPlus unused when template selector is hidden
@@ -14,6 +15,7 @@ import { usePptxTemplates } from '../hooks/usePptxTemplates';
 // import PptxTemplateSelector from '../components/PptxTemplateSelector'; // Unused when template selector is hidden
 // import PptxTemplateUploader from '../components/PptxTemplateUploader'; // Unused when template selector is hidden
 import { PptxTemplate, PptxGeneration } from '../@types/pptx';
+import { MODELS } from '../hooks/useModel';
 
 const PptxGenerationPage: React.FC = () => {
   const { t } = useTranslation();
@@ -24,18 +26,19 @@ const PptxGenerationPage: React.FC = () => {
   const [slideCount, setSlideCount] = useState<number>(5);
   const [includeTitleSlide, setIncludeTitleSlide] = useState(true);
   const [includeSummarySlide, setIncludeSummarySlide] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-2.5-flash');
   // const [showTemplateUploader, setShowTemplateUploader] = useState(false); // Unused when template selector is hidden
   const [currentGeneration, setCurrentGeneration] = useState<PptxGeneration | null>(null);
 
   // Hooks
-  const { 
-    generatePptx, 
-    checkGenerationStatus, 
+  const {
+    generatePptx,
+    checkGenerationStatus,
     downloadPptx,
     isGenerating,
     error: generationError,
   } = usePptxGeneration();
-  
+
   const {
     // templates,
     // loadTemplates,
@@ -43,6 +46,12 @@ const PptxGenerationPage: React.FC = () => {
     // isLoading: templatesLoading,
     error: templatesError, // Keep for error display
   } = usePptxTemplates(); // Mostly unused when template selector is hidden
+
+  // Model utilities
+  const { textModels, modelDisplayName } = MODELS;
+  const availableModels = textModels
+    .filter(m => m.type === 'liteLlm')
+    .map(m => m.modelId);
 
   // Load templates on mount - COMMENTED OUT when template selector is hidden
   // useEffect(() => {
@@ -86,6 +95,7 @@ const PptxGenerationPage: React.FC = () => {
       slide_count: slideCount,
       include_title_slide: includeTitleSlide,
       include_summary_slide: includeSummarySlide,
+      model_id: selectedModelId,
     });
 
     if (generation) {
@@ -97,6 +107,7 @@ const PptxGenerationPage: React.FC = () => {
     slideCount,
     includeTitleSlide,
     includeSummarySlide,
+    selectedModelId,
     generatePptx,
     isGenerating,
   ]);
@@ -173,6 +184,24 @@ const PptxGenerationPage: React.FC = () => {
                     loading={templatesLoading}
                   />
                 </div> */}
+
+                {/* Model Selection */}
+                <div>
+                  <label className="mb-3 block text-sm font-medium text-aws-font-color">
+                    AI Model
+                  </label>
+                  <Select
+                    value={selectedModelId}
+                    onChange={setSelectedModelId}
+                    options={availableModels.map((m) => ({
+                      value: m,
+                      label: modelDisplayName(m)
+                    }))}
+                  />
+                  <p className="mt-2 text-xs text-aws-font-color-secondary">
+                    Select the AI model to generate presentation content
+                  </p>
+                </div>
 
                 {/* Slide Count */}
                 <div>

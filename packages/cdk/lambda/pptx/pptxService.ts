@@ -31,6 +31,7 @@ export interface GenerationMessage {
   slide_count?: number;
   include_title_slide?: boolean;
   include_summary_slide?: boolean;
+  model_id?: string;
   timestamp: string;
 }
 
@@ -134,7 +135,8 @@ export async function startPptxGeneration(
   templateS3Key?: string,
   slideCount?: number,
   includeTitleSlide: boolean = true,
-  includeSummarySlide: boolean = false
+  includeSummarySlide: boolean = false,
+  modelId?: string
 ): Promise<void> {
   if (!PPTX_GENERATION_QUEUE) {
     throw new Error('PPTX generation queue not configured');
@@ -152,6 +154,7 @@ export async function startPptxGeneration(
     slide_count: slideCount,
     include_title_slide: includeTitleSlide,
     include_summary_slide: includeSummarySlide,
+    model_id: modelId,
     timestamp: new Date().toISOString(),
   };
 

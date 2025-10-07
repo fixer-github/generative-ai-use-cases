@@ -68,6 +68,7 @@ export interface PptxGeneration {
   slideCount?: number;
   includeTitleSlide: boolean;
   includeSummarySlide: boolean;
+  modelId?: string;
   status: 'generating' | 'completed' | 'failed';
   s3OutputKey?: string;
   errorMessage?: string;
@@ -217,7 +218,8 @@ export async function createGeneration(
   instructions: string,
   slideCount?: number,
   includeTitleSlide: boolean = true,
-  includeSummarySlide: boolean = false
+  includeSummarySlide: boolean = false,
+  modelId?: string
 ): Promise<PptxGeneration> {
   const tenantId = getTenantId(event);
   const docClient = await getTenantDynamoDBDocument(event);
@@ -234,6 +236,7 @@ export async function createGeneration(
     slideCount,
     includeTitleSlide,
     includeSummarySlide,
+    modelId,
     status: 'generating',
     createdAt: now,
     updatedAt: now,

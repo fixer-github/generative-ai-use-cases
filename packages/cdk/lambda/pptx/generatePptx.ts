@@ -10,6 +10,7 @@ interface GenerateRequest {
   slide_count?: number;
   include_title_slide?: boolean;
   include_summary_slide?: boolean;
+  model_id?: string;
 }
 
 export const handler = async (
@@ -125,7 +126,8 @@ export const handler = async (
       generationInput.instructions,
       generationInput.slide_count,
       generationInput.include_title_slide ?? true,
-      generationInput.include_summary_slide ?? false
+      generationInput.include_summary_slide ?? false,
+      generationInput.model_id
     );
 
     // Start async generation process
@@ -139,7 +141,8 @@ export const handler = async (
       template?.s3Key,
       generationInput.slide_count,
       generationInput.include_title_slide ?? true,
-      generationInput.include_summary_slide ?? false
+      generationInput.include_summary_slide ?? false,
+      generationInput.model_id
     );
 
     // Convert to response format

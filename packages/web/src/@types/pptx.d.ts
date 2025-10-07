@@ -55,6 +55,7 @@ export interface PptxGenerationInput {
   slide_count?: number;
   include_title_slide?: boolean;
   include_summary_slide?: boolean;
+  model_id?: string;
 }
 
 export interface PptxGenerationStatus {

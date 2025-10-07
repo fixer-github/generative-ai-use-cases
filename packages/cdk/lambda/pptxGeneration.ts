@@ -5,6 +5,9 @@ import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
 import { getPptxGenerationsTableName, getPptxTemplatesBucketName, getPptxOutputsBucketName } from './pptx/tenantPptxConfig';
 import { loadTemplate } from './pptx/pptxService';
+import api from './utils/api';
+import { Model } from 'generative-ai-use-cases';
+import { modelMetadata } from '@generative-ai-use-cases/common';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
@@ -22,6 +25,7 @@ interface GenerationMessage {
   slide_count?: number;
   include_title_slide?: boolean;
   include_summary_slide?: boolean;
+  model_id?: string;
   timestamp: string;
 }
 
@@ -41,6 +45,91 @@ export const handler = async (event: SQSEvent): Promise<void> => {
   }
 };
 
+async function generateSlideContentWithAI(
+  message: GenerationMessage
+): Promise<SlideContent[]> {
+  const modelId = message.model_id || 'gemini-2.5-flash';
+
+  // Determine type: if modelId exists in modelMetadata → bedrock, else → liteLlm
+  const modelType = modelMetadata[modelId] ? 'bedrock' : 'liteLlm';
+
+  const model: Model = {
+    modelId,
+    type: modelType,
+    ...(modelType === 'bedrock' && {
+      region: process.env.MODEL_REGION || 'us-east-1'
+    })
+  };
+
+  const slideCountInstruction = message.slide_count
+    ? `Create exactly ${message.slide_count} content slides.`
+    : 'Create an appropriate number of content slides (5-10).';
+
+  const titleSlideInstruction = message.include_title_slide !== false
+    ? 'Include a title slide as the first slide.'
+    : 'Do not include a title slide.';
+
+  const summarySlideInstruction = message.include_summary_slide
+    ? 'Include a summary slide as the last slide.'
+    : '';
+
+  const prompt = `Generate a professional presentation based on these instructions:
+
+${message.instructions}
+
+Requirements:
+- ${slideCountInstruction}
+- ${titleSlideInstruction}
+- ${summarySlideInstruction}
+- Each content slide should have a clear title and 3-5 bullet points
+- Make content concise and professional
+- Use proper formatting
+
+Return ONLY a valid JSON array with this exact structure (no markdown, no extra text):
+[
+  {
+    "slide_number": 1,
+    "title": "Slide Title",
+    "content": "• Point 1\\n• Point 2\\n• Point 3",
+    "layout": "content",
+    "notes": "Optional speaker notes"
+  }
+]
+
+For the title slide use layout: "title" and put subtitle in content field.`;
+
+  try {
+    const response = await api[model.type].invoke?.(
+      model,
+      [{ role: 'user', content: prompt }],
+      `pptx-gen-${message.generation_id}`
+    );
+
+    // Extract JSON from response (handle potential markdown code blocks)
+    let jsonStr = response.trim();
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.replace(/^```json\n/, '').replace(/\n```$/, '');
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/^```\n/, '').replace(/\n```$/, '');
+    }
+
+    const slides = JSON.parse(jsonStr) as SlideContent[];
+
+    // Validate and ensure proper structure
+    return slides.map((slide, index) => ({
+      slide_number: index + 1,
+      title: slide.title || `Slide ${index + 1}`,
+      content: slide.content || '',
+      layout: slide.layout || 'content',
+      notes: slide.notes,
+    }));
+  } catch (error) {
+    console.error('AI generation failed, falling back to manual extraction:', error);
+    // Fallback to manual extraction
+    return extractSlidesFromInstructions(message);
+  }
+}
+
 async function processGenerationRecord(record: SQSRecord): Promise<void> {
   try {
     const message: GenerationMessage = JSON.parse(record.body);
@@ -48,8 +137,10 @@ async function processGenerationRecord(record: SQSRecord): Promise<void> {
 
     await updateGenerationStatus(message.generation_id, message.user_id, message.tenant_id, 'generating');
 
-    // Extract slide content from instructions
-    const slides = extractSlidesFromInstructions(message);
+    // Extract slide content from instructions using AI if model_id is provided
+    const slides = message.model_id
+      ? await generateSlideContentWithAI(message)
+      : extractSlidesFromInstructions(message);
 
     // Load template if provided
     let templateBuffer: Buffer | undefined;

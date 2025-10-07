@@ -90,6 +90,7 @@ export class CentralPptxApi extends Construct {
       role: lambdaRole,
       environment: getBaseEnvironment(this, props, {
         PPTX_GENERATION_QUEUE: this.generationQueue.queueUrl,
+        LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
         // Note: Bucket names are dynamically resolved per-tenant in Lambda code
         // These serve as fallback patterns for tenant bucket resolution
         PPTX_TEMPLATES_BUCKET_PATTERN: `pptx-templates-${props.environment}-tenant`,
@@ -247,6 +248,11 @@ export class CentralPptxApi extends Construct {
     // All Lambda functions need this to call getTenant() for tenant credential resolution
     if (props.tenantManager) {
       props.tenantManager.tenantsTable.grantReadData(lambdaRole);
+    }
+
+    // Grant LiteLLM proxy invoke permissions to PPTX generation worker
+    if (props.litellmProxy) {
+      props.litellmProxy.grantInvokeUrl(pptxGenerationWorkerLambda);
     }
   }
 }
