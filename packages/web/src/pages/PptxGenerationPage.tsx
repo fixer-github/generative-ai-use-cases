@@ -2,17 +2,17 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import ButtonIcon from '../components/ButtonIcon';
+// import ButtonIcon from '../components/ButtonIcon'; // Unused when template selector is hidden
 import Textarea from '../components/Textarea';
 import Slider from '../components/Slider';
 import Switch from '../components/Switch';
 import LoadingWave from '../components/LoadingWave';
 import Alert from '../components/Alert';
-import { PiPlus, PiPresentation } from 'react-icons/pi';
+import { /* PiPlus, */ PiPresentation } from 'react-icons/pi'; // PiPlus unused when template selector is hidden
 import { usePptxGeneration } from '../hooks/usePptxGeneration';
 import { usePptxTemplates } from '../hooks/usePptxTemplates';
-import PptxTemplateSelector from '../components/PptxTemplateSelector';
-import PptxTemplateUploader from '../components/PptxTemplateUploader';
+// import PptxTemplateSelector from '../components/PptxTemplateSelector'; // Unused when template selector is hidden
+// import PptxTemplateUploader from '../components/PptxTemplateUploader'; // Unused when template selector is hidden
 import { PptxTemplate, PptxGeneration } from '../@types/pptx';
 
 const PptxGenerationPage: React.FC = () => {
@@ -20,11 +20,11 @@ const PptxGenerationPage: React.FC = () => {
   
   // State
   const [instructions, setInstructions] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState<PptxTemplate | null>(null);
+  const [selectedTemplate /* , setSelectedTemplate */] = useState<PptxTemplate | null>(null); // setSelectedTemplate unused when template selector is hidden
   const [slideCount, setSlideCount] = useState<number>(5);
   const [includeTitleSlide, setIncludeTitleSlide] = useState(true);
   const [includeSummarySlide, setIncludeSummarySlide] = useState(false);
-  const [showTemplateUploader, setShowTemplateUploader] = useState(false);
+  // const [showTemplateUploader, setShowTemplateUploader] = useState(false); // Unused when template selector is hidden
   const [currentGeneration, setCurrentGeneration] = useState<PptxGeneration | null>(null);
 
   // Hooks
@@ -36,19 +36,19 @@ const PptxGenerationPage: React.FC = () => {
     error: generationError,
   } = usePptxGeneration();
   
-  const { 
-    templates, 
-    loadTemplates, 
-    uploadTemplate,
-    isLoading: templatesLoading,
-    error: templatesError,
-  } = usePptxTemplates();
+  const {
+    // templates,
+    // loadTemplates,
+    // uploadTemplate,
+    // isLoading: templatesLoading,
+    error: templatesError, // Keep for error display
+  } = usePptxTemplates(); // Mostly unused when template selector is hidden
 
-  // Load templates on mount
-  useEffect(() => {
-    loadTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Load templates on mount - COMMENTED OUT when template selector is hidden
+  // useEffect(() => {
+  //   loadTemplates();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []);
 
   // Poll generation status if we have an active generation
   useEffect(() => {
@@ -107,13 +107,14 @@ const PptxGenerationPage: React.FC = () => {
     }
   }, [currentGeneration, downloadPptx]);
 
-  const handleTemplateUpload = useCallback(async (file: File, templateData: any) => {
-    const success = await uploadTemplate(file, templateData);
-    if (success) {
-      setShowTemplateUploader(false);
-      loadTemplates(); // Refresh templates list
-    }
-  }, [uploadTemplate, loadTemplates]);
+  // Unused when template selector is hidden
+  // const handleTemplateUpload = useCallback(async (file: File, templateData: any) => {
+  //   const success = await uploadTemplate(file, templateData);
+  //   if (success) {
+  //     setShowTemplateUploader(false);
+  //     loadTemplates(); // Refresh templates list
+  //   }
+  // }, [uploadTemplate, loadTemplates]);
 
   const isDisabled = !instructions.trim() || isGenerating;
   const error = generationError || templatesError;
@@ -152,8 +153,8 @@ const PptxGenerationPage: React.FC = () => {
           <div className="lg:col-span-1">
             <Card className="h-fit">
               <div className="space-y-6">
-                {/* Template Selection */}
-                <div>
+                {/* Template Selection - TEMPORARILY HIDDEN (forced blank template only) */}
+                {/* <div>
                   <div className="mb-3 flex items-center justify-between">
                     <label className="block text-sm font-medium text-aws-font-color">
                       {t('pptx.template.label')}
@@ -171,7 +172,7 @@ const PptxGenerationPage: React.FC = () => {
                     onSelectTemplate={setSelectedTemplate}
                     loading={templatesLoading}
                   />
-                </div>
+                </div> */}
 
                 {/* Slide Count */}
                 <div>
@@ -321,13 +322,13 @@ const PptxGenerationPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Template Uploader Modal */}
-        {showTemplateUploader && (
+        {/* Template Uploader Modal - HIDDEN when template selector is masked */}
+        {/* {showTemplateUploader && (
           <PptxTemplateUploader
             onUpload={handleTemplateUpload}
             onClose={() => setShowTemplateUploader(false)}
           />
-        )}
+        )} */}
       </div>
     </div>
   );
