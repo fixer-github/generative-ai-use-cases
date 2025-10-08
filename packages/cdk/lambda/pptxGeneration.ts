@@ -1,5 +1,6 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
 import { getPptxGenerationsTableName, getPptxTemplatesBucketName, getPptxOutputsBucketName } from './pptx/tenantPptxConfig';
@@ -7,7 +8,7 @@ import { loadTemplate } from './pptx/pptxService';
 import api from './utils/api';
 import { Model } from 'generative-ai-use-cases';
 import { modelMetadata } from '@generative-ai-use-cases/common';
-import { createTenantDynamoDBClientForBackgroundJob } from './utils/tenantDynamoDBClient';
+import { getTenant } from './tenantManager';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
@@ -415,9 +416,21 @@ async function updateGenerationStatus(
 ): Promise<void> {
   console.log('Updating generation status:', generationId, status);
 
-  // Create tenant-specific DynamoDB client for cross-account access
-  const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(tenantId);
-  const docClient = DynamoDBDocumentClient.from(dynamoClient);
+  // Get tenant info to determine region
+  let region = process.env.AWS_REGION;
+  try {
+    const tenant = await getTenant(tenantId);
+    if (tenant?.region) {
+      region = tenant.region;
+      console.log(`Using tenant region for DynamoDB: ${region}`);
+    }
+  } catch (error) {
+    console.log(`Using default region for tenant ${tenantId}:`, error);
+  }
+
+  // Use standard DynamoDB client - CentralPptxApi Lambda has wildcard IAM permissions
+  // for all tenant tables in the same account, no cross-account role assumption needed
+  const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 
   let updateExpression = 'SET #status = :status, updatedAt = :updatedAt';
   const expressionAttributeNames: Record<string, string> = {
