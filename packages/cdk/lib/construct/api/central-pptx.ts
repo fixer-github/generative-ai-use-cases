@@ -89,6 +89,10 @@ export class CentralPptxApi extends Construct {
       timeout: Duration.minutes(1),
       role: lambdaRole,
       environment: getBaseEnvironment(this, props, {
+        MODEL_REGION: props.modelRegion,
+        MODEL_IDS: JSON.stringify(props.modelIds),
+        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(props.imageGenerationModelIds),
+        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(props.videoGenerationModelIds),
         PPTX_GENERATION_QUEUE: this.generationQueue.queueUrl,
         LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
         // Note: Bucket names are dynamically resolved per-tenant in Lambda code

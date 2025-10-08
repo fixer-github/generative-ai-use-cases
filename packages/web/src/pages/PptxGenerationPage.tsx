@@ -19,7 +19,7 @@ import { MODELS } from '../hooks/useModel';
 
 const PptxGenerationPage: React.FC = () => {
   const { t } = useTranslation();
-  
+
   // State
   const [instructions, setInstructions] = useState('');
   const [selectedTemplate /* , setSelectedTemplate */] = useState<PptxTemplate | null>(null); // setSelectedTemplate unused when template selector is hidden
@@ -50,7 +50,6 @@ const PptxGenerationPage: React.FC = () => {
   // Model utilities
   const { textModels, modelDisplayName } = MODELS;
   const availableModels = textModels
-    .filter(m => m.type === 'liteLlm')
     .map(m => m.modelId);
 
   // Load templates on mount - COMMENTED OUT when template selector is hidden

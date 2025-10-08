@@ -1,6 +1,5 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
 import { getPptxGenerationsTableName, getPptxTemplatesBucketName, getPptxOutputsBucketName } from './pptx/tenantPptxConfig';
@@ -8,11 +7,10 @@ import { loadTemplate } from './pptx/pptxService';
 import api from './utils/api';
 import { Model } from 'generative-ai-use-cases';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import { createTenantDynamoDBClientForBackgroundJob } from './utils/tenantDynamoDBClient';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
-const dynamoClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 interface GenerationMessage {
   generation_id: string;
@@ -416,6 +414,10 @@ async function updateGenerationStatus(
   slides?: SlideContent[]
 ): Promise<void> {
   console.log('Updating generation status:', generationId, status);
+
+  // Create tenant-specific DynamoDB client for cross-account access
+  const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(tenantId);
+  const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
   let updateExpression = 'SET #status = :status, updatedAt = :updatedAt';
   const expressionAttributeNames: Record<string, string> = {

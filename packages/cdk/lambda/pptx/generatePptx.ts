@@ -20,7 +20,7 @@ export const handler = async (
     // Get user info from Cognito
     const userId = event.requestContext.authorizer?.claims['cognito:username'];
     const tenantId = event.requestContext.authorizer?.claims['custom:tenant_id'];
-    
+
     if (!userId || !tenantId) {
       return {
         statusCode: 401,
@@ -65,8 +65,8 @@ export const handler = async (
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
         },
-        body: JSON.stringify({ 
-          message: 'Instructions must be between 1 and 5000 characters' 
+        body: JSON.stringify({
+          message: 'Instructions must be between 1 and 5000 characters'
         }),
       };
     }
@@ -78,8 +78,8 @@ export const handler = async (
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
         },
-        body: JSON.stringify({ 
-          message: 'Slide count must be between 1 and 50' 
+        body: JSON.stringify({
+          message: 'Slide count must be between 1 and 50'
         }),
       };
     }
@@ -101,8 +101,8 @@ export const handler = async (
 
       // Check if user has access to template
       if (template.isPublic !== 'true' &&
-          template.userId !== userId &&
-          template.tenantId !== tenantId) {
+        template.userId !== userId &&
+        template.tenantId !== tenantId) {
         return {
           statusCode: 403,
           headers: {
