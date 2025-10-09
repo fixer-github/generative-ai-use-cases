@@ -13,6 +13,7 @@
       "userPoolClientId": "1234567890abcdefghijklmnop",
       "controlPlaneLambdaRoleArn": "arn:aws:iam::111111111111:role/CONTROL-PLANE-STACK-CentralPptxApiPptxLambdaRole-XXXXX"
     },
-    "enableAutoDelete": false
+    "enableAutoDelete": false,
+    "pptxEnabled": false
   }
 }

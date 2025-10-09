@@ -13,6 +13,7 @@ export interface TenantStackInput {
   removalPolicy: boolean;
   bedrockRegion?: string;
   enableBedrockChat?: boolean;
+  pptxEnabled?: boolean;
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
@@ -84,20 +85,23 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     );
   }
 
-  // Tenant PPTX Stack (always enabled)
-  const tenantPptxStack = new TenantPptxStack(
-    app,
-    `TenantPptxStack${params.environment}-${params.tenantId}`,
-    {
-      env: {
-        account: params.account,
-        region: params.region,
-      },
-      tenantId: params.tenantId,
-      environment: params.environment,
-      removalPolicy: params.removalPolicy,
-    }
-  );
+  // Tenant PPTX Stack (optional)
+  let tenantPptxStack;
+  if (params.pptxEnabled) {
+    tenantPptxStack = new TenantPptxStack(
+      app,
+      `TenantPptxStack${params.environment}-${params.tenantId}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        tenantId: params.tenantId,
+        environment: params.environment,
+        removalPolicy: params.removalPolicy,
+      }
+    );
+  }
 
   return {
     tenantIAMStack,

@@ -55,6 +55,7 @@ interface DynamicRouterProps {
   agentEnabled: boolean;
   inlineAgents: boolean;
   mcpEnabled: boolean;
+  pptxEnabled: boolean;
   useCaseBuilderEnabled: boolean;
 }
 
@@ -66,6 +67,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
   agentEnabled,
   inlineAgents,
   mcpEnabled,
+  pptxEnabled,
   useCaseBuilderEnabled,
 }) => {
   const { enabled, loading } = useUseCases();
@@ -167,7 +169,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
           element: <GenerateDiagramPage />,
         }
       : null,
-    enabled('pptx')
+    pptxEnabled && enabled('pptx')
       ? {
           path: '/pptx',
           element: <PptxGenerationPage />,

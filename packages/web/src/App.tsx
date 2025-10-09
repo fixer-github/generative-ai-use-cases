@@ -46,6 +46,7 @@ const ragKnowledgeBaseEnabled: boolean =
 const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
+const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
 const {
   visionEnabled,
   imageGenModelIds,
@@ -243,7 +244,7 @@ const App: React.FC = () => {
           display: 'usecase' as const,
         }
       : null,
-    enabled('pptx')
+    pptxEnabled && enabled('pptx')
       ? {
           label: t('navigation.pptxGeneration'),
           to: '/pptx',

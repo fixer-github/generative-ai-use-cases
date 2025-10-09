@@ -117,6 +117,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       litellmEndpoint: litellmEndpoint,
       litellmProxy: litellmProxy,
+      pptxEnabled: params.pptxEnabled,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
       userPool: auth.userPool,
       idPool: auth.idPool,
@@ -394,6 +395,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: mcpEndpoint ?? '',
     });
 
+    new CfnOutput(this, 'PptxEnabled', {
+      value: params.pptxEnabled.toString(),
+    });
+
     new CfnOutput(this, 'LitellmProxyEnabled', {
       value: params.litellmProxyEnabled.toString(),
     });
@@ -412,11 +417,13 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ARN of the tenant registration Lambda function',
     });
 
-    new CfnOutput(this, 'CentralPptxLambdaRoleArn', {
-      value: api.centralPptxApi.pptxLambdaRole.roleArn,
-      description: 'ARN of the central PPTX Lambda execution role for cross-account tenant access',
-      exportName: `${this.stackName}-CentralPptxLambdaRoleArn`,
-    });
+    if (api.centralPptxApi) {
+      new CfnOutput(this, 'CentralPptxLambdaRoleArn', {
+        value: api.centralPptxApi.pptxLambdaRole.roleArn,
+        description: 'ARN of the central PPTX Lambda execution role for cross-account tenant access',
+        exportName: `${this.stackName}-CentralPptxLambdaRoleArn`,
+      });
+    }
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
