@@ -412,6 +412,12 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ARN of the tenant registration Lambda function',
     });
 
+    new CfnOutput(this, 'CentralPptxLambdaRoleArn', {
+      value: api.centralPptxApi.pptxLambdaRole.roleArn,
+      description: 'ARN of the central PPTX Lambda execution role for cross-account tenant access',
+      exportName: `${this.stackName}-CentralPptxLambdaRoleArn`,
+    });
+
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
 

@@ -3,8 +3,8 @@ import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantCredentials } from './tenantCredentials';
 import { isDefaultTenant } from './tenantS3Utils';
+import { getTenant } from '../tenantManager';
 
-const MULTI_TENANT_ROLE_ARN = process.env.MULTI_TENANT_ROLE_ARN!;
 const stsClient = new STSClient();
 
 /**
@@ -54,32 +54,38 @@ export async function createTenantDynamoDBClient(
 
 /**
  * Create a DynamoDB client with tenant-isolated credentials for background jobs
- * Uses STS AssumeRole with session tags to maintain ABAC security
+ * Uses STS AssumeRole to access cross-account tenant resources
  * For use in background lambdas that don't have API Gateway events
  * NOTE: No caching to ensure proper security isolation
  * @param tenantId - The tenant ID
- * @param tenantRegion - The tenant's region (required for cross-account tenants)
  */
 export async function createTenantDynamoDBClientForBackgroundJob(
-  tenantId: string,
-  tenantRegion?: string
+  tenantId: string
 ): Promise<DynamoDBClient> {
   // Use default credentials for default tenant
   if (isDefaultTenant(tenantId)) {
-    return new DynamoDBClient({ region: tenantRegion || process.env.AWS_REGION! });
+    return new DynamoDBClient({ region: process.env.AWS_REGION! });
   }
 
-  // Assume multi-tenant role with tenant ID as session tag for ABAC
+  // Get tenant info to get role ARN and region
+  const tenant = await getTenant(tenantId);
+  if (!tenant) {
+    throw new Error(`Tenant ${tenantId} not found`);
+  }
+  if (!tenant.roleArn) {
+    throw new Error(`Tenant ${tenantId} missing roleArn`);
+  }
+  if (!tenant.region) {
+    throw new Error(`Tenant ${tenantId} missing region`);
+  }
+
+  console.log(`Assuming role for tenant ${tenantId}: ${tenant.roleArn}`);
+
+  // Assume tenant role for cross-account access
   try {
     const assumeRoleCommand = new AssumeRoleCommand({
-      RoleArn: MULTI_TENANT_ROLE_ARN,
+      RoleArn: tenant.roleArn,
       RoleSessionName: `BackgroundJob-${tenantId}`,
-      Tags: [
-        {
-          Key: 'TenantID',
-          Value: tenantId,
-        },
-      ],
     });
 
     const response = await stsClient.send(assumeRoleCommand);
@@ -88,7 +94,7 @@ export async function createTenantDynamoDBClientForBackgroundJob(
     }
 
     return new DynamoDBClient({
-      region: tenantRegion || process.env.AWS_REGION!,
+      region: tenant.region,
       credentials: {
         accessKeyId: response.Credentials.AccessKeyId!,
         secretAccessKey: response.Credentials.SecretAccessKey!,
@@ -100,8 +106,6 @@ export async function createTenantDynamoDBClientForBackgroundJob(
       `Failed to get tenant-specific DynamoDB client for tenant ${tenantId}:`,
       error
     );
-    // Fall back to default credentials
-    console.warn(`Falling back to default DynamoDB client for tenant: ${tenantId}`);
-    return new DynamoDBClient({ region: tenantRegion || process.env.AWS_REGION! });
+    throw new Error(`Cannot access tenant resources: ${error}`);
   }
 }

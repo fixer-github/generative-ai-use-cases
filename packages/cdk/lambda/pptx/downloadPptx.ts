@@ -76,7 +76,7 @@ export const handler = async (
     }
 
     // Generate download URL
-    const downloadUrl = await getPptxDownloadUrl(tenantId, generation.s3OutputKey);
+    const downloadUrl = await getPptxDownloadUrl(event, tenantId, generation.s3OutputKey);
 
     return {
       statusCode: 200,

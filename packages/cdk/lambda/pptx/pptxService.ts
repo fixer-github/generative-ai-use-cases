@@ -4,12 +4,12 @@ import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { v4 as uuid4 } from 'uuid';
 import { getPptxTemplatesBucketName, getPptxOutputsBucketName } from './tenantPptxConfig';
-import { createTenantS3Client } from '../utils/tenantS3Client';
+import { createTenantS3Client, createTenantS3ClientForBackgroundJob } from '../utils/tenantS3Client';
 import { isDefaultTenant } from '../utils/tenantS3Utils';
 
 // Initialize AWS clients
-const s3Client = new S3Client({});
 const sqsClient = new SQSClient({});
+const s3Client = new S3Client({});
 
 // Environment variables
 const PPTX_GENERATION_QUEUE = process.env.PPTX_GENERATION_QUEUE!;
@@ -106,18 +106,24 @@ export async function generatePresignedUploadUrl(
 }
 
 export async function getPptxDownloadUrl(
+  event: APIGatewayProxyEvent,
   tenantId: string,
   s3Key: string,
   expiresIn: number = 3600
 ): Promise<string> {
   const bucket = await getPptxOutputsBucketName(tenantId);
 
+  // Create tenant-specific S3 client for cross-account access
+  const tenantS3Client = isDefaultTenant(tenantId)
+    ? s3Client
+    : await createTenantS3Client(event);
+
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: s3Key,
   });
 
-  const presignedUrl = await getSignedUrl(s3Client, command, {
+  const presignedUrl = await getSignedUrl(tenantS3Client, command, {
     expiresIn,
   });
 
@@ -185,6 +191,9 @@ export async function loadTemplate(tenantId: string, s3Key: string): Promise<Buf
   const bucket = await getPptxTemplatesBucketName(tenantId);
 
   console.log('Loading template from S3:', { bucket, s3Key, tenantId });
+
+  // Create tenant-specific S3 client for cross-account access
+  const s3Client = await createTenantS3ClientForBackgroundJob(tenantId);
 
   const command = new GetObjectCommand({
     Bucket: bucket,

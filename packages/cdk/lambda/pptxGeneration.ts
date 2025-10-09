@@ -1,6 +1,5 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import PptxGenJS from 'pptxgenjs';
 import { getPptxGenerationsTableName, getPptxTemplatesBucketName, getPptxOutputsBucketName } from './pptx/tenantPptxConfig';
@@ -8,10 +7,8 @@ import { loadTemplate } from './pptx/pptxService';
 import api from './utils/api';
 import { Model } from 'generative-ai-use-cases';
 import { modelMetadata } from '@generative-ai-use-cases/common';
-import { getTenant } from './tenantManager';
-
-// Initialize AWS clients
-const s3Client = new S3Client({});
+import { createTenantDynamoDBClientForBackgroundJob } from './utils/tenantDynamoDBClient';
+import { createTenantS3ClientForBackgroundJob } from './utils/tenantS3Client';
 
 interface GenerationMessage {
   generation_id: string;
@@ -344,14 +341,15 @@ async function generatePptx(slides: SlideContent[], templateBuffer?: Buffer): Pr
 
       // Split content into bullet points if it contains line breaks
       const contentLines = slideData.content.split('\n').filter(line => line.trim());
-      
+
       if (contentLines.length > 1) {
         // Multi-line content as bullet points
         const bulletPoints = contentLines.map(line => {
           const trimmed = line.trim();
-          return trimmed.startsWith('•') || trimmed.startsWith('-') 
+          const text = trimmed.startsWith('•') || trimmed.startsWith('-')
             ? trimmed.slice(1).trim()
             : trimmed;
+          return { text };
         });
 
         slide.addText(bulletPoints, {
@@ -394,6 +392,9 @@ async function uploadPptx(tenantId: string, s3Key: string, buffer: Buffer): Prom
 
   console.log('Uploading PPTX to:', { bucket, s3Key, tenantId });
 
+  // Create tenant-specific S3 client for cross-account access
+  const s3Client = await createTenantS3ClientForBackgroundJob(tenantId);
+
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: s3Key,
@@ -416,21 +417,9 @@ async function updateGenerationStatus(
 ): Promise<void> {
   console.log('Updating generation status:', generationId, status);
 
-  // Get tenant info to determine region
-  let region = process.env.AWS_REGION;
-  try {
-    const tenant = await getTenant(tenantId);
-    if (tenant?.region) {
-      region = tenant.region;
-      console.log(`Using tenant region for DynamoDB: ${region}`);
-    }
-  } catch (error) {
-    console.log(`Using default region for tenant ${tenantId}:`, error);
-  }
-
-  // Use standard DynamoDB client - CentralPptxApi Lambda has wildcard IAM permissions
-  // for all tenant tables in the same account, no cross-account role assumption needed
-  const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
+  // Create tenant-specific DynamoDB client for cross-account access
+  const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(tenantId);
+  const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
   let updateExpression = 'SET #status = :status, updatedAt = :updatedAt';
   const expressionAttributeNames: Record<string, string> = {

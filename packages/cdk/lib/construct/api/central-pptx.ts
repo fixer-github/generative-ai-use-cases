@@ -23,6 +23,7 @@ import { getBaseEnvironment } from './util';
  */
 export class CentralPptxApi extends Construct {
   readonly generationQueue: sqs.Queue;
+  readonly pptxLambdaRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: GenericApiProps) {
     super(scope, id);
@@ -37,7 +38,7 @@ export class CentralPptxApi extends Construct {
     });
 
     // Create shared IAM role for Lambda functions with permissions for all tenant resources
-    const lambdaRole = new iam.Role(this, 'PptxLambdaRole', {
+    this.pptxLambdaRole = new iam.Role(this, 'PptxLambdaRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -45,7 +46,7 @@ export class CentralPptxApi extends Construct {
     });
 
     // Grant DynamoDB permissions for all tenant tables (wildcard pattern)
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
+    this.pptxLambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'dynamodb:GetItem',
@@ -64,7 +65,8 @@ export class CentralPptxApi extends Construct {
     }));
 
     // Grant S3 permissions for all tenant buckets (wildcard pattern)
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
+    // Pattern matches: {base}-{environment}-tenant-{tenantId}-{hash}
+    this.pptxLambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         's3:GetObject',
@@ -73,21 +75,42 @@ export class CentralPptxApi extends Construct {
         's3:ListBucket',
       ],
       resources: [
-        'arn:aws:s3:::*-pptx-templates-*',
-        'arn:aws:s3:::*-pptx-templates-*/*',
-        'arn:aws:s3:::*-pptx-outputs-*',
-        'arn:aws:s3:::*-pptx-outputs-*/*',
+        `arn:aws:s3:::pptx-templates-${props.environment}-tenant-*`,
+        `arn:aws:s3:::pptx-templates-${props.environment}-tenant-*/*`,
+        `arn:aws:s3:::pptx-outputs-${props.environment}-tenant-*`,
+        `arn:aws:s3:::pptx-outputs-${props.environment}-tenant-*/*`,
       ],
     }));
 
     // Grant SQS permissions
-    this.generationQueue.grantSendMessages(lambdaRole);
+    this.generationQueue.grantSendMessages(this.pptxLambdaRole);
+
+    // Grant Bedrock permissions for AI-powered PPTX content generation
+    this.pptxLambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+        'bedrock:Converse',
+        'bedrock:ConverseStream',
+        'bedrock:StartAsyncInvoke',
+      ],
+      resources: ['*'], // Bedrock models/inference profiles don't have tenant-specific ARNs
+    }));
+
+    // Grant STS AssumeRole permissions for cross-account tenant access
+    // Allows background jobs to assume TenantRole in tenant accounts
+    this.pptxLambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['sts:AssumeRole'],
+      resources: [`arn:aws:iam::*:role/TenantRole-*`],
+    }));
 
     // Common Lambda props
     const commonLambdaProps = {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.minutes(1),
-      role: lambdaRole,
+      role: this.pptxLambdaRole,
       environment: getBaseEnvironment(this, props, {
         MODEL_REGION: props.modelRegion,
         MODEL_IDS: JSON.stringify(props.modelIds),
@@ -251,7 +274,7 @@ export class CentralPptxApi extends Construct {
     // Grant Tenants table read access to Lambda role
     // All Lambda functions need this to call getTenant() for tenant credential resolution
     if (props.tenantManager) {
-      props.tenantManager.tenantsTable.grantReadData(lambdaRole);
+      props.tenantManager.tenantsTable.grantReadData(this.pptxLambdaRole);
     }
 
     // Grant LiteLLM proxy invoke permissions to PPTX generation worker

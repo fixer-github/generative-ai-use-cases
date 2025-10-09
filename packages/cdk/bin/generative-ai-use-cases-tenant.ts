@@ -24,6 +24,7 @@ interface TenantConfig {
     userPoolId: string;
     identityPoolId: string;
     userPoolClientId: string;
+    controlPlaneLambdaRoleArn?: string;
   };
 }
 
@@ -97,6 +98,12 @@ if (tenantConfig.controlPlane) {
     !app.node.getAllContext()['registrationApiKey']
   ) {
     app.node.setContext('registrationApiKey', controlPlane.registrationApiKey);
+  }
+  if (
+    controlPlane.controlPlaneLambdaRoleArn &&
+    !app.node.getAllContext()['controlPlaneLambdaRoleArn']
+  ) {
+    app.node.setContext('controlPlaneLambdaRoleArn', controlPlane.controlPlaneLambdaRoleArn);
   }
 }
 

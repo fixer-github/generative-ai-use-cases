@@ -102,6 +102,7 @@ export class Api extends Construct {
   readonly agentNames: string[];
   readonly fileBucket: Bucket;
   readonly getFileDownloadSignedUrlFunction: IFunction;
+  readonly centralPptxApi: CentralPptxApi;
 
   constructor(scope: Construct, id: string, props: BackendApiProps) {
     super(scope, id);
@@ -368,7 +369,7 @@ export class Api extends Construct {
 
     // Central PPTX API for multi-tenant architecture
     // Lambda functions dynamically access tenant-specific resources based on Cognito claims
-    new CentralPptxApi(this, 'CentralPptxAPI', apiProps);
+    this.centralPptxApi = new CentralPptxApi(this, 'CentralPptxAPI', apiProps);
 
     // Add ALL methods proxy to Bedrock Chat proxy Lambda
     this.restApi = api;
