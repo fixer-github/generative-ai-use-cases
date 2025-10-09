@@ -149,11 +149,14 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         tenantId: params.tenantId,
         environment: params.environment,
         bedrockRegion: params.bedrockRegion || params.region,
+        openSearchDomainEndpoint: tenantOpenSearchStack.domainEndpoint,
+        openSearchDomainArn: tenantOpenSearchStack.domainArn,
         removalPolicy: params.removalPolicy
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
       }
     );
+    tenantBedrockChatStack.addDependency(tenantOpenSearchStack);
   }
 
   // Tenant PPTX Stack (optional)

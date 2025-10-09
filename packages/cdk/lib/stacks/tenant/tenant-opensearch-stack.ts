@@ -212,10 +212,13 @@ export class TenantOpenSearchStack extends cdk.Stack {
       })
     );
 
-    // Grant access to the domain from CodeBuild role
+    // Grant access to the domain from CodeBuild role and Bedrock service
     const accessPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      principals: [this.opensearchIndexCreationRole],
+      principals: [
+        this.opensearchIndexCreationRole,
+        new iam.ServicePrincipal('bedrock.amazonaws.com'),
+      ],
       actions: [
         'es:ESHttpPost',
         'es:ESHttpPut',
@@ -227,6 +230,16 @@ export class TenantOpenSearchStack extends cdk.Stack {
     });
 
     this.domain.addAccessPolicies(accessPolicy);
+
+    // Add DescribeDomain permission for Bedrock Knowledge Base validation
+    const describeDomainPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('bedrock.amazonaws.com')],
+      actions: ['es:DescribeDomain'],
+      resources: [this.domain.domainArn],
+    });
+
+    this.domain.addAccessPolicies(describeDomainPolicy);
 
     // Export domain outputs
     new cdk.CfnOutput(this, 'DomainEndpoint', {
