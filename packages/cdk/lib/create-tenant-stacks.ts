@@ -34,8 +34,8 @@ export interface TenantStackInput {
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
-  openSearchConfig?: OpenSearchConfig;
-  networkConfig?: NetworkConfig;
+  openSearchConfig: OpenSearchConfig;
+  networkConfig: NetworkConfig;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -94,9 +94,9 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
-      vpcCidr: params.networkConfig!.vpcCidr,
-      maxAzs: params.networkConfig!.maxAzs,
-      natGateways: params.networkConfig!.natGateways,
+      vpcCidr: params.networkConfig.vpcCidr,
+      maxAzs: params.networkConfig.maxAzs,
+      natGateways: params.networkConfig.natGateways,
     }
   );
 
@@ -113,19 +113,12 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       environment: params.environment,
       vpc: tenantVpcStack.vpc,
       subnets: tenantVpcStack.privateSubnets,
-      capacity: params.openSearchConfig?.capacity || {
-        dataNodes: 3,
-        dataNodeInstanceType: 'm6g.large.search',
-        masterNodes: 3,
-        masterNodeInstanceType: 't3.small.search',
-      },
-      ebsVolumeSize: params.openSearchConfig?.ebsVolumeSize || 100,
-      ebsVolumeType:
-        params.openSearchConfig?.ebsVolumeType || ec2.EbsDeviceVolumeType.GP3,
-      availabilityZoneCount:
-        params.openSearchConfig?.availabilityZoneCount || 2,
+      capacity: params.openSearchConfig.capacity,
+      ebsVolumeSize: params.openSearchConfig.ebsVolumeSize,
+      ebsVolumeType: params.openSearchConfig.ebsVolumeType,
+      availabilityZoneCount: params.openSearchConfig.availabilityZoneCount,
       automatedSnapshotStartHour:
-        params.openSearchConfig?.automatedSnapshotStartHour || 0,
+        params.openSearchConfig.automatedSnapshotStartHour,
       removalPolicy: params.removalPolicy
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,

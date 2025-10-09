@@ -147,31 +147,16 @@ const params = {
     context.tenantRegion ||
     process.env.CDK_DEFAULT_REGION ||
     'us-east-1',
-  openSearchConfig: context.openSearchConfig
-    ? {
-        capacity: context.openSearchConfig.capacity,
-        ebsVolumeSize: context.openSearchConfig.ebsVolumeSize,
-        ebsVolumeType:
-          ebsVolumeTypeMap[context.openSearchConfig.ebsVolumeType] ||
-          ec2.EbsDeviceVolumeType.GP3,
-        availabilityZoneCount: context.openSearchConfig.availabilityZoneCount,
-        automatedSnapshotStartHour:
-          context.openSearchConfig.automatedSnapshotStartHour,
-      }
-    : {
-        capacity: context.openSearchCapacity || {
-          dataNodes: 3,
-          dataNodeInstanceType: 'm6g.large.search',
-          masterNodes: 3,
-          masterNodeInstanceType: 't3.small.search',
-        },
-        ebsVolumeSize: context.ebsVolumeSize || 100,
-        ebsVolumeType:
-          ebsVolumeTypeMap[context.ebsVolumeType] ||
-          ec2.EbsDeviceVolumeType.GP3,
-        availabilityZoneCount: context.availabilityZoneCount || 2,
-        automatedSnapshotStartHour: context.automatedSnapshotStartHour || 0,
-      },
+  openSearchConfig: {
+    capacity: context.openSearchConfig.capacity,
+    ebsVolumeSize: context.openSearchConfig.ebsVolumeSize,
+    ebsVolumeType:
+      ebsVolumeTypeMap[context.openSearchConfig.ebsVolumeType] ||
+      ec2.EbsDeviceVolumeType.GP3,
+    availabilityZoneCount: context.openSearchConfig.availabilityZoneCount,
+    automatedSnapshotStartHour:
+      context.openSearchConfig.automatedSnapshotStartHour,
+  },
   networkConfig: context.networkConfig,
 };
 
