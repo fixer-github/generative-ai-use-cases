@@ -1,7 +1,7 @@
 {
   "name": "generative-ai-use-cases",
   "private": true,
-  "version": "4.3.2",
+  "version": "0.4.2",
   "scripts": {
     "lint": "run-s custom-lint:build web:lint cdk:lint cdk:lambda-build-dryrun",
     "lint:fix": "run-s custom-lint:build web:lint:fix cdk:lint cdk:lambda-build-dryrun",
