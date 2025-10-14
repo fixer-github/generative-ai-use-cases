@@ -283,13 +283,13 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       {/* Backdrop - only show when warning dialog is not open */}
       {!showUnconfiguredWarning && (
         <div
-          className="fixed inset-0 z-40 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 transition-opacity"
           onClick={handleClose}
         />
       )}
 
       {/* Content container */}
-      <div className="fixed inset-0 z-40 overflow-y-auto">
+      <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
           <div className="inline-block w-full max-w-2xl overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
           {/* Header */}
@@ -519,10 +519,10 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       {showUnconfiguredWarning && (
         <>
           {/* Warning backdrop */}
-          <div className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 z-[60] bg-gray-500 bg-opacity-75 transition-opacity" />
 
           {/* Warning content container */}
-          <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 z-[60] overflow-y-auto">
             <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
               <div className="inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:p-6 sm:align-middle">
               <div className="mb-4 flex items-center justify-between">
