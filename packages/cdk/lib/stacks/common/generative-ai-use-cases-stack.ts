@@ -1,19 +1,17 @@
-import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   Auth,
   Api,
-  Web,
   Database,
   Rag,
   RagKnowledgeBase,
-  Transcribe,
   CommonWebAcl,
-  SpeechToSpeech,
-  McpApi,
   LitellmProxyServer,
   TenantManager,
 } from '../../construct';
+import { PptxDb } from '../../construct/pptx-db';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
@@ -21,6 +19,14 @@ import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilderStack } from '../nested/use-case-builder-stack';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
+import { env } from 'process';
+import { Buffer } from 'buffer';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import TranscribeStack from './transcribe-stack';
+import WebStack from './web-stack';
+import SpeechToSpeechStack from './speech-to-speech-stack';
+import McpApiStack from './mcp-api-stack';
 
 export interface GenerativeAiUseCasesStackProps extends StackProps {
   readonly params: ProcessedStackInput;
@@ -45,6 +51,9 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
 export class GenerativeAiUseCasesStack extends Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  public readonly idPool: IdentityPool;
+  public readonly restApi: RestApi;
+  public readonly tenantManager: TenantManager;
 
   constructor(
     scope: Construct,
@@ -52,7 +61,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     props: GenerativeAiUseCasesStackProps
   ) {
     super(scope, id, props);
-    process.env.overrideWarningsEnabled = 'false';
+    env.overrideWarningsEnabled = 'false';
 
     const params = props.params;
 
@@ -74,6 +83,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       environment: params.env,
       enableAutoDelete: params.enableAutoDelete,
     });
+
+    // PPTX resources moved to per-tenant stacks (TenantPptxStack and TenantS3Stack)
+    // Each tenant now has their own isolated PPTX database and S3 buckets
 
     // LiteLLM Proxy Server (must be created before API)
     let litellmEndpoint: string | null = null;
@@ -105,6 +117,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       litellmEndpoint: litellmEndpoint,
       litellmProxy: litellmProxy,
+      pptxEnabled: params.pptxEnabled,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
       userPool: auth.userPool,
       idPool: auth.idPool,
@@ -117,6 +130,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailVersion: props.guardrailVersion,
       environment: params.env,
       tenantManager: tenantManager,
+      // PPTX resources moved to per-tenant stacks - no longer in control plane
 
       // LangChain Credentials
       openai: params.openai,
@@ -145,71 +159,37 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // SpeechToSpeech (for bidirectional communication)
-    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
-      envSuffix: params.env,
-      api: api.restApi,
-      userPool: auth.userPool,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-    });
+    const speechToSpeechStack = new SpeechToSpeechStack(
+      this,
+      'SpeechToSpeech',
+      {
+        params: params,
+        api: api,
+        auth: auth,
+      }
+    );
+    const speechToSpeech = speechToSpeechStack.speechToSpeech;
 
     // MCP
     let mcpEndpoint: string | null = null;
     if (params.mcpEnabled) {
-      const mcpApi = new McpApi(this, 'McpApi', {
-        idPool: auth.idPool,
+      const mcpApiStack = new McpApiStack(this, 'McpApi', {
+        auth: auth,
         isSageMakerStudio: props.isSageMakerStudio,
-        fileBucket: api.fileBucket,
+        api: api,
       });
-      mcpEndpoint = mcpApi.endpoint;
+
+      mcpEndpoint = mcpApiStack.mcpApi.endpoint;
     }
 
-    // Web Frontend
-    const selfSignUpEnabledForWeb =
-      params.samlAuthEnabled && !params.samlDefaultAuthEnabled
-        ? false
-        : params.selfSignUpEnabled;
-
-    const web = new Web(this, 'Api', {
-      // Auth
-      userPoolId: auth.userPool.userPoolId,
-      userPoolClientId: auth.client.userPoolClientId,
-      idPoolId: auth.idPool.identityPoolId,
-      selfSignUpEnabled: selfSignUpEnabledForWeb,
-      samlAuthEnabled: params.samlAuthEnabled,
-      samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
-      samlCognitoDomainName: params.samlCognitoDomainName,
-      samlCognitoFederatedIdentityProviderName:
-        params.samlCognitoFederatedIdentityProviderName,
-      // Backend
-      apiEndpointUrl: api.restApi.url,
-      predictStreamFunctionArn: api.predictStreamFunction.functionArn,
-      ragEnabled: params.ragEnabled,
-      ragKnowledgeBaseEnabled: params.ragKnowledgeBaseEnabled,
-      agentEnabled: params.agentEnabled || params.agents.length > 0,
-      flows: params.flows,
-      flowStreamFunctionArn: api.invokeFlowFunction.functionArn,
-      optimizePromptFunctionArn: api.optimizePromptFunction.functionArn,
+    new WebStack(this, 'Web', {
+      params: params,
+      auth: auth,
+      api: api,
+      speechToSpeech: speechToSpeech,
       webAclId: props.webAclId,
-      modelRegion: api.modelRegion,
-      modelIds: api.modelIds,
-      imageGenerationModelIds: api.imageGenerationModelIds,
-      videoGenerationModelIds: api.videoGenerationModelIds,
-      endpointNames: api.endpointNames,
-      agentNames: api.agentNames,
-      inlineAgents: params.inlineAgents,
-      useCaseBuilderEnabled: params.useCaseBuilderEnabled,
-      speechToSpeechNamespace: speechToSpeech.namespace,
-      speechToSpeechEventApiEndpoint: speechToSpeech.eventApiEndpoint,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      mcpEnabled: params.mcpEnabled,
-      mcpEndpoint,
-      // Frontend
-      // Custom Domain
+      mcpEndpoint: mcpEndpoint,
       cert: props.cert,
-      hostName: params.hostName,
-      domainName: params.domainName,
-      hostedZoneId: params.hostedZoneId,
     });
 
     // RAG
@@ -286,31 +266,22 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // Transcribe
-    new Transcribe(this, 'Transcribe', {
+    new TranscribeStack(this, `TranscribeStack${params.env}`, {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      params: params,
       userPool: auth.userPool,
       idPool: auth.idPool,
-      api: api.restApi,
-      allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-      allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      restApi: api.restApi,
       tenantManager: tenantManager,
-      environment: params.env,
     });
 
     // Cfn Outputs
     new CfnOutput(this, 'Region', {
       value: this.region,
     });
-
-    if (params.hostName && params.domainName) {
-      new CfnOutput(this, 'WebUrl', {
-        value: `https://${params.hostName}.${params.domainName}`,
-      });
-    } else {
-      new CfnOutput(this, 'WebUrl', {
-        value: `https://${web.distribution.domainName}`,
-      });
-    }
 
     new CfnOutput(this, 'ApiEndpoint', {
       value: api.restApi.url,
@@ -424,6 +395,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: mcpEndpoint ?? '',
     });
 
+    new CfnOutput(this, 'PptxEnabled', {
+      value: params.pptxEnabled.toString(),
+    });
+
     new CfnOutput(this, 'LitellmProxyEnabled', {
       value: params.litellmProxyEnabled.toString(),
     });
@@ -441,6 +416,14 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: tenantManager.registrationLambda.functionArn,
       description: 'ARN of the tenant registration Lambda function',
     });
+
+    if (api.centralPptxApi) {
+      new CfnOutput(this, 'CentralPptxLambdaRoleArn', {
+        value: api.centralPptxApi.pptxLambdaRole.roleArn,
+        description: 'ARN of the central PPTX Lambda execution role for cross-account tenant access',
+        exportName: `${this.stackName}-CentralPptxLambdaRoleArn`,
+      });
+    }
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;

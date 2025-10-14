@@ -4,9 +4,20 @@ import * as cdk from 'aws-cdk-lib';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createTenantStacks } from '../lib/create-tenant-stacks';
-import { StackInput } from '../lib/stack-input';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 const app = new cdk.App();
+
+// EBS Volume Type mapping
+const ebsVolumeTypeMap: { [key: string]: ec2.EbsDeviceVolumeType } = {
+  GP3: ec2.EbsDeviceVolumeType.GP3,
+  GP2: ec2.EbsDeviceVolumeType.GP2,
+  IO1: ec2.EbsDeviceVolumeType.IO1,
+  IO2: ec2.EbsDeviceVolumeType.IO2,
+  STANDARD: ec2.EbsDeviceVolumeType.STANDARD,
+  SC1: ec2.EbsDeviceVolumeType.SC1,
+  ST1: ec2.EbsDeviceVolumeType.ST1,
+};
 
 // Read tenant configuration from cdk.tenant.json
 interface TenantConfig {
@@ -14,6 +25,12 @@ interface TenantConfig {
   environment?: string;
   tenantRegion?: string;
   enableAutoDelete?: boolean;
+  openSearchCapacity?: any; // Will be parsed as JSON string or object
+  networkConfig?: {
+    vpcCidr?: string;
+    maxAzs?: number;
+    natGateways?: number;
+  };
   controlPlane?: {
     account: string;
     region: string;
@@ -24,6 +41,7 @@ interface TenantConfig {
     userPoolId: string;
     identityPoolId: string;
     userPoolClientId: string;
+    controlPlaneLambdaRoleArn?: string;
   };
 }
 
@@ -98,6 +116,12 @@ if (tenantConfig.controlPlane) {
   ) {
     app.node.setContext('registrationApiKey', controlPlane.registrationApiKey);
   }
+  if (
+    controlPlane.controlPlaneLambdaRoleArn &&
+    !app.node.getAllContext()['controlPlaneLambdaRoleArn']
+  ) {
+    app.node.setContext('controlPlaneLambdaRoleArn', controlPlane.controlPlaneLambdaRoleArn);
+  }
 }
 
 const tenantId = context.tenantId;
@@ -116,12 +140,24 @@ const params = {
   userPoolId: context.controlPlane?.userPoolId!,
   identityPoolId: context.controlPlane?.identityPoolId!,
   userPoolClientId: context.controlPlane?.userPoolClientId!,
+  pptxEnabled: context.pptxEnabled ?? false,
   enableBedrockChat: true, // Bedrock Chatスタックを有効化
   bedrockRegion:
     context.bedrockRegion ||
     context.tenantRegion ||
     process.env.CDK_DEFAULT_REGION ||
     'us-east-1',
+  openSearchConfig: {
+    capacity: context.openSearchConfig.capacity,
+    ebsVolumeSize: context.openSearchConfig.ebsVolumeSize,
+    ebsVolumeType:
+      ebsVolumeTypeMap[context.openSearchConfig.ebsVolumeType] ||
+      ec2.EbsDeviceVolumeType.GP3,
+    availabilityZoneCount: context.openSearchConfig.availabilityZoneCount,
+    automatedSnapshotStartHour:
+      context.openSearchConfig.automatedSnapshotStartHour,
+  },
+  networkConfig: context.networkConfig,
 };
 
 createTenantStacks(app, params);
