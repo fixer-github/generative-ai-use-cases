@@ -40,6 +40,27 @@ jobs:
         run: |
           echo "$CDK_CONFIG_BASE64" | base64 -d > packages/cdk/cdk.json
 
+      - name: Extract LiteLLM Enable Flag
+        id: check-litellm
+        run: |
+          LITELLM_ENABLED=$(jq -r '.context.litellmProxyEnabled // false' packages/cdk/cdk.json)
+          echo "enabled=$LITELLM_ENABLED" >> $GITHUB_OUTPUT
+          echo "LiteLLM Proxy Enabled: $LITELLM_ENABLED"
+
+      - name: Decode LiteLLM Config
+        if: steps.check-litellm.outputs.enabled == 'true'
+        env:
+          LITELLM_CONFIG_BASE64: ${{ secrets.LITELLM_CONFIG_BASE64 }}
+        run: |
+          if [ -z "$LITELLM_CONFIG_BASE64" ]; then
+            echo "Error: LITELLM_CONFIG_BASE64 secret not found but litellmProxyEnabled is true"
+            echo "Please run: ./scripts/upload-config.sh --type litellm"
+            exit 1
+          fi
+          mkdir -p packages/cdk/litellm-proxy-server
+          echo "$LITELLM_CONFIG_BASE64" | base64 -d > packages/cdk/litellm-proxy-server/config.yaml
+          echo "✓ LiteLLM config decoded successfully"
+
       - name: Bootstrap CDK
         run: npm -w packages/cdk run cdk -- bootstrap --verbose
         env:

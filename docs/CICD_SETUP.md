@@ -121,54 +121,110 @@ Edit `packages/cdk/cdk.json` with your configuration:
 
 See [DEPLOY_OPTION.md](./DEPLOY_OPTION.md) for all available configuration options.
 
-#### 2.3 Upload CDK Configuration to GitHub Secrets
+#### 2.3 CDK設定をGitHub Secretsにアップロード
 
-Use the provided script:
+提供されているスクリプトを使用します：
 
 ```bash
-./scripts/upload-cdk-config.sh
+./scripts/upload-config.sh --type cdk
 ```
 
-Or manually:
+または手動で：
 
 ```bash
-# Encode and upload
+# エンコードしてアップロード
 base64 -w 0 < packages/cdk/cdk.json | gh secret set CDK_CONFIG_BASE64
 ```
 
-**Options for upload script:**
+**アップロードスクリプトのオプション：**
 
 ```bash
-# Show help
-./scripts/upload-cdk-config.sh --help
+# ヘルプを表示
+./scripts/upload-config.sh --help
 
-# Upload from custom path
-./scripts/upload-cdk-config.sh /path/to/custom-cdk.json
+# カスタムパスからアップロード
+./scripts/upload-config.sh --type cdk /path/to/custom-cdk.json
 
-# Just output base64 without uploading
-./scripts/upload-cdk-config.sh --output
+# アップロードせずにbase64を出力
+./scripts/upload-config.sh --type cdk --output
 
-# Use custom secret name
-./scripts/upload-cdk-config.sh --secret-name MY_CDK_CONFIG
+# カスタムシークレット名を使用
+./scripts/upload-config.sh --type cdk --secret-name MY_CDK_CONFIG
 ```
 
-### 3. Verify Setup
+#### 2.4 LiteLLM Proxy設定のアップロード（オプション）
 
-Check that all required secrets and variables are set:
+**注意：** このステップは、`cdk.json`で`litellmProxyEnabled: true`を設定している場合にのみ必要です。
+
+LiteLLM Proxyは、複数のAIモデルプロバイダー（AWS Bedrock、OpenAI、Azure OpenAI、Google Vertex AIなど）への統一されたAPIインターフェースを提供します。
+
+##### 2.4.1 config.yamlの準備
+
+`packages/cdk/litellm-proxy-server/config.yaml`ファイルを作成し、モデル設定とAPIキーを含めます：
+
+```yaml
+model_list:
+  # AWS Bedrock（IAMロールを使用、APIキー不要）
+  - model_name: claude-3-5-sonnet
+    litellm_params:
+      model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
+      aws_region_name: us-east-1
+
+  # OpenAI（APIキーが必要）
+  - model_name: gpt-4
+    litellm_params:
+      model: gpt-4
+      api_key: sk-your-openai-api-key-here
+
+general_settings:
+  master_key: sk-litellm-master-key  # 本番環境では強力なキーに変更してください
+
+litellm_settings:
+  drop_params: true
+  success_callback: []
+```
+
+詳細な設定オプションについては、`packages/cdk/litellm-proxy-server/README.md`を参照してください。
+
+##### 2.4.2 LiteLLM設定のアップロード
+
+提供されているスクリプトを使用します：
 
 ```bash
-# List variables
+./scripts/upload-config.sh --type litellm
+```
+
+または手動で：
+
+```bash
+# エンコードしてアップロード
+base64 -w 0 < packages/cdk/litellm-proxy-server/config.yaml | gh secret set LITELLM_CONFIG_BASE64
+```
+
+**セキュリティ上の注意：**
+- `config.yaml`にはAPIキーやマスターキーなどの機密情報が含まれています
+- このファイルは絶対にバージョン管理にコミットしないでください（`.gitignore`に含まれています）
+- 本番環境では強力でユニークなマスターキーを使用してください
+- APIキーを定期的にローテーションしてください
+
+### 3. セットアップの確認
+
+必要なすべてのシークレットと変数が設定されていることを確認します：
+
+```bash
+# 変数のリスト
 gh variable list
 
-# Should show:
+# 以下が表示されるはずです：
 # AWS_DEFAULT_REGION    us-east-1
 # AWS_DEPLOY_ROLE_ARN   arn:aws:iam::...
 
-# List secrets
+# シークレットのリスト
 gh secret list
 
-# Should show:
+# 以下が表示されるはずです：
 # CDK_CONFIG_BASE64     Updated YYYY-MM-DD
+# LITELLM_CONFIG_BASE64 Updated YYYY-MM-DD  # LiteLLMを有効にしている場合のみ
 ```
 
 ### 4. Test Deployment
@@ -205,45 +261,63 @@ git push origin feature/test
 # Create PR via gh pr create
 ```
 
-## Workflow Behavior
+## ワークフローの動作
 
-### On Pull Request
-- ✅ Run quality checks (lint, type check)
-- ✅ Build all packages
-- ❌ No deployment
+### プルリクエスト時
+- ✅ 品質チェックの実行（lint、型チェック）
+- ✅ すべてのパッケージのビルド
+- ❌ デプロイなし
 
-### On Push to Main
-- ✅ Run quality checks
-- ✅ Build all packages
-- ✅ Assume AWS role via OIDC
-- ✅ Decode cdk.json from GitHub Secrets
-- ✅ Deploy to AWS
+### main ブランチへのプッシュ時
+- ✅ 品質チェックの実行
+- ✅ すべてのパッケージのビルド
+- ✅ OIDCを使用したAWSロールの引き受け
+- ✅ GitHub Secretsからcdk.jsonのデコード
+- ✅ `litellmProxyEnabled`フラグの抽出
+- ✅ LiteLLM config.yamlのデコード（有効な場合）
+- ✅ AWSへのデプロイ
 
-### On Tag Push (v*)
-- Same as push to main
+### タグプッシュ時（v*）
+- main ブランチへのプッシュと同じ
 
-## Updating Configuration
+## 設定の更新
 
-### Update CDK Configuration
+### CDK設定の更新
 
-When you need to change deployment settings:
+デプロイ設定を変更する必要がある場合：
 
-1. Edit your local `packages/cdk/cdk.json`
-2. Upload to GitHub Secrets:
+1. ローカルの`packages/cdk/cdk.json`を編集
+2. GitHub Secretsにアップロード：
    ```bash
-   ./scripts/upload-cdk-config.sh
+   ./scripts/upload-config.sh --type cdk
    ```
-3. Push to trigger deployment:
+3. プッシュしてデプロイをトリガー：
    ```bash
    git push origin main
    ```
 
-### Update AWS Credentials/Role
+### LiteLLM設定の更新
 
-If you need to change the IAM role:
+LiteLLMモデル設定やAPIキーを変更する必要がある場合：
 
-1. Update the role in AWS IAM
-2. Update GitHub variable:
+1. ローカルの`packages/cdk/litellm-proxy-server/config.yaml`を編集
+2. GitHub Secretsにアップロード：
+   ```bash
+   ./scripts/upload-config.sh --type litellm
+   ```
+3. プッシュしてデプロイをトリガー：
+   ```bash
+   git push origin main
+   ```
+
+**注意：** LiteLLMを有効/無効にする場合は、`cdk.json`の`litellmProxyEnabled`フラグも更新してください。
+
+### AWS認証情報/ロールの更新
+
+IAMロールを変更する必要がある場合：
+
+1. AWS IAMでロールを更新
+2. GitHub変数を更新：
    ```bash
    gh variable set AWS_DEPLOY_ROLE_ARN --body "arn:aws:iam::ACCOUNT:role/NewRole"
    ```
@@ -267,77 +341,133 @@ If you need to change the IAM role:
 - Share base64-encoded secrets in chat/email
 - Allow all branches to deploy
 
-## Troubleshooting
+## トラブルシューティング
 
 ### "CDK_CONFIG_BASE64 environment variable not found"
 
-**Cause:** Secret not set in GitHub
+**原因:** GitHubにシークレットが設定されていない
 
-**Solution:**
+**解決方法:**
 ```bash
-./scripts/upload-cdk-config.sh
+./scripts/upload-config.sh --type cdk
 ```
+
+### "LITELLM_CONFIG_BASE64 secret not found but litellmProxyEnabled is true"
+
+**原因:** LiteLLMが有効だが、config.yamlシークレットがアップロードされていない
+
+**解決方法:**
+```bash
+./scripts/upload-config.sh --type litellm
+```
+
+または、LiteLLMを使用しない場合は`cdk.json`で無効にします：
+```json
+{
+  "context": {
+    "litellmProxyEnabled": false
+  }
+}
+```
+
+### "Docker build failed: COPY config.yaml"
+
+**原因:** LiteLLMが有効だが、config.yamlが見つからない
+
+**解決方法:**
+1. `LITELLM_CONFIG_BASE64`シークレットが設定されていることを確認
+2. ワークフローログでLiteLLM configのデコードステップが実行されたか確認
+3. 必要に応じて、config.yamlを再アップロード：
+   ```bash
+   ./scripts/upload-config.sh --type litellm
+   ```
 
 ### "Error: Could not assume role"
 
-**Cause:** OIDC trust policy mismatch
+**原因:** OIDCトラストポリシーの不一致
 
-**Solution:** Verify trust policy allows your repository:
+**解決方法:** トラストポリシーがリポジトリを許可していることを確認：
 ```bash
 aws iam get-role --role-name github-actions-role --query 'Role.AssumeRolePolicyDocument'
 ```
 
 ### "CDK deploy failed: Invalid context"
 
-**Cause:** Invalid `cdk.json` configuration
+**原因:** 無効な`cdk.json`設定
 
-**Solution:** Validate JSON locally:
+**解決方法:** ローカルでJSONを検証：
 ```bash
 jq empty packages/cdk/cdk.json
 ```
 
 ### "Access Denied" during deployment
 
-**Cause:** IAM role lacks required permissions
+**原因:** IAMロールに必要な権限がない
 
-**Solution:** Add necessary policies to the IAM role:
+**解決方法:** IAMロールに必要なポリシーを追加：
 ```bash
 aws iam attach-role-policy \
   --role-name github-actions-role \
   --policy-arn arn:aws:iam::aws:policy/PowerUserAccess
 ```
 
-## Architecture Diagram
+### LiteLLM config.yamlの検証エラー
+
+**原因:** 無効なYAML構文またはモデル設定
+
+**解決方法:** YAMLを検証：
+```bash
+# yqを使用（インストールされている場合）
+yq eval packages/cdk/litellm-proxy-server/config.yaml
+
+# またはPython
+python3 -c "import yaml; yaml.safe_load(open('packages/cdk/litellm-proxy-server/config.yaml'))"
+```
+
+## アーキテクチャ図
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ GitHub Actions Workflow                                     │
-│                                                             │
-│  ┌──────────────┐      ┌──────────────┐                   │
-│  │ Checkout     │─────▶│ Setup Node   │                   │
-│  └──────────────┘      └──────────────┘                   │
-│                              │                              │
-│                              ▼                              │
-│                    ┌──────────────────┐                    │
-│                    │ Configure AWS    │◀────OIDC Token     │
-│                    │ (OIDC)          │                    │
-│                    └──────────────────┘                    │
-│                              │                              │
-│                              ▼                              │
-│  ┌─────────────────────────────────────────┐              │
-│  │ Dagger Pipeline                         │              │
-│  │                                         │              │
-│  │  ┌──────────┐    ┌─────────────┐      │              │
-│  │  │ Decode   │───▶│ Bootstrap   │      │              │
-│  │  │ cdk.json │    │ CDK         │      │              │
-│  │  └──────────┘    └─────────────┘      │              │
-│  │        │               │                │              │
-│  │        │               ▼                │              │
-│  │        │      ┌─────────────┐          │              │
-│  │        └─────▶│ Deploy CDK  │          │              │
-│  │               └─────────────┘          │              │
-│  └─────────────────────────────────────────┘              │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ GitHub Actions ワークフロー                                      │
+│                                                                  │
+│  ┌──────────────┐      ┌──────────────┐                        │
+│  │ Checkout     │─────▶│ Setup Node   │                        │
+│  └──────────────┘      └──────────────┘                        │
+│                              │                                   │
+│                              ▼                                   │
+│                    ┌──────────────────┐                         │
+│                    │ Configure AWS    │◀────OIDC Token          │
+│                    │ (OIDC)          │                         │
+│                    └──────────────────┘                         │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────┐    ┌──────────────────┐                        │
+│  │ Decode     │───▶│ Extract LiteLLM  │                        │
+│  │ cdk.json   │    │ Enable Flag      │                        │
+│  └────────────┘    └──────────────────┘                        │
+│                              │                                   │
+│                              ▼                                   │
+│                    ┌──────────────────┐                         │
+│                    │ Decode config.   │ (条件付き:              │
+│                    │ yaml (LiteLLM)   │  litellmProxyEnabled)   │
+│                    └──────────────────┘                         │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────┐              │
+│  │ CDKパイプライン                              │              │
+│  │                                              │              │
+│  │  ┌─────────────┐    ┌─────────────┐        │              │
+│  │  │ Bootstrap   │───▶│ Deploy CDK  │        │              │
+│  │  │ CDK         │    │ Stacks      │        │              │
+│  │  └─────────────┘    └─────────────┘        │              │
+│  │                            │                 │              │
+│  │                            ▼                 │              │
+│  │                  ┌──────────────────┐       │              │
+│  │                  │ Docker Image     │       │              │
+│  │                  │ Build (LiteLLM)  │       │              │
+│  │                  └──────────────────┘       │              │
+│  └──────────────────────────────────────────────┘              │
+└──────────────────────────────────────────────────────────────────┘
                         │
                         ▼
               ┌──────────────────┐
