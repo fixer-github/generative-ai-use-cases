@@ -39,7 +39,7 @@ const {
 const cognitoVerifier = CognitoJwtVerifier.create({
   userPoolId: COGNITO_USER_POOL_ID!,
   tokenUse: 'access',
-  clientId: COGNITO_CLIENT_ID,
+  clientId: COGNITO_CLIENT_ID || undefined, // Optional for access tokens
 });
 
 const dynamoDB = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -216,7 +216,7 @@ function extractResourceInfo(
     return {
       type: 'conversation',
       id: conversationId,
-      action: methodToAction(method),
+      action: methodToAction(method, 'conversation'),
     };
   }
 
@@ -226,7 +226,7 @@ function extractResourceInfo(
     return {
       type: 'document',
       id: documentId,
-      action: methodToAction(method),
+      action: methodToAction(method, 'document'),
     };
   }
 
@@ -238,12 +238,21 @@ function extractResourceInfo(
   };
 }
 
-function methodToAction(method: string): string {
+function methodToAction(method: string, resourceType?: string): string {
   switch (method) {
     case 'GET':
       return 'view';
     case 'POST':
-      return 'create';
+      // POST maps to different permissions based on resource type
+      // - document: upload permission
+      // - conversation: view permission (creation is implicit via tenant membership)
+      // - others: execute permission
+      if (resourceType === 'document') {
+        return 'upload';
+      } else if (resourceType === 'conversation') {
+        return 'view'; // Check if user can view conversations in this tenant
+      }
+      return 'execute';
     case 'PUT':
     case 'PATCH':
       return 'edit';
@@ -377,7 +386,19 @@ async function checkUsecasePermission(
 async function checkResourcePermission(
   params: AuthzCheckParams
 ): Promise<AuthzDecision> {
-  const cacheKey = `${params.userId}:${params.resourceInfo.type}:${params.resourceInfo.id}:${params.resourceInfo.action}`;
+  // For creating new resources (id='new'), check tenant-level permission instead
+  let resourceType = params.resourceInfo.type;
+  let resourceId = params.resourceInfo.id;
+  let permission = params.resourceInfo.action;
+
+  if (resourceId === 'new') {
+    // Check against tenant for create operations
+    resourceType = 'tenant';
+    resourceId = params.tenantId;
+    permission = 'view'; // Check if user is a member of the tenant
+  }
+
+  const cacheKey = `${params.userId}:${resourceType}:${resourceId}:${permission}`;
 
   // Check cache
   if (CACHE_ENABLED === 'true') {
@@ -402,10 +423,10 @@ async function checkResourcePermission(
         },
       }),
       resource: v1.ObjectReference.create({
-        objectType: params.resourceInfo.type,
-        objectId: params.resourceInfo.id,
+        objectType: resourceType,
+        objectId: resourceId,
       }),
-      permission: params.resourceInfo.action,
+      permission: permission,
       subject: v1.SubjectReference.create({
         object: v1.ObjectReference.create({
           objectType: 'user',

@@ -33,12 +33,14 @@ export class ApiGatewayWithAuthorizationExample extends Construct {
     // Assume these are passed from parent stack
     const userPool: IUserPool = {} as any; // Replace with actual UserPool
     const vpc: IVpc = {} as any; // Replace with actual VPC
+    const userPoolClientId = 'your-app-client-id'; // Optional - only if verifying ID tokens
 
     // ========================================================================
     // 1. Create Authorization System
     // ========================================================================
     const authzSystem = new AuthorizationSystem(this, 'AuthorizationSystem', {
       userPool,
+      userPoolClientId, // Optional for access token verification
       spiceDBEndpoint: 'spicedb.cluster.local:50051', // Your SpiceDB endpoint
       spiceDBToken: 'your-spicedb-token', // Should come from Secrets Manager
       vpc,

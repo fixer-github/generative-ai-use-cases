@@ -139,8 +139,9 @@ export interface TenantPlan {
 
 /**
  * Authorization provider type
+ * MVP implementation uses SpiceDB only
  */
-export type AuthzProvider = 'openfga' | 'spicedb' | 'both';
+export type AuthzProvider = 'spicedb';
 
 /**
  * Resource type for authorization checks
@@ -322,70 +323,6 @@ export interface TenantQuotaSummary {
   usage: Record<string, QuotaUsage>;
   /** Last update timestamp */
   last_update: number;
-}
-
-// ============================================================================
-// OpenFGA Types
-// OpenFGA型
-// ============================================================================
-
-/**
- * OpenFGA tuple
- */
-export interface OpenFGATuple {
-  /** User (subject) */
-  user: string;
-  /** Relation */
-  relation: string;
-  /** Object (resource) */
-  object: string;
-  /** Optional condition */
-  condition?: {
-    name: string;
-    context: Record<string, any>;
-  };
-}
-
-/**
- * OpenFGA check request
- */
-export interface OpenFGACheckRequest {
-  /** User to check */
-  user: string;
-  /** Relation to check */
-  relation: string;
-  /** Object to check */
-  object: string;
-  /** Contextual tuples */
-  contextual_tuples?: OpenFGATuple[];
-  /** Context for conditions */
-  context?: Record<string, any>;
-}
-
-/**
- * OpenFGA check response
- */
-export interface OpenFGACheckResponse {
-  /** Whether permission is granted */
-  allowed: boolean;
-  /** Resolution metadata */
-  resolution?: string;
-}
-
-/**
- * OpenFGA store configuration
- */
-export interface OpenFGAStoreConfig {
-  /** Store ID */
-  store_id: string;
-  /** Store name */
-  name: string;
-  /** Tenant ID this store belongs to */
-  tenant_id: string;
-  /** Authorization model ID */
-  authorization_model_id: string;
-  /** Creation timestamp */
-  created_at: number;
 }
 
 // ============================================================================
@@ -581,24 +518,31 @@ export interface QuotaAlertEvent {
 
 /**
  * Authorization system construct props
+ * SpiceDB-only implementation
  */
 export interface AuthorizationSystemProps {
-  /** Cognito User Pool */
+  /** Cognito User Pool for JWT verification */
   userPool: any; // aws-cdk-lib.aws-cognito.IUserPool
-  /** Authorization provider to use */
-  authzProvider: AuthzProvider;
-  /** Enable OpenFGA */
-  enableOpenFGA: boolean;
-  /** Enable SpiceDB */
-  enableSpiceDB: boolean;
-  /** OpenFGA API URL (if using OpenFGA) */
-  openFGAApiUrl?: string;
-  /** SpiceDB endpoint (if using SpiceDB) */
-  spiceDBEndpoint?: string;
-  /** VPC for SpiceDB (if using SpiceDB) */
-  vpc?: any; // aws-cdk-lib.aws-ec2.IVpc
-  /** Environment name */
-  environment?: string;
+  /**
+   * Cognito User Pool App Client ID (optional for access tokens)
+   * If not provided, client ID validation will be skipped when verifying access tokens.
+   * Required if verifying ID tokens.
+   */
+  userPoolClientId?: string;
+  /** SpiceDB endpoint (e.g., spicedb.cluster.local:50051) */
+  spiceDBEndpoint: string;
+  /** SpiceDB authentication token (from Secrets Manager) */
+  spiceDBToken: string;
+  /** VPC for Lambda functions (to access SpiceDB in EKS) */
+  vpc: any; // aws-cdk-lib.aws-ec2.IVpc
+  /** Email for quota alerts (optional) */
+  quotaAlertEmail?: string;
+  /** Enable authorization cache */
+  enableCache?: boolean;
+  /** Cache TTL in seconds */
+  cacheTTLSeconds?: number;
+  /** Enable quota alerts */
+  enableQuotaAlerts?: boolean;
 }
 
 /**
@@ -613,17 +557,6 @@ export interface PlanQuotaStoreProps {
   ttlAttributeName?: string;
 }
 
-/**
- * OpenFGA tenant construct props
- */
-export interface OpenFGATenantProps {
-  /** Tenant ID */
-  tenantId: string;
-  /** OpenFGA API URL */
-  apiUrl: string;
-  /** Authorization model */
-  authorizationModel?: string;
-}
 
 /**
  * Usage tracker construct props

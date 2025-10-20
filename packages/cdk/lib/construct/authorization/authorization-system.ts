@@ -18,6 +18,13 @@ export interface AuthorizationSystemProps {
   /** Cognito User Pool for JWT verification */
   readonly userPool: IUserPool;
 
+  /**
+   * Cognito User Pool App Client ID (optional for access tokens)
+   * If not provided, client ID validation will be skipped when verifying access tokens.
+   * Required if verifying ID tokens.
+   */
+  readonly userPoolClientId?: string;
+
   /** SpiceDB endpoint (e.g., spicedb.cluster.local:50051) */
   readonly spiceDBEndpoint: string;
 
@@ -47,6 +54,7 @@ export interface AuthorizationSystemProps {
  * Creates a complete authorization system with:
  * - Lambda Authorizer for API Gateway
  * - Usage Tracker for quota management
+ * - Schema Migration Lambda for SpiceDB schema deployment
  * - DynamoDB tables for plans and usage
  * - SNS topic for quota alerts
  * - EventBridge rules for usage tracking
@@ -57,6 +65,9 @@ export class AuthorizationSystem extends Construct {
 
   /** Usage Tracker function */
   public readonly usageTrackerFunction: NodejsFunction;
+
+  /** Schema Migration function */
+  public readonly schemaMigrationFunction: NodejsFunction;
 
   /** DynamoDB tables for plans and usage */
   public readonly planQuotaStore: PlanQuotaStore;
@@ -103,6 +114,23 @@ export class AuthorizationSystem extends Construct {
     // ========================================================================
     // Lambda Authorizer
     // ========================================================================
+    const authorizerEnvironment: Record<string, string> = {
+      COGNITO_USER_POOL_ID: props.userPool.userPoolId,
+      SPICEDB_ENDPOINT: props.spiceDBEndpoint,
+      SPICEDB_TOKEN: props.spiceDBToken,
+      DYNAMODB_PLAN_TABLE: this.planQuotaStore.plansTable.tableName,
+      DYNAMODB_TENANT_PLAN_TABLE:
+        this.planQuotaStore.tenantPlansTable.tableName,
+      DYNAMODB_USAGE_TABLE: this.planQuotaStore.usageTable.tableName,
+      CACHE_ENABLED: (props.enableCache ?? true).toString(),
+      CACHE_TTL_SECONDS: (props.cacheTTLSeconds ?? 300).toString(),
+    };
+
+    // Only add client ID if provided (optional for access token verification)
+    if (props.userPoolClientId) {
+      authorizerEnvironment.COGNITO_CLIENT_ID = props.userPoolClientId;
+    }
+
     this.authorizerFunction = new NodejsFunction(this, 'AuthorizerFunction', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/authorizer/authorization-authorizer.ts',
@@ -111,18 +139,7 @@ export class AuthorizationSystem extends Construct {
       memorySize: 512,
       vpc: props.vpc,
       securityGroups: [lambdaSecurityGroup],
-      environment: {
-        COGNITO_USER_POOL_ID: props.userPool.userPoolId,
-        COGNITO_CLIENT_ID: props.userPool.userPoolId, // Use first client
-        SPICEDB_ENDPOINT: props.spiceDBEndpoint,
-        SPICEDB_TOKEN: props.spiceDBToken,
-        DYNAMODB_PLAN_TABLE: this.planQuotaStore.plansTable.tableName,
-        DYNAMODB_TENANT_PLAN_TABLE:
-          this.planQuotaStore.tenantPlansTable.tableName,
-        DYNAMODB_USAGE_TABLE: this.planQuotaStore.usageTable.tableName,
-        CACHE_ENABLED: (props.enableCache ?? true).toString(),
-        CACHE_TTL_SECONDS: (props.cacheTTLSeconds ?? 300).toString(),
-      },
+      environment: authorizerEnvironment,
       bundling: {
         externalModules: ['aws-sdk'], // Exclude AWS SDK (provided by Lambda runtime)
         nodeModules: [
@@ -188,6 +205,31 @@ export class AuthorizationSystem extends Construct {
         actions: ['cloudwatch:PutMetricData'],
         resources: ['*'],
       })
+    );
+
+    // ========================================================================
+    // Schema Migration Lambda
+    // ========================================================================
+    this.schemaMigrationFunction = new NodejsFunction(
+      this,
+      'SchemaMigrationFunction',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/schema-migration/apply-schema.ts',
+        handler: 'handler',
+        timeout: Duration.seconds(60),
+        memorySize: 256,
+        vpc: props.vpc,
+        securityGroups: [lambdaSecurityGroup],
+        environment: {
+          SPICEDB_ENDPOINT: props.spiceDBEndpoint,
+          SPICEDB_TOKEN: props.spiceDBToken,
+        },
+        bundling: {
+          externalModules: ['aws-sdk'],
+          nodeModules: ['@authzed/authzed-node'],
+        },
+      }
     );
 
     // ========================================================================

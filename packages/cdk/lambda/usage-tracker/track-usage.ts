@@ -87,6 +87,11 @@ async function updateUsageCounter(
   usageEvent: UsageEvent,
   date: string
 ): Promise<any> {
+  // Calculate TTL: 90 days from the usage date
+  const usageDate = new Date(date);
+  usageDate.setDate(usageDate.getDate() + 90);
+  const ttl = Math.floor(usageDate.getTime() / 1000); // Unix timestamp in seconds
+
   const updateParams = {
     TableName: DYNAMODB_USAGE_TABLE,
     Key: {
@@ -94,7 +99,7 @@ async function updateUsageCounter(
       sk: `${date}#${usageEvent.model}`,
     },
     UpdateExpression:
-      'ADD #count :inc SET #tenantId = :tenantId, #userId = :userId, #planId = :planId, #model = :model, #date = :date, #lastUpdate = :timestamp',
+      'ADD #count :inc SET #tenantId = :tenantId, #userId = :userId, #planId = :planId, #model = :model, #date = :date, #lastUpdate = :timestamp, #ttl = :ttl',
     ExpressionAttributeNames: {
       '#count': 'count',
       '#tenantId': 'tenant_id',
@@ -103,6 +108,7 @@ async function updateUsageCounter(
       '#model': 'model',
       '#date': 'date',
       '#lastUpdate': 'last_update',
+      '#ttl': 'ttl',
     },
     ExpressionAttributeValues: {
       ':inc': 1,
@@ -112,6 +118,7 @@ async function updateUsageCounter(
       ':model': usageEvent.model,
       ':date': date,
       ':timestamp': usageEvent.timestamp,
+      ':ttl': ttl,
     },
     ReturnValues: 'ALL_NEW' as const,
   };
