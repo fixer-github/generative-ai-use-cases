@@ -19,3 +19,4 @@ export * from './speech-to-speech';
 export * from './stat';
 export * from './mcp';
 export * from './tenant';
+export * from './authorization';

@@ -1,0 +1,396 @@
+# 認可システム MVP 実装ガイド
+
+## 概要
+
+本ドキュメントでは、GenU（Generative AI Use Cases）に実装する認可システムのMVP（Minimum Viable Product）について説明します。このシステムは、マルチテナント環境において、ユーザーのリソースアクセスとAPIクォータを制御するための包括的な認可機能を提供します。
+
+### 主要な特徴
+
+- **デュアル認可システム**: OpenFGAとSpiceDBの両方を実装し、PoC期間中に比較検証
+- **テナント単位の分離**: 各テナントごとに独立した認可データベースを提供
+- **きめ細かいアクセス制御**: リソースレベル、ユースケースレベル、モデルレベルでの権限管理
+- **プラン/クォータ管理**: サブスクリプションプランに基づいた使用量制限
+- **集中型認可チェック**: API Gateway Lambda Authorizerによる統一的な権限検証
+
+## アーキテクチャ
+
+### システム全体図
+
+```mermaid
+graph TB
+    User[ユーザー] --> WebApp[Webアプリケーション]
+    WebApp --> APIGateway[API Gateway]
+    APIGateway --> Authorizer[Lambda Authorizer]
+
+    Authorizer --> Cognito[Amazon Cognito]
+    Authorizer --> PlanStore[(DynamoDB<br/>Plan/Quota Store)]
+    Authorizer --> OpenFGA[(OpenFGA<br/>Per-Tenant Store)]
+    Authorizer --> SpiceDB[(SpiceDB<br/>Per-Tenant Namespace)]
+
+    Authorizer -->|認可OK| ChatAPI[Chat API Lambda]
+    Authorizer -->|認可OK| RAGAPI[RAG API Lambda]
+    Authorizer -->|認可OK| OtherAPI[その他API Lambda]
+
+    ChatAPI --> EventBridge[EventBridge]
+    RAGAPI --> EventBridge
+    OtherAPI --> EventBridge
+
+    EventBridge --> UsageTracker[Usage Tracker Lambda]
+    UsageTracker --> PlanStore
+    UsageTracker --> OpenFGA
+    UsageTracker --> SpiceDB
+
+    style Authorizer fill:#ff9999
+    style OpenFGA fill:#99ccff
+    style SpiceDB fill:#99ffcc
+    style PlanStore fill:#ffcc99
+```
+
+### 認可フロー詳細
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant WebApp as Webアプリ
+    participant APIGW as API Gateway
+    participant Auth as Lambda Authorizer
+    participant Cognito as Cognito
+    participant PlanDB as Plan Store
+    participant AuthzDB as 認可DB<br/>(OpenFGA/SpiceDB)
+    participant API as Backend API
+
+    User->>WebApp: API呼び出し要求
+    WebApp->>APIGW: HTTPリクエスト + JWT Token
+    APIGW->>Auth: Authorize Request
+
+    Auth->>Cognito: JWTトークン検証
+    Cognito-->>Auth: ユーザー情報 + tenant_id
+
+    Auth->>PlanDB: プラン情報取得<br/>(tenant_id, plan_id)
+    PlanDB-->>Auth: Plan Details + Quotas
+
+    Auth->>Auth: 使用量チェック<br/>(日次クォータ確認)
+
+    Auth->>AuthzDB: 権限確認クエリ<br/>(user, resource, action)
+    AuthzDB-->>Auth: Allow/Deny
+
+    alt 認可成功
+        Auth-->>APIGW: IAM Policy (Allow)
+        APIGW->>API: リクエスト転送 + Context
+        API-->>APIGW: レスポンス
+        APIGW-->>WebApp: レスポンス返却
+    else 認可失敗
+        Auth-->>APIGW: IAM Policy (Deny)
+        APIGW-->>WebApp: 403 Forbidden
+    end
+
+    API->>EventBridge: 使用量イベント送信
+    EventBridge->>UsageTracker: イベント処理
+    UsageTracker->>PlanDB: カウンター更新
+```
+
+## コンポーネント構成
+
+### 1. Lambda Authorizer
+
+API Gatewayレベルで統合的に認可チェックを実施する中核コンポーネント。
+
+**責務:**
+- Cognito JWTトークンの検証
+- テナントIDとプラン情報の取得
+- 使用量クォータのチェック
+- 認可データベース（OpenFGA or SpiceDB）への問い合わせ
+- IAM Policyの生成と返却
+- メトリクスとログの記録
+
+**実装場所:** `packages/cdk/lambda/authorizer/authorization-authorizer.ts`
+
+### 2. 認可データベース
+
+#### OpenFGA (選択肢1)
+
+- **デプロイ方法**: Lambda関数として各テナントごとにStore作成
+- **特徴**:
+  - 軽量で小規模スタートに最適
+  - Zanzibar論文ベースの関係ベース認可
+  - gRPC/HTTP APIサポート
+  - AWS上での運用コスト低
+
+#### SpiceDB (選択肢2)
+
+- **デプロイ方法**: 既存EKS/RDS構成を活用、テナントごとにNamespace作成
+- **特徴**:
+  - 既存インフラ活用可能
+  - 高パフォーマンス（一貫性保証機能付き）
+  - Caveats機能によるコンテキスト認可
+  - エンタープライズ向け
+
+#### デュアルシステムによる比較検証
+
+MVP期間中は両システムを並行運用し、以下の観点で評価:
+
+| 評価観点 | OpenFGA | SpiceDB |
+|---------|---------|---------|
+| レイテンシー | CloudWatch Metricsで測定 | CloudWatch Metricsで測定 |
+| 運用コスト | Lambda実行コスト | EKS + RDS運用コスト |
+| スケーラビリティ | テナント増加時の性能 | テナント増加時の性能 |
+| 機能豊富さ | 基本的な関係ベース認可 | Caveats、整合性保証 |
+| 運用性 | デプロイ・監視の容易さ | 既存インフラ管理 |
+
+### 3. Plan/Quota Store (DynamoDB)
+
+プラン情報、権限設定、使用量カウンターを格納するデータストア。
+
+**テーブル構成:**
+
+#### TenantPlans
+```
+PK: tenant_id
+SK: plan_id
+Attributes:
+  - plan_name: string (Free/Pro/Enterprise)
+  - start_date: timestamp
+  - end_date: timestamp (nullable)
+  - stripe_subscription_id: string (将来のStripe連携用)
+  - status: string (active/inactive/suspended)
+```
+
+#### PlanPermissions
+```
+PK: plan_id
+SK: permission_id
+Attributes:
+  - usecase_id: string (chat/rag/translation/etc)
+  - allowed: boolean
+  - allowed_models: list<string> (claude-3-sonnet, gpt-4, etc)
+  - daily_quota: map<string, number> (model -> count)
+  - monthly_quota: map<string, number>
+  - burst_limit: number
+```
+
+#### TenantUsage
+```
+PK: tenant_id#usecase_id
+SK: date#model
+Attributes:
+  - count: number
+  - quota_limit: number
+  - last_reset: timestamp
+  - ttl: number (自動削除用)
+```
+
+GSI:
+- `tenant_id-date-index`: 日付別使用量集計用
+- `tenant_id-model-index`: モデル別使用量集計用
+
+### 4. Usage Tracker Lambda
+
+API呼び出し後にEventBridge経由で使用量を記録し、クォータを更新。
+
+**責務:**
+- EventBridgeイベント受信
+- DynamoDBカウンターの原子的更新
+- クォータ超過検知とアラート
+- 認可DBへの使用量同期（OpenFGA/SpiceDBのTuples更新）
+
+**実装場所:** `packages/cdk/lambda/usage-tracker/track-usage.ts`
+
+## デプロイメント戦略
+
+### フィーチャーフラグによる切り替え
+
+環境変数 `AUTHZ_PROVIDER` で認可プロバイダーを制御:
+
+```bash
+# OpenFGAのみ使用
+AUTHZ_PROVIDER=openfga
+
+# SpiceDBのみ使用
+AUTHZ_PROVIDER=spicedb
+
+# 両方使用（A/Bテスト）
+AUTHZ_PROVIDER=both
+```
+
+テナント単位での切り替えも可能:
+```typescript
+// DynamoDB TenantSettings
+{
+  tenant_id: "tenant-abc",
+  authz_provider: "openfga", // or "spicedb"
+  authz_config: {
+    cache_ttl: 300,
+    timeout_ms: 1000
+  }
+}
+```
+
+### 段階的ロールアウト
+
+1. **Phase 1**: 開発環境で両システムを並行運用
+2. **Phase 2**: 特定テナントでベータテスト（メトリクス収集）
+3. **Phase 3**: パフォーマンス比較分析
+4. **Phase 4**: 優位なシステムへの移行判断
+5. **Phase 5**: 本番環境全体への適用
+
+## 監視とメトリクス
+
+### CloudWatch Metrics
+
+```typescript
+// Authorizer Lambda
+{
+  Namespace: "Authorization/Authorizer",
+  Metrics: [
+    "AuthorizationLatency",        // 認可チェック時間
+    "AuthorizationDecision",       // Allow/Denyカウント
+    "QuotaExceeded",              // クォータ超過回数
+    "CacheHitRate",               // キャッシュヒット率
+    "ProviderLatency.OpenFGA",    // OpenFGAレイテンシー
+    "ProviderLatency.SpiceDB"     // SpiceDBレイテンシー
+  ]
+}
+
+// Usage Tracker Lambda
+{
+  Namespace: "Authorization/Usage",
+  Metrics: [
+    "UsageEventProcessed",        // 処理イベント数
+    "QuotaUpdateLatency",         // クォータ更新時間
+    "QuotaAlertTriggered"         // アラート発火回数
+  ]
+}
+```
+
+### X-Ray トレーシング
+
+すべてのLambda関数でX-Rayを有効化し、エンドツーエンドのトレースを実現:
+
+- API Gateway → Authorizer → 認可DB のレイテンシー分解
+- Backend API → EventBridge → Usage Tracker のフロー可視化
+- ボトルネック特定と最適化
+
+### CloudWatch Logs Insights クエリ
+
+```sql
+# 認可失敗の分析
+fields @timestamp, tenant_id, user_id, resource_type, decision, reason
+| filter decision = "Deny"
+| stats count() by reason
+
+# モデル別使用量トップ10テナント
+fields @timestamp, tenant_id, model, usage_count
+| stats sum(usage_count) as total by tenant_id, model
+| sort total desc
+| limit 10
+
+# レイテンシー分析（P50, P95, P99）
+fields @timestamp, authz_latency_ms
+| stats pct(authz_latency_ms, 50) as p50,
+        pct(authz_latency_ms, 95) as p95,
+        pct(authz_latency_ms, 99) as p99
+```
+
+## セキュリティ考慮事項
+
+### 1. 最小権限の原則
+
+- Lambda Authorizerには必要最小限のIAMロール付与
+- 認可DBへのアクセスは読み取り専用
+- 使用量更新のみ書き込み権限
+
+### 2. トークン検証
+
+- Cognito JWT署名検証必須
+- トークン有効期限チェック
+- カスタムクレーム（tenant_id）の検証
+
+### 3. データ分離
+
+- テナントごとに独立した認可Namespace/Store
+- クロステナントアクセス防止
+- DynamoDBのテナントID必須フィルタリング
+
+### 4. 監査ログ
+
+- すべての認可決定をCloudWatch Logsに記録
+- S3へのアーカイブ（長期保存）
+- Athenaによる監査クエリ対応
+
+## トラブルシューティング
+
+### よくある問題と解決策
+
+#### 1. 認可チェックのタイムアウト
+
+**症状:** API Gatewayが504 Timeoutを返す
+
+**原因:**
+- 認可DBへのネットワーク遅延
+- 複雑な権限クエリ
+
+**解決策:**
+```typescript
+// キャッシュの実装
+const cache = new Map<string, AuthzDecision>();
+const CACHE_TTL_MS = 60000; // 1分
+
+function checkAuthzWithCache(key: string): Promise<AuthzDecision> {
+  if (cache.has(key)) {
+    const cached = cache.get(key)!;
+    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return Promise.resolve(cached);
+    }
+  }
+  // DB問い合わせ
+}
+```
+
+#### 2. クォータカウンターの不整合
+
+**症状:** 使用量が正しくカウントされない
+
+**原因:**
+- EventBridge遅延
+- Lambda再試行による重複カウント
+
+**解決策:**
+```typescript
+// 冪等性キーの使用
+const updateParams = {
+  TableName: 'TenantUsage',
+  Key: { pk: `${tenantId}#${usecaseId}`, sk: `${date}#${model}` },
+  UpdateExpression: 'ADD #count :increment',
+  ExpressionAttributeNames: { '#count': 'count' },
+  ExpressionAttributeValues: { ':increment': 1 },
+  ConditionExpression: 'attribute_not_exists(event_id) OR event_id <> :event_id',
+  // 重複防止
+};
+```
+
+#### 3. OpenFGA vs SpiceDB レイテンシー差
+
+**症状:** 特定の認可プロバイダーが遅い
+
+**調査方法:**
+1. CloudWatch Metricsで `ProviderLatency.*` を確認
+2. X-Rayでボトルネックセグメントを特定
+3. 認可クエリの複雑度を確認
+
+**最適化:**
+- インデックス最適化
+- クエリの簡略化
+- キャッシング強化
+
+## 次のステップ
+
+1. [認可スキーマ設計](./authorization-schema.md) - OpenFGA/SpiceDBの詳細スキーマ
+2. [API統合ガイド](./authorization-api-integration.md) - 既存APIへの統合方法
+3. [プラン・クォータ管理](./authorization-plan-quota.md) - プラン設定と運用ガイド
+
+## 参考資料
+
+- [OpenFGA公式ドキュメント](https://openfga.dev/)
+- [SpiceDB公式ドキュメント](https://authzed.com/docs)
+- [Google Zanzibar論文](https://research.google/pubs/pub48190/)
+- [AWS Lambda Authorizers](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html)
