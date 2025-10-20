@@ -1,0 +1,18 @@
+{
+  "name": "authorization-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda Authorizer for SpiceDB-based authorization",
+  "main": "authorization-authorizer.js",
+  "dependencies": {
+    "@authzed/authzed-node": "^0.10.1",
+    "@aws-sdk/client-cloudwatch": "^3.755.0",
+    "@aws-sdk/client-dynamodb": "^3.755.0",
+    "@aws-sdk/lib-dynamodb": "^3.755.0",
+    "aws-jwt-verify": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
