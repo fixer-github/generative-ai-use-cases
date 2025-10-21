@@ -1,10 +1,31 @@
 # 認可システム MVP 実装ガイド (SpiceDB)
 
+> **⚠️ マイグレーション完了通知**
+>
+> **このドキュメントは歴史的資料として保管されています。**
+>
+> 認可システムは **SpiceDB から OpenFGA に移行が完了**しました。以下のコスト削減と運用効率化を達成しました:
+> - **コスト削減**: 70-75% のインフラコスト削減（EKS/RDS → ECS Fargate/RDS）
+> - **運用簡素化**: Kubernetes 運用が不要に
+> - **機能強化**: ハイブリッド ToC/ToB モデル、Entitlement ベース権限管理
+>
+> **最新のドキュメントを参照してください:**
+> - [OpenFGA 実装ガイド](./openfga-implementation.md)
+> - [OpenFGA デプロイメントガイド](../../ja/openfga-deployment.md)
+> - [認可スキーマ詳細](./authorization-schema.md)
+> - [実装ステータス](./IMPLEMENTATION_STATUS.md)
+>
+> 以下の内容は SpiceDB での設計資料です。
+
+---
+
 ## 概要
 
 本ドキュメントでは、GenU（Generative AI Use Cases）に実装する認可システムのMVP（Minimum Viable Product）について説明します。このシステムは、マルチテナント環境において、ユーザーのリソースアクセスとAPIクォータを制御するための包括的な認可機能を提供します。
 
-### 技術選定: SpiceDB
+### 技術選定: SpiceDB（廃止済み）
+
+> **注意:** SpiceDB 実装は OpenFGA に置き換えられました。
 
 既存のSpiceDB（EKS/RDS）インフラを活用することに決定しました。
 
