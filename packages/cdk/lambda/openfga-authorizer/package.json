@@ -1,0 +1,14 @@
+{
+  "name": "openfga-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda Authorizer for OpenFGA authorization checks",
+  "private": true,
+  "dependencies": {
+    "@openfga/sdk": "^0.6.0",
+    "@aws-sdk/client-dynamodb": "^3.755.0",
+    "@aws-sdk/lib-dynamodb": "^3.755.0",
+    "@aws-sdk/client-secrets-manager": "^3.755.0",
+    "@aws-sdk/client-cloudwatch": "^3.755.0",
+    "aws-jwt-verify": "^4.0.1"
+  }
+}

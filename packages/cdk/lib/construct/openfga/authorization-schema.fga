@@ -1,0 +1,422 @@
+model
+  schema 1.1
+
+# ============================================================================
+# OpenFGA Authorization Schema for GenAI Multi-Tenant Application
+# Hybrid ToC (To Consumer) and ToB (To Business) Support
+# ============================================================================
+#
+# This schema supports both business models:
+#
+# **ToC (To Consumer):**
+# - Individual users subscribe to plans directly
+# - Users can exist without tenant membership (free tier)
+# - Users can optionally belong to tenants
+# - Permissions from user's own plan subscription
+#
+# **ToB (To Business):**
+# - Tenant subscribes to organization-wide plan
+# - Tenant admins assign entitlements to specific users
+# - Users don't subscribe to plans themselves
+# - Permissions from tenant plan + admin assignments
+#
+# **Hybrid:**
+# - Users can have BOTH direct plan subscription AND tenant membership
+# - Permissions are additive union (most permissive)
+# - Tenant admins can explicitly deny specific capabilities
+#
+# ============================================================================
+
+# Core entity types
+type user
+
+type tenant
+  relations
+    define member: [user]
+    define admin: [user]
+    define plan_subscription: [plan]
+
+  # Permissions derived from relations
+  permissions
+    define view: member or admin
+    define manage: admin
+
+type plan
+  relations
+    # ToC: Individual user subscriptions
+    define user_subscriber: [user]
+
+    # ToB: Organization-wide subscriptions
+    define tenant_subscriber: [tenant]
+
+    # What entitlements this plan provides
+    define entitles: [entitlement]
+
+    # Plan inheritance (e.g., enterprise includes pro features)
+    define includes: [plan]
+
+  permissions
+    # Anyone who holds this plan (directly or via tenant)
+    define holder: user_subscriber or member from tenant_subscriber or holder from includes
+
+# ============================================================================
+# Entitlements - First-class permission containers
+# ============================================================================
+#
+# Entitlements represent specific capabilities that can be granted through:
+# 1. User's own plan subscription (ToC)
+# 2. Tenant's plan subscription (ToB)
+# 3. Direct admin assignment (ToB targeted grants)
+# 4. Inherited from other entitlements (plan bundling)
+#
+type entitlement
+  relations
+    # Direct user assignment (rare, for special cases)
+    define direct_user: [user]
+
+    # Granted via user's own plan subscription (ToC)
+    define via_user_plan: [plan]
+
+    # Granted via tenant's plan subscription (ToB)
+    define via_tenant_plan: [plan]
+
+    # Granted by tenant admin assignment (ToB targeted)
+    define via_tenant_assignment: [tenant_entitlement]
+
+    # Inherited from other entitlements (plan bundling)
+    define includes: [entitlement]
+
+  permissions
+    # Additive union: user has entitlement from ANY source
+    define holder: direct_user
+                or holder from via_user_plan
+                or holder from via_tenant_plan
+                or active_grantee from via_tenant_assignment
+                or holder from includes
+
+# ============================================================================
+# Tenant Entitlements - Admin-controlled grants with explicit deny
+# ============================================================================
+#
+# Allows tenant admins to:
+# - Grant specific entitlements to individual users
+# - Explicitly block/deny specific capabilities (overrides other sources)
+# - Automatically revoke when user leaves tenant
+#
+type tenant_entitlement
+  relations
+    define tenant: [tenant]
+    define grantee: [user]
+
+    # Explicit deny - tenant admin blocks this user from this capability
+    define blocked: [user]
+
+  permissions
+    # Active only if user is tenant member AND not explicitly blocked
+    define active_grantee: (grantee and member from tenant) but not blocked
+
+    # Only tenant admins can manage these grants
+    define managed_by: admin from tenant
+
+# ============================================================================
+# Quota Grants - Individual quota limits
+# ============================================================================
+#
+# Tenant admins can set per-user quota limits that are independent of
+# the tenant-wide quota pool. Both conditions must be satisfied:
+# - User's individual usage < user's individual limit
+# - Tenant's pool usage < tenant's pool limit
+#
+type quota_grant
+  relations
+    define user: [user]
+    define tenant: [tenant]
+    define model: [model_capability]
+
+  permissions
+    # User must be tenant member to use quota grant
+    define holder: user and member from tenant
+
+# ============================================================================
+# Capability Types - Permission targets
+# ============================================================================
+
+# Usecase capabilities (chat, rag, translation, etc.)
+type usecase_capability
+  relations
+    # Entitlements that grant access to this usecase
+    define entitlement: [entitlement]
+
+    # Tenant admin can explicitly block users from this usecase
+    define blocked_by_tenant: [tenant_entitlement]
+
+  permissions
+    # Can execute if have entitlement AND not explicitly blocked
+    define can_execute: (holder from entitlement) but not (blocked from blocked_by_tenant)
+
+# Model capabilities (claude-3-sonnet, gpt-4, etc.)
+type model_capability
+  relations
+    # Entitlements that grant access to this model
+    define entitlement: [entitlement]
+
+    # Tenant admin can explicitly block users from this model
+    define blocked_by_tenant: [tenant_entitlement]
+
+    # Individual quota grants for this model (optional - enables per-user quota)
+    define quota_grant: [quota_grant with user_quota_available]
+
+  permissions
+    # Can execute if have entitlement AND not explicitly blocked
+    # If quota_grant exists, also checks quota via condition
+    define can_execute: ((holder from entitlement) or (holder from quota_grant)) but not (blocked from blocked_by_tenant)
+
+# ============================================================================
+# Resource entity types with ownership
+# ============================================================================
+
+type conversation
+  relations
+    # Optional tenant association (ToC users may have no tenant)
+    define tenant: [tenant]
+    define owner: [user]
+    define viewer: [user]
+
+  permissions
+    # View: direct viewer, owner, or tenant member (if conversation has tenant)
+    define view: viewer or owner or member from tenant
+    define edit: owner
+    define delete: owner or admin from tenant
+
+type document
+  relations
+    # Optional tenant association (ToC users may have no tenant)
+    define tenant: [tenant]
+    define owner: [user]
+    define uploader: [user]
+    define viewer: [user]
+
+  permissions
+    # View: direct viewer, owner, or tenant member (if document has tenant)
+    define view: viewer or owner or member from tenant
+    define upload: member from tenant
+    define delete: owner or admin from tenant
+
+# ============================================================================
+# Admin operations
+# ============================================================================
+
+type admin_operation
+  relations
+    define allowed_admin: [user]
+
+  permissions
+    define execute: allowed_admin
+
+# ============================================================================
+# Conditions for Quota Checking
+# ============================================================================
+#
+# Quotas are enforced at runtime using conditions with context data.
+# The application must pass current usage and limits in the check context.
+#
+
+condition user_quota_available(user_current_usage: int, user_quota_limit: int) {
+  user_current_usage < user_quota_limit
+}
+
+condition tenant_quota_available(tenant_current_usage: int, tenant_quota_limit: int) {
+  tenant_current_usage < tenant_quota_limit
+}
+
+condition both_quotas_available(
+  user_current_usage: int,
+  user_quota_limit: int,
+  tenant_current_usage: int,
+  tenant_quota_limit: int
+) {
+  user_current_usage < user_quota_limit && tenant_current_usage < tenant_quota_limit
+}
+
+# ============================================================================
+# Usage Examples
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# ToC Scenario 1: Standalone Free Tier User (no tenant)
+# ----------------------------------------------------------------------------
+#
+# User alice subscribes to free plan and uses chat independently
+#
+# Tuples:
+# plan:free#user_subscriber@user:alice
+# plan:free#entitles@entitlement:usecase_chat
+# entitlement:usecase_chat#via_user_plan@plan:free
+# usecase_capability:chat#entitlement@entitlement:usecase_chat
+#
+# Check:
+# check(user:alice, can_execute, usecase_capability:chat)
+# Result: ✓ Allowed via user's free plan subscription
+
+# ----------------------------------------------------------------------------
+# ToC Scenario 2: User with Tenant Membership (hybrid)
+# ----------------------------------------------------------------------------
+#
+# User bob has pro plan AND belongs to tenant acme with enterprise plan
+# Bob gets permissions from BOTH sources (additive union)
+#
+# Tuples:
+# # Bob's personal subscription
+# plan:pro#user_subscriber@user:bob
+# plan:pro#entitles@entitlement:usecase_rag
+# entitlement:usecase_rag#via_user_plan@plan:pro
+#
+# # Bob's tenant membership
+# tenant:acme#member@user:bob
+# tenant:acme#plan_subscription@plan:enterprise
+# plan:enterprise#tenant_subscriber@tenant:acme
+# plan:enterprise#entitles@entitlement:model_opus
+# entitlement:model_opus#via_tenant_plan@plan:enterprise
+#
+# # Link entitlements to capabilities
+# usecase_capability:rag#entitlement@entitlement:usecase_rag
+# model_capability:claude-opus#entitlement@entitlement:model_opus
+#
+# Checks:
+# check(user:bob, can_execute, usecase_capability:rag)
+# Result: ✓ Allowed via user's pro plan
+#
+# check(user:bob, can_execute, model_capability:claude-opus)
+# Result: ✓ Allowed via tenant's enterprise plan
+
+# ----------------------------------------------------------------------------
+# ToB Scenario 1: Tenant Admin Assigns Specific Entitlement
+# ----------------------------------------------------------------------------
+#
+# Tenant acme has basic plan, but admin grants chat access to charlie
+#
+# Tuples:
+# # Tenant and membership
+# tenant:acme#member@user:charlie
+# tenant:acme#admin@user:alice
+# plan:basic#tenant_subscriber@tenant:acme
+# tenant:acme#plan_subscription@plan:basic
+#
+# # Admin creates targeted grant
+# tenant_entitlement:acme/charlie/chat#tenant@tenant:acme
+# tenant_entitlement:acme/charlie/chat#grantee@user:charlie
+# entitlement:usecase_chat#via_tenant_assignment@tenant_entitlement:acme/charlie/chat
+# usecase_capability:chat#entitlement@entitlement:usecase_chat
+#
+# Check:
+# check(user:charlie, can_execute, usecase_capability:chat)
+# Result: ✓ Allowed via tenant admin assignment
+
+# ----------------------------------------------------------------------------
+# ToB Scenario 2: Explicit Deny by Tenant Admin
+# ----------------------------------------------------------------------------
+#
+# Tenant admin blocks user dave from using image generation,
+# even though tenant plan provides it
+#
+# Tuples:
+# # Tenant plan provides image generation
+# tenant:acme#member@user:dave
+# plan:enterprise#tenant_subscriber@tenant:acme
+# plan:enterprise#entitles@entitlement:usecase_image_gen
+# entitlement:usecase_image_gen#via_tenant_plan@plan:enterprise
+# usecase_capability:image_generation#entitlement@entitlement:usecase_image_gen
+#
+# # Admin creates explicit block
+# tenant_entitlement:acme/dave/image_block#tenant@tenant:acme
+# tenant_entitlement:acme/dave/image_block#blocked@user:dave
+# usecase_capability:image_generation#blocked_by_tenant@tenant_entitlement:acme/dave/image_block
+#
+# Check:
+# check(user:dave, can_execute, usecase_capability:image_generation)
+# Result: ✗ Denied - explicit block overrides tenant plan entitlement
+
+# ----------------------------------------------------------------------------
+# Quota Scenario 1: Individual Quota Limit
+# ----------------------------------------------------------------------------
+#
+# Tenant acme has pool quota 100/day for opus model
+# Admin sets individual limit for user eve: 10/day
+#
+# Tuples:
+# quota_grant:acme/eve/opus#user@user:eve
+# quota_grant:acme/eve/opus#tenant@tenant:acme
+# quota_grant:acme/eve/opus#model@model_capability:claude-opus
+#
+# Check with context:
+# check(
+#   user:eve,
+#   can_execute,
+#   model_capability:claude-opus,
+#   context: {
+#     user_current_usage: 8,
+#     user_quota_limit: 10,
+#     tenant_current_usage: 75,
+#     tenant_quota_limit: 100
+#   }
+# )
+# Result: ✓ Allowed (8 < 10 AND 75 < 100)
+
+# ----------------------------------------------------------------------------
+# Plan Inheritance Example
+# ----------------------------------------------------------------------------
+#
+# Enterprise plan includes all Pro plan features
+#
+# Tuples:
+# plan:enterprise#includes@plan:pro
+# plan:pro#entitles@entitlement:usecase_rag
+# plan:pro#entitles@entitlement:model_sonnet
+# plan:enterprise#entitles@entitlement:model_opus
+#
+# User subscribed to enterprise gets:
+# - model_opus (from enterprise directly)
+# - usecase_rag (from pro via inheritance)
+# - model_sonnet (from pro via inheritance)
+
+# ============================================================================
+# Schema Conversion Notes
+# ============================================================================
+#
+# Key improvements from previous schema:
+#
+# 1. **Entitlements as First-Class Objects**:
+#    - Decouples permissions from plans
+#    - Enables flexible assignment (user plan, tenant plan, admin grant)
+#    - Supports plan inheritance and bundling
+#
+# 2. **Hybrid ToC/ToB Support**:
+#    - plan#user_subscriber for ToC individual subscriptions
+#    - plan#tenant_subscriber for ToB organization subscriptions
+#    - Users can have both simultaneously (additive union)
+#
+# 3. **Explicit Deny Capability**:
+#    - tenant_entitlement#blocked relation
+#    - Overrides permissions from any other source
+#    - Essential for ToB admin control
+#
+# 4. **Multi-Level Granularity**:
+#    - usecase_capability for use case access
+#    - model_capability for AI model access
+#    - Resource-level permissions (conversation, document)
+#
+# 5. **Flexible Quota Management**:
+#    - quota_grant for individual user limits
+#    - Tenant-wide quota pools (via context)
+#    - Both conditions must be satisfied
+#
+# 6. **Optional Tenant Membership**:
+#    - ToC users can exist without any tenant
+#    - Resources can have optional tenant association
+#    - Permissions work with or without tenant context
+#
+# 7. **Additive Union Permission Resolution**:
+#    - entitlement#holder unions all sources
+#    - Most permissive approach by default
+#    - Explicit deny as override mechanism
+#
