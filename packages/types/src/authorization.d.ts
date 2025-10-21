@@ -234,98 +234,6 @@ export interface PlanInfo {
 }
 
 // ============================================================================
-// Usage Tracking Types
-// 使用量追跡型
-// ============================================================================
-
-/**
- * Usage event for tracking
- */
-export interface UsageEvent {
-  /** Tenant ID */
-  tenantId: string;
-  /** User ID */
-  userId: string;
-  /** Plan ID */
-  planId: string;
-  /** Resource type */
-  resourceType: string;
-  /** Resource ID */
-  resourceId: string;
-  /** Model used */
-  model: string;
-  /** Event timestamp */
-  timestamp: number;
-  /** Event unique ID (for idempotency) */
-  event_id?: string;
-  /** Additional metadata */
-  metadata?: Record<string, any>;
-}
-
-/**
- * Usage counter record
- */
-export interface UsageCounter {
-  /** Partition key: tenant_id#resource_type */
-  pk: string;
-  /** Sort key: date#model */
-  sk: string;
-  /** Tenant ID */
-  tenant_id: string;
-  /** Model identifier */
-  model: string;
-  /** Usage count */
-  count: number;
-  /** Quota limit */
-  quota_limit: number;
-  /** Date (YYYY-MM-DD) */
-  date: string;
-  /** Last reset timestamp */
-  last_reset: number;
-  /** Last update timestamp */
-  last_update?: number;
-  /** Last user who triggered usage */
-  last_user_id?: string;
-  /** Plan ID at time of usage */
-  plan_id?: string;
-  /** TTL for automatic deletion */
-  ttl?: number;
-}
-
-/**
- * Quota usage summary
- */
-export interface QuotaUsage {
-  /** Model identifier */
-  model: string;
-  /** Current usage count */
-  current: number;
-  /** Quota limit */
-  limit: number;
-  /** Utilization percentage */
-  utilization: number;
-  /** Individual date breakdowns */
-  dates?: Array<{
-    date: string;
-    count: number;
-  }>;
-}
-
-/**
- * Tenant quota summary
- */
-export interface TenantQuotaSummary {
-  /** Tenant ID */
-  tenant_id: string;
-  /** Plan ID */
-  plan_id: string;
-  /** Usage by model */
-  usage: Record<string, QuotaUsage>;
-  /** Last update timestamp */
-  last_update: number;
-}
-
-// ============================================================================
 // SpiceDB Types
 // SpiceDB型
 // ============================================================================
@@ -473,44 +381,6 @@ export interface AuthzMetrics {
   timestamp: number;
 }
 
-/**
- * Quota alert configuration
- */
-export interface QuotaAlertConfig {
-  /** Tenant ID */
-  tenant_id: string;
-  /** Model to monitor */
-  model: string;
-  /** Threshold percentage (0-100) */
-  threshold_percent: number;
-  /** SNS topic ARN for alerts */
-  alert_topic_arn: string;
-  /** Whether alert is enabled */
-  enabled: boolean;
-}
-
-/**
- * Quota alert event
- */
-export interface QuotaAlertEvent {
-  /** Tenant ID */
-  tenant_id: string;
-  /** Model */
-  model: string;
-  /** Current usage */
-  current_count: number;
-  /** Quota limit */
-  quota_limit: number;
-  /** Utilization percentage */
-  utilization_percent: number;
-  /** Severity level */
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  /** Timestamp */
-  timestamp: number;
-  /** Additional message */
-  message?: string;
-}
-
 // ============================================================================
 // CDK Construct Props
 // CDK Construct Props型
@@ -518,7 +388,7 @@ export interface QuotaAlertEvent {
 
 /**
  * Authorization system construct props
- * SpiceDB-only implementation
+ * OpenFGA-based implementation with PostgreSQL storage
  */
 export interface AuthorizationSystemProps {
   /** Cognito User Pool for JWT verification */
@@ -529,43 +399,36 @@ export interface AuthorizationSystemProps {
    * Required if verifying ID tokens.
    */
   userPoolClientId?: string;
-  /** SpiceDB endpoint (e.g., spicedb.cluster.local:50051) */
-  spiceDBEndpoint: string;
-  /** SpiceDB authentication token (from Secrets Manager) */
-  spiceDBToken: string;
-  /** VPC for Lambda functions (to access SpiceDB in EKS) */
+  /** VPC for Lambda functions and OpenFGA service */
   vpc: any; // aws-cdk-lib.aws-ec2.IVpc
-  /** Email for quota alerts (optional) */
-  quotaAlertEmail?: string;
+  /** Environment name for resource naming */
+  environment: string;
   /** Enable authorization cache */
   enableCache?: boolean;
   /** Cache TTL in seconds */
   cacheTTLSeconds?: number;
-  /** Enable quota alerts */
-  enableQuotaAlerts?: boolean;
+  /** Enable OpenFGA playground (for development only) */
+  enablePlayground?: boolean;
+  /** OpenFGA container image tag */
+  openFgaImageTag?: string;
+  /** Multi-AZ deployment for OpenFGA database */
+  multiAz?: boolean;
+  /** Enable deletion protection for OpenFGA database */
+  deletionProtection?: boolean;
 }
 
 /**
- * Plan quota store construct props
+ * Plan quota schema construct props
  */
-export interface PlanQuotaStoreProps {
-  /** Enable point-in-time recovery */
-  pointInTimeRecovery?: boolean;
-  /** Enable DynamoDB Stream */
-  stream?: boolean;
-  /** TTL attribute name for automatic deletion */
-  ttlAttributeName?: string;
-}
-
-
-/**
- * Usage tracker construct props
- */
-export interface UsageTrackerProps {
-  /** DynamoDB usage table */
-  usageTable: any; // aws-cdk-lib.aws-dynamodb.ITable
-  /** Quota alert topic */
-  alertTopic: any; // aws-cdk-lib.aws-sns.ITopic
-  /** Enable quota alerts */
-  enableAlerts: boolean;
+export interface PlanQuotaSchemaProps {
+  /** VPC where the database is located */
+  vpc: any; // aws-cdk-lib.aws-ec2.IVpc
+  /** Database endpoint (host:port) */
+  databaseEndpoint: string;
+  /** Database name */
+  databaseName: string;
+  /** Secret containing database credentials */
+  databaseSecret: any; // aws-cdk-lib.aws-secretsmanager.ISecret
+  /** Security group for database access */
+  databaseSecurityGroup: any; // aws-cdk-lib.aws-ec2.SecurityGroup
 }

@@ -8,7 +8,6 @@ The Authorization System provides:
 - **Self-hosted OpenFGA** (ECS Fargate + PostgreSQL RDS)
 - **Lambda Authorizer** for API Gateway integration
 - **Quota Management** with DynamoDB
-- **Usage Tracking** with EventBridge
 - **CloudWatch Metrics** for monitoring
 
 ## Architecture
@@ -43,10 +42,7 @@ The Authorization System provides:
 Main CDK construct that creates:
 - Self-hosted OpenFGA (ECS Fargate + RDS PostgreSQL)
 - Lambda Authorizer for API Gateway
-- Usage Tracker Lambda
 - DynamoDB tables for plans and usage
-- SNS topic for quota alerts
-- EventBridge rules for usage tracking
 
 ### 2. Plan & Quota Store (`plan-quota-store.ts`)
 
@@ -64,14 +60,7 @@ API Gateway authorizer that:
 - Caches authorization decisions
 - Records CloudWatch metrics
 
-### 4. Usage Tracker (`../../lambda/usage-tracker/`)
-
-EventBridge-triggered Lambda that:
-- Updates DynamoDB usage counters
-- Sends SNS alerts for quota thresholds (75%, 90%, 100%)
-- Records CloudWatch metrics
-
-### 5. OpenFGA Client (`../../lambda/utils/openfgaClient.ts`)
+### 4. OpenFGA Client (`../../lambda/utils/openfgaClient.ts`)
 
 Provides helper functions for:
 - Permission checks (usecase, model, resource)
@@ -117,10 +106,8 @@ const authzSystem = new AuthorizationSystem(this, 'Authorization', {
 
   // Optional
   userPoolClientId: string,        // For ID token verification
-  quotaAlertEmail: string,          // Email for quota alerts
   enableCache: boolean,             // Default: true
   cacheTTLSeconds: number,          // Default: 300
-  enableQuotaAlerts: boolean,       // Default: true
   enablePlayground: boolean,        // Default: false (dev only)
   openFgaImageTag: string,          // Default: 'latest'
   multiAz: boolean,                 // Default: false
@@ -142,41 +129,6 @@ const service = authzSystem.openFgaService;
 
 // PostgreSQL database
 const database = authzSystem.openFgaDatabase;
-```
-
-### Usage Tracking
-
-Grant backend Lambdas permission to send usage events:
-
-```typescript
-const chatLambda = new NodejsFunction(this, 'ChatLambda', {
-  // ... configuration
-});
-
-// Allow Lambda to send usage events to EventBridge
-authzSystem.grantSendUsageEvents(chatLambda);
-```
-
-Backend Lambda should send events:
-
-```typescript
-import { EventBridge } from '@aws-sdk/client-eventbridge';
-
-const eventbridge = new EventBridge({});
-
-await eventbridge.putEvents({
-  Entries: [{
-    Source: 'genai.usage',
-    DetailType: 'UsageEvent',
-    Detail: JSON.stringify({
-      userId: 'user-123',
-      tenantId: 'tenant-456',
-      model: 'claude-3-sonnet',
-      tokens: 1500,
-      timestamp: Date.now(),
-    }),
-  }],
-});
 ```
 
 ## OpenFGA Setup
@@ -287,7 +239,6 @@ Metrics:
 ### Logs
 
 - Lambda Authorizer: `/aws/lambda/AuthorizerFunction`
-- Usage Tracker: `/aws/lambda/UsageTrackerFunction`
 - OpenFGA Service: `/ecs/openfga-{environment}`
 - OpenFGA Database: `/aws/rds/instance/openfga-{environment}`
 
@@ -312,8 +263,7 @@ Metrics:
 
 1. Verify plan is assigned to tenant in DynamoDB
 2. Check quota values in tenant plan table
-3. Ensure usage tracking events are being sent
-4. Review usage table for current usage
+3. Review usage table for current usage
 
 ### Lambda Timeout
 
@@ -333,8 +283,6 @@ authorization/
 └── ../../lambda/
     ├── authorizer/
     │   └── authorization-authorizer.ts    # Lambda Authorizer
-    ├── usage-tracker/
-    │   └── track-usage.ts                 # Usage Tracker
     └── utils/
         └── openfgaClient.ts               # OpenFGA helper functions
 ```

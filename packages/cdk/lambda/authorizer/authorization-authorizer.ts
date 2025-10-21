@@ -3,7 +3,7 @@
  * 認可システムLambda Authorizer
  *
  * This function integrates with API Gateway to provide centralized authorization
- * using OpenFGA for relationship-based access control and DynamoDB for quota management.
+ * using OpenFGA for relationship-based access control and PostgreSQL for quota management.
  */
 
 import {
@@ -11,15 +11,12 @@ import {
   APIGatewayAuthorizerResult,
 } from 'aws-lambda';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  GetCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import {
   CloudWatchClient,
   PutMetricDataCommand,
 } from '@aws-sdk/client-cloudwatch';
+import { Client } from 'pg';
 import {
   checkUsecasePermission,
   checkModelPermission,
@@ -35,9 +32,9 @@ const {
   OPENFGA_STORE_ID,
   OPENFGA_MODEL_ID,
   OPENFGA_KEY_SECRET_ARN,
-  DYNAMODB_PLAN_TABLE,
-  DYNAMODB_TENANT_PLAN_TABLE,
-  DYNAMODB_USAGE_TABLE,
+  DB_ENDPOINT,
+  DB_NAME,
+  DB_SECRET_ARN,
   CACHE_ENABLED = 'true',
   CACHE_TTL_SECONDS = '300',
 } = process.env;
@@ -63,8 +60,12 @@ const cognitoVerifier = CognitoJwtVerifier.create(
       }
 );
 
-const dynamoDB = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const secretsManager = new SecretsManagerClient({});
 const cloudwatch = new CloudWatchClient({});
+
+// Database connection pool (reused across Lambda invocations)
+let dbClient: Client | null = null;
+let dbCredentials: { username: string; password: string } | null = null;
 
 // Cache for authorization decisions
 interface CacheEntry {
@@ -316,7 +317,59 @@ function determinePermissionCheck(
 }
 
 /**
- * Get quota context from DynamoDB
+ * Get database connection (reuses connection across invocations)
+ */
+async function getDbConnection(): Promise<Client> {
+  // Return existing connection if alive
+  if (dbClient) {
+    try {
+      await dbClient.query('SELECT 1');
+      return dbClient;
+    } catch (error) {
+      console.log('Existing connection dead, creating new one');
+      dbClient = null;
+    }
+  }
+
+  // Get credentials from Secrets Manager (cached)
+  if (!dbCredentials) {
+    const secretResponse = await secretsManager.send(
+      new GetSecretValueCommand({
+        SecretId: DB_SECRET_ARN,
+      })
+    );
+
+    if (!secretResponse.SecretString) {
+      throw new Error('Database secret is empty');
+    }
+
+    dbCredentials = JSON.parse(secretResponse.SecretString);
+  }
+
+  // Parse endpoint
+  const [host, port] = DB_ENDPOINT!.split(':');
+
+  // Create new connection
+  dbClient = new Client({
+    host,
+    port: parseInt(port, 10),
+    database: DB_NAME,
+    user: dbCredentials.username,
+    password: dbCredentials.password,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeoutMillis: 5000,
+  });
+
+  await dbClient.connect();
+  console.log('New database connection established');
+
+  return dbClient;
+}
+
+/**
+ * Get quota context from PostgreSQL
  */
 async function getQuotaContext(
   userId: string,
@@ -324,47 +377,54 @@ async function getQuotaContext(
   modelId: string
 ): Promise<QuotaContext | undefined> {
   try {
+    const client = await getDbConnection();
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get tenant's plan and quota limits
+    const planResult = await client.query(
+      `
+      SELECT p.features
+      FROM plans.tenant_plans tp
+      JOIN plans.plans p ON p.plan_id = tp.plan_id
+      WHERE tp.tenant_id = $1 AND tp.status = 'active'
+      LIMIT 1
+      `,
+      [tenantId]
+    );
+
+    if (planResult.rows.length === 0) {
+      console.warn(`No active plan found for tenant ${tenantId}`);
+      return undefined;
+    }
+
+    const features = planResult.rows[0].features;
+    const modelConfig = features?.models?.[modelId];
+
+    if (!modelConfig || !modelConfig.enabled) {
+      return {
+        userCurrentUsage: 0,
+        userQuotaLimit: 0,
+      };
+    }
+
     // Get user's current usage
-    const usageResult = await dynamoDB.send(
-      new GetCommand({
-        TableName: DYNAMODB_USAGE_TABLE!,
-        Key: {
-          userId,
-          date: new Date().toISOString().split('T')[0], // Today's date (YYYY-MM-DD)
-        },
-      })
+    const usageResult = await client.query(
+      `
+      SELECT COALESCE(SUM(count), 0) as total_usage
+      FROM plans.usage_counters
+      WHERE tenant_id = $1
+        AND model = $2
+        AND date = $3
+      `,
+      [tenantId, modelId, today]
     );
 
-    // Get user's plan and quota
-    const tenantPlanResult = await dynamoDB.send(
-      new GetCommand({
-        TableName: DYNAMODB_TENANT_PLAN_TABLE!,
-        Key: { tenantId },
-      })
-    );
-
-    const userCurrentUsage = usageResult.Item?.usage?.[modelId] || 0;
-    const userQuotaLimit = tenantPlanResult.Item?.quotas?.[modelId] || Infinity;
-
-    // Get tenant-wide usage (if applicable)
-    const tenantUsageResult = await dynamoDB.send(
-      new GetCommand({
-        TableName: DYNAMODB_USAGE_TABLE!,
-        Key: {
-          userId: `tenant:${tenantId}`,
-          date: new Date().toISOString().split('T')[0],
-        },
-      })
-    );
-
-    const tenantCurrentUsage = tenantUsageResult.Item?.usage?.[modelId] || 0;
-    const tenantQuotaLimit = tenantPlanResult.Item?.tenantQuotas?.[modelId];
+    const currentUsage = parseInt(usageResult.rows[0]?.total_usage || '0', 10);
+    const dailyQuota = modelConfig.daily_quota || 0;
 
     return {
-      userCurrentUsage,
-      userQuotaLimit,
-      tenantCurrentUsage: tenantQuotaLimit ? tenantCurrentUsage : undefined,
-      tenantQuotaLimit,
+      userCurrentUsage: currentUsage,
+      userQuotaLimit: dailyQuota,
     };
   } catch (error) {
     console.error('Error fetching quota context:', error);

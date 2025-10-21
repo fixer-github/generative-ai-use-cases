@@ -1,15 +1,11 @@
 import { Duration } from 'aws-cdk-lib';
 import { IVpc, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
-import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
-import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IUserPool } from 'aws-cdk-lib/aws-cognito';
-import { Topic } from 'aws-cdk-lib/aws-sns';
-import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
-import { PlanQuotaStore } from './plan-quota-store';
+import { PlanQuotaSchema } from './plan-quota-schema';
 import { OpenFGAService } from '../openfga/openfga-service';
 import { OpenFGADatabase } from '../openfga/openfga-database';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
@@ -38,17 +34,11 @@ export interface AuthorizationSystemProps {
    */
   readonly environment: string;
 
-  /** Email for quota alerts (optional) */
-  readonly quotaAlertEmail?: string;
-
   /** Enable authorization cache */
   readonly enableCache?: boolean;
 
   /** Cache TTL in seconds */
   readonly cacheTTLSeconds?: number;
-
-  /** Enable quota alerts */
-  readonly enableQuotaAlerts?: boolean;
 
   /**
    * Enable OpenFGA playground (for development only)
@@ -81,24 +71,15 @@ export interface AuthorizationSystemProps {
  *
  * Creates a complete self-hosted authorization system with:
  * - Lambda Authorizer for API Gateway
- * - Usage Tracker for quota management
  * - Self-hosted OpenFGA service (ECS Fargate + PostgreSQL RDS)
- * - DynamoDB tables for plans and usage
- * - SNS topic for quota alerts
- * - EventBridge rules for usage tracking
+ * - PostgreSQL schema for plans and usage tracking
  */
 export class AuthorizationSystem extends Construct {
   /** Lambda Authorizer function */
   public readonly authorizerFunction: NodejsFunction;
 
-  /** Usage Tracker function */
-  public readonly usageTrackerFunction: NodejsFunction;
-
-  /** DynamoDB tables for plans and usage */
-  public readonly planQuotaStore: PlanQuotaStore;
-
-  /** SNS topic for quota alerts */
-  public readonly quotaAlertTopic: Topic;
+  /** Plan/quota schema in PostgreSQL */
+  public readonly planQuotaSchema: PlanQuotaSchema;
 
   /** Self-hosted OpenFGA Service */
   public readonly openFgaService: OpenFGAService;
@@ -141,28 +122,15 @@ export class AuthorizationSystem extends Construct {
     this.openFgaSecret = this.openFgaService.presharedKeysSecret;
 
     // ========================================================================
-    // DynamoDB Tables
+    // Plan/Quota PostgreSQL Schema
     // ========================================================================
-    this.planQuotaStore = new PlanQuotaStore(this, 'PlanQuotaStore', {
-      pointInTimeRecovery: true,
-      stream: false,
-      ttlAttributeName: 'ttl',
+    this.planQuotaSchema = new PlanQuotaSchema(this, 'PlanQuotaSchema', {
+      vpc: props.vpc,
+      databaseEndpoint: this.openFgaDatabase.endpoint,
+      databaseName: 'openfga',
+      databaseSecret: this.openFgaDatabase.secret,
+      databaseSecurityGroup: this.openFgaDatabase.securityGroup,
     });
-
-    // ========================================================================
-    // SNS Topic for Quota Alerts
-    // ========================================================================
-    this.quotaAlertTopic = new Topic(this, 'QuotaAlertTopic', {
-      displayName: 'Authorization Quota Alerts',
-      topicName: 'authorization-quota-alerts',
-    });
-
-    // Add email subscription if provided
-    if (props.quotaAlertEmail) {
-      this.quotaAlertTopic.addSubscription(
-        new EmailSubscription(props.quotaAlertEmail)
-      );
-    }
 
     // ========================================================================
     // Security Group for Lambda
@@ -189,11 +157,10 @@ export class AuthorizationSystem extends Construct {
       OPENFGA_API_URL: this.openFgaEndpoint,
       OPENFGA_STORE_ID: 'default', // TODO: Store ID should be created during deployment
       OPENFGA_KEY_SECRET_ARN: this.openFgaSecret.secretArn,
-      // DynamoDB Tables
-      DYNAMODB_PLAN_TABLE: this.planQuotaStore.plansTable.tableName,
-      DYNAMODB_TENANT_PLAN_TABLE:
-        this.planQuotaStore.tenantPlansTable.tableName,
-      DYNAMODB_USAGE_TABLE: this.planQuotaStore.usageTable.tableName,
+      // PostgreSQL Configuration
+      DB_ENDPOINT: this.openFgaDatabase.endpoint,
+      DB_NAME: 'openfga',
+      DB_SECRET_ARN: this.openFgaDatabase.secret.secretArn,
       // Cache settings
       CACHE_ENABLED: (props.enableCache ?? true).toString(),
       CACHE_TTL_SECONDS: (props.cacheTTLSeconds ?? 300).toString(),
@@ -218,65 +185,29 @@ export class AuthorizationSystem extends Construct {
         nodeModules: [
           '@openfga/sdk',
           'aws-jwt-verify',
-          '@aws-sdk/client-dynamodb',
-          '@aws-sdk/lib-dynamodb',
+          'pg',
           '@aws-sdk/client-cloudwatch',
           '@aws-sdk/client-secrets-manager',
         ],
       },
     });
 
-    // Grant permissions
-    this.planQuotaStore.grantPlansRead(this.authorizerFunction);
+    // Ensure schema is created before Lambda deployment
+    this.authorizerFunction.node.addDependency(this.planQuotaSchema.customResource);
 
-    // Grant Secrets Manager read permission for OpenFGA key
+    // Allow Lambda to access database
+    this.openFgaDatabase.securityGroup.addIngressRule(
+      lambdaSecurityGroup,
+      this.openFgaDatabase.connections.defaultPort!,
+      'Allow Lambda authorizer to access database'
+    );
+
+    // Grant Secrets Manager read permissions
     this.openFgaSecret.grantRead(this.authorizerFunction);
+    this.openFgaDatabase.secret.grantRead(this.authorizerFunction);
 
     // Grant CloudWatch metrics permission
     this.authorizerFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['cloudwatch:PutMetricData'],
-        resources: ['*'],
-      })
-    );
-
-    // ========================================================================
-    // Usage Tracker Lambda
-    // ========================================================================
-    this.usageTrackerFunction = new NodejsFunction(
-      this,
-      'UsageTrackerFunction',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/usage-tracker/track-usage.ts',
-        handler: 'handler',
-        timeout: Duration.seconds(30),
-        memorySize: 256,
-        environment: {
-          DYNAMODB_PLAN_TABLE: this.planQuotaStore.plansTable.tableName,
-          DYNAMODB_USAGE_TABLE: this.planQuotaStore.usageTable.tableName,
-          QUOTA_ALERT_TOPIC_ARN: this.quotaAlertTopic.topicArn,
-          ENABLE_QUOTA_ALERTS: (props.enableQuotaAlerts ?? true).toString(),
-        },
-        bundling: {
-          externalModules: ['aws-sdk'],
-          nodeModules: [
-            '@aws-sdk/client-dynamodb',
-            '@aws-sdk/lib-dynamodb',
-            '@aws-sdk/client-sns',
-            '@aws-sdk/client-cloudwatch',
-          ],
-        },
-      }
-    );
-
-    // Grant permissions
-    this.planQuotaStore.grantUsageTracking(this.usageTrackerFunction);
-    this.quotaAlertTopic.grantPublish(this.usageTrackerFunction);
-
-    // Grant CloudWatch metrics permission
-    this.usageTrackerFunction.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['cloudwatch:PutMetricData'],
@@ -293,36 +224,5 @@ export class AuthorizationSystem extends Construct {
     // 3. See docs/specs/authorization/authorization-schema.fga for the schema
     //
     // The store ID and model ID should be provided in openFgaConfig
-
-    // ========================================================================
-    // EventBridge Rule for Usage Tracking
-    // ========================================================================
-    const usageEventRule = new Rule(this, 'UsageEventRule', {
-      description: 'Route usage events to usage tracker',
-      eventPattern: {
-        source: ['genai.usage'],
-        detailType: ['UsageEvent'],
-      } as EventPattern,
-    });
-
-    usageEventRule.addTarget(new LambdaFunction(this.usageTrackerFunction));
-  }
-
-  /**
-   * Grant permission to send usage events to EventBridge
-   */
-  grantSendUsageEvents(grantee: any) {
-    grantee.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['events:PutEvents'],
-        resources: ['*'],
-        conditions: {
-          StringEquals: {
-            'events:source': 'genai.usage',
-          },
-        },
-      })
-    );
   }
 }
