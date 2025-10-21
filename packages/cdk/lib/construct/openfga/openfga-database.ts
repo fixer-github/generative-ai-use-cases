@@ -1,5 +1,5 @@
-import { RemovalPolicy } from 'aws-cdk-lib';
-import { IVpc, InstanceType, SubnetType, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { RemovalPolicy, Duration } from 'aws-cdk-lib';
+import { IVpc, InstanceType, InstanceClass, InstanceSize, SubnetType, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import {
   DatabaseInstance,
   DatabaseInstanceEngine,
@@ -123,8 +123,8 @@ export class OpenFGADatabase extends Construct {
         version: PostgresEngineVersion.VER_15_4, // OpenFGA supports Postgres 13+
       }),
       instanceType: props.instanceType ?? InstanceType.of(
-        InstanceType.T4G_MICRO.instanceClass,
-        InstanceType.T4G_MICRO.instanceSize,
+        InstanceClass.T4G,
+        InstanceSize.MICRO,
       ),
       vpc: props.vpc,
       vpcSubnets: {
@@ -144,7 +144,7 @@ export class OpenFGADatabase extends Construct {
       multiAz: props.multiAz ?? false,
 
       // Backup configuration
-      backupRetention: props.backupRetentionDays ?? 7,
+      backupRetention: Duration.days(props.backupRetentionDays ?? 7),
       preferredBackupWindow: '03:00-04:00', // UTC
       preferredMaintenanceWindow: 'sun:04:00-sun:05:00', // UTC
 
@@ -159,7 +159,7 @@ export class OpenFGADatabase extends Construct {
       performanceInsightRetention: 7,
 
       // Enhanced monitoring
-      monitoringInterval: 60, // seconds
+      monitoringInterval: Duration.seconds(60),
 
       // CloudWatch logs
       cloudwatchLogsExports: ['postgresql'],

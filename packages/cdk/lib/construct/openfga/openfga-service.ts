@@ -7,10 +7,12 @@ import {
   FargateTaskDefinition,
   LogDriver,
   Protocol,
+  Secret as EcsSecret,
 } from 'aws-cdk-lib/aws-ecs';
 import {
   ApplicationLoadBalancer,
   ApplicationProtocol,
+  ApplicationProtocolVersion,
   ApplicationTargetGroup,
   TargetType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
@@ -235,10 +237,10 @@ export class OpenFGAService extends Construct {
       },
       secrets: {
         // Database password from Secrets Manager
-        OPENFGA_DATASTORE_PASSWORD: props.database.credentialsSecret.secretValueFromJson('password'),
+        OPENFGA_DATASTORE_PASSWORD: EcsSecret.fromSecretsManager(props.database.credentialsSecret, 'password'),
 
         // Pre-shared authentication key
-        OPENFGA_AUTHN_PRESHARED_KEYS: this.presharedKeysSecret.secretValueFromJson('key'),
+        OPENFGA_AUTHN_PRESHARED_KEYS: EcsSecret.fromSecretsManager(this.presharedKeysSecret, 'key'),
       },
     });
 
@@ -320,7 +322,7 @@ export class OpenFGAService extends Construct {
       vpc: props.vpc,
       port: 8081,
       protocol: ApplicationProtocol.HTTP,
-      protocolVersion: '2', // HTTP/2 for gRPC
+      protocolVersion: ApplicationProtocolVersion.HTTP2, // HTTP/2 for gRPC
       targetType: TargetType.IP,
       targets: [this.service],
       healthCheck: {

@@ -92,8 +92,16 @@ async function updateUsageCounter(
   usageDate.setDate(usageDate.getDate() + 90);
   const ttl = Math.floor(usageDate.getTime() / 1000); // Unix timestamp in seconds
 
-  const updateParams = {
-    TableName: DYNAMODB_USAGE_TABLE,
+    const updateParams: {
+    TableName: string;
+    Key: any;
+    UpdateExpression: string;
+    ExpressionAttributeNames: { [key: string]: string };
+    ExpressionAttributeValues: { [key: string]: any };
+    ReturnValues: 'ALL_NEW';
+    ConditionExpression?: string;
+  } = {
+    TableName: DYNAMODB_USAGE_TABLE!,
     Key: {
       pk: `${usageEvent.tenantId}#${usageEvent.resourceType}`,
       sk: `${date}#${usageEvent.model}`,
@@ -127,7 +135,7 @@ async function updateUsageCounter(
   if (usageEvent.eventId) {
     updateParams.ExpressionAttributeNames['#eventId'] = 'last_event_id';
     updateParams.ExpressionAttributeValues[':eventId'] = usageEvent.eventId;
-    (updateParams as any).ConditionExpression =
+    updateParams.ConditionExpression =
       'attribute_not_exists(last_event_id) OR last_event_id <> :eventId';
     updateParams.UpdateExpression += ', #eventId = :eventId';
   }

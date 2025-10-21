@@ -1,78 +1,83 @@
 # Authorization System
 
-認可システム - SpiceDBベースのマルチテナント認可システム
+Self-hosted authorization system using OpenFGA for fine-grained access control and quota management.
 
 ## Overview
 
-This directory contains the complete authorization system implementation using SpiceDB for fine-grained, relationship-based access control.
+The Authorization System provides:
+- **Self-hosted OpenFGA** (ECS Fargate + PostgreSQL RDS)
+- **Lambda Authorizer** for API Gateway integration
+- **Quota Management** with DynamoDB
+- **Usage Tracking** with EventBridge
+- **CloudWatch Metrics** for monitoring
+
+## Architecture
+
+```
+┌─────────────────┐
+│  API Gateway    │
+└────────┬────────┘
+         │
+         │ Authorization Header
+         v
+┌─────────────────────────┐
+│ Lambda Authorizer       │
+│ - Verify Cognito JWT    │
+│ - Check OpenFGA perms   │
+│ - Check quotas (DDB)    │
+└───────┬─────────────────┘
+        │
+        v
+┌──────────────────────────┐
+│ OpenFGA (ECS Fargate)    │
+│ - Relationship-based     │
+│ - Fine-grained access    │
+│ - Quota enforcement      │
+└──────────────────────────┘
+```
 
 ## Components
 
-### 1. DynamoDB Tables (`plan-quota-store.ts`)
+### 1. Authorization System Construct (`authorization-system.ts`)
+
+Main CDK construct that creates:
+- Self-hosted OpenFGA (ECS Fargate + RDS PostgreSQL)
+- Lambda Authorizer for API Gateway
+- Usage Tracker Lambda
+- DynamoDB tables for plans and usage
+- SNS topic for quota alerts
+- EventBridge rules for usage tracking
+
+### 2. Plan & Quota Store (`plan-quota-store.ts`)
 
 Creates three DynamoDB tables:
+- **PlansTable**: Stores plan definitions (Free/Pro/Enterprise)
+- **TenantPlansTable**: Maps tenants to subscribed plans
+- **UsageTable**: Tracks daily usage with TTL cleanup
 
-- **PlansTable**: Stores plan definitions (Free/Pro/Enterprise) with permissions
-- **TenantPlansTable**: Maps tenants to their subscribed plans
-- **UsageTable**: Tracks daily usage counters with automatic TTL cleanup
+### 3. Lambda Authorizer (`../../lambda/authorizer/`)
 
-**GSIs:**
-- `plan_id-index`: Find all tenants on a specific plan
-- `stripe_subscription_id-index`: Look up by Stripe subscription
-- `status-index`: Query active/inactive subscriptions
-- `tenant_id-date-index`: Usage analytics by tenant
-- `model-index`: Usage analytics by model
-- `plan_id-date-index`: Usage analytics by plan
-
-### 2. Lambda Authorizer (`../../lambda/authorizer/`)
-
-API Gateway Lambda Authorizer that:
+API Gateway authorizer that:
 - Verifies Cognito JWT tokens
-- Checks plan permissions (DynamoDB)
-- Verifies resource access (SpiceDB)
-- Checks usage quotas
+- Checks permissions via OpenFGA
+- Enforces usage quotas from DynamoDB
 - Caches authorization decisions
 - Records CloudWatch metrics
 
-**Environment Variables:**
-- `COGNITO_USER_POOL_ID`: Cognito User Pool ID
-- `SPICEDB_ENDPOINT`: SpiceDB gRPC endpoint
-- `SPICEDB_TOKEN`: SpiceDB authentication token
-- `DYNAMODB_PLAN_TABLE`: Plans table name
-- `DYNAMODB_TENANT_PLAN_TABLE`: Tenant plans table name
-- `DYNAMODB_USAGE_TABLE`: Usage table name
-- `CACHE_ENABLED`: Enable authorization cache (default: true)
-- `CACHE_TTL_SECONDS`: Cache TTL in seconds (default: 300)
-
-### 3. Usage Tracker (`../../lambda/usage-tracker/`)
+### 4. Usage Tracker (`../../lambda/usage-tracker/`)
 
 EventBridge-triggered Lambda that:
-- Updates DynamoDB usage counters atomically
-- Sends SNS alerts when quotas are exceeded
+- Updates DynamoDB usage counters
+- Sends SNS alerts for quota thresholds (75%, 90%, 100%)
 - Records CloudWatch metrics
-- Supports idempotency via eventId
 
-**Alert Thresholds:**
-- 75%: Medium severity warning
-- 90%: High severity warning
-- 100%: Critical alert
+### 5. OpenFGA Client (`../../lambda/utils/openfgaClient.ts`)
 
-### 4. Schema Migration (`../../lambda/schema-migration/`)
-
-One-time Lambda for SpiceDB schema deployment:
-- Applies authorization schema to SpiceDB
-- Initializes default plans (free/pro/enterprise)
-- Helper functions for tenant creation
-
-### 5. Authorization System Construct (`authorization-system.ts`)
-
-Main CDK construct that wires everything together:
-- Creates all DynamoDB tables
-- Deploys Lambda Authorizer
-- Deploys Usage Tracker
-- Creates SNS topic for alerts
-- Sets up EventBridge rules
-- Configures VPC networking for SpiceDB access
+Provides helper functions for:
+- Permission checks (usecase, model, resource)
+- Entitlement management
+- Plan subscription management
+- Quota enforcement
 
 ## Usage
 
@@ -82,118 +87,186 @@ Main CDK construct that wires everything together:
 import { AuthorizationSystem } from './construct/authorization';
 
 const authzSystem = new AuthorizationSystem(this, 'Authorization', {
-  userPool: cognito.userPool,
-  spiceDBEndpoint: 'spicedb.cluster.local:50051',
-  spiceDBToken: spiceDBToken.secretValue.toString(),
-  vpc: vpc,
-  quotaAlertEmail: 'admin@example.com',
-  enableCache: true,
-  cacheTTLSeconds: 300,
-  enableQuotaAlerts: true,
+  userPool,           // Cognito User Pool for JWT verification
+  vpc,                // VPC for OpenFGA and Lambda
+  environment: 'dev', // Environment name for resource naming
 });
-```
 
-### Integrate with API Gateway
-
-```typescript
-import { RequestAuthorizer, IdentitySource } from 'aws-cdk-lib/aws-apigateway';
-
+// Create API Gateway Request Authorizer
 const authorizer = new RequestAuthorizer(this, 'Authorizer', {
   handler: authzSystem.authorizerFunction,
   identitySources: [IdentitySource.header('Authorization')],
   resultsCacheTtl: Duration.minutes(5),
 });
 
-// Use in API methods
-api.root.addMethod('POST', new LambdaIntegration(handler), {
+// Use with API Gateway
+api.root.addMethod('POST', integration, {
   authorizer,
   authorizationType: AuthorizationType.CUSTOM,
 });
 ```
 
-### Send Usage Events from Backend
+### Configuration Options
 
 ```typescript
-import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+const authzSystem = new AuthorizationSystem(this, 'Authorization', {
+  // Required
+  userPool: cognito.UserPool,
+  vpc: ec2.IVpc,
+  environment: string,
 
-// Grant permission to Lambda
-authzSystem.grantSendUsageEvents(myLambda);
-
-// In Lambda handler
-const eventBridge = new EventBridgeClient({});
-
-await eventBridge.send(
-  new PutEventsCommand({
-    Entries: [{
-      Source: 'genai.usage',
-      DetailType: 'UsageEvent',
-      Detail: JSON.stringify({
-        tenantId: context.authorizer.tenantId,
-        userId: context.authorizer.userId,
-        planId: context.authorizer.planId,
-        resourceType: 'usecase',
-        resourceId: 'chat',
-        model: 'claude-3-sonnet',
-        timestamp: Date.now(),
-      }),
-    }],
-  })
-);
+  // Optional
+  userPoolClientId: string,        // For ID token verification
+  quotaAlertEmail: string,          // Email for quota alerts
+  enableCache: boolean,             // Default: true
+  cacheTTLSeconds: number,          // Default: 300
+  enableQuotaAlerts: boolean,       // Default: true
+  enablePlayground: boolean,        // Default: false (dev only)
+  openFgaImageTag: string,          // Default: 'latest'
+  multiAz: boolean,                 // Default: false
+  deletionProtection: boolean,      // Default: false
+});
 ```
 
-## SpiceDB Schema
+### Accessing OpenFGA Resources
 
-The authorization schema defines these entity types:
+```typescript
+// OpenFGA endpoint (internal ALB)
+const endpoint = authzSystem.openFgaEndpoint;
 
-- **user**: System users
-- **tenant**: Multi-tenant organizations
-- **plan**: Subscription tiers (free/pro/enterprise)
-- **conversation**: Chat conversations
-- **document**: RAG documents
-- **usecase**: GenAI usecases (chat, rag, etc.)
-- **model**: AI models (claude-3-sonnet, gpt-4, etc.)
-- **model_with_quota**: Models with quota enforcement via caveats
-- **admin_operation**: Tenant admin operations
+// OpenFGA pre-shared key secret
+const secret = authzSystem.openFgaSecret;
 
-### Key Permissions
+// OpenFGA service (for advanced configuration)
+const service = authzSystem.openFgaService;
 
-```spicedb
-# Can user view conversation?
-check conversation:123 view user:alice
-
-# Can user execute usecase?
-check usecase:chat execute user:alice
-
-# Can user use model (with quota)?
-check model_with_quota:claude-3-sonnet execute user:alice \
-  --caveat-context '{"current_usage":8,"quota_limit":50}'
+// PostgreSQL database
+const database = authzSystem.openFgaDatabase;
 ```
 
-## Plan Configuration
+### Usage Tracking
 
-Plans are stored in DynamoDB with this structure:
+Grant backend Lambdas permission to send usage events:
 
+```typescript
+const chatLambda = new NodejsFunction(this, 'ChatLambda', {
+  // ... configuration
+});
+
+// Allow Lambda to send usage events to EventBridge
+authzSystem.grantSendUsageEvents(chatLambda);
+```
+
+Backend Lambda should send events:
+
+```typescript
+import { EventBridge } from '@aws-sdk/client-eventbridge';
+
+const eventbridge = new EventBridge({});
+
+await eventbridge.putEvents({
+  Entries: [{
+    Source: 'genai.usage',
+    DetailType: 'UsageEvent',
+    Detail: JSON.stringify({
+      userId: 'user-123',
+      tenantId: 'tenant-456',
+      model: 'claude-3-sonnet',
+      tokens: 1500,
+      timestamp: Date.now(),
+    }),
+  }],
+});
+```
+
+## OpenFGA Setup
+
+### 1. Create Store and Upload Schema
+
+After deploying the infrastructure, create an OpenFGA store and upload the authorization model:
+
+```bash
+# Install OpenFGA CLI
+brew install openfga/tap/fga
+
+# Configure OpenFGA endpoint (from CDK output)
+export OPENFGA_API_URL="http://your-openfga-endpoint"
+
+# Create store
+fga store create --name "authorization"
+
+# Upload authorization model
+fga model write --file docs/specs/authorization/authorization-schema.fga
+```
+
+### 2. Update Lambda Environment
+
+Update the `OPENFGA_STORE_ID` environment variable with the created store ID:
+
+```typescript
+// In authorization-system.ts, update line 190:
+OPENFGA_STORE_ID: 'your-store-id-here',
+```
+
+Or use CDK context/parameter for dynamic configuration.
+
+## Authorization Schema
+
+See `docs/specs/authorization/authorization-schema.fga` for the complete OpenFGA authorization model.
+
+Key capabilities:
+- **Usecase Permissions**: chat, rag, agent, etc.
+- **Model Permissions**: claude-3-sonnet, gpt-4, etc. (with quota support)
+- **Resource Permissions**: conversations, documents (view, edit, delete)
+- **Plan Subscriptions**: Free, Pro, Enterprise
+- **Tenant Management**: Admin roles, entitlement grants
+
+## Permission Checks
+
+The Lambda authorizer automatically maps API paths to permission checks:
+
+| Path | Permission Check |
+|------|------------------|
+| `/chat` | `usecase:chat` |
+| `/rag` | `usecase:rag` |
+| `/models/{id}` | `model:{id}` (with quota) |
+| `/conversations/{id}` | `resource:conversation:{id}` |
+| `/documents/{id}` | `resource:document:{id}` |
+
+## DynamoDB Tables
+
+### Plans Table
+Stores plan definitions (quotas, features):
 ```json
 {
-  "plan_id": "pro",
-  "plan_name": "Professional",
-  "price_usd_monthly": 49.99,
-  "features": {
-    "max_users": 5,
-    "usecases": {
-      "chat": { "enabled": true },
-      "rag": { "enabled": true }
-    },
-    "models": {
-      "claude-3-haiku": {
-        "enabled": true,
-        "daily_quota": 100
-      },
-      "claude-3-sonnet": {
-        "enabled": true,
-        "daily_quota": 50
-      }
-    }
+  "planId": "pro",
+  "name": "Pro Plan",
+  "quotas": {
+    "claude-3-sonnet": 1000000,
+    "gpt-4": 500000
+  }
+}
+```
+
+### Tenant Plans Table
+Maps tenants to plans:
+```json
+{
+  "tenantId": "tenant-123",
+  "planId": "pro",
+  "quotas": { ... }
+}
+```
+
+### Usage Table
+Tracks daily usage:
+```json
+{
+  "userId": "user-456",
+  "date": "2025-10-21",
+  "usage": {
+    "claude-3-sonnet": 15000,
+    "gpt-4": 5000
   }
 }
 ```
@@ -202,60 +275,74 @@ Plans are stored in DynamoDB with this structure:
 
 ### CloudWatch Metrics
 
-**Authorization/Authorizer:**
-- `AuthorizationDecision`: Allow/Deny counts
-- `AuthorizationLatency`: Authorization check latency
+Namespace: `Authorization`
 
-**Authorization/Usage:**
-- `UsageEventProcessed`: Usage events processed
-- `QuotaUtilization`: Quota utilization percentage
-- `CurrentUsage`: Current usage count
+Metrics:
+- `AuthorizationAllow`: Successful authorizations
+- `AuthorizationDeny`: Denied authorizations
+- `AuthorizationError`: Authorization errors
+- `CacheHit`: Cache hits
+- `CacheMiss`: Cache misses
 
-### CloudWatch Logs
+### Logs
 
-All Lambda functions log to CloudWatch Logs:
-- `/aws/lambda/authorization-authorizer`
-- `/aws/lambda/usage-tracker`
-- `/aws/lambda/schema-migration`
+- Lambda Authorizer: `/aws/lambda/AuthorizerFunction`
+- Usage Tracker: `/aws/lambda/UsageTrackerFunction`
+- OpenFGA Service: `/ecs/openfga-{environment}`
+- OpenFGA Database: `/aws/rds/instance/openfga-{environment}`
 
-### SNS Alerts
+## Security Considerations
 
-Quota alerts are sent via SNS when:
-- 75%: Medium severity
-- 90%: High severity
-- 100%: Critical (quota exceeded)
+1. **VPC Isolation**: OpenFGA runs in private subnets with ALB
+2. **Secrets Management**: Pre-shared keys stored in Secrets Manager
+3. **Database Encryption**: RDS encryption at rest enabled
+4. **TLS**: All connections use TLS
+5. **IAM Permissions**: Least privilege for Lambda functions
+
+## Troubleshooting
+
+### Authorization Always Denied
+
+1. Check OpenFGA store ID is correct
+2. Verify authorization model is uploaded
+3. Check user has proper relationships in OpenFGA
+4. Review CloudWatch logs for detailed errors
+
+### Quota Not Enforced
+
+1. Verify plan is assigned to tenant in DynamoDB
+2. Check quota values in tenant plan table
+3. Ensure usage tracking events are being sent
+4. Review usage table for current usage
+
+### Lambda Timeout
+
+1. Check VPC NAT Gateway connectivity
+2. Verify security groups allow OpenFGA access
+3. Increase Lambda timeout if needed
+4. Enable caching to reduce OpenFGA calls
 
 ## Files
 
 ```
 authorization/
-├── README.md                              # This file
-├── index.ts                               # Exports
-├── authorization-system.ts                # Main construct
-├── plan-quota-store.ts                    # DynamoDB tables
-├── api-gateway-integration-example.ts     # Integration example
+├── README.md                    # This file
+├── index.ts                     # Exports
+├── authorization-system.ts      # Main construct
+├── plan-quota-store.ts          # DynamoDB tables
 └── ../../lambda/
     ├── authorizer/
-    │   ├── authorization-authorizer.ts    # Lambda Authorizer
-    │   └── package.json
+    │   └── authorization-authorizer.ts    # Lambda Authorizer
     ├── usage-tracker/
-    │   ├── track-usage.ts                 # Usage Tracker
-    │   └── package.json
-    └── schema-migration/
-        ├── apply-schema.ts                # Schema migration
-        └── package.json
+    │   └── track-usage.ts                 # Usage Tracker
+    └── utils/
+        └── openfgaClient.ts               # OpenFGA helper functions
 ```
 
-## Documentation
+## References
 
-Complete Japanese documentation is available in `docs/ja/`:
-
-- `authorization-mvp.md`: MVP architecture guide
-- `authorization-schema.md`: Schema design details
-- `authorization-api-integration.md`: API integration examples
-- `authorization-plan-quota.md`: Plan and quota management
-
-## Related
-
-- SpiceDB Schema: `../spicedb/authorization-schema.zed`
-- TypeScript Types: `../../types/src/authorization.d.ts`
+- [OpenFGA Documentation](https://openfga.dev)
+- [Authorization Schema](../../../docs/specs/authorization/authorization-schema.fga)
+- [OpenFGA Migration Guide](../../../docs/specs/authorization/openfga-migration-guide.md)
+- [Implementation Summary](../../../docs/specs/authorization/implementation-summary.md)
+- [OpenFGA Implementation](../../../docs/specs/authorization/openfga-implementation.md)

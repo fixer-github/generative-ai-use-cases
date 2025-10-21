@@ -7,9 +7,12 @@ import { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { PlanQuotaStore } from './plan-quota-store';
-import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import { OpenFGAService } from '../openfga/openfga-service';
+import { OpenFGADatabase } from '../openfga/openfga-database';
+import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 
 /**
  * Authorization System Props
@@ -25,14 +28,15 @@ export interface AuthorizationSystemProps {
    */
   readonly userPoolClientId?: string;
 
-  /** SpiceDB endpoint (e.g., spicedb.cluster.local:50051) */
-  readonly spiceDBEndpoint: string;
-
-  /** SpiceDB authentication token (from Secrets Manager) */
-  readonly spiceDBToken: string;
-
-  /** VPC for Lambda functions (to access SpiceDB in EKS) */
+  /**
+   * VPC for Lambda functions and OpenFGA service
+   */
   readonly vpc: IVpc;
+
+  /**
+   * Environment name for resource naming
+   */
+  readonly environment: string;
 
   /** Email for quota alerts (optional) */
   readonly quotaAlertEmail?: string;
@@ -45,16 +49,40 @@ export interface AuthorizationSystemProps {
 
   /** Enable quota alerts */
   readonly enableQuotaAlerts?: boolean;
+
+  /**
+   * Enable OpenFGA playground (for development only)
+   * @default false
+   */
+  readonly enablePlayground?: boolean;
+
+  /**
+   * OpenFGA container image tag
+   * @default 'latest'
+   */
+  readonly openFgaImageTag?: string;
+
+  /**
+   * Multi-AZ deployment for OpenFGA database
+   * @default false
+   */
+  readonly multiAz?: boolean;
+
+  /**
+   * Enable deletion protection for OpenFGA database
+   * @default false
+   */
+  readonly deletionProtection?: boolean;
 }
 
 /**
  * Authorization System Construct
  * 認可システムコンストラクト
  *
- * Creates a complete authorization system with:
+ * Creates a complete self-hosted authorization system with:
  * - Lambda Authorizer for API Gateway
  * - Usage Tracker for quota management
- * - Schema Migration Lambda for SpiceDB schema deployment
+ * - Self-hosted OpenFGA service (ECS Fargate + PostgreSQL RDS)
  * - DynamoDB tables for plans and usage
  * - SNS topic for quota alerts
  * - EventBridge rules for usage tracking
@@ -66,17 +94,51 @@ export class AuthorizationSystem extends Construct {
   /** Usage Tracker function */
   public readonly usageTrackerFunction: NodejsFunction;
 
-  /** Schema Migration function */
-  public readonly schemaMigrationFunction: NodejsFunction;
-
   /** DynamoDB tables for plans and usage */
   public readonly planQuotaStore: PlanQuotaStore;
 
   /** SNS topic for quota alerts */
   public readonly quotaAlertTopic: Topic;
 
+  /** Self-hosted OpenFGA Service */
+  public readonly openFgaService: OpenFGAService;
+
+  /** OpenFGA PostgreSQL Database */
+  public readonly openFgaDatabase: OpenFGADatabase;
+
+  /** OpenFGA API endpoint */
+  public readonly openFgaEndpoint: string;
+
+  /** OpenFGA pre-shared keys secret */
+  public readonly openFgaSecret: Secret;
+
   constructor(scope: Construct, id: string, props: AuthorizationSystemProps) {
     super(scope, id);
+
+    // ========================================================================
+    // OpenFGA Infrastructure (Database + Service)
+    // ========================================================================
+
+    // Create OpenFGA PostgreSQL Database
+    this.openFgaDatabase = new OpenFGADatabase(this, 'OpenFGADatabase', {
+      vpc: props.vpc,
+      environment: props.environment,
+      databaseName: 'openfga',
+      multiAz: props.multiAz ?? false,
+      deletionProtection: props.deletionProtection ?? false,
+    });
+
+    // Create OpenFGA ECS Fargate Service
+    this.openFgaService = new OpenFGAService(this, 'OpenFGAService', {
+      vpc: props.vpc,
+      database: this.openFgaDatabase,
+      environment: props.environment,
+      imageTag: props.openFgaImageTag ?? 'latest',
+      enablePlayground: props.enablePlayground ?? false,
+    });
+
+    this.openFgaEndpoint = this.openFgaService.endpoint;
+    this.openFgaSecret = this.openFgaService.presharedKeysSecret;
 
     // ========================================================================
     // DynamoDB Tables
@@ -103,7 +165,7 @@ export class AuthorizationSystem extends Construct {
     }
 
     // ========================================================================
-    // Security Group for Lambda (to access SpiceDB in EKS)
+    // Security Group for Lambda
     // ========================================================================
     const lambdaSecurityGroup = new SecurityGroup(this, 'LambdaSecurityGroup', {
       vpc: props.vpc,
@@ -111,17 +173,28 @@ export class AuthorizationSystem extends Construct {
       allowAllOutbound: true,
     });
 
+    // Allow Lambda to access OpenFGA service
+    this.openFgaService.securityGroup.addIngressRule(
+      lambdaSecurityGroup,
+      this.openFgaService.loadBalancer.connections.defaultPort!,
+      'Allow Lambda authorizer to access OpenFGA'
+    );
+
     // ========================================================================
     // Lambda Authorizer
     // ========================================================================
     const authorizerEnvironment: Record<string, string> = {
       COGNITO_USER_POOL_ID: props.userPool.userPoolId,
-      SPICEDB_ENDPOINT: props.spiceDBEndpoint,
-      SPICEDB_TOKEN: props.spiceDBToken,
+      // OpenFGA Configuration
+      OPENFGA_API_URL: this.openFgaEndpoint,
+      OPENFGA_STORE_ID: 'default', // TODO: Store ID should be created during deployment
+      OPENFGA_KEY_SECRET_ARN: this.openFgaSecret.secretArn,
+      // DynamoDB Tables
       DYNAMODB_PLAN_TABLE: this.planQuotaStore.plansTable.tableName,
       DYNAMODB_TENANT_PLAN_TABLE:
         this.planQuotaStore.tenantPlansTable.tableName,
       DYNAMODB_USAGE_TABLE: this.planQuotaStore.usageTable.tableName,
+      // Cache settings
       CACHE_ENABLED: (props.enableCache ?? true).toString(),
       CACHE_TTL_SECONDS: (props.cacheTTLSeconds ?? 300).toString(),
     };
@@ -143,17 +216,21 @@ export class AuthorizationSystem extends Construct {
       bundling: {
         externalModules: ['aws-sdk'], // Exclude AWS SDK (provided by Lambda runtime)
         nodeModules: [
-          '@authzed/authzed-node',
+          '@openfga/sdk',
           'aws-jwt-verify',
           '@aws-sdk/client-dynamodb',
           '@aws-sdk/lib-dynamodb',
           '@aws-sdk/client-cloudwatch',
+          '@aws-sdk/client-secrets-manager',
         ],
       },
     });
 
     // Grant permissions
     this.planQuotaStore.grantPlansRead(this.authorizerFunction);
+
+    // Grant Secrets Manager read permission for OpenFGA key
+    this.openFgaSecret.grantRead(this.authorizerFunction);
 
     // Grant CloudWatch metrics permission
     this.authorizerFunction.addToRolePolicy(
@@ -208,29 +285,14 @@ export class AuthorizationSystem extends Construct {
     );
 
     // ========================================================================
-    // Schema Migration Lambda
+    // OpenFGA Schema Migration
     // ========================================================================
-    this.schemaMigrationFunction = new NodejsFunction(
-      this,
-      'SchemaMigrationFunction',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/schema-migration/apply-schema.ts',
-        handler: 'handler',
-        timeout: Duration.seconds(60),
-        memorySize: 256,
-        vpc: props.vpc,
-        securityGroups: [lambdaSecurityGroup],
-        environment: {
-          SPICEDB_ENDPOINT: props.spiceDBEndpoint,
-          SPICEDB_TOKEN: props.spiceDBToken,
-        },
-        bundling: {
-          externalModules: ['aws-sdk'],
-          nodeModules: ['@authzed/authzed-node'],
-        },
-      }
-    );
+    // NOTE: OpenFGA schema migration should be handled separately using:
+    // 1. OpenFGA CLI to create store and upload authorization model
+    // 2. Custom deployment script with OpenFGA API
+    // 3. See docs/specs/authorization/authorization-schema.fga for the schema
+    //
+    // The store ID and model ID should be provided in openFgaConfig
 
     // ========================================================================
     // EventBridge Rule for Usage Tracking

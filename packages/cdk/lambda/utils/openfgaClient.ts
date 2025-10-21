@@ -13,7 +13,7 @@
  * - Caching support
  */
 
-import { OpenFgaClient, CheckRequest, WriteRequest, TupleKey } from '@openfga/sdk';
+import { OpenFgaClient, CredentialsMethod, CheckRequest, WriteRequest, TupleKey } from '@openfga/sdk';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 // Environment variables
@@ -41,11 +41,15 @@ export async function getOpenFGAClient(): Promise<OpenFgaClient> {
 
   cachedApiKey = JSON.parse(secretResponse.SecretString!).key;
 
+  if (!cachedApiKey) {
+    throw new Error('Failed to retrieve OpenFGA API key from Secrets Manager');
+  }
+
   clientInstance = new OpenFgaClient({
     apiUrl: OPENFGA_API_URL,
     storeId: OPENFGA_STORE_ID,
     credentials: {
-      method: 'api_token',
+      method: CredentialsMethod.ApiToken,
       config: {
         token: cachedApiKey,
       },
@@ -113,7 +117,7 @@ export async function checkModelPermission(
   const client = await getOpenFGAClient();
 
   try {
-    const checkRequest: CheckRequest = {
+    const checkRequest: any = {
       user: `user:${userId}`,
       relation: 'can_execute',
       object: `model_capability:${modelId}`,
@@ -208,15 +212,13 @@ export async function grantUserPlanSubscription(
   const client = await getOpenFGAClient();
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'user_subscriber',
-          object: `plan:${planId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `user:${userId}`,
+        relation: 'user_subscriber',
+        object: `plan:${planId}`,
+      },
+    ],
   });
 }
 
@@ -230,15 +232,13 @@ export async function revokeUserPlanSubscription(
   const client = await getOpenFGAClient();
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'user_subscriber',
-          object: `plan:${planId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `user:${userId}`,
+        relation: 'user_subscriber',
+        object: `plan:${planId}`,
+      },
+    ],
   });
 }
 
@@ -252,20 +252,18 @@ export async function grantTenantPlanSubscription(
   const client = await getOpenFGAClient();
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant_subscriber',
-          object: `plan:${planId}`,
-        },
-        {
-          user: `plan:${planId}`,
-          relation: 'plan_subscription',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant_subscriber',
+        object: `plan:${planId}`,
+      },
+      {
+        user: `plan:${planId}`,
+        relation: 'plan_subscription',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -279,20 +277,18 @@ export async function revokeTenantPlanSubscription(
   const client = await getOpenFGAClient();
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant_subscriber',
-          object: `plan:${planId}`,
-        },
-        {
-          user: `plan:${planId}`,
-          relation: 'plan_subscription',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant_subscriber',
+        object: `plan:${planId}`,
+      },
+      {
+        user: `plan:${planId}`,
+        relation: 'plan_subscription',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -315,28 +311,26 @@ export async function grantTenantEntitlement(
   const tenantEntitlementId = `tenant_entitlement:${tenantId}/${userId}/${entitlementId}`;
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        // Create tenant entitlement
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: tenantEntitlementId,
-        },
-        {
-          user: `user:${userId}`,
-          relation: 'grantee',
-          object: tenantEntitlementId,
-        },
-        // Link entitlement to tenant assignment
-        {
-          user: tenantEntitlementId,
-          relation: 'via_tenant_assignment',
-          object: `entitlement:${entitlementId}`,
-        },
-        // NOTE: entitlement -> capability link must already exist (provisioned separately)
-      ],
-    },
+    writes: [
+      // Create tenant entitlement
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: tenantEntitlementId,
+      },
+      {
+        user: `user:${userId}`,
+        relation: 'grantee',
+        object: tenantEntitlementId,
+      },
+      // Link entitlement to tenant assignment
+      {
+        user: tenantEntitlementId,
+        relation: 'via_tenant_assignment',
+        object: `entitlement:${entitlementId}`,
+      },
+      // NOTE: entitlement -> capability link must already exist (provisioned separately)
+    ],
   });
 }
 
@@ -353,25 +347,23 @@ export async function revokeTenantEntitlement(
   const tenantEntitlementId = `tenant_entitlement:${tenantId}/${userId}/${entitlementId}`;
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: tenantEntitlementId,
-        },
-        {
-          user: `user:${userId}`,
-          relation: 'grantee',
-          object: tenantEntitlementId,
-        },
-        {
-          user: tenantEntitlementId,
-          relation: 'via_tenant_assignment',
-          object: `entitlement:${entitlementId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: tenantEntitlementId,
+      },
+      {
+        user: `user:${userId}`,
+        relation: 'grantee',
+        object: tenantEntitlementId,
+      },
+      {
+        user: tenantEntitlementId,
+        relation: 'via_tenant_assignment',
+        object: `entitlement:${entitlementId}`,
+      },
+    ],
   });
 }
 
@@ -389,25 +381,23 @@ export async function blockUserFromCapability(
   const blockId = `tenant_entitlement:${tenantId}/${userId}/${capabilityId}_block`;
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: blockId,
-        },
-        {
-          user: `user:${userId}`,
-          relation: 'blocked',
-          object: blockId,
-        },
-        {
-          user: blockId,
-          relation: 'blocked_by_tenant',
-          object: `${capabilityType}_capability:${capabilityId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: blockId,
+      },
+      {
+        user: `user:${userId}`,
+        relation: 'blocked',
+        object: blockId,
+      },
+      {
+        user: blockId,
+        relation: 'blocked_by_tenant',
+        object: `${capabilityType}_capability:${capabilityId}`,
+      },
+    ],
   });
 }
 
@@ -425,25 +415,23 @@ export async function unblockUserFromCapability(
   const blockId = `tenant_entitlement:${tenantId}/${userId}/${capabilityId}_block`;
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: blockId,
-        },
-        {
-          user: `user:${userId}`,
-          relation: 'blocked',
-          object: blockId,
-        },
-        {
-          user: blockId,
-          relation: 'blocked_by_tenant',
-          object: `${capabilityType}_capability:${capabilityId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: blockId,
+      },
+      {
+        user: `user:${userId}`,
+        relation: 'blocked',
+        object: blockId,
+      },
+      {
+        user: blockId,
+        relation: 'blocked_by_tenant',
+        object: `${capabilityType}_capability:${capabilityId}`,
+      },
+    ],
   });
 }
 
@@ -457,15 +445,13 @@ export async function grantTenantMembership(
   const client = await getOpenFGAClient();
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'member',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `user:${userId}`,
+        relation: 'member',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -479,15 +465,13 @@ export async function revokeTenantMembership(
   const client = await getOpenFGAClient();
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'member',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `user:${userId}`,
+        relation: 'member',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -501,15 +485,13 @@ export async function grantTenantAdmin(
   const client = await getOpenFGAClient();
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'admin',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `user:${userId}`,
+        relation: 'admin',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -523,15 +505,13 @@ export async function revokeTenantAdmin(
   const client = await getOpenFGAClient();
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'admin',
-          object: `tenant:${tenantId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `user:${userId}`,
+        relation: 'admin',
+        object: `tenant:${tenantId}`,
+      },
+    ],
   });
 }
 
@@ -552,32 +532,30 @@ export async function setUserQuotaGrant(
   const quotaGrantId = `quota_grant:${tenantId}/${userId}/${modelId}`;
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'user',
-          object: quotaGrantId,
-        },
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: quotaGrantId,
-        },
-        {
-          user: `model_capability:${modelId}`,
-          relation: 'model',
-          object: quotaGrantId,
-        },
-        // CRITICAL: Link quota_grant back to model_capability
-        // This enables "holder from quota_grant" in the schema
-        {
-          user: quotaGrantId,
-          relation: 'quota_grant',
-          object: `model_capability:${modelId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `user:${userId}`,
+        relation: 'user',
+        object: quotaGrantId,
+      },
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: quotaGrantId,
+      },
+      {
+        user: `model_capability:${modelId}`,
+        relation: 'model',
+        object: quotaGrantId,
+      },
+      // CRITICAL: Link quota_grant back to model_capability
+      // This enables "holder from quota_grant" in the schema
+      {
+        user: quotaGrantId,
+        relation: 'quota_grant',
+        object: `model_capability:${modelId}`,
+      },
+    ],
   });
 }
 
@@ -594,31 +572,29 @@ export async function removeUserQuotaGrant(
   const quotaGrantId = `quota_grant:${tenantId}/${userId}/${modelId}`;
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'user',
-          object: quotaGrantId,
-        },
-        {
-          user: `tenant:${tenantId}`,
-          relation: 'tenant',
-          object: quotaGrantId,
-        },
-        {
-          user: `model_capability:${modelId}`,
-          relation: 'model',
-          object: quotaGrantId,
-        },
-        // Remove the link from quota_grant to model_capability
-        {
-          user: quotaGrantId,
-          relation: 'quota_grant',
-          object: `model_capability:${modelId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `user:${userId}`,
+        relation: 'user',
+        object: quotaGrantId,
+      },
+      {
+        user: `tenant:${tenantId}`,
+        relation: 'tenant',
+        object: quotaGrantId,
+      },
+      {
+        user: `model_capability:${modelId}`,
+        relation: 'model',
+        object: quotaGrantId,
+      },
+      // Remove the link from quota_grant to model_capability
+      {
+        user: quotaGrantId,
+        relation: 'quota_grant',
+        object: `model_capability:${modelId}`,
+      },
+    ],
   });
 }
 
@@ -650,7 +626,7 @@ export async function setResourceOwner(
     });
   }
 
-  await client.write({ writes: { tuple_keys: writes } });
+  await client.write({ writes });
 }
 
 /**
@@ -664,15 +640,13 @@ export async function shareResource(
   const client = await getOpenFGAClient();
 
   await client.write({
-    writes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'viewer',
-          object: `${resourceType}:${resourceId}`,
-        },
-      ],
-    },
+    writes: [
+      {
+        user: `user:${userId}`,
+        relation: 'viewer',
+        object: `${resourceType}:${resourceId}`,
+      },
+    ],
   });
 }
 
@@ -687,15 +661,13 @@ export async function unshareResource(
   const client = await getOpenFGAClient();
 
   await client.write({
-    deletes: {
-      tuple_keys: [
-        {
-          user: `user:${userId}`,
-          relation: 'viewer',
-          object: `${resourceType}:${resourceId}`,
-        },
-      ],
-    },
+    deletes: [
+      {
+        user: `user:${userId}`,
+        relation: 'viewer',
+        object: `${resourceType}:${resourceId}`,
+      },
+    ],
   });
 }
 
