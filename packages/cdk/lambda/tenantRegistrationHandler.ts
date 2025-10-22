@@ -30,6 +30,8 @@ interface TenantRegistrationRequest {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
+  openFgaApiEndpoint?: string;
+  openFgaApiRegion?: string;
 }
 
 /**
@@ -59,6 +61,8 @@ export const handler = async (
       openSearchDomainArn,
       openSearchEndpoint,
       openSearchIndexName,
+      openFgaApiEndpoint,
+      openFgaApiRegion,
     } = request;
 
     // Log request without sensitive data
@@ -137,6 +141,8 @@ export const handler = async (
       environment,
       roleArn,
       controlPlaneLambdaRoleArn,
+      openFgaApiEndpoint,
+      openFgaApiRegion,
       createdAt: now,
       updatedAt: now,
       metadata: {
