@@ -291,6 +291,5 @@ authorization/
 
 - [OpenFGA Documentation](https://openfga.dev)
 - [Authorization Schema](../../../docs/specs/authorization/authorization-schema.fga)
-- [OpenFGA Migration Guide](../../../docs/specs/authorization/openfga-migration-guide.md)
-- [Implementation Summary](../../../docs/specs/authorization/implementation-summary.md)
-- [OpenFGA Implementation](../../../docs/specs/authorization/openfga-implementation.md)
+- [OpenFGA Complete Guide (English)](../../../docs/specs/authorization/OPENFGA_COMPLETE_GUIDE.md)
+- [OpenFGA Complete Guide (Japanese)](../../../docs/ja/OPENFGA_GUIDE_JA.md)

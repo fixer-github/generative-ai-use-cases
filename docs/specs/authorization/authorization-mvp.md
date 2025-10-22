@@ -10,10 +10,8 @@
 > - **機能強化**: ハイブリッド ToC/ToB モデル、Entitlement ベース権限管理
 >
 > **最新のドキュメントを参照してください:**
-> - [OpenFGA 実装ガイド](./openfga-implementation.md)
-> - [OpenFGA デプロイメントガイド](../../ja/openfga-deployment.md)
-> - [認可スキーマ詳細](./authorization-schema.md)
-> - [実装ステータス](./IMPLEMENTATION_STATUS.md)
+> - **[OpenFGA 完全ガイド（英語）](./OPENFGA_COMPLETE_GUIDE.md)** - すべての実装、API、運用情報を含む統合ドキュメント
+> - **[OpenFGA 完全ガイド（日本語）](../../ja/OPENFGA_GUIDE_JA.md)** - 日本語での完全なガイド
 >
 > 以下の内容は SpiceDB での設計資料です。
 
@@ -434,9 +432,9 @@ zed permission check \
 
 ## 次のステップ
 
-1. [SpiceDBスキーマ詳細設計](./authorization-schema.md) - 完全なスキーマ定義
-2. [API統合ガイド](./authorization-api-integration.md) - 実装コード例
-3. [プラン・クォータ管理](./authorization-plan-quota.md) - 運用ガイド
+最新のOpenFGA実装については、以下のドキュメントを参照してください:
+- [OpenFGA 完全ガイド（英語）](./OPENFGA_COMPLETE_GUIDE.md) - すべての実装、API、運用情報を含む統合ドキュメント
+- [OpenFGA 完全ガイド（日本語）](../../ja/OPENFGA_GUIDE_JA.md) - 日本語での完全なガイド
 
 ## 参考資料
 

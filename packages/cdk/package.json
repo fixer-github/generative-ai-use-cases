@@ -9,7 +9,12 @@
     "cdk": "cdk",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
-    "postinstall": "npm ci --prefix custom-resources"
+    "postinstall": "npm ci --prefix custom-resources",
+    "cdk:authz:deploy": "cdk deploy --app 'npx ts-node --prefer-ts-exts bin/authorization-system.ts'",
+    "cdk:authz:synth": "cdk synth --app 'npx ts-node --prefer-ts-exts bin/authorization-system.ts'",
+    "cdk:authz:diff": "cdk diff --app 'npx ts-node --prefer-ts-exts bin/authorization-system.ts'",
+    "cdk:authz:list": "cdk list --app 'npx ts-node --prefer-ts-exts bin/authorization-system.ts'",
+    "cdk:authz:destroy": "cdk destroy --app 'npx ts-node --prefer-ts-exts bin/authorization-system.ts'"
   },
   "devDependencies": {
     "@smithy/types": "^4.3.2",

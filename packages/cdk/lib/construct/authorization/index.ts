@@ -1,2 +1,2 @@
 export * from './authorization-system';
-export * from './plan-quota-store';
+export * from './plan-quota-schema';

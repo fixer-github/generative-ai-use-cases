@@ -126,9 +126,9 @@ export class AuthorizationSystem extends Construct {
     // ========================================================================
     this.planQuotaSchema = new PlanQuotaSchema(this, 'PlanQuotaSchema', {
       vpc: props.vpc,
-      databaseEndpoint: this.openFgaDatabase.endpoint,
+      databaseEndpoint: this.openFgaDatabase.instance.dbInstanceEndpointAddress,
       databaseName: 'openfga',
-      databaseSecret: this.openFgaDatabase.secret,
+      databaseSecret: this.openFgaDatabase.credentialsSecret,
       databaseSecurityGroup: this.openFgaDatabase.securityGroup,
     });
 
@@ -158,9 +158,9 @@ export class AuthorizationSystem extends Construct {
       OPENFGA_STORE_ID: 'default', // TODO: Store ID should be created during deployment
       OPENFGA_KEY_SECRET_ARN: this.openFgaSecret.secretArn,
       // PostgreSQL Configuration
-      DB_ENDPOINT: this.openFgaDatabase.endpoint,
+      DB_ENDPOINT: this.openFgaDatabase.instance.dbInstanceEndpointAddress,
       DB_NAME: 'openfga',
-      DB_SECRET_ARN: this.openFgaDatabase.secret.secretArn,
+      DB_SECRET_ARN: this.openFgaDatabase.credentialsSecret.secretArn,
       // Cache settings
       CACHE_ENABLED: (props.enableCache ?? true).toString(),
       CACHE_TTL_SECONDS: (props.cacheTTLSeconds ?? 300).toString(),
@@ -198,13 +198,13 @@ export class AuthorizationSystem extends Construct {
     // Allow Lambda to access database
     this.openFgaDatabase.securityGroup.addIngressRule(
       lambdaSecurityGroup,
-      this.openFgaDatabase.connections.defaultPort!,
+      this.openFgaDatabase.instance.connections.defaultPort!,
       'Allow Lambda authorizer to access database'
     );
 
     // Grant Secrets Manager read permissions
     this.openFgaSecret.grantRead(this.authorizerFunction);
-    this.openFgaDatabase.secret.grantRead(this.authorizerFunction);
+    this.openFgaDatabase.credentialsSecret.grantRead(this.authorizerFunction);
 
     // Grant CloudWatch metrics permission
     this.authorizerFunction.addToRolePolicy(
