@@ -58,6 +58,24 @@ The OpenFGA authorization system provides a production-ready, scalable authoriza
 
 ## Architecture
 
+### Deployment Options
+
+The authorization system can be deployed in two configurations:
+
+#### Option A: Standalone Stack (Recommended for Production)
+- Deployed in separate AWS account/region from application
+- Dedicated VPC and isolated infrastructure
+- Independent scaling and fault isolation
+- Enhanced security boundaries
+- Cross-account access via VPC endpoints
+
+#### Option B: Embedded Stack (Development/POC)
+- Deployed in same account as application stacks
+- Shared VPC and infrastructure
+- Lower latency and simplified networking
+- Reduced operational complexity
+- Suitable for development and testing
+
 ### System Components
 
 ```
@@ -79,6 +97,72 @@ The OpenFGA authorization system provides a production-ready, scalable authoriza
                          │ - Multi-AZ (opt) │
                          └──────────────────┘
 ```
+
+### Multi-Tenant System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     AWS Account (prod-account)                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │         AUTHORIZATION STACK (Separate/Common)            │  │
+│  │                                                          │  │
+│  │  ┌──────────────┐     ┌──────────────┐                 │  │
+│  │  │ OpenFGA      │────▶│ PostgreSQL   │                 │  │
+│  │  │ (ECS Fargate)│     │ (RDS)        │                 │  │
+│  │  └──────┬───────┘     └──────────────┘                 │  │
+│  │         │                                               │  │
+│  │  ┌──────▼────────────────┐                             │  │
+│  │  │ ALB (8080, 8081)      │                             │  │
+│  │  │ Pre-shared keys (SM)  │                             │  │
+│  │  └──────┬────────────────┘                             │  │
+│  │         │                                               │  │
+│  │  ┌──────▼────────────────┐                             │  │
+│  │  │ Lambda Authorizer     │                             │  │
+│  │  │ (Checks permissions)  │                             │  │
+│  │  └──────┬────────────────┘                             │  │
+│  │         │                                               │  │
+│  └─────────┼───────────────────────────────────────────────┘  │
+│            │                                                   │
+│            │ Authorizes API requests                          │
+│            │                                                   │
+│  ┌─────────▼──────────────────────────────────────────────┐   │
+│  │         COMMON APPLICATION STACK                       │   │
+│  │  ┌──────────────────────────────────────────────────┐  │   │
+│  │  │ API Gateway + Lambda functions                  │  │   │
+│  │  │ (Chat, RAG, Image, Video, etc.)                 │  │   │
+│  │  └──────────────────────────────────────────────────┘  │   │
+│  └────────────┬─────────────────────────────────────────┘   │
+│               │                                               │
+│               │ Routes to tenant-specific resources          │
+│               │                                               │
+│  ┌────────────▼──────────────────────────────────────────┐   │
+│  │    TENANT STACKS (1 per tenant)                       │   │
+│  │                                                       │   │
+│  │  Tenant A:                  Tenant B:                │   │
+│  │  ├─ DynamoDB                ├─ DynamoDB             │   │
+│  │  ├─ S3 Buckets (3)          ├─ S3 Buckets (3)       │   │
+│  │  ├─ VPC (isolated)          ├─ VPC (isolated)       │   │
+│  │  ├─ IAM Roles               ├─ IAM Roles            │   │
+│  │  └─ OpenSearch              └─ OpenSearch           │   │
+│  │                                                       │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Authorization Flow:**
+1. User authenticates via Cognito
+2. Request hits API Gateway with JWT
+3. Lambda Authorizer verifies JWT + checks OpenFGA permissions
+4. OpenFGA knows which tenant user belongs to (via Cognito claims)
+5. OpenFGA returns Allow/Deny based on:
+   - User's entitlements
+   - Tenant's entitlements
+   - Quotas (DynamoDB storage)
+6. API Gateway routes to tenant-specific Lambda
+7. Lambda accesses tenant-isolated resources (DynamoDB, S3, etc.)
 
 ### Authorization Flow
 
@@ -965,6 +1049,130 @@ fga tuple write --store-id $OPENFGA_STORE_ID \
 fga tuple write --store-id $OPENFGA_STORE_ID \
   usecase_capability:rag entitlement entitlement:usecase_rag
 ```
+
+### Deployment Strategy Comparison
+
+| Aspect | Standalone (Separate Account) | Embedded (Same Account) |
+|--------|-------------------------------|-------------------------|
+| **Deployment** | Separate stack in separate/same account | Integrated in application stack |
+| **VPC** | Dedicated VPC or isolated | Shared with application |
+| **Database** | Dedicated RDS instance | Shared or dedicated |
+| **Failure Impact** | Isolated | Affects entire application |
+| **Scaling** | Independent | Coupled with application |
+| **Network Latency** | Cross-account (higher) | Same VPC (lower) |
+| **IAM Complexity** | Cross-account roles | Simple same-account |
+| **Blast Radius** | Limited | Comprehensive |
+| **Recommended** | Production/Multi-tenant | Development/POC |
+
+### Same-Account Deployment Considerations
+
+When deploying the authorization system in the **same AWS account** as application/tenant stacks:
+
+#### Benefits
+
+1. **Simplified Network Architecture**
+   - No cross-account access needed
+   - VPC peering/endpoints not required
+   - Direct Lambda-to-OpenFGA connectivity
+   - Lower latency (same account, often same region)
+
+2. **Simplified IAM**
+   - No cross-account role assumptions
+   - Single account permissions model
+   - Shared VPC credentials possible
+
+3. **Cost Efficiency**
+   - No NAT Gateway costs for cross-account access
+   - Potentially reuse VPC infrastructure
+   - Consolidated billing
+
+4. **Operational Simplicity**
+   - Single CloudFormation stack structure
+   - Unified deployment process
+   - Shared security context
+
+#### Risks & Considerations
+
+1. **Blast Radius**
+   - If authorization system fails → entire application fails
+   - All tenants affected simultaneously
+   - No fault isolation between authorization and application
+
+2. **Security Boundaries**
+   - Weaker isolation between authorization and application
+   - Shared infrastructure increases surface area
+   - Multi-tenant data in same security boundary
+
+3. **Scaling Independence**
+   - Cannot scale authorization independently
+   - Application load directly impacts authorizer performance
+   - Quota management harder to separate
+
+4. **Data Isolation**
+   - PostgreSQL database shared between all tenants + authorization
+   - Potential for cross-tenant queries
+   - Requires careful schema design
+
+5. **Compliance Issues**
+   - Some regulations require authorization systems be separate
+   - Data residency requirements harder to enforce
+   - Audit trail might be harder to isolate
+
+#### Integration Pattern (Same Account)
+
+```typescript
+// In GenerativeAiUseCasesStack or other common stack
+import { AuthorizationSystem } from '../../construct/authorization/authorization-system';
+
+export class GenerativeAiUseCasesStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: GenerativeAiUseCasesStackProps) {
+    super(scope, id, props);
+
+    // Deploy authorization in same stack/account
+    const authSystem = new AuthorizationSystem(this, 'Authorization', {
+      userPool: props.userPool,
+      vpc: props.vpc,
+      environment: props.environment,
+      multiAz: true,
+      deletionProtection: true,
+    });
+
+    // Use authorizer in API Gateway
+    const api = new RestApi(this, 'Api', {
+      defaultMethodOptions: {
+        authorizer: new RequestAuthorizer(this, 'Authorizer', {
+          handler: authSystem.authorizerFunction,
+        }),
+      },
+    });
+  }
+}
+```
+
+### Deployment Recommendations
+
+#### For Production
+- **Deploy Authorization System separately** in dedicated account
+- Use **Multi-AZ** for RDS
+- Enable **Deletion Protection**
+- Use **Pre-shared keys** in Secrets Manager
+- Enable **ECS Container Insights**
+- Configure **CloudWatch alarms**
+- Use **VPC endpoints** for cross-account access
+
+#### For Development
+- Deploy Authorization System in **same development account**
+- Single-AZ RDS acceptable
+- Disable Deletion Protection
+- Enable **OpenFGA Playground** for debugging
+- Smaller ECS task resources
+
+#### Avoid in Production
+- Deploying authorization in same account as production tenants (security)
+- Disabling deletion protection on RDS
+- Using default credentials
+- Playground enabled
+- Single-AZ without backup plan
 
 ---
 

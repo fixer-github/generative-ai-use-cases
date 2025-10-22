@@ -31,6 +31,15 @@
       "vpcCidr": "10.0.0.0/16",
       "maxAzs": 1,
       "natGateways": 1
+    },
+    "authorizationConfig": {
+      "enabled": true,
+      "enableCache": true,
+      "cacheTTLSeconds": 300,
+      "enablePlayground": false,
+      "openFgaImageTag": "v1.5.0",
+      "multiAz": false,
+      "deletionProtection": true
     }
   }
 }

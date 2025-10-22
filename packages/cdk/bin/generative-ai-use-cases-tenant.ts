@@ -31,6 +31,15 @@ interface TenantConfig {
     maxAzs?: number;
     natGateways?: number;
   };
+  authorizationConfig?: {
+    enabled?: boolean;
+    enableCache?: boolean;
+    cacheTTLSeconds?: number;
+    enablePlayground?: boolean;
+    openFgaImageTag?: string;
+    multiAz?: boolean;
+    deletionProtection?: boolean;
+  };
   controlPlane?: {
     account: string;
     region: string;
@@ -158,6 +167,14 @@ const params = {
       context.openSearchConfig.automatedSnapshotStartHour,
   },
   networkConfig: context.networkConfig,
+  authorizationConfig: context.authorizationConfig || {
+    enabled: true, // Enable by default
+    enableCache: true,
+    cacheTTLSeconds: 300,
+    enablePlayground: false,
+    multiAz: false,
+    deletionProtection: true,
+  },
 };
 
 createTenantStacks(app, params);

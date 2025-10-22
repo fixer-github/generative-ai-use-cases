@@ -14,6 +14,24 @@ The CDK application supports deploying tenant-specific infrastructure separately
 
 The tenant-specific deployment creates isolated DynamoDB tables and S3 buckets for each tenant, eliminating the need for complex IAM role management. Each tenant gets their own set of resources with environment-aware naming and appropriate deletion protection.
 
+### Relationship to Authorization System
+
+Tenant stacks are **completely independent** from the authorization system:
+
+- **Authorization System**: Validates permissions globally (who can access what)
+- **Tenant Stacks**: Contains isolated data/infrastructure (where data is stored)
+- Authorization checks happen at API Gateway layer before routing to tenant resources
+- Tenant stacks can be deployed/destroyed independently of authorization system
+- Authorization system does NOT need to be in the same AWS account as tenant stacks
+
+**Example Flow:**
+1. User request hits API Gateway with JWT token
+2. Lambda Authorizer queries OpenFGA authorization system
+3. If authorized, API Gateway routes to tenant-specific Lambda
+4. Lambda accesses tenant-isolated resources (DynamoDB tables, S3 buckets)
+
+See [OpenFGA Complete Guide](./specs/authorization/OPENFGA_COMPLETE_GUIDE.md) for authorization system details.
+
 ### DynamoDB Tables
 
 Each tenant receives dedicated DynamoDB tables for data storage with proper indexing and access patterns.

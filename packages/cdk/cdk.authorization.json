@@ -1,0 +1,32 @@
+{
+  "context": {
+    "environment": "prod",
+    "deploymentId": "default",
+    "vpcConfig": {
+      "createNew": true,
+      "vpcCidr": "10.1.0.0/16",
+      "maxAzs": 2,
+      "natGateways": 1
+    },
+    "openFgaConfig": {
+      "imageTag": "v1.5.0",
+      "cpu": 512,
+      "memoryLimitMiB": 1024,
+      "desiredCount": 2,
+      "minCapacity": 2,
+      "maxCapacity": 10,
+      "enablePlayground": false
+    },
+    "databaseConfig": {
+      "instanceType": "db.t4g.small",
+      "multiAz": true,
+      "allocatedStorageGb": 20,
+      "backupRetentionDays": 7,
+      "deletionProtection": true
+    },
+    "authorizerConfig": {
+      "enableCache": true,
+      "cacheTTLSeconds": 300
+    }
+  }
+}

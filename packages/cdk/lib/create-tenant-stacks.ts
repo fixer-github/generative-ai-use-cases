@@ -6,6 +6,7 @@ import { TenantBedrockChatStack } from './stacks/tenant/tenant-bedrock-chat-stac
 import { TenantPptxStack } from './stacks/tenant/tenant-pptx-stack';
 import { TenantVpcStack } from './stacks/tenant/tenant-vpc-stack';
 import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
+import { TenantAuthorizationStack } from './stacks/tenant/tenant-authorization-stack';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
@@ -22,6 +23,51 @@ export interface OpenSearchConfig {
   availabilityZoneCount: number;
   automatedSnapshotStartHour: number;
 }
+
+export interface AuthorizationConfig {
+  /**
+   * Enable authorization stack deployment
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Enable authorization cache
+   * @default true
+   */
+  enableCache?: boolean;
+
+  /**
+   * Cache TTL in seconds
+   * @default 300
+   */
+  cacheTTLSeconds?: number;
+
+  /**
+   * Enable OpenFGA playground (development only)
+   * @default false
+   */
+  enablePlayground?: boolean;
+
+  /**
+   * OpenFGA container image tag
+   * @default 'latest'
+   */
+  openFgaImageTag?: string;
+
+  /**
+   * Multi-AZ deployment for RDS
+   * @default false
+   */
+  multiAz?: boolean;
+
+  /**
+   * Enable deletion protection for RDS
+   * @default true
+   */
+  deletionProtection?: boolean;
+}
+
 export interface TenantStackInput {
   account?: string;
   region: string;
@@ -36,6 +82,7 @@ export interface TenantStackInput {
   userPoolClientId?: string;
   openSearchConfig: OpenSearchConfig;
   networkConfig: NetworkConfig;
+  authorizationConfig?: AuthorizationConfig;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -99,6 +146,37 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       natGateways: params.networkConfig.natGateways,
     }
   );
+
+  // Tenant Authorization Stack (optional, enabled by default)
+  let tenantAuthorizationStack;
+  const authzConfig = params.authorizationConfig;
+  if (authzConfig?.enabled !== false && params.userPoolId) {
+    tenantAuthorizationStack = new TenantAuthorizationStack(
+      app,
+      `TenantAuthorizationStack${params.environment}-${params.tenantId}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        tenantId: params.tenantId,
+        environment: params.environment,
+        vpc: tenantVpcStack.vpc,
+        userPoolId: params.userPoolId,
+        userPoolClientId: params.userPoolClientId,
+        enableCache: authzConfig?.enableCache ?? true,
+        cacheTTLSeconds: authzConfig?.cacheTTLSeconds ?? 300,
+        enablePlayground: authzConfig?.enablePlayground ?? false,
+        openFgaImageTag: authzConfig?.openFgaImageTag,
+        multiAz: authzConfig?.multiAz ?? false,
+        deletionProtection: authzConfig?.deletionProtection ?? true,
+        removalPolicy: params.removalPolicy,
+      }
+    );
+
+    // Add dependency to ensure VPC is created before Authorization System
+    tenantAuthorizationStack.addDependency(tenantVpcStack);
+  }
 
   // Tenant Managed OpenSearch Stack
   const tenantOpenSearchStack = new TenantOpenSearchStack(
@@ -175,6 +253,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantDynamoDBStack,
     tenantS3Stack,
     tenantVpcStack,
+    tenantAuthorizationStack,
     tenantOpenSearchStack,
     tenantBedrockChatStack,
     tenantPptxStack,
