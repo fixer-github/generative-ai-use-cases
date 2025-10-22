@@ -1,6 +1,6 @@
 # OpenFGA 認可システム - 完全ガイド
 
-**バージョン:** 1.0
+**バージョン:** 1.1
 **最終更新:** 2025-10-22
 **ステータス:** 本番対応済み
 
@@ -9,20 +9,21 @@
 ## 目次
 
 1. [概要](#概要)
-2. [クイックスタート](#クイックスタート)
-3. [アーキテクチャとビジネスモデル](#アーキテクチャとビジネスモデル)
-4. [CDK実装とデプロイメント](#cdk実装とデプロイメント)
-5. [ストアとスキーマのセットアップ](#ストアとスキーマのセットアップ)
-6. [API リファレンス](#api-リファレンス)
-7. [システム更新手順](#システム更新手順)
-8. [トラブルシューティング](#トラブルシューティング)
-9. [モニタリング](#モニタリング)
+2. [デプロイメントモデル](#デプロイメントモデル)
+3. [クイックスタート](#クイックスタート)
+4. [アーキテクチャとビジネスモデル](#アーキテクチャとビジネスモデル)
+5. [CDK実装とデプロイメント](#cdk実装とデプロイメント)
+6. [ストアとスキーマのセットアップ](#ストアとスキーマのセットアップ)
+7. [API リファレンス](#api-リファレンス)
+8. [システム更新手順](#システム更新手順)
+9. [トラブルシューティング](#トラブルシューティング)
+10. [モニタリング](#モニタリング)
 
 ---
 
 ## 概要
 
-OpenFGA 認可システムは、ハイブリッド ToC (To Consumer) / ToB (To Business) ビジネスモデルをサポートする、本番対応のスケーラブルな認可サービスです。
+OpenFGA 認可システムは、ハイブリッド ToC (To Consumer) / ToB (To Business) ビジネスモデルをサポートする、本番対応のスケーラブルな認可サービスです。2つのデプロイメントオプションを提供します：スタンドアロンスタック（従来型、依然サポート）とテナントスタック統合（新推奨）。
 
 ### 主な特徴
 
@@ -43,17 +44,75 @@ OpenFGA 認可システムは、ハイブリッド ToC (To Consumer) / ToB (To B
 
 ### コスト見積もり
 
-**本番環境:**
+#### オプション A: スタンドアロンデプロイメント
 - ECS Fargate (3-5 タスク × 0.5 vCPU): $54-90/月
 - RDS db.t4g.small (Multi-AZ): $60/月
 - ALB: $16/月
 - **合計: 月額 ~$130-166**
 
+#### オプション B: テナント統合デプロイメント（推奨）
+- テナント当たり月額 ~$87
+- スタンドアロンと比較して約30%のコスト削減
+- VPCとNAT Gatewayの重複を排除
+
 **SpiceDB+EKSからの削減: 70-75%**
 
 ---
 
+## デプロイメントモデル
+
+認可システムは2つの構成でデプロイできます：
+
+### オプション A: スタンドアロンスタック（従来型）
+
+**概要：** 専用のVPCとインフラストラクチャで独立してデプロイします。
+
+**設定ファイル：** `cdk.authorization.json`
+
+**利点：**
+- 完全な独立性と障害分離
+- 独立したスケーリングとアップグレード
+- より強固なセキュリティ境界
+- 本番環境とマルチテナント環境に推奨
+
+**コスト：** 月額 ~$130-166/スタック
+
+**デプロイコマンド：** `npm run cdk:authz:deploy`
+
+### オプション B: テナントスタック統合（新推奨）
+
+**概要：** 各テナントのVPC内に認可システムを統合してデプロイします。
+
+**設定ファイル：** `cdk.tenant.json` の `authorizationConfig`
+
+**利点：**
+- 約30%のコスト削減（重複インフラストラクチャの排除）
+- 簡素化されたネットワーク（VPCピアリング不要）
+- 低レイテンシー（同一VPC通信）
+- リソース利用の向上
+- 単一コマンドデプロイメント
+
+**コスト：** テナント当たり月額 ~$87
+
+**デプロイコマンド：** `npm run cdk:tenant:deploy`
+
+### デプロイメントオプション比較
+
+| 側面 | スタンドアロンスタック | テナント統合 |
+|------|---------------------|-------------|
+| **デプロイメント** | 独立したスタック | テナントスタックに統合 |
+| **VPC** | 専用VPCまたは分離 | テナントと共有 |
+| **コスト** | $130-166/月 | $87/月（30%削減） |
+| **ネットワーク** | VPCピアリングが必要 | 同一VPC |
+| **レイテンシー** | やや高い | 低い |
+| **障害影響** | 分離 | テナント全体に影響 |
+| **推奨用途** | 本番環境/大規模 | 開発/中小規模 |
+
+---
+
 ## クイックスタート
+
+このセクションでは、両方のデプロイメントオプションのセットアップ手順を説明します。
 
 ### 前提条件
 
@@ -61,7 +120,9 @@ OpenFGA 認可システムは、ハイブリッド ToC (To Consumer) / ToB (To B
 - CDK CLI インストール済み (`npm install -g aws-cdk`)
 - OpenFGA CLI インストール済み (`brew install openfga/tap/fga`)
 
-### ステップ 1: 設定のセットアップ
+### オプション A: スタンドアロンデプロイメント
+
+#### ステップ 1: 設定のセットアップ
 
 ```bash
 cd packages/cdk
@@ -78,13 +139,13 @@ cp cdk.authorization.example.json cdk.authorization.json
 }
 ```
 
-### ステップ 2: デプロイ
+#### ステップ 2: デプロイ
 
 ```bash
 npm run cdk:authz:deploy
 ```
 
-### ステップ 3: 出力の取得
+#### ステップ 3: 出力の取得
 
 ```bash
 # OpenFGA エンドポイントを取得
@@ -100,7 +161,78 @@ aws cloudformation describe-stacks \
   --output text
 ```
 
+### オプション B: テナント統合デプロイメント（推奨）
+
+#### ステップ 1: テナント設定のセットアップ
+
+```bash
+cd packages/cdk
+cp cdk.tenant.example.json cdk.tenant.json
+```
+
+`cdk.tenant.json` を編集し、`authorizationConfig` を追加:
+
+```json
+{
+  "context": {
+    "tenantId": "tenant-001",
+    "environment": "dev",
+    "controlPlane": {
+      "userPoolId": "us-east-1_XXXXXXXXX",
+      "userPoolClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "authorizationConfig": {
+      "enabled": true,
+      "enableCache": true,
+      "cacheTTLSeconds": 300,
+      "enablePlayground": false,
+      "openFgaImageTag": "v1.5.0",
+      "multiAz": false,
+      "deletionProtection": true
+    }
+  }
+}
+```
+
+#### ステップ 2: テナントスタック全体をデプロイ
+
+```bash
+npm run cdk:tenant:deploy
+```
+
+このコマンドは、認可システムを含むすべてのテナントインフラストラクチャをデプロイします。
+
+#### ステップ 3: 出力の取得
+
+```bash
+# OpenFGA エンドポイントを取得
+aws cloudformation describe-stacks \
+  --stack-name TenantAuthorizationStackdev-tenant-001 \
+  --query 'Stacks[0].Outputs[?OutputKey==`OpenFgaEndpoint`].OutputValue' \
+  --output text
+
+# Lambda Authorizer ARN を取得
+aws cloudformation describe-stacks \
+  --stack-name TenantAuthorizationStackdev-tenant-001 \
+  --query 'Stacks[0].Outputs[?OutputKey==`AuthorizerFunctionArn`].OutputValue' \
+  --output text
+```
+
+### 設定オプション（テナント統合）
+
+| オプション | 型 | デフォルト | 説明 |
+|-----------|-----|-----------|------|
+| `enabled` | boolean | `true` | 認可スタックデプロイメントの有効/無効 |
+| `enableCache` | boolean | `true` | Lambda Authorizer レスポンスキャッシュを有効化 |
+| `cacheTTLSeconds` | number | `300` | キャッシュTTL（秒単位、5分） |
+| `enablePlayground` | boolean | `false` | OpenFGA playground を有効化（開発用のみ） |
+| `openFgaImageTag` | string | `"latest"` | OpenFGA コンテナイメージタグ |
+| `multiAz` | boolean | `false` | Multi-AZ RDS デプロイメントを有効化（本番推奨） |
+| `deletionProtection` | boolean | `true` | RDS 削除保護を有効化 |
+
 ### 利用可能なコマンド
+
+#### スタンドアロンデプロイメント用
 
 | コマンド | 説明 |
 |---------|-------------|
@@ -110,9 +242,19 @@ aws cloudformation describe-stacks \
 | `npm run cdk:authz:list` | スタックをリスト表示 |
 | `npm run cdk:authz:destroy` | スタックを削除 |
 
+#### テナント統合デプロイメント用
+
+| コマンド | 説明 |
+|---------|-------------|
+| `npm run cdk:tenant:deploy` | テナントスタック（認可含む）をデプロイ |
+| `npm run cdk:tenant:synth` | CloudFormation テンプレートを合成 |
+| `npm run cdk:tenant:diff` | 差分を表示 |
+| `npm run cdk:tenant:list` | スタックをリスト表示 |
+| `npm run cdk:tenant:destroy` | スタックを削除 |
+
 ### 設定プリセット
 
-#### 開発環境（最小コスト）
+#### スタンドアロン - 開発環境（最小コスト）
 
 ```json
 {
@@ -139,7 +281,7 @@ aws cloudformation describe-stacks \
 
 **コスト**: 月額 ~$30-50
 
-#### 本番環境（高可用性）
+#### スタンドアロン - 本番環境（高可用性）
 
 ```json
 {
@@ -167,6 +309,48 @@ aws cloudformation describe-stacks \
 ```
 
 **コスト**: 月額 ~$150-200
+
+#### テナント統合 - 開発環境
+
+```json
+{
+  "context": {
+    "tenantId": "tenant-001",
+    "environment": "dev",
+    "authorizationConfig": {
+      "enabled": true,
+      "enableCache": false,
+      "enablePlayground": true,
+      "multiAz": false,
+      "deletionProtection": false
+    }
+  }
+}
+```
+
+**コスト**: テナント当たり月額 ~$70-90
+
+#### テナント統合 - 本番環境
+
+```json
+{
+  "context": {
+    "tenantId": "tenant-001",
+    "environment": "prod",
+    "authorizationConfig": {
+      "enabled": true,
+      "enableCache": true,
+      "cacheTTLSeconds": 300,
+      "enablePlayground": false,
+      "openFgaImageTag": "v1.5.0",
+      "multiAz": true,
+      "deletionProtection": true
+    }
+  }
+}
+```
+
+**コスト**: テナント当たり月額 ~$120-150
 
 ---
 
@@ -1134,12 +1318,21 @@ dashboard.addWidgets(
 
 ## 参考資料
 
+### 外部ドキュメント
+
 - [OpenFGA Documentation](https://openfga.dev/docs)
 - [OpenFGA API Reference](https://openfga.dev/api/service)
 - [OpenFGA Production Guide](https://openfga.dev/docs/best-practices/running-in-production)
 - [AWS ECS Fargate Best Practices](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/intro.html)
 - [Google Zanzibar Paper](https://research.google/pubs/pub48190/)
 - [AWS Lambda Authorizers](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html)
+
+### 関連ドキュメント
+
+- [テナント認可システム統合ガイド（英語）](../tenant-authorization-integration.md) - テナント統合デプロイメントの詳細情報
+- [テナントスタックデプロイメント](./tenant-stack-deployment-ja.md) - テナントインフラストラクチャのデプロイメント手順
+- [OpenFGA 完全ガイド（英語）](../specs/authorization/OPENFGA_COMPLETE_GUIDE.md) - 両方のデプロイメントオプションの包括的ガイド
+- [認可システムアーキテクチャ（英語）](../specs/authorization/authorization-mvp.md) - システムアーキテクチャの詳細
 
 ---
 
