@@ -41,6 +41,8 @@ export interface Tenant {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
+  openFgaApiEndpoint?: string;
+  openFgaApiRegion?: string;
 }
 
 // Request interfaces
@@ -52,6 +54,8 @@ interface RegisterTenantRequest {
   accountId: string;
   roleArn: string;
   ipAccessControl?: IpAccessControl;
+  openFgaApiEndpoint?: string;
+  openFgaApiRegion?: string;
 }
 
 interface UpdateTenantRequest {
@@ -65,6 +69,8 @@ interface UpdateTenantRequest {
   openSearchDomainArn?: string | null;
   openSearchEndpoint?: string | null;
   openSearchIndexName?: string | null;
+  openFgaApiEndpoint?: string;
+  openFgaApiRegion?: string;
 }
 
 /**
@@ -107,6 +113,8 @@ export async function registerTenant(
     metadata: request.metadata || {},
     accountId: request.accountId,
     roleArn: request.roleArn,
+    openFgaApiEndpoint: request.openFgaApiEndpoint,
+    openFgaApiRegion: request.openFgaApiRegion,
   };
 
   // Add IP access control if provided
@@ -269,6 +277,19 @@ export async function updateTenant(
         expressionAttributeNames['#openSearchIndexName'] =
           'openSearchIndexName';
       }
+    }
+
+    if (request.openFgaApiEndpoint !== undefined) {
+      updateExpression.push('#openFgaApiEndpoint = :openFgaApiEndpoint');
+      expressionAttributeNames['#openFgaApiEndpoint'] = 'openFgaApiEndpoint';
+      expressionAttributeValues[':openFgaApiEndpoint'] =
+        request.openFgaApiEndpoint;
+    }
+
+    if (request.openFgaApiRegion !== undefined) {
+      updateExpression.push('#openFgaApiRegion = :openFgaApiRegion');
+      expressionAttributeNames['#openFgaApiRegion'] = 'openFgaApiRegion';
+      expressionAttributeValues[':openFgaApiRegion'] = request.openFgaApiRegion;
     }
 
     // Always update updatedAt
