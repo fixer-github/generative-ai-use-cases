@@ -41,9 +41,9 @@ export interface Tenant {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
-  openFgaApiEndpoint?: string;
-  openFgaApiRegion?: string;
-  openFgaStoreId?: string;
+  openFgaApiEndpoint: string;
+  openFgaApiRegion: string;
+  openFgaStoreId: string;
 }
 
 // Request interfaces
@@ -55,9 +55,9 @@ interface RegisterTenantRequest {
   accountId: string;
   roleArn: string;
   ipAccessControl?: IpAccessControl;
-  openFgaApiEndpoint?: string;
-  openFgaApiRegion?: string;
-  openFgaStoreId?: string;
+  openFgaApiEndpoint: string;
+  openFgaApiRegion: string;
+  openFgaStoreId: string;
 }
 
 interface UpdateTenantRequest {
