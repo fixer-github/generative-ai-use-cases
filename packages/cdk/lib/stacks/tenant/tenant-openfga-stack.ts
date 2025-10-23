@@ -357,7 +357,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
         functionName: `${props.environment}-${props.tenantId}-openfga-schema-init`,
         runtime: lambda.Runtime.NODEJS_18_X,
         handler: 'handler',
-        entry: path.join(__dirname, '../../../lambda/openFgaSchemaInitializer.ts'),
+        entry: path.join(__dirname, './custom-resources/openFgaSchemaInitializer.ts'),
         timeout: cdk.Duration.minutes(5),
         memorySize: 512,
         vpc: props.vpc,
@@ -387,49 +387,6 @@ export class TenantOpenFgaStack extends cdk.Stack {
     // Ensure schema initialization happens after API Gateway and ECS service are ready
     schemaInitializer.node.addDependency(api);
     schemaInitializer.node.addDependency(service);
-
-    // Create Lambda for updating tenant with OpenFGA endpoint
-    const tenantUpdateLambda = new NodejsFunction(this, 'TenantUpdate', {
-      functionName: `${props.environment}-${props.tenantId}-tenant-openfga-update`,
-      runtime: lambda.Runtime.NODEJS_18_X,
-      handler: 'handler',
-      entry: path.join(__dirname, '../../../lambda/updateTenantOpenFgaEndpoint.ts'),
-      timeout: cdk.Duration.seconds(30),
-      environment: {
-        TENANTS_TABLE_NAME: process.env.TENANTS_TABLE_NAME || 'Tenants',
-        AWS_REGION: this.region,
-        NODE_OPTIONS: '--enable-source-maps',
-      },
-    });
-
-    // Grant Lambda permission to update the Tenants table
-    tenantUpdateLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'dynamodb:UpdateItem',
-          'dynamodb:GetItem',
-        ],
-        resources: [
-          `arn:aws:dynamodb:${this.region}:${this.account}:table/Tenants`,
-        ],
-      })
-    );
-
-    // Create Custom Resource to update tenant record
-    const tenantUpdater = new cdk.CustomResource(this, 'TenantUpdater', {
-      serviceToken: tenantUpdateLambda.functionArn,
-      resourceType: 'Custom::TenantOpenFgaUpdate',
-      properties: {
-        TenantId: props.tenantId,
-        OpenFgaApiEndpoint: this.apiEndpoint,
-        OpenFgaApiRegion: props.env?.region || this.region,
-        OpenFgaStoreId: schemaInitializer.getAttString('StoreId'),
-      },
-    });
-
-    // Ensure tenant update happens after schema initialization
-    tenantUpdater.node.addDependency(schemaInitializer);
 
     // Outputs
     new cdk.CfnOutput(this, 'OpenFgaApiEndpoint', {
