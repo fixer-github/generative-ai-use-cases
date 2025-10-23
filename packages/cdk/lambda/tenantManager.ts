@@ -43,6 +43,7 @@ export interface Tenant {
   openSearchIndexName?: string;
   openFgaApiEndpoint?: string;
   openFgaApiRegion?: string;
+  openFgaStoreId?: string;
 }
 
 // Request interfaces
@@ -56,6 +57,7 @@ interface RegisterTenantRequest {
   ipAccessControl?: IpAccessControl;
   openFgaApiEndpoint?: string;
   openFgaApiRegion?: string;
+  openFgaStoreId?: string;
 }
 
 interface UpdateTenantRequest {
@@ -71,6 +73,7 @@ interface UpdateTenantRequest {
   openSearchIndexName?: string | null;
   openFgaApiEndpoint?: string;
   openFgaApiRegion?: string;
+  openFgaStoreId?: string;
 }
 
 /**
@@ -115,6 +118,7 @@ export async function registerTenant(
     roleArn: request.roleArn,
     openFgaApiEndpoint: request.openFgaApiEndpoint,
     openFgaApiRegion: request.openFgaApiRegion,
+    openFgaStoreId: request.openFgaStoreId,
   };
 
   // Add IP access control if provided
@@ -290,6 +294,12 @@ export async function updateTenant(
       updateExpression.push('#openFgaApiRegion = :openFgaApiRegion');
       expressionAttributeNames['#openFgaApiRegion'] = 'openFgaApiRegion';
       expressionAttributeValues[':openFgaApiRegion'] = request.openFgaApiRegion;
+    }
+
+    if (request.openFgaStoreId !== undefined) {
+      updateExpression.push('#openFgaStoreId = :openFgaStoreId');
+      expressionAttributeNames['#openFgaStoreId'] = 'openFgaStoreId';
+      expressionAttributeValues[':openFgaStoreId'] = request.openFgaStoreId;
     }
 
     // Always update updatedAt
