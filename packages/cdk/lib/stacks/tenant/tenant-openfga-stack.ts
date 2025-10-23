@@ -69,6 +69,11 @@ export class TenantOpenFgaStack extends cdk.Stack {
    */
   public readonly databaseEndpoint: string;
 
+  /**
+   * The OpenFGA Store ID
+   */
+  public readonly storeId: string;
+
   constructor(scope: Construct, id: string, props: TenantOpenFgaStackProps) {
     super(scope, id, props);
 
@@ -388,6 +393,9 @@ export class TenantOpenFgaStack extends cdk.Stack {
     schemaInitializer.node.addDependency(api);
     schemaInitializer.node.addDependency(service);
 
+    // Get the StoreId from the Custom Resource
+    this.storeId = schemaInitializer.getAttString('StoreId');
+
     // Outputs
     new cdk.CfnOutput(this, 'OpenFgaApiEndpoint', {
       value: this.apiEndpoint,
@@ -405,6 +413,12 @@ export class TenantOpenFgaStack extends cdk.Stack {
       value: this.databaseEndpoint,
       description: `OpenFGA database endpoint for tenant ${props.tenantId}`,
       exportName: `${this.stackName}-DatabaseEndpoint`,
+    });
+
+    new cdk.CfnOutput(this, 'OpenFgaStoreId', {
+      value: this.storeId,
+      description: `OpenFGA Store ID for tenant ${props.tenantId}`,
+      exportName: `${this.stackName}-StoreId`,
     });
 
     // Add tags
