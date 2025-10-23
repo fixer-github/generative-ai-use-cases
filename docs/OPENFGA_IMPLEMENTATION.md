@@ -45,8 +45,11 @@ export interface Tenant {
   // ... 既存フィールド
   openFgaApiEndpoint?: string;    // ← 追加
   openFgaApiRegion?: string;      // ← 追加
+  openFgaStoreId?: string;        // ← 追加
 }
 ```
+
+> **注意:** テナントスタックのデプロイ後、OpenFGA関連の情報（エンドポイント、リージョン、ストアID）をテナント管理テーブルに手動で登録する必要があります。自動登録機能は将来のリファクタリングで実装予定です。
 
 ### 3. Lambda関数
 
@@ -55,9 +58,8 @@ export interface Tenant {
 | ファイル | 用途 |
 |---------|------|
 | `lambda/utils/openFgaClient.ts` | OpenFGA APIクライアント（認可チェック） |
-| `lambda/utils/openFgaSchema.ts` | 認可スキーマ定義 |
-| `lambda/openFgaSchemaInitializer.ts` | スキーマ初期化Lambda（CustomResource） |
-| `lambda/updateTenantOpenFgaEndpoint.ts` | テナント情報更新Lambda（CustomResource） |
+| `lib/stacks/tenant/custom-resources/openFgaSchema.ts` | 認可スキーマ定義 |
+| `lib/stacks/tenant/custom-resources/openFgaSchemaInitializer.ts` | スキーマ初期化Lambda（CustomResource） |
 
 #### 既存修正
 
@@ -66,7 +68,6 @@ export interface Tenant {
 | `lambda/predict.ts` | LLMモデルへのアクセス認可チェックを追加 |
 | `lambda/generateImage.ts` | 画像生成機能の認可チェックを追加 |
 | `lambda/generateVideo.ts` | 動画生成機能の認可チェックを追加 |
-| `lambda/tenantRegistrationHandler.ts` | OpenFGAエンドポイント情報の登録対応 |
 
 ### 4. 認可スキーマ
 
@@ -325,7 +326,34 @@ npm run cdk deploy -- GenerativeAiUseCasesStack
 npm run cdk deploy -- TenantOpenFgaStack{environment}-{tenantId}
 ```
 
-### 4. 初期権限の設定
+デプロイ完了後、CloudFormation OutputsからOpenFGA関連の情報を取得できます：
+- `OpenFgaApiEndpoint`: API Gatewayエンドポイント
+- `OpenFgaApiGatewayId`: API Gateway ID
+- `OpenFgaDatabaseEndpoint`: RDSエンドポイント
+
+### 4. テナント管理テーブルの手動更新
+
+**重要:** デプロイ後、テナント管理テーブル（DynamoDB）にOpenFGA情報を手動で登録する必要があります。
+
+```bash
+# CloudFormation Outputsから値を取得
+export OPENFGA_ENDPOINT=$(aws cloudformation describe-stacks \
+  --stack-name TenantOpenFgaStack{environment}-{tenantId} \
+  --query 'Stacks[0].Outputs[?OutputKey==`OpenFgaApiEndpoint`].OutputValue' \
+  --output text)
+
+# DynamoDBテーブルを更新
+aws dynamodb update-item \
+  --table-name Tenants \
+  --key '{"tenantId": {"S": "tenant001"}}' \
+  --update-expression "SET openFgaApiEndpoint = :endpoint, openFgaApiRegion = :region, openFgaStoreId = :storeId" \
+  --expression-attribute-values \
+    "{\":endpoint\": {\"S\": \"${OPENFGA_ENDPOINT}\"}, \":region\": {\"S\": \"ap-northeast-1\"}, \":storeId\": {\"S\": \"<CloudFormation OutputsからStoreIDを取得>\"}}"
+```
+
+> **注記:** 将来のリファクタリングで、この手動更新プロセスは自動化される予定です。
+
+### 5. 初期権限の設定
 
 デプロイ後、[権限付与ガイド](./AUTHORIZATION_GRANTS.md)を参照して初期権限を設定してください。
 
@@ -493,23 +521,28 @@ aws ecs describe-tasks \
 
 ### 現在未実装の機能
 
-1. **権限管理UI**
+1. **テナント情報の自動更新**
+   - テナントスタックデプロイ時のOpenFGA情報の自動登録
+   - テナント登録処理のリファクタリング
+   - IAMスタックとの統合
+
+2. **権限管理UI**
    - 管理者がブラウザから権限を管理できるUI
    - グループ、エンタイトルメントの作成・編集
 
-2. **監査ログ**
+3. **監査ログ**
    - 権限変更履歴の記録
    - アクセスログの可視化
 
-3. **期間限定権限**
+4. **期間限定権限**
    - トライアル期間の実装
    - 自動的な権限失効
 
-4. **リアルタイム権限更新**
+5. **リアルタイム権限更新**
    - WebSocket経由での権限変更通知
    - フロントエンドでのリアルタイム反映
 
-5. **細かいレート制限**
+6. **細かいレート制限**
    - ユーザーごとのリクエスト数制限
    - モデルごとのトークン数制限
 
@@ -535,9 +568,10 @@ aws ecs describe-tasks \
 
 🚀 **次のステップ:**
 1. テナントスタックをデプロイ
-2. 初期権限を設定
-3. E2Eテストを実行
-4. 本番環境への展開を計画
+2. テナント管理テーブルにOpenFGA情報を手動登録
+3. 初期権限を設定
+4. E2Eテストを実行
+5. 本番環境への展開を計画
 
 ---
 
