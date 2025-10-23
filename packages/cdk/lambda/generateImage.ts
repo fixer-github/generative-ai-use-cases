@@ -6,7 +6,6 @@ import {
   internalServerError500Response,
   ok200Base64Response,
 } from './utils/apiResponse';
-import { getTenantCredentials } from './utils/tenantCredentials';
 import { createOpenFgaClient, checkFeatureAccess } from './utils/openFgaClient';
 
 export const handler = async (
@@ -18,9 +17,8 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
 
-    // Get tenant credentials and create OpenFGA client
-    const { credentials } = await getTenantCredentials(event);
-    const openFgaClient = await createOpenFgaClient(event, credentials);
+    // Create OpenFGA client (internally gets tenant credentials)
+    const openFgaClient = await createOpenFgaClient(event);
 
     // Check authorization for image generation feature
     const hasAccess = await checkFeatureAccess(
