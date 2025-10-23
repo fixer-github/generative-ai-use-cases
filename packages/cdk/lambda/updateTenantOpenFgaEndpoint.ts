@@ -10,6 +10,7 @@ interface ResourceProperties {
   TenantId: string;
   OpenFgaApiEndpoint: string;
   OpenFgaApiRegion: string;
+  OpenFgaStoreId: string;
 }
 
 /**
@@ -54,7 +55,7 @@ async function sendResponse(
  */
 export const handler = async (
   event: CloudFormationCustomResourceEvent,
-  context: Context
+  _context: Context
 ): Promise<void> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
@@ -76,12 +77,13 @@ export const handler = async (
     }
 
     // Handle Create and Update requests
-    console.log(`Updating tenant ${props.TenantId} with OpenFGA endpoint`);
+    console.log(`Updating tenant ${props.TenantId} with OpenFGA endpoint and store ID`);
 
     await updateTenant({
       tenantId: props.TenantId,
       openFgaApiEndpoint: props.OpenFgaApiEndpoint,
       openFgaApiRegion: props.OpenFgaApiRegion,
+      openFgaStoreId: props.OpenFgaStoreId,
     });
 
     console.log('Tenant updated successfully');

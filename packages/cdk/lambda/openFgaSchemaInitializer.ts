@@ -1,19 +1,16 @@
 /**
  * Custom Resource Lambda for initializing OpenFGA schema
  * This is called during CloudFormation stack creation/update to set up the authorization model
+ *
+ * Note: This Lambda runs within the tenant stack, so it can access OpenFGA directly
+ * via the internal NLB without requiring AssumeRole or SigV4 signing.
  */
 
 import { CloudFormationCustomResourceEvent, Context } from 'aws-lambda';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
-import { HttpRequest } from '@smithy/protocol-http';
-import { SignatureV4 } from '@smithy/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
 import { OPENFGA_SCHEMA, DEFAULT_LLM_MODELS, DEFAULT_FEATURES } from './utils/openFgaSchema';
 
 interface ResourceProperties {
-  ApiEndpoint: string;
-  ApiRegion: string;
-  RoleArn: string;
+  InternalEndpoint: string;
   TenantId: string;
 }
 
@@ -56,53 +53,25 @@ async function sendResponse(
 }
 
 /**
- * Make a signed request to OpenFGA API
+ * Make a request to OpenFGA API (internal endpoint)
  */
-async function makeSignedRequest(
-  apiEndpoint: string,
-  apiRegion: string,
-  credentials: any,
+async function makeOpenFgaRequest(
+  internalEndpoint: string,
   method: string,
   path: string,
-  body?: string
+  body?: any
 ): Promise<any> {
-  const url = new URL(apiEndpoint);
-  const hostname = url.hostname;
-  const protocol = url.protocol.replace(':', '');
+  const url = `${internalEndpoint}${path}`;
 
-  const request = new HttpRequest({
+  console.log(`Making OpenFGA request: ${method} ${url}`);
+
+  const response = await fetch(url, {
     method,
-    protocol,
-    hostname,
-    path: `${url.pathname}${path}`.replace(/\/\//g, '/'),
     headers: {
       'Content-Type': 'application/json',
-      host: hostname,
     },
-    body,
+    body: body ? JSON.stringify(body) : undefined,
   });
-
-  const signer = new SignatureV4({
-    credentials: {
-      accessKeyId: credentials.AccessKeyId,
-      secretAccessKey: credentials.SecretAccessKey,
-      sessionToken: credentials.SessionToken,
-    },
-    region: apiRegion,
-    service: 'execute-api',
-    sha256: Sha256,
-  });
-
-  const signedRequest = await signer.sign(request);
-
-  const response = await fetch(
-    `${protocol}://${hostname}${signedRequest.path}`,
-    {
-      method: signedRequest.method,
-      headers: signedRequest.headers as HeadersInit,
-      body: signedRequest.body,
-    }
-  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -118,73 +87,53 @@ async function makeSignedRequest(
  * Initialize OpenFGA schema
  */
 async function initializeSchema(
-  apiEndpoint: string,
-  apiRegion: string,
-  roleArn: string,
+  internalEndpoint: string,
   tenantId: string
-): Promise<void> {
+): Promise<string> {
   console.log(`Initializing OpenFGA schema for tenant: ${tenantId}`);
 
-  // Assume role to access the API
-  const stsClient = new STSClient({ region: apiRegion });
-  const assumeRoleResponse = await stsClient.send(
-    new AssumeRoleCommand({
-      RoleArn: roleArn,
-      RoleSessionName: `openfga-schema-init-${tenantId}`,
-      DurationSeconds: 900,
-    })
-  );
-
-  const credentials = assumeRoleResponse.Credentials;
-  if (!credentials) {
-    throw new Error('Failed to assume role');
-  }
-
-  // Step 1: Create or get default store
+  // Step 1: Create store
   console.log('Creating OpenFGA store...');
-  try {
-    const createStoreResponse = await makeSignedRequest(
-      apiEndpoint,
-      apiRegion,
-      credentials,
-      'POST',
-      '/stores',
-      JSON.stringify({
-        name: `tenant-${tenantId}`,
-      })
-    );
-    console.log('Store created:', createStoreResponse);
-  } catch (error) {
-    console.log('Store may already exist, continuing...', error);
+  const createStoreResponse = await makeOpenFgaRequest(
+    internalEndpoint,
+    'POST',
+    '/stores',
+    {
+      name: `tenant-${tenantId}`,
+    }
+  );
+  console.log('Store created:', createStoreResponse);
+
+  const storeId = createStoreResponse.id;
+  if (!storeId) {
+    throw new Error('Store creation did not return a store ID');
   }
 
-  // For simplicity, we'll use a default store ID
-  // In production, you might want to list stores and find the right one
-  const storeId = 'default';
+  console.log(`Store ID: ${storeId}`);
 
   // Step 2: Write authorization model
   console.log('Writing authorization model...');
-  const modelResponse = await makeSignedRequest(
-    apiEndpoint,
-    apiRegion,
-    credentials,
+  const modelResponse = await makeOpenFgaRequest(
+    internalEndpoint,
     'POST',
     `/stores/${storeId}/authorization-models`,
-    JSON.stringify({
+    {
       schema_version: '1.1',
       type_definitions: parseSchemaToTypeDefinitions(OPENFGA_SCHEMA),
-    })
+    }
   );
   console.log('Authorization model created:', modelResponse);
 
   console.log('OpenFGA schema initialization complete');
+
+  return storeId;
 }
 
 /**
  * Parse OpenFGA schema DSL to type definitions
  * Note: This is a simplified parser. In production, use the official OpenFGA SDK
  */
-function parseSchemaToTypeDefinitions(schema: string): any[] {
+function parseSchemaToTypeDefinitions(): any[] {
   // For now, we'll use a pre-defined structure
   // In production, use the OpenFGA SDK to parse the schema properly
   return [
@@ -199,6 +148,7 @@ function parseSchemaToTypeDefinitions(schema: string): any[] {
           union: {
             child: [
               { this: {} },
+              // cspell:disable-next-line
               { computedUserset: { relation: 'member' } },
             ],
           },
@@ -225,6 +175,7 @@ function parseSchemaToTypeDefinitions(schema: string): any[] {
           union: {
             child: [
               { this: {} },
+              // cspell:disable-next-line
               { tupleToUserset: { tupleset: { relation: 'via_access' }, computedUserset: { relation: 'holder' } } },
             ],
           },
@@ -239,6 +190,7 @@ function parseSchemaToTypeDefinitions(schema: string): any[] {
           union: {
             child: [
               { this: {} },
+              // cspell:disable-next-line
               { tupleToUserset: { tupleset: { relation: 'via_enable' }, computedUserset: { relation: 'holder' } } },
             ],
           },
@@ -253,7 +205,7 @@ function parseSchemaToTypeDefinitions(schema: string): any[] {
  */
 export const handler = async (
   event: CloudFormationCustomResourceEvent,
-  context: Context
+  _context: Context
 ): Promise<void> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
@@ -288,10 +240,8 @@ export const handler = async (
     }
 
     // Handle Create request
-    await initializeSchema(
-      props.ApiEndpoint,
-      props.ApiRegion,
-      props.RoleArn,
+    const storeId = await initializeSchema(
+      props.InternalEndpoint,
       props.TenantId
     );
 
@@ -301,7 +251,7 @@ export const handler = async (
       'OpenFGA schema initialized successfully',
       physicalResourceId,
       {
-        initialized: true,
+        StoreId: storeId,
       }
     );
   } catch (error) {
