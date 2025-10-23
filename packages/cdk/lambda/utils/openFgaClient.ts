@@ -41,17 +41,20 @@ export class OpenFgaClient {
   private apiEndpoint: string;
   private apiRegion: string;
   private credentials: Credentials;
+  private storeId: string;
 
   constructor(
     tenantId: string,
     apiEndpoint: string,
     apiRegion: string,
-    credentials: Credentials
+    credentials: Credentials,
+    storeId: string
   ) {
     this.tenantId = tenantId;
     this.apiEndpoint = apiEndpoint;
     this.apiRegion = apiRegion;
     this.credentials = credentials;
+    this.storeId = storeId;
   }
 
   /**
@@ -84,7 +87,7 @@ export class OpenFgaClient {
       // Make signed request to OpenFGA API
       const response = await this.makeSignedRequest(
         'POST',
-        '/stores/default/check',
+        `/stores/${this.storeId}/check`,
         JSON.stringify(requestBody)
       );
 
@@ -184,7 +187,7 @@ export async function createOpenFgaClient(
       return null;
     }
 
-    if (!tenant.openFgaApiEndpoint || !tenant.openFgaApiRegion) {
+    if (!tenant.openFgaApiEndpoint || !tenant.openFgaApiRegion || !tenant.openFgaStoreId) {
       console.warn(
         `Tenant ${tenantId} does not have OpenFGA configured. Skipping authorization.`
       );
@@ -195,7 +198,8 @@ export async function createOpenFgaClient(
       tenantId,
       tenant.openFgaApiEndpoint,
       tenant.openFgaApiRegion || tenant.region,
-      credentials
+      credentials,
+      tenant.openFgaStoreId
     );
   } catch (error) {
     console.error('Failed to create OpenFGA client:', error);
