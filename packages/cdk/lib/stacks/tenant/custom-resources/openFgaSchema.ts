@@ -1,34 +1,86 @@
 /**
- * OpenFGA Authorization Schema
+ * OpenFGA Authorization Schema (JSON format)
  *
  * This schema defines the authorization model for the multi-tenant application.
  * It supports user-based and group-based permissions through entitlements.
+ *
+ * Equivalent DSL representation:
+ * type user
+ * type group
+ *   relations
+ *     define member: [user, group]
+ * type entitlement
+ *   relations
+ *     define holder: [user, group]
+ * type llm
+ *   relations
+ *     define via_access: [entitlement]
+ *     define accessor: [user, group] or holder from via_access
+ * type feature
+ *   relations
+ *     define via_enable: [entitlement]
+ *     define enabled_user: [user, group] or holder from via_enable
  */
 
-export const OPENFGA_SCHEMA = `
-model
-  schema 1.1
-
-type user
-
-type group
-  relations
-    define member: [user, group]
-
-type entitlement
-  relations
-    define holder: [user, group]
-
-type llm
-  relations
-    define via_access: [entitlement]
-    define accessor: [user, group] or holder from via_access
-
-type feature
-  relations
-    define via_enable: [entitlement]
-    define enabled_user: [user, group] or holder from via_enable
-`;
+export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
+  {
+    type: 'user',
+    relations: {},
+  },
+  {
+    type: 'group',
+    relations: {
+      member: {
+        union: {
+          child: [
+            { this: {} },
+            { computedUserset: { relation: 'member' } },
+          ],
+        },
+      },
+    },
+  },
+  {
+    type: 'entitlement',
+    relations: {
+      holder: {
+        union: {
+          child: [
+            { this: {} },
+          ],
+        },
+      },
+    },
+  },
+  {
+    type: 'llm',
+    relations: {
+      via_access: { this: {} },
+      accessor: {
+        union: {
+          child: [
+            { this: {} },
+            { tupleToUserset: { tupleset: { relation: 'via_access' }, computedUserset: { relation: 'holder' } } },
+          ],
+        },
+      },
+    },
+  },
+  {
+    type: 'feature',
+    relations: {
+      via_enable: { this: {} },
+      enabled_user: {
+        union: {
+          child: [
+            { this: {} },
+            { tupleToUserset: { tupleset: { relation: 'via_enable' }, computedUserset: { relation: 'holder' } } },
+          ],
+        },
+      },
+    },
+  },
+];
 
 /**
  * Initial authorization tuples to set up for a new tenant

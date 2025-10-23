@@ -7,7 +7,7 @@
  */
 
 import { CloudFormationCustomResourceEvent, Context } from 'aws-lambda';
-import { OPENFGA_SCHEMA, DEFAULT_LLM_MODELS, DEFAULT_FEATURES } from './openFgaSchema';
+import { AUTHORIZATION_MODEL_TYPE_DEFINITIONS } from './openFgaSchema';
 
 interface ResourceProperties {
   InternalEndpoint: string;
@@ -119,7 +119,7 @@ async function initializeSchema(
     `/stores/${storeId}/authorization-models`,
     {
       schema_version: '1.1',
-      type_definitions: parseSchemaToTypeDefinitions(OPENFGA_SCHEMA),
+      type_definitions: AUTHORIZATION_MODEL_TYPE_DEFINITIONS,
     }
   );
   console.log('Authorization model created:', modelResponse);
@@ -127,77 +127,6 @@ async function initializeSchema(
   console.log('OpenFGA schema initialization complete');
 
   return storeId;
-}
-
-/**
- * Parse OpenFGA schema DSL to type definitions
- * Note: This is a simplified parser. In production, use the official OpenFGA SDK
- */
-function parseSchemaToTypeDefinitions(): any[] {
-  // For now, we'll use a pre-defined structure
-  // In production, use the OpenFGA SDK to parse the schema properly
-  return [
-    {
-      type: 'user',
-      relations: {},
-    },
-    {
-      type: 'group',
-      relations: {
-        member: {
-          union: {
-            child: [
-              { this: {} },
-              // cspell:disable-next-line
-              { computedUserset: { relation: 'member' } },
-            ],
-          },
-        },
-      },
-    },
-    {
-      type: 'entitlement',
-      relations: {
-        holder: {
-          union: {
-            child: [
-              { this: {} },
-            ],
-          },
-        },
-      },
-    },
-    {
-      type: 'llm',
-      relations: {
-        via_access: { this: {} },
-        accessor: {
-          union: {
-            child: [
-              { this: {} },
-              // cspell:disable-next-line
-              { tupleToUserset: { tupleset: { relation: 'via_access' }, computedUserset: { relation: 'holder' } } },
-            ],
-          },
-        },
-      },
-    },
-    {
-      type: 'feature',
-      relations: {
-        via_enable: { this: {} },
-        enabled_user: {
-          union: {
-            child: [
-              { this: {} },
-              // cspell:disable-next-line
-              { tupleToUserset: { tupleset: { relation: 'via_enable' }, computedUserset: { relation: 'holder' } } },
-            ],
-          },
-        },
-      },
-    },
-  ];
 }
 
 /**
