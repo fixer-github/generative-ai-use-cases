@@ -19,9 +19,8 @@ export const handler = async (
     const req: GenerateVideoRequest = JSON.parse(event.body!);
     const model = req.model || defaultVideoGenerationModel;
 
-    // Get tenant credentials and create OpenFGA client
-    const { credentials } = await getTenantCredentials(event);
-    const openFgaClient = await createOpenFgaClient(event, credentials);
+    // Create OpenFGA client (internally gets tenant credentials)
+    const openFgaClient = await createOpenFgaClient(event);
 
     // Check authorization for video generation feature
     const hasAccess = await checkFeatureAccess(
