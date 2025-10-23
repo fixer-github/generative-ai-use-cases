@@ -6,7 +6,6 @@ import {
   internalServerError500Response,
   ok200Response,
 } from './utils/apiResponse';
-import { getTenantCredentials } from './utils/tenantCredentials';
 import { createOpenFgaClient, checkLlmAccess } from './utils/openFgaClient';
 
 export const handler = async (
@@ -18,12 +17,15 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
 
-    // Get tenant credentials and create OpenFGA client
-    const { credentials } = await getTenantCredentials(event);
-    const openFgaClient = await createOpenFgaClient(event, credentials);
+    // Create OpenFGA client (internally gets tenant credentials)
+    const openFgaClient = await createOpenFgaClient(event);
 
     // Check authorization for the specific LLM model
-    const hasAccess = await checkLlmAccess(openFgaClient, userId, model.modelId);
+    const hasAccess = await checkLlmAccess(
+      openFgaClient,
+      userId,
+      model.modelId
+    );
     if (!hasAccess) {
       console.warn(
         `User ${userId} does not have access to model ${model.modelId}`
