@@ -46,7 +46,6 @@ export interface TenantStackInput {
   controlPlaneAccount?: string;
   tenantsTableName?: string;
   openSearchIndexName?: string;
-  enableOpenFga?: boolean;
   controlPlaneLambdaRoleArn?: string;
 }
 
@@ -164,30 +163,26 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     );
   }
 
-  // Tenant OpenFGA Stack (optional, but recommended)
-  let tenantOpenFgaStack;
-  if (params.enableOpenFga !== false) {
-    // Default to enabled
-    tenantOpenFgaStack = new TenantOpenFgaStack(
-      app,
-      `TenantOpenFgaStack${params.environment}-${params.tenantId}`,
-      {
-        env: {
-          account: params.account,
-          region: params.region,
-        },
-        tenantId: params.tenantId,
-        environment: params.environment,
-        vpc: tenantVpcStack.vpc,
-        subnets: tenantVpcStack.privateSubnets,
-        removalPolicy: params.removalPolicy
-          ? cdk.RemovalPolicy.DESTROY
-          : cdk.RemovalPolicy.RETAIN,
-        controlPlaneLambdaRoleArn: params.controlPlaneLambdaRoleArn,
-      }
-    );
-    tenantOpenFgaStack.addDependency(tenantVpcStack);
-  }
+  // Tenant OpenFGA Stack (required)
+  const tenantOpenFgaStack = new TenantOpenFgaStack(
+    app,
+    `TenantOpenFgaStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      vpc: tenantVpcStack.vpc,
+      subnets: tenantVpcStack.privateSubnets,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+      controlPlaneLambdaRoleArn: params.controlPlaneLambdaRoleArn,
+    }
+  );
+  tenantOpenFgaStack.addDependency(tenantVpcStack);
 
   return {
     tenantIAMStack,
