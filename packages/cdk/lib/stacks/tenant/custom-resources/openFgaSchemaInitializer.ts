@@ -7,7 +7,7 @@
  */
 
 import { CloudFormationCustomResourceEvent, Context } from 'aws-lambda';
-import { OPENFGA_SCHEMA, DEFAULT_LLM_MODELS, DEFAULT_FEATURES } from './utils/openFgaSchema';
+import { OPENFGA_SCHEMA, DEFAULT_LLM_MODELS, DEFAULT_FEATURES } from './openFgaSchema';
 
 interface ResourceProperties {
   InternalEndpoint: string;
