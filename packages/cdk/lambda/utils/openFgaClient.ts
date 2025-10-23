@@ -3,8 +3,8 @@ import { STSClient, AssumeRoleCommand, Credentials } from '@aws-sdk/client-sts';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
-import { getTenant } from '../tenantManager';
 import { extractTenantId } from './assumeRoleWithWebIdentity';
+import { getTenantCredentials } from './tenantCredentials';
 
 // Cache for authorization results (short TTL)
 const authCache = new Map<
@@ -175,19 +175,19 @@ export class OpenFgaClient {
  * Create an OpenFGA client for the current tenant
  */
 export async function createOpenFgaClient(
-  event: APIGatewayProxyEvent,
-  credentials: Credentials
+  event: APIGatewayProxyEvent
 ): Promise<OpenFgaClient | null> {
   try {
     const tenantId = extractTenantId(event);
-    const tenant = await getTenant(tenantId);
 
-    if (!tenant) {
-      console.error(`Tenant ${tenantId} not found`);
-      return null;
-    }
+    // Get tenant credentials and tenant info in one call
+    const { credentials, tenant } = await getTenantCredentials(event);
 
-    if (!tenant.openFgaApiEndpoint || !tenant.openFgaApiRegion || !tenant.openFgaStoreId) {
+    if (
+      !tenant.openFgaApiEndpoint ||
+      !tenant.openFgaApiRegion ||
+      !tenant.openFgaStoreId
+    ) {
       console.warn(
         `Tenant ${tenantId} does not have OpenFGA configured. Skipping authorization.`
       );
@@ -242,7 +242,12 @@ export async function checkFeatureAccess(
     return true;
   }
 
-  return await openFgaClient.check(userId, 'enabled_user', 'feature', featureName);
+  return await openFgaClient.check(
+    userId,
+    'enabled_user',
+    'feature',
+    featureName
+  );
 }
 
 /**
