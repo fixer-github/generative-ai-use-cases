@@ -176,53 +176,29 @@ export class OpenFgaClient {
  */
 export async function createOpenFgaClient(
   event: APIGatewayProxyEvent
-): Promise<OpenFgaClient | null> {
-  try {
-    const tenantId = extractTenantId(event);
+): Promise<OpenFgaClient> {
+  const tenantId = extractTenantId(event);
 
-    // Get tenant credentials and tenant info in one call
-    const { credentials, tenant } = await getTenantCredentials(event);
+  // Get tenant credentials and tenant info in one call
+  const { credentials, tenant } = await getTenantCredentials(event);
 
-    if (
-      !tenant.openFgaApiEndpoint ||
-      !tenant.openFgaApiRegion ||
-      !tenant.openFgaStoreId
-    ) {
-      console.warn(
-        `Tenant ${tenantId} does not have OpenFGA configured. Skipping authorization.`
-      );
-      return null;
-    }
-
-    return new OpenFgaClient(
-      tenantId,
-      tenant.openFgaApiEndpoint,
-      tenant.openFgaApiRegion || tenant.region,
-      credentials,
-      tenant.openFgaStoreId
-    );
-  } catch (error) {
-    console.error('Failed to create OpenFGA client:', error);
-    return null;
-  }
+  return new OpenFgaClient(
+    tenantId,
+    tenant.openFgaApiEndpoint,
+    tenant.openFgaApiRegion || tenant.region,
+    credentials,
+    tenant.openFgaStoreId
+  );
 }
 
 /**
  * Check if a user has permission to use a specific LLM model
  */
 export async function checkLlmAccess(
-  openFgaClient: OpenFgaClient | null,
+  openFgaClient: OpenFgaClient,
   userId: string,
   modelId: string
 ): Promise<boolean> {
-  if (!openFgaClient) {
-    // If OpenFGA is not configured, allow access by default (backward compatibility)
-    console.warn(
-      'OpenFGA client not available. Allowing access by default for backward compatibility.'
-    );
-    return true;
-  }
-
   return await openFgaClient.check(userId, 'accessor', 'llm', modelId);
 }
 
@@ -230,18 +206,10 @@ export async function checkLlmAccess(
  * Check if a user has permission to use a specific feature
  */
 export async function checkFeatureAccess(
-  openFgaClient: OpenFgaClient | null,
+  openFgaClient: OpenFgaClient,
   userId: string,
   featureName: string
 ): Promise<boolean> {
-  if (!openFgaClient) {
-    // If OpenFGA is not configured, allow access by default (backward compatibility)
-    console.warn(
-      'OpenFGA client not available. Allowing access by default for backward compatibility.'
-    );
-    return true;
-  }
-
   return await openFgaClient.check(
     userId,
     'enabled_user',

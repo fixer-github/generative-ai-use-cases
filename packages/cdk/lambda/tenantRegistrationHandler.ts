@@ -30,8 +30,9 @@ interface TenantRegistrationRequest {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
-  openFgaApiEndpoint?: string;
-  openFgaApiRegion?: string;
+  openFgaApiEndpoint: string;
+  openFgaApiRegion: string;
+  openFgaStoreId: string;
 }
 
 /**
@@ -63,6 +64,7 @@ export const handler = async (
       openSearchIndexName,
       openFgaApiEndpoint,
       openFgaApiRegion,
+      openFgaStoreId,
     } = request;
 
     // Log request without sensitive data
@@ -130,6 +132,28 @@ export const handler = async (
         });
       }
     }
+    if (
+      !tenantId ||
+      !accountId ||
+      !region ||
+      !environment ||
+      !openFgaApiEndpoint ||
+      !openFgaApiRegion ||
+      !openFgaStoreId
+    ) {
+      return badRequest400Response({
+        message:
+          'Missing required fields: tenantId, accountId, region, environment, openFgaApiEndpoint, openFgaApiRegion, openFgaStoreId',
+      });
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error:
+            'Missing required fields: tenantId, accountId, region, environment, openFgaApiEndpoint, openFgaApiRegion, openFgaStoreId',
+        }),
+      };
+    }
 
     // Create tenant record with default use case configuration
     const now = new Date().toISOString();
@@ -143,6 +167,7 @@ export const handler = async (
       controlPlaneLambdaRoleArn,
       openFgaApiEndpoint,
       openFgaApiRegion,
+      openFgaStoreId,
       createdAt: now,
       updatedAt: now,
       metadata: {
