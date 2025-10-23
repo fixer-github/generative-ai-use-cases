@@ -360,23 +360,15 @@ export class TenantOpenFgaStack extends cdk.Stack {
         entry: path.join(__dirname, '../../../lambda/openFgaSchemaInitializer.ts'),
         timeout: cdk.Duration.minutes(5),
         memorySize: 512,
+        vpc: props.vpc,
+        vpcSubnets: {
+          subnets: props.subnets,
+        },
         environment: {
           NODE_OPTIONS: '--enable-source-maps',
         },
       }
     );
-
-    // Grant Lambda permission to assume the tenant role (for cross-account access)
-    if (props.controlPlaneLambdaRoleArn) {
-      const tenantRoleArn = props.controlPlaneLambdaRoleArn;
-      schemaInitializerLambda.addToRolePolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['sts:AssumeRole'],
-          resources: [tenantRoleArn],
-        })
-      );
-    }
 
     // Create Custom Resource to initialize schema
     const schemaInitializer = new cdk.CustomResource(
@@ -386,9 +378,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
         serviceToken: schemaInitializerLambda.functionArn,
         resourceType: 'Custom::OpenFgaSchemaInit',
         properties: {
-          ApiEndpoint: this.apiEndpoint,
-          ApiRegion: props.env?.region || this.region,
-          RoleArn: props.controlPlaneLambdaRoleArn || '',
+          InternalEndpoint: `http://${nlb.loadBalancerDnsName}`,
           TenantId: props.tenantId,
         },
       }
@@ -434,6 +424,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
         TenantId: props.tenantId,
         OpenFgaApiEndpoint: this.apiEndpoint,
         OpenFgaApiRegion: props.env?.region || this.region,
+        OpenFgaStoreId: schemaInitializer.getAttString('StoreId'),
       },
     });
 
