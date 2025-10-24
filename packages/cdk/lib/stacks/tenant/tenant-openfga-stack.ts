@@ -195,22 +195,23 @@ export class TenantOpenFgaStack extends cdk.Stack {
       }),
       environment: {
         OPENFGA_DATASTORE_ENGINE: 'postgres',
-        OPENFGA_DATASTORE_URI: cdk.Fn.sub(
-          'postgres://${username}:${password}@${endpoint}/openfga',
-          {
-            username: dbCredentialsSecret
-              .secretValueFromJson('username')
-              .unsafeUnwrap(),
-            password: dbCredentialsSecret
-              .secretValueFromJson('password')
-              .unsafeUnwrap(),
-            endpoint: dbInstance.dbInstanceEndpointAddress,
-          }
-        ),
+        // Use placeholder credentials in URI - these will be overridden by secrets
+        OPENFGA_DATASTORE_URI: `postgres://placeholder:placeholder@${dbInstance.dbInstanceEndpointAddress}/openfga`,
         OPENFGA_LOG_FORMAT: 'json',
         OPENFGA_PLAYGROUND_ENABLED: 'false',
         OPENFGA_HTTP_ADDR: '0.0.0.0:8080',
         OPENFGA_GRPC_ADDR: '0.0.0.0:8081',
+      },
+      secrets: {
+        // These environment variables override the credentials in OPENFGA_DATASTORE_URI
+        OPENFGA_DATASTORE_USERNAME: ecs.Secret.fromSecretsManager(
+          dbCredentialsSecret,
+          'username'
+        ),
+        OPENFGA_DATASTORE_PASSWORD: ecs.Secret.fromSecretsManager(
+          dbCredentialsSecret,
+          'password'
+        ),
       },
       healthCheck: {
         command: [
