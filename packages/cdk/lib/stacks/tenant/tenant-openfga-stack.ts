@@ -323,7 +323,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
     const integration = new apigateway.Integration({
       type: apigateway.IntegrationType.HTTP_PROXY,
       integrationHttpMethod: 'ANY',
-      uri: `http://${nlb.loadBalancerDnsName}`,
+      uri: `http://${nlb.loadBalancerDnsName}/{proxy}`,
       options: {
         connectionType: apigateway.ConnectionType.VPC_LINK,
         vpcLink: vpcLink,
