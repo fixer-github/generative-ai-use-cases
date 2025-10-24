@@ -102,6 +102,13 @@ export class TenantOpenFgaStack extends cdk.Stack {
       'Allow ECS tasks to connect to PostgreSQL'
     );
 
+    // Allow NLB to connect to ECS tasks on port 8080
+    ecsSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.tcp(8080),
+      'Allow NLB health checks and traffic to OpenFGA HTTP server'
+    );
+
     // Create database credentials secret
     const dbCredentialsSecret = new secretsmanager.Secret(
       this,
