@@ -48,7 +48,10 @@ async function sendResponse(
   });
 
   if (!response.ok) {
-    console.error('Failed to send CloudFormation response:', response.statusText);
+    console.error(
+      'Failed to send CloudFormation response:',
+      response.statusText
+    );
   }
 }
 
@@ -130,6 +133,29 @@ async function initializeSchema(
 }
 
 /**
+ * Update OpenFGA authorization model
+ */
+async function updateAuthorizationModel(
+  internalEndpoint: string,
+  storeId: string
+): Promise<void> {
+  console.log(`Updating authorization model for store: ${storeId}`);
+
+  // OpenFGAでは新しいモデルをPOSTすることで更新
+  // 既存のtuples（権限データ）は保持され、新しいモデルが最新として使われる
+  const modelResponse = await makeOpenFgaRequest(
+    internalEndpoint,
+    'POST',
+    `/stores/${storeId}/authorization-models`,
+    {
+      schema_version: '1.1',
+      type_definitions: AUTHORIZATION_MODEL_TYPE_DEFINITIONS,
+    }
+  );
+  console.log('Authorization model updated:', modelResponse);
+}
+
+/**
  * Lambda handler
  */
 export const handler = async (
@@ -139,9 +165,6 @@ export const handler = async (
   console.log('Event:', JSON.stringify(event, null, 2));
 
   const props = event.ResourceProperties as unknown as ResourceProperties;
-  const physicalResourceId =
-    (event as any).PhysicalResourceId ||
-    `openfga-schema-${props.TenantId}`;
 
   try {
     if (event.RequestType === 'Delete') {
@@ -151,19 +174,28 @@ export const handler = async (
         event,
         'SUCCESS',
         'Delete completed successfully',
-        physicalResourceId
+        event.PhysicalResourceId
       );
       return;
     }
 
     if (event.RequestType === 'Update') {
-      // For updates, we might want to re-apply the schema
-      // For now, we'll just return success
+      const physicalResourceId = event.PhysicalResourceId;
+      const storeId = physicalResourceId.replace('openfga-store-', '');
+
+      console.log(`Updating authorization model for store: ${storeId}`);
+
+      // スキーマ定義の変更を反映
+      await updateAuthorizationModel(props.InternalEndpoint, storeId);
+
       await sendResponse(
         event,
         'SUCCESS',
-        'Update completed successfully',
-        physicalResourceId
+        'Authorization model updated successfully',
+        physicalResourceId,
+        {
+          StoreId: storeId,
+        }
       );
       return;
     }
@@ -173,6 +205,8 @@ export const handler = async (
       props.InternalEndpoint,
       props.TenantId
     );
+
+    const physicalResourceId = `openfga-store-${storeId}`;
 
     await sendResponse(
       event,
@@ -184,7 +218,14 @@ export const handler = async (
       }
     );
   } catch (error) {
-    console.error('Error initializing OpenFGA schema:', error);
+    console.error('Error in OpenFGA schema handler:', error);
+
+    // エラー時のPhysicalResourceId: Update/Deleteなら既存のID、Createなら新規ID
+    const physicalResourceId =
+      'PhysicalResourceId' in event
+        ? event.PhysicalResourceId
+        : `openfga-schema-${props.TenantId}-error`;
+
     await sendResponse(
       event,
       'FAILED',
