@@ -2,9 +2,9 @@ import React, { createContext, useContext, ReactNode } from 'react';
 import { useModels } from '../hooks/useModel';
 import { MODELS } from '../hooks/useModel';
 
-type ModelsContextType = typeof MODELS | null;
+type ModelsContextType = typeof MODELS;
 
-const ModelsContext = createContext<ModelsContextType>(null);
+const ModelsContext = createContext<ModelsContextType | null>(null);
 
 export const ModelsProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -21,7 +21,7 @@ export const ModelsProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export const useModelsContext = () => {
+export const useModelsContext = (): ModelsContextType => {
   const context = useContext(ModelsContext);
   if (!context) {
     // Fall back to static MODELS for backward compatibility

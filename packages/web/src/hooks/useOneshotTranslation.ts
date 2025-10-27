@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
 import { getPrompter } from '../prompts';
-import { MODELS, findModelByModelId } from './useModel';
+import { MODELS } from './useModel';
 import useChatApi from '../hooks/useChatApi';
 
 const useOneshotTranslation = () => {
@@ -28,7 +28,7 @@ const useOneshotTranslation = () => {
         language,
         context: undefined,
       });
-      const model = findModelByModelId(translationModelId);
+      const model = MODELS.findModelByModelId(translationModelId);
       const messages = [
         {
           role: 'system' as const,

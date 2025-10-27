@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
 import useChatApi from './useChatApi';
-import { findModelByModelId } from './useModel';
+import { MODELS } from './useModel';
 import { getPrompter } from '../prompts';
 import useChat from '../hooks/useChat';
 import { PredictRequest } from 'generative-ai-use-cases';
@@ -24,7 +24,7 @@ const useDiagram = (id: string) => {
   const modelId = useMemo(() => getModelId(), [getModelId]);
   const model = useMemo(() => {
     const mid = getModelId();
-    return findModelByModelId(mid);
+    return MODELS.findModelByModelId(mid);
   }, [getModelId]);
   const prompter = useMemo(() => {
     return getPrompter(modelId);

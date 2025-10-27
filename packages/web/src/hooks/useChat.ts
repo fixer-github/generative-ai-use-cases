@@ -22,7 +22,7 @@ import useChatApi from './useChatApi';
 import useChatList from './useChatList';
 import { SWRInfiniteKeyedMutator } from 'swr/infinite';
 import { getPrompter } from '../prompts';
-import { findModelByModelId } from './useModel';
+import { MODELS } from './useModel';
 import useFileApi from './useFileApi';
 
 type GenerationMode = 'normal' | 'continue' | 'retry' | 'edit';
@@ -221,7 +221,7 @@ const useChatState = create<{
 
     // If the title is an empty string, predict the title and set it
     const modelId = getModelId(id);
-    const model = findModelByModelId(modelId)!;
+    const model = MODELS.findModelByModelId(modelId)!;
     const prompter = getPrompter(modelId);
     const title = await predictTitle({
       model,
@@ -477,7 +477,7 @@ const useChatState = create<{
       return;
     }
 
-    const model = findModelByModelId(modelId);
+    const model = MODELS.findModelByModelId(modelId);
 
     if (!model) {
       console.error(`model not found for ${modelId}`);

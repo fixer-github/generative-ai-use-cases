@@ -3,7 +3,7 @@ import useChat from './useChat';
 import useChatApi from './useChatApi';
 import useRagApi from './useRagApi';
 import { ShownMessage } from 'generative-ai-use-cases';
-import { findModelByModelId } from './useModel';
+import { MODELS } from './useModel';
 import { getPrompter } from '../prompts';
 import { RetrieveResultItem, DocumentAttribute } from '@aws-sdk/client-kendra';
 import { cleanEncode } from '../utils/URLUtils';
@@ -69,7 +69,7 @@ const useRag = (id: string) => {
     writing,
     messages,
     postMessage: async (content: string) => {
-      const model = findModelByModelId(modelId);
+      const model = MODELS.findModelByModelId(modelId);
 
       if (!model) {
         console.error(`model not found for ${modelId}`);

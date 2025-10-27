@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
 import { PiArrowClockwiseBold } from 'react-icons/pi';
-import { MODELS, findModelByModelId } from '../hooks/useModel';
+import { MODELS } from '../hooks/useModel';
 import StrandsIcon from '../assets/strands.svg?react';
 import ChatMessage from '../components/ChatMessage';
 import Select from '../components/Select';
@@ -99,7 +99,7 @@ const McpChatPage: React.FC = () => {
   const onSend = useCallback(() => {
     setFollowing(true);
 
-    const model = findModelByModelId(modelId);
+    const model = MODELS.findModelByModelId(modelId);
 
     postMessage({
       systemPrompt: currentSystemContext,
