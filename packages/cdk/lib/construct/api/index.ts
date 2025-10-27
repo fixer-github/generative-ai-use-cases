@@ -39,6 +39,7 @@ import OptimizePromptApi from './optimize-prompt';
 import InvokeFlowApi from './invoke-flow';
 import BedrockChatApi from './bedrock-chat';
 import ChatApi from './chats';
+import AssistantApi from './assistant';
 import ImageApi from './image';
 import SystemContextApi from './systemcontexts';
 import TokenUsageApi from './token-usage';
@@ -76,6 +77,8 @@ export interface BackendApiProps {
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
+  readonly assistantTable: Table;
+  readonly assistantMessagesTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
   readonly guardrailIdentify?: string;
@@ -352,6 +355,7 @@ export class Api extends Construct {
 
     new BedrockChatApi(this, 'BedrockChatAPI', apiProps);
     new ChatApi(this, 'ChatsAPI', apiProps);
+    new AssistantApi(this, 'AssistantAPI', apiProps);
     const fileApi = new FileApi(this, 'FileAPI', apiProps);
     new ImageApi(this, 'ImageAPI', apiProps);
     const invokeFlowApi = new InvokeFlowApi(this, 'InvokeFlowAPI', apiProps);

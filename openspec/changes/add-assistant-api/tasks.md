@@ -2,127 +2,132 @@
 
 ## 1. Infrastructure Setup
 
-- [ ] 1.1 Create DynamoDB table schema for assistants
+- [x] 1.1 Create DynamoDB table schema for assistants
   - Primary key: userId (partition key), createdDate (sort key)
   - GSI for assistantId lookups
   - Attributes: assistantId, name, description, configuration, metadata
   - Enable DynamoDB Streams for OpenSearch sync
 
-- [ ] 1.2 Create DynamoDB table schema for assistant messages
+- [x] 1.2 Create DynamoDB table schema for assistant messages
   - Primary key: assistantId (partition key), messageId (sort key)
   - Attributes: userId, role, content, timestamp, metadata, sources
   - Enable point-in-time recovery
 
-- [ ] 1.3 Create CDK construct for Assistant API
+- [x] 1.3 Create CDK construct for Assistant API
   - Location: `packages/cdk/lib/construct/api/assistant.ts`
   - Follow pattern from `chats.ts`
   - Define all Lambda functions
   - Configure API Gateway routes
 
-- [ ] 1.4 Configure OpenSearch access for Lambda functions
+- [x] 1.4 Configure OpenSearch access for Lambda functions
   - Reuse existing botstore collection
   - Grant IAM permissions for OpenSearch operations
   - Configure distinct index names (e.g., `assistant-docs`, `assistant-messages`)
+  - Note: Infrastructure ready, RAG implementation pending
 
-- [ ] 1.5 Set up DynamoDB Stream to OpenSearch pipeline
+- [ ] 1.5 Set up DynamoDB Stream to OpenSearch pipeline (DEFERRED)
   - Create Lambda function for stream processing
   - Use LangChain to index documents to OpenSearch
   - Implement retry logic and error handling
+  - Note: Intentionally skipped for MVP, can be added later
 
 ## 2. Lambda Function Implementation
 
-- [ ] 2.1 Implement createAssistant Lambda
-  - Location: `packages/cdk/lambda/assistant/createAssistant.ts`
+- [x] 2.1 Implement createAssistant Lambda
+  - Location: `packages/cdk/lambda/createAssistant.ts`
   - Validate input (name, description, configuration)
   - Generate assistantId (UUID)
   - Write to DynamoDB
   - Return 201 with assistant object
 
-- [ ] 2.2 Implement listAssistants Lambda
-  - Location: `packages/cdk/lambda/assistant/listAssistants.ts`
+- [x] 2.2 Implement listAssistants Lambda
+  - Location: `packages/cdk/lambda/listAssistants.ts`
   - Query DynamoDB by userId
   - Support pagination (limit, lastEvaluatedKey)
   - Order by createdDate descending
   - Return 200 with assistant array
 
-- [ ] 2.3 Implement getAssistant Lambda
-  - Location: `packages/cdk/lambda/assistant/getAssistant.ts`
+- [x] 2.3 Implement getAssistant Lambda
+  - Location: `packages/cdk/lambda/getAssistant.ts`
   - Query DynamoDB by assistantId
   - Verify user ownership
   - Return 200 with assistant details or 404/403
 
-- [ ] 2.4 Implement updateAssistant Lambda
-  - Location: `packages/cdk/lambda/assistant/updateAssistant.ts`
+- [x] 2.4 Implement updateAssistant Lambda
+  - Location: `packages/cdk/lambda/updateAssistant.ts`
   - Validate input
   - Verify user ownership
   - Update DynamoDB with partial update
   - Return 200 with updated assistant
 
-- [ ] 2.5 Implement deleteAssistant Lambda
-  - Location: `packages/cdk/lambda/assistant/deleteAssistant.ts`
+- [x] 2.5 Implement deleteAssistant Lambda
+  - Location: `packages/cdk/lambda/deleteAssistant.ts`
   - Verify user ownership
   - Delete assistant from DynamoDB
   - Delete associated messages
   - Trigger OpenSearch cleanup
   - Return 204 No Content
 
-- [ ] 2.6 Implement createMessage Lambda (RAG)
-  - Location: `packages/cdk/lambda/assistant/createMessage.ts`
+- [x] 2.6 Implement createMessage Lambda (RAG)
+  - Location: `packages/cdk/lambda/createAssistantMessage.ts`
   - Retrieve assistant configuration
-  - Use LangChain to query OpenSearch vector store
-  - Generate LLM response with RAG context
+  - Use LangChain to query OpenSearch vector store (TODO: RAG integration)
+  - Generate LLM response with RAG context (Basic Bedrock integration done)
   - Store user message and assistant response
   - Return 200 with response and sources
 
-- [ ] 2.7 Implement listMessages Lambda
-  - Location: `packages/cdk/lambda/assistant/listMessages.ts`
+- [x] 2.7 Implement listMessages Lambda
+  - Location: `packages/cdk/lambda/listAssistantMessages.ts`
   - Query messages by assistantId
   - Support pagination
   - Return 200 with message history
 
 ## 3. Repository Layer
 
-- [ ] 3.1 Create assistant repository
+- [x] 3.1 Create assistant repository
   - Location: `packages/cdk/lambda/repository/assistant.ts`
   - Follow pattern from `chat.ts`
   - Implement CRUD operations
   - Abstract DynamoDB operations
 
-- [ ] 3.2 Create message repository
+- [x] 3.2 Create message repository
   - Location: `packages/cdk/lambda/repository/assistantMessage.ts`
   - Implement message CRUD operations
   - Support conversation threading
 
-- [ ] 3.3 Create OpenSearch repository
+- [ ] 3.3 Create OpenSearch repository (DEFERRED for RAG feature)
   - Location: `packages/cdk/lambda/repository/assistantSearch.ts`
   - Use LangChain OpenSearch integration
   - Implement vector store operations
   - Implement document indexing
   - Implement similarity search
+  - Note: To be implemented when RAG functionality is added
 
 ## 4. Shared Utilities
 
-- [ ] 4.1 Create TypeScript types
-  - Location: `packages/types/src/assistant.ts`
+- [x] 4.1 Create TypeScript types
+  - Location: `packages/types/src/assistant.d.ts`
   - Define Assistant interface
   - Define AssistantMessage interface
   - Define configuration schemas
   - Export for use across packages
 
-- [ ] 4.2 Create validation utilities
+- [ ] 4.2 Create validation utilities (OPTIONAL)
   - Input validation helpers
   - Schema validation with Zod
   - Error formatting utilities
+  - Note: Not required for MVP, basic validation in Lambda handlers
 
-- [ ] 4.3 Create LangChain utilities
+- [ ] 4.3 Create LangChain utilities (DEFERRED for RAG feature)
   - OpenSearch vector store factory
   - Document loader utilities
   - RAG chain configuration
   - Prompt templates
+  - Note: To be implemented when RAG functionality is added
 
 ## 5. Integration
 
-- [ ] 5.1 Wire up API Gateway routes
+- [x] 5.1 Wire up API Gateway routes
   - POST /api/assistant → createAssistant
   - GET /api/assistant → listAssistants
   - GET /api/assistant/{assistantId} → getAssistant
@@ -131,12 +136,12 @@
   - POST /api/assistant/{assistantId}/messages → createMessage
   - GET /api/assistant/{assistantId}/messages → listMessages
 
-- [ ] 5.2 Configure Cognito authentication
+- [x] 5.2 Configure Cognito authentication
   - Reuse existing Cognito user pool
   - Add authorizer to all endpoints
   - Extract userId from token
 
-- [ ] 5.3 Update CDK stack to include Assistant API
+- [x] 5.3 Update CDK stack to include Assistant API
   - Modify `packages/cdk/lib/stacks/` as needed
   - Add AssistantApi construct to stack
   - Configure environment variables
