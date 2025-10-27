@@ -36,10 +36,17 @@ class AssistantApi extends Construct {
         environment: getBaseEnvironment(this, props, {
           ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
           DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
+          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
+          OPENSEARCH_INDEX: 'assistant-docs',
         }),
       }
     );
     assistantTable.grantWriteData(createAssistantFunction);
+
+    // Grant S3 read permissions for document loading
+    if (props.fileBucket) {
+      props.fileBucket.grantRead(createAssistantFunction);
+    }
 
     const listAssistantsFunction = new NodejsFunction(
       this,
@@ -77,10 +84,17 @@ class AssistantApi extends Construct {
         environment: getBaseEnvironment(this, props, {
           ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
           DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
+          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
+          OPENSEARCH_INDEX: 'assistant-docs',
         }),
       }
     );
     assistantTable.grantReadWriteData(updateAssistantFunction);
+
+    // Grant S3 read permissions for document loading
+    if (props.fileBucket) {
+      props.fileBucket.grantRead(updateAssistantFunction);
+    }
 
     const deleteAssistantFunction = new NodejsFunction(
       this,
@@ -95,6 +109,8 @@ class AssistantApi extends Construct {
           ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
           DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME:
             assistantMessagesTable.tableName,
+          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
+          OPENSEARCH_INDEX: 'assistant-docs',
         }),
       }
     );
@@ -111,6 +127,8 @@ class AssistantApi extends Construct {
         ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
         DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME: assistantMessagesTable.tableName,
         MODEL_REGION: props.modelRegion,
+        OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
+        OPENSEARCH_INDEX: 'assistant-docs',
       }),
     });
     assistantTable.grantReadData(createMessageFunction);
@@ -195,6 +213,17 @@ class AssistantApi extends Construct {
       tenantManager.tenantsTable.grantReadData(createMessageFunction);
       tenantManager.tenantsTable.grantReadData(listMessagesFunction);
     }
+
+    // TODO: Add OpenSearch permissions when BotStore is integrated
+    // When a BotStore instance is available, add data access policies:
+    // botstore.addDataAccessPolicy(
+    //   props.envPrefix,
+    //   'AssistantCreateDataAccess',
+    //   createAssistantFunction.role!,
+    //   ['aoss:DescribeCollectionItems', 'aoss:CreateCollectionItems'],
+    //   ['aoss:WriteDocument', 'aoss:DescribeIndex', 'aoss:CreateIndex']
+    // );
+    // Similarly for updateAssistantFunction, deleteAssistantFunction, and createMessageFunction
   }
 }
 

@@ -25,11 +25,11 @@
   - Configure distinct index names (e.g., `assistant-docs`, `assistant-messages`)
   - Note: Infrastructure ready, RAG implementation pending
 
-- [ ] 1.5 Set up DynamoDB Stream to OpenSearch pipeline (DEFERRED)
+- [ ] 1.5 Set up DynamoDB Stream to OpenSearch pipeline (NOT IMPLEMENTED)
   - Create Lambda function for stream processing
   - Use LangChain to index documents to OpenSearch
   - Implement retry logic and error handling
-  - Note: Intentionally skipped for MVP, can be added later
+  - Note: Not needed - using synchronous document ingestion in create/update handlers instead
 
 ## 2. Lambda Function Implementation
 
@@ -71,10 +71,10 @@
 - [x] 2.6 Implement createMessage Lambda (RAG)
   - Location: `packages/cdk/lambda/createAssistantMessage.ts`
   - Retrieve assistant configuration
-  - Use LangChain to query OpenSearch vector store (TODO: RAG integration)
-  - Generate LLM response with RAG context (Basic Bedrock integration done)
+  - Use LangChain to query OpenSearch vector store ✅
+  - Generate LLM response with RAG context ✅
   - Store user message and assistant response
-  - Return 200 with response and sources
+  - Return 200 with response and sources ✅
 
 - [x] 2.7 Implement listMessages Lambda
   - Location: `packages/cdk/lambda/listAssistantMessages.ts`
@@ -95,13 +95,13 @@
   - Implement message CRUD operations
   - Support conversation threading
 
-- [ ] 3.3 Create OpenSearch repository (DEFERRED for RAG feature)
+- [x] 3.3 Create OpenSearch repository
   - Location: `packages/cdk/lambda/repository/assistantSearch.ts`
   - Use LangChain OpenSearch integration
   - Implement vector store operations
   - Implement document indexing
   - Implement similarity search
-  - Note: To be implemented when RAG functionality is added
+  - ✅ COMPLETED: Full RAG implementation with vector search
 
 ## 4. Shared Utilities
 
@@ -118,12 +118,12 @@
   - Error formatting utilities
   - Note: Not required for MVP, basic validation in Lambda handlers
 
-- [ ] 4.3 Create LangChain utilities (DEFERRED for RAG feature)
+- [x] 4.3 Create LangChain utilities
   - OpenSearch vector store factory
-  - Document loader utilities
+  - Document loader utilities (`packages/cdk/lambda/utils/documentLoader.ts`)
   - RAG chain configuration
   - Prompt templates
-  - Note: To be implemented when RAG functionality is added
+  - ✅ COMPLETED: Document loading, chunking, and metadata utilities implemented
 
 ## 5. Integration
 

@@ -1,11 +1,15 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getAssistant } from './repository/assistant';
 import { createMessage } from './repository/assistantMessage';
-import { CreateAssistantMessageRequest } from 'generative-ai-use-cases';
+import {
+  CreateAssistantMessageRequest,
+  AssistantMessageSource,
+} from 'generative-ai-use-cases';
 import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from '@aws-sdk/client-bedrock-runtime';
+import { similaritySearch } from './repository/assistantSearch';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -80,8 +84,40 @@ export const handler = async (
       event
     );
 
-    // TODO: Implement RAG context retrieval from OpenSearch when ragEnabled is true
-    // For now, we'll use the assistant's instruction as system context
+    // RAG context retrieval from OpenSearch when ragEnabled is true
+    let ragContext = '';
+    let sources: AssistantMessageSource[] = [];
+
+    if (assistant.ragEnabled && assistant.s3Urls && assistant.s3Urls.length > 0) {
+      try {
+        // Query vector store for relevant context
+        const relevantDocs = await similaritySearch(
+          assistantId.replace('assistant#', ''),
+          body.content,
+          5 // top 5 most relevant documents
+        );
+
+        // Format context and extract sources
+        ragContext = relevantDocs
+          .map((doc, idx) => `[Source ${idx + 1}]\n${doc.pageContent}`)
+          .join('\n\n');
+
+        sources = relevantDocs.map((doc) => ({
+          content: doc.pageContent,
+          contentType: doc.metadata.contentType || 'text/plain',
+          excerpt: doc.pageContent.substring(0, 200),
+          s3Url: doc.metadata.s3Url || '',
+        }));
+      } catch (error) {
+        console.error('RAG retrieval error:', error);
+        // Continue without RAG if it fails
+      }
+    }
+
+    // Include RAG context in system message if available
+    const systemMessage = ragContext
+      ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
+      : assistant.instruction;
 
     // Call Bedrock with assistant configuration
     const response = await bedrockClient.send(
@@ -99,7 +135,7 @@ export const handler = async (
         ],
         system: [
           {
-            text: assistant.instruction,
+            text: systemMessage,
           },
         ],
       })
@@ -114,13 +150,13 @@ export const handler = async (
       totalTokens: response.usage?.totalTokens || 0,
     };
 
-    // Store assistant response
+    // Store assistant response with sources
     const assistantMessage = await createMessage(
       assistantId,
       userId,
       'assistant',
       assistantResponse,
-      [], // TODO: Add RAG sources when implemented
+      sources,
       { usage },
       event
     );

@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { deleteAssistant } from './repository/assistant';
 import { deleteMessagesForAssistant } from './repository/assistantMessage';
+import { deleteAssistantDocuments } from './repository/assistantSearch';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -27,6 +28,15 @@ export const handler = async (
 
       // Delete all messages after ownership verification
       await deleteMessagesForAssistant(assistantId, event);
+
+      // Delete all indexed documents from OpenSearch
+      try {
+        await deleteAssistantDocuments(assistantId);
+        console.log(`Deleted OpenSearch documents for assistant ${assistantId}`);
+      } catch (error) {
+        console.error('Error deleting OpenSearch documents:', error);
+        // Don't fail the deletion if OpenSearch cleanup fails
+      }
 
       return {
         statusCode: 204,

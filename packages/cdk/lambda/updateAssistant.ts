@@ -1,6 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { updateAssistant } from './repository/assistant';
 import { UpdateAssistantRequest } from 'generative-ai-use-cases';
+import { loadDocumentsFromS3, chunkDocuments, addMetadata } from './utils/documentLoader';
+import { indexDocuments, deleteAssistantDocuments } from './repository/assistantSearch';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -30,6 +32,40 @@ export const handler = async (
         body,
         event
       );
+
+      // If S3 URLs were updated and RAG is enabled, re-index documents
+      if (body.s3Urls !== undefined && assistant.ragEnabled) {
+        try {
+          console.log(`Re-indexing documents for assistant ${assistantId}`);
+
+          // Delete old documents first
+          await deleteAssistantDocuments(assistantId);
+
+          // If new S3 URLs are provided, index them
+          if (body.s3Urls && body.s3Urls.length > 0) {
+            // Load documents from S3
+            const documents = await loadDocumentsFromS3(body.s3Urls);
+
+            // Chunk documents
+            const chunks = await chunkDocuments(documents, 1000, 200);
+
+            // Add metadata
+            const docsWithMetadata = addMetadata(
+              chunks,
+              assistantId,
+              userId
+            );
+
+            // Index to OpenSearch
+            await indexDocuments(assistantId, docsWithMetadata);
+
+            console.log(`Successfully re-indexed documents for assistant ${assistantId}`);
+          }
+        } catch (error) {
+          console.error('Error re-indexing documents:', error);
+          // Don't fail the assistant update if document indexing fails
+        }
+      }
 
       return {
         statusCode: 200,
