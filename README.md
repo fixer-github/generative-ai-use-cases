@@ -86,6 +86,10 @@ GenU provides a variety of standard use cases leveraging generative AI. These us
         <td>Voice Chat</td>
         <td>In Voice Chat, you can have a bidirectional voice chat with generative AI. Similar to natural conversation, you can also interrupt and speak while the AI is talking. Also, by setting a system prompt, you can have voice conversations with AI that has specific roles.</td>
       </tr>
+      <tr>
+        <td>Assistant API</td>
+        <td>A comprehensive REST API for creating and managing custom AI assistants with RAG (Retrieval-Augmented Generation) capabilities. Create assistants with specific instructions, upload documents from S3 for knowledge base integration, and interact through a conversational interface. The API provides immediate list updates using DynamoDB, lower costs compared to OpenSearch-only approaches, and full TypeScript implementation. Perfect for building custom chatbot applications or integrating AI assistants into existing systems. See <a href="./docs/ASSISTANT_API.md">API documentation</a> for details.</td>
+      </tr>
     </tbody>
   </table>
 </details>
