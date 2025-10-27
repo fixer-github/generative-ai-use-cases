@@ -119,6 +119,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       litellmProxy: litellmProxy,
       pptxEnabled: params.pptxEnabled,
       selfSignUpTenantMap: params.selfSignUpTenantMap,
+      flows: params.flows,
       userPool: auth.userPool,
       idPool: auth.idPool,
       userPoolClient: auth.client,

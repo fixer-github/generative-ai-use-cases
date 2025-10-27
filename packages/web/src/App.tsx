@@ -34,11 +34,11 @@ import useDrawer from './hooks/useDrawer';
 import useChatList from './hooks/useChatList';
 import PopupInterUseCasesDemo from './components/PopupInterUseCasesDemo';
 import useInterUseCases from './hooks/useInterUseCases';
-import { MODELS } from './hooks/useModel';
 import useScreen from './hooks/useScreen';
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import useUseCases from './hooks/useUseCases';
 import { useTranslation } from 'react-i18next';
+import { useModelsContext } from './contexts/ModelsContext';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -47,14 +47,6 @@ const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
 const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
-const {
-  visionEnabled,
-  imageGenModelIds,
-  videoGenModelIds,
-  speechToSpeechModelIds,
-  agentNames,
-  flowChatEnabled,
-} = MODELS;
 
 // Extract :chatId from /chat/:chatId format
 // Return null if path is in a different format
@@ -74,6 +66,15 @@ const App: React.FC = () => {
   const { screen, notifyScreen, scrollTopAnchorRef, scrollBottomAnchorRef } =
     useScreen();
   const { enabled } = useUseCases();
+  const MODELS = useModelsContext();
+  const {
+    visionEnabled,
+    imageGenModelIds,
+    videoGenModelIds,
+    speechToSpeechModelIds,
+    agentNames,
+    flowChatEnabled,
+  } = MODELS;
 
   const items: ItemProps[] = [
     {

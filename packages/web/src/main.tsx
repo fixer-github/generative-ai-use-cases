@@ -7,6 +7,7 @@ import { SWRConfig } from 'swr';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { Toaster } from 'sonner';
 import DynamicRouter from './components/DynamicRouter';
+import { ModelsProvider } from './contexts/ModelsContext';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -33,17 +34,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             revalidateOnReconnect: true,
             revalidateOnMount: true,
           }}>
-          <DynamicRouter
-            ragEnabled={ragEnabled}
-            ragKnowledgeBaseEnabled={ragKnowledgeBaseEnabled}
-            samlAuthEnabled={samlAuthEnabled}
-            samlDefaultAuthEnabled={samlDefaultAuthEnabled}
-            agentEnabled={agentEnabled}
-            inlineAgents={inlineAgents}
-            mcpEnabled={mcpEnabled}
-            pptxEnabled={pptxEnabled}
-            useCaseBuilderEnabled={useCaseBuilderEnabled}
-          />
+          <ModelsProvider>
+            <DynamicRouter
+              ragEnabled={ragEnabled}
+              ragKnowledgeBaseEnabled={ragKnowledgeBaseEnabled}
+              samlAuthEnabled={samlAuthEnabled}
+              samlDefaultAuthEnabled={samlDefaultAuthEnabled}
+              agentEnabled={agentEnabled}
+              inlineAgents={inlineAgents}
+              mcpEnabled={mcpEnabled}
+              pptxEnabled={pptxEnabled}
+              useCaseBuilderEnabled={useCaseBuilderEnabled}
+            />
+          </ModelsProvider>
         </SWRConfig>
         <Toaster />
       </Authenticator.Provider>

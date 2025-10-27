@@ -49,6 +49,7 @@ import FileBucket from '../file-bucket';
 import ShareApi from './share';
 import AdminApi from './admin';
 import { CentralPptxApi } from './central-pptx';
+import ModelsApi from './models';
 
 export interface BackendApiProps {
   // Context Params
@@ -69,6 +70,7 @@ export interface BackendApiProps {
   readonly pptxEnabled: boolean;
   readonly environment: string;
   readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
+  readonly flows?: any[];
 
   // Resource
   readonly userPool: UserPool;
@@ -367,6 +369,7 @@ export class Api extends Construct {
     new VideoApi(this, 'VideoAPI', apiProps);
     new WebTextApi(this, 'WebTextAPI', apiProps);
     new AdminApi(this, 'AdminAPI', apiProps);
+    new ModelsApi(this, 'ModelsAPI', apiProps);
 
     // Central PPTX API for multi-tenant architecture
     // Lambda functions dynamically access tenant-specific resources based on Cognito claims
