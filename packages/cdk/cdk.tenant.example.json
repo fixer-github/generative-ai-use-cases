@@ -31,13 +31,40 @@
     },
     "networkConfig": {
       "vpcCidr": "10.0.0.0/16",
-      "maxAzs": 1,
+      "maxAzs": 2,
       "natGateways": 1
     },
     "ipAccessControl": {
       "enabled": false,
       "allowedIpV4AddressRanges": ["203.0.113.0/24", "198.51.100.50/32"],
       "allowedIpV6AddressRanges": ["2001:db8::/32"]
+    },
+    "openFgaConfig": {
+      "rds": {
+        "instanceClass": "T4G",
+        "instanceSize": "MICRO",
+        "allocatedStorage": 20,
+        "maxAllocatedStorage": 100,
+        "storageType": "GP3",
+        "backupRetentionDays": 7,
+        "preferredBackupWindow": "03:00-04:00",
+        "preferredMaintenanceWindow": "sun:04:00-sun:05:00",
+        "enablePerformanceInsights": true,
+        "deletionProtection": false
+      },
+      "ecs": {
+        "cpu": 256,
+        "memoryLimitMiB": 512,
+        "desiredCount": 1,
+        "imageVersion": "v1.8.0"
+      },
+      "logging": {
+        "retentionDays": 7
+      },
+      "apiGateway": {
+        "loggingLevel": "INFO",
+        "dataTraceEnabled": false
+      }
     }
   }
 }

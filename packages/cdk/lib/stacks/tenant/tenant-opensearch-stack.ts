@@ -183,7 +183,6 @@ export class TenantOpenSearchStack extends cdk.Stack {
         volumeSize: props.ebsVolumeSize,
         volumeType: props.ebsVolumeType,
       },
-      vpcSubnets: [{ subnets: selectedSubnets }],
       zoneAwareness: {
         enabled: props.availabilityZoneCount > 1,
         availabilityZoneCount:
@@ -195,6 +194,7 @@ export class TenantOpenSearchStack extends cdk.Stack {
         enabled: true,
       },
       nodeToNodeEncryption: true,
+      enforceHttps: true,
       automatedSnapshotStartHour: props.automatedSnapshotStartHour,
       removalPolicy: props.removalPolicy,
       logging: {
