@@ -157,6 +157,21 @@ if (context.ipAccessControl) {
   }
 }
 
+// Validate required configurations
+if (!context.openSearchConfig) {
+  throw new Error('openSearchConfig is required in cdk.tenant.json');
+}
+
+if (!context.networkConfig) {
+  throw new Error('networkConfig is required in cdk.tenant.json');
+}
+
+if (!context.openFgaConfig) {
+  throw new Error(
+    'openFgaConfig is required in cdk.tenant.json. Please add the complete openFgaConfig section with rds, ecs, logging, and apiGateway settings.'
+  );
+}
+
 const params = {
   account: context.account || process.env.CDK_DEFAULT_ACCOUNT,
   region: context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',
@@ -191,6 +206,8 @@ const params = {
     context.controlPlane?.tenantsTableName ||
     `Tenants-${context.environment || 'dev'}`,
   openSearchIndexName: context.openSearchIndexName || 'assistant-docs',
+  openFgaConfig: context.openFgaConfig,
+  controlPlaneLambdaRoleArn: context.controlPlane?.controlPlaneLambdaRoleArn,
 };
 
 createTenantStacks(app, params);

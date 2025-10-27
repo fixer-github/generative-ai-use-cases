@@ -11,6 +11,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
+import { OpenFgaConfig } from '../../create-tenant-stacks';
 
 export interface TenantOpenFgaStackProps extends cdk.StackProps {
   /**
@@ -42,6 +43,11 @@ export interface TenantOpenFgaStackProps extends cdk.StackProps {
    * Control plane Lambda role ARN for cross-account access
    */
   readonly controlPlaneLambdaRoleArn?: string;
+
+  /**
+   * OpenFGA configuration
+   */
+  readonly openFgaConfig: OpenFgaConfig;
 
   /**
    * Description for the stack
@@ -76,6 +82,11 @@ export class TenantOpenFgaStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: TenantOpenFgaStackProps) {
     super(scope, id, props);
+
+    // Validate that openFgaConfig is provided
+    if (!props.openFgaConfig) {
+      throw new Error('openFgaConfig is required in cdk.tenant.json');
+    }
 
     // Create security group for RDS
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'OpenFgaDbSecurityGroup', {
@@ -129,14 +140,45 @@ export class TenantOpenFgaStack extends cdk.Stack {
       }
     );
 
+    // Map storage type string to RDS StorageType enum
+    const storageTypeMap: { [key: string]: rds.StorageType } = {
+      GP3: rds.StorageType.GP3,
+      GP2: rds.StorageType.GP2,
+      IO1: rds.StorageType.IO1,
+      IO2: rds.StorageType.IO2,
+      STANDARD: rds.StorageType.STANDARD,
+    };
+
+    // Map instance class string to EC2 InstanceClass
+    const instanceClassMap: { [key: string]: ec2.InstanceClass } = {
+      T4G: ec2.InstanceClass.T4G,
+      T3: ec2.InstanceClass.T3,
+      M5: ec2.InstanceClass.M5,
+      M6G: ec2.InstanceClass.M6G,
+      R5: ec2.InstanceClass.R5,
+      R6G: ec2.InstanceClass.R6G,
+    };
+
+    // Map instance size string to EC2 InstanceSize
+    const instanceSizeMap: { [key: string]: ec2.InstanceSize } = {
+      MICRO: ec2.InstanceSize.MICRO,
+      SMALL: ec2.InstanceSize.SMALL,
+      MEDIUM: ec2.InstanceSize.MEDIUM,
+      LARGE: ec2.InstanceSize.LARGE,
+      XLARGE: ec2.InstanceSize.XLARGE,
+      XLARGE2: ec2.InstanceSize.XLARGE2,
+      XLARGE4: ec2.InstanceSize.XLARGE4,
+      XLARGE8: ec2.InstanceSize.XLARGE8,
+    };
+
     // Create RDS PostgreSQL instance for OpenFGA
     const dbInstance = new rds.DatabaseInstance(this, 'OpenFgaDatabase', {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_15,
       }),
       instanceType: ec2.InstanceType.of(
-        ec2.InstanceClass.T4G,
-        ec2.InstanceSize.MICRO
+        instanceClassMap[props.openFgaConfig.rds.instanceClass],
+        instanceSizeMap[props.openFgaConfig.rds.instanceSize]
       ),
       vpc: props.vpc,
       vpcSubnets: {
@@ -145,27 +187,21 @@ export class TenantOpenFgaStack extends cdk.Stack {
       securityGroups: [dbSecurityGroup],
       credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
       databaseName: 'openfga',
-      allocatedStorage: 20,
-      maxAllocatedStorage: 100,
-      storageType: rds.StorageType.GP3,
+      allocatedStorage: props.openFgaConfig.rds.allocatedStorage,
+      maxAllocatedStorage: props.openFgaConfig.rds.maxAllocatedStorage,
+      storageType: storageTypeMap[props.openFgaConfig.rds.storageType],
       removalPolicy: props.removalPolicy,
-      deletionProtection: props.removalPolicy === cdk.RemovalPolicy.RETAIN,
-      backupRetention:
-        props.removalPolicy === cdk.RemovalPolicy.RETAIN
-          ? cdk.Duration.days(7)
-          : cdk.Duration.days(1),
-      preferredBackupWindow: '03:00-04:00',
-      preferredMaintenanceWindow: 'sun:04:00-sun:05:00',
-      enablePerformanceInsights: true,
+      deletionProtection: props.openFgaConfig.rds.deletionProtection,
+      backupRetention: cdk.Duration.days(props.openFgaConfig.rds.backupRetentionDays),
+      preferredBackupWindow: props.openFgaConfig.rds.preferredBackupWindow,
+      preferredMaintenanceWindow: props.openFgaConfig.rds.preferredMaintenanceWindow,
+      enablePerformanceInsights: props.openFgaConfig.rds.enablePerformanceInsights,
       performanceInsightRetention:
-        props.removalPolicy === cdk.RemovalPolicy.RETAIN
+        props.openFgaConfig.rds.enablePerformanceInsights
           ? rds.PerformanceInsightRetention.DEFAULT
-          : rds.PerformanceInsightRetention.DEFAULT,
+          : undefined,
       cloudwatchLogsExports: ['postgresql'],
-      cloudwatchLogsRetention:
-        props.removalPolicy === cdk.RemovalPolicy.RETAIN
-          ? logs.RetentionDays.ONE_MONTH
-          : logs.RetentionDays.ONE_WEEK,
+      cloudwatchLogsRetention: this.getLogRetentionDays(props.openFgaConfig.logging.retentionDays),
     });
 
     this.databaseEndpoint = dbInstance.dbInstanceEndpointAddress;
@@ -182,8 +218,8 @@ export class TenantOpenFgaStack extends cdk.Stack {
       this,
       'OpenFgaTaskDefinition',
       {
-        memoryLimitMiB: 512,
-        cpu: 256,
+        memoryLimitMiB: props.openFgaConfig.ecs.memoryLimitMiB,
+        cpu: props.openFgaConfig.ecs.cpu,
       }
     );
 
@@ -192,13 +228,10 @@ export class TenantOpenFgaStack extends cdk.Stack {
 
     // Add OpenFGA container
     const container = taskDefinition.addContainer('OpenFgaContainer', {
-      image: ecs.ContainerImage.fromRegistry('openfga/openfga:v1.8.0'),
+      image: ecs.ContainerImage.fromRegistry(`openfga/openfga:${props.openFgaConfig.ecs.imageVersion}`),
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'openfga',
-        logRetention:
-          props.removalPolicy === cdk.RemovalPolicy.RETAIN
-            ? logs.RetentionDays.ONE_MONTH
-            : logs.RetentionDays.ONE_WEEK,
+        logRetention: this.getLogRetentionDays(props.openFgaConfig.logging.retentionDays),
       }),
       environment: {
         OPENFGA_DATASTORE_ENGINE: 'postgres',
@@ -277,7 +310,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
     const service = new ecs.FargateService(this, 'OpenFgaService', {
       cluster,
       taskDefinition,
-      desiredCount: 1,
+      desiredCount: props.openFgaConfig.ecs.desiredCount,
       assignPublicIp: false,
       vpcSubnets: {
         subnets: props.subnets,
@@ -300,6 +333,13 @@ export class TenantOpenFgaStack extends cdk.Stack {
       vpcLinkName: `${props.environment}-${props.tenantId}-openfga-link`,
     });
 
+    // Map logging level string to API Gateway MethodLoggingLevel
+    const loggingLevelMap: { [key: string]: apigateway.MethodLoggingLevel } = {
+      OFF: apigateway.MethodLoggingLevel.OFF,
+      ERROR: apigateway.MethodLoggingLevel.ERROR,
+      INFO: apigateway.MethodLoggingLevel.INFO,
+    };
+
     // Create HTTP API Gateway
     const api = new apigateway.RestApi(this, 'OpenFgaApi', {
       restApiName: `${props.environment}-${props.tenantId}-openfga-api`,
@@ -309,8 +349,8 @@ export class TenantOpenFgaStack extends cdk.Stack {
       },
       deployOptions: {
         stageName: 'prod',
-        loggingLevel: apigateway.MethodLoggingLevel.INFO,
-        dataTraceEnabled: false,
+        loggingLevel: loggingLevelMap[props.openFgaConfig.apiGateway.loggingLevel] || apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: props.openFgaConfig.apiGateway.dataTraceEnabled,
         metricsEnabled: true,
       },
       defaultCorsPreflightOptions: {
@@ -438,5 +478,32 @@ export class TenantOpenFgaStack extends cdk.Stack {
     this.templateOptions.description =
       props.description ||
       `Creates OpenFGA authorization system for multi-tenant application (tenant: ${props.tenantId})`;
+  }
+
+  /**
+   * Helper method to convert retention days number to logs.RetentionDays enum
+   */
+  private getLogRetentionDays(days: number): logs.RetentionDays {
+    const retentionMap: { [key: number]: logs.RetentionDays } = {
+      1: logs.RetentionDays.ONE_DAY,
+      3: logs.RetentionDays.THREE_DAYS,
+      5: logs.RetentionDays.FIVE_DAYS,
+      7: logs.RetentionDays.ONE_WEEK,
+      14: logs.RetentionDays.TWO_WEEKS,
+      30: logs.RetentionDays.ONE_MONTH,
+      60: logs.RetentionDays.TWO_MONTHS,
+      90: logs.RetentionDays.THREE_MONTHS,
+      120: logs.RetentionDays.FOUR_MONTHS,
+      150: logs.RetentionDays.FIVE_MONTHS,
+      180: logs.RetentionDays.SIX_MONTHS,
+      365: logs.RetentionDays.ONE_YEAR,
+      400: logs.RetentionDays.THIRTEEN_MONTHS,
+      545: logs.RetentionDays.EIGHTEEN_MONTHS,
+      731: logs.RetentionDays.TWO_YEARS,
+      1827: logs.RetentionDays.FIVE_YEARS,
+      3653: logs.RetentionDays.TEN_YEARS,
+    };
+
+    return retentionMap[days] || logs.RetentionDays.ONE_WEEK;
   }
 }

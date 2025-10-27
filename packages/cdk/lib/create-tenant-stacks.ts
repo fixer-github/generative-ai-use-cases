@@ -28,6 +28,34 @@ export interface IpAccessControlConfig {
   allowedIpV6AddressRanges: string[];
 }
 
+export interface OpenFgaConfig {
+  rds: {
+    instanceClass: string;
+    instanceSize: string;
+    allocatedStorage: number;
+    maxAllocatedStorage: number;
+    storageType: string;
+    backupRetentionDays: number;
+    preferredBackupWindow: string;
+    preferredMaintenanceWindow: string;
+    enablePerformanceInsights: boolean;
+    deletionProtection: boolean;
+  };
+  ecs: {
+    cpu: number;
+    memoryLimitMiB: number;
+    desiredCount: number;
+    imageVersion: string;
+  };
+  logging: {
+    retentionDays: number;
+  };
+  apiGateway: {
+    loggingLevel: string;
+    dataTraceEnabled: boolean;
+  };
+}
+
 export interface TenantStackInput {
   account?: string;
   region: string;
@@ -46,6 +74,7 @@ export interface TenantStackInput {
   controlPlaneAccount?: string;
   tenantsTableName?: string;
   openSearchIndexName?: string;
+  openFgaConfig: OpenFgaConfig;
   controlPlaneLambdaRoleArn?: string;
 }
 
@@ -180,6 +209,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
       controlPlaneLambdaRoleArn: params.controlPlaneLambdaRoleArn,
+      openFgaConfig: params.openFgaConfig,
     }
   );
   tenantOpenFgaStack.addDependency(tenantVpcStack);
