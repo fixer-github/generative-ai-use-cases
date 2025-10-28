@@ -70,6 +70,7 @@ describe('createAssistantMessage Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -182,6 +183,7 @@ describe('createAssistantMessage Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -213,6 +215,7 @@ describe('createAssistantMessage Lambda handler', () => {
       ragEnabled: true,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: ['s3://bucket/file.pdf'],
       updatedDate: '1234567890',
     };
@@ -243,6 +246,8 @@ describe('createAssistantMessage Lambda handler', () => {
           contentType: 'application/pdf',
           excerpt: 'Document content here',
           s3Url: 's3://bucket/file.pdf',
+          sourceId: 'test-source-id',
+          sourceType: 'web',
         },
       ],
       metadata: {

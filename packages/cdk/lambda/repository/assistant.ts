@@ -18,6 +18,35 @@ import {
   getAssistantTableName,
 } from './common';
 
+/**
+ * Deep clean an object to remove all undefined values recursively
+ * DynamoDB does not allow undefined values in documents
+ */
+function removeUndefinedValues(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues).filter((item) => item !== undefined);
+  }
+
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        const cleanedValue = removeUndefinedValues(value);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+    }
+    return cleaned;
+  }
+
+  return obj;
+}
+
 export const createAssistant = async (
   _userId: string,
   data: CreateAssistantRequest,
@@ -39,9 +68,13 @@ export const createAssistant = async (
     ragEnabled: data.ragEnabled,
     syncStatus: 'QUEUED',
     syncStatusReason: '',
-    s3Urls: data.s3Urls || [],
+    knowledgeSources: data.knowledgeSources || [],
+    ...(data.s3Urls && { s3Urls: data.s3Urls }),
     updatedDate: now,
   };
+
+  // Deep clean to remove all undefined values
+  const cleanedItem = removeUndefinedValues(item);
 
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getAssistantTableName(event);
@@ -49,12 +82,12 @@ export const createAssistant = async (
   await dynamoDbDocument.send(
     new PutCommand({
       TableName: tableName,
-      Item: item,
+      Item: cleanedItem,
     })
   );
 
-  return item;
-};
+  return cleanedItem as Assistant;
+};;;
 
 export const listAssistants = async (
   _userId: string,
@@ -175,6 +208,13 @@ export const updateAssistant = async (
     expressionAttributeNames['#ragEnabled'] = 'ragEnabled';
     expressionAttributeValues[':ragEnabled'] = updates.ragEnabled;
   }
+  if (updates.knowledgeSources !== undefined) {
+    updateExpressions.push('#knowledgeSources = :knowledgeSources');
+    expressionAttributeNames['#knowledgeSources'] = 'knowledgeSources';
+    expressionAttributeValues[':knowledgeSources'] = removeUndefinedValues(
+      updates.knowledgeSources
+    );
+  }
   if (updates.s3Urls !== undefined) {
     updateExpressions.push('#s3Urls = :s3Urls');
     expressionAttributeNames['#s3Urls'] = 's3Urls';
@@ -201,7 +241,64 @@ export const updateAssistant = async (
   );
 
   return res.Attributes as Assistant;
-};
+};;;
+
+/**
+ * Update the status of a specific knowledge source
+ * Used during document ingestion to track per-source progress
+ *
+ * Uses primary key to avoid GSI eventual consistency issues immediately after creation
+ * IMPORTANT: Mutates the assistant.knowledgeSources array to prevent stale updates
+ */
+export const updateKnowledgeSourceStatus = async (
+  assistant: Assistant,
+  sourceId: string,
+  status: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED',
+  error: string | undefined,
+  event: APIGatewayProxyEvent
+): Promise<void> => {
+  // Update the specific knowledge source
+  const updatedSources = (assistant.knowledgeSources || []).map((source) => {
+    if (source.id === sourceId) {
+      const updated: any = { ...source, status };
+      if (error !== undefined) {
+        updated.error = error;
+      }
+      return updated;
+    }
+    return source;
+  });
+
+  // Deep clean to remove all undefined values
+  const cleanedSources = removeUndefinedValues(updatedSources);
+
+  // Save updated sources using primary key (avoids GSI lookup)
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getAssistantTableName(event);
+
+  await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        userId: assistant.id,
+        createdDate: assistant.createdDate,
+      },
+      UpdateExpression:
+        'SET #knowledgeSources = :knowledgeSources, #updatedDate = :updatedDate',
+      ExpressionAttributeNames: {
+        '#knowledgeSources': 'knowledgeSources',
+        '#updatedDate': 'updatedDate',
+      },
+      ExpressionAttributeValues: {
+        ':knowledgeSources': cleanedSources,
+        ':updatedDate': Date.now().toString(),
+      },
+    })
+  );
+
+  // Update in-memory object to prevent stale writes on subsequent calls
+  assistant.knowledgeSources = cleanedSources;
+};;;
 
 export const deleteAssistant = async (
   _assistantId: string,

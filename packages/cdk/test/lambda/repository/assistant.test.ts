@@ -152,6 +152,7 @@ describe('assistant repository', () => {
           ragEnabled: false,
           syncStatus: 'SUCCEEDED',
           syncStatusReason: '',
+          knowledgeSources: [],
           s3Urls: [],
           updatedDate: '1234567890',
         },
@@ -167,6 +168,7 @@ describe('assistant repository', () => {
           ragEnabled: true,
           syncStatus: 'QUEUED',
           syncStatusReason: '',
+          knowledgeSources: [],
           s3Urls: ['s3://bucket/file.pdf'],
           updatedDate: '1234567891',
         },
@@ -248,6 +250,7 @@ describe('assistant repository', () => {
         ragEnabled: false,
         syncStatus: 'SUCCEEDED',
         syncStatusReason: '',
+        knowledgeSources: [],
         s3Urls: [],
         updatedDate: '1234567890',
       };
@@ -309,6 +312,7 @@ describe('assistant repository', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -433,6 +437,7 @@ describe('assistant repository', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };

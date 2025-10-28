@@ -1,3 +1,13 @@
+export type KnowledgeSource = {
+  id: string;
+  type: 'file' | 'web';
+  displayName: string;
+  storageKey?: string; // S3 key for files
+  sourceUrl?: string; // Original URL for web
+  status: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED';
+  error?: string;
+};
+
 export type Assistant = {
   id: string; // userId - partition key
   createdDate: string; // sort key
@@ -10,7 +20,8 @@ export type Assistant = {
   ragEnabled: boolean;
   syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED';
   syncStatusReason: string;
-  s3Urls: string[];
+  knowledgeSources: KnowledgeSource[];
+  s3Urls?: string[]; // Deprecated - for backward compatibility during migration
   updatedDate: string;
 };
 
@@ -33,10 +44,14 @@ export type AssistantMessage = {
 };
 
 export type AssistantMessageSource = {
+  sourceId: string;
+  sourceType: 'file' | 'web';
   content: string;
   contentType: string;
   excerpt: string;
-  s3Url: string;
+  sourceUrl?: string; // Original URL for web sources
+  storageKey?: string; // S3 key for file sources
+  s3Url?: string; // Deprecated - for backward compatibility
 };
 
 export type CreateAssistantRequest = {
@@ -45,7 +60,8 @@ export type CreateAssistantRequest = {
   instruction: string;
   modelId: string;
   ragEnabled: boolean;
-  s3Urls?: string[];
+  knowledgeSources?: KnowledgeSource[];
+  s3Urls?: string[]; // Deprecated - for backward compatibility
 };
 
 export type UpdateAssistantRequest = {
@@ -54,7 +70,8 @@ export type UpdateAssistantRequest = {
   instruction?: string;
   modelId?: string;
   ragEnabled?: boolean;
-  s3Urls?: string[];
+  knowledgeSources?: KnowledgeSource[];
+  s3Urls?: string[]; // Deprecated - for backward compatibility
 };
 
 export type CreateAssistantMessageRequest = {

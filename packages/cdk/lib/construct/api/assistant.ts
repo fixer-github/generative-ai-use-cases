@@ -9,6 +9,8 @@ import {
   ASSISTANT_MESSAGES_TABLE_PREFIX,
 } from './const';
 import { GenericApiProps } from './props';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export type AssistantApiProps = GenericApiProps;
 
@@ -27,6 +29,7 @@ class AssistantApi extends Construct {
       assistantTable,
       assistantMessagesTable,
       tenantManager,
+      fileBucket,
     } = props;
 
     const assistantResource = api.root.addResource('assistant');
@@ -42,8 +45,8 @@ class AssistantApi extends Construct {
         ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
         DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME:
           assistantMessagesTable.tableName,
-        OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
         OPENSEARCH_INDEX: 'assistant-docs',
+        ASSISTANT_FILES_BUCKET_NAME: fileBucket?.bucketName || '',
       }),
     });
 
@@ -52,9 +55,30 @@ class AssistantApi extends Construct {
     assistantMessagesTable.grantReadWriteData(assistantHandler);
 
     // Grant S3 read permissions for document loading (create/update operations)
-    if (props.fileBucket) {
-      props.fileBucket.grantRead(assistantHandler);
+    // Used for both legacy S3 URLs and new assistant file uploads
+    if (fileBucket) {
+      fileBucket.grantRead(assistantHandler);
     }
+
+    // Grant Bedrock permissions for document embeddings (RAG indexing)
+    if (props.bedrockPolicy) {
+      assistantHandler.addToRolePolicy(props.bedrockPolicy);
+    }
+
+    // Grant OpenSearch permissions for tenant OpenSearch domains (cross-account)
+    assistantHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'es:ESHttpGet',
+          'es:ESHttpPost',
+          'es:ESHttpPut',
+          'es:ESHttpDelete',
+          'es:ESHttpHead',
+        ],
+        resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+      })
+    );
 
     // Consolidated handler for all message operations
     const assistantMessageHandler = new NodejsFunction(
@@ -71,7 +95,6 @@ class AssistantApi extends Construct {
           DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME:
             assistantMessagesTable.tableName,
           MODEL_REGION: props.modelRegion,
-          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
           OPENSEARCH_INDEX: 'assistant-docs',
         }),
       }
@@ -85,6 +108,21 @@ class AssistantApi extends Construct {
     if (props.bedrockPolicy) {
       assistantMessageHandler.addToRolePolicy(props.bedrockPolicy);
     }
+
+    // Grant OpenSearch permissions for tenant OpenSearch domains (cross-account)
+    assistantMessageHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'es:ESHttpGet',
+          'es:ESHttpPost',
+          'es:ESHttpPut',
+          'es:ESHttpDelete',
+          'es:ESHttpHead',
+        ],
+        resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+      })
+    );
 
     // API Gateway routes - All route to consolidated handlers
     // POST: /assistant → assistantHandler (create)
@@ -139,6 +177,34 @@ class AssistantApi extends Construct {
       new LambdaIntegration(assistantMessageHandler),
       commonAuthorizerProps
     );
+
+    // File upload endpoint: POST /assistant/upload-url
+    if (fileBucket) {
+      const uploadHandler = new NodejsFunction(this, 'AssistantFileUploadHandler', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/assistantFileUpload.ts',
+        timeout: Duration.seconds(30),
+        environment: getBaseEnvironment(this, props, {
+          ASSISTANT_FILES_BUCKET_NAME: fileBucket.bucketName,
+        }),
+      });
+
+      // Grant write permissions to upload handler
+      fileBucket.grantPut(uploadHandler);
+
+      // Grant tenant table read permissions for tenant-aware S3 access
+      if (tenantManager) {
+        tenantManager.tenantsTable.grantReadData(uploadHandler);
+      }
+
+      // Create /assistant/upload-url endpoint
+      const uploadUrlResource = assistantResource.addResource('upload-url');
+      uploadUrlResource.addMethod(
+        'POST',
+        new LambdaIntegration(uploadHandler),
+        commonAuthorizerProps
+      );
+    }
 
     // Grant tenant table read permissions if tenant manager exists
     if (tenantManager) {

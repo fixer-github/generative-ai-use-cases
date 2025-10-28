@@ -38,7 +38,6 @@ import PredictApi from './predict';
 import OptimizePromptApi from './optimize-prompt';
 import InvokeFlowApi from './invoke-flow';
 import ChatApi from './chats';
-import AssistantApi from './assistant';
 import ImageApi from './image';
 import SystemContextApi from './systemcontexts';
 import TokenUsageApi from './token-usage';
@@ -353,7 +352,7 @@ export class Api extends Construct {
     );
 
     new ChatApi(this, 'ChatsAPI', apiProps);
-    new AssistantApi(this, 'AssistantAPI', apiProps);
+    // AssistantApi moved to nested stack (AssistantApiStack) to reduce resource count
     const fileApi = new FileApi(this, 'FileAPI', apiProps);
     new ImageApi(this, 'ImageAPI', apiProps);
     const invokeFlowApi = new InvokeFlowApi(this, 'InvokeFlowAPI', apiProps);

@@ -27,6 +27,7 @@
       "availabilityZoneCount": 1,
       "automatedSnapshotStartHour": 0
     },
+    "openSearchEndpoint": "search-YOUR-OPENSEARCH-DOMAIN.us-east-1.es.amazonaws.com",
     "networkConfig": {
       "vpcCidr": "10.0.0.0/16",
       "maxAzs": 1,

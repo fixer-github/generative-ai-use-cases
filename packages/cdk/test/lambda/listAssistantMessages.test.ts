@@ -53,6 +53,7 @@ describe('listAssistantMessages Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -138,6 +139,7 @@ describe('listAssistantMessages Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -168,6 +170,7 @@ describe('listAssistantMessages Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -211,6 +214,7 @@ describe('listAssistantMessages Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -250,6 +254,7 @@ describe('listAssistantMessages Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };

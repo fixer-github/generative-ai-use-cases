@@ -96,6 +96,8 @@ describe('assistantMessage repository', () => {
           contentType: 'text/plain',
           excerpt: 'Excerpt',
           s3Url: 's3://bucket/file.pdf',
+          sourceId: 'test-source-id',
+          sourceType: 'web',
         },
       ];
       const metadata = {

@@ -136,12 +136,18 @@ async function handleCreateMessage(
   let ragContext = '';
   let sources: AssistantMessageSource[] = [];
 
-  if (assistant.ragEnabled && assistant.s3Urls && assistant.s3Urls.length > 0) {
+  // Check if RAG is enabled and sources exist (new knowledgeSources or legacy s3Urls)
+  const hasKnowledgeSources =
+    assistant.knowledgeSources && assistant.knowledgeSources.length > 0;
+  const hasLegacyS3Urls = assistant.s3Urls && assistant.s3Urls.length > 0;
+
+  if (assistant.ragEnabled && (hasKnowledgeSources || hasLegacyS3Urls)) {
     try {
       // Query vector store for relevant context
       const relevantDocs = await similaritySearch(
         assistantId.replace('assistant#', ''),
         body.content,
+        event,
         5 // top 5 most relevant documents
       );
 
@@ -150,12 +156,33 @@ async function handleCreateMessage(
         .map((doc, idx) => `[Source ${idx + 1}]\n${doc.pageContent}`)
         .join('\n\n');
 
-      sources = relevantDocs.map((doc) => ({
-        content: doc.pageContent,
-        contentType: doc.metadata.contentType || 'text/plain',
-        excerpt: doc.pageContent.substring(0, 200),
-        s3Url: doc.metadata.s3Url || '',
-      }));
+      sources = relevantDocs.map((doc) => {
+        const sourceId = doc.metadata.sourceId || '';
+        const sourceType = doc.metadata.sourceType || 'file';
+
+        // Build the source object based on available metadata
+        const source: AssistantMessageSource = {
+          sourceId,
+          sourceType,
+          content: doc.pageContent,
+          contentType: doc.metadata.contentType || 'text/plain',
+          excerpt: doc.pageContent.substring(0, 200),
+        };
+
+        // Add type-specific fields
+        if (sourceType === 'web' && doc.metadata.sourceUrl) {
+          source.sourceUrl = doc.metadata.sourceUrl;
+        } else if (sourceType === 'file' && doc.metadata.storageKey) {
+          source.storageKey = doc.metadata.storageKey;
+        }
+
+        // Keep legacy s3Url for backward compatibility
+        if (doc.metadata.s3Url) {
+          source.s3Url = doc.metadata.s3Url;
+        }
+
+        return source;
+      });
     } catch (error) {
       console.error('RAG retrieval error:', error);
       // Continue without RAG if it fails

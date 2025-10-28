@@ -5,10 +5,11 @@ import {
   getAssistant,
   updateAssistant,
   deleteAssistant,
+  updateKnowledgeSourceStatus,
 } from './repository/assistant';
 import { deleteMessagesForAssistant } from './repository/assistantMessage';
 import {
-  loadDocumentsFromS3,
+  loadDocuments,
   chunkDocuments,
   addMetadata,
 } from './utils/documentLoader';
@@ -128,39 +129,77 @@ async function handleCreate(
 
   const assistant = await createAssistant(userId, body, event);
 
-  // If RAG is enabled and S3 URLs are provided, ingest documents
-  if (body.ragEnabled && body.s3Urls && body.s3Urls.length > 0) {
-    try {
-      console.log(
-        `Starting document ingestion for assistant ${assistant.assistantId}`
-      );
+  // If RAG is enabled and knowledge sources are provided, ingest documents
+  if (
+    body.ragEnabled &&
+    body.knowledgeSources &&
+    body.knowledgeSources.length > 0
+  ) {
+    const cleanAssistantId = assistant.assistantId.replace('assistant#', '');
 
-      // Load documents from S3
-      const documents = await loadDocumentsFromS3(body.s3Urls);
+    // Process each knowledge source individually to track status per-source
+    for (const source of body.knowledgeSources) {
+      try {
+        console.log(
+          `Processing knowledge source ${source.id} for assistant ${cleanAssistantId}`
+        );
 
-      // Chunk documents
-      const chunks = await chunkDocuments(documents, 1000, 200);
+        // Update status to SYNCING
+        await updateKnowledgeSourceStatus(
+          assistant,
+          source.id,
+          'SYNCING',
+          undefined,
+          event
+        );
 
-      // Add metadata
-      const docsWithMetadata = addMetadata(
-        chunks,
-        assistant.assistantId.replace('assistant#', ''),
-        userId
-      );
+        // Load document for this source
+        const documents = await loadDocuments([source], userId, event);
 
-      // Index to OpenSearch
-      await indexDocuments(
-        assistant.assistantId.replace('assistant#', ''),
-        docsWithMetadata
-      );
+        // Chunk documents
+        const chunks = await chunkDocuments(documents, 1000, 200);
 
-      console.log(
-        `Successfully ingested documents for assistant ${assistant.assistantId}`
-      );
-    } catch (error) {
-      console.error('Error ingesting documents:', error);
-      // Don't fail the assistant creation if document ingestion fails
-      // The assistant will still be created but RAG won't work until documents are indexed
+        // Add metadata
+        const docsWithMetadata = addMetadata(chunks, cleanAssistantId, userId);
+
+        // Index to OpenSearch
+        await indexDocuments(cleanAssistantId, docsWithMetadata, event);
+
+        // Update status to SUCCEEDED
+        await updateKnowledgeSourceStatus(
+          assistant,
+          source.id,
+          'SUCCEEDED',
+          undefined,
+          event
+        );
+
+        console.log(
+          `Successfully ingested knowledge source ${source.id} for assistant ${cleanAssistantId}`
+        );
+      } catch (error) {
+        console.error(
+          `Error ingesting knowledge source ${source.id}:`,
+          error
+        );
+
+        // Update status to FAILED with error message
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        await updateKnowledgeSourceStatus(
+          assistant,
+          source.id,
+          'FAILED',
+          errorMessage,
+          event
+        ).catch((statusError) => {
+          // Don't fail if status update fails
+          console.error('Failed to update source status:', statusError);
+        });
+
+        // Don't fail the assistant creation if one source fails
+        // Continue processing other sources
+      }
     }
   }
 
@@ -242,35 +281,98 @@ async function handleUpdate(
   try {
     const assistant = await updateAssistant(assistantId, userId, body, event);
 
-    // If S3 URLs were updated and RAG is enabled, re-index documents
-    if (body.s3Urls !== undefined && assistant.ragEnabled) {
-      try {
-        console.log(`Re-indexing documents for assistant ${assistantId}`);
+    // If knowledge sources were updated and RAG is enabled, re-index documents
+    if (body.knowledgeSources !== undefined && assistant.ragEnabled) {
+      console.log(`Re-indexing documents for assistant ${assistantId}`);
 
-        // Delete old documents first
-        await deleteAssistantDocuments(assistantId);
+      // KNOWN LIMITATION: We delete old documents before indexing new ones.
+      // If ALL sources fail to index, the assistant will have no documents.
+      // Proper solutions would require:
+      // 1. Adding sync timestamps to documents and deleting only older versions
+      // 2. Implementing async job queue with rollback capability
+      // 3. Using temporary index with atomic swap
+      await deleteAssistantDocuments(assistantId, event);
 
-        // If new S3 URLs are provided, index them
-        if (body.s3Urls && body.s3Urls.length > 0) {
-          // Load documents from S3
-          const documents = await loadDocumentsFromS3(body.s3Urls);
+      // If new knowledge sources are provided, index them
+      if (body.knowledgeSources && body.knowledgeSources.length > 0) {
+        let hasAnySuccess = false;
+        let lastError: Error | undefined;
 
-          // Chunk documents
-          const chunks = await chunkDocuments(documents, 1000, 200);
+        // Process each knowledge source individually to track status per-source
+        for (const source of body.knowledgeSources) {
+          try {
+            console.log(
+              `Processing knowledge source ${source.id} for assistant ${assistantId}`
+            );
 
-          // Add metadata
-          const docsWithMetadata = addMetadata(chunks, assistantId, userId);
+            // Update status to SYNCING
+            await updateKnowledgeSourceStatus(
+              assistant,
+              source.id,
+              'SYNCING',
+              undefined,
+              event
+            );
 
-          // Index to OpenSearch
-          await indexDocuments(assistantId, docsWithMetadata);
+            // Load document for this source
+            const documents = await loadDocuments([source], userId, event);
 
-          console.log(
-            `Successfully re-indexed documents for assistant ${assistantId}`
+            // Chunk documents
+            const chunks = await chunkDocuments(documents, 1000, 200);
+
+            // Add metadata
+            const docsWithMetadata = addMetadata(chunks, assistantId, userId);
+
+            // Index to OpenSearch
+            await indexDocuments(assistantId, docsWithMetadata, event);
+
+            // Update status to SUCCEEDED
+            await updateKnowledgeSourceStatus(
+              assistant,
+              source.id,
+              'SUCCEEDED',
+              undefined,
+              event
+            );
+
+            hasAnySuccess = true;
+            console.log(
+              `Successfully re-indexed knowledge source ${source.id} for assistant ${assistantId}`
+            );
+          } catch (error) {
+            console.error(
+              `Error re-indexing knowledge source ${source.id}:`,
+              error
+            );
+
+            // Update status to FAILED with error message
+            const errorMessage =
+              error instanceof Error ? error.message : 'Unknown error';
+            await updateKnowledgeSourceStatus(
+              assistant,
+              source.id,
+              'FAILED',
+              errorMessage,
+              event
+            ).catch((statusError) => {
+              // Don't fail if status update fails
+              console.error('Failed to update source status:', statusError);
+            });
+
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+          }
+        }
+
+        // If all sources failed, throw error to surface to user
+        if (!hasAnySuccess && lastError) {
+          throw new Error(
+            `Failed to re-index all knowledge sources. Last error: ${lastError.message}`
           );
         }
-      } catch (error) {
-        console.error('Error re-indexing documents:', error);
-        // Don't fail the assistant update if document indexing fails
+      } else {
+        console.log(
+          `Cleared all documents for assistant ${assistantId} (no new sources)`
+        );
       }
     }
 
@@ -315,7 +417,7 @@ async function handleDelete(
 
     // Delete all indexed documents from OpenSearch
     try {
-      await deleteAssistantDocuments(assistantId);
+      await deleteAssistantDocuments(assistantId, event);
       console.log(
         `Deleted OpenSearch documents for assistant ${assistantId}`
       );

@@ -126,6 +126,27 @@ const useAssistantApi = () => {
     []
   );
 
+  const requestUploadUrl = useCallback(
+    async (fileName: string, fileSize: number, contentType: string) => {
+      try {
+        const response = await assistantApi.post<{
+          uploadUrl: string;
+          storageKey: string;
+          expiresIn: number;
+        }>('/upload-url', {
+          fileName,
+          fileSize,
+          contentType,
+        });
+        return response.data;
+      } catch (error) {
+        console.error('Upload URL request failed:', error);
+        throw error;
+      }
+    },
+    []
+  );
+
   return {
     listAssistants,
     getAssistant,
@@ -134,6 +155,7 @@ const useAssistantApi = () => {
     deleteAssistant,
     listMessages,
     createMessage,
+    requestUploadUrl,
   };
 };
 

@@ -47,6 +47,7 @@ describe('getAssistant Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
@@ -98,6 +99,7 @@ describe('getAssistant Lambda handler', () => {
       ragEnabled: false,
       syncStatus: 'SUCCEEDED',
       syncStatusReason: '',
+      knowledgeSources: [],
       s3Urls: [],
       updatedDate: '1234567890',
     };
