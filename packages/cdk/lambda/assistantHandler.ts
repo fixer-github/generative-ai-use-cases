@@ -17,14 +17,27 @@ import {
   deleteAssistantDocuments,
 } from './repository/assistantSearch';
 import {
+  Assistant,
   CreateAssistantRequest,
   UpdateAssistantRequest,
+  ListAssistantsResponse,
 } from 'generative-ai-use-cases';
 
 const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
 };
+
+/**
+ * Helper function to strip the "assistant#" prefix from assistantId
+ * Internal storage uses "assistant#<uuid>" format, but API returns clean UUID
+ */
+function stripAssistantPrefix(assistant: Assistant): Assistant {
+  return {
+    ...assistant,
+    assistantId: assistant.assistantId.replace('assistant#', ''),
+  };
+}
 
 /**
  * Consolidated handler for all assistant CRUD operations
@@ -154,7 +167,7 @@ async function handleCreate(
   return {
     statusCode: 201,
     headers,
-    body: JSON.stringify(assistant),
+    body: JSON.stringify(stripAssistantPrefix(assistant)),
   };
 }
 
@@ -169,10 +182,16 @@ async function handleList(
 
   const result = await listAssistants(userId, event, exclusiveStartKey);
 
+  // Strip prefix from all assistants
+  const sanitizedResult: ListAssistantsResponse = {
+    ...result,
+    assistants: result.assistants.map(stripAssistantPrefix),
+  };
+
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(result),
+    body: JSON.stringify(sanitizedResult),
   };
 }
 
@@ -206,7 +225,7 @@ async function handleGet(
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(assistant),
+    body: JSON.stringify(stripAssistantPrefix(assistant)),
   };
 }
 
@@ -258,7 +277,7 @@ async function handleUpdate(
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(assistant),
+      body: JSON.stringify(stripAssistantPrefix(assistant)),
     };
   } catch (error: any) {
     if (error.message === 'Assistant not found') {

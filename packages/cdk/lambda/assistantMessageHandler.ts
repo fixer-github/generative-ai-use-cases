@@ -3,7 +3,9 @@ import { getAssistant } from './repository/assistant';
 import { createMessage, listMessages } from './repository/assistantMessage';
 import {
   CreateAssistantMessageRequest,
+  AssistantMessage,
   AssistantMessageSource,
+  ListAssistantMessagesResponse,
 } from 'generative-ai-use-cases';
 import {
   BedrockRuntimeClient,
@@ -19,6 +21,19 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
 };
+
+/**
+ * Helper function to strip the "assistant#" prefix from assistantId in messages
+ * Internal storage uses "assistant#<uuid>" format, but API returns clean UUID
+ */
+function stripAssistantPrefixFromMessage(
+  message: AssistantMessage
+): AssistantMessage {
+  return {
+    ...message,
+    assistantId: message.assistantId.replace('assistant#', ''),
+  };
+}
 
 /**
  * Consolidated handler for assistant message operations
@@ -197,7 +212,7 @@ async function handleCreateMessage(
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(assistantMessage),
+    body: JSON.stringify(stripAssistantPrefixFromMessage(assistantMessage)),
   };
 }
 
@@ -236,9 +251,15 @@ async function handleListMessages(
 
   const result = await listMessages(assistantId, event, exclusiveStartKey, limit);
 
+  // Strip prefix from all messages
+  const sanitizedResult: ListAssistantMessagesResponse = {
+    ...result,
+    messages: result.messages.map(stripAssistantPrefixFromMessage),
+  };
+
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(result),
+    body: JSON.stringify(sanitizedResult),
   };
 }

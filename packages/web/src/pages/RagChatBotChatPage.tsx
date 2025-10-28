@@ -75,7 +75,8 @@ const RagChatBotChatPage: React.FC = () => {
       const { messages: fetchedMessages } = await listMessages(assistantId, {
         limit: 100,
       });
-      setMessages(fetchedMessages || []);
+      // Backend returns newest first, reverse to show oldest first (traditional chat order)
+      setMessages(fetchedMessages?.reverse() || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }

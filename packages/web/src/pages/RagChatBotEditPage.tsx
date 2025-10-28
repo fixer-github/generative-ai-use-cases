@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PiArrowLeft, PiFloppyDisk, PiPlus, PiTrash } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
+import { MODELS } from '../hooks/useModel';
 import type {
   CreateAssistantRequest,
   UpdateAssistantRequest,
@@ -30,7 +31,7 @@ const RagChatBotEditPage: React.FC = () => {
     name: '',
     description: '',
     instruction: '',
-    modelId: 'anthropic.claude-v4-sonnet',
+    modelId: MODELS.textModels[0]?.modelId || '',
     ragEnabled: false,
     s3Urls: [],
   });
@@ -191,14 +192,11 @@ const RagChatBotEditPage: React.FC = () => {
                 setFormData({ ...formData, modelId: e.target.value })
               }
               className="w-full rounded border border-black/30 p-2 outline-none">
-              <option value="anthropic.claude-v4-sonnet">
-                Claude 4 Sonnet
-              </option>
-              <option value="anthropic.claude-v3-5-sonnet">
-                Claude 3.5 Sonnet
-              </option>
-              <option value="anthropic.claude-v3-opus">Claude 3 Opus</option>
-              <option value="anthropic.claude-v3-haiku">Claude 3 Haiku</option>
+              {MODELS.textModels.map((model) => (
+                <option key={model.modelId} value={model.modelId}>
+                  {MODELS.modelDisplayName(model.modelId)}
+                </option>
+              ))}
             </select>
           </div>
 
