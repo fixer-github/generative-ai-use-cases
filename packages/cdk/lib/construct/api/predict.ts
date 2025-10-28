@@ -3,7 +3,7 @@ import { GenericApiProps } from './props';
 import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
 
 export type PredictApiProps = GenericApiProps;
@@ -86,6 +86,8 @@ class PredictApi extends Construct {
       environment: {
         USER_POOL_ID: userPool.userPoolId,
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        IDENTITY_POOL_ID: idPool.identityPoolId,
+        AWS_ACCOUNT_ID: Stack.of(this).account!,
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),

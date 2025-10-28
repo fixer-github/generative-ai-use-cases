@@ -17,23 +17,21 @@ const RETRY_DELAY_MS = 1000;
 const SESSION_DURATION_SECONDS = 3600;
 
 /**
- * Assume role using Identity Pool token exchange from Cognito User Pool JWT
+ * Internal helper: Assume role using Identity Pool token exchange from Cognito User Pool JWT
  * Exchange User Pool JWT → Identity Pool token → AssumeRoleWithWebIdentity
+ *
+ * @param userPoolToken - Cognito User Pool ID token (JWT)
+ * @param tenantId - Tenant identifier for logging and session naming
+ * @param userId - User identifier for logging and session naming
+ * @param roleArn - ARN of the role to assume
+ * @returns Temporary AWS credentials
  */
 export async function assumeRoleWithWebIdentity(
-  event: APIGatewayProxyEvent,
+  userPoolToken: string,
+  tenantId: string,
+  userId: string,
   roleArn: string
 ): Promise<Credentials> {
-  // Extract tenant ID and user ID from claims
-  const tenantId = getTenantId(event);
-  const userId = getUsername(event);
-
-  // Extract User Pool JWT token from Authorization header
-  const userPoolToken = event.headers.Authorization;
-  if (!userPoolToken) {
-    throw new Error('No valid authorization token found');
-  }
-
   // Get environment variables
   const identityPoolId = process.env.IDENTITY_POOL_ID;
   const userPoolId = process.env.USER_POOL_ID;

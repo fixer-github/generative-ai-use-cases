@@ -4,7 +4,11 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { extractTenantId } from './assumeRoleWithWebIdentity';
-import { getTenantCredentials } from './tenantCredentials';
+import {
+  getTenantCredentials,
+  getTenantCredentialsFromToken,
+} from './tenantCredentials';
+import { verifyToken } from './auth';
 
 // Cache for authorization results (short TTL)
 const authCache = new Map<
@@ -172,7 +176,7 @@ export class OpenFgaClient {
 }
 
 /**
- * Create an OpenFGA client for the current tenant
+ * Create an OpenFGA client for the current tenant (from API Gateway event)
  */
 export async function createOpenFgaClient(
   event: APIGatewayProxyEvent
@@ -181,6 +185,39 @@ export async function createOpenFgaClient(
 
   // Get tenant credentials and tenant info in one call
   const { credentials, tenant } = await getTenantCredentials(event);
+
+  return new OpenFgaClient(
+    tenantId,
+    tenant.openFgaApiEndpoint,
+    tenant.openFgaApiRegion || tenant.region,
+    credentials,
+    tenant.openFgaStoreId
+  );
+}
+
+/**
+ * Create an OpenFGA client from ID token (for use with PredictStream and similar functions)
+ * Verifies the JWT token and extracts tenant information to create the client
+ *
+ * @param idToken - Cognito User Pool ID token (JWT)
+ * @returns OpenFGA client instance for authorization checks
+ */
+export async function createOpenFgaClientFromToken(
+  idToken: string
+): Promise<OpenFgaClient> {
+  // Verify token and extract tenant ID
+  const payload = await verifyToken(idToken);
+  if (!payload) {
+    throw new Error('Invalid or expired ID token');
+  }
+
+  const tenantId = payload['custom:tenant_id'];
+  if (!tenantId) {
+    throw new Error('Tenant ID not found in ID token claims');
+  }
+
+  // Get tenant credentials and tenant info in one call
+  const { credentials, tenant } = await getTenantCredentialsFromToken(idToken);
 
   return new OpenFgaClient(
     tenantId,
