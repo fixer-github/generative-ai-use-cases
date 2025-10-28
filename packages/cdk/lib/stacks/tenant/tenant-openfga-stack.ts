@@ -8,6 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
@@ -58,6 +59,30 @@ export interface TenantOpenFgaStackProps extends cdk.StackProps {
 /**
  * Stack that creates OpenFGA authorization system for a tenant
  * This includes RDS PostgreSQL, ECS Fargate, NLB, and API Gateway
+ *
+ * Architecture:
+ * 1. Database Migration (one-time, before ECS service starts):
+ *    - Custom Resource Lambda triggers ECS RunTask with 'openfga migrate'
+ *    - Initializes PostgreSQL schema using goose migration tool
+ *    - Idempotent: safe to run multiple times
+ *
+ * 2. Application Server (ECS Fargate Service):
+ *    - Runs 'openfga run' command
+ *    - Serves HTTP (port 8080) and gRPC (port 8081) APIs
+ *    - Auto-scales based on configuration
+ *
+ * 3. Schema Initialization (after service is healthy):
+ *    - Custom Resource creates OpenFGA Store
+ *    - Registers authorization model type definitions
+ *    - Application-layer setup (separate from database schema)
+ *
+ * Deployment Order:
+ *   RDS Instance → Migration (Custom Resource) → ECS Service → Schema Init (Custom Resource)
+ *
+ * Based on OpenFGA official recommendations:
+ * - Separate 'migrate' from 'run' (Docker Compose pattern)
+ * - No /bin/sh in official image (distroless)
+ * - Use command array, not shell strings
  */
 export class TenantOpenFgaStack extends cdk.Stack {
   /**
@@ -89,11 +114,15 @@ export class TenantOpenFgaStack extends cdk.Stack {
     }
 
     // Create security group for RDS
-    const dbSecurityGroup = new ec2.SecurityGroup(this, 'OpenFgaDbSecurityGroup', {
-      vpc: props.vpc,
-      description: `Security group for OpenFGA PostgreSQL database (tenant: ${props.tenantId})`,
-      allowAllOutbound: false,
-    });
+    const dbSecurityGroup = new ec2.SecurityGroup(
+      this,
+      'OpenFgaDbSecurityGroup',
+      {
+        vpc: props.vpc,
+        description: `Security group for OpenFGA PostgreSQL database (tenant: ${props.tenantId})`,
+        allowAllOutbound: false,
+      }
+    );
 
     // Create security group for ECS
     const ecsSecurityGroup = new ec2.SecurityGroup(
@@ -192,16 +221,22 @@ export class TenantOpenFgaStack extends cdk.Stack {
       storageType: storageTypeMap[props.openFgaConfig.rds.storageType],
       removalPolicy: props.removalPolicy,
       deletionProtection: props.openFgaConfig.rds.deletionProtection,
-      backupRetention: cdk.Duration.days(props.openFgaConfig.rds.backupRetentionDays),
+      backupRetention: cdk.Duration.days(
+        props.openFgaConfig.rds.backupRetentionDays
+      ),
       preferredBackupWindow: props.openFgaConfig.rds.preferredBackupWindow,
-      preferredMaintenanceWindow: props.openFgaConfig.rds.preferredMaintenanceWindow,
-      enablePerformanceInsights: props.openFgaConfig.rds.enablePerformanceInsights,
-      performanceInsightRetention:
-        props.openFgaConfig.rds.enablePerformanceInsights
-          ? rds.PerformanceInsightRetention.DEFAULT
-          : undefined,
+      preferredMaintenanceWindow:
+        props.openFgaConfig.rds.preferredMaintenanceWindow,
+      enablePerformanceInsights:
+        props.openFgaConfig.rds.enablePerformanceInsights,
+      performanceInsightRetention: props.openFgaConfig.rds
+        .enablePerformanceInsights
+        ? rds.PerformanceInsightRetention.DEFAULT
+        : undefined,
       cloudwatchLogsExports: ['postgresql'],
-      cloudwatchLogsRetention: this.getLogRetentionDays(props.openFgaConfig.logging.retentionDays),
+      cloudwatchLogsRetention: this.getLogRetentionDays(
+        props.openFgaConfig.logging.retentionDays
+      ),
     });
 
     this.databaseEndpoint = dbInstance.dbInstanceEndpointAddress;
@@ -213,7 +248,53 @@ export class TenantOpenFgaStack extends cdk.Stack {
       containerInsights: true,
     });
 
-    // Create task definition
+    // ====================================================
+    // Migration Task Definition (one-time execution)
+    // ====================================================
+    const migrateTaskDefinition = new ecs.FargateTaskDefinition(
+      this,
+      'OpenFgaMigrateTaskDefinition',
+      {
+        memoryLimitMiB: 512,
+        cpu: 256,
+      }
+    );
+
+    // Grant read access to the database credentials for migrate task
+    dbCredentialsSecret.grantRead(migrateTaskDefinition.taskRole);
+
+    // Add migrate container
+    // IMPORTANT: Do not override entryPoint. OpenFGA official image uses /openfga as entrypoint
+    // and does not have /bin/sh available (distroless image)
+    migrateTaskDefinition.addContainer('MigrateContainer', {
+      image: ecs.ContainerImage.fromRegistry(
+        `openfga/openfga:${props.openFgaConfig.ecs.imageVersion}`
+      ),
+      // Only specify command, not entryPoint (use the default /openfga from the image)
+      command: ['migrate'],
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'openfga-migrate',
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }),
+      environment: {
+        OPENFGA_DATASTORE_ENGINE: 'postgres',
+        OPENFGA_DATASTORE_URI: `postgres://placeholder:placeholder@${dbInstance.dbInstanceEndpointAddress}/openfga`,
+      },
+      secrets: {
+        OPENFGA_DATASTORE_USERNAME: ecs.Secret.fromSecretsManager(
+          dbCredentialsSecret,
+          'username'
+        ),
+        OPENFGA_DATASTORE_PASSWORD: ecs.Secret.fromSecretsManager(
+          dbCredentialsSecret,
+          'password'
+        ),
+      },
+    });
+
+    // ====================================================
+    // Application Task Definition (openfga run)
+    // ====================================================
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,
       'OpenFgaTaskDefinition',
@@ -227,20 +308,37 @@ export class TenantOpenFgaStack extends cdk.Stack {
     dbCredentialsSecret.grantRead(taskDefinition.taskRole);
 
     // Add OpenFGA container
+    // IMPORTANT: Do not override entryPoint. OpenFGA official image uses /openfga as entrypoint
+    // and does not have /bin/sh available (distroless image)
     const container = taskDefinition.addContainer('OpenFgaContainer', {
-      image: ecs.ContainerImage.fromRegistry(`openfga/openfga:${props.openFgaConfig.ecs.imageVersion}`),
+      image: ecs.ContainerImage.fromRegistry(
+        `openfga/openfga:${props.openFgaConfig.ecs.imageVersion}`
+      ),
+      // Only specify command, not entryPoint (use the default /openfga from the image)
+      command: ['run'],
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'openfga',
-        logRetention: this.getLogRetentionDays(props.openFgaConfig.logging.retentionDays),
+        logRetention: this.getLogRetentionDays(
+          props.openFgaConfig.logging.retentionDays
+        ),
       }),
       environment: {
         OPENFGA_DATASTORE_ENGINE: 'postgres',
         // Use placeholder credentials in URI - these will be overridden by secrets
         OPENFGA_DATASTORE_URI: `postgres://placeholder:placeholder@${dbInstance.dbInstanceEndpointAddress}/openfga`,
         OPENFGA_LOG_FORMAT: 'json',
+        // Playground is disabled for production security (as recommended by OpenFGA)
         OPENFGA_PLAYGROUND_ENABLED: 'false',
         OPENFGA_HTTP_ADDR: '0.0.0.0:8080',
         OPENFGA_GRPC_ADDR: '0.0.0.0:8081',
+        // Production Best Practices:
+        // Consider adding OPENFGA_DATASTORE_MAX_OPEN_CONNS to control database connection pool
+        // Example: OPENFGA_DATASTORE_MAX_OPEN_CONNS: '25'
+        // This should be tuned based on:
+        // - RDS max_connections setting
+        // - Number of ECS tasks (desiredCount)
+        // - Expected concurrent load
+        // Formula: max_connections / (number_of_tasks * 1.2) for safety margin
       },
       secrets: {
         // These environment variables override the credentials in OPENFGA_DATASTORE_URI
@@ -254,9 +352,12 @@ export class TenantOpenFgaStack extends cdk.Stack {
         ),
       },
       healthCheck: {
+        // Use grpc_health_probe bundled in OpenFGA distroless image
+        // wget/curl are not available in distroless images
         command: [
-          'CMD-SHELL',
-          'wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1',
+          'CMD',
+          '/usr/local/bin/grpc_health_probe',
+          '-addr=localhost:8081',
         ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
@@ -282,22 +383,26 @@ export class TenantOpenFgaStack extends cdk.Stack {
     });
 
     // Create target group
-    const targetGroup = new elbv2.NetworkTargetGroup(this, 'OpenFgaTargetGroup', {
-      vpc: props.vpc,
-      port: 8080,
-      protocol: elbv2.Protocol.TCP,
-      targetType: elbv2.TargetType.IP,
-      healthCheck: {
-        enabled: true,
-        protocol: elbv2.Protocol.HTTP,
-        path: '/healthz',
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(10),
-        healthyThresholdCount: 2,
-        unhealthyThresholdCount: 2,
-      },
-      deregistrationDelay: cdk.Duration.seconds(30),
-    });
+    const targetGroup = new elbv2.NetworkTargetGroup(
+      this,
+      'OpenFgaTargetGroup',
+      {
+        vpc: props.vpc,
+        port: 8080,
+        protocol: elbv2.Protocol.TCP,
+        targetType: elbv2.TargetType.IP,
+        healthCheck: {
+          enabled: true,
+          protocol: elbv2.Protocol.HTTP,
+          path: '/healthz',
+          interval: cdk.Duration.seconds(30),
+          timeout: cdk.Duration.seconds(10),
+          healthyThresholdCount: 2,
+          unhealthyThresholdCount: 2,
+        },
+        deregistrationDelay: cdk.Duration.seconds(30),
+      }
+    );
 
     // Create listener
     nlb.addListener('OpenFgaListener', {
@@ -316,15 +421,116 @@ export class TenantOpenFgaStack extends cdk.Stack {
         subnets: props.subnets,
       },
       securityGroups: [ecsSecurityGroup],
-      healthCheckGracePeriod: cdk.Duration.seconds(60),
+      healthCheckGracePeriod: cdk.Duration.seconds(300),
       enableExecuteCommand: true,
+      circuitBreaker: {
+        enable: true,
+        rollback: true,
+      },
     });
 
     // Attach the service to the target group
     service.attachToNetworkTargetGroup(targetGroup);
 
-    // Ensure ECS service starts after database is ready
-    service.node.addDependency(dbInstance);
+    // ====================================================
+    // Migration Runner (Custom Resource)
+    // ====================================================
+    // Run 'openfga migrate' once before starting the ECS service
+    // This ensures database schema is initialized before the application starts
+    //
+    // IMPORTANT: Migration task requires network access to:
+    // 1. RDS (via ecsSecurityGroup → dbSecurityGroup on port 5432) ✓
+    // 2. Secrets Manager (for database credentials)
+    // 3. CloudWatch Logs (for logging)
+    //
+    // Since assignPublicIp is DISABLED, ensure either:
+    // - NAT Gateway is configured in the VPC (current assumption), OR
+    // - VPC Endpoints are configured for:
+    //   - com.amazonaws.<region>.secretsmanager
+    //   - com.amazonaws.<region>.logs
+    //
+    // VPC Endpoints are recommended for production to reduce NAT Gateway costs
+    // and improve security by keeping traffic within AWS network.
+
+    const migrateRunnerLambda = new NodejsFunction(
+      this,
+      'MigrateRunnerLambda',
+      {
+        functionName: `${props.environment}-${props.tenantId}-openfga-migrate`,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        handler: 'handler',
+        entry: path.join(
+          __dirname,
+          './custom-resources/openFgaMigrateRunner.ts'
+        ),
+        timeout: cdk.Duration.minutes(10),
+        memorySize: 256,
+        environment: {
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          externalModules: ['@aws-sdk/*'], // Use AWS SDK v3 from Lambda runtime
+        },
+      }
+    );
+
+    // Grant permissions to run ECS tasks
+    migrateRunnerLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ecs:RunTask'],
+        resources: [
+          migrateTaskDefinition.taskDefinitionArn,
+          // Task instances have additional version suffix
+          `${migrateTaskDefinition.taskDefinitionArn}:*`,
+        ],
+      })
+    );
+
+    // Grant permissions to describe tasks
+    // DescribeTasks requires task instance ARN pattern (arn:aws:ecs:region:account:task/cluster-name/task-id)
+    migrateRunnerLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ecs:DescribeTasks'],
+        resources: [
+          `arn:aws:ecs:${this.region}:${this.account}:task/${cluster.clusterName}/*`,
+        ],
+      })
+    );
+
+    // Grant PassRole permission for task execution and task roles
+    migrateRunnerLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['iam:PassRole'],
+        resources: [
+          migrateTaskDefinition.executionRole!.roleArn,
+          migrateTaskDefinition.taskRole.roleArn,
+        ],
+      })
+    );
+
+    // Create Custom Resource to run migration
+    const migrateRunner = new cdk.CustomResource(this, 'OpenFgaMigrateRunner', {
+      serviceToken: migrateRunnerLambda.functionArn,
+      resourceType: 'Custom::OpenFgaMigrateRunner',
+      properties: {
+        ClusterArn: cluster.clusterArn,
+        TaskDefinitionArn: migrateTaskDefinition.taskDefinitionArn,
+        Subnets: props.subnets.map((s) => s.subnetId).join(','),
+        SecurityGroups: ecsSecurityGroup.securityGroupId,
+        // Add timestamp to force migration on every stack update if needed
+        // Comment out if you want migration to run only on first deploy
+        // Timestamp: new Date().toISOString(),
+      },
+    });
+
+    // Migration runner depends on database being ready
+    migrateRunner.node.addDependency(dbInstance);
+
+    // ECS service must start AFTER migration completes
+    service.node.addDependency(migrateRunner);
 
     // Create VPC Link for API Gateway
     const vpcLink = new apigateway.VpcLink(this, 'OpenFgaVpcLink', {
@@ -349,7 +555,9 @@ export class TenantOpenFgaStack extends cdk.Stack {
       },
       deployOptions: {
         stageName: 'prod',
-        loggingLevel: loggingLevelMap[props.openFgaConfig.apiGateway.loggingLevel] || apigateway.MethodLoggingLevel.INFO,
+        loggingLevel:
+          loggingLevelMap[props.openFgaConfig.apiGateway.loggingLevel] ||
+          apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: props.openFgaConfig.apiGateway.dataTraceEnabled,
         metricsEnabled: true,
       },
@@ -382,11 +590,6 @@ export class TenantOpenFgaStack extends cdk.Stack {
       },
     });
 
-    // Also add method to root resource
-    api.root.addMethod('ANY', integration, {
-      authorizationType: apigateway.AuthorizationType.IAM,
-    });
-
     // Create resource policy to allow cross-account access
     if (props.controlPlaneLambdaRoleArn) {
       api.addToResourcePolicy(
@@ -410,7 +613,10 @@ export class TenantOpenFgaStack extends cdk.Stack {
         functionName: `${props.environment}-${props.tenantId}-openfga-schema-init`,
         runtime: lambda.Runtime.NODEJS_18_X,
         handler: 'handler',
-        entry: path.join(__dirname, './custom-resources/openFgaSchemaInitializer.ts'),
+        entry: path.join(
+          __dirname,
+          './custom-resources/openFgaSchemaInitializer.ts'
+        ),
         timeout: cdk.Duration.minutes(5),
         memorySize: 512,
         vpc: props.vpc,
@@ -437,7 +643,9 @@ export class TenantOpenFgaStack extends cdk.Stack {
       }
     );
 
-    // Ensure schema initialization happens after API Gateway and ECS service are ready
+    // Ensure schema initialization happens after migration, API Gateway, and ECS service are ready
+    // Dependency order: Database → Migration → ECS Service → Schema Initialization
+    schemaInitializer.node.addDependency(migrateRunner);
     schemaInitializer.node.addDependency(api);
     schemaInitializer.node.addDependency(service);
 

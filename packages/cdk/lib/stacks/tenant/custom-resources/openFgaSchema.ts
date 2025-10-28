@@ -8,7 +8,7 @@
  * type user
  * type group
  *   relations
- *     define member: [user, group]
+ *     define member: [user]
  * type entitlement
  *   relations
  *     define holder: [user, group]
@@ -26,15 +26,22 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
   {
     type: 'user',
     relations: {},
+    metadata: {
+      relations: {},
+    },
   },
   {
     type: 'group',
     relations: {
       member: {
-        union: {
-          child: [
-            { this: {} },
-            { computedUserset: { relation: 'member' } },
+        this: {},
+      },
+    },
+    metadata: {
+      relations: {
+        member: {
+          directly_related_user_types: [
+            { type: 'user' },
           ],
         },
       },
@@ -44,9 +51,15 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
     type: 'entitlement',
     relations: {
       holder: {
-        union: {
-          child: [
-            { this: {} },
+        this: {},
+      },
+    },
+    metadata: {
+      relations: {
+        holder: {
+          directly_related_user_types: [
+            { type: 'user' },
+            { type: 'group', relation: 'member' },
           ],
         },
       },
@@ -55,7 +68,9 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
   {
     type: 'llm',
     relations: {
-      via_access: { this: {} },
+      via_access: {
+        this: {},
+      },
       accessor: {
         union: {
           child: [
@@ -65,16 +80,48 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
         },
       },
     },
+    metadata: {
+      relations: {
+        via_access: {
+          directly_related_user_types: [
+            { type: 'entitlement' },
+          ],
+        },
+        accessor: {
+          directly_related_user_types: [
+            { type: 'user' },
+            { type: 'group', relation: 'member' },
+          ],
+        },
+      },
+    },
   },
   {
     type: 'feature',
     relations: {
-      via_enable: { this: {} },
+      via_enable: {
+        this: {},
+      },
       enabled_user: {
         union: {
           child: [
             { this: {} },
             { tupleToUserset: { tupleset: { relation: 'via_enable' }, computedUserset: { relation: 'holder' } } },
+          ],
+        },
+      },
+    },
+    metadata: {
+      relations: {
+        via_enable: {
+          directly_related_user_types: [
+            { type: 'entitlement' },
+          ],
+        },
+        enabled_user: {
+          directly_related_user_types: [
+            { type: 'user' },
+            { type: 'group', relation: 'member' },
           ],
         },
       },
