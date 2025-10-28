@@ -83,6 +83,8 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Advanced Options
+  button:
+    newChat: New Chat
   create_link: Create Link
   create_link_message: >-
     By creating a link, you will share the conversation history with all users

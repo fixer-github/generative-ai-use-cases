@@ -83,6 +83,8 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高度なオプション
+  button:
+    newChat: 新しいチャット
   create_link: リンクの作成
   create_link_message: リンクを作成することで、このアプリケーションにログイン可能な全ユーザーに対して会話履歴を公開します。
   create_system_prompt: システムプロンプトの作成

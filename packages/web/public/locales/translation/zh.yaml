@@ -82,6 +82,8 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高级选项
+  button:
+    newChat: 新聊天
   create_link: 创建链接
   create_link_message: 通过创建链接，您将向所有可以登录此应用程序的用户公开对话历史。
   create_system_prompt: 创建系统提示

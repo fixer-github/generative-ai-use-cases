@@ -27,6 +27,7 @@ import {
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
+import ChatSidebar from '../components/ChatSidebar';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -288,9 +289,15 @@ const ChatPage: React.FC = () => {
 
   return (
     <>
+      {/* Chat Sidebar */}
+      <div className="fixed left-24 top-0 z-40 h-screen print:hidden">
+        <ChatSidebar />
+      </div>
+
+      {/* Main Content */}
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className={`${!isEmpty ? 'screen:pb-36' : ''} relative`}>
+        className={`${!isEmpty ? 'screen:pb-36' : ''} relative ml-64`}>
         <h1 className="flex invisible justify-center items-center my-0 h-0 text-xl font-semibold lg:visible lg:my-5 print:visible print:my-5 print:h-min lg:h-min">
           {title}
         </h1>
@@ -360,8 +367,8 @@ const ChatPage: React.FC = () => {
         <InputChatContent
           className={`fixed z-0 print:hidden ${
             isEmpty
-              ? 'inset-0 flex items-center justify-center'
-              : 'bottom-0 w-full flex flex-col items-center justify-center lg:pr-64'
+              ? 'left-88 right-0 top-0 bottom-0 flex items-center justify-center'
+              : 'left-88 right-0 bottom-0 flex flex-col items-center justify-center'
           }`}
           content={content}
           disabled={loading && !writing}
