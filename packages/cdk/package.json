@@ -12,6 +12,7 @@
     "postinstall": "npm ci --prefix custom-resources"
   },
   "devDependencies": {
+    "@aws-sdk/client-ecs": "^3.918.0",
     "@smithy/types": "^4.3.2",
     "@types/aws-lambda": "^8.10.137",
     "@types/jest": "^29.5.14",
