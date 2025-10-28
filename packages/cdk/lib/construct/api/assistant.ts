@@ -12,6 +12,11 @@ import { GenericApiProps } from './props';
 
 export type AssistantApiProps = GenericApiProps;
 
+/**
+ * Assistant API construct with consolidated Lambda handlers
+ * - assistantHandler: Routes all CRUD operations (POST/, GET/, GET/{id}, PUT/{id}, DELETE/{id})
+ * - assistantMessageHandler: Routes message operations (POST/{id}/messages, GET/{id}/messages)
+ */
 class AssistantApi extends Construct {
   constructor(scope: Construct, id: string, props: AssistantApiProps) {
     super(scope, id);
@@ -26,82 +31,38 @@ class AssistantApi extends Construct {
 
     const assistantResource = api.root.addResource('assistant');
 
-    const createAssistantFunction = new NodejsFunction(
-      this,
-      'CreateAssistant',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/createAssistant.ts',
-        timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(this, props, {
-          ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
-          DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
-          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
-          OPENSEARCH_INDEX: 'assistant-docs',
-        }),
-      }
-    );
-    assistantTable.grantWriteData(createAssistantFunction);
-
-    // Grant S3 read permissions for document loading
-    if (props.fileBucket) {
-      props.fileBucket.grantRead(createAssistantFunction);
-    }
-
-    const listAssistantsFunction = new NodejsFunction(
-      this,
-      'ListAssistants',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/listAssistants.ts',
-        timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(this, props, {
-          ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
-          DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
-        }),
-      }
-    );
-    assistantTable.grantReadData(listAssistantsFunction);
-
-    const getAssistantFunction = new NodejsFunction(this, 'GetAssistant', {
+    // Consolidated handler for all assistant CRUD operations
+    const assistantHandler = new NodejsFunction(this, 'AssistantHandler', {
       runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/getAssistant.ts',
+      entry: './lambda/assistantHandler.ts',
       timeout: Duration.minutes(15),
       environment: getBaseEnvironment(this, props, {
         ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
         DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
+        ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
+        DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME:
+          assistantMessagesTable.tableName,
+        OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
+        OPENSEARCH_INDEX: 'assistant-docs',
       }),
     });
-    assistantTable.grantReadData(getAssistantFunction);
 
-    const updateAssistantFunction = new NodejsFunction(
-      this,
-      'UpdateAssistant',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/updateAssistant.ts',
-        timeout: Duration.minutes(15),
-        environment: getBaseEnvironment(this, props, {
-          ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
-          DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
-          OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
-          OPENSEARCH_INDEX: 'assistant-docs',
-        }),
-      }
-    );
-    assistantTable.grantReadWriteData(updateAssistantFunction);
+    // Grant permissions for all CRUD operations
+    assistantTable.grantReadWriteData(assistantHandler);
+    assistantMessagesTable.grantReadWriteData(assistantHandler);
 
-    // Grant S3 read permissions for document loading
+    // Grant S3 read permissions for document loading (create/update operations)
     if (props.fileBucket) {
-      props.fileBucket.grantRead(updateAssistantFunction);
+      props.fileBucket.grantRead(assistantHandler);
     }
 
-    const deleteAssistantFunction = new NodejsFunction(
+    // Consolidated handler for all message operations
+    const assistantMessageHandler = new NodejsFunction(
       this,
-      'DeleteAssistant',
+      'AssistantMessageHandler',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/deleteAssistant.ts',
+        entry: './lambda/assistantMessageHandler.ts',
         timeout: Duration.minutes(15),
         environment: getBaseEnvironment(this, props, {
           ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
@@ -109,121 +70,92 @@ class AssistantApi extends Construct {
           ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
           DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME:
             assistantMessagesTable.tableName,
+          MODEL_REGION: props.modelRegion,
           OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
           OPENSEARCH_INDEX: 'assistant-docs',
         }),
       }
     );
-    assistantTable.grantReadWriteData(deleteAssistantFunction);
-    assistantMessagesTable.grantReadWriteData(deleteAssistantFunction);
 
-    const createMessageFunction = new NodejsFunction(this, 'CreateMessage', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/createAssistantMessage.ts',
-      timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(this, props, {
-        ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
-        DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
-        ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
-        DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME: assistantMessagesTable.tableName,
-        MODEL_REGION: props.modelRegion,
-        OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT || '',
-        OPENSEARCH_INDEX: 'assistant-docs',
-      }),
-    });
-    assistantTable.grantReadData(createMessageFunction);
-    assistantMessagesTable.grantReadWriteData(createMessageFunction);
+    // Grant permissions for message operations
+    assistantTable.grantReadData(assistantMessageHandler);
+    assistantMessagesTable.grantReadWriteData(assistantMessageHandler);
 
-    // Grant Bedrock permissions
+    // Grant Bedrock permissions for LLM calls
     if (props.bedrockPolicy) {
-      createMessageFunction.addToRolePolicy(props.bedrockPolicy);
+      assistantMessageHandler.addToRolePolicy(props.bedrockPolicy);
     }
 
-    const listMessagesFunction = new NodejsFunction(this, 'ListMessages', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/listAssistantMessages.ts',
-      timeout: Duration.minutes(15),
-      environment: getBaseEnvironment(this, props, {
-        ASSISTANT_MESSAGES_TABLE_NAME: ASSISTANT_MESSAGES_TABLE_PREFIX,
-        DEFAULT_ASSISTANT_MESSAGES_TABLE_NAME: assistantMessagesTable.tableName,
-      }),
-    });
-    assistantMessagesTable.grantReadData(listMessagesFunction);
-
-    // POST: /assistant
+    // API Gateway routes - All route to consolidated handlers
+    // POST: /assistant → assistantHandler (create)
     assistantResource.addMethod(
       'POST',
-      new LambdaIntegration(createAssistantFunction),
+      new LambdaIntegration(assistantHandler),
       commonAuthorizerProps
     );
 
-    // GET: /assistant
+    // GET: /assistant → assistantHandler (list)
     assistantResource.addMethod(
       'GET',
-      new LambdaIntegration(listAssistantsFunction),
+      new LambdaIntegration(assistantHandler),
       commonAuthorizerProps
     );
 
     const assistantIdResource = assistantResource.addResource('{assistantId}');
 
-    // GET: /assistant/{assistantId}
+    // GET: /assistant/{assistantId} → assistantHandler (get)
     assistantIdResource.addMethod(
       'GET',
-      new LambdaIntegration(getAssistantFunction),
+      new LambdaIntegration(assistantHandler),
       commonAuthorizerProps
     );
 
-    // PUT: /assistant/{assistantId}
+    // PUT: /assistant/{assistantId} → assistantHandler (update)
     assistantIdResource.addMethod(
       'PUT',
-      new LambdaIntegration(updateAssistantFunction),
+      new LambdaIntegration(assistantHandler),
       commonAuthorizerProps
     );
 
-    // DELETE: /assistant/{assistantId}
+    // DELETE: /assistant/{assistantId} → assistantHandler (delete)
     assistantIdResource.addMethod(
       'DELETE',
-      new LambdaIntegration(deleteAssistantFunction),
+      new LambdaIntegration(assistantHandler),
       commonAuthorizerProps
     );
 
     const messagesResource = assistantIdResource.addResource('messages');
 
-    // POST: /assistant/{assistantId}/messages
+    // POST: /assistant/{assistantId}/messages → assistantMessageHandler (create message)
     messagesResource.addMethod(
       'POST',
-      new LambdaIntegration(createMessageFunction),
+      new LambdaIntegration(assistantMessageHandler),
       commonAuthorizerProps
     );
 
-    // GET: /assistant/{assistantId}/messages
+    // GET: /assistant/{assistantId}/messages → assistantMessageHandler (list messages)
     messagesResource.addMethod(
       'GET',
-      new LambdaIntegration(listMessagesFunction),
+      new LambdaIntegration(assistantMessageHandler),
       commonAuthorizerProps
     );
 
     // Grant tenant table read permissions if tenant manager exists
     if (tenantManager) {
-      tenantManager.tenantsTable.grantReadData(createAssistantFunction);
-      tenantManager.tenantsTable.grantReadData(listAssistantsFunction);
-      tenantManager.tenantsTable.grantReadData(getAssistantFunction);
-      tenantManager.tenantsTable.grantReadData(updateAssistantFunction);
-      tenantManager.tenantsTable.grantReadData(deleteAssistantFunction);
-      tenantManager.tenantsTable.grantReadData(createMessageFunction);
-      tenantManager.tenantsTable.grantReadData(listMessagesFunction);
+      tenantManager.tenantsTable.grantReadData(assistantHandler);
+      tenantManager.tenantsTable.grantReadData(assistantMessageHandler);
     }
 
     // TODO: Add OpenSearch permissions when BotStore is integrated
     // When a BotStore instance is available, add data access policies:
     // botstore.addDataAccessPolicy(
     //   props.envPrefix,
-    //   'AssistantCreateDataAccess',
-    //   createAssistantFunction.role!,
+    //   'AssistantDataAccess',
+    //   assistantHandler.role!,
     //   ['aoss:DescribeCollectionItems', 'aoss:CreateCollectionItems'],
     //   ['aoss:WriteDocument', 'aoss:DescribeIndex', 'aoss:CreateIndex']
     // );
-    // Similarly for updateAssistantFunction, deleteAssistantFunction, and createMessageFunction
+    // Similarly for assistantMessageHandler
   }
 }
 
