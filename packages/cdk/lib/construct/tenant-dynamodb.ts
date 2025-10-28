@@ -32,6 +32,18 @@ export interface TenantDynamoDBProps {
   readonly useCaseBuilderTableBaseName?: string;
 
   /**
+   * Base name for the assistant table
+   * @default 'Assistant'
+   */
+  readonly assistantTableBaseName?: string;
+
+  /**
+   * Base name for the assistant messages table
+   * @default 'AssistantMessages'
+   */
+  readonly assistantMessagesTableBaseName?: string;
+
+  /**
    * Billing mode for the tables
    * @default BillingMode.PAY_PER_REQUEST
    */
@@ -61,6 +73,16 @@ export class TenantDynamoDB extends Construct {
   public readonly useCaseBuilderTable: dynamodb.Table;
 
   /**
+   * The assistant table for the tenant
+   */
+  public readonly assistantTable: dynamodb.Table;
+
+  /**
+   * The assistant messages table for the tenant
+   */
+  public readonly assistantMessagesTable: dynamodb.Table;
+
+  /**
    * The tenant ID
    */
   public readonly tenantId: string;
@@ -79,6 +101,16 @@ export class TenantDynamoDB extends Construct {
    * Use case builder table name
    */
   public readonly useCaseBuilderTableName: string;
+
+  /**
+   * Assistant table name
+   */
+  public readonly assistantTableName: string;
+
+  /**
+   * Assistant messages table name
+   */
+  public readonly assistantMessagesTableName: string;
 
   constructor(scope: Construct, id: string, props: TenantDynamoDBProps) {
     super(scope, id);
@@ -102,10 +134,15 @@ export class TenantDynamoDB extends Construct {
       props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
     const useCaseBuilderBaseName =
       props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
+    const assistantBaseName = props.assistantTableBaseName || 'Assistant';
+    const assistantMessagesBaseName =
+      props.assistantMessagesTableBaseName || 'AssistantMessages';
 
     this.chatHistoryTableName = `${chatHistoryBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-${environment}-tenant-${sanitizedTenantId}`;
+    this.assistantTableName = `${assistantBaseName}-${environment}-tenant-${sanitizedTenantId}`;
+    this.assistantMessagesTableName = `${assistantMessagesBaseName}-${environment}-tenant-${sanitizedTenantId}`;
 
     // Determine removal policy based on environment
     const removalPolicy =
@@ -211,6 +248,59 @@ export class TenantDynamoDB extends Construct {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // Assistant table
+    this.assistantTable = new dynamodb.Table(this, 'AssistantTable', {
+      tableName: this.assistantTableName,
+      partitionKey: {
+        name: 'userId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'createdDate',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: removalPolicy,
+      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+    });
+
+    // Add tags to Assistant table
+    cdk.Tags.of(this.assistantTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.assistantTable).add('Environment', environment);
+
+    // Add assistant ID index
+    this.assistantTable.addGlobalSecondaryIndex({
+      indexName: 'AssistantIdIndex',
+      partitionKey: {
+        name: 'assistantId',
+        type: dynamodb.AttributeType.STRING,
+      },
+    });
+
+    // Assistant Messages table
+    this.assistantMessagesTable = new dynamodb.Table(
+      this,
+      'AssistantMessagesTable',
+      {
+        tableName: this.assistantMessagesTableName,
+        partitionKey: {
+          name: 'assistantId',
+          type: dynamodb.AttributeType.STRING,
+        },
+        sortKey: {
+          name: 'messageId',
+          type: dynamodb.AttributeType.STRING,
+        },
+        billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: removalPolicy,
+        pointInTimeRecovery: true,
+      }
+    );
+
+    // Add tags to Assistant Messages table
+    cdk.Tags.of(this.assistantMessagesTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.assistantMessagesTable).add('Environment', environment);
+
     // Output table ARNs
     new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
       value: this.chatHistoryTable.tableArn,
@@ -242,6 +332,28 @@ export class TenantDynamoDB extends Construct {
     new cdk.CfnOutput(this, 'UseCaseBuilderTableName', {
       value: this.useCaseBuilderTable.tableName,
       description: `Name of the use case builder table for tenant ${this.tenantId}`,
+    });
+
+    // Output assistant table ARN and name
+    new cdk.CfnOutput(this, 'AssistantTableArn', {
+      value: this.assistantTable.tableArn,
+      description: `ARN of the assistant table for tenant ${this.tenantId}`,
+    });
+
+    new cdk.CfnOutput(this, 'AssistantTableName', {
+      value: this.assistantTable.tableName,
+      description: `Name of the assistant table for tenant ${this.tenantId}`,
+    });
+
+    // Output assistant messages table ARN and name
+    new cdk.CfnOutput(this, 'AssistantMessagesTableArn', {
+      value: this.assistantMessagesTable.tableArn,
+      description: `ARN of the assistant messages table for tenant ${this.tenantId}`,
+    });
+
+    new cdk.CfnOutput(this, 'AssistantMessagesTableName', {
+      value: this.assistantMessagesTable.tableName,
+      description: `Name of the assistant messages table for tenant ${this.tenantId}`,
     });
   }
 

@@ -33,6 +33,18 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
   readonly useCaseBuilderTableBaseName?: string;
 
   /**
+   * Base name for the assistant table
+   * @default 'Assistant'
+   */
+  readonly assistantTableBaseName?: string;
+
+  /**
+   * Base name for the assistant messages table
+   * @default 'AssistantMessages'
+   */
+  readonly assistantMessagesTableBaseName?: string;
+
+  /**
    * Description for the stack
    * @default 'DynamoDB tables for tenant {tenantId}'
    */
@@ -84,6 +96,8 @@ export class TenantDynamoDBStack extends cdk.Stack {
       chatHistoryTableBaseName: props?.chatHistoryTableBaseName,
       tokenUsageStatsTableBaseName: props?.tokenUsageStatsTableBaseName,
       useCaseBuilderTableBaseName: props?.useCaseBuilderTableBaseName,
+      assistantTableBaseName: props?.assistantTableBaseName,
+      assistantMessagesTableBaseName: props?.assistantMessagesTableBaseName,
       billingMode: props?.billingMode,
       removalPolicy: props?.removalPolicy,
     });
@@ -126,6 +140,32 @@ export class TenantDynamoDBStack extends cdk.Stack {
       value: this.tenantDynamoDB.useCaseBuilderTable.tableName,
       description: `Name of the use case builder table for tenant ${tenantId}`,
       exportName: `${this.stackName}-UseCaseBuilderTableName`,
+    });
+
+    // Assistant Table outputs
+    new cdk.CfnOutput(this, 'StackAssistantTableArn', {
+      value: this.tenantDynamoDB.assistantTable.tableArn,
+      description: `ARN of the assistant table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-AssistantTableArn`,
+    });
+
+    new cdk.CfnOutput(this, 'StackAssistantTableName', {
+      value: this.tenantDynamoDB.assistantTable.tableName,
+      description: `Name of the assistant table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-AssistantTableName`,
+    });
+
+    // Assistant Messages Table outputs
+    new cdk.CfnOutput(this, 'StackAssistantMessagesTableArn', {
+      value: this.tenantDynamoDB.assistantMessagesTable.tableArn,
+      description: `ARN of the assistant messages table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-AssistantMessagesTableArn`,
+    });
+
+    new cdk.CfnOutput(this, 'StackAssistantMessagesTableName', {
+      value: this.tenantDynamoDB.assistantMessagesTable.tableName,
+      description: `Name of the assistant messages table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-AssistantMessagesTableName`,
     });
 
     // Add tags
