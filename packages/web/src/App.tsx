@@ -1,9 +1,7 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { RoleMonitorProvider } from './components/RoleMonitorProvider';
 import {
-  PiList,
-  PiHouse,
   PiChatCircleText,
   PiPencil,
   PiNote,
@@ -15,7 +13,6 @@ import {
   PiSpeakerHighBold,
   PiGear,
   PiGlobe,
-  PiX,
   PiRobot,
   PiVideoCamera,
   PiFlowArrow,
@@ -25,14 +22,8 @@ import {
   PiNotebook,
   PiGraph,
   PiPresentation,
-  PiCube,
 } from 'react-icons/pi';
-import { Outlet } from 'react-router-dom';
-import Drawer, { ItemProps } from './components/Drawer';
-import ButtonIcon from './components/ButtonIcon';
 import '@aws-amplify/ui-react/styles.css';
-import useDrawer from './hooks/useDrawer';
-import useChatList from './hooks/useChatList';
 import PopupInterUseCasesDemo from './components/PopupInterUseCasesDemo';
 import useInterUseCases from './hooks/useInterUseCases';
 import { MODELS } from './hooks/useModel';
@@ -40,6 +31,8 @@ import useScreen from './hooks/useScreen';
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import useUseCases from './hooks/useUseCases';
 import { useTranslation } from 'react-i18next';
+import GlobalLayout from './components/GlobalLayout';
+import { SidebarItemProps } from './components/Sidebar';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -48,8 +41,6 @@ const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
 const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
-const useCaseBuilderEnabled: boolean =
-  import.meta.env.VITE_APP_USE_CASE_BUILDER_ENABLED === 'true';
 const {
   visionEnabled,
   imageGenModelIds,
@@ -59,32 +50,15 @@ const {
   flowChatEnabled,
 } = MODELS;
 
-// Extract :chatId from /chat/:chatId format
-// Return null if path is in a different format
-const extractChatId = (path: string): string | null => {
-  const pattern = /\/chat\/(.+)/;
-  const match = path.match(pattern);
-
-  return match ? match[1] : null;
-};
-
 const App: React.FC = () => {
   const { t } = useTranslation();
-  const { switchOpen: switchDrawer, opened: isOpenDrawer } = useDrawer();
   const { pathname } = useLocation();
-  const { getChatTitle } = useChatList();
   const { isShow } = useInterUseCases();
   const { screen, notifyScreen, scrollTopAnchorRef, scrollBottomAnchorRef } =
     useScreen();
   const { enabled } = useUseCases();
 
-  const items: ItemProps[] = [
-    {
-      label: t('navigation.home'),
-      to: '/',
-      icon: <PiHouse />,
-      display: 'usecase' as const,
-    },
+  const sidebarItems: SidebarItemProps[] = [
     {
       label: t('navigation.settings'),
       to: '/setting',
@@ -103,7 +77,6 @@ const App: React.FC = () => {
           to: '/rag',
           icon: <PiChatCircleText />,
           display: 'usecase' as const,
-          sub: 'Amazon Kendra',
         }
       : null,
     ragKnowledgeBaseEnabled
@@ -112,16 +85,8 @@ const App: React.FC = () => {
           to: '/rag-knowledge-base',
           icon: <PiChatCircleText />,
           display: 'usecase' as const,
-          sub: 'Knowledge Base',
         }
       : null,
-    {
-      label: t('navigation.ragChatBot'),
-      to: '/rag-chat-bot',
-      icon: <PiChatCircleText />,
-      display: 'usecase' as const,
-      sub: 'Experimental',
-    },
     agentEnabled && !inlineAgents
       ? {
           label: t('navigation.agentChat'),
@@ -137,7 +102,6 @@ const App: React.FC = () => {
             to: `/agent/${name}`,
             icon: <PiRobot />,
             display: 'usecase' as const,
-            sub: 'Agent',
           };
         })
       : []),
@@ -147,7 +111,6 @@ const App: React.FC = () => {
           to: '/mcp',
           icon: <PiGraph />,
           display: 'usecase' as const,
-          sub: 'Experimental',
         }
       : null,
     flowChatEnabled
@@ -163,15 +126,6 @@ const App: React.FC = () => {
           label: t('navigation.voiceChat'),
           to: '/voice-chat',
           icon: <PiMicrophoneBold />,
-          display: 'usecase' as const,
-          sub: 'Experimental',
-        }
-      : null,
-    useCaseBuilderEnabled
-      ? {
-          label: t('navigation.useCaseBuilder'),
-          to: '/use-case-builder',
-          icon: <PiCube />,
           display: 'usecase' as const,
         }
       : null,
@@ -279,16 +233,6 @@ const App: React.FC = () => {
       : null,
   ].flatMap((i) => (i !== null ? [i] : []));
 
-  const label = useMemo(() => {
-    const chatId = extractChatId(pathname);
-
-    if (chatId) {
-      return getChatTitle(chatId) || '';
-    } else {
-      return items.find((i) => i.to === pathname)?.label || '';
-    }
-  }, [items, pathname, getChatTitle]);
-
   // When there is no scroll event (e.g. moving from the top of the page to the top of the page)
   // The top/bottom determination is not made, so re-determine it according to the change of pathname
   useEffect(() => {
@@ -299,55 +243,15 @@ const App: React.FC = () => {
 
   return (
     <RoleMonitorProvider>
-      <div
-        className="screen:w-screen screen:h-screen overflow-x-hidden overflow-y-scroll"
-        ref={screen}>
-        <main className="flex-1">
-          <div ref={scrollTopAnchorRef}></div>
-          <header className="bg-aws-squid-ink visible flex h-12 w-full items-center justify-between text-lg text-white lg:invisible lg:h-0 print:hidden">
-            <div className="flex w-10 items-center justify-start">
-              <button
-                className="focus:ring-aws-sky mr-2 rounded-full p-2 hover:opacity-50 focus:outline-none focus:ring-1"
-                onClick={() => {
-                  switchDrawer();
-                }}>
-                <PiList />
-              </button>
-            </div>
+      {/* Show when inter-use case connection is enabled */}
+      {isShow && <PopupInterUseCasesDemo />}
 
-            {label}
-
-            {/* Dummy block to center the label */}
-            <div className="w-10" />
-          </header>
-
-          <div
-            className={`fixed -left-24 top-0 z-50 transition-all lg:left-0 lg:z-0 ${
-              isOpenDrawer ? 'left-0' : '-left-24'
-            }`}>
-            <Drawer items={items} />
-          </div>
-
-          <div
-            id="smallDrawerFiller"
-            className={`${isOpenDrawer ? 'visible' : 'invisible'} lg:invisible`}>
-            <div
-              className="screen:h-screen fixed top-0 z-40 w-screen bg-gray-900/90"
-              onClick={switchDrawer}></div>
-            <ButtonIcon
-              className="fixed left-24 top-0 z-40 text-white"
-              onClick={switchDrawer}>
-              <PiX />
-            </ButtonIcon>
-          </div>
-          <div className="text-aws-font-color lg:ml-24">
-            {/* Show when inter-use case connection is enabled */}
-            {isShow && <PopupInterUseCasesDemo />}
-            <Outlet />
-          </div>
-          <div ref={scrollBottomAnchorRef}></div>
-        </main>
-      </div>
+      <GlobalLayout
+        sidebarItems={sidebarItems}
+        contentRef={screen}
+        scrollTopAnchor={<div ref={scrollTopAnchorRef}></div>}
+        scrollBottomAnchor={<div ref={scrollBottomAnchorRef}></div>}
+      />
     </RoleMonitorProvider>
   );
 };

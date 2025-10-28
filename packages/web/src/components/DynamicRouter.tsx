@@ -11,7 +11,6 @@ import AuthWithUserpool from './AuthWithUserpool';
 import AuthWithSAML from './AuthWithSAML';
 import AuthWithSamlOrUserpool from './AuthWithSamlOrUserpool';
 import App from '../App';
-import UseCaseBuilderRoot from '../UseCaseBuilderRoot';
 import LandingPage from '../pages/LandingPage';
 import Setting from '../pages/Setting';
 import StatPage from '../pages/StatPage';
@@ -42,10 +41,6 @@ import RagChatBotEditPage from '../pages/RagChatBotEditPage';
 import RagChatBotChatPage from '../pages/RagChatBotChatPage';
 import RagChatBotHistoryPage from '../pages/RagChatBotHistoryPage';
 import AdminPortal from '../pages/AdminPortal';
-import UseCaseBuilderEditPage from '../pages/useCaseBuilder/UseCaseBuilderEditPage';
-import UseCaseBuilderExecutePage from '../pages/useCaseBuilder/UseCaseBuilderExecutePage';
-import UseCaseBuilderSamplesPage from '../pages/useCaseBuilder/UseCaseBuilderSamplesPage';
-import UseCaseBuilderMyUseCasePage from '../pages/useCaseBuilder/UseCaseBuilderMyUseCasePage';
 
 interface DynamicRouterProps {
   ragEnabled: boolean;
@@ -56,7 +51,6 @@ interface DynamicRouterProps {
   inlineAgents: boolean;
   mcpEnabled: boolean;
   pptxEnabled: boolean;
-  useCaseBuilderEnabled: boolean;
 }
 
 const DynamicRouter: React.FC<DynamicRouterProps> = ({
@@ -68,7 +62,6 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
   inlineAgents,
   mcpEnabled,
   pptxEnabled,
-  useCaseBuilderEnabled,
 }) => {
   const { enabled, loading } = useUseCases();
   const {
@@ -265,37 +258,6 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     },
   ].flatMap((r) => (r !== null ? [r] : []));
 
-  const useCaseBuilderRoutes: RouteObject[] = [
-    {
-      path: '/use-case-builder',
-      element: <UseCaseBuilderSamplesPage />,
-    },
-    {
-      path: `/use-case-builder/my-use-case`,
-      element: <UseCaseBuilderMyUseCasePage />,
-    },
-    {
-      path: `/use-case-builder/new`,
-      element: <UseCaseBuilderEditPage />,
-    },
-    {
-      path: `/use-case-builder/edit/:useCaseId`,
-      element: <UseCaseBuilderEditPage />,
-    },
-    {
-      path: `/use-case-builder/execute/:useCaseId`,
-      element: <UseCaseBuilderExecutePage />,
-    },
-    {
-      path: `/use-case-builder/setting`,
-      element: <Setting />,
-    },
-    {
-      path: '*',
-      element: <NotFound />,
-    },
-  ].flatMap((r) => (r !== null ? [r] : []));
-
   const router = createBrowserRouter([
     {
       path: '/',
@@ -316,29 +278,6 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
       ),
       children: routes,
     },
-    ...(useCaseBuilderEnabled
-      ? [
-          {
-            path: '/use-case-builder',
-            element: samlAuthEnabled ? (
-              samlDefaultAuthEnabled ? (
-                <AuthWithSamlOrUserpool>
-                  <UseCaseBuilderRoot />
-                </AuthWithSamlOrUserpool>
-              ) : (
-                <AuthWithSAML>
-                  <UseCaseBuilderRoot />
-                </AuthWithSAML>
-              )
-            ) : (
-              <AuthWithUserpool>
-                <UseCaseBuilderRoot />
-              </AuthWithUserpool>
-            ),
-            children: useCaseBuilderRoutes,
-          },
-        ]
-      : []),
   ]);
 
   return <RouterProvider router={router} />;
