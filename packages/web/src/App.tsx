@@ -25,6 +25,7 @@ import {
   PiNotebook,
   PiGraph,
   PiPresentation,
+  PiCube,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -47,6 +48,8 @@ const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
 const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
+const useCaseBuilderEnabled: boolean =
+  import.meta.env.VITE_APP_USE_CASE_BUILDER_ENABLED === 'true';
 const {
   visionEnabled,
   imageGenModelIds,
@@ -162,6 +165,14 @@ const App: React.FC = () => {
           icon: <PiMicrophoneBold />,
           display: 'usecase' as const,
           sub: 'Experimental',
+        }
+      : null,
+    useCaseBuilderEnabled
+      ? {
+          label: t('navigation.useCaseBuilder'),
+          to: '/use-case-builder',
+          icon: <PiCube />,
+          display: 'usecase' as const,
         }
       : null,
     enabled('generate')
@@ -311,8 +322,8 @@ const App: React.FC = () => {
           </header>
 
           <div
-            className={`fixed -left-64 top-0 z-50 transition-all lg:left-0 lg:z-0 ${
-              isOpenDrawer ? 'left-0' : '-left-64'
+            className={`fixed -left-24 top-0 z-50 transition-all lg:left-0 lg:z-0 ${
+              isOpenDrawer ? 'left-0' : '-left-24'
             }`}>
             <Drawer items={items} />
           </div>
@@ -324,12 +335,12 @@ const App: React.FC = () => {
               className="screen:h-screen fixed top-0 z-40 w-screen bg-gray-900/90"
               onClick={switchDrawer}></div>
             <ButtonIcon
-              className="fixed left-64 top-0 z-40 text-white"
+              className="fixed left-24 top-0 z-40 text-white"
               onClick={switchDrawer}>
               <PiX />
             </ButtonIcon>
           </div>
-          <div className="text-aws-font-color lg:ml-64">
+          <div className="text-aws-font-color lg:ml-24">
             {/* Show when inter-use case connection is enabled */}
             {isShow && <PopupInterUseCasesDemo />}
             <Outlet />

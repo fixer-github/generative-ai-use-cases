@@ -649,6 +649,7 @@ navigation:
   videoAnalysis: 映像分析
   videoGeneration: 動画生成
   voiceChat: 音声チャット
+  useCaseBuilder: ユースケースビルダー
   webContentExtraction: Web コンテンツ抽出
   writing: 執筆
 notfound:

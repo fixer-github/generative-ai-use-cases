@@ -788,6 +788,7 @@ navigation:
   videoAnalysis: Video Analysis
   videoGeneration: Video Generation
   voiceChat: Voice Chat
+  useCaseBuilder: Use Case Builder
   webContentExtraction: Web Content Extraction
   writing: Writing
 notfound:
