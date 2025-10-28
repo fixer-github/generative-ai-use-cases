@@ -37,7 +37,6 @@ import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import PredictApi from './predict';
 import OptimizePromptApi from './optimize-prompt';
 import InvokeFlowApi from './invoke-flow';
-import BedrockChatApi from './bedrock-chat';
 import ChatApi from './chats';
 import AssistantApi from './assistant';
 import ImageApi from './image';
@@ -353,7 +352,6 @@ export class Api extends Construct {
       commonAuthorizerProps
     );
 
-    new BedrockChatApi(this, 'BedrockChatAPI', apiProps);
     new ChatApi(this, 'ChatsAPI', apiProps);
     new AssistantApi(this, 'AssistantAPI', apiProps);
     const fileApi = new FileApi(this, 'FileAPI', apiProps);

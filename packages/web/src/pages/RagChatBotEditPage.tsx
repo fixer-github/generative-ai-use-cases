@@ -1,219 +1,128 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  PiArrowLeft,
-  PiFloppyDisk,
-  PiPlus,
-  PiTrash,
-  PiGlobe,
-  PiFile,
-} from 'react-icons/pi';
-import useBedrockChatApi, {
-  BedrockChatBotInput,
-} from '../hooks/useBedrockChatApi';
+import { PiArrowLeft, PiFloppyDisk, PiPlus, PiTrash } from 'react-icons/pi';
+import useAssistantApi from '../hooks/useAssistantApi';
+import type {
+  CreateAssistantRequest,
+  UpdateAssistantRequest,
+} from 'generative-ai-use-cases';
 import Button from '../components/Button';
 import InputText from '../components/InputText';
 import Textarea from '../components/Textarea';
 import Card from '../components/Card';
 import LoadingWave from '../components/LoadingWave';
-import FileUploader from '../components/FileUploader';
+import Switch from '../components/Switch';
 
 const RagChatBotEditPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { botId } = useParams<{ botId?: string }>();
-  const {
-    getPrivateBot,
-    createBot,
-    updateBot,
-    getBotPresignedUrl,
-    deleteBotUploadedFile,
-  } = useBedrockChatApi();
+  const { botId: assistantId } = useParams<{ botId?: string }>();
+  const { getAssistant, createAssistant, updateAssistant } = useAssistantApi();
 
-  const isEditMode = !!botId;
-  const tempBotId = useMemo(() => uuidv4(), []);
-  const currentBotId = botId || tempBotId;
+  const isEditMode = !!assistantId;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
 
-  const [formData, setFormData] = useState<BedrockChatBotInput>({
-    id: tempBotId,
-    title: '',
+  const [formData, setFormData] = useState<
+    CreateAssistantRequest & { assistantId?: string }
+  >({
+    name: '',
     description: '',
     instruction: '',
-    generationParams: {
-      maxTokens: 63991,
-      temperature: 0.1,
-      topP: 0.5,
-      topK: 50,
-    },
-    knowledge: {
-      sourceUrls: [],
-      sitemapUrls: [],
-      filenames: [],
-      s3Urls: [],
-    },
-    displayRetrievedChunks: false,
-    promptCachingEnabled: true,
-    conversationQuickStarters: [],
+    modelId: 'anthropic.claude-v4-sonnet',
+    ragEnabled: false,
+    s3Urls: [],
   });
 
-  const [newUrl, setNewUrl] = useState('');
+  const [newS3Url, setNewS3Url] = useState('');
 
   useEffect(() => {
     if (isEditMode) {
-      fetchBot();
+      fetchAssistant();
     }
-  }, [botId]);
+  }, [assistantId]);
 
-  const fetchBot = async () => {
-    if (!botId) return;
+  const fetchAssistant = async () => {
+    if (!assistantId) return;
 
     setLoading(true);
     try {
-      const bot = await getPrivateBot(botId);
+      const assistant = await getAssistant(assistantId);
       setFormData({
-        title: bot.title,
-        description: bot.description || '',
-        instruction: bot.instruction,
-        generationParams: {
-          maxTokens: 63991,
-          temperature: 0.1,
-          topP: 0.5,
-          topK: 50,
-        },
-        knowledge: bot.knowledge || {
-          sourceUrls: [],
-          sitemapUrls: [],
-          filenames: [],
-          s3Urls: [],
-        },
-        displayRetrievedChunks: bot.displayRetrievedChunks || false,
-        promptCachingEnabled: bot.promptCachingEnabled ?? true,
-        conversationQuickStarters: bot.conversationQuickStarters || [],
+        assistantId: assistant.assistantId,
+        name: assistant.name,
+        description: assistant.description || '',
+        instruction: assistant.instruction,
+        modelId: assistant.modelId,
+        ragEnabled: assistant.ragEnabled,
+        s3Urls: assistant.s3Urls || [],
       });
-      setUploadedFiles(bot.knowledge?.filenames || []);
     } catch (error) {
-      console.error('Failed to fetch bot:', error);
+      console.error('Failed to fetch assistant:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.title || !formData.instruction) {
+    if (!formData.name || !formData.instruction) {
       alert(t('ragChatBot.edit.requiredFields'));
       return;
     }
 
     setSaving(true);
     try {
-      if (isEditMode && botId) {
-        await updateBot(botId, formData);
+      if (isEditMode && assistantId) {
+        const updateData: UpdateAssistantRequest = {
+          name: formData.name,
+          description: formData.description,
+          instruction: formData.instruction,
+          modelId: formData.modelId,
+          ragEnabled: formData.ragEnabled,
+          s3Urls: formData.s3Urls,
+        };
+        await updateAssistant(assistantId, updateData);
       } else {
-        await createBot(formData);
+        const createData: CreateAssistantRequest = {
+          name: formData.name,
+          description: formData.description,
+          instruction: formData.instruction,
+          modelId: formData.modelId,
+          ragEnabled: formData.ragEnabled,
+          s3Urls: formData.s3Urls,
+        };
+        await createAssistant(createData);
       }
       navigate('/rag-chat-bot');
     } catch (error) {
-      console.error('Failed to save bot:', error);
+      console.error('Failed to save assistant:', error);
       alert(t('ragChatBot.edit.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleFileUpload = async (files: FileList) => {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const { url } = await getBotPresignedUrl(
-          currentBotId,
-          file.name,
-          file.type
-        );
-
-        await fetch(url, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        });
-
-        setUploadedFiles((prev) => [...prev, file.name]);
-        setFormData((prev) => ({
+  const addS3Url = () => {
+    if (newS3Url) {
+      setFormData(
+        (prev: CreateAssistantRequest & { assistantId?: string }) => ({
           ...prev,
-          knowledge: {
-            ...prev.knowledge!,
-            filenames: [...prev.knowledge!.filenames, file.name],
-          },
-        }));
-      } catch (error) {
-        console.error('Failed to upload file:', error);
-      }
+          s3Urls: [...(prev.s3Urls || []), newS3Url],
+        })
+      );
+      setNewS3Url('');
     }
   };
 
-  const handleDeleteFile = async (filename: string) => {
-    if (currentBotId) {
-      try {
-        await deleteBotUploadedFile(currentBotId, filename);
-      } catch (error) {
-        console.error('Failed to delete file:', error);
-      }
-    }
-
-    setUploadedFiles((prev) => prev.filter((f) => f !== filename));
-    setFormData((prev) => ({
-      ...prev,
-      knowledge: {
-        ...prev.knowledge!,
-        filenames: prev.knowledge!.filenames.filter((f) => f !== filename),
-      },
-    }));
-  };
-
-  const addSourceUrl = () => {
-    if (newUrl && formData.knowledge) {
-      setFormData((prev) => ({
+  const removeS3Url = (index: number) => {
+    setFormData(
+      (prev: CreateAssistantRequest & { assistantId?: string }) => ({
         ...prev,
-        knowledge: {
-          ...prev.knowledge!,
-          sourceUrls: [...prev.knowledge!.sourceUrls, newUrl],
-        },
-      }));
-      setNewUrl('');
-    }
+        s3Urls: prev.s3Urls?.filter((_: string, i: number) => i !== index) || [],
+      })
+    );
   };
-
-  // const addSitemapUrl = () => {
-  //   if (newSitemapUrl && formData.knowledge) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       knowledge: {
-  //         ...prev.knowledge!,
-  //         sitemap_urls: [...prev.knowledge!.sitemap_urls, newSitemapUrl],
-  //       },
-  //     }));
-  //     setNewSitemapUrl('');
-  //   }
-  // };
-
-  // const addS3Url = () => {
-  //   if (newS3Url && formData.knowledge) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       knowledge: {
-  //         ...prev.knowledge!,
-  //         s3_urls: [...prev.knowledge!.s3_urls, newS3Url],
-  //       },
-  //     }));
-  //     setNewS3Url('');
-  //   }
-  // };
 
   if (loading) {
     return (
@@ -248,8 +157,8 @@ const RagChatBotEditPage: React.FC = () => {
         <div className="space-y-4">
           <InputText
             label={t('ragChatBot.edit.title')}
-            value={formData.title}
-            onChange={(value) => setFormData({ ...formData, title: value })}
+            value={formData.name}
+            onChange={(value) => setFormData({ ...formData, name: value })}
             required
           />
 
@@ -271,87 +180,83 @@ const RagChatBotEditPage: React.FC = () => {
             rows={6}
             required
           />
-        </div>
-      </Card>
 
-      <Card className="mb-6">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-          <PiFile />
-          {t('ragChatBot.edit.knowledge')}
-        </h2>
-
-        <div className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium">
-              {t('ragChatBot.edit.sourceUrls')}
+              {t('ragChatBot.edit.model', 'Model')}
             </label>
-            <div className="mb-2 flex gap-2">
-              <InputText
-                value={newUrl}
-                onChange={setNewUrl}
-                placeholder="https://example.com"
-                className="flex-1"
-              />
-              <Button
-                onClick={addSourceUrl}
-                outlined
-                className="flex items-center gap-1">
-                <PiPlus />
-                {t('ragChatBot.edit.add')}
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {formData.knowledge?.sourceUrls.map((url, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
-                  <PiGlobe className="text-gray-500" />
-                  <span className="flex-1">{url}</span>
-                  <Button
-                    outlined
-                    className="text-sm"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        knowledge: {
-                          ...formData.knowledge!,
-                          sourceUrls: formData.knowledge!.sourceUrls.filter(
-                            (_, i) => i !== index
-                          ),
-                        },
-                      })
-                    }>
-                    <PiTrash />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <select
+              value={formData.modelId}
+              onChange={(e) =>
+                setFormData({ ...formData, modelId: e.target.value })
+              }
+              className="w-full rounded border border-black/30 p-2 outline-none">
+              <option value="anthropic.claude-v4-sonnet">
+                Claude 4 Sonnet
+              </option>
+              <option value="anthropic.claude-v3-5-sonnet">
+                Claude 3.5 Sonnet
+              </option>
+              <option value="anthropic.claude-v3-opus">Claude 3 Opus</option>
+              <option value="anthropic.claude-v3-haiku">Claude 3 Haiku</option>
+            </select>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              {t('ragChatBot.edit.uploadFiles')}
-            </label>
-            <FileUploader
-              onFileSelect={handleFileUpload}
-              accept=".pdf,.txt,.doc,.docx,.md"
-              multiple
+            <Switch
+              checked={formData.ragEnabled}
+              onSwitch={(checked) =>
+                setFormData({ ...formData, ragEnabled: checked })
+              }
+              label={t('ragChatBot.edit.ragEnabled', 'Enable RAG')}
             />
-            <div className="mt-2 space-y-1">
-              {uploadedFiles.map((filename) => (
-                <div key={filename} className="flex items-center gap-2 text-sm">
-                  <PiFile className="text-gray-500" />
-                  <span className="flex-1">{filename}</span>
-                  <Button
-                    outlined
-                    className="text-sm"
-                    onClick={() => handleDeleteFile(filename)}>
-                    <PiTrash />
-                  </Button>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </Card>
+
+      {formData.ragEnabled && (
+        <Card className="mb-6">
+          <h2 className="mb-4 text-lg font-semibold">
+            {t('ragChatBot.edit.knowledge')}
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                {t('ragChatBot.edit.s3Urls', 'S3 URLs')}
+              </label>
+              <div className="mb-2 flex gap-2">
+                <InputText
+                  value={newS3Url}
+                  onChange={setNewS3Url}
+                  placeholder="s3://bucket/path/to/file"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={addS3Url}
+                  outlined
+                  className="flex items-center gap-1">
+                  <PiPlus />
+                  {t('ragChatBot.edit.add')}
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {formData.s3Urls?.map((url: string, index: number) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <span className="flex-1 font-mono text-xs">{url}</span>
+                    <Button
+                      outlined
+                      className="text-sm"
+                      onClick={() => removeS3Url(index)}>
+                      <PiTrash />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button outlined onClick={() => navigate('/rag-chat-bot')}>

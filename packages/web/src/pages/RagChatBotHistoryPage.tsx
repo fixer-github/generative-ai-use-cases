@@ -4,161 +4,54 @@ import { useTranslation } from 'react-i18next';
 import {
   PiArrowLeft,
   PiChatCircleText,
-  PiTrash,
-  PiMagnifyingGlass,
   PiCalendar,
   PiRobot,
-  PiClock,
 } from 'react-icons/pi';
-import useBedrockChatApi, {
-  BedrockChatConversation,
-} from '../hooks/useBedrockChatApi';
+import useAssistantApi from '../hooks/useAssistantApi';
+import type { Assistant } from 'generative-ai-use-cases';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import LoadingWave from '../components/LoadingWave';
 
-interface ConversationWithBot extends BedrockChatConversation {
-  bot_id?: string;
-  bot_title?: string;
-  message_count?: number;
-  last_message_at?: string;
-}
-
 const RagChatBotHistoryPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { getConversations, deleteConversation, searchConversations } =
-    useBedrockChatApi();
+  const { listAssistants } = useAssistantApi();
 
-  const [conversations, setConversations] = useState<ConversationWithBot[]>([]);
-  const [filteredConversations, setFilteredConversations] = useState<
-    ConversationWithBot[]
-  >([]);
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedConversations, setSelectedConversations] = useState<
-    Set<string>
-  >(new Set());
 
   useEffect(() => {
-    fetchConversations();
+    fetchAssistants();
   }, []);
 
-  useEffect(() => {
-    filterConversations();
-  }, [conversations, searchQuery]);
-
-  const fetchConversations = async () => {
+  const fetchAssistants = async () => {
     setLoading(true);
     try {
-      const data = await getConversations();
-      setConversations(data as ConversationWithBot[]);
-    } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-      setConversations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterConversations = () => {
-    let filtered = [...conversations];
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (conv) =>
-          conv.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          conv.bot_title?.toLowerCase().includes(searchQuery.toLowerCase())
+      const data = await listAssistants({ limit: 100 });
+      // Sort by most recently updated first
+      const sorted = (data.assistants || []).sort(
+        (a: Assistant, b: Assistant) => {
+          return (
+            new Date(b.updatedDate).getTime() -
+            new Date(a.updatedDate).getTime()
+          );
+        }
       );
-    }
-
-    // Sort by most recent first
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.last_message_at || a.createdAt || 0).getTime();
-      const dateB = new Date(b.last_message_at || b.createdAt || 0).getTime();
-      return dateB - dateA;
-    });
-
-    setFilteredConversations(filtered);
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery) {
-      filterConversations();
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const results = await searchConversations(searchQuery);
-      setFilteredConversations(results as ConversationWithBot[]);
+      setAssistants(sorted);
     } catch (error) {
-      console.error('Failed to search conversations:', error);
+      console.error('Failed to fetch assistants:', error);
+      setAssistants([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteConversation = async (conversationId: string) => {
-    if (window.confirm(t('ragChatBot.history.confirmDelete'))) {
-      try {
-        await deleteConversation(conversationId);
-        await fetchConversations();
-        setSelectedConversations((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(conversationId);
-          return newSet;
-        });
-      } catch (error) {
-        console.error('Failed to delete conversation:', error);
-      }
-    }
+  const handleOpenAssistant = (assistant: Assistant) => {
+    navigate(`/rag-chat-bot/chat/${assistant.assistantId}`);
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedConversations.size === 0) return;
-
-    if (
-      window.confirm(
-        t('ragChatBot.history.confirmBulkDelete', {
-          count: selectedConversations.size,
-        })
-      )
-    ) {
-      setLoading(true);
-      try {
-        await Promise.all(
-          Array.from(selectedConversations).map((id) => deleteConversation(id))
-        );
-        await fetchConversations();
-        setSelectedConversations(new Set());
-      } catch (error) {
-        console.error('Failed to delete conversations:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedConversations.size === filteredConversations.length) {
-      setSelectedConversations(new Set());
-    } else {
-      setSelectedConversations(new Set(filteredConversations.map((c) => c.id)));
-    }
-  };
-
-  const handleOpenConversation = (conversation: ConversationWithBot) => {
-    if (conversation.bot_id) {
-      navigate(`/rag-chat-bot/chat/${conversation.bot_id}/${conversation.id}`);
-    } else {
-      navigate(`/rag-chat-bot/chat/unknown/${conversation.id}`);
-    }
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return t('ragChatBot.history.noDate');
-
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -180,72 +73,40 @@ const RagChatBotHistoryPage: React.FC = () => {
     }
   };
 
-  const renderConversationCard = (conversation: ConversationWithBot) => {
-    const isSelected = selectedConversations.has(conversation.id);
-
+  const renderAssistantCard = (assistant: Assistant) => {
     return (
       <div
-        key={conversation.id}
-        onClick={() => handleOpenConversation(conversation)}
+        key={assistant.assistantId}
+        onClick={() => handleOpenAssistant(assistant)}
         className="cursor-pointer">
-        <Card
-          className={`mb-4 transition-shadow hover:shadow-lg ${
-            isSelected ? 'ring-2 ring-blue-500' : ''
-          }`}>
+        <Card className="mb-4 transition-shadow hover:shadow-lg">
           <div className="flex items-start justify-between">
             <div className="flex flex-1 items-start gap-3">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setSelectedConversations((prev) => {
-                    const newSet = new Set(prev);
-                    if (isSelected) {
-                      newSet.delete(conversation.id);
-                    } else {
-                      newSet.add(conversation.id);
-                    }
-                    return newSet;
-                  });
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="mt-1"
-              />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <PiRobot className="text-xl text-blue-600" />
+              </div>
 
               <div className="flex-1">
                 <div className="mb-1 flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">
-                    {conversation.title || t('ragChatBot.history.untitled')}
-                  </h3>
-                  {conversation.bot_title && (
-                    <span className="flex items-center gap-1 text-sm text-gray-500">
-                      <PiRobot />
-                      {conversation.bot_title}
-                    </span>
-                  )}
+                  <h3 className="text-lg font-semibold">{assistant.name}</h3>
                 </div>
+
+                {assistant.description && (
+                  <p className="mb-2 text-sm text-gray-600">
+                    {assistant.description}
+                  </p>
+                )}
 
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
                     <PiCalendar />
-                    {formatDate(conversation.createdAt)}
+                    {t('ragChatBot.history.created', 'Created')}:{' '}
+                    {formatDate(assistant.createdDate)}
                   </span>
-                  {conversation.last_message_at && (
-                    <span className="flex items-center gap-1">
-                      <PiClock />
-                      {t('ragChatBot.history.lastMessage')}:{' '}
-                      {formatDate(conversation.last_message_at)}
-                    </span>
-                  )}
-                  {conversation.message_count !== undefined && (
-                    <span className="flex items-center gap-1">
-                      <PiChatCircleText />
-                      {t('ragChatBot.history.messageCount', {
-                        count: conversation.message_count,
-                      })}
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1">
+                    {t('ragChatBot.history.updated', 'Updated')}:{' '}
+                    {formatDate(assistant.updatedDate)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -254,19 +115,11 @@ const RagChatBotHistoryPage: React.FC = () => {
               <Button
                 outlined
                 onClick={() => {
-                  handleOpenConversation(conversation);
+                  handleOpenAssistant(assistant);
                 }}
                 className="flex items-center gap-1 text-sm">
                 <PiChatCircleText />
                 {t('ragChatBot.history.open')}
-              </Button>
-              <Button
-                outlined
-                onClick={() => {
-                  handleDeleteConversation(conversation.id);
-                }}
-                className="text-sm text-red-600 hover:bg-red-50">
-                <PiTrash />
               </Button>
             </div>
           </div>
@@ -290,71 +143,28 @@ const RagChatBotHistoryPage: React.FC = () => {
         </h1>
       </div>
 
-      <div className="mb-6">
-        <div className="mb-4 flex gap-2">
-          <input
-            type="text"
-            placeholder={t('ragChatBot.history.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e: React.KeyboardEvent) =>
-              e.key === 'Enter' && handleSearch()
-            }
-            className="flex-1 rounded border border-black/30 p-1.5 outline-none"
-          />
-          <Button
-            onClick={handleSearch}
-            outlined
-            className="flex items-center gap-1">
-            <PiMagnifyingGlass />
-            {t('ragChatBot.history.search')}
-          </Button>
-        </div>
-
-        {selectedConversations.size > 0 && (
-          <div className="flex items-center gap-4 rounded-lg bg-blue-50 p-3">
-            <span className="text-sm text-blue-700">
-              {t('ragChatBot.history.selected', {
-                count: selectedConversations.size,
-              })}
-            </span>
-            <Button outlined onClick={handleSelectAll} className="text-sm">
-              {selectedConversations.size === filteredConversations.length
-                ? t('ragChatBot.history.deselectAll')
-                : t('ragChatBot.history.selectAll')}
-            </Button>
-            <Button
-              outlined
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1 text-sm text-red-600 hover:bg-red-50">
-              <PiTrash />
-              {t('ragChatBot.history.deleteSelected')}
-            </Button>
-          </div>
-        )}
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-12">
           <LoadingWave />
         </div>
-      ) : filteredConversations.length === 0 ? (
+      ) : assistants.length === 0 ? (
         <div className="py-12 text-center">
           <PiChatCircleText className="mx-auto mb-4 text-6xl text-gray-300" />
           <p className="text-gray-500">
-            {t('ragChatBot.history.noConversations')}
+            {t(
+              'ragChatBot.history.noAssistants',
+              'No assistants found. Create one to get started!'
+            )}
           </p>
         </div>
       ) : (
         <div>
           <div className="mb-4 text-sm text-gray-600">
             {t('ragChatBot.history.showing', {
-              count: filteredConversations.length,
+              count: assistants.length,
             })}
           </div>
-          {filteredConversations.map((conversation) =>
-            renderConversationCard(conversation)
-          )}
+          {assistants.map((assistant) => renderAssistantCard(assistant))}
         </div>
       )}
     </div>

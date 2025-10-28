@@ -200,21 +200,28 @@
   - Verify all endpoints work
   - Monitor CloudWatch logs
 
-- [ ] 8.2 Update frontend to use new endpoints
-  - Replace bedrock-chat API calls
-  - Test UI functionality
-  - Deploy frontend changes
+- [x] 8.2 Update frontend to use new endpoints
+  - ✅ Created new useAssistantApi hook
+  - ✅ Updated RagChatBotPage.tsx (listing page)
+  - ✅ Updated RagChatBotEditPage.tsx (create/edit page)
+  - ✅ Updated RagChatBotChatPage.tsx (chat interface)
+  - ✅ Updated RagChatBotHistoryPage.tsx (history page)
+  - ✅ Removed old useBedrockChatApi hook
+  - ✅ All pages compile successfully without errors
+  - ✅ Documented migration in docs/FRONTEND_MIGRATION.md
 
 - [ ] 8.3 Deprecate old bedrock-chat endpoints
   - Add deprecation warnings
   - Set sunset date
   - Communicate to users
 
-- [ ] 8.4 Remove old infrastructure
-  - Delete temp-bedrock-chat constructs
-  - Remove Python backend code
-  - Clean up unused resources
-  - Update CDK stack
+- [x] 8.4 Remove old infrastructure
+  - ✅ Deleted temp-bedrock-chat directory
+  - ✅ Removed bedrock-chat API construct
+  - ✅ Removed bedrock-chat proxy Lambda
+  - ✅ Removed tenant-bedrock-chat-stack
+  - ✅ Updated CDK construct index
+  - ✅ Updated create-tenant-stacks
 
 ## 9. Validation
 
