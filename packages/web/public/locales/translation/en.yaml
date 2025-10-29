@@ -144,6 +144,7 @@ common:
   title: Title
   trace: Trace
   try: Try
+  yesterday: Yesterday
 demo:
   inter_use_cases: Use Case Integration
 diagram:

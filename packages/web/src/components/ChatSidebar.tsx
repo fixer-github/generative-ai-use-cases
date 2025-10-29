@@ -1,30 +1,44 @@
 import React, { useState } from 'react';
 import { BaseProps } from '../@types/common';
-import { Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
 
-type Props = BaseProps;
+type Props = BaseProps & {
+  onNewChat?: () => void;
+};
 
-const ChatSidebar: React.FC<Props> = () => {
+const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
 
   const searchWords = searchQuery
     .split(' ')
     .filter((word) => word.trim().length > 0);
 
+  const handleNewChat = () => {
+    // If already on /chat page, just reset the chat
+    if (location.pathname === '/chat' && onNewChat) {
+      onNewChat();
+    } else {
+      // Otherwise, navigate to /chat
+      navigate('/chat');
+    }
+  };
+
   return (
     <nav className="bg-aws-squid-ink flex h-screen w-64 flex-col text-sm text-white">
       {/* New Chat Button */}
       <div className="border-b border-gray-600 p-3">
-        <Link
-          to="/chat"
+        <button
+          onClick={handleNewChat}
           className="hover:bg-aws-sky flex w-full items-center justify-center gap-2 rounded p-2 transition-colors">
           <PiPlus className="text-lg" />
           <span>{t('chat.button.newChat')}</span>
-        </Link>
+        </button>
       </div>
 
       {/* Search Bar */}

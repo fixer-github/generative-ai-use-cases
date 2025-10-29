@@ -9,9 +9,7 @@ import Button from '../components/Button';
 import ButtonCopy from '../components/ButtonCopy';
 import ModalDialog from '../components/ModalDialog';
 import ExpandableField from '../components/ExpandableField';
-import Switch from '../components/Switch';
 import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
 import useFollow from '../hooks/useFollow';
 import { PiShareFatFill } from 'react-icons/pi';
 import { create } from 'zustand';
@@ -77,7 +75,6 @@ const ChatPage: React.FC = () => {
     loadingMessages,
     isEmpty,
     messages,
-    rawMessages,
     clear,
     postChat,
     editChat,
@@ -255,15 +252,9 @@ const ChatPage: React.FC = () => {
     }
   }, [share]);
 
-  const [showSystemContext, setShowSystemContext] = useState(false);
-
   const showingMessages = useMemo(() => {
-    if (showSystemContext) {
-      return rawMessages;
-    } else {
-      return messages;
-    }
-  }, [showSystemContext, rawMessages, messages]);
+    return messages;
+  }, [messages]);
 
   const handleDragOver = (event: React.DragEvent) => {
     // When a file is dragged, display the overlay
@@ -291,17 +282,13 @@ const ChatPage: React.FC = () => {
     <>
       {/* Chat Sidebar */}
       <div className="fixed left-24 top-0 z-40 h-screen print:hidden">
-        <ChatSidebar />
+        <ChatSidebar onNewChat={onReset} />
       </div>
 
       {/* Main Content */}
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className={`${!isEmpty ? 'screen:pb-36' : ''} relative ml-64`}>
-        <h1 className="flex invisible justify-center items-center my-0 h-0 text-xl font-semibold lg:visible lg:my-5 print:visible print:my-5 print:h-min lg:h-min">
-          {title}
-        </h1>
-
+        className="relative ml-64 min-h-screen flex flex-col">
         {isOver && fileUpload && (
           <div
             onDragLeave={handleDragLeave}
@@ -311,20 +298,28 @@ const ChatPage: React.FC = () => {
           </div>
         )}
 
-        <Select
-          className="mt-2 lg:mt-0 print:hidden"
-          value={modelId}
-          onChange={setModelId}
-          options={availableModels.map((m) => {
-            return { value: m, label: modelDisplayName(m) };
-          })}
-        />
+        {/* Header with Model Selector, Title, and Share Button */}
+        <div className="flex items-center gap-4 my-5 print:hidden">
+          {/* Model Selector */}
+          <Select
+            className="w-64"
+            value={modelId}
+            onChange={setModelId}
+            options={availableModels.map((m) => {
+              return { value: m, label: modelDisplayName(m) };
+            })}
+          />
 
-        {!isEmpty && !loadingMessages && (
-          <div className="flex flex-col items-end pr-3 my-2 print:hidden">
-            {chatId && (
+          {/* Title */}
+          <h1 className="flex-1 text-center text-xl font-semibold">
+            {title}
+          </h1>
+
+          {/* Share Button */}
+          <div className="w-64 flex justify-end">
+            {!isEmpty && !loadingMessages && chatId && (
               <button
-                className="flex justify-center items-center mb-1 text-xs hover:underline"
+                className="flex justify-center items-center text-sm hover:underline"
                 onClick={() => {
                   setShowShareIdModal(true);
                 }}>
@@ -332,20 +327,21 @@ const ChatPage: React.FC = () => {
                 {share ? <>{t('chat.sharing')}</> : <>{t('chat.share')}</>}
               </button>
             )}
-            <Switch
-              checked={showSystemContext}
-              onSwitch={setShowSystemContext}
-              label={t('chat.show_system_prompt')}
-            />
           </div>
-        )}
+        </div>
 
-        <div ref={scrollableContainer}>
-          {!isEmpty &&
-            showingMessages.map((chat, idx) => (
-              <React.Fragment key={showSystemContext ? idx : idx + 1}>
-                {idx === 0 && <hr className="border-gray-300" />}
+        {/* Print-only Title */}
+        <h1 className="hidden print:block text-xl font-semibold my-5">
+          {title}
+        </h1>
+
+        {/* Wrapper for messages and input to enable vertical centering when empty */}
+        <div className={isEmpty ? 'flex-1 flex flex-col justify-center' : ''}>
+          <div ref={scrollableContainer}>
+            {!isEmpty &&
+              showingMessages.map((chat, idx) => (
                 <ChatMessage
+                  key={idx + 1}
                   chatContent={chat}
                   loading={loading && idx === showingMessages.length - 1}
                   allowRetry={idx === showingMessages.length - 1}
@@ -357,23 +353,15 @@ const ChatPage: React.FC = () => {
                   }
                   retryGeneration={onRetry}
                 />
-                <hr className="border-gray-300" />
-              </React.Fragment>
-            ))}
-        </div>
+              ))}
+          </div>
 
-        <ScrollTopBottom className="fixed right-4 z-0 lg:right-8 top-[calc(50vh-2rem)]" />
-
-        <InputChatContent
-          className={`fixed z-0 print:hidden ${
-            isEmpty
-              ? 'left-88 right-0 top-0 bottom-0 flex items-center justify-center'
-              : 'left-88 right-0 bottom-0 flex flex-col items-center justify-center'
-          }`}
+          <InputChatContent
+            className={`print:hidden mx-auto ${isEmpty ? '' : 'my-4'}`}
           content={content}
           disabled={loading && !writing}
           onChangeContent={setContent}
-          resetDisabled={!!chatId}
+          hideReset={true}
           onSend={() => {
             if (!loading) {
               onSend();
@@ -381,7 +369,6 @@ const ChatPage: React.FC = () => {
               onStop();
             }
           }}
-          onReset={onReset}
           fileUpload={fileUpload}
           fileLimit={fileLimit}
           accept={accept}
@@ -391,6 +378,7 @@ const ChatPage: React.FC = () => {
           }}
           canStop={writing}
         />
+        </div>
       </div>
 
       <ModalDialog

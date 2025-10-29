@@ -142,6 +142,7 @@ common:
   title: タイトル
   trace: トレース
   try: 試す
+  yesterday: 昨日
 demo:
   inter_use_cases: ユースケース連携
 diagram:
