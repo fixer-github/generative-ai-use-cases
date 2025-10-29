@@ -180,6 +180,18 @@ export class TenantRole extends Construct {
               ],
               resources: ['*'], // Transcribe doesn't have tenant-specific resources
             }),
+
+            // API Gateway access for OpenFGA authorization system
+            new PolicyStatement({
+              sid: 'ApiGatewayInvokeAccess',
+              effect: Effect.ALLOW,
+              actions: ['execute-api:Invoke'],
+              resources: [
+                // Allow invoking API Gateway endpoints in this tenant account
+                // This is required for OpenFGA authorization checks via API Gateway
+                `arn:aws:execute-api:${props.region}:${props.account}:*`,
+              ],
+            }),
           ],
         }),
       },
