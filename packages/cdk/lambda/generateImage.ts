@@ -13,7 +13,6 @@ export const handler = async (
   try {
     const req: GenerateImageRequest = JSON.parse(event.body!);
     const model = req.model || defaultImageGenerationModel;
-
     const res = await api[model.type].generateImage(model, req.params);
 
     return ok200Base64Response(res);
