@@ -15,7 +15,7 @@ const authCache = new Map<
   string,
   { result: boolean; timestamp: number; ttl: number }
 >();
-const DEFAULT_CACHE_TTL = 60000; // 1 minute
+const DEFAULT_CACHE_TTL = 5000; // 5 seconds
 
 // OpenFGA API request/response types
 interface OpenFgaCheckRequest {
