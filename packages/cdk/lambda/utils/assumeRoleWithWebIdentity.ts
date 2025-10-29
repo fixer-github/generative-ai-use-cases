@@ -17,7 +17,7 @@ const RETRY_DELAY_MS = 1000;
 const SESSION_DURATION_SECONDS = 3600;
 
 /**
- * Internal helper: Assume role using Identity Pool token exchange from Cognito User Pool JWT
+ * Assume role using Identity Pool token exchange from Cognito User Pool JWT
  * Exchange User Pool JWT → Identity Pool token → AssumeRoleWithWebIdentity
  *
  * @param userPoolToken - Cognito User Pool ID token (JWT)
