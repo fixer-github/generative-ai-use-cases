@@ -209,10 +209,12 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
       controlPlaneLambdaRoleArn: params.controlPlaneLambdaRoleArn,
+      tenantRoleArn: tenantIAMStack.getRoleArn(),
       openFgaConfig: params.openFgaConfig,
     }
   );
   tenantOpenFgaStack.addDependency(tenantVpcStack);
+  tenantOpenFgaStack.addDependency(tenantIAMStack);
 
   return {
     tenantIAMStack,
