@@ -145,14 +145,6 @@ export const handler = async (
         message:
           'Missing required fields: tenantId, accountId, region, environment, openFgaApiEndpoint, openFgaApiRegion, openFgaStoreId',
       });
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          error:
-            'Missing required fields: tenantId, accountId, region, environment, openFgaApiEndpoint, openFgaApiRegion, openFgaStoreId',
-        }),
-      };
     }
 
     // Create tenant record with default use case configuration
@@ -165,9 +157,6 @@ export const handler = async (
       environment,
       roleArn,
       controlPlaneLambdaRoleArn,
-      openFgaApiEndpoint,
-      openFgaApiRegion,
-      openFgaStoreId,
       createdAt: now,
       updatedAt: now,
       metadata: {
