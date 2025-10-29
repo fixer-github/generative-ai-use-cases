@@ -46,6 +46,11 @@ export interface TenantOpenFgaStackProps extends cdk.StackProps {
   readonly controlPlaneLambdaRoleArn?: string;
 
   /**
+   * Tenant role ARN for authorization checks
+   */
+  readonly tenantRoleArn: string;
+
+  /**
    * OpenFGA configuration
    */
   readonly openFgaConfig: OpenFgaConfig;
@@ -590,17 +595,26 @@ export class TenantOpenFgaStack extends cdk.Stack {
       },
     });
 
-    // Create resource policy to allow cross-account access
+    // Create resource policy to allow access from tenant role and control plane Lambda
+    const allowedPrincipals: iam.IPrincipal[] = [
+      new iam.ArnPrincipal(props.tenantRoleArn),
+    ];
+
+    // Add control plane Lambda role if provided (for cross-account scenarios)
     if (props.controlPlaneLambdaRoleArn) {
-      api.addToResourcePolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          principals: [new iam.ArnPrincipal(props.controlPlaneLambdaRoleArn)],
-          actions: ['execute-api:Invoke'],
-          resources: [api.arnForExecuteApi()],
-        })
+      allowedPrincipals.push(
+        new iam.ArnPrincipal(props.controlPlaneLambdaRoleArn)
       );
     }
+
+    api.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: allowedPrincipals,
+        actions: ['execute-api:Invoke'],
+        resources: [api.arnForExecuteApi()],
+      })
+    );
 
     this.apiEndpoint = api.url;
     this.apiGatewayId = api.restApiId;
