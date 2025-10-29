@@ -16,7 +16,6 @@ export const handler = async (
     const userId = getUsername(event);
     const req: GenerateVideoRequest = JSON.parse(event.body!);
     const model = req.model || defaultVideoGenerationModel;
-
     const invocationArn = await api[model.type].generateVideo(
       model,
       req.params
