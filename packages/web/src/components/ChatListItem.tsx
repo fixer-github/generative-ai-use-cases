@@ -107,20 +107,20 @@ const ChatListItem: React.FC<Props> = (props) => {
         />
       )}
       <Link
-        className={`group block w-full rounded-lg transition-colors ${
+        className={`group block w-full rounded-lg border transition-colors ${
           props.active
-            ? 'bg-blue-100 border border-blue-200'
-            : 'hover:bg-gray-100'
+            ? 'bg-blue-100 border-blue-200'
+            : 'border-transparent hover:bg-gray-100'
         } ${props.className}`}
         to={`/chat/${chatId}`}>
-        <div className="flex items-start gap-2 px-3 py-3">
-          <div className="mt-0.5 flex-shrink-0">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <div className="flex-shrink-0">
             <PiChat
               size={16}
               className={props.active ? 'text-blue-600' : 'text-gray-400'}
             />
           </div>
-          <div className="relative flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
             {editing ? (
               <input
                 ref={inputRef}
@@ -140,7 +140,7 @@ const ChatListItem: React.FC<Props> = (props) => {
               </div>
             )}
           </div>
-          <div className="flex">
+          <div className="flex items-center flex-shrink-0">
             {props.active && !editing && (
               <>
                 <ButtonIcon
@@ -159,12 +159,11 @@ const ChatListItem: React.FC<Props> = (props) => {
             )}
             {editing && (
               <>
-                <ButtonIcon className="text-base" onClick={updateTitle}>
+                <ButtonIcon onClick={updateTitle}>
                   <PiCheck />
                 </ButtonIcon>
 
                 <ButtonIcon
-                  className="text-base"
                   onClick={() => {
                     setEditing(false);
                   }}>

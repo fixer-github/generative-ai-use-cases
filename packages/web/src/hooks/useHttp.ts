@@ -54,14 +54,21 @@ api.interceptors.response.use(
     if (isRoleMismatchError(error)) {
       // Skip role mismatch handling for specific endpoints that should handle their own errors
       const requestUrl = originalRequest.url || '';
-      if (requestUrl.includes('/validate-domains') || requestUrl.includes('/admin/users/invite')) {
+      if (
+        requestUrl.includes('/validate-domains') ||
+        requestUrl.includes('/admin/users/invite')
+      ) {
         return Promise.reject(error);
       }
 
-      console.log('[useHttp] Role mismatch detected, forcing re-authentication');
-      
+      console.log(
+        '[useHttp] Role mismatch detected, forcing re-authentication'
+      );
+
       // Use centralized logout utility
-      await performLogoutAndReload('Role mismatch detected in HTTP interceptor');
+      await performLogoutAndReload(
+        'Role mismatch detected in HTTP interceptor'
+      );
       return; // Don't propagate the error further
     }
 
@@ -119,19 +126,25 @@ const useHttp = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       errorProcess?: (err: any) => void
     ) => {
-      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
-        api
-          .post<RES, import('axios').AxiosResponse<RES>, DATA>(url, data, reqConfig)
-          .then((data) => {
-            resolve(data);
-          })
-          .catch((err) => {
-            if (errorProcess) {
-              errorProcess(err);
-            }
-            reject(err);
-          });
-      });
+      return new Promise<import('axios').AxiosResponse<RES>>(
+        (resolve, reject) => {
+          api
+            .post<RES, import('axios').AxiosResponse<RES>, DATA>(
+              url,
+              data,
+              reqConfig
+            )
+            .then((data) => {
+              resolve(data);
+            })
+            .catch((err) => {
+              if (errorProcess) {
+                errorProcess(err);
+              }
+              reject(err);
+            });
+        }
+      );
     },
 
     /**
@@ -147,19 +160,21 @@ const useHttp = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       errorProcess?: (err: any) => void
     ) => {
-      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
-        api
-          .put<RES, import('axios').AxiosResponse<RES>, DATA>(url, data)
-          .then((data) => {
-            resolve(data);
-          })
-          .catch((err) => {
-            if (errorProcess) {
-              errorProcess(err);
-            }
-            reject(err);
-          });
-      });
+      return new Promise<import('axios').AxiosResponse<RES>>(
+        (resolve, reject) => {
+          api
+            .put<RES, import('axios').AxiosResponse<RES>, DATA>(url, data)
+            .then((data) => {
+              resolve(data);
+            })
+            .catch((err) => {
+              if (errorProcess) {
+                errorProcess(err);
+              }
+              reject(err);
+            });
+        }
+      );
     },
     /**
      * DELETE Request
@@ -172,19 +187,21 @@ const useHttp = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       errorProcess?: (err: any) => void
     ) => {
-      return new Promise<import('axios').AxiosResponse<RES>>((resolve, reject) => {
-        api
-          .delete<RES, import('axios').AxiosResponse<RES>, DATA>(url)
-          .then((data) => {
-            resolve(data);
-          })
-          .catch((err) => {
-            if (errorProcess) {
-              errorProcess(err);
-            }
-            reject(err);
-          });
-      });
+      return new Promise<import('axios').AxiosResponse<RES>>(
+        (resolve, reject) => {
+          api
+            .delete<RES, import('axios').AxiosResponse<RES>, DATA>(url)
+            .then((data) => {
+              resolve(data);
+            })
+            .catch((err) => {
+              if (errorProcess) {
+                errorProcess(err);
+              }
+              reject(err);
+            });
+        }
+      );
     },
   };
 };
@@ -193,7 +210,7 @@ const usePagination = <T>(
   url: string,
   initialSize = 10,
   options?: SWRConfiguration,
-  config?: AxiosRequestConfig,
+  config?: AxiosRequestConfig
 ) => {
   const swr = useSWRInfinite<T>(
     (pageIndex) => {
@@ -203,7 +220,7 @@ const usePagination = <T>(
     (requestUrl) => {
       return api.get(requestUrl, config).then((res) => res.data);
     },
-    options,
+    options
   );
 
   return {
@@ -223,16 +240,17 @@ const useSwrWithFetcher = <T>(url: string, options?: SWRConfiguration) => {
 const useSwrWithAPI = <T>(
   url: string,
   options?: SWRConfiguration,
-  config?: AxiosRequestConfig,
+  config?: AxiosRequestConfig
 ) => {
   return useSWR<T>(
     url,
     (requestUrl) => {
       return api.get(requestUrl, config).then((res) => res.data);
     },
-    options,
+    options
   );
 };
 
 export default useHttp;
 export { usePagination, useSwrWithFetcher, useSwrWithAPI };
+
