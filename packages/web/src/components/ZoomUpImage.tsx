@@ -20,8 +20,8 @@ const ZoomUpImage: React.FC<Props> = (props) => {
       <div className="group relative cursor-pointer">
         <img
           className={`${
-            props.error ? 'border-red-500' : 'border-aws-squid-ink/50'
-          } bg-aws-squid-ink/20 rounded border object-cover object-center ${
+            props.error ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-100'
+          } rounded-lg border object-cover object-center transition-all hover:border-gray-400 hover:shadow-md ${
             props.size === 's' ? 'size-24' : 'size-32'
           }`}
           src={props.src}
@@ -30,13 +30,13 @@ const ZoomUpImage: React.FC<Props> = (props) => {
           }}
         />
         {(props.loading || props.deleting) && (
-          <div className="bg-aws-squid-ink/20 absolute top-0 flex h-full w-full items-center justify-center rounded">
-            <PiSpinnerGap className="animate-spin text-4xl text-white" />
+          <div className="bg-gray-900/50 absolute inset-0 flex items-center justify-center rounded-lg">
+            <PiSpinnerGap className="animate-spin text-3xl text-white" />
           </div>
         )}
         {props.onDelete && !props.loading && (
           <ButtonIcon
-            className={`invisible absolute right-0 top-0 m-0.5 border bg-white text-xs group-hover:visible`}
+            className={`invisible absolute -right-2 -top-2 border border-gray-300 bg-white shadow-sm text-sm group-hover:visible`}
             onClick={props.onDelete}>
             <PiX />
           </ButtonIcon>

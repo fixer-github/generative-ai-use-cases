@@ -23,8 +23,8 @@ const ButtonIcon: React.FC<Props> = (props) => {
     <button
       className={`${
         props.className ?? ''
-      } flex items-center justify-center rounded-full p-1 text-xl hover:shadow ${
-        props.disabled || props.loading ? 'opacity-30' : 'hover:brightness-75'
+      } flex items-center justify-center rounded p-1.5 text-lg transition-colors hover:bg-gray-200 ${
+        props.disabled || props.loading ? 'opacity-50 cursor-not-allowed' : ''
       }`}
       onClick={onClick}
       disabled={props.disabled}

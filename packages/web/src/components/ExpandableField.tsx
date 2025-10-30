@@ -26,7 +26,7 @@ const ExpandableField: React.FC<Props> = (props) => {
   return (
     <RowItem notItem={props.notItem} className={props.className}>
       <div
-        className="mb-1 flex cursor-pointer items-center text-sm font-semibold"
+        className="mb-2 flex cursor-pointer items-center text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
         onClick={() => {
           setExpanded(!expandState);
           if (props.setOverrideExpanded) {
@@ -34,19 +34,19 @@ const ExpandableField: React.FC<Props> = (props) => {
           }
         }}>
         <PiCaretRightFill
-          className={`mr-1 ${expandState && 'rotate-90'} transition`}
+          className={`mr-2 text-gray-500 ${expandState && 'rotate-90'} transition-transform`}
         />
         {props.label}
         {props.optional && (
           <>
-            {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
-            <span className="mx-2">-</span>
-            <span className="font-light italic">{t('common.optional')}</span>
+            <span className="ml-2 text-xs font-normal italic text-gray-500">
+              ({t('common.optional')})
+            </span>
           </>
         )}
       </div>
 
-      {expandState && <>{props.children}</>}
+      {expandState && <div className="ml-6">{props.children}</div>}
     </RowItem>
   );
 };

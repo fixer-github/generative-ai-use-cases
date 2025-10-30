@@ -49,18 +49,18 @@ const Textarea: React.FC<Props> = (props) => {
   return (
     <RowItem notItem={props.notItem}>
       {props.label && (
-        <div className="flex items-center">
-          <span className="text-sm">{props.label}</span>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-900">{props.label}</span>
           {props.help && <Help className="ml-1" message={props.help} />}
           {props.optional && (
             /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
-            <span className="ml-2 text-xs italic text-gray-500">
-              - {t('common.optional')}
+            <span className="text-xs italic text-gray-500">
+              ({t('common.optional')})
             </span>
           )}
           {props.required && (
             /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
-            <span className="ml-2 text-xs font-bold text-gray-800">
+            <span className="text-xs text-red-600">
               * {t('common.required')}
             </span>
           )}
@@ -70,9 +70,11 @@ const Textarea: React.FC<Props> = (props) => {
         ref={ref}
         className={`${
           props.className ?? ''
-        } w-full resize-none rounded p-1.5 outline-none ${
-          props.noBorder ? 'border-0 focus:ring-0' : 'border border-black/30'
-        } ${props.disabled ? 'bg-gray-200' : ''}`}
+        } w-full resize-none rounded-lg outline-none text-sm ${
+          props.noBorder
+            ? 'border-0 focus:ring-0'
+            : 'border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors'
+        } ${props.disabled ? 'bg-gray-100' : 'bg-white'}`}
         rows={props.rows ?? 1}
         placeholder={props.placeholder || t('common.enter_text')}
         value={props.value}
