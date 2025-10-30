@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { BaseProps } from '../@types/common';
-import SidebarItem, { SidebarItemProps as SidebarItemBaseProps } from './SidebarItem';
+import SidebarItem, {
+  SidebarItemProps as SidebarItemBaseProps,
+} from './SidebarItem';
 import UserMenu from './UserMenu';
 
 export type SidebarItemProps = SidebarItemBaseProps & {
@@ -33,7 +35,7 @@ const Sidebar: React.FC<Props> = (props) => {
       </div>
 
       {/* User Menu at the bottom */}
-      <div className="border-t border-white/10">
+      <div>
         <UserMenu />
       </div>
     </nav>

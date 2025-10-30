@@ -46,9 +46,9 @@ const UserMenu: React.FC = () => {
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
         <button
-          className="flex h-14 w-full items-center justify-center hover:bg-aws-sky focus:outline-none"
+          className="flex h-14 w-full items-center justify-center focus:outline-none"
           aria-label="User menu">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-semibold text-aws-squid-ink">
+          <div className="text-aws-squid-ink flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-semibold">
             {getInitials()}
           </div>
         </button>
@@ -57,8 +57,9 @@ const UserMenu: React.FC = () => {
       <Popover.Portal>
         <Popover.Content
           side="top"
-          align="center"
+          align="start"
           sideOffset={8}
+          alignOffset={12}
           className="z-50 w-64 rounded-lg border border-gray-200 bg-white shadow-lg"
           onInteractOutside={() => setIsHelpSubmenuOpen(false)}>
           {/* User Info Section */}
