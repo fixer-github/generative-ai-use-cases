@@ -298,7 +298,7 @@ const ChatPage: React.FC = () => {
           </div>
         )}
 
-        {/* Header with Model Selector, Title, and Share Button */}
+        {/* Header with Model Selector and Share Button */}
         <div className="flex items-center gap-4 my-5 print:hidden">
           {/* Model Selector */}
           <Select
@@ -310,10 +310,8 @@ const ChatPage: React.FC = () => {
             })}
           />
 
-          {/* Title */}
-          <h1 className="flex-1 text-center text-xl font-semibold">
-            {title}
-          </h1>
+          {/* Spacer */}
+          <div className="flex-1" />
 
           {/* Share Button */}
           <div className="w-64 flex justify-end">
