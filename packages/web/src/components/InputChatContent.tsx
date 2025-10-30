@@ -122,7 +122,7 @@ const InputChatContent: React.FC<Props> = (props) => {
         </p>
       )}
       <div
-        className={`relative flex flex-col rounded-xl border border-black/10 bg-gray-100 shadow-[0_0_30px_1px] shadow-gray-400/40 ${
+        className={`relative flex flex-col rounded-3xl border border-gray-200 bg-white shadow-sm ${
           props.disableMarginBottom ? '' : 'mb-7'
         }`}>
         {/* 上半分: テキスト入力エリア */}
@@ -187,7 +187,7 @@ const InputChatContent: React.FC<Props> = (props) => {
           )}
           <Textarea
             className={`scrollbar-thumb-gray-200 scrollbar-thin mx-2 my-2 bg-transparent`}
-            placeholder={props.placeholder ?? t('common.enter_text')}
+            placeholder={props.placeholder ?? t('common.ask_gaixr')}
             noBorder
             notItem
             value={props.content}
@@ -198,7 +198,7 @@ const InputChatContent: React.FC<Props> = (props) => {
         </div>
 
         {/* 下半分: ボタンエリア */}
-        <div className="mx-2 mb-2 flex items-center justify-between border-t border-gray-300 pt-2">
+        <div className="mx-2 mb-2 flex items-center justify-between pt-2">
           {/* 左側のボタングループ */}
           <div className="flex items-center gap-1">
             {props.fileUpload && (
@@ -213,7 +213,7 @@ const InputChatContent: React.FC<Props> = (props) => {
                     value={[]}
                   />
                   <div
-                    className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex items-center justify-center rounded-xl p-2 align-bottom text-xl text-white`}>
+                    className={`${uploading ? 'text-gray-300' : 'text-gray-600 cursor-pointer'} flex items-center justify-center rounded-xl p-2 align-bottom text-xl`}>
                     {uploading ? (
                       <PiSpinnerGap className="animate-spin" />
                     ) : (

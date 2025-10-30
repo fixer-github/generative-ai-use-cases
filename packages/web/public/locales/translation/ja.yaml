@@ -110,6 +110,7 @@ chat:
   title: チャット
   view_prompt_examples: プロンプト例を見る
 common:
+  ask_gaixr: GaiXerに聞く
   cancel: キャンセル
   clear: クリア
   close: 閉じる

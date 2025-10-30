@@ -112,6 +112,7 @@ chat:
   title: Chat
   view_prompt_examples: View Prompt Examples
 common:
+  ask_gaixr: Ask GaiXer
   cancel: Cancel
   clear: Clear
   close: Close
