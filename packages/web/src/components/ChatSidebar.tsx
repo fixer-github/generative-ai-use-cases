@@ -42,7 +42,7 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
           アシスタント
         </div>
         {/* Empty assistants list - will be populated later */}
-        <button className="hover:bg-gray-100 flex w-full items-center justify-center gap-2 rounded border border-gray-200 bg-white py-2 text-gray-600 transition-colors">
+        <button className="hover:bg-gray-100 flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-gray-600 transition-colors">
           <PiMagnifyingGlass className="text-base" />
           <span>アシスタントを探す</span>
         </button>
