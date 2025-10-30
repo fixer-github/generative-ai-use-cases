@@ -279,21 +279,21 @@ const ChatPage: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="flex h-screen">
       {/* Chat Sidebar */}
-      <div className="fixed left-24 top-0 z-40 h-screen print:hidden">
+      <div className="print:hidden">
         <ChatSidebar onNewChat={onReset} />
       </div>
 
       {/* Main Content */}
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className="relative ml-64 min-h-screen flex flex-col">
+        className="flex-1 flex flex-col overflow-x-hidden">
         {isOver && fileUpload && (
           <div
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className="flex fixed inset-0 justify-center items-center p-10 z-[999] bg-slate-300 outline-dashed">
+            className="fixed inset-0 flex justify-center items-center p-10 z-[999] bg-slate-300 outline-dashed">
             <p className="font-bold">{t('chat.drop_files')}</p>
           </div>
         )}
@@ -335,8 +335,8 @@ const ChatPage: React.FC = () => {
           {title}
         </h1>
 
-        {/* Wrapper for messages and input to enable vertical centering when empty */}
-        <div className={isEmpty ? 'flex-1 flex flex-col justify-center' : ''}>
+        {/* Messages and Input */}
+        <div className={isEmpty ? 'flex-1 flex flex-col justify-center' : 'flex-1'}>
           <div ref={scrollableContainer}>
             {!isEmpty &&
               showingMessages.map((chat, idx) => (
@@ -358,26 +358,26 @@ const ChatPage: React.FC = () => {
 
           <InputChatContent
             className={`print:hidden mx-auto ${isEmpty ? '' : 'my-4'}`}
-          content={content}
-          disabled={loading && !writing}
-          onChangeContent={setContent}
-          hideReset={true}
-          onSend={() => {
-            if (!loading) {
-              onSend();
-            } else {
-              onStop();
-            }
-          }}
-          fileUpload={fileUpload}
-          fileLimit={fileLimit}
-          accept={accept}
-          setting={setting}
-          onSetting={() => {
-            setShowSetting(true);
-          }}
-          canStop={writing}
-        />
+            content={content}
+            disabled={loading && !writing}
+            onChangeContent={setContent}
+            hideReset={true}
+            onSend={() => {
+              if (!loading) {
+                onSend();
+              } else {
+                onStop();
+              }
+            }}
+            fileUpload={fileUpload}
+            fileLimit={fileLimit}
+            accept={accept}
+            setting={setting}
+            onSetting={() => {
+              setShowSetting(true);
+            }}
+            canStop={writing}
+          />
         </div>
       </div>
 
@@ -447,7 +447,7 @@ const ChatPage: React.FC = () => {
           {t('chat.settings')}
         </Button>
       </ModalDialog>
-    </>
+    </div>
   );
 };
 
