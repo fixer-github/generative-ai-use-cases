@@ -12,11 +12,13 @@ import {
 } from 'react-icons/pi';
 import useUserInfo from '../hooks/useUserInfo';
 import { performLogoutAndReload } from '../utils/auth';
+import SettingsModal from './SettingsModal';
 
 const UserMenu: React.FC = () => {
   const { userInfo, loading } = useUserInfo();
   const [isOpen, setIsOpen] = useState(false);
   const [isHelpSubmenuOpen, setIsHelpSubmenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = async () => {
     await performLogoutAndReload('User initiated logout');
@@ -153,8 +155,8 @@ const UserMenu: React.FC = () => {
             <button
               className="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               onClick={() => {
-                // TODO: Implement settings page navigation
-                console.log('設定 clicked');
+                setIsSettingsOpen(true);
+                setIsOpen(false); // Close the user menu
               }}>
               <PiGear className="h-5 w-5 text-gray-500" />
               <span>設定</span>
@@ -170,6 +172,9 @@ const UserMenu: React.FC = () => {
           </div>
         </Popover.Content>
       </Popover.Portal>
+
+      {/* Settings Modal */}
+      <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </Popover.Root>
   );
 };
