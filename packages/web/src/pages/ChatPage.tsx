@@ -344,10 +344,35 @@ const ChatPage: React.FC = () => {
         </h1>
 
         {/* Wrapper for messages and input to enable vertical centering when empty */}
-        <div className={isEmpty ? 'flex-1 flex flex-col justify-center' : ''}>
-          <div ref={scrollableContainer}>
-            {!isEmpty &&
-              showingMessages.map((chat, idx) => (
+        {isEmpty ? (
+          <div className="flex-1 flex flex-col justify-center">
+            <InputChatContent
+              className="print:hidden mx-auto"
+              content={content}
+              disabled={loading && !writing}
+              onChangeContent={setContent}
+              hideReset={true}
+              onSend={() => {
+                if (!loading) {
+                  onSend();
+                } else {
+                  onStop();
+                }
+              }}
+              fileUpload={fileUpload}
+              fileLimit={fileLimit}
+              accept={accept}
+              setting={setting}
+              onSetting={() => {
+                setShowSetting(true);
+              }}
+              canStop={writing}
+            />
+          </div>
+        ) : (
+          <>
+            <div ref={scrollableContainer} className="pb-32">
+              {showingMessages.map((chat, idx) => (
                 <ChatMessage
                   key={idx + 1}
                   chatContent={chat}
@@ -362,31 +387,34 @@ const ChatPage: React.FC = () => {
                   retryGeneration={onRetry}
                 />
               ))}
-          </div>
+            </div>
 
-          <InputChatContent
-            className={`print:hidden mx-auto ${isEmpty ? '' : 'my-4'}`}
-          content={content}
-          disabled={loading && !writing}
-          onChangeContent={setContent}
-          hideReset={true}
-          onSend={() => {
-            if (!loading) {
-              onSend();
-            } else {
-              onStop();
-            }
-          }}
-          fileUpload={fileUpload}
-          fileLimit={fileLimit}
-          accept={accept}
-          setting={setting}
-          onSetting={() => {
-            setShowSetting(true);
-          }}
-          canStop={writing}
-        />
-        </div>
+            <div className="fixed bottom-0 left-64 right-0 bg-white print:hidden">
+              <InputChatContent
+                className="mx-auto my-4"
+                content={content}
+                disabled={loading && !writing}
+                onChangeContent={setContent}
+                hideReset={true}
+                onSend={() => {
+                  if (!loading) {
+                    onSend();
+                  } else {
+                    onStop();
+                  }
+                }}
+                fileUpload={fileUpload}
+                fileLimit={fileLimit}
+                accept={accept}
+                setting={setting}
+                onSetting={() => {
+                  setShowSetting(true);
+                }}
+                canStop={writing}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <ModalDialog
