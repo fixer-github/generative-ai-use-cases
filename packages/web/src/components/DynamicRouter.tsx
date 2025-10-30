@@ -12,7 +12,6 @@ import AuthWithSAML from './AuthWithSAML';
 import AuthWithSamlOrUserpool from './AuthWithSamlOrUserpool';
 import App from '../App';
 import LandingPage from '../pages/LandingPage';
-import Setting from '../pages/Setting';
 import StatPage from '../pages/StatPage';
 import ChatPage from '../pages/ChatPage';
 import SharedChatPage from '../pages/SharedChatPage';
@@ -87,10 +86,6 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     {
       path: '/',
       element: <LandingPage />,
-    },
-    {
-      path: '/setting',
-      element: <Setting />,
     },
     {
       path: '/stats',

@@ -68,12 +68,6 @@ const ModelSelector: React.FC<Props> = ({
     setIsSubMenuOpen(!isSubMenuOpen);
   };
 
-  const closeAllMenus = () => {
-    setIsSubMenuOpen(false);
-    // Close main menu by dispatching Escape key
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-  };
-
   return (
     <Menu as="div" className={`relative ${className}`}>
       {({ open, close }) => (

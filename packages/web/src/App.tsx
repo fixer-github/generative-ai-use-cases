@@ -11,7 +11,6 @@ import {
   PiImages,
   PiVideoLight,
   PiSpeakerHighBold,
-  PiGear,
   PiGlobe,
   PiRobot,
   PiVideoCamera,
@@ -59,12 +58,6 @@ const App: React.FC = () => {
   const { enabled } = useUseCases();
 
   const sidebarItems: SidebarItemProps[] = [
-    {
-      label: t('navigation.settings'),
-      to: '/setting',
-      icon: <PiGear />,
-      display: 'none' as const,
-    },
     {
       label: t('navigation.chat'),
       to: '/chat',
