@@ -1,6 +1,6 @@
 import React, { Fragment, useState, useMemo } from 'react';
 import { Menu, Transition } from '@headlessui/react';
-import { PiCaretUpDown, PiCheck, PiCaretRight } from 'react-icons/pi';
+import { PiCaretDown, PiCheck, PiCaretRight } from 'react-icons/pi';
 
 export type ModelOption = {
   value: string;
@@ -77,7 +77,7 @@ const ModelSelector: React.FC<Props> = ({
               <span className="block truncate font-medium">
                 {currentModel?.label || value}
               </span>
-              <PiCaretUpDown className="ml-2 h-5 w-5 text-gray-400" />
+              <PiCaretDown className="ml-2 h-5 w-5 text-gray-400" />
             </span>
           </Menu.Button>
 

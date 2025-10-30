@@ -30,7 +30,7 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
       <div className="border-b border-gray-200 p-3">
         <button
           onClick={handleNewChat}
-          className="hover:bg-blue-50 flex w-full items-center justify-center gap-2 rounded bg-blue-600 text-white p-2 transition-colors">
+          className="hover:bg-blue-700 flex w-full items-center justify-center gap-2 rounded bg-blue-600 text-white p-2 transition-colors">
           <PiPlus className="text-lg" />
           <span>{t('chat.button.newChat')}</span>
         </button>
