@@ -11,6 +11,8 @@ import {
   PiPaperclip,
   PiSpinnerGap,
   PiSlidersHorizontal,
+  PiStopFill,
+  PiPaperPlaneRightFill,
 } from 'react-icons/pi';
 import useFiles from '../hooks/useFiles';
 import FileCard from './FileCard';
@@ -122,7 +124,7 @@ const InputChatContent: React.FC<Props> = (props) => {
         </p>
       )}
       <div
-        className={`relative flex flex-col rounded-xl border border-black/10 bg-gray-100 shadow-[0_0_30px_1px] shadow-gray-400/40 ${
+        className={`relative flex flex-col rounded-2xl border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent ${
           props.disableMarginBottom ? '' : 'mb-7'
         }`}>
         {/* 上半分: テキスト入力エリア */}
@@ -186,7 +188,7 @@ const InputChatContent: React.FC<Props> = (props) => {
             </div>
           )}
           <Textarea
-            className={`scrollbar-thumb-gray-200 scrollbar-thin mx-2 my-2 bg-transparent`}
+            className={`scrollbar-thumb-gray-200 scrollbar-thin px-4 py-3 bg-transparent`}
             placeholder={props.placeholder ?? t('common.enter_text')}
             noBorder
             notItem
@@ -198,9 +200,9 @@ const InputChatContent: React.FC<Props> = (props) => {
         </div>
 
         {/* 下半分: ボタンエリア */}
-        <div className="mx-2 mb-2 flex items-center justify-between border-t border-gray-300 pt-2">
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t border-gray-200">
           {/* 左側のボタングループ */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {props.fileUpload && (
               <div className="">
                 <label>
@@ -212,36 +214,51 @@ const InputChatContent: React.FC<Props> = (props) => {
                     multiple
                     value={[]}
                   />
-                  <div
-                    className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex items-center justify-center rounded-xl p-2 align-bottom text-xl text-white`}>
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors ${
+                      uploading
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-700 hover:bg-gray-200 cursor-pointer'
+                    }`}>
                     {uploading ? (
-                      <PiSpinnerGap className="animate-spin" />
+                      <PiSpinnerGap className="animate-spin" size={18} />
                     ) : (
-                      <PiPaperclip />
+                      <PiPaperclip size={18} />
                     )}
-                  </div>
+                  </button>
                 </label>
               </div>
             )}
             {props.setting && (
-              <ButtonSend
-                className=""
+              <button
+                type="button"
                 disabled={loading}
                 onClick={props.onSetting ?? (() => {})}
-                icon={<PiSlidersHorizontal />}
-              />
+                className="flex items-center gap-1.5 px-3 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <PiSlidersHorizontal size={18} />
+              </button>
             )}
           </div>
 
           {/* 右側の送信ボタン */}
-          <ButtonSend
-            className=""
-            disabled={disabledSend}
-            loading={loading || uploading}
+          <button
             onClick={props.onSend}
-            icon={props.sendIcon}
-            canStop={props.canStop}
-          />
+            disabled={disabledSend}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading || uploading ? (
+              <>
+                {props.canStop ? (
+                  <PiStopFill size={18} />
+                ) : (
+                  <PiSpinnerGap size={18} className="animate-spin" />
+                )}
+              </>
+            ) : (
+              <>{props.sendIcon ? <>{props.sendIcon}</> : <PiPaperPlaneRightFill size={18} />}</>
+            )}
+          </button>
         </div>
 
         {!isEmpty && !props.resetDisabled && !props.hideReset && (

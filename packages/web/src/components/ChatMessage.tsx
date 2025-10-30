@@ -195,17 +195,17 @@ const ChatMessage: React.FC<Props> = (props) => {
           }`}>
           {/* Avatar */}
           {chatContent?.role === 'user' && (
-            <div className="bg-aws-sky h-min shrink-0 rounded-full p-2 text-xl text-white">
+            <div className="bg-blue-600 h-min shrink-0 rounded-full p-2 text-xl text-white">
               <PiUserFill />
             </div>
           )}
           {chatContent?.role === 'assistant' && (
-            <div className="bg-aws-ml h-min shrink-0 rounded-full p-1">
+            <div className="bg-gray-600 h-min shrink-0 rounded-full p-1">
               <BedrockIcon className="size-7 fill-white" />
             </div>
           )}
           {chatContent?.role === 'system' && (
-            <div className="bg-aws-sky h-min shrink-0 rounded-full p-2 text-xl text-white">
+            <div className="bg-blue-600 h-min shrink-0 rounded-full p-2 text-xl text-white">
               <PiChalkboardTeacher />
             </div>
           )}
@@ -228,7 +228,7 @@ const ChatMessage: React.FC<Props> = (props) => {
               <div
                 className={`rounded-2xl px-4 py-3 ${
                   chatContent?.role === 'user'
-                    ? 'bg-aws-sky text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100'
                 }`}>
             {chatContent?.trace && (
@@ -238,7 +238,7 @@ const ChatMessage: React.FC<Props> = (props) => {
                     <div className="inline-flex gap-1">
                       {t('common.trace')}
                       {props.loading && !chatContent?.content && (
-                        <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                        <div className="border-blue-600 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                       )}
                     </div>
                   </summary>

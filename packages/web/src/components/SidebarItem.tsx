@@ -18,8 +18,10 @@ const SidebarItem: React.FC<SidebarItemProps> = (props) => {
 
   return (
     <Link
-      className={`hover:bg-aws-sky flex flex-col items-center justify-center rounded p-2 transition-colors ${
-        isActive && 'bg-aws-sky'
+      className={`flex flex-col items-center justify-center rounded-lg p-2 transition-colors ${
+        isActive
+          ? 'bg-blue-600 text-white'
+          : 'text-gray-400 hover:bg-gray-800 hover:text-white'
       } ${props.className}`}
       to={props.to}
       title={props.label}>

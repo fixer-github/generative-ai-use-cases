@@ -14,13 +14,13 @@ const Checkbox: React.FC<Props> = (props) => {
       <input
         id="checkbox"
         type="checkbox"
-        className="text-aws-smile size-4 rounded border-black/30"
+        className="text-blue-600 size-4 rounded border-gray-300 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         checked={props.value}
         onChange={(e) => {
           props.onChange(e.target.checked);
         }}
       />
-      <label htmlFor="checkbox" className="ml-2 text-sm text-gray-500">
+      <label htmlFor="checkbox" className="ml-2 text-sm text-gray-700 cursor-pointer">
         {props.label}
       </label>
     </RowItem>

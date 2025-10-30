@@ -26,8 +26,8 @@ const Sidebar: React.FC<Props> = (props) => {
   const hasUpdate = getHasUpdate();
 
   return (
-    <nav className="bg-aws-squid-ink flex h-screen w-24 flex-col text-sm text-white">
-      <div className="scrollbar-thin scrollbar-thumb-white flex-1 overflow-y-auto p-2">
+    <nav className="bg-gray-900 flex h-screen w-24 flex-col text-sm text-white border-r border-gray-800">
+      <div className="scrollbar-thin scrollbar-thumb-gray-700 flex-1 overflow-y-auto p-2">
         <div className="flex flex-col gap-1">
           {allItems.map((item, idx) => (
             <SidebarItem
@@ -40,7 +40,7 @@ const Sidebar: React.FC<Props> = (props) => {
         </div>
       </div>
 
-      <div className="border-t border-gray-600 p-2">
+      <div className="border-t border-gray-800 p-2">
         <div className="flex flex-col gap-1">
           <div className="relative">
             <SidebarItem

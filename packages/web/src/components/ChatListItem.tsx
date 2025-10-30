@@ -107,33 +107,37 @@ const ChatListItem: React.FC<Props> = (props) => {
         />
       )}
       <Link
-        className={`hover:bg-gray-200 group flex h-8 w-full items-center justify-start rounded p-2 ${
-          props.active && 'bg-gray-200'
+        className={`group block w-full rounded-lg transition-colors ${
+          props.active
+            ? 'bg-blue-100 border border-blue-200'
+            : 'hover:bg-gray-100'
         } ${props.className}`}
         to={`/chat/${chatId}`}>
-        <div
-          className={`flex h-8 max-h-5 w-full justify-start overflow-hidden`}>
-          <div className="mr-2">
-            <PiChat />
+        <div className="flex items-start gap-2 px-3 py-3">
+          <div className="mt-0.5 flex-shrink-0">
+            <PiChat
+              size={16}
+              className={props.active ? 'text-blue-600' : 'text-gray-400'}
+            />
           </div>
-          <div className="relative flex-1 text-ellipsis break-all">
+          <div className="relative flex-1 min-w-0">
             {editing ? (
               <input
                 ref={inputRef}
                 type="text"
-                className="max-h-5 w-full bg-transparent p-0 text-sm ring-0 text-gray-900"
+                className="w-full bg-transparent p-0 text-sm font-medium ring-0 text-gray-900 focus:outline-none"
                 value={tempTitle}
                 onChange={(e) => {
                   setTempTitle(e.target.value);
                 }}
               />
             ) : (
-              <div>{highlightText(props.chat.title, props.highlightWords)}</div>
-            )}
-            {!editing && (
               <div
-                className={`group-hover:from-gray-200 group-hover:to-gray-200/40 absolute right-0 w-8 bg-gradient-to-l ${props.active ? 'from-gray-200' : 'from-gray-50'} `}
-              />
+                className={`text-sm font-medium truncate ${
+                  props.active ? 'text-blue-900' : 'text-gray-900'
+                }`}>
+                {highlightText(props.chat.title, props.highlightWords)}
+              </div>
             )}
           </div>
           <div className="flex">

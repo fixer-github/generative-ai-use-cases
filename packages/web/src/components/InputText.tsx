@@ -15,16 +15,20 @@ const InputText: React.FC<Props> = (props) => {
 
   return (
     <div className={props.className}>
-      {props.label && <span className="text-sm">{props.label}</span>}
-      {props.required && (
-        /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
-        <span className="ml-2 text-xs font-bold text-gray-800">
-          * {t('common.required')}
-        </span>
+      {props.label && (
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-900">{props.label}</span>
+          {props.required && (
+            /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
+            <span className="text-xs text-red-600">
+              * {t('common.required')}
+            </span>
+          )}
+        </div>
       )}
       <input
         type="text"
-        className="w-full rounded border border-black/30 p-1.5 outline-none"
+        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
         value={props.value}
         placeholder={props.placeholder || t('common.enter_text')}
         onChange={(e) => {

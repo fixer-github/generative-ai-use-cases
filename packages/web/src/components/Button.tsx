@@ -16,15 +16,15 @@ const Button: React.FC<Props> = (props) => {
     <button
       className={`${props.className ?? ''} ${
         props.outlined
-          ? 'text-aws-font-color border-aws-font-color/20 border bg-white'
-          : 'bg-aws-smile border text-white'
-      } flex items-center justify-center rounded-lg p-1 px-3 ${
-        props.disabled || props.loading ? 'opacity-30' : 'hover:brightness-75'
+          ? 'border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed'
+          : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed'
+      } inline-flex items-center justify-center gap-2 font-medium rounded-lg px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+        props.disabled || props.loading ? 'opacity-50' : ''
       }`}
       title={props.title}
       onClick={props.disabled || props.loading ? undefined : props.onClick}
       disabled={props.disabled || props.loading}>
-      {props.loading && <PiSpinnerGap className="mr-2 animate-spin" />}
+      {props.loading && <PiSpinnerGap className="animate-spin" size={16} />}
       {props.children}
     </button>
   );
