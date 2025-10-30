@@ -9,7 +9,7 @@ import Button from '../components/Button';
 import ButtonCopy from '../components/ButtonCopy';
 import ModalDialog from '../components/ModalDialog';
 import ExpandableField from '../components/ExpandableField';
-import Select from '../components/Select';
+import ModelSelector from '../components/ModelSelector';
 import useFollow from '../hooks/useFollow';
 import { PiShareFatFill } from 'react-icons/pi';
 import { create } from 'zustand';
@@ -85,7 +85,12 @@ const ChatPage: React.FC = () => {
   const { createShareId, findShareId, deleteShareId } = useChatApi();
   const { scrollableContainer, setFollowing } = useFollow();
   const { getChatTitle } = useChatList();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const {
+    modelIds: availableModels,
+    modelDisplayName,
+    modelMetadata,
+    featuredModelIds,
+  } = MODELS;
   const { data: share, mutate: reloadShare } = findShareId(chatId);
   const modelId = getModelId();
   const prompter = useMemo(() => {
@@ -301,13 +306,18 @@ const ChatPage: React.FC = () => {
         {/* Header with Model Selector and Share Button */}
         <div className="flex items-center gap-4 my-5 print:hidden">
           {/* Model Selector */}
-          <Select
-            className="w-64"
+          <ModelSelector
+            className="w-80"
             value={modelId}
             onChange={setModelId}
-            options={availableModels.map((m) => {
-              return { value: m, label: modelDisplayName(m) };
+            models={availableModels.map((m) => {
+              return {
+                value: m,
+                label: modelDisplayName(m),
+                description: modelMetadata[m]?.description,
+              };
             })}
+            featuredModelIds={featuredModelIds}
           />
 
           {/* Spacer */}
