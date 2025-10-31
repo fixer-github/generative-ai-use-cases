@@ -213,8 +213,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => 
                     />
                   </div>
 
-                  {/* Web Search Toggle */}
-                  <div className="space-y-2">
+                  {/* Web Search Toggle - 未実装のため非表示 */}
+                  {/* <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <label className="text-sm font-medium text-gray-900">ウェブ検索</label>
@@ -229,7 +229,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => 
                         }
                       />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               )}
             </div>
