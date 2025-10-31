@@ -14,70 +14,75 @@ This guide covers deploying the fixes for assistant system prompts and RAG/OpenS
 
 ## Deployment Steps
 
-### 1. Pre-Deployment: Migrate Existing Tenants
+### 1. Pre-Deployment: Manually Configure Existing Tenants
 
-**IMPORTANT**: Run this migration BEFORE deploying the CDK changes to avoid runtime errors.
+**IMPORTANT**: Complete this migration BEFORE deploying the CDK changes to avoid runtime errors.
+
+For each tenant with an existing OpenSearch stack, you need to update the tenant record in DynamoDB with OpenSearch metadata.
+
+#### Step 1: Get OpenSearch Stack Outputs
+
+Find your tenant's OpenSearch CloudFormation stack and retrieve the domain endpoint and ARN:
 
 ```bash
-# Navigate to CDK directory
-cd packages/cdk
+# List tenant OpenSearch stacks
+AWS_PROFILE=genu aws cloudformation list-stacks \
+  --region us-east-1 \
+  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+  --query 'StackSummaries[?contains(StackName, `opensearch`)].StackName' \
+  --output table
 
-# Run migration script with your environment
-AWS_PROFILE=genu AWS_REGION=us-east-1 npx ts-node scripts/migrate-tenant-opensearch.ts <environment>
+# Get outputs for a specific tenant stack
+AWS_PROFILE=genu aws cloudformation describe-stacks \
+  --region us-east-1 \
+  --stack-name <environment>-<tenant-id>-opensearch \
+  --query 'Stacks[0].Outputs' \
+  --output table
 
-# Example for dev environment:
-AWS_PROFILE=genu AWS_REGION=us-east-1 npx ts-node scripts/migrate-tenant-opensearch.ts dev
-
-# Example for prod environment:
-AWS_PROFILE=genu AWS_REGION=us-east-1 npx ts-node scripts/migrate-tenant-opensearch.ts prod
+# Example:
+AWS_PROFILE=genu aws cloudformation describe-stacks \
+  --region us-east-1 \
+  --stack-name dev-tenant-fixer-opensearch \
+  --query 'Stacks[0].Outputs' \
+  --output table
 ```
 
-**What this does:**
-- Scans CloudFormation for all tenant OpenSearch stacks in your environment
-- Extracts OpenSearch endpoints and ARNs from stack outputs
-- Updates tenant DynamoDB records with OpenSearch metadata
-- Reports success/failure for each tenant
+Note the following output values:
+- `DomainEndpoint` (e.g., `vpc-dev-tenant-fixer-opensearch-xxx.us-east-1.es.amazonaws.com`)
+- `DomainArn` (e.g., `arn:aws:es:us-east-1:123456789012:domain/dev-tenant-fixer-opensearch`)
 
-**Expected output:**
+#### Step 2: Update Tenant DynamoDB Record
+
+Update each tenant record with the OpenSearch metadata:
+
+```bash
+AWS_PROFILE=genu aws dynamodb update-item \
+  --table-name Tenants-<environment> \
+  --key '{"tenantId":{"S":"<tenant-id>"}}' \
+  --update-expression "SET openSearchEndpoint = :endpoint, openSearchDomainArn = :arn, openSearchIndexName = :indexName, updatedAt = :updatedAt" \
+  --expression-attribute-values '{
+    ":endpoint":{"S":"<domain-endpoint>"},
+    ":arn":{"S":"<domain-arn>"},
+    ":indexName":{"S":"assistant-docs"},
+    ":updatedAt":{"S":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}
+  }' \
+  --region us-east-1
+
+# Example:
+AWS_PROFILE=genu aws dynamodb update-item \
+  --table-name Tenants-dev \
+  --key '{"tenantId":{"S":"fixer"}}' \
+  --update-expression "SET openSearchEndpoint = :endpoint, openSearchDomainArn = :arn, openSearchIndexName = :indexName, updatedAt = :updatedAt" \
+  --expression-attribute-values '{
+    ":endpoint":{"S":"vpc-dev-tenant-fixer-opensearch-xxx.us-east-1.es.amazonaws.com"},
+    ":arn":{"S":"arn:aws:es:us-east-1:123456789012:domain/dev-tenant-fixer-opensearch"},
+    ":indexName":{"S":"assistant-docs"},
+    ":updatedAt":{"S":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}
+  }' \
+  --region us-east-1
 ```
-================================================================================
-Tenant OpenSearch Endpoint Migration
-================================================================================
-Environment: dev
-Region: us-east-1
-AWS Profile: genu
-Tenants Table: Tenants-dev
 
-Searching for tenant OpenSearch stacks in environment: dev...
-Found stack: dev-tenant-fixer-opensearch
-  ✓ Tenant: fixer, Endpoint: vpc-dev-tenant-fixer-opensearch-xxx.us-east-1.es.amazonaws.com
-Found stack: dev-tenant-demo-opensearch
-  ✓ Tenant: demo, Endpoint: vpc-dev-tenant-demo-opensearch-yyy.us-east-1.es.amazonaws.com
-
-Found 2 tenant OpenSearch stacks
-
-Scanning tenants table: Tenants-dev...
-Found 2 tenant records
-
-================================================================================
-Updating Tenant Records
-================================================================================
-
-Updating tenant fixer...
-  ✓ Updated successfully
-
-Updating tenant demo...
-  ✓ Updated successfully
-
-================================================================================
-Migration Summary
-================================================================================
-Total stacks found: 2
-Tenants updated: 2
-Tenants skipped: 0
-
-✅ Migration completed successfully!
-```
+Repeat this for each tenant that has an OpenSearch stack.
 
 ### 2. Verify Migration
 

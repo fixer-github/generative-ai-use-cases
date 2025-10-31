@@ -63,6 +63,9 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
     }
   );
 
