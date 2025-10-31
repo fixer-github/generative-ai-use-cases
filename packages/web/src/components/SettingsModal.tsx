@@ -54,7 +54,7 @@ const CustomSelect: React.FC<{
       </Select.Trigger>
 
       <Select.Portal>
-        <Select.Content className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+        <Select.Content className="z-[100] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
           <Select.Viewport className="p-1">
             {options.map((option) => (
               <Select.Item
@@ -92,8 +92,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => 
 
   const sendMessageOptions: { value: SendMessageMethod; label: string }[] = [
     { value: 'enter', label: 'Enterで送信' },
-    { value: 'ctrl-enter', label: 'Ctrl+Enterで送信' },
-    { value: 'cmd-enter', label: 'Cmd+Enterで送信' },
+    { value: 'ctrl-cmd-enter', label: 'Ctrl/⌘+Enterで送信' },
   ];
 
   return (

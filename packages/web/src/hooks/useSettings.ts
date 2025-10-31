@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type Language = 'auto' | 'ja' | 'en';
-export type SendMessageMethod = 'enter' | 'ctrl-enter' | 'cmd-enter';
+export type SendMessageMethod = 'enter' | 'ctrl-cmd-enter';
 
 export interface Settings {
   theme: Theme;

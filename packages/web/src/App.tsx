@@ -32,6 +32,8 @@ import useUseCases from './hooks/useUseCases';
 import { useTranslation } from 'react-i18next';
 import GlobalLayout from './components/GlobalLayout';
 import { SidebarItemProps } from './components/Sidebar';
+import { useSettings } from './hooks/useSettings';
+import i18n from './i18n/config';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -56,6 +58,7 @@ const App: React.FC = () => {
   const { screen, notifyScreen, scrollTopAnchorRef, scrollBottomAnchorRef } =
     useScreen();
   const { enabled } = useUseCases();
+  const { settings } = useSettings();
 
   const sidebarItems: SidebarItemProps[] = [
     {
@@ -233,6 +236,13 @@ const App: React.FC = () => {
       notifyScreen(screen.current);
     }
   }, [pathname, screen, notifyScreen]);
+
+  // Apply language settings
+  useEffect(() => {
+    if (settings.language !== 'auto') {
+      i18n.changeLanguage(settings.language);
+    }
+  }, [settings.language]);
 
   return (
     <RoleMonitorProvider>
