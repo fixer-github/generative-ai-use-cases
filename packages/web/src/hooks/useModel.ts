@@ -120,7 +120,7 @@ const textModels = [
     (model) =>
       ({
         modelId: model.modelId,
-        type: 'langchain', // type: 'bedrock',
+        type: 'bedrock',
         region: model.region,
       }) as Model
   ),

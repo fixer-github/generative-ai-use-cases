@@ -64,15 +64,15 @@ export const modelMetadata: Record<string, ModelMetadata> = {
     },
     displayName: 'Claude 3 Haiku',
   },
-  'bedrock:us.anthropic.claude-opus-4-20250514-v1:0': {
+  'us.anthropic.claude-opus-4-20250514-v1:0': {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
     displayName: 'Claude Opus 4',
   },
-  'bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0': {
+  'us.anthropic.claude-sonnet-4-20250514-v1:0': {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
     displayName: 'Claude Sonnet 4',
   },
-  'bedrock:us.anthropic.claude-3-7-sonnet-20250219-v1:0': {
+  'us.anthropic.claude-3-7-sonnet-20250219-v1:0': {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
     displayName: 'Claude 3.7 Sonnet',
   },
@@ -80,7 +80,7 @@ export const modelMetadata: Record<string, ModelMetadata> = {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE,
     displayName: 'Claude 3.5 Sonnet v2',
   },
-  'bedrock:us.anthropic.claude-3-5-haiku-20241022-v1:0': {
+  'us.anthropic.claude-3-5-haiku-20241022-v1:0': {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE,
     displayName: 'Claude 3.5 Haiku',
   },
