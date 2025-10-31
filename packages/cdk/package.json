@@ -47,6 +47,7 @@
     "@aws-sdk/util-dynamodb": "^3.755.0",
     "@aws-solutions-constructs/aws-cloudfront-s3": "^2.68.0",
     "@cdklabs/generative-ai-cdk-constructs": "^0.1.309",
+    "@langchain/aws": "^1.0.0",
     "@langchain/core": "^1.0.2",
     "@langchain/openai": "^1.0.0",
     "@smithy/node-http-handler": "^4.1.1",
