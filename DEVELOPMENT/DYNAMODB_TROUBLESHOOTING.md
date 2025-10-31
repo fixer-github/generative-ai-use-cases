@@ -22,11 +22,13 @@
 ### ❌ ResourceNotFoundException
 
 **エラーメッセージ**:
+
 ```
 ResourceNotFoundException: Requested resource not found: Table: ChatHistory-dev-tenant-xyz not found
 ```
 
 **原因**:
+
 1. テーブルが存在しない
 2. テーブル名が間違っている
 3. テナントIDが間違っている
@@ -72,11 +74,13 @@ npm run cdk:tenant:deploy
 ### ❌ ValidationException
 
 **エラーメッセージ**:
+
 ```
 ValidationException: Invalid KeyConditionExpression: Syntax error; token: "AND", near: "id = :userId AND"
 ```
 
 **原因**:
+
 1. `KeyConditionExpression` の構文エラー
 2. `UpdateExpression` の構文エラー
 3. 予約語を属性名に使用している
@@ -87,10 +91,10 @@ ValidationException: Invalid KeyConditionExpression: Syntax error; token: "AND",
 
 ```typescript
 // ❌ 間違い: Sort Keyを忘れている
-KeyConditionExpression: "id = :userId AND"  // 不完全
+KeyConditionExpression: 'id = :userId AND'; // 不完全
 
 // ✅ 正しい
-KeyConditionExpression: "id = :userId AND createdDate > :date"
+KeyConditionExpression: 'id = :userId AND createdDate > :date';
 ```
 
 #### パターン2: 予約語の回避
@@ -109,6 +113,7 @@ ExpressionAttributeNames: {
 **DynamoDBの予約語リスト**: [AWS公式ドキュメント](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html)
 
 よくある予約語:
+
 - `name`, `data`, `status`, `timestamp`, `date`, `time`
 - `user`, `group`, `role`
 
@@ -117,6 +122,7 @@ ExpressionAttributeNames: {
 ### ❌ ConditionalCheckFailedException
 
 **エラーメッセージ**:
+
 ```
 ConditionalCheckFailedException: The conditional request failed
 ```
@@ -130,11 +136,13 @@ ConditionalCheckFailedException: The conditional request failed
 
 ```typescript
 try {
-  await dynamodb.send(new PutCommand({
-    TableName: tableName,
-    Item: item,
-    ConditionExpression: "attribute_not_exists(id)"  // 重複チェック
-  }));
+  await dynamodb.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(id)', // 重複チェック
+    })
+  );
 } catch (error) {
   if (error instanceof ConditionalCheckFailedException) {
     console.log('アイテムは既に存在します');
@@ -147,17 +155,19 @@ try {
 
 ```typescript
 try {
-  await dynamodb.send(new UpdateCommand({
-    TableName: tableName,
-    Key: { id: 'user#123', createdDate: '2025-01-15' },
-    UpdateExpression: "SET title = :title, version = version + :inc",
-    ConditionExpression: "version = :currentVersion",
-    ExpressionAttributeValues: {
-      ":title": "新しいタイトル",
-      ":currentVersion": 5,
-      ":inc": 1
-    }
-  }));
+  await dynamodb.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: { id: 'user#123', createdDate: '2025-01-15' },
+      UpdateExpression: 'SET title = :title, version = version + :inc',
+      ConditionExpression: 'version = :currentVersion',
+      ExpressionAttributeValues: {
+        ':title': '新しいタイトル',
+        ':currentVersion': 5,
+        ':inc': 1,
+      },
+    })
+  );
 } catch (error) {
   if (error instanceof ConditionalCheckFailedException) {
     console.log('バージョンが一致しません（他のユーザーが更新した）');
@@ -171,11 +181,13 @@ try {
 ### ❌ AccessDeniedException
 
 **エラーメッセージ**:
+
 ```
 AccessDeniedException: User: arn:aws:sts::123456789012:assumed-role/... is not authorized to perform: dynamodb:Query on resource: ...
 ```
 
 **原因**:
+
 1. IAMロールに必要な権限がない
 2. テナント分離で、別のテナントのテーブルにアクセスしようとした
 
@@ -195,7 +207,7 @@ aws iam get-role-policy --role-name <role-name> --policy-name <policy-name>
 
 ```typescript
 // packages/cdk/lib/construct/api/index.ts などで定義されているポリシー
-table.grantReadWriteData(lambdaFunction);  // 読み書き権限を付与
+table.grantReadWriteData(lambdaFunction); // 読み書き権限を付与
 ```
 
 #### ステップ3: テナントIDの確認
@@ -215,6 +227,7 @@ console.log('Tenant ID:', tenantId);
 ### ❌ ItemCollectionSizeLimitExceededException
 
 **エラーメッセージ**:
+
 ```
 ItemCollectionSizeLimitExceededException: Item collection size limit exceeded
 ```
@@ -228,10 +241,10 @@ ItemCollectionSizeLimitExceededException: Item collection size limit exceeded
 
 ```typescript
 // ❌ 問題: すべてのメッセージが同じPartition Key
-id: `chat#${chatId}`  // 1つのチャットに10GB以上のメッセージ
+id: `chat#${chatId}`; // 1つのチャットに10GB以上のメッセージ
 
 // ✅ 改善案: チャットIDに日付を含める
-id: `chat#${chatId}#${month}`  // 月ごとにPartition Keyを分割
+id: `chat#${chatId}#${month}`; // 月ごとにPartition Keyを分割
 ```
 
 #### 対策2: 古いデータをアーカイブ
@@ -250,6 +263,7 @@ id: `chat#${chatId}#${month}`  // 月ごとにPartition Keyを分割
 ### 問題: クエリが遅い
 
 **症状**:
+
 - クエリに1秒以上かかる
 - CloudWatch Logsで高いレイテンシを確認
 
@@ -259,17 +273,21 @@ id: `chat#${chatId}#${month}`  // 月ごとにPartition Keyを分割
 
 ```typescript
 // ❌ 遅い: テーブル全体をスキャン
-const result = await dynamodb.send(new ScanCommand({
-  TableName: tableName,
-  FilterExpression: "userId = :userId"
-}));
+const result = await dynamodb.send(
+  new ScanCommand({
+    TableName: tableName,
+    FilterExpression: 'userId = :userId',
+  })
+);
 
 // ✅ 速い: Query を使用
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :userId",
-  ExpressionAttributeValues: { ":userId": `user#${userId}` }
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :userId',
+    ExpressionAttributeValues: { ':userId': `user#${userId}` },
+  })
+);
 ```
 
 **解決**: 常に`Query`を使用し、`Scan`は避ける。
@@ -280,15 +298,17 @@ const result = await dynamodb.send(new QueryCommand({
 
 ```typescript
 // ❌ 非効率: 1000件取得後、1件にフィルタ
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :userId",  // 1000件ヒット
-  FilterExpression: "chatId = :chatId",     // 1件に絞り込み
-  ExpressionAttributeValues: {
-    ":userId": `user#${userId}`,
-    ":chatId": "chat#123"
-  }
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :userId', // 1000件ヒット
+    FilterExpression: 'chatId = :chatId', // 1件に絞り込み
+    ExpressionAttributeValues: {
+      ':userId': `user#${userId}`,
+      ':chatId': 'chat#123',
+    },
+  })
+);
 ```
 
 **解決**: KeyConditionExpressionで可能な限り絞り込む。
@@ -304,23 +324,27 @@ const result = await dynamodb.send(new QueryCommand({
 
 ```typescript
 // ❌ 非効率: Limit を設定せずに大量取得
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :chatId"
-  // Limit なし → 全メッセージを取得（数千件）
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :chatId',
+    // Limit なし → 全メッセージを取得（数千件）
+  })
+);
 ```
 
 **解決**: ページネーションを使う。
 
 ```typescript
 // ✅ 効率的: Limit + ページネーション
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :chatId",
-  Limit: 100,  // 最初の100件のみ
-  ExclusiveStartKey: lastKey  // ページネーション
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :chatId',
+    Limit: 100, // 最初の100件のみ
+    ExclusiveStartKey: lastKey, // ページネーション
+  })
+);
 ```
 
 ---
@@ -360,10 +384,12 @@ const result = await dynamodb.send(new QueryCommand({
 
 ```typescript
 try {
-  const result = await dynamodb.send(new PutCommand({
-    TableName: tableName,
-    Item: item
-  }));
+  const result = await dynamodb.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
   console.log('Put成功:', JSON.stringify(result, null, 2));
 } catch (error) {
   console.error('Put失敗:', error);
@@ -423,7 +449,7 @@ console.log('Query table:', queryTableName);
 // ❌ 間違い: 直接JSONを返す
 return {
   items: result.Items,
-  nextKey: result.LastEvaluatedKey  // オブジェクトのまま
+  nextKey: result.LastEvaluatedKey, // オブジェクトのまま
 };
 
 // ✅ 正しい: Base64エンコード
@@ -431,7 +457,7 @@ return {
   items: result.Items,
   nextKey: result.LastEvaluatedKey
     ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-    : undefined
+    : undefined,
 };
 ```
 
@@ -481,6 +507,7 @@ console.log('Table name:', tableName);
 ```
 
 **解決策**:
+
 - `getTenantDynamoDBDocument()` を必ず使用
 - 直接DynamoDBクライアントを作成しない
 - IAMポリシーでテナント分離を強制
@@ -493,6 +520,7 @@ console.log('Table name:', tableName);
 `custom:tenantId` が `undefined` になる
 
 **原因**:
+
 1. Cognitoユーザーにテナント属性が設定されていない
 2. JWTトークンにカスタムクレームが含まれていない
 3. Cognito User Poolの設定が間違っている
@@ -534,6 +562,7 @@ aws cognito-idp admin-get-user \
 `npm run web:devw` で起動後、APIエラーが発生
 
 **原因**:
+
 1. AWS認証情報が設定されていない
 2. リージョンが間違っている
 3. VPN/ファイアウォールでAWSへのアクセスがブロックされている
@@ -598,8 +627,8 @@ aws dynamodb create-table \
 const dynamodbClient = new DynamoDBClient({
   region: process.env.AWS_REGION || 'us-east-1',
   ...(process.env.DYNAMODB_ENDPOINT && {
-    endpoint: process.env.DYNAMODB_ENDPOINT  // http://localhost:8000
-  })
+    endpoint: process.env.DYNAMODB_ENDPOINT, // http://localhost:8000
+  }),
 });
 ```
 
@@ -629,17 +658,19 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   console.log('Using table:', tableName);
 
   try {
-    const result = await dynamodb.send(new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: "id = :userId",
-      ExpressionAttributeValues: { ":userId": `user#${userId}` }
-    }));
+    const result = await dynamodb.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: 'id = :userId',
+        ExpressionAttributeValues: { ':userId': `user#${userId}` },
+      })
+    );
 
     // 結果をログ
     console.log('Query result:', {
       count: result.Items?.length,
       scannedCount: result.ScannedCount,
-      hasMore: !!result.LastEvaluatedKey
+      hasMore: !!result.LastEvaluatedKey,
     });
 
     return { statusCode: 200, body: JSON.stringify(result.Items) };
@@ -648,7 +679,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
     console.error('Error details:', {
       name: error.name,
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     throw error;
   }
@@ -723,6 +754,7 @@ grep -r "FilterExpression" packages/cdk/lambda/repository/
 ### 4. チームメンバーに相談
 
 経験者に以下の情報を共有:
+
 - エラーメッセージ（フルスタックトレース）
 - 実行したコード
 - CloudWatch Logs

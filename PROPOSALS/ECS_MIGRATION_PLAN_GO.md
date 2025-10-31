@@ -23,17 +23,18 @@
 
 ### プロジェクト情報
 
-| 項目 | 詳細 |
-|---|---|
-| **期間** | 24週間（約6ヶ月） |
-| **開始日** | 2025年11月（Week 1） |
-| **完了予定日** | 2026年5月（Week 24） |
-| **体制** | バックエンドエンジニア 3-4名 |
-| **予算** | $183,000（開発コスト） |
+| 項目           | 詳細                         |
+| -------------- | ---------------------------- |
+| **期間**       | 24週間（約6ヶ月）            |
+| **開始日**     | 2025年11月（Week 1）         |
+| **完了予定日** | 2026年5月（Week 24）         |
+| **体制**       | バックエンドエンジニア 3-4名 |
+| **予算**       | $183,000（開発コスト）       |
 
 ### 技術スタック
 
 **アプリケーション層**:
+
 - 言語: Go 1.22+
 - Webフレームワーク: Gin v1.10
 - AWS SDK: aws-sdk-go-v2
@@ -42,6 +43,7 @@
 - テスト: testify, httptest
 
 **インフラ層**:
+
 - コンテナ: Docker（マルチステージビルド）
 - オーケストレーション: AWS ECS Fargate
 - ロードバランサー: Application Load Balancer (ALB)
@@ -55,29 +57,29 @@
 
 ### パフォーマンス指標
 
-| 指標 | 現状（Lambda） | 目標（ECS Go） | 改善率 |
-|---|---|---|---|
-| **P50レイテンシ** | 150ms | <50ms | 67%↓ |
-| **P99レイテンシ** | 900ms | <100ms | 89%↓ |
-| **スループット** | 5,000 req/s | 15,000+ req/s | 300%↑ |
-| **コールドスタート** | 250-500ms | 0ms（常時起動） | 100%解消 |
-| **メモリ使用量** | 512MB/実行 | 128MB/コンテナ | 75%↓ |
+| 指標                 | 現状（Lambda） | 目標（ECS Go）  | 改善率   |
+| -------------------- | -------------- | --------------- | -------- |
+| **P50レイテンシ**    | 150ms          | <50ms           | 67%↓     |
+| **P99レイテンシ**    | 900ms          | <100ms          | 89%↓     |
+| **スループット**     | 5,000 req/s    | 15,000+ req/s   | 300%↑    |
+| **コールドスタート** | 250-500ms      | 0ms（常時起動） | 100%解消 |
+| **メモリ使用量**     | 512MB/実行     | 128MB/コンテナ  | 75%↓     |
 
 ### コスト指標
 
-| 項目 | 現状（Lambda） | 移行後（ECS） | 削減額 |
-|---|---|---|---|
-| **月間コンピュート** | $122 | $54 | $68（56%↓） |
-| **年間削減** | - | - | **$816** |
+| 項目                 | 現状（Lambda） | 移行後（ECS） | 削減額      |
+| -------------------- | -------------- | ------------- | ----------- |
+| **月間コンピュート** | $122           | $54           | $68（56%↓） |
+| **年間削減**         | -              | -             | **$816**    |
 
 ### 品質指標
 
-| 指標 | 目標 |
-|---|---|
-| **コードカバレッジ** | 80%以上 |
-| **可用性** | 99.9%以上 |
-| **エラー率** | <0.1% |
-| **デプロイ頻度** | 週1回以上 |
+| 指標                 | 目標      |
+| -------------------- | --------- |
+| **コードカバレッジ** | 80%以上   |
+| **可用性**           | 99.9%以上 |
+| **エラー率**         | <0.1%     |
+| **デプロイ頻度**     | 週1回以上 |
 
 ---
 
@@ -178,6 +180,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 #### タスク
 
 1. **Go moduleプロジェクト初期化**（0.5日）
+
    ```bash
    mkdir -p packages/api-go
    cd packages/api-go
@@ -185,6 +188,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 2. **ディレクトリ構造構築**（0.5日）
+
    ```
    packages/api-go/
    ├── cmd/
@@ -240,6 +244,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 #### タスク
 
 1. **JWT検証ミドルウェア**（2日）
+
    ```go
    // internal/middleware/auth.go
    func JWTAuth(userPoolID, clientID string) gin.HandlerFunc {
@@ -257,6 +262,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 2. **テナントコンテキスト抽出**（1日）
+
    ```go
    // internal/middleware/tenant.go
    func TenantContext() gin.HandlerFunc {
@@ -274,6 +280,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 3. **STS AssumeRoleWithWebIdentity統合**（2日）
+
    ```go
    // pkg/awsclient/sts.go
    func AssumeRoleForTenant(ctx context.Context, tenantID, idToken string) (*aws.Credentials, error) {
@@ -309,6 +316,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 #### タスク
 
 1. **DynamoDB Document Client抽象化**（1日）
+
    ```go
    // pkg/awsclient/dynamodb.go
    type DynamoDBClient struct {
@@ -331,6 +339,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - `idleConnTimeout`: 90秒
 
 3. **Chatリポジトリ実装**（2日）
+
    ```go
    // internal/repository/chat.go
    type ChatRepository struct {
@@ -382,6 +391,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 #### タスク
 
 1. **Chat APIハンドラー実装**（2日）
+
    ```go
    // internal/handler/chat.go
    func (h *ChatHandler) ListChats(c *gin.Context) {
@@ -398,6 +408,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 2. **Predict Streamingハンドラー実装**（2日）
+
    ```go
    // internal/handler/predict.go
    func (h *PredictHandler) PredictStream(c *gin.Context) {
@@ -426,12 +437,12 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 
 #### 成功基準（GO/NO-GO判定）
 
-| 指標 | 目標値 | 判定 |
-|---|---|---|
-| P99レイテンシ | <150ms | GO条件 |
-| スループット | >10,000 req/s | GO条件 |
-| エラー率 | <0.1% | GO条件 |
-| メモリ使用量 | <256MB | GO条件 |
+| 指標          | 目標値        | 判定   |
+| ------------- | ------------- | ------ |
+| P99レイテンシ | <150ms        | GO条件 |
+| スループット  | >10,000 req/s | GO条件 |
+| エラー率      | <0.1%         | GO条件 |
+| メモリ使用量  | <256MB        | GO条件 |
 
 #### 成果物
 
@@ -447,6 +458,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 7-8: Chat/Message API群（16関数）
 
 **実装対象**:
+
 - Chat API: `listChats`, `findChatById`, `createChat`, `deleteChat`, `updateTitle`
 - Message API: `batchCreateMessages`, `listMessages`, `updateFeedback`, `deleteMessage`
 
@@ -457,11 +469,13 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 9-10: Predict API群（3関数）
 
 **実装対象**:
+
 - `predict` - 同期予測
 - `predictStream` - Bedrock ConverseStream統合
 - `predictTitle` - タイトル生成
 
 **重要タスク**:
+
 - Bedrock Runtime Client統合
 - Server-Sent Events（SSE）最適化
 - HTTP/2対応
@@ -473,6 +487,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 11: File/Share API群（7関数）
 
 **実装対象**:
+
 - File API: S3プレサインURL生成、ファイル削除
 - Share API: 共有ID CRUD操作
 
@@ -483,6 +498,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 12-13: Image/Video Generation API群（6関数）
 
 **実装対象**:
+
 - `generateImage` - Bedrock画像生成（Stable Diffusion）
 - `generateVideo` - Bedrock動画生成（Nova Reel）
 - `listVideoJobs`, `deleteVideoJob`, `copyVideoJob`
@@ -494,6 +510,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 14: Admin/User管理API群（7関数）
 
 **実装対象**:
+
 - `listTenantUsers`, `inviteTenantUsers`, `removeTenantUser`
 - `updateUserRole`, `refreshUserRole`, `checkAdminStatus`
 - `validateInvitationDomains`
@@ -507,6 +524,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 15-16: PPTX生成API（9関数 + SQSワーカー）
 
 **実装対象**:
+
 - テンプレート管理CRUD
 - S3テンプレートアップロード/ダウンロード
 - **SQSワーカー実装**（別プロセス）
@@ -514,6 +532,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 - 生成ステータスポーリング
 
 **技術課題**:
+
 - Go版PowerPointライブラリ検討（`unidoc/unioffice`）
 - SQSメッセージ処理パターン
 
@@ -524,6 +543,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 17: その他API（10関数）
 
 **実装対象**:
+
 - SystemContext CRUD（4関数）
 - Token Usage API
 - Web Text取得
@@ -537,6 +557,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### Week 18: 統合テスト・バグ修正
 
 **タスク**:
+
 - 全106エンドポイント統合テスト
 - マルチテナント分離テスト
 - エッジケース処理
@@ -556,6 +577,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **ECS Fargateクラスタ定義**
+
    ```typescript
    // packages/cdk/lib/stacks/ecs-api-go.ts
    const cluster = new ecs.Cluster(this, 'GoApiCluster', {
@@ -565,10 +587,11 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 2. **タスク定義**
+
    ```typescript
    const taskDefinition = new ecs.FargateTaskDefinition(this, 'GoApiTask', {
-     cpu: 1024,       // 1 vCPU
-     memoryLimitMiB: 2048,  // 2GB
+     cpu: 1024, // 1 vCPU
+     memoryLimitMiB: 2048, // 2GB
    });
 
    taskDefinition.addContainer('go-api', {
@@ -579,16 +602,21 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 3. **Application Load Balancer**
+
    ```typescript
    const alb = new elbv2.ApplicationLoadBalancer(this, 'ALB', {
      vpc,
      internetFacing: true,
    });
 
-   const listener = alb.addListener('Listener', { port: 443, protocol: 'HTTPS' });
+   const listener = alb.addListener('Listener', {
+     port: 443,
+     protocol: 'HTTPS',
+   });
    ```
 
 4. **ECS Service**
+
    ```typescript
    const service = new ecs.FargateService(this, 'GoApiService', {
      cluster,
@@ -609,6 +637,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 **成果物**:
+
 - [ ] `packages/cdk/lib/stacks/ecs-api-go.ts`
 - [ ] `packages/cdk/lib/construct/ecs-cluster.ts`
 
@@ -619,11 +648,14 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **IAM Task Role設定**
+
    ```typescript
-   taskDefinition.addToTaskRolePolicy(new iam.PolicyStatement({
-     actions: ['dynamodb:*', 's3:*', 'bedrock:*', 'sts:AssumeRole'],
-     resources: ['*'],
-   }));
+   taskDefinition.addToTaskRolePolicy(
+     new iam.PolicyStatement({
+       actions: ['dynamodb:*', 's3:*', 'bedrock:*', 'sts:AssumeRole'],
+       resources: ['*'],
+     })
+   );
    ```
 
 2. **テナントマネージャー統合**
@@ -635,6 +667,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - ログフィルタ設定
 
 4. **X-Ray分散トレーシング**
+
    ```go
    import "github.com/aws/aws-xray-sdk-go/xray"
 
@@ -643,6 +676,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 **成果物**:
+
 - [ ] マルチテナント対応ECSインフラ
 - [ ] CloudWatch Logsストリーム
 - [ ] X-Ray統合
@@ -654,6 +688,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **ECS Auto Scaling**
+
    ```typescript
    const scaling = service.autoScaleTaskCount({
      minCapacity: 2,
@@ -680,6 +715,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - タスク異常終了アラート
 
 **成果物**:
+
 - [ ] Auto Scaling設定
 - [ ] CloudWatch ダッシュボード
 - [ ] アラーム設定
@@ -693,18 +729,21 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **Dagger TypeScript実装**
+
    ```typescript
    // dagger/src/go-api.ts
    export async function buildGoApi(client: Client) {
      // Goビルド
-     const builder = client.container()
+     const builder = client
+       .container()
        .from('golang:1.22-alpine')
        .withDirectory('/src', client.host().directory('./packages/api-go'))
        .withWorkdir('/src')
        .withExec(['go', 'build', '-o', 'server', './cmd/server']);
 
      // Dockerイメージ構築
-     const image = client.container()
+     const image = client
+       .container()
        .from('scratch')
        .withFile('/server', builder.file('/src/server'))
        .withEntrypoint(['/server']);
@@ -715,9 +754,11 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 2. **統合テスト自動実行**
+
    ```typescript
    export async function testGoApi(client: Client) {
-     await client.container()
+     await client
+       .container()
        .from('golang:1.22-alpine')
        .withDirectory('/src', client.host().directory('./packages/api-go'))
        .withWorkdir('/src')
@@ -727,6 +768,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 3. **GitHub Actions統合**
+
    ```yaml
    # .github/workflows/go-api-deploy.yml
    name: Deploy Go API
@@ -745,6 +787,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    ```
 
 **成果物**:
+
 - [ ] `dagger/src/go-api.ts`
 - [ ] `.github/workflows/go-api-deploy.yml`
 
@@ -755,23 +798,29 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **CodeDeploy統合**
+
    ```typescript
-   const deployment = new codedeploy.EcsDeploymentGroup(this, 'DeploymentGroup', {
-     service,
-     blueGreenDeploymentConfig: {
-       blueTargetGroup: blueTargetGroup,
-       greenTargetGroup: greenTargetGroup,
-       listener,
-       terminationWaitTime: cdk.Duration.minutes(5),
-     },
-     autoRollback: {
-       failedDeployment: true,
-       deploymentInAlarm: true,
-     },
-   });
+   const deployment = new codedeploy.EcsDeploymentGroup(
+     this,
+     'DeploymentGroup',
+     {
+       service,
+       blueGreenDeploymentConfig: {
+         blueTargetGroup: blueTargetGroup,
+         greenTargetGroup: greenTargetGroup,
+         listener,
+         terminationWaitTime: cdk.Duration.minutes(5),
+       },
+       autoRollback: {
+         failedDeployment: true,
+         deploymentInAlarm: true,
+       },
+     }
+   );
    ```
 
 2. **ヘルスチェック実装**
+
    ```go
    // /health エンドポイント
    router.GET("/health", func(c *gin.Context) {
@@ -792,6 +841,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - 10% → 30分待機 → 50% → 30分待機 → 100%
 
 **成果物**:
+
 - [ ] CodeDeploy設定
 - [ ] ヘルスチェックエンドポイント
 - [ ] ロールバック手順書
@@ -803,18 +853,20 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **Artillery負荷テスト**
+
    ```yaml
    # tests/load/artillery.yml
    config:
      target: 'http://ecs-alb.amazonaws.com'
      phases:
        - duration: 300
-         arrivalRate: 500   # 500 req/s
+         arrivalRate: 500 # 500 req/s
        - duration: 60
-         arrivalRate: 1000  # 1000 req/s（スパイク）
+         arrivalRate: 1000 # 1000 req/s（スパイク）
    ```
 
 2. **pprofによるプロファイリング**
+
    ```go
    import _ "net/http/pprof"
 
@@ -832,6 +884,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **目標スループット**: 15,000 req/s（同時接続5,000）
 
 **成果物**:
+
 - [ ] 負荷テストレポート
 - [ ] 性能チューニングレポート
 - [ ] pprof分析結果
@@ -845,6 +898,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **ステージング環境全スタックデプロイ**
+
    ```bash
    npm run cdk:deploy:go-api -- --context env=staging
    ```
@@ -864,6 +918,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - 月間1,000万リクエスト相当
 
 **成果物**:
+
 - [ ] ステージング環境稼働
 - [ ] セキュリティ監査レポート
 - [ ] 負荷試験レポート
@@ -875,6 +930,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 **タスク**:
 
 1. **本番環境CDKデプロイ**
+
    ```bash
    npm run cdk:deploy:go-api -- --context env=prod
    ```
@@ -891,6 +947,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 4. **ロールバック手順書作成**
 
 **成果物**:
+
 - [ ] 本番環境構築完了
 - [ ] DNS切り替え手順書
 - [ ] ロールバック手順書
@@ -901,24 +958,27 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 
 **カナリアリリース計画**:
 
-| フェーズ | トラフィック割合 | 期間 | 監視項目 |
-|---|---|---|---|
-| フェーズ1 | 1% | 24時間 | エラー率、レイテンシ |
-| フェーズ2 | 10% | 48時間 | エラー率、レイテンシ、スループット |
-| フェーズ3 | 50% | 72時間 | 全指標 |
-| フェーズ4 | 100% | - | 全指標 + コスト |
+| フェーズ  | トラフィック割合 | 期間   | 監視項目                           |
+| --------- | ---------------- | ------ | ---------------------------------- |
+| フェーズ1 | 1%               | 24時間 | エラー率、レイテンシ               |
+| フェーズ2 | 10%              | 48時間 | エラー率、レイテンシ、スループット |
+| フェーズ3 | 50%              | 72時間 | 全指標                             |
+| フェーズ4 | 100%             | -      | 全指標 + コスト                    |
 
 **監視基準**:
+
 - エラー率 < 0.1%
 - P99レイテンシ < 150ms
 - 異常なメモリ増加なし
 
 **ロールバック条件**:
+
 - エラー率 > 1%
 - P99レイテンシ > 500ms
 - タスク異常終了
 
 **成果物**:
+
 - [ ] カナリアリリース完了
 - [ ] 本番トラフィック100%移行
 
@@ -950,6 +1010,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
    - トラブルシューティングワークショップ
 
 **成果物**:
+
 - [ ] `docs/ja/OPERATIONS_GO.md`
 - [ ] `docs/ja/INCIDENT_RESPONSE.md`
 - [ ] `docs/ja/TROUBLESHOOTING.md`
@@ -961,22 +1022,23 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 
 ### マイルストーン
 
-| マイルストーン | 週 | 成果物 | 判定 |
-|---|---|---|---|
-| アーキテクチャ承認 | Week 2 | 設計ドキュメント | ✅/❌ |
-| **POC完了** | **Week 6** | **性能検証レポート** | **GO/NO-GO** ⭐ |
-| コアAPI実装完了 | Week 14 | Chat/Predict/File/Image/Admin API | ✅/❌ |
-| 全API実装完了 | Week 18 | 106エンドポイント | ✅/❌ |
-| インフラ構築完了 | Week 16 | ECS本番環境 | ✅/❌ |
-| CI/CD完成 | Week 20 | 自動デプロイパイプライン | ✅/❌ |
-| ステージング稼働 | Week 21 | ステージング環境 | ✅/❌ |
-| 本番移行完了 | Week 24 | トラフィック100%移行 | 🎉 |
+| マイルストーン     | 週         | 成果物                            | 判定            |
+| ------------------ | ---------- | --------------------------------- | --------------- |
+| アーキテクチャ承認 | Week 2     | 設計ドキュメント                  | ✅/❌           |
+| **POC完了**        | **Week 6** | **性能検証レポート**              | **GO/NO-GO** ⭐ |
+| コアAPI実装完了    | Week 14    | Chat/Predict/File/Image/Admin API | ✅/❌           |
+| 全API実装完了      | Week 18    | 106エンドポイント                 | ✅/❌           |
+| インフラ構築完了   | Week 16    | ECS本番環境                       | ✅/❌           |
+| CI/CD完成          | Week 20    | 自動デプロイパイプライン          | ✅/❌           |
+| ステージング稼働   | Week 21    | ステージング環境                  | ✅/❌           |
+| 本番移行完了       | Week 24    | トラフィック100%移行              | 🎉              |
 
 ### 週次レビュー
 
 **日時**: 毎週金曜 15:00-16:00
 
 **アジェンダ**:
+
 1. 進捗確認（計画 vs 実績）
 2. ブロッカー確認・解消
 3. 次週計画
@@ -985,6 +1047,7 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 ### リスク管理
 
 **高リスク項目**:
+
 - Week 6: POC性能未達成 → Go言語続行可否判定
 - Week 14: コアAPI実装遅延 → リソース追加検討
 - Week 23: 本番移行エラー率上昇 → ロールバック判断
@@ -995,15 +1058,16 @@ Phase 6: 本番移行・運用移管  Week 21-24 (4週間)
 
 ### 開発コスト
 
-| 項目 | 単価 | 数量 | 期間 | 小計 |
-|---|---|---|---|---|
-| バックエンドエンジニア | $10,000/月 | 3名 | 6ヶ月 | $180,000 |
-| ステージング環境 | $500/月 | 1環境 | 6ヶ月 | $3,000 |
-| **合計** | | | | **$183,000** |
+| 項目                   | 単価       | 数量  | 期間  | 小計         |
+| ---------------------- | ---------- | ----- | ----- | ------------ |
+| バックエンドエンジニア | $10,000/月 | 3名   | 6ヶ月 | $180,000     |
+| ステージング環境       | $500/月    | 1環境 | 6ヶ月 | $3,000       |
+| **合計**               |            |       |       | **$183,000** |
 
 ### 運用コスト（月間1,000万リクエスト想定）
 
 **現状（Lambda）**:
+
 ```
 Lambda実行時間: 1,000万 × 0.5秒 = 500万秒
 Lambda料金: 500万秒 × $0.0000166667 × 512MB/128MB = $33
@@ -1015,6 +1079,7 @@ S3: $10
 ```
 
 **移行後（ECS Go）**:
+
 ```
 ECS Fargate:
   - タスク2つ（0.25 vCPU × 512MB × 24時間 × 30日）
@@ -1040,26 +1105,28 @@ S3: $10
 
 ### 高リスク項目
 
-| # | リスク | 発生確率 | 影響度 | 対策 | 担当 |
-|---|---|---|---|---|---|
-| 1 | **Go学習曲線が急で開発遅延** | 高 | 高 | Week 1-2集中トレーニング、ペアプログラミング、コードレビュー強化 | 全員 |
-| 2 | **POC性能目標未達** | 中 | 致命的 | Week 6でGO/NO-GO判定、Node.js代替案準備 | Tech Lead |
-| 3 | **LangChain代替不足で機能制約** | 中 | 中 | 最小限の機能実装、Phase 2でNode.jsハイブリッド検討 | Tech Lead |
-| 4 | **スケジュール遅延（6ヶ月超過）** | 中 | 高 | 2週ごとのマイルストーン、早期アラート、リソース追加 | PM |
-| 5 | **Goroutineリークによるメモリ枯渇** | 中 | 高 | pprofによる定期監視、Goroutine数上限設定、統合テスト | 開発者 |
-| 6 | **認証情報キャッシュバグでテナントデータ漏洩** | 低 | 致命的 | 短TTL（15分）、包括的テスト、監査ログ、セキュリティレビュー | Security Lead |
-| 7 | **本番移行時の予期せぬエラー** | 中 | 高 | カナリアリリース（1%→10%→50%→100%）、即座ロールバック手順 | DevOps |
-| 8 | **AWS SDK v2の未知のバグ** | 低 | 中 | 事前検証、コミュニティ事例調査、AWSサポート契約 | Tech Lead |
+| #   | リスク                                         | 発生確率 | 影響度 | 対策                                                             | 担当          |
+| --- | ---------------------------------------------- | -------- | ------ | ---------------------------------------------------------------- | ------------- |
+| 1   | **Go学習曲線が急で開発遅延**                   | 高       | 高     | Week 1-2集中トレーニング、ペアプログラミング、コードレビュー強化 | 全員          |
+| 2   | **POC性能目標未達**                            | 中       | 致命的 | Week 6でGO/NO-GO判定、Node.js代替案準備                          | Tech Lead     |
+| 3   | **LangChain代替不足で機能制約**                | 中       | 中     | 最小限の機能実装、Phase 2でNode.jsハイブリッド検討               | Tech Lead     |
+| 4   | **スケジュール遅延（6ヶ月超過）**              | 中       | 高     | 2週ごとのマイルストーン、早期アラート、リソース追加              | PM            |
+| 5   | **Goroutineリークによるメモリ枯渇**            | 中       | 高     | pprofによる定期監視、Goroutine数上限設定、統合テスト             | 開発者        |
+| 6   | **認証情報キャッシュバグでテナントデータ漏洩** | 低       | 致命的 | 短TTL（15分）、包括的テスト、監査ログ、セキュリティレビュー      | Security Lead |
+| 7   | **本番移行時の予期せぬエラー**                 | 中       | 高     | カナリアリリース（1%→10%→50%→100%）、即座ロールバック手順        | DevOps        |
+| 8   | **AWS SDK v2の未知のバグ**                     | 低       | 中     | 事前検証、コミュニティ事例調査、AWSサポート契約                  | Tech Lead     |
 
 ### リスク軽減策
 
 **技術的対策**:
+
 - すべてのGoコードにユニットテスト（カバレッジ80%以上）
 - 統合テストでマルチテナント分離を厳密に検証
 - pprofによる継続的なメモリ/Goroutine監視
 - ステージング環境での本番同等負荷試験
 
 **組織的対策**:
+
 - 週次進捗レビューでブロッカー早期発見
 - Week 6 GO/NO-GO判定で撤退ライン明確化
 - 外部Go言語コンサルタント招聘（必要時）

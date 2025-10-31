@@ -238,15 +238,11 @@ export class TypesenseCluster extends Construct {
     fileSystem.grantRootAccess(taskDefinition.taskRole);
 
     // Create security group for Typesense service
-    this.securityGroup = new ec2.SecurityGroup(
-      this,
-      'TypesenseSecurityGroup',
-      {
-        vpc: props.vpc,
-        description: 'Security group for Typesense service',
-        allowAllOutbound: true,
-      }
-    );
+    this.securityGroup = new ec2.SecurityGroup(this, 'TypesenseSecurityGroup', {
+      vpc: props.vpc,
+      description: 'Security group for Typesense service',
+      allowAllOutbound: true,
+    });
 
     // Create Fargate service
     this.service = new ecs.FargateService(this, 'TypesenseService', {
@@ -409,7 +405,10 @@ import {
   DynamoDBRecord,
   AttributeValue,
 } from 'aws-lambda';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import Typesense from 'typesense';
 
 // Environment variables
@@ -487,7 +486,9 @@ function unmarshal(value: AttributeValue): any {
 /**
  * Convert DynamoDB item to Typesense document for conversations
  */
-function convertToConversationDocument(item: Record<string, AttributeValue>): any {
+function convertToConversationDocument(
+  item: Record<string, AttributeValue>
+): any {
   const unmarshalled = Object.fromEntries(
     Object.entries(item).map(([k, v]) => [k, unmarshal(v)])
   );
@@ -506,7 +507,8 @@ function convertToConversationDocument(item: Record<string, AttributeValue>): an
   const messageTimes = Object.values(messages)
     .filter((msg: any) => msg?.create_time)
     .map((msg: any) => msg.create_time);
-  const lastMessageTime = messageTimes.length > 0 ? Math.max(...messageTimes) : 0;
+  const lastMessageTime =
+    messageTimes.length > 0 ? Math.max(...messageTimes) : 0;
 
   return {
     id: conversationId,
@@ -538,7 +540,9 @@ function convertToBotDocument(item: Record<string, AttributeValue>): any {
     allowed_users: unmarshalled.AllowedCognitoUsers || [],
     allowed_groups: unmarshalled.AllowedCognitoGroups || [],
     create_time: Math.floor((unmarshalled.CreateTime || 0) * 1000),
-    last_used_time: Math.floor((unmarshalled.LastUsedTime || unmarshalled.CreateTime || 0) * 1000),
+    last_used_time: Math.floor(
+      (unmarshalled.LastUsedTime || unmarshalled.CreateTime || 0) * 1000
+    ),
   };
 }
 
@@ -588,18 +592,20 @@ async function processRecord(
       // Delete document
       const oldImage = record.dynamodb!.OldImage!;
       const sk = unmarshal(oldImage.SK);
-      const id = collectionName === 'conversations'
-        ? sk.split('#CONV#')[1]
-        : unmarshal(oldImage.BotId);
+      const id =
+        collectionName === 'conversations'
+          ? sk.split('#CONV#')[1]
+          : unmarshal(oldImage.BotId);
 
       await client.collections(collectionName).documents(id).delete();
       console.log(`Deleted document ${id} from ${collectionName}`);
     } else {
       // Insert or update document
       const newImage = record.dynamodb!.NewImage!;
-      const document = collectionName === 'conversations'
-        ? convertToConversationDocument(newImage)
-        : convertToBotDocument(newImage);
+      const document =
+        collectionName === 'conversations'
+          ? convertToConversationDocument(newImage)
+          : convertToBotDocument(newImage);
 
       await client.collections(collectionName).documents().upsert(document);
       console.log(`Upserted document ${document.id} to ${collectionName}`);
@@ -619,9 +625,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
   const client = await getTypesenseClient();
 
   // Process records in parallel
-  const promises = event.Records.map((record) =>
-    processRecord(client, record)
-  );
+  const promises = event.Records.map((record) => processRecord(client, record));
 
   await Promise.allSettled(promises);
 
@@ -635,7 +639,10 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
 
 ```typescript
 import { DynamoDBClient, ScanCommand } from '@aws-sdk/client-dynamodb';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import Typesense from 'typesense';
 
 const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME!;
@@ -779,7 +786,10 @@ function convertToBotDocument(item: any): any {
 
 ```typescript
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import Typesense from 'typesense';
 
 const TYPESENSE_HOST = process.env.TYPESENSE_HOST!;
@@ -842,7 +852,9 @@ export const handler = async (
     const query = body.query || '';
     const limit = body.limit || 20;
 
-    console.log(`Searching conversations for user ${userId} with query: ${query}`);
+    console.log(
+      `Searching conversations for user ${userId} with query: ${query}`
+    );
 
     const client = await getTypesenseClient();
 
@@ -868,31 +880,33 @@ export const handler = async (
       .search(searchParams);
 
     // Format results
-    const conversations = response.hits?.map((hit: any) => {
-      const document = hit.document;
-      const highlights: any[] = [];
+    const conversations =
+      response.hits?.map((hit: any) => {
+        const document = hit.document;
+        const highlights: any[] = [];
 
-      // Extract highlights
-      if (hit.highlights) {
-        for (const highlight of hit.highlights) {
-          const fieldName = highlight.field;
-          const snippets = highlight.snippets || [];
+        // Extract highlights
+        if (hit.highlights) {
+          for (const highlight of hit.highlights) {
+            const fieldName = highlight.field;
+            const snippets = highlight.snippets || [];
 
-          highlights.push({
-            field_name: fieldName === 'message_content' ? 'MessageBody' : fieldName,
-            fragments: snippets.map((s: any) => s.snippet),
-          });
+            highlights.push({
+              field_name:
+                fieldName === 'message_content' ? 'MessageBody' : fieldName,
+              fragments: snippets.map((s: any) => s.snippet),
+            });
+          }
         }
-      }
 
-      return {
-        id: document.id,
-        title: document.title,
-        bot_id: document.bot_id || null,
-        last_updated_time: document.last_message_time / 1000, // Convert back to seconds
-        highlights: highlights.length > 0 ? highlights : null,
-      };
-    }) || [];
+        return {
+          id: document.id,
+          title: document.title,
+          bot_id: document.bot_id || null,
+          last_updated_time: document.last_message_time / 1000, // Convert back to seconds
+          highlights: highlights.length > 0 ? highlights : null,
+        };
+      }) || [];
 
     return {
       statusCode: 200,
@@ -952,7 +966,11 @@ function getUserGroups(event: APIGatewayProxyEvent): string[] {
 /**
  * Build filter expression for bot access control
  */
-function buildBotFilter(userId: string, userGroups: string[], scope?: string): string {
+function buildBotFilter(
+  userId: string,
+  userGroups: string[],
+  scope?: string
+): string {
   const filters: string[] = [];
 
   if (scope) {
@@ -984,7 +1002,9 @@ function buildBotFilter(userId: string, userGroups: string[], scope?: string): s
     // Partial shared bots with group access
     if (userGroups.length > 0) {
       const groupFilters = userGroups.map((g) => `allowed_groups:=${g}`);
-      accessFilters.push(`(shared_scope:=partial && (${groupFilters.join(' || ')}))`);
+      accessFilters.push(
+        `(shared_scope:=partial && (${groupFilters.join(' || ')}))`
+      );
     }
 
     filters.push(`(${accessFilters.join(' || ')})`);
@@ -1008,7 +1028,9 @@ export const handler = async (
     const scope = body.scope; // 'private', 'organization', 'all', or undefined
     const sort = body.sort || 'usage'; // 'usage' or 'relevance'
 
-    console.log(`Searching bots for user ${userId} with query: ${query}, scope: ${scope}`);
+    console.log(
+      `Searching bots for user ${userId} with query: ${query}, scope: ${scope}`
+    );
 
     const client = await getTypesenseClient();
 
@@ -1036,22 +1058,23 @@ export const handler = async (
       .search(searchParams);
 
     // Format results
-    const bots = response.hits?.map((hit: any) => {
-      const document = hit.document;
+    const bots =
+      response.hits?.map((hit: any) => {
+        const document = hit.document;
 
-      return {
-        id: document.id,
-        title: document.title,
-        description: document.description,
-        owner_user_id: document.owner_id,
-        create_time: document.create_time / 1000,
-        last_used_time: document.last_used_time / 1000,
-        is_pinned: false, // TODO: Implement pinning logic
-        is_public: document.shared_scope === 'all',
-        shared_scope: document.shared_scope,
-        usage_count: document.usage_count,
-      };
-    }) || [];
+        return {
+          id: document.id,
+          title: document.title,
+          description: document.description,
+          owner_user_id: document.owner_id,
+          create_time: document.create_time / 1000,
+          last_used_time: document.last_used_time / 1000,
+          is_pinned: false, // TODO: Implement pinning logic
+          is_public: document.shared_scope === 'all',
+          shared_scope: document.shared_scope,
+          usage_count: document.usage_count,
+        };
+      }) || [];
 
     return {
       statusCode: 200,
@@ -1101,10 +1124,12 @@ interface ConversationSearchResult {
   title: string;
   bot_id: string | null;
   last_updated_time: number;
-  highlights: {
-    field_name: string;
-    fragments: string[];
-  }[] | null;
+  highlights:
+    | {
+        field_name: string;
+        fragments: string[];
+      }[]
+    | null;
 }
 
 interface UseConversationSearchResult {
@@ -1334,27 +1359,33 @@ npm run cdk:destroy -- OpenSearchStack
 ### 問題: データ同期が遅延している
 
 **原因:**
+
 - DynamoDB Streams のバッチサイズが小さい
 - Lambda関数のタイムアウト
 
 **解決策:**
+
 ```typescript
-syncFunction.addEventSource(new DynamoEventSource(table, {
-  startingPosition: StartingPosition.LATEST,
-  batchSize: 100, // 10 → 100に増やす
-  maxBatchingWindow: Duration.seconds(10), // バッチ待機時間を追加
-  retryAttempts: 3,
-  parallelizationFactor: 10, // 並列処理を増やす
-}));
+syncFunction.addEventSource(
+  new DynamoEventSource(table, {
+    startingPosition: StartingPosition.LATEST,
+    batchSize: 100, // 10 → 100に増やす
+    maxBatchingWindow: Duration.seconds(10), // バッチ待機時間を追加
+    retryAttempts: 3,
+    parallelizationFactor: 10, // 並列処理を増やす
+  })
+);
 ```
 
 ### 問題: 検索結果が不正確
 
 **原因:**
+
 - Typo tolerance が高すぎる
 - フィールドの重み付けが不適切
 
 **解決策:**
+
 ```typescript
 const searchParams = {
   q: query,
@@ -1368,10 +1399,12 @@ const searchParams = {
 ### 問題: Fargate taskが起動しない
 
 **原因:**
+
 - EFS マウントポイントの権限
 - API Key secretが見つからない
 
 **解決策:**
+
 ```bash
 # ECS Execで直接コンテナに接続
 aws ecs execute-command \
@@ -1397,6 +1430,6 @@ aws logs tail /aws/ecs/typesense --follow
 
 ## 変更履歴
 
-| 日付 | バージョン | 変更内容 | 著者 |
-|------|-----------|---------|------|
-| 2025-10-31 | 1.0.0 | 初版作成 | Claude |
+| 日付       | バージョン | 変更内容 | 著者   |
+| ---------- | ---------- | -------- | ------ |
+| 2025-10-31 | 1.0.0      | 初版作成 | Claude |

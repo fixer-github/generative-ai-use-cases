@@ -271,6 +271,7 @@ func StreamBedrockResponse(ctx context.Context, client *bedrockruntime.Client, p
 ```
 
 **環境準備**:
+
 ```bash
 # AWS認証情報設定
 export AWS_REGION=us-east-1
@@ -391,11 +392,13 @@ func TestCreateChat(t *testing.T) {
 ```
 
 **提出方法**:
+
 - GitHubリポジトリにプッシュ
 - `README.md`に実装説明・起動方法を記載
 - チームレビュー会で発表（5分）
 
 **評価基準**:
+
 - ✅ すべてのエンドポイントが正常動作
 - ✅ DynamoDBへの保存・取得が成功
 - ✅ ユニットテストがパス
@@ -440,26 +443,31 @@ func TestCreateChat(t *testing.T) {
 各メンバーは以下をクリアしてください:
 
 ### 基礎文法
+
 - [ ] A Tour of Go完了
 - [ ] Go by Example基礎編完了
 - [ ] Day 1課題3つ提出・レビュー完了
 
 ### エラーハンドリング
+
 - [ ] Effective Go Errors読了
 - [ ] Day 2課題3つ提出・レビュー完了
 
 ### 並行処理
+
 - [ ] A Tour of Go Concurrency完了
 - [ ] Go by Example Concurrency編完了
 - [ ] Day 3課題4つ提出・レビュー完了
 - [ ] Goroutineリーク記事読了
 
 ### AWS SDK
+
 - [ ] AWS SDK for Go v2 Developer Guide読了
 - [ ] DynamoDB/S3/Bedrock Examples実行
 - [ ] Day 4課題3つ提出・レビュー完了
 
 ### HTTPサーバー
+
 - [ ] Gin Quickstart完了
 - [ ] Day 5統合課題提出・発表完了
 - [ ] ユニットテスト全パス
@@ -473,11 +481,13 @@ func TestCreateChat(t *testing.T) {
 **形式**: 各メンバー5分発表
 
 **内容**:
+
 1. 統合課題のデモ（2分）
 2. 学習で難しかった点（1分）
 3. Week 2への質問（2分）
 
 **評価**:
+
 - 全メンバーがチェックリスト80%以上クリア → Week 2進行
 - 50-80%のメンバーがいる → 補講実施
 - 50%未満のメンバーがいる → 個別サポート
@@ -491,6 +501,7 @@ func TestCreateChat(t *testing.T) {
 **質問推奨時間**: 平日 10:00-18:00
 
 **メンター**:
+
 - Go言語: @tech-lead
 - AWS SDK: @devops-lead
 - 並行処理: @senior-engineer

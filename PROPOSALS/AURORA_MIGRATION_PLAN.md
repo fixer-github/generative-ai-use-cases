@@ -15,12 +15,12 @@
 
 ### 移行の是非
 
-| 判断基準 | 現状 | 推奨 |
-|---------|------|------|
-| **複雑クエリの需要** | 低（シンプルなCRUD） | ❌ 移行不要 |
-| **レポート機能** | なし | ❌ 移行不要 |
-| **データ分析ニーズ** | なし | ❌ 移行不要 |
-| **トランザクション要件** | 低 | ❌ 移行不要 |
+| 判断基準                 | 現状                 | 推奨        |
+| ------------------------ | -------------------- | ----------- |
+| **複雑クエリの需要**     | 低（シンプルなCRUD） | ❌ 移行不要 |
+| **レポート機能**         | なし                 | ❌ 移行不要 |
+| **データ分析ニーズ**     | なし                 | ❌ 移行不要 |
+| **トランザクション要件** | 低                   | ❌ 移行不要 |
 
 **結論:** 現時点では移行を推奨しない。以下の条件が揃った場合に再検討。
 
@@ -108,7 +108,7 @@ this.generationsTable.addGlobalSecondaryIndex({
 // パターン1: テンプレート取得（ID）
 const template = await dynamodb.get({
   TableName: 'pptx-templates',
-  Key: { templateId: 'template-123' }
+  Key: { templateId: 'template-123' },
 });
 
 // パターン2: ユーザーのテンプレート一覧
@@ -116,7 +116,7 @@ const userTemplates = await dynamodb.query({
   TableName: 'pptx-templates',
   IndexName: 'UserIndex',
   KeyConditionExpression: 'userId = :userId',
-  ExpressionAttributeValues: { ':userId': 'user-123' }
+  ExpressionAttributeValues: { ':userId': 'user-123' },
 });
 
 // パターン3: パブリックテンプレート一覧
@@ -124,7 +124,7 @@ const publicTemplates = await dynamodb.query({
   TableName: 'pptx-templates',
   IndexName: 'PublicIndex',
   KeyConditionExpression: 'isPublic = :true',
-  ExpressionAttributeValues: { ':true': 'true' }
+  ExpressionAttributeValues: { ':true': 'true' },
 });
 
 // ❌ 不可能なクエリ: テンプレートとジェネレーションのJOIN
@@ -146,6 +146,7 @@ const publicTemplates = await dynamodb.query({
 ### Aurora Serverless v2概要
 
 **主要特徴:**
+
 - **瞬時スケーリング**: 0.5 ACU〜128 ACU（1 ACU = 2GB RAM）
 - **PostgreSQL 15互換**: 豊富な機能（JSONB、Full-text search、Window関数等）
 - **サーバーレス課金**: 使用量ベース（最小0.5 ACU）
@@ -321,13 +322,13 @@ CREATE TRIGGER increment_usage_on_generation
 
 ### DynamoDB → PostgreSQL データマッピング
 
-| DynamoDB | PostgreSQL | 変換 |
-|----------|-----------|------|
-| `templateId` (String) | `template_id` (UUID) | UUID変換 |
-| `userId` (String) | `user_id` (VARCHAR) | そのまま |
-| `isPublic` (String "true"/"false") | `is_public` (BOOLEAN) | BOOLEAN変換 |
-| `template_data` (Map) | `template_data` (JSONB) | JSON変換 |
-| `createdAt` (Number) | `created_at` (TIMESTAMP) | Unixタイム→TIMESTAMP |
+| DynamoDB                           | PostgreSQL               | 変換                 |
+| ---------------------------------- | ------------------------ | -------------------- |
+| `templateId` (String)              | `template_id` (UUID)     | UUID変換             |
+| `userId` (String)                  | `user_id` (VARCHAR)      | そのまま             |
+| `isPublic` (String "true"/"false") | `is_public` (BOOLEAN)    | BOOLEAN変換          |
+| `template_data` (Map)              | `template_data` (JSONB)  | JSON変換             |
+| `createdAt` (Number)               | `created_at` (TIMESTAMP) | Unixタイム→TIMESTAMP |
 
 ---
 
@@ -336,6 +337,7 @@ CREATE TRIGGER increment_usage_on_generation
 ### Prisma（推奨）
 
 **理由:**
+
 - TypeScript ネイティブ
 - 型安全性が高い
 - マイグレーション管理が容易
@@ -435,10 +437,7 @@ const template = await prisma.pptxTemplate.create({
       theme: 'modern',
     },
     tags: {
-      create: [
-        { tag: 'business' },
-        { tag: 'presentation' },
-      ],
+      create: [{ tag: 'business' }, { tag: 'presentation' }],
     },
   },
 });
@@ -490,19 +489,21 @@ const generations = await prisma.pptxGeneration.findMany({
 ### シナリオ1: シンプルなCRUD
 
 **DynamoDB:**
+
 ```typescript
 // GetItem: 1ms〜3ms
 const template = await dynamodb.get({
   TableName: 'pptx-templates',
-  Key: { templateId: 'template-123' }
+  Key: { templateId: 'template-123' },
 });
 ```
 
 **Aurora (Prisma):**
+
 ```typescript
 // SELECT: 5ms〜15ms（コネクション確立含む）
 const template = await prisma.pptxTemplate.findUnique({
-  where: { templateId: 'template-123' }
+  where: { templateId: 'template-123' },
 });
 ```
 
@@ -511,6 +512,7 @@ const template = await prisma.pptxTemplate.findUnique({
 ### シナリオ2: 複雑JOIN
 
 **DynamoDB:**
+
 ```typescript
 // 2回のクエリ + アプリケーション側でのJOIN
 const templates = await dynamodb.query({ ... });  // 10ms
@@ -520,6 +522,7 @@ const joined = joinInMemory(templates, generations); // 5ms
 ```
 
 **Aurora (Prisma):**
+
 ```typescript
 // 1回のJOINクエリ
 const result = await prisma.pptxTemplate.findMany({
@@ -540,6 +543,7 @@ const result = await prisma.pptxTemplate.findMany({
 ### シナリオ3: 集計クエリ
 
 **DynamoDB:**
+
 ```typescript
 // Scan（全件取得） + アプリケーション側で集計
 const allTemplates = await dynamodb.scan({ ... });  // 100ms〜1000ms（データ量による）
@@ -548,6 +552,7 @@ const stats = calculateStats(allTemplates.Items);   // 50ms
 ```
 
 **Aurora (Prisma):**
+
 ```typescript
 // SQL集計
 const stats = await prisma.$queryRaw`
@@ -570,6 +575,7 @@ const stats = await prisma.$queryRaw`
 ### 現状（DynamoDB）
 
 **月間データ（10テナント）:**
+
 - テンプレート: 10,000件
 - ジェネレーション: 100,000件
 - 読み取り: 100万リクエスト/月
@@ -585,6 +591,7 @@ const stats = await prisma.$queryRaw`
 ### Aurora Serverless v2
 
 **最小構成（0.5 ACU）:**
+
 ```
 ACU: 0.5 ACU × 720時間 × $0.12/ACU時 = $43.20/月
 ストレージ: 5GB × $0.10 = $0.50/月
@@ -595,6 +602,7 @@ I/O: 1,000,000リクエスト × $0.20/100万 = $0.20/月
 ```
 
 **最適化構成（スケジュールスケーリング）:**
+
 ```
 営業時間のみ稼働（月間360時間）:
   ACU: 0.5 × 360 × $0.12 = $21.60/月
@@ -612,6 +620,7 @@ I/O: 1,000,000リクエスト × $0.20/100万 = $0.20/月
 ### 前提条件確認
 
 以下のいずれかが満たされた場合に移行を検討：
+
 - ✅ レポート機能の実装が決定
 - ✅ BIツール連携の要件
 - ✅ 複雑クエリの需要（週1回以上）
@@ -664,6 +673,6 @@ I/O: 1,000,000リクエスト × $0.20/100万 = $0.20/月
 
 **変更履歴:**
 
-| 日付 | 変更内容 | 作成者 |
-|------|---------|--------|
+| 日付       | 変更内容 | 作成者               |
+| ---------- | -------- | -------------------- |
 | 2025-10-31 | 初版作成 | Claude Code Analysis |

@@ -15,13 +15,13 @@
 
 ### 移行理由
 
-| 課題 | 現状（Lambda） | 移行後（ECS Fargate） | 改善度 |
-|------|--------------|-------------------|--------|
-| **タイムアウト** | 15分（AWS最大値） | 無制限 | ✅ 解消 |
-| **コールドスタート** | 5〜10秒（Dockerイメージ） | なし | ⚡ 100%改善 |
-| **固定コスト** | プロビジョニング済み同時実行 | 使用時のみ課金 | 💰 50〜67%削減 |
-| **メモリ柔軟性** | 2GBまで | 最大30GB | 📈 15倍拡張可 |
-| **デバッグ性** | CloudWatch Logsのみ | ECS Exec対応 | 🔧 大幅向上 |
+| 課題                 | 現状（Lambda）               | 移行後（ECS Fargate） | 改善度         |
+| -------------------- | ---------------------------- | --------------------- | -------------- |
+| **タイムアウト**     | 15分（AWS最大値）            | 無制限                | ✅ 解消        |
+| **コールドスタート** | 5〜10秒（Dockerイメージ）    | なし                  | ⚡ 100%改善    |
+| **固定コスト**       | プロビジョニング済み同時実行 | 使用時のみ課金        | 💰 50〜67%削減 |
+| **メモリ柔軟性**     | 2GBまで                      | 最大30GB              | 📈 15倍拡張可  |
+| **デバッグ性**       | CloudWatch Logsのみ          | ECS Exec対応          | 🔧 大幅向上    |
 
 ### 投資対効果
 
@@ -66,9 +66,9 @@ export class LitellmProxyServer extends Construct {
     // ❌ 問題1: Lambda最大スペック
     this.function = new DockerImageFunction(this, 'LitellmProxyFunction', {
       code: DockerImageCode.fromImageAsset('./litellm-proxy-server'),
-      memorySize: 2048,                    // Lambda最大級
+      memorySize: 2048, // Lambda最大級
       ephemeralStorageSize: Size.mebibytes(2048),
-      timeout: Duration.minutes(15),       // AWS最大タイムアウト
+      timeout: Duration.minutes(15), // AWS最大タイムアウト
       architecture: Architecture.X86_64,
       environment: {
         AWS_LWA_INVOKE_MODE: 'RESPONSE_STREAM',
@@ -83,7 +83,7 @@ export class LitellmProxyServer extends Construct {
     const alias = new Alias(this, 'LitellmProxyAlias', {
       aliasName: 'production',
       version: this.function.currentVersion,
-      provisionedConcurrentExecutions: 1,  // 常に1インスタンス稼働
+      provisionedConcurrentExecutions: 1, // 常に1インスタンス稼働
     });
 
     // IAM権限
@@ -117,6 +117,7 @@ export class LitellmProxyServer extends Construct {
 #### 1. タイムアウト制約（15分）
 
 **影響を受けるシナリオ:**
+
 ```typescript
 // 長時間の会話セッション
 const longConversation = async () => {
@@ -132,6 +133,7 @@ const longConversation = async () => {
 ```
 
 **実際のユーザー影響:**
+
 - 長文ドキュメント生成の中断
 - 複雑なRAG処理のタイムアウト
 - ストリーミング応答の途中切断
@@ -139,6 +141,7 @@ const longConversation = async () => {
 #### 2. コールドスタート（5〜10秒）
 
 **測定データ:**
+
 ```
 初回リクエスト（コールドスタート）:
   - Dockerイメージ起動: 5,000〜8,000ms
@@ -150,12 +153,14 @@ const longConversation = async () => {
 ```
 
 **問題:**
+
 - ユーザー体験の劣化（初回リクエストが遅い）
 - プロビジョニング済み同時実行でコスト増
 
 #### 3. プロビジョニング済み同時実行のコスト
 
 **現在のコスト構造:**
+
 ```
 プロビジョニング済み同時実行:
   $0.0000041667/ms × 1インスタンス × 2048MB × 720時間/月
@@ -238,7 +243,7 @@ aws logs tail /aws/lambda/LitellmProxyFunction --follow
 const cluster = new ecs.Cluster(this, 'LitellmCluster', {
   vpc: vpc,
   clusterName: `litellm-proxy-${environment}`,
-  containerInsights: true,  // CloudWatch Container Insights有効化
+  containerInsights: true, // CloudWatch Container Insights有効化
 });
 ```
 
@@ -247,8 +252,8 @@ const cluster = new ecs.Cluster(this, 'LitellmCluster', {
 ```typescript
 const taskDefinition = new ecs.FargateTaskDefinition(this, 'LitellmTask', {
   family: 'litellm-proxy',
-  cpu: 2048,        // 2 vCPU
-  memoryLimitMiB: 4096,  // 4GB（Lambdaの2倍）
+  cpu: 2048, // 2 vCPU
+  memoryLimitMiB: 4096, // 4GB（Lambdaの2倍）
   runtimePlatform: {
     cpuArchitecture: ecs.CpuArchitecture.X86_64,
     operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
@@ -285,14 +290,14 @@ container.addPortMappings({
 ```typescript
 const alb = new elbv2.ApplicationLoadBalancer(this, 'LitellmALB', {
   vpc: vpc,
-  internetFacing: false,  // 内部ALB（API Gatewayからアクセス）
+  internetFacing: false, // 内部ALB（API Gatewayからアクセス）
   loadBalancerName: `litellm-alb-${environment}`,
 });
 
 const listener = alb.addListener('HttpsListener', {
   port: 443,
   protocol: elbv2.ApplicationProtocol.HTTPS,
-  certificates: [certificate],  // ACM証明書
+  certificates: [certificate], // ACM証明書
   defaultAction: elbv2.ListenerAction.fixedResponse(404, {
     messageBody: 'Not Found',
   }),
@@ -317,8 +322,8 @@ const targetGroup = listener.addTargets('LitellmTarget', {
 
 ```typescript
 const scaling = fargateService.autoScaleTaskCount({
-  minCapacity: 1,   // 最小1タスク
-  maxCapacity: 10,  // 最大10タスク
+  minCapacity: 1, // 最小1タスク
+  maxCapacity: 10, // 最大10タスク
 });
 
 // CPU使用率ベースのスケーリング
@@ -341,9 +346,9 @@ scaling.scaleOnMetric('RequestCountScaling', {
     period: cdk.Duration.minutes(1),
   }),
   scalingSteps: [
-    { upper: 1000, change: 0 },   // 1000リクエスト/分以下: スケールなし
-    { lower: 1000, change: +1 },  // 1000〜: +1タスク
-    { lower: 5000, change: +2 },  // 5000〜: +2タスク
+    { upper: 1000, change: 0 }, // 1000リクエスト/分以下: スケールなし
+    { lower: 1000, change: +1 }, // 1000〜: +1タスク
+    { lower: 5000, change: +2 }, // 5000〜: +2タスク
   ],
   adjustmentType: autoscaling.AdjustmentType.CHANGE_IN_CAPACITY,
 });
@@ -481,7 +486,10 @@ export class LitellmEcsService extends Construct {
         LITELLM_LOG: 'INFO',
       },
       healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:8000/health || exit 1'],
+        command: [
+          'CMD-SHELL',
+          'curl -f http://localhost:8000/health || exit 1',
+        ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -505,7 +513,7 @@ export class LitellmEcsService extends Construct {
     // Application Load Balancer
     const alb = new elbv2.ApplicationLoadBalancer(this, 'ALB', {
       vpc: vpc,
-      internetFacing: false,  // 内部ALB
+      internetFacing: false, // 内部ALB
       loadBalancerName: `litellm-${environment}`,
       securityGroup: new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
         vpc: vpc,
@@ -542,9 +550,9 @@ export class LitellmEcsService extends Construct {
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
-      enableExecuteCommand: true,  // ECS Execを有効化
+      enableExecuteCommand: true, // ECS Execを有効化
       circuitBreaker: {
-        rollback: true,  // デプロイ失敗時に自動ロールバック
+        rollback: true, // デプロイ失敗時に自動ロールバック
       },
     });
 
@@ -661,7 +669,7 @@ const api = new Api(this, 'API', {
 {
   "context": {
     "litellmProxyEnabled": true,
-    "litellmUseEcs": true,  // フィーチャーフラグ
+    "litellmUseEcs": true // フィーチャーフラグ
     // ... 既存の設定 ...
   }
 }
@@ -676,24 +684,28 @@ const api = new Api(this, 'API', {
 #### フェーズ1: 準備（1週間）
 
 **タスク:**
+
 1. ✅ VPC作成（既存VPCがない場合）
 2. ✅ ECS Cluster、Task Definition、Service作成
 3. ✅ ALB設定
 4. ✅ CloudWatch Dashboardセットアップ
 
 **成果物:**
+
 - 動作するECS環境（テスト環境）
 - 監視ダッシュボード
 
 #### フェーズ2: パイロットテスト（1週間）
 
 **タスク:**
+
 1. ✅ 開発環境でECS版をデプロイ
 2. ✅ ロードテスト実施
 3. ✅ パフォーマンスベンチマーク
 4. ✅ コスト監視
 
 **検証項目:**
+
 - レスポンスタイム < 300ms（p95）
 - エラー率 < 0.1%
 - コスト削減 > 30%
@@ -701,18 +713,21 @@ const api = new Api(this, 'API', {
 #### フェーズ3: Blue/Greenデプロイ（1週間）
 
 **タスク:**
+
 1. ✅ 本番環境にECS版デプロイ（Blueスタック）
 2. ✅ トラフィックの10%をECSに転送
 3. ✅ 48時間監視
 4. ✅ トラフィックを50% → 100%に段階的に増加
 
 **ロールバック条件:**
+
 - エラー率 > 1%
 - レスポンスタイム悪化 > 50%
 
 #### フェーズ4: Lambda削除（1週間）
 
 **タスク:**
+
 1. ✅ 全トラフィックがECSに移行
 2. ✅ 1週間の安定稼働確認
 3. ✅ Lambda Function削除
@@ -791,36 +806,34 @@ ECS Fargate（平均2タスク稼働）:
 ### コスト最適化のベストプラクティス
 
 1. **スケジュールスケーリング:**
+
 ```typescript
 // 営業時間外はタスク数を0に
-const scalingSchedule = new appscaling.Schedule(
-  this,
-  'ScaleDownSchedule',
-  {
-    schedule: appscaling.Schedule.cron({
-      hour: '18',
-      minute: '0',
-      weekDay: 'MON-FRI',
-    }),
-    minCapacity: 0,  // 夜間・週末は停止
-    maxCapacity: 0,
-  }
-);
+const scalingSchedule = new appscaling.Schedule(this, 'ScaleDownSchedule', {
+  schedule: appscaling.Schedule.cron({
+    hour: '18',
+    minute: '0',
+    weekDay: 'MON-FRI',
+  }),
+  minCapacity: 0, // 夜間・週末は停止
+  maxCapacity: 0,
+});
 ```
 
 2. **Fargate Spot使用:**
+
 ```typescript
 const service = new ecs.FargateService(this, 'Service', {
   // ... 既存設定 ...
   capacityProviderStrategies: [
     {
       capacityProvider: 'FARGATE_SPOT',
-      weight: 2,  // Spot優先
+      weight: 2, // Spot優先
     },
     {
       capacityProvider: 'FARGATE',
-      weight: 1,  // フォールバック
-      base: 1,    // 最小1タスクは通常Fargate
+      weight: 1, // フォールバック
+      base: 1, // 最小1タスクは通常Fargate
     },
   ],
 });
@@ -834,15 +847,15 @@ const service = new ecs.FargateService(this, 'Service', {
 
 ### ベンチマーク結果（予想）
 
-| 指標 | Lambda（現状） | ECS Fargate | 改善率 |
-|------|--------------|-------------|--------|
-| **初回リクエスト（コールドスタート）** | 6,000〜10,000ms | 100〜300ms | **95〜97%改善** |
-| **2回目以降（ウォーム）** | 100〜300ms | 80〜200ms | 20〜33%改善 |
-| **p50レスポンスタイム** | 150ms | 120ms | 20%改善 |
-| **p95レスポンスタイム** | 8,500ms（コールドスタート含む） | 250ms | **97%改善** |
-| **p99レスポンスタイム** | 12,000ms | 400ms | **97%改善** |
-| **最大セッション時間** | 15分（制限） | 無制限 | ✅ 制約解消 |
-| **同時接続数** | 1（プロビジョニング済み） | 1〜10（自動スケーリング） | 10倍 |
+| 指標                                   | Lambda（現状）                  | ECS Fargate               | 改善率          |
+| -------------------------------------- | ------------------------------- | ------------------------- | --------------- |
+| **初回リクエスト（コールドスタート）** | 6,000〜10,000ms                 | 100〜300ms                | **95〜97%改善** |
+| **2回目以降（ウォーム）**              | 100〜300ms                      | 80〜200ms                 | 20〜33%改善     |
+| **p50レスポンスタイム**                | 150ms                           | 120ms                     | 20%改善         |
+| **p95レスポンスタイム**                | 8,500ms（コールドスタート含む） | 250ms                     | **97%改善**     |
+| **p99レスポンスタイム**                | 12,000ms                        | 400ms                     | **97%改善**     |
+| **最大セッション時間**                 | 15分（制限）                    | 無制限                    | ✅ 制約解消     |
+| **同時接続数**                         | 1（プロビジョニング済み）       | 1〜10（自動スケーリング） | 10倍            |
 
 ### ロードテスト計画
 
@@ -900,7 +913,7 @@ taskRole.addToPrincipalPolicy(
       'bedrock:InvokeModelWithResponseStream',
       // 必要最小限のアクション
     ],
-    resources: ['*'],  // Bedrockはリソースベースポリシー非対応
+    resources: ['*'], // Bedrockはリソースベースポリシー非対応
   })
 );
 ```
@@ -917,7 +930,10 @@ const apiKeySecret = secretsmanager.Secret.fromSecretNameV2(
   'litellm/api-key'
 );
 
-container.addSecret('LITELLM_API_KEY', ecs.Secret.fromSecretsManager(apiKeySecret));
+container.addSecret(
+  'LITELLM_API_KEY',
+  ecs.Secret.fromSecretsManager(apiKeySecret)
+);
 ```
 
 ### 4. Container Imageのスキャン
@@ -1023,7 +1039,8 @@ new cloudwatch.Alarm(this, 'TaskCountAlarm', {
   metric: service.metricTaskCount(),
   threshold: 0,
   evaluationPeriods: 1,
-  comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+  comparisonOperator:
+    cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
   alarmDescription: 'No running tasks detected',
 });
 ```
@@ -1050,13 +1067,13 @@ aws ecs tail --follow \
 
 ## リスク評価
 
-| リスク | 確率 | 影響度 | 軽減策 | 残存リスク |
-|-------|------|--------|--------|----------|
-| **デプロイ失敗** | 低 | 中 | Blue/Greenデプロイ、自動ロールバック | 低 |
-| **パフォーマンス劣化** | 低 | 高 | 事前ロードテスト、段階的移行 | 低 |
-| **コスト超過** | 中 | 中 | スケジュールスケーリング、Spot使用 | 低 |
-| **VPC構築の複雑さ** | 中 | 低 | 既存VPC利用、シンプルな構成 | 低 |
-| **運用知識不足** | 中 | 中 | ECS Execでデバッグ容易、ドキュメント整備 | 中 |
+| リスク                 | 確率 | 影響度 | 軽減策                                   | 残存リスク |
+| ---------------------- | ---- | ------ | ---------------------------------------- | ---------- |
+| **デプロイ失敗**       | 低   | 中     | Blue/Greenデプロイ、自動ロールバック     | 低         |
+| **パフォーマンス劣化** | 低   | 高     | 事前ロードテスト、段階的移行             | 低         |
+| **コスト超過**         | 中   | 中     | スケジュールスケーリング、Spot使用       | 低         |
+| **VPC構築の複雑さ**    | 中   | 低     | 既存VPC利用、シンプルな構成              | 低         |
+| **運用知識不足**       | 中   | 中     | ECS Execでデバッグ容易、ドキュメント整備 | 中         |
 
 ---
 
@@ -1065,6 +1082,7 @@ aws ecs tail --follow \
 ### トリガー条件
 
 以下のいずれかが発生した場合、即座にロールバック：
+
 1. エラー率 > 5%（5分間継続）
 2. p95レスポンスタイム > Lambda比2倍（5分間継続）
 3. タスク起動失敗率 > 50%
@@ -1163,13 +1181,14 @@ aws cloudwatch get-metric-statistics \
 
 ## 変更履歴
 
-| 日付 | 変更内容 | 作成者 |
-|------|---------|--------|
+| 日付       | 変更内容 | 作成者               |
+| ---------- | -------- | -------------------- |
 | 2025-10-31 | 初版作成 | Claude Code Analysis |
 
 ---
 
 **レビュー・承認:**
+
 - [ ] 技術リード承認
 - [ ] インフラエンジニア承認
 - [ ] プロダクトマネージャー承認

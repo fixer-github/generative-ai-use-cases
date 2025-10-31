@@ -16,22 +16,22 @@
 
 ### 主要な推奨事項（優先順位順）
 
-| 優先度 | 最適化対象 | 現在 | 推奨 | 期待効果 | 推定削減額/年 |
-|--------|-----------|------|------|---------|--------------|
-| 🔴 **高** | LiteLLM Proxy | Lambda (2GB, 15分) | ECS Fargate | パフォーマンス改善、タイムアウト解消 | $3,600〜$7,200 |
-| 🟡 **中** | 統計データ集計 | DynamoDB | Amazon Timestream | 時系列分析の効率化 | $1,200〜$2,400 |
-| 🟡 **中** | OpenSearch | Managed Domain | OpenSearch Serverless | 管理簡素化、使用量課金 | $600〜$5,400/テナント |
-| 🟢 **低** | PPTXデータ | DynamoDB + GSI | Aurora Serverless v2 | 複雑クエリの効率化 | $0〜$1,200 |
+| 優先度    | 最適化対象     | 現在               | 推奨                  | 期待効果                             | 推定削減額/年         |
+| --------- | -------------- | ------------------ | --------------------- | ------------------------------------ | --------------------- |
+| 🔴 **高** | LiteLLM Proxy  | Lambda (2GB, 15分) | ECS Fargate           | パフォーマンス改善、タイムアウト解消 | $3,600〜$7,200        |
+| 🟡 **中** | 統計データ集計 | DynamoDB           | Amazon Timestream     | 時系列分析の効率化                   | $1,200〜$2,400        |
+| 🟡 **中** | OpenSearch     | Managed Domain     | OpenSearch Serverless | 管理簡素化、使用量課金               | $600〜$5,400/テナント |
+| 🟢 **低** | PPTXデータ     | DynamoDB + GSI     | Aurora Serverless v2  | 複雑クエリの効率化                   | $0〜$1,200            |
 
 ### 総合評価
 
-| 評価項目 | スコア | コメント |
-|---------|-------|---------|
-| コスト削減効果 | ⭐⭐⭐⭐ (8/10) | 年間 $5,400〜$16,200の削減見込み |
-| パフォーマンス改善 | ⭐⭐⭐⭐⭐ (9/10) | 特にLiteLLMとTimestreamで顕著 |
-| 技術的実現可能性 | ⭐⭐⭐⭐ (8/10) | 既存のアーキテクチャパターンで対応可 |
-| 運用複雑性 | ⭐⭐⭐ (6/10) | 新しいサービスの学習コストあり |
-| **総合スコア** | **⭐⭐⭐⭐ (8/10)** | **段階的移行で高い投資対効果** |
+| 評価項目           | スコア              | コメント                             |
+| ------------------ | ------------------- | ------------------------------------ |
+| コスト削減効果     | ⭐⭐⭐⭐ (8/10)     | 年間 $5,400〜$16,200の削減見込み     |
+| パフォーマンス改善 | ⭐⭐⭐⭐⭐ (9/10)   | 特にLiteLLMとTimestreamで顕著        |
+| 技術的実現可能性   | ⭐⭐⭐⭐ (8/10)     | 既存のアーキテクチャパターンで対応可 |
+| 運用複雑性         | ⭐⭐⭐ (6/10)       | 新しいサービスの学習コストあり       |
+| **総合スコア**     | **⭐⭐⭐⭐ (8/10)** | **段階的移行で高い投資対効果**       |
 
 ---
 
@@ -61,16 +61,19 @@ GenUは以下のデータストアを使用しています：
 #### 1. DynamoDB（メインデータストア）
 
 **Control Plane（共通）:**
+
 - `Table`: チャット履歴、メッセージ、システムコンテキスト、共有データ
 - `StatsTable`: トークン使用量統計（日次集計）
 
 **Data Plane（テナント別）:**
+
 - `ChatHistoryTable-{env}-tenant-{tenantId}`: テナント別チャット履歴
 - `TokenUsageStatsTable-{env}-tenant-{tenantId}`: テナント別統計
 - `pptx-templates-{env}-{tenantId}`: PPTXテンプレート
 - `pptx-generations-{env}-{tenantId}`: PPTX生成履歴
 
 **アクセスパターン:**
+
 ```typescript
 // packages/cdk/lambda/repository/common.ts:17-41
 export async function getTenantDynamoDBDocument(event: APIGatewayProxyEvent) {
@@ -82,6 +85,7 @@ export async function getTenantDynamoDBDocument(event: APIGatewayProxyEvent) {
 #### 2. OpenSearch（RAG検索）
 
 **テナント別構成:**
+
 - VPC内にデプロイされたManaged Domain
 - インスタンスタイプ: m6g.large.search (2ノード)
 - EBS: gp3, 100GB/ノード
@@ -101,6 +105,7 @@ export async function getTenantDynamoDBDocument(event: APIGatewayProxyEvent) {
 - 5秒〜15分タイムアウト
 
 **特筆すべきLambda:**
+
 - **LiteLLM Proxy**: 2048MB, 15分タイムアウト, Docker, プロビジョニング済み同時実行数1
 
 ---
@@ -117,7 +122,7 @@ export async function getTenantDynamoDBDocument(event: APIGatewayProxyEvent) {
 
 ```typescript
 this.function = new DockerImageFunction(this, 'LitellmProxyFunction', {
-  memorySize: 2048,              // ❌ Lambda最大級のメモリ
+  memorySize: 2048, // ❌ Lambda最大級のメモリ
   ephemeralStorageSize: Size.mebibytes(2048),
   timeout: Duration.minutes(15), // ❌ Lambda最大タイムアウト
   environment: {
@@ -132,6 +137,7 @@ const alias = new Alias(this, 'LitellmProxyAlias', {
 ```
 
 **問題:**
+
 1. ✗ **15分のタイムアウト制限**: 長時間の会話セッションで切断
 2. ✗ **Dockerイメージのコールドスタート**: 初回起動が遅い（5〜10秒）
 3. ✗ **プロビジョニング済み同時実行のコスト**: 使用していなくても課金
@@ -143,20 +149,24 @@ const alias = new Alias(this, 'LitellmProxyAlias', {
 
 ```typescript
 // 新しいアーキテクチャ
-const fargateService = new ApplicationLoadBalancedFargateService(this, 'LitellmService', {
-  cluster: cluster,
-  memoryLimitMiB: 4096,          // ✓ 柔軟なメモリ設定
-  cpu: 2048,                      // ✓ 専用CPU
-  taskImageOptions: {
-    image: ContainerImage.fromAsset('./litellm-proxy-server'),
-    environment: {
-      BEDROCK_REGION: 'us-east-1',
-      LITELLM_LOG: 'INFO',
+const fargateService = new ApplicationLoadBalancedFargateService(
+  this,
+  'LitellmService',
+  {
+    cluster: cluster,
+    memoryLimitMiB: 4096, // ✓ 柔軟なメモリ設定
+    cpu: 2048, // ✓ 専用CPU
+    taskImageOptions: {
+      image: ContainerImage.fromAsset('./litellm-proxy-server'),
+      environment: {
+        BEDROCK_REGION: 'us-east-1',
+        LITELLM_LOG: 'INFO',
+      },
     },
-  },
-  desiredCount: 1,                // ✓ 最小1、自動スケーリング可
-  enableExecuteCommand: true,     // ✓ デバッグ容易
-});
+    desiredCount: 1, // ✓ 最小1、自動スケーリング可
+    enableExecuteCommand: true, // ✓ デバッグ容易
+  }
+);
 ```
 
 #### メリット
@@ -170,6 +180,7 @@ const fargateService = new ApplicationLoadBalancedFargateService(this, 'LitellmS
 #### コスト比較（月間）
 
 **Lambda（現状）:**
+
 ```
 プロビジョニング済み同時実行: $0.0000041667/ms × 1 × 720時間 = $10.80/月
 + リクエスト処理: $0.20 × 100万リクエスト + 実行時間
@@ -177,6 +188,7 @@ const fargateService = new ApplicationLoadBalancedFargateService(this, 'LitellmS
 ```
 
 **ECS Fargate（推奨）:**
+
 ```
 vCPU: $0.04048/時間 × 2 × 720時間 = $58.29/月
 メモリ: $0.004445/GB/時間 × 4GB × 720時間 = $12.80/月
@@ -243,6 +255,7 @@ export const aggregateTokenUsage = async (
 ```
 
 **問題:**
+
 1. ✗ **時系列データに非最適化**: DynamoDBは時系列分析向けではない
 2. ✗ **集計クエリの非効率性**: BatchGetで複数リクエスト必要
 3. ✗ **長期分析の困難さ**: 月次・年次レポートが重い
@@ -262,8 +275,8 @@ const table = new timestream.CfnTable(this, 'StatsTable', {
   databaseName: database.ref,
   tableName: 'token-usage',
   retentionProperties: {
-    MemoryStoreRetentionPeriodInHours: 24 * 7,    // 7日間はメモリ
-    MagneticStoreRetentionPeriodInDays: 365 * 5,  // 5年間は低コストストレージ
+    MemoryStoreRetentionPeriodInHours: 24 * 7, // 7日間はメモリ
+    MagneticStoreRetentionPeriodInDays: 365 * 5, // 5年間は低コストストレージ
   },
   magneticStoreWriteProperties: {
     EnableMagneticStoreWrites: true,
@@ -272,6 +285,7 @@ const table = new timestream.CfnTable(this, 'StatsTable', {
 ```
 
 **クエリ例（SQLライク）:**
+
 ```sql
 -- 月次集計（DynamoDBでは複雑）
 SELECT
@@ -298,6 +312,7 @@ ORDER BY month DESC
 #### コスト比較（月間、10テナント想定）
 
 **DynamoDB（現状）:**
+
 ```
 書き込み: 100万件/月 × $1.25/100万 = $1.25
 読み取り: 500万件/月 × $0.25/100万 = $1.25
@@ -306,6 +321,7 @@ ORDER BY month DESC
 ```
 
 **Timestream（推奨）:**
+
 ```
 書き込み: 100万件 × $0.50/100万 = $0.50
 メモリストレージ: 0.1GB × $0.036/GB/時間 × 168時間 = $0.60
@@ -348,12 +364,12 @@ this.domain = new opensearch.Domain(this, 'OpenSearchDomain', {
   version: opensearch.EngineVersion.OPENSEARCH_2_19,
   domainName: `${environment}-${tenantId}-opensearch`,
   capacity: {
-    dataNodeInstanceType: 'm6g.large.search',  // ❌ 固定インスタンス
-    dataNodes: 2,                               // ❌ 常時2ノード稼働
+    dataNodeInstanceType: 'm6g.large.search', // ❌ 固定インスタンス
+    dataNodes: 2, // ❌ 常時2ノード稼働
   },
   ebs: {
     enabled: true,
-    volumeSize: 100,                            // ❌ 固定ストレージ
+    volumeSize: 100, // ❌ 固定ストレージ
     volumeType: ec2.EbsDeviceVolumeType.GP3,
   },
   zoneAwareness: {
@@ -364,6 +380,7 @@ this.domain = new opensearch.Domain(this, 'OpenSearchDomain', {
 ```
 
 **テナント別コスト（現状）:**
+
 ```
 データノード: $0.112/時間 × 2ノード × 720時間 = $161/月
 EBSストレージ: $0.08/GB × 200GB = $16/月
@@ -372,6 +389,7 @@ EBSストレージ: $0.08/GB × 200GB = $16/月
 ```
 
 **問題:**
+
 1. ✗ **固定コスト**: 使用量が少なくても高額
 2. ✗ **管理負荷**: パッチ、スケーリング、バックアップ
 3. ✗ **オーバープロビジョニング**: 小規模テナントには過剰
@@ -384,36 +402,50 @@ EBSストレージ: $0.08/GB × 200GB = $16/月
 ```typescript
 const collection = new opensearchserverless.CfnCollection(this, 'Collection', {
   name: `${environment}-${tenantId}-collection`,
-  type: 'SEARCH',  // or 'TIMESERIES' for time-series data
+  type: 'SEARCH', // or 'TIMESERIES' for time-series data
   description: `Serverless OpenSearch for tenant ${tenantId}`,
 });
 
 // 暗号化ポリシー
-const encryptionPolicy = new opensearchserverless.CfnSecurityPolicy(this, 'EncryptionPolicy', {
-  name: `${environment}-${tenantId}-encryption`,
-  type: 'encryption',
-  policy: JSON.stringify({
-    Rules: [{
-      ResourceType: 'collection',
-      Resource: [`collection/${collection.name}`],
-    }],
-    AWSOwnedKey: true,
-  }),
-});
+const encryptionPolicy = new opensearchserverless.CfnSecurityPolicy(
+  this,
+  'EncryptionPolicy',
+  {
+    name: `${environment}-${tenantId}-encryption`,
+    type: 'encryption',
+    policy: JSON.stringify({
+      Rules: [
+        {
+          ResourceType: 'collection',
+          Resource: [`collection/${collection.name}`],
+        },
+      ],
+      AWSOwnedKey: true,
+    }),
+  }
+);
 
 // ネットワークポリシー
-const networkPolicy = new opensearchserverless.CfnSecurityPolicy(this, 'NetworkPolicy', {
-  name: `${environment}-${tenantId}-network`,
-  type: 'network',
-  policy: JSON.stringify([{
-    Rules: [{
-      ResourceType: 'collection',
-      Resource: [`collection/${collection.name}`],
-    }],
-    AllowFromPublic: false,
-    SourceVPCEs: [vpcEndpoint.attrId],
-  }]),
-});
+const networkPolicy = new opensearchserverless.CfnSecurityPolicy(
+  this,
+  'NetworkPolicy',
+  {
+    name: `${environment}-${tenantId}-network`,
+    type: 'network',
+    policy: JSON.stringify([
+      {
+        Rules: [
+          {
+            ResourceType: 'collection',
+            Resource: [`collection/${collection.name}`],
+          },
+        ],
+        AllowFromPublic: false,
+        SourceVPCEs: [vpcEndpoint.attrId],
+      },
+    ]),
+  }
+);
 ```
 
 #### メリット
@@ -426,6 +458,7 @@ const networkPolicy = new opensearchserverless.CfnSecurityPolicy(this, 'NetworkP
 #### コスト比較（テナント別、月間）
 
 **小規模テナント（1000クエリ/月、1GB インデックス）:**
+
 ```
 OpenSearch Compute Unit (OCU): 0.5 OCU × 720時間 × $0.24 = $86.40
 ストレージ: 1GB × $0.024 = $0.024
@@ -434,6 +467,7 @@ OpenSearch Compute Unit (OCU): 0.5 OCU × 720時間 × $0.24 = $86.40
 ```
 
 **中規模テナント（50,000クエリ/月、10GB インデックス）:**
+
 ```
 OCU: 2 OCU × 720時間 × $0.24 = $345.60
 ストレージ: 10GB × $0.024 = $0.24
@@ -472,13 +506,13 @@ this.templatesTable = new dynamodb.Table(this, 'PptxTemplatesTable', {
 
 // 複数のGSIが必要
 this.templatesTable.addGlobalSecondaryIndex({
-  indexName: 'UserIndex',        // ❌ ユーザー検索用
+  indexName: 'UserIndex', // ❌ ユーザー検索用
   partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
   sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
 });
 
 this.templatesTable.addGlobalSecondaryIndex({
-  indexName: 'PublicIndex',      // ❌ パブリックテンプレート検索用
+  indexName: 'PublicIndex', // ❌ パブリックテンプレート検索用
   partitionKey: { name: 'isPublic', type: dynamodb.AttributeType.STRING },
   sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
 });
@@ -490,13 +524,14 @@ this.generationsTable = new dynamodb.Table(this, 'PptxGenerationsTable', {
 });
 
 this.generationsTable.addGlobalSecondaryIndex({
-  indexName: 'ChatGenerationsIndex',  // ❌ チャット関連検索用
+  indexName: 'ChatGenerationsIndex', // ❌ チャット関連検索用
   partitionKey: { name: 'chatId', type: dynamodb.AttributeType.STRING },
   sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
 });
 ```
 
 **問題:**
+
 1. ✗ **GSI乱立**: 各検索パターンに別GSIが必要
 2. ✗ **リレーショナルクエリ困難**: テンプレート+ジェネレーションのJOINができない
 3. ✗ **複雑フィルタリング**: 「ユーザーAのパブリックテンプレートを使った、チャットBのジェネレーション」のようなクエリが困難
@@ -544,6 +579,7 @@ CREATE TABLE pptx_generations (
 ```
 
 **クエリ例（DynamoDBでは困難）:**
+
 ```sql
 -- 「ユーザーAのパブリックテンプレートを使った、直近のジェネレーション」
 SELECT
@@ -582,6 +618,7 @@ LIMIT 10;
 #### コスト比較（月間、10テナント想定）
 
 **DynamoDB（現状）:**
+
 ```
 テーブル × 2（templates, generations）× 10テナント = 20テーブル
 読み取り: 100万件 × $0.25/100万 × 20 = $5.00
@@ -591,6 +628,7 @@ LIMIT 10;
 ```
 
 **Aurora Serverless v2（推奨）:**
+
 ```
 ACU: 0.5 ACU（最小） × 720時間 × $0.12 = $43.20
 ストレージ: 100GB × $0.10 = $10.00
@@ -622,21 +660,23 @@ I/O: 100万リクエスト × $0.20/100万 = $0.20
 
 ### 年間コスト削減額（総計）
 
-| 最適化項目 | 現状コスト/年 | 移行後コスト/年 | 削減額/年 | 削減率 |
-|-----------|--------------|----------------|----------|--------|
-| LiteLLM Proxy | $3,600〜$7,200 | $1,200〜$2,400 | **$2,400〜$4,800** | 50〜67% |
-| 統計データ（10テナント） | $330 | $170 | **$160** | 48% |
-| OpenSearch（10小規模テナント） | $21,840 | $10,370 | **$11,470** | 53% |
-| PPTXデータ | $390 | $640 | **-$250** | -64% |
-| **合計** | **$26,160〜$29,760** | **$12,380〜$13,580** | **$13,780〜$16,180** | **47〜58%** |
+| 最適化項目                     | 現状コスト/年        | 移行後コスト/年      | 削減額/年            | 削減率      |
+| ------------------------------ | -------------------- | -------------------- | -------------------- | ----------- |
+| LiteLLM Proxy                  | $3,600〜$7,200       | $1,200〜$2,400       | **$2,400〜$4,800**   | 50〜67%     |
+| 統計データ（10テナント）       | $330                 | $170                 | **$160**             | 48%         |
+| OpenSearch（10小規模テナント） | $21,840              | $10,370              | **$11,470**          | 53%         |
+| PPTXデータ                     | $390                 | $640                 | **-$250**            | -64%        |
+| **合計**                       | **$26,160〜$29,760** | **$12,380〜$13,580** | **$13,780〜$16,180** | **47〜58%** |
 
 ### 投資対効果（ROI）
 
 **初期投資:**
+
 - 開発工数: 約40〜60時間（エンジニア1名、2〜3週間）
 - 開発コスト: $4,000〜$6,000（時給$100想定）
 
 **投資回収期間:**
+
 - $13,780/年 削減 → 約3.5〜5.2ヶ月で回収
 - **第1年度ROI: 130〜245%**
 
@@ -646,12 +686,12 @@ I/O: 100万リクエスト × $0.20/100万 = $0.20
 
 ### 提案別実現可能性マトリックス
 
-| 提案 | コード変更量 | 新技術学習 | データ移行 | ダウンタイム | リスク | 総合評価 |
-|------|------------|-----------|-----------|------------|--------|---------|
-| LiteLLM → ECS | 小 (CDKのみ) | 小 (ECS基礎) | 不要 | なし | 低 | ⭐⭐⭐⭐⭐ |
-| Stats → Timestream | 中 (リポジトリ) | 中 (Timestream API) | 必要 | なし | 中 | ⭐⭐⭐⭐ |
-| OpenSearch → Serverless | 小 (設定変更) | 小 (設定のみ) | 必要 | 短時間 | 中 | ⭐⭐⭐⭐ |
-| PPTX → Aurora | 大 (再設計) | 大 (SQL, ORM) | 必要 | 短時間 | 高 | ⭐⭐⭐ |
+| 提案                    | コード変更量    | 新技術学習          | データ移行 | ダウンタイム | リスク | 総合評価   |
+| ----------------------- | --------------- | ------------------- | ---------- | ------------ | ------ | ---------- |
+| LiteLLM → ECS           | 小 (CDKのみ)    | 小 (ECS基礎)        | 不要       | なし         | 低     | ⭐⭐⭐⭐⭐ |
+| Stats → Timestream      | 中 (リポジトリ) | 中 (Timestream API) | 必要       | なし         | 中     | ⭐⭐⭐⭐   |
+| OpenSearch → Serverless | 小 (設定変更)   | 小 (設定のみ)       | 必要       | 短時間       | 中     | ⭐⭐⭐⭐   |
+| PPTX → Aurora           | 大 (再設計)     | 大 (SQL, ORM)       | 必要       | 短時間       | 高     | ⭐⭐⭐     |
 
 ### 既存アーキテクチャとの適合性
 
@@ -666,6 +706,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
 ```
 
 **メリット:**
+
 - ビジネスロジックとデータアクセスが分離
 - リポジトリ層のみ変更で移行可能
 - テスト容易性が高い
@@ -676,20 +717,20 @@ GenUは**リポジトリパターン**を採用しているため、データス
 
 ### リスクマトリックス
 
-| リスク | 確率 | 影響度 | 軽減策 | 残存リスク |
-|-------|------|--------|--------|----------|
-| **LiteLLM移行** |
-| ECSデプロイ失敗 | 低 | 中 | Blue/Greenデプロイ、自動ロールバック | 低 |
-| パフォーマンス劣化 | 低 | 高 | ロードテスト、段階的移行 | 低 |
-| **Timestream移行** |
-| データ移行失敗 | 中 | 高 | 二重書き込み期間、バックアップ | 低 |
-| クエリ性能問題 | 低 | 中 | 事前ベンチマーク、インデックス最適化 | 低 |
+| リスク                        | 確率 | 影響度 | 軽減策                               | 残存リスク |
+| ----------------------------- | ---- | ------ | ------------------------------------ | ---------- |
+| **LiteLLM移行**               |
+| ECSデプロイ失敗               | 低   | 中     | Blue/Greenデプロイ、自動ロールバック | 低         |
+| パフォーマンス劣化            | 低   | 高     | ロードテスト、段階的移行             | 低         |
+| **Timestream移行**            |
+| データ移行失敗                | 中   | 高     | 二重書き込み期間、バックアップ       | 低         |
+| クエリ性能問題                | 低   | 中     | 事前ベンチマーク、インデックス最適化 | 低         |
 | **OpenSearch Serverless移行** |
-| コスト超過 | 中 | 中 | OCU上限設定、モニタリング | 中 |
-| インデックス互換性 | 低 | 高 | マッピング検証、テスト環境移行 | 低 |
-| **Aurora移行** |
-| データモデル設計ミス | 高 | 高 | ER図作成、レビュー、プロトタイプ | 中 |
-| ORM学習コスト | 中 | 中 | 段階的導入、ペアプログラミング | 中 |
+| コスト超過                    | 中   | 中     | OCU上限設定、モニタリング            | 中         |
+| インデックス互換性            | 低   | 高     | マッピング検証、テスト環境移行       | 低         |
+| **Aurora移行**                |
+| データモデル設計ミス          | 高   | 高     | ER図作成、レビュー、プロトタイプ     | 中         |
+| ORM学習コスト                 | 中   | 中     | 段階的導入、ペアプログラミング       | 中         |
 
 ### 全体的なリスク軽減戦略
 
@@ -708,6 +749,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
 #### フェーズ1: 即効性の高い最適化（1〜2ヶ月）
 
 **1. LiteLLM Proxy → ECS Fargate**
+
 - 期間: 2週間
 - 理由: 最も高いROI、技術的リスク低
 - 手順:
@@ -718,6 +760,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
   5. Lambda削除
 
 **成功指標:**
+
 - レスポンスタイム: p95で20%改善
 - タイムアウトエラー: ゼロ
 - コスト: 50%削減
@@ -725,6 +768,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
 #### フェーズ2: データストア最適化（2〜4ヶ月）
 
 **2. 統計データ → Timestream**
+
 - 期間: 3週間
 - 手順:
   1. Timestream Database/Table作成
@@ -734,6 +778,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
   5. DynamoDB Stats Table削除
 
 **3. OpenSearch → Serverless（小規模テナントのみ）**
+
 - 期間: 4週間
 - 手順:
   1. Serverless Collection作成（テスト環境）
@@ -745,6 +790,7 @@ GenUは**リポジトリパターン**を採用しているため、データス
 #### フェーズ3: 戦略的最適化（6ヶ月〜）
 
 **4. PPTXデータ → Aurora（ニーズに応じて）**
+
 - 期間: 6〜8週間
 - 条件: 複雑クエリの需要が顕在化した場合のみ
 - 手順:
@@ -774,44 +820,52 @@ Month 6+:   [Aurora移行（オプショナル）]
 #### LiteLLM → ECS Fargate
 
 **即時採用を推奨する条件:**
+
 - ✓ 15分タイムアウトの課題がある
 - ✓ プロビジョニング済み同時実行のコストが気になる
 - ✓ パフォーマンスの予測可能性を重視
 
 **見送る条件:**
+
 - ✗ Lambda課金が月$100未満
 - ✗ ECS運用経験がチームにない（学習コスト高）
 
 #### 統計データ → Timestream
 
 **即時採用を推奨する条件:**
+
 - ✓ 月次・年次レポート機能を実装予定
 - ✓ QuickSightダッシュボードを導入予定
 - ✓ 時系列トレンド分析のニーズがある
 
 **見送る条件:**
+
 - ✗ 統計機能の使用頻度が低い
 - ✗ 単純な集計のみで十分
 
 #### OpenSearch → Serverless
 
 **即時採用を推奨する条件:**
+
 - ✓ テナント数が10以上
 - ✓ 小規模テナントが多い（1000クエリ/月未満）
 - ✓ 管理負荷を削減したい
 
 **見送る条件:**
+
 - ✗ すべてのテナントが大規模（50,000クエリ/月以上）
 - ✗ カスタムプラグインを使用している
 
 #### PPTXデータ → Aurora
 
 **採用を推奨する条件:**
+
 - ✓ 複雑な検索クエリのニーズが増加
 - ✓ レポート・ダッシュボード機能を拡充予定
 - ✓ トランザクション整合性が重要
 
 **見送る条件:**
+
 - ✓ 現状のGSIで十分
 - ✗ 開発リソースが限られている
 
@@ -861,13 +915,14 @@ Month 6+:   [Aurora移行（オプショナル）]
 
 ## 変更履歴
 
-| 日付 | 変更内容 | 作成者 |
-|------|---------|--------|
+| 日付       | 変更内容 | 作成者               |
+| ---------- | -------- | -------------------- |
 | 2025-10-31 | 初版作成 | Claude Code Analysis |
 
 ---
 
 **レビュー・承認:**
+
 - [ ] 技術リード承認
 - [ ] プロダクトマネージャー承認
 - [ ] CTOレビュー

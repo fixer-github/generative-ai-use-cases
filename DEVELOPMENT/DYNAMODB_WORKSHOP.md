@@ -67,11 +67,13 @@ npm run web:devw
 #### 1. DynamoDBとは？（10分）
 
 **講師が説明**:
+
 - NoSQLデータベースの概要
 - DynamoDBの特徴（キーバリューストア、スキーマレス、サーバーレス）
 - なぜGenUでDynamoDBを選んだのか
 
 **デモ**:
+
 - AWSコンソールでDynamoDBテーブルを表示
 - アイテムの構造を確認
 
@@ -81,14 +83,15 @@ npm run web:devw
 
 **講師が説明**:
 
-| 概念 | SQL | DynamoDB |
-|------|-----|----------|
-| データモデル | テーブル（行と列） | Key-Valueペア |
-| スキーマ | 固定スキーマ | スキーマレス |
-| クエリ | 任意の列で検索可能 | Partition Key必須 |
-| インデックス | 後から追加容易 | 事前定義が必要 |
+| 概念         | SQL                | DynamoDB          |
+| ------------ | ------------------ | ----------------- |
+| データモデル | テーブル（行と列） | Key-Valueペア     |
+| スキーマ     | 固定スキーマ       | スキーマレス      |
+| クエリ       | 任意の列で検索可能 | Partition Key必須 |
+| インデックス | 後から追加容易     | 事前定義が必要    |
 
 **デモ**:
+
 ```sql
 -- SQLの例
 SELECT * FROM chats WHERE user_id = 123;
@@ -96,7 +99,7 @@ SELECT * FROM chats WHERE user_id = 123;
 
 ```typescript
 // DynamoDBの例
-KeyConditionExpression: "id = :userId"
+KeyConditionExpression: 'id = :userId';
 ```
 
 ---
@@ -104,11 +107,13 @@ KeyConditionExpression: "id = :userId"
 #### 3. キーの概念（10分）
 
 **講師が説明**:
+
 - **Partition Key**: データを分散するためのキー（必須）
 - **Sort Key**: Partition Key内でソートするキー（オプション）
 - **複合キー**: Partition Key + Sort Key
 
 **デモ**:
+
 ```typescript
 // GenUの例
 {
@@ -128,12 +133,14 @@ KeyConditionExpression: "id = :userId"
 **目標**: DynamoDBテーブルの構造を理解する
 
 **手順**:
+
 1. AWS Management Console → DynamoDB
 2. テーブル一覧で `ChatHistory-dev-...` を選択
 3. 「項目を探索」をクリック
 4. いくつかのアイテムを確認
 
 **確認事項**:
+
 - ✅ Partition Key (`id`) の値のパターン
 - ✅ Sort Key (`createdDate`) の値の形式
 - ✅ 異なるエンティティタイプ（Chat、Message、Share）が混在していること
@@ -179,6 +186,7 @@ aws dynamodb query \
 ```
 
 **確認事項**:
+
 - ✅ Queryで複数のアイテムが返ってくること
 - ✅ Sort Keyで自動的にソートされていること
 
@@ -189,6 +197,7 @@ aws dynamodb query \
 **テーマ**: SQLと比較して、DynamoDBの利点・欠点は何か？
 
 **ディスカッションポイント**:
+
 - スケーラビリティ
 - クエリの柔軟性
 - 運用負荷
@@ -205,10 +214,12 @@ aws dynamodb query \
 #### 1. シングルテーブル設計（10分）
 
 **講師が説明**:
+
 - GenUは1つのテーブル（Main Table）に複数のエンティティを格納
 - Partition Keyのプレフィックスでエンティティを区別
 
 **デモ**:
+
 ```typescript
 // チャット
 id: "user#alice",     createdDate: "2025-01-15T10:00:00Z"
@@ -221,6 +232,7 @@ id: "share#789",      createdDate: "2025-01-15T12:00:00Z"
 ```
 
 **メリット**:
+
 - 関連データを1回のクエリで取得可能
 - テーブル数が少ない（コスト削減）
 
@@ -229,11 +241,13 @@ id: "share#789",      createdDate: "2025-01-15T12:00:00Z"
 #### 2. テナント分離パターン（10分）
 
 **講師が説明**:
+
 - マルチテナント: テナントごとに独立したテーブル
 - `getTenantDynamoDBDocument()` が自動的に適切なテーブルを選択
 - Cognito JWTから `custom:tenantId` を抽出
 
 **デモ**:
+
 ```typescript
 // packages/cdk/lambda/repository/common.ts
 const dynamodb = await getTenantDynamoDBDocument(event);
@@ -246,22 +260,26 @@ const tableName = getTableName(event);
 #### 3. リポジトリパターン（10分）
 
 **講師が説明**:
+
 - GenUはRepository Patternを採用
 - DynamoDBの詳細を隠蔽
 - Lambda関数はリポジトリ層を通じてデータアクセス
 
 **デモ**:
+
 ```typescript
 // packages/cdk/lambda/repository/chat.ts
 export const listChats = async (userId, event) => {
   const dynamodb = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
 
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: "id = :userId",
-    ExpressionAttributeValues: { ":userId": `user#${userId}` }
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'id = :userId',
+      ExpressionAttributeValues: { ':userId': `user#${userId}` },
+    })
+  );
 
   return result.Items || [];
 };
@@ -276,6 +294,7 @@ export const listChats = async (userId, event) => {
 **目標**: リポジトリ層のコードを読んで理解する
 
 **手順**:
+
 1. `packages/cdk/lambda/repository/chat.ts` を開く
 2. 以下の関数を読む:
    - `listChats` (行88-)
@@ -283,12 +302,14 @@ export const listChats = async (userId, event) => {
    - `findChatById` (行57-)
 
 **確認事項**:
+
 - ✅ `getTenantDynamoDBDocument()` を使っているか
 - ✅ Partition Keyとして何を使っているか
 - ✅ Sort Keyはどう使われているか
 - ✅ UpdateExpressionの構文
 
 **グループで議論**:
+
 - `findChatById` でなぜFilterExpressionを使っているのか？
 - より効率的な方法はあるか？
 
@@ -299,6 +320,7 @@ export const listChats = async (userId, event) => {
 **目標**: 全テーブルの構造を把握する
 
 **手順**:
+
 1. [DynamoDBスキーマドキュメント](./DYNAMODB_SCHEMA.md) を開く
 2. 以下のテーブルの構造を確認:
    - Main Table
@@ -306,6 +328,7 @@ export const listChats = async (userId, event) => {
    - UseCaseBuilder Table
 
 **確認事項**:
+
 - ✅ 各テーブルのPartition Key / Sort Key
 - ✅ Global Secondary Index (GSI) の用途
 - ✅ アクセスパターン
@@ -327,6 +350,7 @@ export const listChats = async (userId, event) => {
 **課題**: ユーザーのチャット統計を取得するLambda関数を実装する
 
 **要件**:
+
 - エンドポイント: `GET /users/{userId}/stats`
 - 返り値: `{ totalChats: number, recentChats: Chat[] }`
 
@@ -338,7 +362,9 @@ export const listChats = async (userId, event) => {
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { listChats } from './repository/chat';
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   try {
     // TODO: userIdをパスパラメータから取得
     const userId = event.pathParameters?.userId;
@@ -346,7 +372,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'userId is required' })
+        body: JSON.stringify({ error: 'userId is required' }),
       };
     }
 
@@ -356,22 +382,22 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // TODO: 統計を計算
     const stats = {
       totalChats: chats.length,
-      recentChats: chats.slice(0, 5)  // 最新5件
+      recentChats: chats.slice(0, 5), // 最新5件
     };
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify(stats)
+      body: JSON.stringify(stats),
     };
   } catch (error) {
     console.error('Error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 };
@@ -388,8 +414,8 @@ const getUserStatsFunction = new lambda.Function(this, 'GetUserStats', {
   handler: 'getUserStats.handler',
   code: lambda.Code.fromAsset('lambda'),
   environment: {
-    TABLE_NAME: props.table.tableName
-  }
+    TABLE_NAME: props.table.tableName,
+  },
 });
 
 // DynamoDB読み取り権限を付与
@@ -402,7 +428,7 @@ api.addRoutes({
   integration: new apigw_integrations.HttpLambdaIntegration(
     'GetUserStatsIntegration',
     getUserStatsFunction
-  )
+  ),
 });
 ```
 
@@ -417,6 +443,7 @@ curl https://<api-endpoint>/users/<your-user-id>/stats
 ```
 
 **期待される出力**:
+
 ```json
 {
   "totalChats": 10,
@@ -434,6 +461,7 @@ curl https://<api-endpoint>/users/<your-user-id>/stats
 **課題**: メッセージにタグを付ける機能を実装する
 
 **要件**:
+
 - メッセージに `tags` 属性を追加（文字列配列）
 - タグを更新するLambda関数を実装
 
@@ -448,7 +476,7 @@ export interface Message {
   role: string;
   content: string;
   // 新しい属性
-  tags?: string[];  // 追加
+  tags?: string[]; // 追加
 }
 ```
 
@@ -468,24 +496,26 @@ export const updateMessageTags = async (
 
   // TODO: まずメッセージを検索して createdDate を取得
   const messages = await listMessages(chatId, event);
-  const message = messages.find(m => m.messageId === messageId);
+  const message = messages.find((m) => m.messageId === messageId);
 
   if (!message) {
     throw new Error('Message not found');
   }
 
   // TODO: UpdateCommandでtagsを更新
-  await dynamodb.send(new UpdateCommand({
-    TableName: tableName,
-    Key: {
-      id: `chat#${chatId}`,
-      createdDate: message.createdDate
-    },
-    UpdateExpression: "SET tags = :tags",
-    ExpressionAttributeValues: {
-      ":tags": tags
-    }
-  }));
+  await dynamodb.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        id: `chat#${chatId}`,
+        createdDate: message.createdDate,
+      },
+      UpdateExpression: 'SET tags = :tags',
+      ExpressionAttributeValues: {
+        ':tags': tags,
+      },
+    })
+  );
 };
 ```
 
@@ -497,7 +527,9 @@ export const updateMessageTags = async (
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { updateMessageTags } from './repository/message';
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   try {
     const chatId = event.pathParameters?.chatId;
     const messageId = event.pathParameters?.messageId;
@@ -507,7 +539,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!chatId || !messageId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'chatId and messageId are required' })
+        body: JSON.stringify({ error: 'chatId and messageId are required' }),
       };
     }
 
@@ -518,15 +550,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ success: true })
+      body: JSON.stringify({ success: true }),
     };
   } catch (error) {
     console.error('Error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };
@@ -553,10 +585,12 @@ curl -X PUT https://<api-endpoint>/chats/<chat-id>/messages/<message-id>/tags \
 #### オプションA: チャットにお気に入り機能を追加
 
 **要件**:
+
 - チャットに `isFavorite` フラグを追加
 - お気に入りチャット一覧を取得するエンドポイント
 
 **ヒント**:
+
 - UpdateCommandで `isFavorite` を更新
 - FilterExpressionで `isFavorite = true` を検索
 
@@ -565,9 +599,11 @@ curl -X PUT https://<api-endpoint>/chats/<chat-id>/messages/<message-id>/tags \
 #### オプションB: メッセージ検索機能を追加
 
 **要件**:
+
 - メッセージの内容をキーワード検索する
 
 **ヒント**:
+
 - DynamoDBでは全文検索は不可
 - Scanを使うか、ElasticSearchとの連携を検討
 
@@ -576,9 +612,11 @@ curl -X PUT https://<api-endpoint>/chats/<chat-id>/messages/<message-id>/tags \
 #### オプションC: チャット削除時の統計更新
 
 **要件**:
+
 - チャット削除時に、関連する統計データも更新する
 
 **ヒント**:
+
 - `deleteChat` で削除されるメッセージ数を計算
 - 統計テーブルから該当分を減算（ADDで負の値を使用）
 
@@ -599,13 +637,15 @@ curl -X PUT https://<api-endpoint>/chats/<chat-id>/messages/<message-id>/tags \
 export const handler = async (event: APIGatewayProxyEvent) => {
   const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: "ChatHistory",  // ❌ 問題: テナントコンテキストを無視
-    KeyConditionExpression: "id = :userId",
-    ExpressionAttributeValues: {
-      ":userId": `user#${userId}`
-    }
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: 'ChatHistory', // ❌ 問題: テナントコンテキストを無視
+      KeyConditionExpression: 'id = :userId',
+      ExpressionAttributeValues: {
+        ':userId': `user#${userId}`,
+      },
+    })
+  );
 };
 ```
 
@@ -615,25 +655,30 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 <summary>回答</summary>
 
 **問題**:
+
 1. テナントコンテキストを無視している
 2. ハードコードされたテーブル名
 
 **修正**:
+
 ```typescript
 export const handler = async (event: APIGatewayProxyEvent) => {
   // ✅ テナントコンテキストを使用
   const dynamodb = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
 
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: tableName,  // ✅ 動的なテーブル名
-    KeyConditionExpression: "id = :userId",
-    ExpressionAttributeValues: {
-      ":userId": `user#${userId}`
-    }
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: tableName, // ✅ 動的なテーブル名
+      KeyConditionExpression: 'id = :userId',
+      ExpressionAttributeValues: {
+        ':userId': `user#${userId}`,
+      },
+    })
+  );
 };
 ```
+
 </details>
 
 ---
@@ -642,17 +687,19 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
 ```typescript
 // バグのあるコード
-await dynamodb.send(new UpdateCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: chat.createdDate
-  },
-  UpdateExpression: "SET status = :status",  // ❌ 問題: statusは予約語
-  ExpressionAttributeValues: {
-    ":status": "active"
-  }
-}));
+await dynamodb.send(
+  new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: chat.createdDate,
+    },
+    UpdateExpression: 'SET status = :status', // ❌ 問題: statusは予約語
+    ExpressionAttributeValues: {
+      ':status': 'active',
+    },
+  })
+);
 ```
 
 **質問**: 何が問題で、どう修正すべきか？
@@ -663,22 +710,26 @@ await dynamodb.send(new UpdateCommand({
 **問題**: `status` はDynamoDBの予約語
 
 **修正**:
+
 ```typescript
-await dynamodb.send(new UpdateCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: chat.createdDate
-  },
-  UpdateExpression: "SET #status = :status",  // ✅ プレースホルダーを使用
-  ExpressionAttributeNames: {
-    "#status": "status"  // ✅ 予約語をエスケープ
-  },
-  ExpressionAttributeValues: {
-    ":status": "active"
-  }
-}));
+await dynamodb.send(
+  new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: chat.createdDate,
+    },
+    UpdateExpression: 'SET #status = :status', // ✅ プレースホルダーを使用
+    ExpressionAttributeNames: {
+      '#status': 'status', // ✅ 予約語をエスケープ
+    },
+    ExpressionAttributeValues: {
+      ':status': 'active',
+    },
+  })
+);
 ```
+
 </details>
 
 ---
@@ -698,14 +749,16 @@ export const findMessagesByFeedback = async (
   const tableName = getTableName(event);
 
   // ❌ 問題: Scanでテーブル全体を検索
-  const result = await dynamodb.send(new ScanCommand({
-    TableName: tableName,
-    FilterExpression: "chatId = :chatId AND feedback = :feedback",
-    ExpressionAttributeValues: {
-      ":chatId": chatId,
-      ":feedback": feedback
-    }
-  }));
+  const result = await dynamodb.send(
+    new ScanCommand({
+      TableName: tableName,
+      FilterExpression: 'chatId = :chatId AND feedback = :feedback',
+      ExpressionAttributeValues: {
+        ':chatId': chatId,
+        ':feedback': feedback,
+      },
+    })
+  );
 
   return result.Items || [];
 };
@@ -717,10 +770,12 @@ export const findMessagesByFeedback = async (
 <summary>回答</summary>
 
 **問題**:
+
 1. Scanを使用（テーブル全体をスキャン）
 2. GSI (FeedbackIndex) を使っていない
 
 **改善**:
+
 ```typescript
 export const findMessagesByFeedback = async (
   chatId: string,
@@ -731,15 +786,17 @@ export const findMessagesByFeedback = async (
   const tableName = getTableName(event);
 
   // ✅ 方法1: Queryでchat#<chatId>を検索後、FilterExpression
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: "id = :chatId",
-    FilterExpression: "feedback = :feedback",
-    ExpressionAttributeValues: {
-      ":chatId": `chat#${chatId}`,
-      ":feedback": feedback
-    }
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'id = :chatId',
+      FilterExpression: 'feedback = :feedback',
+      ExpressionAttributeValues: {
+        ':chatId': `chat#${chatId}`,
+        ':feedback': feedback,
+      },
+    })
+  );
 
   return result.Items || [];
 };
@@ -748,6 +805,7 @@ export const findMessagesByFeedback = async (
 // Note: この方法はfeedbackで検索後、chatIdでフィルタするため、
 // 特定チャットのフィードバックを探す用途には非効率な場合がある
 ```
+
 </details>
 
 ---
@@ -757,6 +815,7 @@ export const findMessagesByFeedback = async (
 ### 学んだことの振り返り
 
 **参加者に質問**:
+
 1. DynamoDBの最も重要な概念は何か？
 2. SQLと比較して、DynamoDBの利点は？
 3. GenUでDynamoDBを使う際の注意点は？
@@ -803,6 +862,7 @@ export const findMessagesByFeedback = async (
 お疲れ様でした！このワークショップで学んだことを実際の開発に活かしてください。
 
 **フィードバックをお願いします**:
+
 - ワークショップの内容はわかりやすかったか？
 - もっと詳しく知りたいトピックは？
 - 改善点は？
@@ -814,30 +874,33 @@ export const findMessagesByFeedback = async (
 ### 準備（ファシリテーター向け）
 
 #### 1週間前
+
 - [ ] 参加者に事前資料を共有
 - [ ] AWS環境のアクセス権限を確認
 - [ ] デモ用のサンプルデータを準備
 
 #### 前日
+
 - [ ] プロジェクター/画面共有の動作確認
 - [ ] AWSコンソールのデモ環境を確認
 - [ ] コード例の動作確認
 
 #### 当日
+
 - [ ] 参加者の開発環境をサポート
 - [ ] 時間配分に注意（各セッションの時間を守る）
 - [ ] 質問を促す雰囲気作り
 
 ### タイムキーピング
 
-| セッション | 開始時刻 | 終了時刻 | 内容 |
-|-----------|---------|---------|------|
-| セッション1 | 10:00 | 11:00 | DynamoDB基礎 |
-| セッション2 | 11:00 | 12:00 | GenUスキーマ |
-| 休憩 | 12:00 | 12:15 | |
-| セッション3 | 12:15 | 13:45 | 実装演習 |
-| セッション4 | 13:45 | 14:15 | トラブルシューティング |
-| まとめ | 14:15 | 14:30 | Q&A |
+| セッション  | 開始時刻 | 終了時刻 | 内容                   |
+| ----------- | -------- | -------- | ---------------------- |
+| セッション1 | 10:00    | 11:00    | DynamoDB基礎           |
+| セッション2 | 11:00    | 12:00    | GenUスキーマ           |
+| 休憩        | 12:00    | 12:15    |                        |
+| セッション3 | 12:15    | 13:45    | 実装演習               |
+| セッション4 | 13:45    | 14:15    | トラブルシューティング |
+| まとめ      | 14:15    | 14:30    | Q&A                    |
 
 ### よくある質問と回答
 

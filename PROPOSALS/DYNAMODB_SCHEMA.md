@@ -21,16 +21,19 @@
 GenUは**マルチテナントアーキテクチャ**を採用しており、2つのデプロイメントパターンをサポートしています：
 
 ### 1. Control Plane（コントロールプレーン）
+
 - **用途**: シングルテナント環境、またはデフォルトテナント
 - **特徴**: 共有のDynamoDBテーブルを使用
 - **デプロイ**: すべての環境でデフォルトで作成される
 
 ### 2. Data Plane（データプレーン）
+
 - **用途**: マルチテナント環境
 - **特徴**: テナントごとに完全に分離されたDynamoDBテーブル
 - **デプロイ**: マルチテナント機能が有効な場合のみ作成される
 
 ### アーキテクチャの利点
+
 - **データ分離**: テナント間でデータが完全に分離され、セキュリティが向上
 - **スケーラビリティ**: テナントごとにリソースをスケール可能
 - **柔軟性**: シングルテナントとマルチテナントの両方をサポート
@@ -42,22 +45,22 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ### Control Plane テーブル（共有）
 
-| # | テーブル名 | 用途 | 必須 |
-|---|-----------|------|------|
-| 1 | [Main Table](#1-main-tablecontrol-plane) | チャット、メッセージ、共有、システムコンテキスト | ✅ |
-| 2 | [Stats Table](#2-stats-tablecontrol-plane) | トークン使用統計 | ✅ |
-| 3 | [Tenants Table](#3-tenants-tablecontrol-plane) | テナント登録情報 | マルチテナント時のみ |
-| 4 | [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) | カスタムユースケース定義 | ✅ |
+| #   | テーブル名                                                   | 用途                                             | 必須                 |
+| --- | ------------------------------------------------------------ | ------------------------------------------------ | -------------------- |
+| 1   | [Main Table](#1-main-tablecontrol-plane)                     | チャット、メッセージ、共有、システムコンテキスト | ✅                   |
+| 2   | [Stats Table](#2-stats-tablecontrol-plane)                   | トークン使用統計                                 | ✅                   |
+| 3   | [Tenants Table](#3-tenants-tablecontrol-plane)               | テナント登録情報                                 | マルチテナント時のみ |
+| 4   | [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) | カスタムユースケース定義                         | ✅                   |
 
 ### Per-Tenant テーブル（分離）
 
-| # | テーブル名 | 用途 | 必須 |
-|---|-----------|------|------|
-| 5 | [ChatHistory Table](#5-tenant-chathistory-tableper-tenant) | テナント専用のチャット履歴 | マルチテナント時 |
-| 6 | [TokenUsageStats Table](#6-tenant-tokenusagestats-tableper-tenant) | テナント専用の統計 | マルチテナント時 |
-| 7 | [UseCaseBuilder Table](#7-tenant-usecasebuilder-tableper-tenant) | テナント専用のユースケース | マルチテナント時 |
-| 8 | [PPTX Templates Table](#8-pptx-templates-tableper-tenant) | PowerPointテンプレート | PPTX機能有効時 |
-| 9 | [PPTX Generations Table](#9-pptx-generations-tableper-tenant) | PowerPoint生成履歴 | PPTX機能有効時 |
+| #   | テーブル名                                                         | 用途                       | 必須             |
+| --- | ------------------------------------------------------------------ | -------------------------- | ---------------- |
+| 5   | [ChatHistory Table](#5-tenant-chathistory-tableper-tenant)         | テナント専用のチャット履歴 | マルチテナント時 |
+| 6   | [TokenUsageStats Table](#6-tenant-tokenusagestats-tableper-tenant) | テナント専用の統計         | マルチテナント時 |
+| 7   | [UseCaseBuilder Table](#7-tenant-usecasebuilder-tableper-tenant)   | テナント専用のユースケース | マルチテナント時 |
+| 8   | [PPTX Templates Table](#8-pptx-templates-tableper-tenant)          | PowerPointテンプレート     | PPTX機能有効時   |
+| 9   | [PPTX Generations Table](#9-pptx-generations-tableper-tenant)      | PowerPoint生成履歴         | PPTX機能有効時   |
 
 ---
 
@@ -73,17 +76,18 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Partition Key** | `id` (STRING) |
-| **Sort Key** | `createdDate` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS所有キー（デフォルト） |
-| **削除ポリシー** | 環境依存（開発: DESTROY / 本番: RETAIN） |
+| 項目              | 値                                       |
+| ----------------- | ---------------------------------------- |
+| **Partition Key** | `id` (STRING)                            |
+| **Sort Key**      | `createdDate` (STRING)                   |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド）          |
+| **暗号化**        | AWS所有キー（デフォルト）                |
+| **削除ポリシー**  | 環境依存（開発: DESTROY / 本番: RETAIN） |
 
 ##### Global Secondary Indexes
 
 ###### FeedbackIndex
+
 - **Partition Key**: `feedback` (STRING)
 - **用途**: ユーザーフィードバック（good/bad）でメッセージを検索
 
@@ -96,6 +100,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 **用途**: ユーザーのチャットセッション情報
 
 **スキーマ**:
+
 ```typescript
 {
   id: "user#<userId>",                    // PK: ユーザー識別子
@@ -114,6 +119,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 **用途**: チャット内の個々のメッセージ（ユーザー・アシスタント・システム）
 
 **スキーマ**:
+
 ```typescript
 {
   id: "chat#<chatId>",                    // PK: チャット識別子
@@ -149,6 +155,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 **用途**: チャット共有機能の双方向マッピング
 
 **スキーマ（順方向マッピング）**: User + Chat → ShareId
+
 ```typescript
 {
   id: "user#<userId>_chat#<chatId>",     // PK: 複合識別子（ユーザー_チャット）
@@ -158,6 +165,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 ```
 
 **スキーマ（逆方向マッピング）**: ShareId → User + Chat
+
 ```typescript
 {
   id: "share#<uuid>",                     // PK: 共有識別子
@@ -170,6 +178,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 **実装**: [`packages/cdk/lambda/repository/share.ts`](../../packages/cdk/lambda/repository/share.ts)
 
 **設計理由**: 双方向マッピングにより、以下の両方のクエリを効率的に実行可能：
+
 - ユーザー + チャットIDから共有リンクを取得
 - 共有リンクから元のチャット情報を取得
 
@@ -178,6 +187,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 **用途**: ユーザーが定義したシステムプロンプト・コンテキスト
 
 **スキーマ**:
+
 ```typescript
 {
   id: "systemContext#<userId>",           // PK: ユーザー識別子
@@ -192,15 +202,15 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | ユーザーのチャット一覧取得 | Query: `id = "user#<userId>"`, Sort: `createdDate` DESC | チャット履歴画面 |
-| 2 | 特定チャット検索 | Query: `id = "user#<userId>"` + Filter: `chatId` | チャット詳細画面 |
-| 3 | チャット内メッセージ一覧 | Query: `id = "chat#<chatId>"`, Sort: `createdDate` ASC | メッセージ表示 |
-| 4 | フィードバック付きメッセージ検索 | Query FeedbackIndex: `feedback = "good" OR "bad"` | フィードバック分析 |
-| 5 | User+ChatからShare検索 | Query: `id = "user#<userId>_chat#<chatId>"` | 共有リンク生成 |
-| 6 | ShareIdからChat検索 | Query: `id = "share#<uuid>"` | 共有リンクアクセス |
-| 7 | システムコンテキスト一覧 | Query: `id = "systemContext#<userId>"` | コンテキスト選択画面 |
+| #   | パターン                         | DynamoDB操作                                            | 使用例               |
+| --- | -------------------------------- | ------------------------------------------------------- | -------------------- |
+| 1   | ユーザーのチャット一覧取得       | Query: `id = "user#<userId>"`, Sort: `createdDate` DESC | チャット履歴画面     |
+| 2   | 特定チャット検索                 | Query: `id = "user#<userId>"` + Filter: `chatId`        | チャット詳細画面     |
+| 3   | チャット内メッセージ一覧         | Query: `id = "chat#<chatId>"`, Sort: `createdDate` ASC  | メッセージ表示       |
+| 4   | フィードバック付きメッセージ検索 | Query FeedbackIndex: `feedback = "good" OR "bad"`       | フィードバック分析   |
+| 5   | User+ChatからShare検索           | Query: `id = "user#<userId>_chat#<chatId>"`             | 共有リンク生成       |
+| 6   | ShareIdからChat検索              | Query: `id = "share#<uuid>"`                            | 共有リンクアクセス   |
+| 7   | システムコンテキスト一覧         | Query: `id = "systemContext#<userId>"`                  | コンテキスト選択画面 |
 
 ---
 
@@ -212,16 +222,17 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
+| 項目              | 値                                                 |
+| ----------------- | -------------------------------------------------- |
 | **Partition Key** | `id` (STRING) - フォーマット: `stats#<YYYY-MM-DD>` |
-| **Sort Key** | `userId` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS所有キー（デフォルト） |
+| **Sort Key**      | `userId` (STRING)                                  |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド）                    |
+| **暗号化**        | AWS所有キー（デフォルト）                          |
 
 ##### レコード構造
 
 **スキーマ**:
+
 ```typescript
 {
   id: "stats#<YYYY-MM-DD>",               // PK: 日付ベースのパーティション
@@ -282,17 +293,18 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 ```
 
 **メリット**:
+
 - 競合状態を回避（Read-Modify-Write不要）
 - 高スループット（並行更新が安全）
 - データの一貫性保証
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | 特定日のユーザー統計取得 | Query: `id = "stats#<YYYY-MM-DD>", userId = "<userId>"` | 日次レポート |
-| 2 | 日付範囲の統計集計 | BatchGetItem: 複数の日付キー | 週次/月次レポート |
-| 3 | 全ユーザーの統計取得 | Query: `id = "stats#<YYYY-MM-DD>"` | 管理者ダッシュボード |
+| #   | パターン                 | DynamoDB操作                                            | 使用例               |
+| --- | ------------------------ | ------------------------------------------------------- | -------------------- |
+| 1   | 特定日のユーザー統計取得 | Query: `id = "stats#<YYYY-MM-DD>", userId = "<userId>"` | 日次レポート         |
+| 2   | 日付範囲の統計集計       | BatchGetItem: 複数の日付キー                            | 週次/月次レポート    |
+| 3   | 全ユーザーの統計取得     | Query: `id = "stats#<YYYY-MM-DD>"`                      | 管理者ダッシュボード |
 
 ---
 
@@ -306,18 +318,19 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `Tenants-<environment>` |
-| **Partition Key** | `tenantId` (STRING) |
-| **Sort Key** | なし（シンプルキー） |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS_MANAGED（KMS管理キー） |
-| **ポイントインタイムリカバリ** | 有効 |
+| 項目                           | 値                              |
+| ------------------------------ | ------------------------------- |
+| **Table Name**                 | `Tenants-<environment>`         |
+| **Partition Key**              | `tenantId` (STRING)             |
+| **Sort Key**                   | なし（シンプルキー）            |
+| **Billing Mode**               | PAY_PER_REQUEST（オンデマンド） |
+| **暗号化**                     | AWS_MANAGED（KMS管理キー）      |
+| **ポイントインタイムリカバリ** | 有効                            |
 
 ##### レコード構造
 
 **スキーマ**:
+
 ```typescript
 {
   tenantId: string,                       // PK: ユニークなテナント識別子
@@ -330,12 +343,12 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | テナント情報取得 | GetItem: `tenantId` | テナント設定画面 |
-| 2 | 新規テナント登録 | PutItem | テナントオンボーディング |
-| 3 | 全テナント一覧 | Scan（ページネーション付き） | 管理者ダッシュボード |
-| 4 | テナントステータス更新 | UpdateItem: `status` | テナント停止/再開 |
+| #   | パターン               | DynamoDB操作                 | 使用例                   |
+| --- | ---------------------- | ---------------------------- | ------------------------ |
+| 1   | テナント情報取得       | GetItem: `tenantId`          | テナント設定画面         |
+| 2   | 新規テナント登録       | PutItem                      | テナントオンボーディング |
+| 3   | 全テナント一覧         | Scan（ページネーション付き） | 管理者ダッシュボード     |
+| 4   | テナントステータス更新 | UpdateItem: `status`         | テナント停止/再開        |
 
 ##### テナント管理API
 
@@ -353,16 +366,17 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Partition Key** | `id` (STRING) |
-| **Sort Key** | `dataType` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS所有キー（デフォルト） |
+| 項目              | 値                              |
+| ----------------- | ------------------------------- |
+| **Partition Key** | `id` (STRING)                   |
+| **Sort Key**      | `dataType` (STRING)             |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド） |
+| **暗号化**        | AWS所有キー（デフォルト）       |
 
 ##### Global Secondary Indexes
 
 ###### UseCaseIdIndexName
+
 - **Partition Key**: `useCaseId` (STRING)
 - **Sort Key**: `dataType` (STRING)
 - **Projection**: ALL（すべての属性）
@@ -375,6 +389,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 ###### A. UseCase Definition（ユースケース定義）
 
 **スキーマ**:
+
 ```typescript
 {
   id: "user#<userId>",                    // PK: ユーザー識別子
@@ -393,6 +408,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 ###### B. Favorite Record（お気に入り記録）
 
 **スキーマ**:
+
 ```typescript
 {
   id: "user#<userId>",                    // PK: ユーザー識別子
@@ -404,6 +420,7 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 ###### C. Recently Used Record（最近使用記録）
 
 **スキーマ**:
+
 ```typescript
 {
   id: "user#<userId>",                    // PK: ユーザー識別子
@@ -415,13 +432,13 @@ GenUは**マルチテナントアーキテクチャ**を採用しており、2�
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | ユーザーのユースケース一覧 | Query: `id = "user#<userId>", dataType = "usecase"` | ユースケース選択画面 |
-| 2 | お気に入り一覧 | Query: `id = "user#<userId>", dataType begins_with "favorite#"` | お気に入りタブ |
-| 3 | 最近使用一覧 | Query: `id = "user#<userId>", dataType begins_with "recent#"` | 最近使用タブ |
-| 4 | IDでユースケース取得 | Query UseCaseIdIndexName: `useCaseId, dataType = "usecase"` | ユースケース実行 |
-| 5 | 共有ユースケース一覧 | Scan: Filter `isShared = true` | コミュニティテンプレート |
+| #   | パターン                   | DynamoDB操作                                                    | 使用例                   |
+| --- | -------------------------- | --------------------------------------------------------------- | ------------------------ |
+| 1   | ユーザーのユースケース一覧 | Query: `id = "user#<userId>", dataType = "usecase"`             | ユースケース選択画面     |
+| 2   | お気に入り一覧             | Query: `id = "user#<userId>", dataType begins_with "favorite#"` | お気に入りタブ           |
+| 3   | 最近使用一覧               | Query: `id = "user#<userId>", dataType begins_with "recent#"`   | 最近使用タブ             |
+| 4   | IDでユースケース取得       | Query UseCaseIdIndexName: `useCaseId, dataType = "usecase"`     | ユースケース実行         |
+| 5   | 共有ユースケース一覧       | Scan: Filter `isShared = true`                                  | コミュニティテンプレート |
 
 ---
 
@@ -437,15 +454,15 @@ Per-Tenantテーブルは、各テナントに対して完全に分離された�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `ChatHistory-<environment>-tenant-<tenantId>` |
-| **Partition Key** | `id` (STRING) |
-| **Sort Key** | `createdDate` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS所有キー（デフォルト） |
-| **削除ポリシー** | DESTROY（開発）/ RETAIN（本番） |
-| **タグ** | `TenantId: <tenantId>`, `Environment: <env>` |
+| 項目              | 値                                            |
+| ----------------- | --------------------------------------------- |
+| **Table Name**    | `ChatHistory-<environment>-tenant-<tenantId>` |
+| **Partition Key** | `id` (STRING)                                 |
+| **Sort Key**      | `createdDate` (STRING)                        |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド）               |
+| **暗号化**        | AWS所有キー（デフォルト）                     |
+| **削除ポリシー**  | DESTROY（開発）/ RETAIN（本番）               |
+| **タグ**          | `TenantId: <tenantId>`, `Environment: <env>`  |
 
 ##### Global Secondary Indexes
 
@@ -456,6 +473,7 @@ Per-Tenantテーブルは、各テナントに対して完全に分離された�
 Control Plane [Main Table](#1-main-tablecontrol-plane) と完全に同一のスキーマを使用します。
 
 **格納エンティティ**:
+
 - Chat Records
 - Message Records
 - Share Records
@@ -480,17 +498,18 @@ Control Plane [Main Table](#1-main-tablecontrol-plane) と完全に同一のス�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `TokenUsageStats-<environment>-tenant-<tenantId>` |
+| 項目              | 値                                                 |
+| ----------------- | -------------------------------------------------- |
+| **Table Name**    | `TokenUsageStats-<environment>-tenant-<tenantId>`  |
 | **Partition Key** | `id` (STRING) - フォーマット: `stats#<YYYY-MM-DD>` |
-| **Sort Key** | `userId` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **削除ポリシー** | DESTROY（開発）/ RETAIN（本番） |
+| **Sort Key**      | `userId` (STRING)                                  |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド）                    |
+| **削除ポリシー**  | DESTROY（開発）/ RETAIN（本番）                    |
 
 ##### Global Secondary Indexes
 
 ###### MonthIndex（テナント専用の追加機能）
+
 - **Partition Key**: `month` (STRING) - フォーマット: `YYYY-MM`
 - **Sort Key**: `userId` (STRING)
 - **用途**: 月次統計レポートの高速集計
@@ -503,11 +522,11 @@ Control Plane [Stats Table](#2-stats-tablecontrol-plane) と同一のスキー�
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | 日次統計取得 | Query: `id = "stats#<YYYY-MM-DD>"` | 日次ダッシュボード |
-| 2 | 月次統計集計 | Query MonthIndex: `month = "YYYY-MM"` | 請求書生成 |
-| 3 | ユーザー別月次統計 | Query MonthIndex: `month = "YYYY-MM", userId = "<userId>"` | ユーザー別課金 |
+| #   | パターン           | DynamoDB操作                                               | 使用例             |
+| --- | ------------------ | ---------------------------------------------------------- | ------------------ |
+| 1   | 日次統計取得       | Query: `id = "stats#<YYYY-MM-DD>"`                         | 日次ダッシュボード |
+| 2   | 月次統計集計       | Query MonthIndex: `month = "YYYY-MM"`                      | 請求書生成         |
+| 3   | ユーザー別月次統計 | Query MonthIndex: `month = "YYYY-MM", userId = "<userId>"` | ユーザー別課金     |
 
 ---
 
@@ -519,13 +538,13 @@ Control Plane [Stats Table](#2-stats-tablecontrol-plane) と同一のスキー�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `UseCaseBuilder-<environment>-tenant-<tenantId>` |
-| **Partition Key** | `id` (STRING) |
-| **Sort Key** | `dataType` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **削除ポリシー** | DESTROY（開発）/ RETAIN（本番） |
+| 項目              | 値                                               |
+| ----------------- | ------------------------------------------------ |
+| **Table Name**    | `UseCaseBuilder-<environment>-tenant-<tenantId>` |
+| **Partition Key** | `id` (STRING)                                    |
+| **Sort Key**      | `dataType` (STRING)                              |
+| **Billing Mode**  | PAY_PER_REQUEST（オンデマンド）                  |
+| **削除ポリシー**  | DESTROY（開発）/ RETAIN（本番）                  |
 
 ##### Global Secondary Indexes
 
@@ -547,25 +566,27 @@ Control Plane [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) と�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `pptx-templates-<environment>-<tenantId>` |
-| **Partition Key** | `templateId` (STRING) |
-| **Sort Key** | なし（シンプルキー） |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS_MANAGED（KMS管理キー） |
-| **ポイントインタイムリカバリ** | 有効 |
-| **TTL属性** | `ttl`（オプション、自動クリーンアップ用） |
-| **削除保護** | 有効（本番環境） |
+| 項目                           | 値                                        |
+| ------------------------------ | ----------------------------------------- |
+| **Table Name**                 | `pptx-templates-<environment>-<tenantId>` |
+| **Partition Key**              | `templateId` (STRING)                     |
+| **Sort Key**                   | なし（シンプルキー）                      |
+| **Billing Mode**               | PAY_PER_REQUEST（オンデマンド）           |
+| **暗号化**                     | AWS_MANAGED（KMS管理キー）                |
+| **ポイントインタイムリカバリ** | 有効                                      |
+| **TTL属性**                    | `ttl`（オプション、自動クリーンアップ用） |
+| **削除保護**                   | 有効（本番環境）                          |
 
 ##### Global Secondary Indexes
 
 ###### UserIndex
+
 - **Partition Key**: `userId` (STRING)
 - **Sort Key**: `createdAt` (STRING)
 - **用途**: ユーザーが作成したテンプレート一覧
 
 ###### PublicIndex
+
 - **Partition Key**: `isPublic` (STRING) - 値: `"true"` または `"false"`
 - **Sort Key**: `createdAt` (STRING)
 - **用途**: 公開テンプレートギャラリー
@@ -575,6 +596,7 @@ Control Plane [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) と�
 ##### レコード構造
 
 **スキーマ**:
+
 ```typescript
 {
   templateId: string,                     // PK: ユニークなテンプレートID（UUID）
@@ -593,13 +615,13 @@ Control Plane [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) と�
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | テンプレート情報取得 | GetItem: `templateId` | テンプレート詳細画面 |
-| 2 | ユーザーのテンプレート一覧 | Query UserIndex: `userId`, Sort: `createdAt` DESC | マイテンプレート一覧 |
-| 3 | 公開テンプレート一覧 | Query PublicIndex: `isPublic = "true"`, Sort: `createdAt` DESC | テンプレートギャラリー |
-| 4 | テンプレート作成 | PutItem | テンプレートアップロード |
-| 5 | テンプレート削除 | DeleteItem | テンプレート管理 |
+| #   | パターン                   | DynamoDB操作                                                   | 使用例                   |
+| --- | -------------------------- | -------------------------------------------------------------- | ------------------------ |
+| 1   | テンプレート情報取得       | GetItem: `templateId`                                          | テンプレート詳細画面     |
+| 2   | ユーザーのテンプレート一覧 | Query UserIndex: `userId`, Sort: `createdAt` DESC              | マイテンプレート一覧     |
+| 3   | 公開テンプレート一覧       | Query PublicIndex: `isPublic = "true"`, Sort: `createdAt` DESC | テンプレートギャラリー   |
+| 4   | テンプレート作成           | PutItem                                                        | テンプレートアップロード |
+| 5   | テンプレート削除           | DeleteItem                                                     | テンプレート管理         |
 
 ##### S3連携
 
@@ -619,25 +641,27 @@ Control Plane [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) と�
 
 ##### テーブル設定
 
-| 項目 | 値 |
-|------|-----|
-| **Table Name** | `pptx-generations-<environment>-<tenantId>` |
-| **Partition Key** | `generationId` (STRING) |
-| **Sort Key** | `userId` (STRING) |
-| **Billing Mode** | PAY_PER_REQUEST（オンデマンド） |
-| **暗号化** | AWS_MANAGED（KMS管理キー） |
-| **ポイントインタイムリカバリ** | 有効 |
-| **TTL属性** | `ttl`（7日後に自動削除） |
-| **削除保護** | 有効（本番環境） |
+| 項目                           | 値                                          |
+| ------------------------------ | ------------------------------------------- |
+| **Table Name**                 | `pptx-generations-<environment>-<tenantId>` |
+| **Partition Key**              | `generationId` (STRING)                     |
+| **Sort Key**                   | `userId` (STRING)                           |
+| **Billing Mode**               | PAY_PER_REQUEST（オンデマンド）             |
+| **暗号化**                     | AWS_MANAGED（KMS管理キー）                  |
+| **ポイントインタイムリカバリ** | 有効                                        |
+| **TTL属性**                    | `ttl`（7日後に自動削除）                    |
+| **削除保護**                   | 有効（本番環境）                            |
 
 ##### Global Secondary Indexes
 
 ###### UserGenerationsIndex
+
 - **Partition Key**: `userId` (STRING)
 - **Sort Key**: `createdAt` (STRING)
 - **用途**: ユーザーの生成履歴一覧
 
 ###### ChatGenerationsIndex
+
 - **Partition Key**: `chatId` (STRING)
 - **Sort Key**: `createdAt` (STRING)
 - **用途**: 特定チャットで生成されたPPTX一覧
@@ -645,6 +669,7 @@ Control Plane [UseCaseBuilder Table](#4-usecasebuilder-tablecontrol-plane) と�
 ##### レコード構造
 
 **スキーマ**:
+
 ```typescript
 {
   generationId: string,                   // PK: ユニークな生成ID（UUID）
@@ -674,12 +699,12 @@ pending → processing → completed
 
 ##### アクセスパターン
 
-| # | パターン | DynamoDB操作 | 使用例 |
-|---|----------|--------------|--------|
-| 1 | 生成情報取得 | GetItem: `{generationId, userId}` | 生成ステータス確認 |
-| 2 | ユーザーの生成履歴 | Query UserGenerationsIndex: `userId`, Sort: `createdAt` DESC | マイ生成履歴 |
-| 3 | チャットの生成一覧 | Query ChatGenerationsIndex: `chatId`, Sort: `createdAt` DESC | チャット内PPTX一覧 |
-| 4 | ステータス更新 | UpdateItem: `status` | 非同期処理の進捗更新 |
+| #   | パターン           | DynamoDB操作                                                 | 使用例               |
+| --- | ------------------ | ------------------------------------------------------------ | -------------------- |
+| 1   | 生成情報取得       | GetItem: `{generationId, userId}`                            | 生成ステータス確認   |
+| 2   | ユーザーの生成履歴 | Query UserGenerationsIndex: `userId`, Sort: `createdAt` DESC | マイ生成履歴         |
+| 3   | チャットの生成一覧 | Query ChatGenerationsIndex: `chatId`, Sort: `createdAt` DESC | チャット内PPTX一覧   |
+| 4   | ステータス更新     | UpdateItem: `status`                                         | 非同期処理の進捗更新 |
 
 ##### TTL自動削除
 
@@ -702,19 +727,22 @@ GenUの**最も重要なアーキテクチャパターン**の1つが、テナ�
 #### 1. `getTenantDynamoDBDocument()`
 
 **シグネチャ**:
+
 ```typescript
 export async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent
-): Promise<DynamoDBDocumentClient>
+): Promise<DynamoDBDocumentClient>;
 ```
 
 **機能**:
+
 1. API Gateway Eventから**Cognito JWTクレーム**を抽出
 2. テナントID（`custom:tenantId`）があれば、テナント専用のテーブル名を構築
 3. テナントIDがなければ、Control Planeのテーブル名を使用
 4. 適切なテーブル名に対してスコープされた**DynamoDBDocumentClient**を返す
 
 **コード例**:
+
 ```typescript
 // Lambda関数内での使用例
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -723,24 +751,28 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
   // この時点で、dynamodbはテナント専用テーブルにスコープされている
   // 開発者はテナントIDを意識する必要がない
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: getTableName(event),  // 自動的にテナントテーブル名を取得
-    KeyConditionExpression: "id = :id",
-    ExpressionAttributeValues: {
-      ":id": `user#${userId}`
-    }
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: getTableName(event), // 自動的にテナントテーブル名を取得
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: {
+        ':id': `user#${userId}`,
+      },
+    })
+  );
 };
 ```
 
 #### 2. `getTableName()`
 
 **シグネチャ**:
+
 ```typescript
-export function getTableName(event: APIGatewayProxyEvent): string
+export function getTableName(event: APIGatewayProxyEvent): string;
 ```
 
 **機能**:
+
 - イベントからテナントコンテキストを抽出
 - テナント専用のChatHistory/Messageテーブル名を返す
 - フォーマット: `<TablePrefix>-<environment>-tenant-<tenantId>`
@@ -748,11 +780,13 @@ export function getTableName(event: APIGatewayProxyEvent): string
 #### 3. `getStatsTableName()`
 
 **シグネチャ**:
+
 ```typescript
-export function getStatsTableName(event: APIGatewayProxyEvent): string
+export function getStatsTableName(event: APIGatewayProxyEvent): string;
 ```
 
 **機能**:
+
 - イベントからテナントコンテキストを抽出
 - テナント専用の統計テーブル名を返す
 - フォーマット: `<StatsTablePrefix>-<environment>-tenant-<tenantId>`
@@ -760,12 +794,14 @@ export function getStatsTableName(event: APIGatewayProxyEvent): string
 ### テーブル命名規則
 
 #### Control Plane（デフォルト）
+
 ```
 <TablePrefix>                           例: ChatHistoryDev123ABC
 <StatsTablePrefix>                      例: TokenUsageStatsDev456DEF
 ```
 
 #### Per-Tenant（マルチテナント）
+
 ```
 <TablePrefix>-<env>-tenant-<tenantId>        例: ChatHistoryDev123ABC-dev-tenant-acme
 <StatsTablePrefix>-<env>-tenant-<tenantId>   例: TokenUsageStatsDev456DEF-dev-tenant-acme
@@ -774,6 +810,7 @@ export function getStatsTableName(event: APIGatewayProxyEvent): string
 ### Cognito JWT クレームの構造
 
 **マルチテナント環境のJWTクレーム例**:
+
 ```json
 {
   "sub": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -786,6 +823,7 @@ export function getStatsTableName(event: APIGatewayProxyEvent): string
 ```
 
 **シングルテナント環境のJWTクレーム例**:
+
 ```json
 {
   "sub": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -815,10 +853,12 @@ GenUは**多層防御**によるデータ分離を実装しています。
 ### 1. IAMベース分離
 
 **メカニズム**:
+
 - 各Lambda関数は**テナント固有のIAMロール**を持つ
 - IAMポリシーで、特定テナントのテーブルのみアクセス可能に制限
 
 **IAMポリシー例**:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -846,10 +886,12 @@ GenUは**多層防御**によるデータ分離を実装しています。
 ### 2. テーブルレベル分離
 
 **メカニズム**:
+
 - 各テナントは**完全に独立したDynamoDBテーブル**を持つ
 - テーブル名にテナントIDが含まれる
 
 **メリット**:
+
 - **物理的分離**: データが混在する可能性がゼロ
 - **パフォーマンス分離**: 大量データを持つテナントが他のテナントに影響しない
 - **コスト可視化**: CloudWatchメトリクスでテナントごとのコストを追跡可能
@@ -859,17 +901,21 @@ GenUは**多層防御**によるデータ分離を実装しています。
 ### 3. 自動ルーティング
 
 **メカニズム**:
+
 - `getTenantDynamoDBDocument()` が自動的に適切なテーブルを選択
 - アプリケーションコードはテナントIDを意識不要
 
 **コード例**:
+
 ```typescript
 // 開発者が書くコード（テナントを意識しない）
 const dynamodb = await getTenantDynamoDBDocument(event);
-const result = await dynamodb.send(new QueryCommand({
-  TableName: getTableName(event),
-  // ...
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: getTableName(event),
+    // ...
+  })
+);
 
 // 実際にアクセスされるテーブル名（自動決定）
 // テナントA → ChatHistory-dev-tenant-tenantA
@@ -880,11 +926,13 @@ const result = await dynamodb.send(new QueryCommand({
 ### 4. デフォルトへのフォールバック
 
 **メカニズム**:
+
 - テナントコンテキストが存在しない場合（`custom:tenantId`クレームなし）
 - 自動的にControl Planeテーブルにフォールバック
 - シングルテナント環境との互換性を保証
 
 **使用ケース**:
+
 - シングルテナントデプロイメント
 - 管理者ユーザー（全テナント横断操作）
 - システム内部処理
@@ -899,29 +947,33 @@ const result = await dynamodb.send(new QueryCommand({
 
 #### 有効なテーブル
 
-| テーブル | TTL期間 | 用途 |
-|---------|---------|------|
-| PPTX Templates | カスタム（オプション） | 一時テンプレートの自動削除 |
-| PPTX Generations | 7日間（固定） | 生成ファイルの自動クリーンアップ |
+| テーブル         | TTL期間                | 用途                             |
+| ---------------- | ---------------------- | -------------------------------- |
+| PPTX Templates   | カスタム（オプション） | 一時テンプレートの自動削除       |
+| PPTX Generations | 7日間（固定）          | 生成ファイルの自動クリーンアップ |
 
 #### 実装詳細
 
 **PPTX Generations のTTL設定**:
+
 ```typescript
 // レコード作成時にTTLを設定
-const ttl = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60); // 7日後
-await dynamodb.send(new PutItemCommand({
-  TableName: "pptx-generations-dev-tenant-acme",
-  Item: {
-    generationId: "gen-123",
-    userId: "user-456",
-    ttl: ttl,  // ← TTL属性
-    // ...
-  }
-}));
+const ttl = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7日後
+await dynamodb.send(
+  new PutItemCommand({
+    TableName: 'pptx-generations-dev-tenant-acme',
+    Item: {
+      generationId: 'gen-123',
+      userId: 'user-456',
+      ttl: ttl, // ← TTL属性
+      // ...
+    },
+  })
+);
 ```
 
 **メリット**:
+
 - **自動クリーンアップ**: 手動削除処理が不要
 - **コスト削減**: 不要なデータのストレージコスト削減
 - **運用負荷軽減**: 定期削除バッチジョブが不要
@@ -934,14 +986,15 @@ await dynamodb.send(new PutItemCommand({
 
 #### 有効なテーブル
 
-| テーブル | PITR | 理由 |
-|---------|------|------|
-| PPTX Templates | ✅ 有効 | 誤削除からの復旧が重要 |
-| PPTX Generations | ✅ 有効 | 生成履歴の保護 |
-| Tenants | ✅ 有効 | テナント情報は極めて重要 |
+| テーブル         | PITR    | 理由                                   |
+| ---------------- | ------- | -------------------------------------- |
+| PPTX Templates   | ✅ 有効 | 誤削除からの復旧が重要                 |
+| PPTX Generations | ✅ 有効 | 生成履歴の保護                         |
+| Tenants          | ✅ 有効 | テナント情報は極めて重要               |
 | その他のテーブル | ❌ 無効 | コスト最適化（必要に応じて有効化可能） |
 
 **コスト考慮**:
+
 - PITRはストレージサイズに応じた追加料金が発生
 - 重要なテーブルのみ有効化することでコスト最適化
 
@@ -953,13 +1006,14 @@ await dynamodb.send(new PutItemCommand({
 
 #### 暗号化タイプ
 
-| 暗号化タイプ | 使用テーブル | メリット | コスト |
-|-------------|-------------|---------|--------|
-| **AWS所有キー**（デフォルト） | Control Plane テーブル、Tenantテーブル | 追加コストなし、自動管理 | 無料 |
-| **AWS管理キー** | PPTXテーブル、Tenantsテーブル | CloudTrailでキー使用を監査可能 | 月額$1/キー + API呼び出し料金 |
-| **カスタマー管理キー** | なし（オプション） | 完全なキー制御、キーローテーション | 月額$1/キー + 管理オーバーヘッド |
+| 暗号化タイプ                  | 使用テーブル                           | メリット                           | コスト                           |
+| ----------------------------- | -------------------------------------- | ---------------------------------- | -------------------------------- |
+| **AWS所有キー**（デフォルト） | Control Plane テーブル、Tenantテーブル | 追加コストなし、自動管理           | 無料                             |
+| **AWS管理キー**               | PPTXテーブル、Tenantsテーブル          | CloudTrailでキー使用を監査可能     | 月額$1/キー + API呼び出し料金    |
+| **カスタマー管理キー**        | なし（オプション）                     | 完全なキー制御、キーローテーション | 月額$1/キー + 管理オーバーヘッド |
 
 **選択基準**:
+
 - **デフォルト（AWS所有キー）**: ほとんどのケースで十分
 - **AWS管理キー**: コンプライアンス要件がある場合（PPTX機能など）
 - **カスタマー管理キー**: 規制要件が厳しい業界（金融、医療など）
@@ -972,15 +1026,16 @@ await dynamodb.send(new PutItemCommand({
 
 #### 有効なテーブル
 
-| テーブル | 削除保護（本番） | 削除保護（開発） |
-|---------|----------------|-----------------|
-| PPTX Templates | ✅ 有効 | ❌ 無効 |
-| PPTX Generations | ✅ 有効 | ❌ 無効 |
-| その他のテーブル | 環境依存 | ❌ 無効 |
+| テーブル         | 削除保護（本番） | 削除保護（開発） |
+| ---------------- | ---------------- | ---------------- |
+| PPTX Templates   | ✅ 有効          | ❌ 無効          |
+| PPTX Generations | ✅ 有効          | ❌ 無効          |
+| その他のテーブル | 環境依存         | ❌ 無効          |
 
 **CDK実装例**:
+
 ```typescript
-const table = new dynamodb.Table(this, "PptxTemplates", {
+const table = new dynamodb.Table(this, 'PptxTemplates', {
   // ...
   removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
   deletionProtection: isProd, // 本番環境のみ有効
@@ -988,6 +1043,7 @@ const table = new dynamodb.Table(this, "PptxTemplates", {
 ```
 
 **運用ポリシー**:
+
 - **本番環境**: 削除保護を有効化し、誤削除を防止
 - **開発環境**: 削除保護を無効化し、迅速な環境削除を可能に
 
@@ -997,48 +1053,48 @@ const table = new dynamodb.Table(this, "PptxTemplates", {
 
 ### テーブル総数
 
-| カテゴリ | 数 | 詳細 |
-|---------|---|------|
-| **Control Planeテーブル** | 4 | Main, Stats, Tenants, UseCaseBuilder |
-| **Core Per-Tenantテーブル** | 3 | ChatHistory, TokenUsageStats, UseCaseBuilder（テナント版） |
-| **Optional Per-Tenantテーブル** | 2 | PPTX Templates, PPTX Generations（PPTX機能有効時） |
-| **合計** | **9種類** | 異なるスキーマを持つテーブルタイプ |
+| カテゴリ                        | 数        | 詳細                                                       |
+| ------------------------------- | --------- | ---------------------------------------------------------- |
+| **Control Planeテーブル**       | 4         | Main, Stats, Tenants, UseCaseBuilder                       |
+| **Core Per-Tenantテーブル**     | 3         | ChatHistory, TokenUsageStats, UseCaseBuilder（テナント版） |
+| **Optional Per-Tenantテーブル** | 2         | PPTX Templates, PPTX Generations（PPTX機能有効時）         |
+| **合計**                        | **9種類** | 異なるスキーマを持つテーブルタイプ                         |
 
 ### Global Secondary Indexes（GSI）総数
 
-| GSI名 | テーブル | 個数 |
-|-------|---------|------|
-| FeedbackIndex | Main, Tenant ChatHistory | 2個 |
-| MonthIndex | Tenant TokenUsageStats | 1個 |
-| UseCaseIdIndexName | UseCaseBuilder（Control + Tenant） | 2個 |
-| UserIndex | PPTX Templates | 1個 |
-| PublicIndex | PPTX Templates | 1個 |
-| UserGenerationsIndex | PPTX Generations | 1個 |
-| ChatGenerationsIndex | PPTX Generations | 1個 |
-| **合計** | | **10個** |
+| GSI名                | テーブル                           | 個数     |
+| -------------------- | ---------------------------------- | -------- |
+| FeedbackIndex        | Main, Tenant ChatHistory           | 2個      |
+| MonthIndex           | Tenant TokenUsageStats             | 1個      |
+| UseCaseIdIndexName   | UseCaseBuilder（Control + Tenant） | 2個      |
+| UserIndex            | PPTX Templates                     | 1個      |
+| PublicIndex          | PPTX Templates                     | 1個      |
+| UserGenerationsIndex | PPTX Generations                   | 1個      |
+| ChatGenerationsIndex | PPTX Generations                   | 1個      |
+| **合計**             |                                    | **10個** |
 
 ### 主要リポジトリファイル
 
 **データアクセス層**（Repository Pattern）:
 
-| ファイル | 役割 | 行数（概算） |
-|---------|------|------------|
-| [`common.ts`](../../packages/cdk/lambda/repository/common.ts) | **テナントコンテキスト抽出**、共通ユーティリティ | ~150行 |
-| [`chat.ts`](../../packages/cdk/lambda/repository/chat.ts) | チャット作成、取得、更新、削除 | ~200行 |
-| [`message.ts`](../../packages/cdk/lambda/repository/message.ts) | メッセージ保存、トークン追跡 | ~250行 |
-| [`stats.ts`](../../packages/cdk/lambda/repository/stats.ts) | 統計集計、アトミック更新 | ~180行 |
-| [`share.ts`](../../packages/cdk/lambda/repository/share.ts) | チャット共有、双方向マッピング | ~120行 |
-| [`systemContext.ts`](../../packages/cdk/lambda/repository/systemContext.ts) | システムコンテキスト管理 | ~100行 |
+| ファイル                                                                    | 役割                                             | 行数（概算） |
+| --------------------------------------------------------------------------- | ------------------------------------------------ | ------------ |
+| [`common.ts`](../../packages/cdk/lambda/repository/common.ts)               | **テナントコンテキスト抽出**、共通ユーティリティ | ~150行       |
+| [`chat.ts`](../../packages/cdk/lambda/repository/chat.ts)                   | チャット作成、取得、更新、削除                   | ~200行       |
+| [`message.ts`](../../packages/cdk/lambda/repository/message.ts)             | メッセージ保存、トークン追跡                     | ~250行       |
+| [`stats.ts`](../../packages/cdk/lambda/repository/stats.ts)                 | 統計集計、アトミック更新                         | ~180行       |
+| [`share.ts`](../../packages/cdk/lambda/repository/share.ts)                 | チャット共有、双方向マッピング                   | ~120行       |
+| [`systemContext.ts`](../../packages/cdk/lambda/repository/systemContext.ts) | システムコンテキスト管理                         | ~100行       |
 
 **インフラストラクチャ定義**（AWS CDK）:
 
-| ファイル | 役割 |
-|---------|------|
-| [`database.ts`](../../packages/cdk/lib/construct/database.ts) | Control Planeテーブル定義 |
-| [`tenant-dynamodb.ts`](../../packages/cdk/lib/construct/tenant-dynamodb.ts) | Per-Tenantテーブル定義 |
-| [`tenant-manager.ts`](../../packages/cdk/lib/construct/tenant-manager.ts) | Tenantsテーブル、テナント管理API |
-| [`use-case-builder.ts`](../../packages/cdk/lib/construct/use-case-builder.ts) | UseCaseBuilderテーブル定義 |
-| [`pptx-db.ts`](../../packages/cdk/lib/construct/pptx-db.ts) | PPTXテーブル定義 |
+| ファイル                                                                      | 役割                             |
+| ----------------------------------------------------------------------------- | -------------------------------- |
+| [`database.ts`](../../packages/cdk/lib/construct/database.ts)                 | Control Planeテーブル定義        |
+| [`tenant-dynamodb.ts`](../../packages/cdk/lib/construct/tenant-dynamodb.ts)   | Per-Tenantテーブル定義           |
+| [`tenant-manager.ts`](../../packages/cdk/lib/construct/tenant-manager.ts)     | Tenantsテーブル、テナント管理API |
+| [`use-case-builder.ts`](../../packages/cdk/lib/construct/use-case-builder.ts) | UseCaseBuilderテーブル定義       |
+| [`pptx-db.ts`](../../packages/cdk/lib/construct/pptx-db.ts)                   | PPTXテーブル定義                 |
 
 ---
 
@@ -1053,8 +1109,8 @@ const table = new dynamodb.Table(this, "PptxTemplates", {
 
 ## 変更履歴
 
-| 日付 | 変更内容 | 著者 |
-|------|---------|------|
+| 日付       | 変更内容 | 著者        |
+| ---------- | -------- | ----------- |
 | 2025-10-30 | 初版作成 | Claude Code |
 
 ---

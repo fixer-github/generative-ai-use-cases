@@ -42,13 +42,15 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 
 // Key が完全に一致するアイテムを取得
-const result = await dynamodb.send(new GetCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: "2025-01-15T10:00:00.000Z"
-  }
-}));
+const result = await dynamodb.send(
+  new GetCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: '2025-01-15T10:00:00.000Z',
+    },
+  })
+);
 
 const item = result.Item;
 ```
@@ -63,17 +65,19 @@ const item = result.Item;
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ulid } from 'ulid';
 
-await dynamodb.send(new PutCommand({
-  TableName: tableName,
-  Item: {
-    id: `user#${userId}`,
-    createdDate: new Date().toISOString(),
-    chatId: `chat#${ulid()}`,
-    title: "新しいチャット",
-    usecase: "chat",
-    updatedDate: new Date().toISOString()
-  }
-}));
+await dynamodb.send(
+  new PutCommand({
+    TableName: tableName,
+    Item: {
+      id: `user#${userId}`,
+      createdDate: new Date().toISOString(),
+      chatId: `chat#${ulid()}`,
+      title: '新しいチャット',
+      usecase: 'chat',
+      updatedDate: new Date().toISOString(),
+    },
+  })
+);
 ```
 
 **いつ使う**: 新しいアイテムを作成する場合
@@ -85,18 +89,20 @@ await dynamodb.send(new PutCommand({
 ```typescript
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-await dynamodb.send(new UpdateCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: chat.createdDate  // 既存のSort Keyを使用
-  },
-  UpdateExpression: "SET title = :title, updatedDate = :updatedDate",
-  ExpressionAttributeValues: {
-    ":title": "更新されたタイトル",
-    ":updatedDate": new Date().toISOString()
-  }
-}));
+await dynamodb.send(
+  new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: chat.createdDate, // 既存のSort Keyを使用
+    },
+    UpdateExpression: 'SET title = :title, updatedDate = :updatedDate',
+    ExpressionAttributeValues: {
+      ':title': '更新されたタイトル',
+      ':updatedDate': new Date().toISOString(),
+    },
+  })
+);
 ```
 
 **いつ使う**: 既存アイテムの一部の属性を更新する場合
@@ -108,13 +114,15 @@ await dynamodb.send(new UpdateCommand({
 ```typescript
 import { DeleteCommand } from '@aws-sdk/lib-dynamodb';
 
-await dynamodb.send(new DeleteCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: chat.createdDate
-  }
-}));
+await dynamodb.send(
+  new DeleteCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: chat.createdDate,
+    },
+  })
+);
 ```
 
 **いつ使う**: アイテムを削除する場合
@@ -126,18 +134,20 @@ await dynamodb.send(new DeleteCommand({
 ```typescript
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :userId",
-  ExpressionAttributeValues: {
-    ":userId": `user#${userId}`
-  },
-  ScanIndexForward: false,  // false = 降順（新しい順）
-  Limit: 100
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :userId',
+    ExpressionAttributeValues: {
+      ':userId': `user#${userId}`,
+    },
+    ScanIndexForward: false, // false = 降順（新しい順）
+    Limit: 100,
+  })
+);
 
 const items = result.Items || [];
-const lastKey = result.LastEvaluatedKey;  // ページネーション用
+const lastKey = result.LastEvaluatedKey; // ページネーション用
 ```
 
 **いつ使う**: Partition Key が分かっていて、複数のアイテムを取得する場合
@@ -149,17 +159,19 @@ const lastKey = result.LastEvaluatedKey;  // ページネーション用
 ```typescript
 import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 
-const result = await dynamodb.send(new BatchGetCommand({
-  RequestItems: {
-    [tableName]: {
-      Keys: [
-        { id: `stats#2025-01-15`, userId: "user1" },
-        { id: `stats#2025-01-16`, userId: "user1" },
-        { id: `stats#2025-01-17`, userId: "user1" }
-      ]
-    }
-  }
-}));
+const result = await dynamodb.send(
+  new BatchGetCommand({
+    RequestItems: {
+      [tableName]: {
+        Keys: [
+          { id: `stats#2025-01-15`, userId: 'user1' },
+          { id: `stats#2025-01-16`, userId: 'user1' },
+          { id: `stats#2025-01-17`, userId: 'user1' },
+        ],
+      },
+    },
+  })
+);
 
 const items = result.Responses?.[tableName] || [];
 ```
@@ -173,34 +185,36 @@ const items = result.Responses?.[tableName] || [];
 ```typescript
 import { BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 
-await dynamodb.send(new BatchWriteCommand({
-  RequestItems: {
-    [tableName]: [
-      {
-        PutRequest: {
-          Item: {
-            id: `chat#${chatId}`,
-            createdDate: `${timestamp}#0`,
-            messageId: `message#${ulid()}`,
-            role: 'user',
-            content: 'Hello'
-          }
-        }
-      },
-      {
-        PutRequest: {
-          Item: {
-            id: `chat#${chatId}`,
-            createdDate: `${timestamp}#1`,
-            messageId: `message#${ulid()}`,
-            role: 'assistant',
-            content: 'Hi there!'
-          }
-        }
-      }
-    ]
-  }
-}));
+await dynamodb.send(
+  new BatchWriteCommand({
+    RequestItems: {
+      [tableName]: [
+        {
+          PutRequest: {
+            Item: {
+              id: `chat#${chatId}`,
+              createdDate: `${timestamp}#0`,
+              messageId: `message#${ulid()}`,
+              role: 'user',
+              content: 'Hello',
+            },
+          },
+        },
+        {
+          PutRequest: {
+            Item: {
+              id: `chat#${chatId}`,
+              createdDate: `${timestamp}#1`,
+              messageId: `message#${ulid()}`,
+              role: 'assistant',
+              content: 'Hi there!',
+            },
+          },
+        },
+      ],
+    },
+  })
+);
 ```
 
 **いつ使う**: 複数のアイテムを一度に作成/削除する場合（最大25件）
@@ -212,31 +226,33 @@ await dynamodb.send(new BatchWriteCommand({
 ```typescript
 import { TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 
-await dynamodb.send(new TransactWriteCommand({
-  TransactItems: [
-    {
-      Put: {
-        TableName: tableName,
-        Item: {
-          id: `share#${shareId}`,
-          createdDate: new Date().toISOString(),
-          userId: `user#${userId}`,
-          chatId: `chat#${chatId}`
-        }
-      }
-    },
-    {
-      Put: {
-        TableName: tableName,
-        Item: {
-          id: `user#${userId}_chat#${chatId}`,
-          createdDate: new Date().toISOString(),
-          shareId: `share#${shareId}`
-        }
-      }
-    }
-  ]
-}));
+await dynamodb.send(
+  new TransactWriteCommand({
+    TransactItems: [
+      {
+        Put: {
+          TableName: tableName,
+          Item: {
+            id: `share#${shareId}`,
+            createdDate: new Date().toISOString(),
+            userId: `user#${userId}`,
+            chatId: `chat#${chatId}`,
+          },
+        },
+      },
+      {
+        Put: {
+          TableName: tableName,
+          Item: {
+            id: `user#${userId}_chat#${chatId}`,
+            createdDate: new Date().toISOString(),
+            shareId: `share#${shareId}`,
+          },
+        },
+      },
+    ],
+  })
+);
 ```
 
 **いつ使う**: 複数の操作をアトミックに実行したい場合（最大25項目）
@@ -253,7 +269,7 @@ import {
   findChatById,
   createChat,
   updateChat,
-  deleteChat
+  deleteChat,
 } from './repository/chat';
 
 // チャット一覧取得
@@ -263,15 +279,24 @@ const chats = await listChats(userId, event, { limit: 100 });
 const chat = await findChatById(userId, chatId, event);
 
 // チャット作成
-const newChat = await createChat(userId, {
-  title: "新しいチャット",
-  usecase: "chat"
-}, event);
+const newChat = await createChat(
+  userId,
+  {
+    title: '新しいチャット',
+    usecase: 'chat',
+  },
+  event
+);
 
 // チャット更新
-await updateChat(userId, chatId, {
-  title: "更新されたタイトル"
-}, event);
+await updateChat(
+  userId,
+  chatId,
+  {
+    title: '更新されたタイトル',
+  },
+  event
+);
 
 // チャット削除（メッセージも一緒に削除）
 await deleteChat(userId, chatId, event);
@@ -286,46 +311,50 @@ import {
   listMessages,
   batchCreateMessages,
   batchDeleteMessages,
-  updateMessageFeedback
+  updateMessageFeedback,
 } from './repository/message';
 
 // メッセージ一覧取得
 const messages = await listMessages(chatId, event);
 
 // メッセージ一括作成
-await batchCreateMessages(chatId, [
-  {
-    role: 'user',
-    content: 'ユーザーの質問',
-    userId: `user#${userId}`,
-    usecase: 'chat',
-    llmType: 'anthropic.claude-3-5-sonnet-20241022-v2:0'
-  },
-  {
-    role: 'assistant',
-    content: 'アシスタントの回答',
-    userId: `user#${userId}`,
-    usecase: 'chat',
-    llmType: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-    feedback: 'none',
-    metadata: {
-      usage: {
-        inputTokens: 100,
-        outputTokens: 200,
-        cacheReadInputTokens: 0,
-        cacheWriteInputTokens: 0
-      }
-    }
-  }
-], event);
+await batchCreateMessages(
+  chatId,
+  [
+    {
+      role: 'user',
+      content: 'ユーザーの質問',
+      userId: `user#${userId}`,
+      usecase: 'chat',
+      llmType: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    },
+    {
+      role: 'assistant',
+      content: 'アシスタントの回答',
+      userId: `user#${userId}`,
+      usecase: 'chat',
+      llmType: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+      feedback: 'none',
+      metadata: {
+        usage: {
+          inputTokens: 100,
+          outputTokens: 200,
+          cacheReadInputTokens: 0,
+          cacheWriteInputTokens: 0,
+        },
+      },
+    },
+  ],
+  event
+);
 
 // フィードバック更新
 await updateMessageFeedback(
   chatId,
   messageId,
-  'good',  // 'good' | 'bad'
-  [],      // reasons (bad の場合に使用)
-  '',      // detailedFeedback
+  'good', // 'good' | 'bad'
+  [], // reasons (bad の場合に使用)
+  '', // detailedFeedback
   event
 );
 ```
@@ -338,11 +367,14 @@ await updateMessageFeedback(
 import { getStats } from './repository/stats';
 
 // 日付範囲の統計取得
-const stats = await getStats({
-  userId,
-  startDate: '2025-01-01',
-  endDate: '2025-01-31'
-}, event);
+const stats = await getStats(
+  {
+    userId,
+    startDate: '2025-01-01',
+    endDate: '2025-01-31',
+  },
+  event
+);
 
 // statsの構造
 // {
@@ -364,7 +396,7 @@ import {
   createShareId,
   findShareByChatId,
   findShareByShareId,
-  deleteShareById
+  deleteShareById,
 } from './repository/share';
 
 // 共有リンク作成
@@ -392,23 +424,32 @@ import {
   findSystemContextById,
   createSystemContext,
   updateSystemContext,
-  deleteSystemContext
+  deleteSystemContext,
 } from './repository/systemContext';
 
 // システムコンテキスト一覧
 const contexts = await listSystemContexts(userId, event);
 
 // 作成
-const newContext = await createSystemContext(userId, {
-  systemContext: "あなたは親切なアシスタントです。",
-  systemContextTitle: "親切モード"
-}, event);
+const newContext = await createSystemContext(
+  userId,
+  {
+    systemContext: 'あなたは親切なアシスタントです。',
+    systemContextTitle: '親切モード',
+  },
+  event
+);
 
 // 更新
-await updateSystemContext(userId, systemContextId, {
-  systemContext: "更新されたコンテキスト",
-  systemContextTitle: "更新されたタイトル"
-}, event);
+await updateSystemContext(
+  userId,
+  systemContextId,
+  {
+    systemContext: '更新されたコンテキスト',
+    systemContextTitle: '更新されたタイトル',
+  },
+  event
+);
 
 // 削除
 await deleteSystemContext(userId, systemContextId, event);
@@ -422,13 +463,13 @@ await deleteSystemContext(userId, systemContextId, event);
 
 ```typescript
 // 1つの属性を設定
-UpdateExpression: "SET title = :title"
+UpdateExpression: 'SET title = :title';
 
 // 複数の属性を設定
-UpdateExpression: "SET title = :title, updatedDate = :updatedDate"
+UpdateExpression: 'SET title = :title, updatedDate = :updatedDate';
 
 // ネストした属性を設定
-UpdateExpression: "SET metadata.#field = :value"
+UpdateExpression: 'SET metadata.#field = :value';
 ```
 
 ---
@@ -493,7 +534,7 @@ ExpressionAttributeValues: {
 
 ```typescript
 // 属性を削除
-UpdateExpression: "REMOVE feedback, reasons"
+UpdateExpression: 'REMOVE feedback, reasons';
 ```
 
 ---
@@ -592,18 +633,20 @@ ExpressionAttributeValues: {
 ### パターン5: ページネーション
 
 ```typescript
-const result = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :userId",
-  ExpressionAttributeValues: {
-    ":userId": `user#${userId}`
-  },
-  Limit: 100,
-  ExclusiveStartKey: lastEvaluatedKey  // 前回のクエリから取得
-}));
+const result = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :userId',
+    ExpressionAttributeValues: {
+      ':userId': `user#${userId}`,
+    },
+    Limit: 100,
+    ExclusiveStartKey: lastEvaluatedKey, // 前回のクエリから取得
+  })
+);
 
 const items = result.Items || [];
-const nextKey = result.LastEvaluatedKey;  // 次のページ用
+const nextKey = result.LastEvaluatedKey; // 次のページ用
 
 // nextKeyをBase64エンコードしてクライアントに返す
 const encodedKey = nextKey
@@ -617,10 +660,10 @@ const encodedKey = nextKey
 
 ```typescript
 // 昇順（古い順）
-ScanIndexForward: true
+ScanIndexForward: true;
 
 // 降順（新しい順）- デフォルト
-ScanIndexForward: false
+ScanIndexForward: false;
 ```
 
 ---
@@ -633,11 +676,13 @@ ScanIndexForward: false
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 
 try {
-  await dynamodb.send(new PutCommand({
-    TableName: tableName,
-    Item: item,
-    ConditionExpression: "attribute_not_exists(id)"  // 重複チェック
-  }));
+  await dynamodb.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(id)', // 重複チェック
+    })
+  );
 } catch (error) {
   if (error instanceof ConditionalCheckFailedException) {
     // 条件が満たされなかった（既に存在する）
@@ -747,9 +792,9 @@ describe('listChats', () => {
           id: 'user#123',
           createdDate: '2025-01-15T10:00:00.000Z',
           chatId: 'chat#456',
-          title: 'テストチャット'
-        }
-      ]
+          title: 'テストチャット',
+        },
+      ],
     });
 
     // テスト実行
@@ -775,10 +820,14 @@ describe('Chat Integration Tests', () => {
   let chatId: string;
 
   it('チャットを作成できる', async () => {
-    const chat = await createChat(userId, {
-      title: 'テストチャット',
-      usecase: 'chat'
-    }, mockEvent);
+    const chat = await createChat(
+      userId,
+      {
+        title: 'テストチャット',
+        usecase: 'chat',
+      },
+      mockEvent
+    );
 
     expect(chat.chatId).toBeDefined();
     chatId = chat.chatId;

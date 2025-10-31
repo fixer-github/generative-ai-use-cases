@@ -15,21 +15,21 @@
 
 ### 主要メリット
 
-| 項目 | 現状（Managed） | 移行後（Serverless） | 改善度 |
-|------|--------------|-------------------|--------|
-| **最小コスト** | $182/月/テナント | $86/月/テナント（小規模） | 💰 53%削減 |
-| **スケーリング** | 手動、時間かかる | 自動、即座 | ⚡ 大幅向上 |
-| **管理負荷** | パッチ、バックアップ必要 | フルマネージド | ✅ ゼロ |
-| **最小構成** | 2ノード必須 | 使用量ベース | 📉 柔軟 |
+| 項目             | 現状（Managed）          | 移行後（Serverless）      | 改善度      |
+| ---------------- | ------------------------ | ------------------------- | ----------- |
+| **最小コスト**   | $182/月/テナント         | $86/月/テナント（小規模） | 💰 53%削減  |
+| **スケーリング** | 手動、時間かかる         | 自動、即座                | ⚡ 大幅向上 |
+| **管理負荷**     | パッチ、バックアップ必要 | フルマネージド            | ✅ ゼロ     |
+| **最小構成**     | 2ノード必須              | 使用量ベース              | 📉 柔軟     |
 
 ### 適用判断
 
-| テナント規模 | 月間クエリ数 | 推奨 | 理由 |
-|------------|------------|------|------|
-| **小規模** | < 1,000 | ✅ Serverless | 50%以上のコスト削減 |
-| **中規模** | 1,000〜10,000 | ✅ Serverless | 管理負荷削減 |
-| **大規模** | 10,000〜50,000 | ⚖️ 要検討 | コストがほぼ同等 |
-| **超大規模** | > 50,000 | ❌ Managed維持 | Managedが安い |
+| テナント規模 | 月間クエリ数   | 推奨           | 理由                |
+| ------------ | -------------- | -------------- | ------------------- |
+| **小規模**   | < 1,000        | ✅ Serverless  | 50%以上のコスト削減 |
+| **中規模**   | 1,000〜10,000  | ✅ Serverless  | 管理負荷削減        |
+| **大規模**   | 10,000〜50,000 | ⚖️ 要検討      | コストがほぼ同等    |
+| **超大規模** | > 50,000       | ❌ Managed維持 | Managedが安い       |
 
 ---
 
@@ -58,15 +58,15 @@ this.domain = new opensearch.Domain(this, 'OpenSearchDomain', {
 
   // ❌ 固定インスタンス（小規模でもこのサイズ）
   capacity: {
-    dataNodeInstanceType: 'm6g.large.search',  // 2vCPU, 8GB RAM
-    dataNodes: 2,                               // 最小2ノード（HA構成）
+    dataNodeInstanceType: 'm6g.large.search', // 2vCPU, 8GB RAM
+    dataNodes: 2, // 最小2ノード（HA構成）
     multiAzWithStandbyEnabled: false,
   },
 
   // ❌ 固定EBSストレージ
   ebs: {
     enabled: true,
-    volumeSize: 100,  // GB
+    volumeSize: 100, // GB
     volumeType: ec2.EbsDeviceVolumeType.GP3,
   },
 
@@ -81,7 +81,7 @@ this.domain = new opensearch.Domain(this, 'OpenSearchDomain', {
   nodeToNodeEncryption: true,
 
   // ❌ 管理負荷
-  automatedSnapshotStartHour: 0,  // 手動スナップショット設定
+  automatedSnapshotStartHour: 0, // 手動スナップショット設定
 });
 ```
 
@@ -118,6 +118,7 @@ EBSストレージ: gp3 100GB × 2
 OpenSearch Serverlessは**使用量ベース課金**のフルマネージドサービスです。
 
 **主要概念:**
+
 - **Collection**: 論理的なOpenSearch環境（Domainに相当）
 - **OCU (OpenSearch Compute Units)**: コンピュート単位（0.5 OCU〜）
 - **自動スケーリング**: クエリ負荷に応じて自動拡張
@@ -212,7 +213,7 @@ export class OpenSearchServerless extends Construct {
               Resource: [`collection/${collectionName}`],
             },
           ],
-          AWSOwnedKey: true,  // AWS管理キー使用
+          AWSOwnedKey: true, // AWS管理キー使用
         }),
       }
     );
@@ -252,19 +253,23 @@ export class OpenSearchServerless extends Construct {
                 Resource: [`collection/${collectionName}`],
               },
             ],
-            AllowFromPublic: false,  // パブリックアクセス不可
-            SourceVPCEs: [vpce.attrId],  // VPCエンドポイント経由のみ
+            AllowFromPublic: false, // パブリックアクセス不可
+            SourceVPCEs: [vpce.attrId], // VPCエンドポイント経由のみ
           },
         ]),
       }
     );
 
     // 3. Collection作成
-    this.collection = new opensearchserverless.CfnCollection(this, 'Collection', {
-      name: collectionName,
-      type: 'SEARCH',  // or 'TIMESERIES' for time-series data
-      description: `OpenSearch Serverless collection for tenant ${tenantId}`,
-    });
+    this.collection = new opensearchserverless.CfnCollection(
+      this,
+      'Collection',
+      {
+        name: collectionName,
+        type: 'SEARCH', // or 'TIMESERIES' for time-series data
+        description: `OpenSearch Serverless collection for tenant ${tenantId}`,
+      }
+    );
 
     // 依存関係設定
     this.collection.addDependency(encryptionPolicy);
@@ -331,10 +336,7 @@ export class OpenSearchServerless extends Construct {
   public grantReadWrite(grantee: iam.IGrantable): iam.Grant {
     return iam.Grant.addToPrincipal({
       grantee,
-      actions: [
-        'aoss:APIAccessAll',
-        'aoss:DashboardsAccessAll',
-      ],
+      actions: ['aoss:APIAccessAll', 'aoss:DashboardsAccessAll'],
       resourceArns: [this.collectionArn],
     });
   }
@@ -472,6 +474,7 @@ while len(scroll['hits']['hits']) > 0:
 #### 小規模テナント（1,000クエリ/月、1GB インデックス）
 
 **Managed Domain:**
+
 ```
 m6g.large.search × 2: $161.28/月
 EBS 200GB: $16.00/月
@@ -480,6 +483,7 @@ EBS 200GB: $16.00/月
 ```
 
 **Serverless Collection:**
+
 ```
 OCU: 0.5 OCU × 720時間 × $0.24 = $86.40/月
 ストレージ: 1GB × $0.024 = $0.024/月
@@ -491,11 +495,13 @@ OCU: 0.5 OCU × 720時間 × $0.24 = $86.40/月
 #### 中規模テナント（10,000クエリ/月、10GB インデックス）
 
 **Managed Domain:**
+
 ```
 同上: $182.28/月
 ```
 
 **Serverless Collection:**
+
 ```
 OCU: 1 OCU × 720時間 × $0.24 = $172.80/月
 ストレージ: 10GB × $0.024 = $0.24/月
@@ -507,6 +513,7 @@ OCU: 1 OCU × 720時間 × $0.24 = $172.80/月
 #### 大規模テナント（50,000クエリ/月、50GB インデックス）
 
 **Managed Domain:**
+
 ```
 m6g.large.search × 2: $161.28/月
 EBS 200GB: $16.00/月
@@ -515,6 +522,7 @@ EBS 200GB: $16.00/月
 ```
 
 **Serverless Collection:**
+
 ```
 OCU: 2 OCU × 720時間 × $0.24 = $345.60/月
 ストレージ: 50GB × $0.024 = $1.20/月
@@ -526,11 +534,13 @@ OCU: 2 OCU × 720時間 × $0.24 = $345.60/月
 ### 損益分岐点
 
 **月間クエリ数による損益分岐点:**
+
 ```
 約15,000〜20,000クエリ/月でコストが同等
 ```
 
 **推奨:**
+
 - < 15,000クエリ/月: Serverless推奨
 - 15,000〜20,000クエリ/月: どちらでも可
 - > 20,000クエリ/月: Managed推奨
@@ -552,6 +562,7 @@ OCU: 2 OCU × 720時間 × $0.24 = $345.60/月
 7. ✅ 1週間監視
 
 **成功基準:**
+
 - クエリ成功率 > 99.9%
 - レスポンスタイム < Managed比1.5倍
 - コスト削減 > 30%
@@ -575,28 +586,31 @@ OCU: 2 OCU × 720時間 × $0.24 = $345.60/月
 
 ## リスク評価
 
-| リスク | 確率 | 影響度 | 軽減策 | 残存リスク |
-|-------|------|--------|--------|----------|
-| **データ移行失敗** | 中 | 高 | スナップショット、検証スクリプト | 低 |
-| **クエリ性能劣化** | 低 | 中 | 事前ベンチマーク、段階的移行 | 低 |
-| **コスト超過** | 中 | 中 | OCU上限設定、モニタリング | 中 |
-| **API互換性問題** | 低 | 中 | マッピング検証、テスト | 低 |
+| リスク             | 確率 | 影響度 | 軽減策                           | 残存リスク |
+| ------------------ | ---- | ------ | -------------------------------- | ---------- |
+| **データ移行失敗** | 中   | 高     | スナップショット、検証スクリプト | 低         |
+| **クエリ性能劣化** | 低   | 中     | 事前ベンチマーク、段階的移行     | 低         |
+| **コスト超過**     | 中   | 中     | OCU上限設定、モニタリング        | 中         |
+| **API互換性問題**  | 低   | 中     | マッピング検証、テスト           | 低         |
 
 ---
 
 ## 次のステップ
 
 ### 1週間以内
+
 1. **パイロットテナント選定**: 最小規模テナント
 2. **開発環境でServerless Collection作成**
 3. **データ移行スクリプト作成**
 
 ### 2週間以内
+
 1. **パイロット移行実施**
 2. **コスト・パフォーマンス検証**
 3. **移行判定**
 
 ### 1ヶ月以内
+
 1. **小規模テナント段階的移行**
 2. **コスト削減効果測定**
 
@@ -612,6 +626,6 @@ OCU: 2 OCU × 720時間 × $0.24 = $345.60/月
 
 **変更履歴:**
 
-| 日付 | 変更内容 | 作成者 |
-|------|---------|--------|
+| 日付       | 変更内容 | 作成者               |
+| ---------- | -------- | -------------------- |
 | 2025-10-31 | 初版作成 | Claude Code Analysis |

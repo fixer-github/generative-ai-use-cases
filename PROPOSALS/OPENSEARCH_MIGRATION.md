@@ -39,12 +39,14 @@
 **ファイル:** `packages/cdk/lib/temp-bedrock-chat/backend/app/repositories/conversation_search.py`
 
 **機能:**
+
 - 会話タイトルとメッセージ内容での全文検索
 - マルチマッチクエリ（タイトル、メッセージ本文）
 - フレーズマッチングとファジー検索
 - ハイライト機能
 
 **ソート要件:**
+
 ```python
 "sort": [
     {"_score": {"order": "desc"}},  # 関連度スコア
@@ -56,6 +58,7 @@
 ```
 
 **課題:**
+
 - DynamoDBのSort Keyでは複数フィールドのソートができない
 - ネストされたフィールド（`messages.value.create_time`）のソートが必要
 
@@ -64,17 +67,20 @@
 **ファイル:** `packages/cdk/lib/temp-bedrock-chat/backend/app/repositories/bot_store.py`
 
 **機能:**
+
 - ボットのタイトル、説明、指示での全文検索
 - 複雑なアクセス制御フィルタ（public/private/partial shared）
 - Painlessスクリプトによる動的グループフィルタリング
 - 使用回数でのソート
 
 **ソート要件:**
+
 ```python
 "sort": [{"UsageStats.usage_count": {"order": "desc"}}]
 ```
 
 **課題:**
+
 - `UsageStats.usage_count`はDynamoDBのSort Keyではない
 - アクセス制御ロジックが複雑（Painlessスクリプト使用）
 
@@ -83,6 +89,7 @@
 **ファイル:** `packages/cdk/lib/temp-bedrock-chat/backend/app/repositories/usage_analysis.py`
 
 **機能:**
+
 - ボットと使用料金での集計
 - Athenaクエリによる分析
 
@@ -93,6 +100,7 @@
 **ファイル:** `packages/cdk/lib/stacks/tenant/tenant-opensearch-stack.ts`
 
 **構成:**
+
 - OpenSearch 2.19
 - VPC内にデプロイ
 - テナントごとに独立したドメイン
@@ -100,6 +108,7 @@
 - Bedrock Knowledge Baseとの統合
 
 **推定コスト（テナントあたり）:**
+
 - インスタンスタイプ: `t3.small.search` (2データノード)
 - EBS: 20GB × 2
 - 月間コスト: $100〜$300
@@ -111,15 +120,16 @@
 
 ### 案1: Typesense on ECS Fargate ⭐️ **推奨**
 
-| 項目 | 評価 | 詳細 |
-|------|------|------|
-| **コスト** | ⭐️⭐️⭐️⭐️⭐️ | $35〜$50/月（60〜90%削減） |
-| **機能** | ⭐️⭐️⭐️⭐️ | 全文検索、ファジー検索、ソート対応 |
-| **パフォーマンス** | ⭐️⭐️⭐️⭐️⭐️ | 1秒以内のレスポンス保証 |
-| **移行コスト** | ⭐️⭐️⭐️⭐️ | 検索層のみ置き換え |
-| **運用負荷** | ⭐️⭐️⭐️ | DynamoDB Streamsの管理が必要 |
+| 項目               | 評価            | 詳細                               |
+| ------------------ | --------------- | ---------------------------------- |
+| **コスト**         | ⭐️⭐️⭐️⭐️⭐️ | $35〜$50/月（60〜90%削減）         |
+| **機能**           | ⭐️⭐️⭐️⭐️    | 全文検索、ファジー検索、ソート対応 |
+| **パフォーマンス** | ⭐️⭐️⭐️⭐️⭐️ | 1秒以内のレスポンス保証            |
+| **移行コスト**     | ⭐️⭐️⭐️⭐️    | 検索層のみ置き換え                 |
+| **運用負荷**       | ⭐️⭐️⭐️       | DynamoDB Streamsの管理が必要       |
 
 **メリット:**
+
 - 大幅なコスト削減
 - OpenSearchと同等の検索機能
 - 高速なレスポンス
@@ -127,58 +137,63 @@
 - DynamoDBとの並行運用が可能
 
 **デメリット:**
+
 - データ同期の実装が必要
 - Painlessスクリプトは使えない（アプリ側で実装）
 
 ### 案2: Aurora PostgreSQL with full-text search
 
-| 項目 | 評価 | 詳細 |
-|------|------|------|
-| **コスト** | ⭐️⭐️⭐️ | $50〜$150/月（50〜70%削減） |
-| **機能** | ⭐️⭐️⭐️⭐️⭐️ | SQLで柔軟なクエリが可能 |
-| **パフォーマンス** | ⭐️⭐️⭐️ | データ量次第で遅延の可能性 |
-| **移行コスト** | ⭐️ | DynamoDBからRDBへの大規模移行 |
-| **運用負荷** | ⭐️⭐️⭐️⭐️ | マネージドサービス |
+| 項目               | 評価            | 詳細                          |
+| ------------------ | --------------- | ----------------------------- |
+| **コスト**         | ⭐️⭐️⭐️       | $50〜$150/月（50〜70%削減）   |
+| **機能**           | ⭐️⭐️⭐️⭐️⭐️ | SQLで柔軟なクエリが可能       |
+| **パフォーマンス** | ⭐️⭐️⭐️       | データ量次第で遅延の可能性    |
+| **移行コスト**     | ⭐️             | DynamoDBからRDBへの大規模移行 |
+| **運用負荷**       | ⭐️⭐️⭐️⭐️    | マネージドサービス            |
 
 **メリット:**
+
 - トランザクション対応
 - 複雑なJOINクエリが可能
 - マネージドサービスで運用が楽
 
 **デメリット:**
+
 - 大規模な移行作業が必要
 - アプリケーション全体の書き換え
 - スケーラビリティがDynamoDBより低い
 
 ### 案3: DynamoDB GSI最適化 + アプリケーション側ソート
 
-| 項目 | 評価 | 詳細 |
-|------|------|------|
-| **コスト** | ⭐️⭐️⭐️⭐️⭐️ | $0（追加コストなし） |
-| **機能** | ⭐️⭐️ | プレフィックス検索のみ |
-| **パフォーマンス** | ⭐️⭐️ | 大量データで遅延の可能性 |
-| **移行コスト** | ⭐️⭐️⭐️⭐️⭐️ | 最小限の変更 |
-| **運用負荷** | ⭐️⭐️⭐️⭐️⭐️ | インフラがシンプル |
+| 項目               | 評価            | 詳細                     |
+| ------------------ | --------------- | ------------------------ |
+| **コスト**         | ⭐️⭐️⭐️⭐️⭐️ | $0（追加コストなし）     |
+| **機能**           | ⭐️⭐️          | プレフィックス検索のみ   |
+| **パフォーマンス** | ⭐️⭐️          | 大量データで遅延の可能性 |
+| **移行コスト**     | ⭐️⭐️⭐️⭐️⭐️ | 最小限の変更             |
+| **運用負荷**       | ⭐️⭐️⭐️⭐️⭐️ | インフラがシンプル       |
 
 **メリット:**
+
 - 追加コストゼロ
 - インフラがシンプル
 - DynamoDB単一でデータ管理
 
 **デメリット:**
+
 - 全文検索は不可
 - メモリ消費が増加
 - レイテンシーが1秒を超える可能性
 
 ### 案4: Amazon OpenSearch Serverless
 
-| 項目 | 評価 | 詳細 |
-|------|------|------|
-| **コスト** | ⭐️ | $700/月〜（コスト増加） |
-| **機能** | ⭐️⭐️⭐️⭐️⭐️ | OpenSearchの全機能 |
-| **パフォーマンス** | ⭐️⭐️⭐️⭐️⭐️ | スケーラブル |
-| **移行コスト** | ⭐️⭐️⭐️⭐️ | マネージドOpenSearchへの移行 |
-| **運用負荷** | ⭐️⭐️⭐️⭐️⭐️ | フルマネージド |
+| 項目               | 評価            | 詳細                         |
+| ------------------ | --------------- | ---------------------------- |
+| **コスト**         | ⭐️             | $700/月〜（コスト増加）      |
+| **機能**           | ⭐️⭐️⭐️⭐️⭐️ | OpenSearchの全機能           |
+| **パフォーマンス** | ⭐️⭐️⭐️⭐️⭐️ | スケーラブル                 |
+| **移行コスト**     | ⭐️⭐️⭐️⭐️    | マネージドOpenSearchへの移行 |
+| **運用負荷**       | ⭐️⭐️⭐️⭐️⭐️ | フルマネージド               |
 
 **結論:** コスト削減にならないため非推奨
 
@@ -220,6 +235,7 @@
 #### 1. Typesense on ECS Fargate
 
 **CDK構成:**
+
 ```typescript
 // packages/cdk/lib/construct/typesense-cluster.ts
 
@@ -229,8 +245,8 @@ const typesenseCluster = new ecs.Cluster(this, 'TypesenseCluster', {
 });
 
 const taskDefinition = new ecs.FargateTaskDefinition(this, 'TypesenseTask', {
-  memoryLimitMiB: 1024,    // 1GB
-  cpu: 512,                 // 0.5 vCPU
+  memoryLimitMiB: 1024, // 1GB
+  cpu: 512, // 0.5 vCPU
 });
 
 taskDefinition.addContainer('typesense', {
@@ -242,10 +258,12 @@ taskDefinition.addContainer('typesense', {
   secrets: {
     TYPESENSE_API_KEY: ecs.Secret.fromSecretsManager(apiKeySecret),
   },
-  portMappings: [{
-    containerPort: 8108,
-    protocol: ecs.Protocol.TCP,
-  }],
+  portMappings: [
+    {
+      containerPort: 8108,
+      protocol: ecs.Protocol.TCP,
+    },
+  ],
   logging: ecs.LogDriver.awsLogs({
     streamPrefix: 'typesense',
   }),
@@ -255,6 +273,7 @@ taskDefinition.addContainer('typesense', {
 #### 2. DynamoDB Streams同期
 
 **Lambda関数構成:**
+
 ```typescript
 const syncFunction = new NodejsFunction(this, 'TypesenseSync', {
   runtime: LAMBDA_RUNTIME_NODEJS,
@@ -268,25 +287,27 @@ const syncFunction = new NodejsFunction(this, 'TypesenseSync', {
 });
 
 // DynamoDB Streamsをイベントソースとして設定
-syncFunction.addEventSource(new DynamoEventSource(conversationTable, {
-  startingPosition: StartingPosition.LATEST,
-  batchSize: 10,
-  retryAttempts: 3,
-}));
+syncFunction.addEventSource(
+  new DynamoEventSource(conversationTable, {
+    startingPosition: StartingPosition.LATEST,
+    batchSize: 10,
+    retryAttempts: 3,
+  })
+);
 ```
 
 ### コスト試算
 
 #### Typesense構成（テナントあたり）
 
-| リソース | スペック | 月間コスト |
-|----------|----------|-----------|
-| ECS Fargate | 0.5 vCPU, 1GB RAM | $30 |
-| Application Load Balancer | 標準 | $20 |
-| EFS (データ永続化) | 5GB | $2 |
-| データ転送 | 10GB/月 | $1 |
-| Lambda (同期) | 100万リクエスト/月 | $2 |
-| **合計** | | **$55/月** |
+| リソース                  | スペック           | 月間コスト |
+| ------------------------- | ------------------ | ---------- |
+| ECS Fargate               | 0.5 vCPU, 1GB RAM  | $30        |
+| Application Load Balancer | 標準               | $20        |
+| EFS (データ永続化)        | 5GB                | $2         |
+| データ転送                | 10GB/月            | $1         |
+| Lambda (同期)             | 100万リクエスト/月 | $2         |
+| **合計**                  |                    | **$55/月** |
 
 #### マルチテナント構成
 
@@ -294,22 +315,23 @@ syncFunction.addEventSource(new DynamoEventSource(conversationTable, {
 テナント数に応じたスケーリング: Fargate Spotでさらに削減可能
 
 **削減額:**
+
 - OpenSearch: $100〜$300/月/テナント
 - Typesense: $55/月（全テナント共有可能）
 - **削減率: 70〜90%**
 
 ### 機能比較
 
-| 機能 | OpenSearch | Typesense | 実装難易度 |
-|------|-----------|-----------|-----------|
-| 全文検索 | ✅ | ✅ | 簡単 |
-| ファジー検索 | ✅ | ✅ | 簡単 |
-| 複数フィールドソート | ✅ | ✅ | 簡単 |
-| ハイライト | ✅ | ✅ | 簡単 |
-| ネストフィールド検索 | ✅ | ✅ | 中程度 |
-| Painlessスクリプト | ✅ | ❌ | 中程度（アプリ側実装） |
-| 集計（Aggregation） | ✅ | ✅ | 簡単 |
-| 地理空間検索 | ✅ | ✅ | 簡単 |
+| 機能                 | OpenSearch | Typesense | 実装難易度             |
+| -------------------- | ---------- | --------- | ---------------------- |
+| 全文検索             | ✅         | ✅        | 簡単                   |
+| ファジー検索         | ✅         | ✅        | 簡単                   |
+| 複数フィールドソート | ✅         | ✅        | 簡単                   |
+| ハイライト           | ✅         | ✅        | 簡単                   |
+| ネストフィールド検索 | ✅         | ✅        | 中程度                 |
+| Painlessスクリプト   | ✅         | ❌        | 中程度（アプリ側実装） |
+| 集計（Aggregation）  | ✅         | ✅        | 簡単                   |
+| 地理空間検索         | ✅         | ✅        | 簡単                   |
 
 ### 検索クエリの変換例
 
@@ -355,6 +377,7 @@ const response = await client
 ```
 
 **変換のポイント:**
+
 - `query_by`: 検索対象フィールドをカンマ区切りで指定
 - `filter_by`: SQLライクなフィルタ構文
 - `sort_by`: 複数ソートフィールドをカンマ区切り
@@ -371,7 +394,7 @@ const conversationSchema = {
     { name: 'id', type: 'string' },
     { name: 'user_id', type: 'string', facet: true },
     { name: 'title', type: 'string' },
-    { name: 'message_content', type: 'string[]' },  // メッセージ本文の配列
+    { name: 'message_content', type: 'string[]' }, // メッセージ本文の配列
     { name: 'last_message_time', type: 'int64', sort: true },
     { name: 'create_time', type: 'int64' },
     { name: 'bot_id', type: 'string', optional: true, facet: true },
@@ -392,7 +415,7 @@ const botSchema = {
     { name: 'description', type: 'string' },
     { name: 'instruction', type: 'string' },
     { name: 'usage_count', type: 'int32', sort: true },
-    { name: 'shared_scope', type: 'string', facet: true },  // 'private', 'partial', 'all'
+    { name: 'shared_scope', type: 'string', facet: true }, // 'private', 'partial', 'all'
     { name: 'allowed_users', type: 'string[]', optional: true, facet: true },
     { name: 'allowed_groups', type: 'string[]', optional: true, facet: true },
     { name: 'create_time', type: 'int64' },
@@ -432,6 +455,7 @@ const botSchema = {
 #### Week 1: インフラ構築
 
 **タスク:**
+
 1. Typesense CDK constructの作成
    - ECS Fargateクラスター
    - Application Load Balancer（内部）
@@ -448,12 +472,14 @@ const botSchema = {
    - X-Rayトレーシング
 
 **成果物:**
+
 - `packages/cdk/lib/construct/typesense-cluster.ts`
 - `packages/cdk/lib/stacks/common/typesense-stack.ts`
 
 #### Week 2: データ同期基盤
 
 **タスク:**
+
 1. DynamoDB Streams Lambda関数の作成
    - INSERT/MODIFY/REMOVEイベントのハンドリング
    - Typesense APIクライアントの実装
@@ -468,6 +494,7 @@ const botSchema = {
    - データ不整合の検知
 
 **成果物:**
+
 - `packages/cdk/lambda/syncToTypesense.ts`
 - `packages/cdk/lambda/initialDataMigration.ts`
 
@@ -476,6 +503,7 @@ const botSchema = {
 #### Week 3: 検索APIの実装
 
 **タスク:**
+
 1. 会話検索APIの実装
    - OpenSearch → Typesense変換
    - ハイライト機能の実装
@@ -489,12 +517,14 @@ const botSchema = {
 3. ユニットテストの作成
 
 **成果物:**
+
 - `packages/cdk/lambda/searchConversationsTypesense.ts`
 - `packages/cdk/lambda/searchBotsTypesense.ts`
 
 #### Week 4: フロントエンド統合
 
 **タスク:**
+
 1. 検索APIフックの更新
    - `useConversationSearch`の修正
    - `useBotSearch`の修正
@@ -506,6 +536,7 @@ const botSchema = {
 3. E2Eテストの作成
 
 **成果物:**
+
 - `packages/web/src/hooks/useConversationSearchTypesense.ts`
 - `packages/web/src/hooks/useBotSearchTypesense.ts`
 
@@ -514,6 +545,7 @@ const botSchema = {
 #### Week 5: 段階的移行
 
 **タスク:**
+
 1. フィーチャーフラグの実装
    - `USE_TYPESENSE`環境変数
    - OpenSearchとTypesenseの並行運用
@@ -531,6 +563,7 @@ const botSchema = {
    - リソースの削除
 
 **成果物:**
+
 - デプロイメント手順書
 - ロールバック手順書
 
@@ -539,6 +572,7 @@ const botSchema = {
 #### Week 6: パフォーマンス最適化
 
 **タスク:**
+
 1. クエリの最適化
    - インデックス設定の調整
    - キャッシュ戦略の実装
@@ -552,28 +586,29 @@ const botSchema = {
    - 監視ダッシュボードの作成
 
 **成果物:**
+
 - 運用ドキュメント
 - CloudWatch Dashboard
 
 ### マイルストーン
 
-| マイルストーン | 期限 | 成果物 |
-|--------------|------|--------|
-| M1: インフラ構築完了 | Week 2 | Typesenseクラスター稼働 |
-| M2: データ同期確立 | Week 2 | 自動同期が稼働 |
-| M3: 検索API実装完了 | Week 4 | 全検索機能が動作 |
-| M4: カットオーバー完了 | Week 5 | OpenSearch削除 |
-| M5: 運用移行完了 | Week 6 | 運用体制確立 |
+| マイルストーン         | 期限   | 成果物                  |
+| ---------------------- | ------ | ----------------------- |
+| M1: インフラ構築完了   | Week 2 | Typesenseクラスター稼働 |
+| M2: データ同期確立     | Week 2 | 自動同期が稼働          |
+| M3: 検索API実装完了    | Week 4 | 全検索機能が動作        |
+| M4: カットオーバー完了 | Week 5 | OpenSearch削除          |
+| M5: 運用移行完了       | Week 6 | 運用体制確立            |
 
 ### リスクと対策
 
-| リスク | 影響度 | 対策 |
-|--------|--------|------|
-| データ同期の遅延 | 高 | DLQの設定、リトライ機能 |
-| 検索精度の低下 | 中 | A/Bテスト、段階的移行 |
-| パフォーマンス低下 | 中 | キャッシュ戦略、インデックス最適化 |
-| 移行中の障害 | 高 | ロールバック手順、並行運用 |
-| コストオーバー | 低 | コスト監視、リソース最適化 |
+| リスク             | 影響度 | 対策                               |
+| ------------------ | ------ | ---------------------------------- |
+| データ同期の遅延   | 高     | DLQの設定、リトライ機能            |
+| 検索精度の低下     | 中     | A/Bテスト、段階的移行              |
+| パフォーマンス低下 | 中     | キャッシュ戦略、インデックス最適化 |
+| 移行中の障害       | 高     | ロールバック手順、並行運用         |
+| コストオーバー     | 低     | コスト監視、リソース最適化         |
 
 ---
 
@@ -582,6 +617,7 @@ const botSchema = {
 ### Q1: Typesenseの可用性はどのように確保しますか？
 
 **A:** 以下の方法で高可用性を確保します：
+
 - ECS Fargateでマルチアベイラビリティゾーン構成
 - Application Load Balancerでヘルスチェック
 - EFSでデータの永続化
@@ -590,6 +626,7 @@ const botSchema = {
 ### Q2: データの整合性はどのように保証しますか？
 
 **A:** 以下の仕組みで整合性を保証します：
+
 - DynamoDB StreamsでEventual Consistency
 - Lambda関数のリトライ機能
 - DLQ（Dead Letter Queue）での失敗イベント管理
@@ -598,6 +635,7 @@ const botSchema = {
 ### Q3: OpenSearchと比較して機能的な制約はありますか？
 
 **A:** 主な制約は以下です：
+
 - Painlessスクリプトは使えない → アプリケーション側で実装
 - 複雑な集計（Aggregation）の一部機能 → Typesenseの集計機能で代替
 - ネストフィールドの扱い → データモデルをフラット化
@@ -607,6 +645,7 @@ const botSchema = {
 ### Q4: 移行中に問題が発生した場合のロールバック方法は？
 
 **A:** フィーチャーフラグで即座にロールバック可能です：
+
 ```typescript
 const useTypesense = process.env.USE_TYPESENSE === 'true';
 
@@ -620,6 +659,7 @@ if (useTypesense) {
 ### Q5: マルチテナント環境でのコスト配分は？
 
 **A:** 以下の方式を推奨します：
+
 - 共有インフラ方式: 全テナントで1つのTypesenseクラスターを共有
 - データはテナントIDでフィルタリング
 - コストは使用量に応じて配分（検索クエリ数、データ量）
@@ -627,9 +667,11 @@ if (useTypesense) {
 ### Q6: Typesenseのバージョンアップはどのように行いますか？
 
 **A:** ECS Fargateのローリングアップデート機能を使用：
+
 ```typescript
-service.taskDefinition.defaultContainer.image =
-  ecs.ContainerImage.fromRegistry('typesense/typesense:27.2');
+service.taskDefinition.defaultContainer.image = ecs.ContainerImage.fromRegistry(
+  'typesense/typesense:27.2'
+);
 ```
 
 ダウンタイムなしでアップデート可能です。
@@ -637,6 +679,7 @@ service.taskDefinition.defaultContainer.image =
 ### Q7: パフォーマンスが期待通りでない場合の対策は？
 
 **A:** 以下の最適化オプションがあります：
+
 - FargateのvCPU/メモリを増強（0.5 → 1.0 vCPU）
 - インデックス設定の調整（token separatorsなど）
 - キャッシュレイヤーの追加（CloudFront、Redis）
@@ -669,9 +712,9 @@ service.taskDefinition.defaultContainer.image =
 
 ## 変更履歴
 
-| 日付 | バージョン | 変更内容 | 著者 |
-|------|-----------|---------|------|
-| 2025-10-31 | 1.0.0 | 初版作成 | Claude |
+| 日付       | バージョン | 変更内容 | 著者   |
+| ---------- | ---------- | -------- | ------ |
+| 2025-10-31 | 1.0.0      | 初版作成 | Claude |
 
 ---
 

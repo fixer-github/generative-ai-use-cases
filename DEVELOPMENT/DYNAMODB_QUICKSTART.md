@@ -30,13 +30,13 @@
 
 #### 特徴
 
-| 特徴 | 説明 | SQLとの違い |
-|------|------|------------|
-| **キーバリューストア** | データはKey-Valueペアで格納 | テーブルに行と列 |
-| **スキーマレス** | 柔軟な属性追加が可能 | 固定スキーマ |
-| **水平スケーリング** | 自動的に無制限にスケール | 垂直スケーリングが主 |
-| **サーバーレス** | サーバー管理不要 | RDS/Auroraは要管理 |
-| **オンデマンド課金** | 使った分だけ課金 | 稼働時間で課金 |
+| 特徴                   | 説明                        | SQLとの違い          |
+| ---------------------- | --------------------------- | -------------------- |
+| **キーバリューストア** | データはKey-Valueペアで格納 | テーブルに行と列     |
+| **スキーマレス**       | 柔軟な属性追加が可能        | 固定スキーマ         |
+| **水平スケーリング**   | 自動的に無制限にスケール    | 垂直スケーリングが主 |
+| **サーバーレス**       | サーバー管理不要            | RDS/Auroraは要管理   |
+| **オンデマンド課金**   | 使った分だけ課金            | 稼働時間で課金       |
 
 ### なぜDynamoDBを選んだのか？
 
@@ -54,6 +54,7 @@ GenUプラットフォームでDynamoDBを採用した理由：
 ### 1. データモデル
 
 #### SQL（リレーショナル）
+
 ```sql
 -- テーブル: users
 CREATE TABLE users (
@@ -70,6 +71,7 @@ CREATE TABLE chats (
 ```
 
 #### DynamoDB（キーバリュー）
+
 ```typescript
 // 1つのテーブルに複数のエンティティを格納可能
 {
@@ -93,6 +95,7 @@ CREATE TABLE chats (
 ### 2. クエリ方法
 
 #### SQL
+
 ```sql
 -- 柔軟なクエリ（どの列でも検索可能）
 SELECT * FROM chats
@@ -103,21 +106,25 @@ LIMIT 10;
 ```
 
 #### DynamoDB
+
 ```typescript
 // Partition Keyは必須、Sort Keyで範囲検索可能
-await dynamodb.send(new QueryCommand({
-  TableName: "ChatHistory",
-  KeyConditionExpression: "id = :userId AND createdDate > :date",
-  ExpressionAttributeValues: {
-    ":userId": "user#123",
-    ":date": "2025-01-01"
-  },
-  ScanIndexForward: false,  // DESCソート
-  Limit: 10
-}));
+await dynamodb.send(
+  new QueryCommand({
+    TableName: 'ChatHistory',
+    KeyConditionExpression: 'id = :userId AND createdDate > :date',
+    ExpressionAttributeValues: {
+      ':userId': 'user#123',
+      ':date': '2025-01-01',
+    },
+    ScanIndexForward: false, // DESCソート
+    Limit: 10,
+  })
+);
 ```
 
 **重要**:
+
 - ✅ **Query**: Partition Keyを指定（高速、推奨）
 - ❌ **Scan**: テーブル全体をスキャン（低速、避けるべき）
 
@@ -126,12 +133,14 @@ await dynamodb.send(new QueryCommand({
 ### 3. インデックス
 
 #### SQL
+
 ```sql
 -- 任意の列にインデックスを作成
 CREATE INDEX idx_user_email ON users(email);
 ```
 
 #### DynamoDB
+
 ```typescript
 // GSI（Global Secondary Index）を事前定義
 {
@@ -148,6 +157,7 @@ CREATE INDEX idx_user_email ON users(email);
 ### 4. 更新操作
 
 #### SQL
+
 ```sql
 -- Read → Modify → Write
 UPDATE stats
@@ -157,17 +167,20 @@ WHERE user_id = 123 AND date = '2025-01-15';
 ```
 
 #### DynamoDB
+
 ```typescript
 // アトミックな更新（Read不要）
-await dynamodb.send(new UpdateCommand({
-  TableName: "Stats",
-  Key: { id: "stats#2025-01-15", userId: "123" },
-  UpdateExpression: "ADD executions :one, inputTokens :tokens",
-  ExpressionAttributeValues: {
-    ":one": 1,
-    ":tokens": 100
-  }
-}));
+await dynamodb.send(
+  new UpdateCommand({
+    TableName: 'Stats',
+    Key: { id: 'stats#2025-01-15', userId: '123' },
+    UpdateExpression: 'ADD executions :one, inputTokens :tokens',
+    ExpressionAttributeValues: {
+      ':one': 1,
+      ':tokens': 100,
+    },
+  })
+);
 ```
 
 **重要**: DynamoDBの`UpdateExpression`は**アトミック**で、競合状態を回避できる。
@@ -177,6 +190,7 @@ await dynamodb.send(new UpdateCommand({
 ### 5. トランザクション
 
 #### SQL
+
 ```sql
 BEGIN;
 INSERT INTO shares (share_id, user_id) VALUES ('s1', 'u1');
@@ -185,6 +199,7 @@ COMMIT;
 ```
 
 #### DynamoDB
+
 ```typescript
 await dynamodb.send(new TransactWriteCommand({
   TransactItems: [
@@ -205,6 +220,7 @@ await dynamodb.send(new TransactWriteCommand({
 GenUは**Repository Pattern**を採用しており、DynamoDBの詳細を隠蔽しています。
 
 #### ファイル構成
+
 ```
 packages/cdk/lambda/repository/
 ├── common.ts           # テナントコンテキスト抽出（重要）
@@ -218,6 +234,7 @@ packages/cdk/lambda/repository/
 #### 使い方（Lambda関数内）
 
 **良い例**:
+
 ```typescript
 import { listChats, createChat } from './repository/chat';
 
@@ -229,12 +246,13 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify(chats)
+    body: JSON.stringify(chats),
   };
 };
 ```
 
 **悪い例**:
+
 ```typescript
 // ❌ Lambda関数内で直接DynamoDBを操作しない
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
@@ -279,10 +297,12 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   const tableName = getTableName(event);
 
   // この時点で、dynamodbは正しいテナントのテーブルにスコープされている
-  const result = await dynamodb.send(new QueryCommand({
-    TableName: tableName,
-    // ...
-  }));
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: tableName,
+      // ...
+    })
+  );
 };
 ```
 
@@ -296,35 +316,38 @@ GenUは**1つのテーブルに複数のエンティティ**を格納する「�
 
 #### Main Tableの例
 
-| id (Partition Key) | createdDate (Sort Key) | エンティティタイプ | その他の属性 |
-|-------------------|----------------------|------------------|-------------|
-| `user#alice` | `2025-01-15T10:00:00Z` | Chat | `chatId`, `title` |
-| `user#alice` | `2025-01-16T11:00:00Z` | Chat | `chatId`, `title` |
-| `chat#456` | `2025-01-15T10:05:00Z#0` | Message | `messageId`, `content` |
-| `chat#456` | `2025-01-15T10:05:30Z#1` | Message | `messageId`, `content` |
-| `share#789` | `2025-01-15T12:00:00Z` | Share | `userId`, `chatId` |
+| id (Partition Key) | createdDate (Sort Key)   | エンティティタイプ | その他の属性           |
+| ------------------ | ------------------------ | ------------------ | ---------------------- |
+| `user#alice`       | `2025-01-15T10:00:00Z`   | Chat               | `chatId`, `title`      |
+| `user#alice`       | `2025-01-16T11:00:00Z`   | Chat               | `chatId`, `title`      |
+| `chat#456`         | `2025-01-15T10:05:00Z#0` | Message            | `messageId`, `content` |
+| `chat#456`         | `2025-01-15T10:05:30Z#1` | Message            | `messageId`, `content` |
+| `share#789`        | `2025-01-15T12:00:00Z`   | Share              | `userId`, `chatId`     |
 
 #### アクセスパターン
 
 ```typescript
 // チャット一覧を取得
-KeyConditionExpression: "id = :userId"
+KeyConditionExpression: 'id = :userId';
 // → id が "user#alice" のすべてのアイテム（チャット）を取得
 
 // メッセージ一覧を取得
-KeyConditionExpression: "id = :chatId"
+KeyConditionExpression: 'id = :chatId';
 // → id が "chat#456" のすべてのアイテム（メッセージ）を取得
 ```
 
 **メリット**:
+
 - 関連データを1回のクエリで取得可能
 - テーブル数を削減（コスト削減）
 
 **デメリット**:
+
 - スキーマ設計が複雑
 - JOIN的な操作はアプリケーション層で実装
 
 **SQLとの対応**:
+
 ```sql
 -- SQLなら複数テーブルに分ける
 CREATE TABLE chats (...);
@@ -342,11 +365,13 @@ CREATE TABLE shares (...);
 ### 1. アイテムを取得（GetItem）
 
 **SQL**:
+
 ```sql
 SELECT * FROM chats WHERE id = 123;
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { findChatById } from './repository/chat';
 
@@ -354,16 +379,19 @@ const chat = await findChatById(userId, chatId, event);
 ```
 
 **内部実装** (`chat.ts:57`):
+
 ```typescript
-const res = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  KeyConditionExpression: "id = :userId",
-  FilterExpression: "chatId = :chatId",
-  ExpressionAttributeValues: {
-    ":userId": `user#${userId}`,
-    ":chatId": chatId
-  }
-}));
+const res = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: 'id = :userId',
+    FilterExpression: 'chatId = :chatId',
+    ExpressionAttributeValues: {
+      ':userId': `user#${userId}`,
+      ':chatId': chatId,
+    },
+  })
+);
 ```
 
 ---
@@ -371,33 +399,42 @@ const res = await dynamodb.send(new QueryCommand({
 ### 2. アイテムを作成（PutItem）
 
 **SQL**:
+
 ```sql
 INSERT INTO chats (id, user_id, title) VALUES (...);
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { createChat } from './repository/chat';
 
-const chat = await createChat(userId, {
-  title: "新しいチャット",
-  usecase: "chat"
-}, event);
+const chat = await createChat(
+  userId,
+  {
+    title: '新しいチャット',
+    usecase: 'chat',
+  },
+  event
+);
 ```
 
 **内部実装** (`chat.ts:21`):
+
 ```typescript
-await dynamodb.send(new PutCommand({
-  TableName: tableName,
-  Item: {
-    id: `user#${userId}`,
-    createdDate: new Date().toISOString(),
-    chatId: `chat#${ulid()}`,
-    title: input.title,
-    usecase: input.usecase,
-    // ...
-  }
-}));
+await dynamodb.send(
+  new PutCommand({
+    TableName: tableName,
+    Item: {
+      id: `user#${userId}`,
+      createdDate: new Date().toISOString(),
+      chatId: `chat#${ulid()}`,
+      title: input.title,
+      usecase: input.usecase,
+      // ...
+    },
+  })
+);
 ```
 
 ---
@@ -405,33 +442,43 @@ await dynamodb.send(new PutCommand({
 ### 3. アイテムを更新（UpdateItem）
 
 **SQL**:
+
 ```sql
 UPDATE chats SET title = 'Updated Title' WHERE id = 123;
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { updateChat } from './repository/chat';
 
-await updateChat(userId, chatId, {
-  title: "更新されたタイトル"
-}, event);
+await updateChat(
+  userId,
+  chatId,
+  {
+    title: '更新されたタイトル',
+  },
+  event
+);
 ```
 
 **内部実装** (`chat.ts:128`):
+
 ```typescript
-await dynamodb.send(new UpdateCommand({
-  TableName: tableName,
-  Key: {
-    id: `user#${userId}`,
-    createdDate: chat.createdDate
-  },
-  UpdateExpression: "SET title = :title, updatedDate = :updatedDate",
-  ExpressionAttributeValues: {
-    ":title": input.title,
-    ":updatedDate": new Date().toISOString()
-  }
-}));
+await dynamodb.send(
+  new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      id: `user#${userId}`,
+      createdDate: chat.createdDate,
+    },
+    UpdateExpression: 'SET title = :title, updatedDate = :updatedDate',
+    ExpressionAttributeValues: {
+      ':title': input.title,
+      ':updatedDate': new Date().toISOString(),
+    },
+  })
+);
 ```
 
 ---
@@ -439,11 +486,13 @@ await dynamodb.send(new UpdateCommand({
 ### 4. アイテムを削除（DeleteItem）
 
 **SQL**:
+
 ```sql
 DELETE FROM chats WHERE id = 123;
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { deleteChat } from './repository/chat';
 
@@ -455,6 +504,7 @@ await deleteChat(userId, chatId, event);
 ### 5. クエリ（Query）
 
 **SQL**:
+
 ```sql
 SELECT * FROM chats
 WHERE user_id = 123
@@ -463,6 +513,7 @@ LIMIT 100;
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { listChats } from './repository/chat';
 
@@ -470,17 +521,20 @@ const chats = await listChats(userId, event, { limit: 100 });
 ```
 
 **内部実装** (`chat.ts:88`):
+
 ```typescript
-const res = await dynamodb.send(new QueryCommand({
-  TableName: tableName,
-  IndexName: undefined,  // プライマリキーを使用
-  KeyConditionExpression: "id = :userId",
-  ExpressionAttributeValues: {
-    ":userId": `user#${userId}`
-  },
-  ScanIndexForward: false,  // DESC（新しい順）
-  Limit: 100
-}));
+const res = await dynamodb.send(
+  new QueryCommand({
+    TableName: tableName,
+    IndexName: undefined, // プライマリキーを使用
+    KeyConditionExpression: 'id = :userId',
+    ExpressionAttributeValues: {
+      ':userId': `user#${userId}`,
+    },
+    ScanIndexForward: false, // DESC（新しい順）
+    Limit: 100,
+  })
+);
 ```
 
 ---
@@ -488,6 +542,7 @@ const res = await dynamodb.send(new QueryCommand({
 ### 6. バッチ書き込み（BatchWrite）
 
 **SQL**:
+
 ```sql
 INSERT INTO messages (id, content) VALUES
   (1, 'Hello'),
@@ -495,6 +550,7 @@ INSERT INTO messages (id, content) VALUES
 ```
 
 **DynamoDB**:
+
 ```typescript
 import { batchCreateMessages } from './repository/message';
 
@@ -502,28 +558,31 @@ await batchCreateMessages(
   chatId,
   [
     { role: 'user', content: 'Hello' },
-    { role: 'assistant', content: 'World' }
+    { role: 'assistant', content: 'World' },
   ],
   event
 );
 ```
 
 **内部実装** (`message.ts:207`):
+
 ```typescript
-await dynamodb.send(new BatchWriteCommand({
-  RequestItems: {
-    [tableName]: messages.map(msg => ({
-      PutRequest: {
-        Item: {
-          id: `chat#${chatId}`,
-          createdDate: `${timestamp}#${sequence}`,
-          messageId: `message#${ulid()}`,
-          // ...
-        }
-      }
-    }))
-  }
-}));
+await dynamodb.send(
+  new BatchWriteCommand({
+    RequestItems: {
+      [tableName]: messages.map((msg) => ({
+        PutRequest: {
+          Item: {
+            id: `chat#${chatId}`,
+            createdDate: `${timestamp}#${sequence}`,
+            messageId: `message#${ulid()}`,
+            // ...
+          },
+        },
+      })),
+    },
+  })
+);
 ```
 
 ---

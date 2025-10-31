@@ -14,13 +14,13 @@
 
 ### 主要メリット
 
-| 項目 | 現状（DynamoDB） | 移行後（Timestream） | 改善度 |
-|------|----------------|-------------------|--------|
-| **月次レポート生成** | BatchGet × 30〜31回 | 単一SQLクエリ | ⚡ 95%高速化 |
-| **年次トレンド分析** | BatchGet × 365回 | 単一SQLクエリ | ⚡ 98%高速化 |
-| **ストレージコスト** | $0.25/GB/月 | $0.03/GB/月（マグネティック） | 💰 88%削減 |
-| **クエリ柔軟性** | 限定的 | SQL（集計、Window関数など） | 📊 大幅向上 |
-| **BI連携** | カスタム実装必要 | QuickSightネイティブ対応 | ✅ 簡単 |
+| 項目                 | 現状（DynamoDB）    | 移行後（Timestream）          | 改善度       |
+| -------------------- | ------------------- | ----------------------------- | ------------ |
+| **月次レポート生成** | BatchGet × 30〜31回 | 単一SQLクエリ                 | ⚡ 95%高速化 |
+| **年次トレンド分析** | BatchGet × 365回    | 単一SQLクエリ                 | ⚡ 98%高速化 |
+| **ストレージコスト** | $0.25/GB/月         | $0.03/GB/月（マグネティック） | 💰 88%削減   |
+| **クエリ柔軟性**     | 限定的              | SQL（集計、Window関数など）   | 📊 大幅向上  |
+| **BI連携**           | カスタム実装必要    | QuickSightネイティブ対応      | ✅ 簡単      |
 
 ### 投資対効果
 
@@ -54,7 +54,7 @@
 ```typescript
 const statsTable = new ddb.Table(this, 'StatsTable', {
   partitionKey: {
-    name: 'id',        // stats#{date}
+    name: 'id', // stats#{date}
     type: ddb.AttributeType.STRING,
   },
   sortKey: {
@@ -107,7 +107,7 @@ export const aggregateTokenUsage = async (
       id: `stats#${dateStr}`,
       userId: userId,
     });
-    currentDate.setDate(currentDate.getDate() + 1);  // 1日ずつ進める
+    currentDate.setDate(currentDate.getDate() + 1); // 1日ずつ進める
   }
 
   // ❌ 問題2: BatchGetItemで100件ずつ分割
@@ -119,13 +119,15 @@ export const aggregateTokenUsage = async (
 
   // ❌ 問題3: 複数のBatchGetリクエストが必要
   const batchPromises = keyChunks.map((chunk) =>
-    dynamoDbDocument.send(new BatchGetCommand({
-      RequestItems: {
-        [statsTableName]: {
-          Keys: chunk,
+    dynamoDbDocument.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [statsTableName]: {
+            Keys: chunk,
+          },
         },
-      },
-    }))
+      })
+    )
   );
 
   const batchResults = await Promise.all(batchPromises);
@@ -154,12 +156,9 @@ export const aggregateTokenUsage = async (
 
 ```typescript
 // DynamoDB: 365個のキーを生成 → 4回のBatchGetリクエスト
-const yearData = await aggregateTokenUsage(
-  '2024-01-01',
-  '2024-12-31',
-  event,
-  ['user-123']
-);
+const yearData = await aggregateTokenUsage('2024-01-01', '2024-12-31', event, [
+  'user-123',
+]);
 // レイテンシ: 800ms〜1200ms
 ```
 
@@ -195,6 +194,7 @@ const yearData = await aggregateTokenUsage(
 Amazon Timestreamは、**時系列データに最適化された完全マネージド型データベース**です。
 
 **主要機能:**
+
 - SQLライクなクエリ言語
 - 自動ティアリング（メモリ → マグネティックストレージ）
 - 時系列関数（移動平均、補間、ダウンサンプリング等）
@@ -327,6 +327,7 @@ WITH (
 ```
 
 **メリット:**
+
 - メッセージ単位の詳細な時系列データ
 - 任意の粒度で集計可能（分次、時次、日次、週次、月次）
 - モデル・ユースケース別の分析が容易
@@ -340,6 +341,7 @@ WITH (
 #### フェーズ1: 準備（1週間）
 
 **タスク:**
+
 1. Timestream Database/Table作成（CDK）
 2. 書き込みロジック実装
 3. 読み取りクエリ実装
@@ -348,6 +350,7 @@ WITH (
 #### フェーズ2: 二重書き込み（2週間）
 
 **タスク:**
+
 1. DynamoDB + Timestreamに並行書き込み
 2. データ整合性検証
 3. パフォーマンス監視
@@ -355,6 +358,7 @@ WITH (
 #### フェーズ3: 履歴データ移行（1週間）
 
 **タスク:**
+
 1. DynamoDB → S3エクスポート
 2. S3 → Timestreamインポート
 3. データ整合性検証
@@ -362,6 +366,7 @@ WITH (
 #### フェーズ4: 読み取り切り替え（1週間）
 
 **タスク:**
+
 1. フィーチャーフラグで読み取りをTimestreamに切り替え
 2. モニタリング強化
 3. 問題なければ全ユーザーに展開
@@ -369,6 +374,7 @@ WITH (
 #### フェーズ5: クリーンアップ（1週間）
 
 **タスク:**
+
 1. DynamoDB書き込みロジック削除
 2. DynamoDB StatsTable削除（バックアップ後）
 3. ドキュメント更新
@@ -451,10 +457,7 @@ export class TimestreamStats extends Construct {
   public grantWriteData(grantee: iam.IGrantable): iam.Grant {
     return iam.Grant.addToPrincipal({
       grantee,
-      actions: [
-        'timestream:WriteRecords',
-        'timestream:DescribeEndpoints',
-      ],
+      actions: ['timestream:WriteRecords', 'timestream:DescribeEndpoints'],
       resourceArns: [this.table.attrArn],
     });
   }
@@ -805,14 +808,19 @@ function convertToDynamoDBFormat(rows: Row[]): TimestreamTokenUsageStats[] {
     // Model
     const modelKey = `model#${modelId}`;
     stats.executions[modelKey] = (stats.executions[modelKey] || 0) + executions;
-    stats.inputTokens[modelKey] = (stats.inputTokens[modelKey] || 0) + inputTokens;
-    stats.outputTokens[modelKey] = (stats.outputTokens[modelKey] || 0) + outputTokens;
+    stats.inputTokens[modelKey] =
+      (stats.inputTokens[modelKey] || 0) + inputTokens;
+    stats.outputTokens[modelKey] =
+      (stats.outputTokens[modelKey] || 0) + outputTokens;
 
     // Usecase
     const usecaseKey = `usecase#${usecase}`;
-    stats.executions[usecaseKey] = (stats.executions[usecaseKey] || 0) + executions;
-    stats.inputTokens[usecaseKey] = (stats.inputTokens[usecaseKey] || 0) + inputTokens;
-    stats.outputTokens[usecaseKey] = (stats.outputTokens[usecaseKey] || 0) + outputTokens;
+    stats.executions[usecaseKey] =
+      (stats.executions[usecaseKey] || 0) + executions;
+    stats.inputTokens[usecaseKey] =
+      (stats.inputTokens[usecaseKey] || 0) + inputTokens;
+    stats.outputTokens[usecaseKey] =
+      (stats.outputTokens[usecaseKey] || 0) + outputTokens;
   });
 
   return Array.from(dailyMap.values());
@@ -876,11 +884,13 @@ export const aggregateTokenUsage = async (
 #### シナリオ1: 小規模（1テナント、10ユーザー）
 
 **月間データ:**
+
 - リクエスト数: 100,000
 - 書き込みレコード: 100,000
 - 読み取りクエリ: 1,000（日次レポート）
 
 **DynamoDB:**
+
 ```
 書き込み: 100,000 × $1.25/100万 = $0.13
 読み取り: 30,000 (30日分) × $0.25/100万 = $0.01
@@ -889,6 +899,7 @@ export const aggregateTokenUsage = async (
 ```
 
 **Timestream:**
+
 ```
 書き込み: 100,000 × $0.50/100万 = $0.05
 メモリストア: 0.01GB × $0.036/GB/時 × 168時 = $0.06
@@ -901,11 +912,13 @@ export const aggregateTokenUsage = async (
 #### シナリオ2: 中規模（10テナント、100ユーザー）
 
 **月間データ:**
+
 - リクエスト数: 1,000,000
 - 書き込みレコード: 1,000,000
 - 読み取りクエリ: 10,000
 
 **DynamoDB:**
+
 ```
 書き込み: 1,000,000 × $1.25/100万 = $1.25
 読み取り: 300,000 × $0.25/100万 = $0.75
@@ -914,6 +927,7 @@ export const aggregateTokenUsage = async (
 ```
 
 **Timestream:**
+
 ```
 書き込み: 1,000,000 × $0.50/100万 = $0.50
 メモリストア: 0.1GB × $0.036/GB/時 × 168時 = $0.60
@@ -926,11 +940,13 @@ export const aggregateTokenUsage = async (
 #### シナリオ3: 大規模（100テナント、1,000ユーザー）
 
 **月間データ:**
+
 - リクエスト数: 10,000,000
 - 書き込みレコード: 10,000,000
 - 読み取りクエリ: 100,000
 
 **DynamoDB:**
+
 ```
 書き込み: 10,000,000 × $1.25/100万 = $12.50
 読み取り: 3,000,000 × $0.25/100万 = $7.50
@@ -939,6 +955,7 @@ export const aggregateTokenUsage = async (
 ```
 
 **Timestream:**
+
 ```
 書き込み: 10,000,000 × $0.50/100万 = $5.00
 メモリストア: 1GB × $0.036/GB/時 × 168時 = $6.05
@@ -957,19 +974,18 @@ export const aggregateTokenUsage = async (
 #### 1. 年次レポート取得
 
 **DynamoDB（現状）:**
+
 ```typescript
 const start = Date.now();
-const yearData = await aggregateTokenUsage(
-  '2024-01-01',
-  '2024-12-31',
-  event,
-  ['user-123']
-);
+const yearData = await aggregateTokenUsage('2024-01-01', '2024-12-31', event, [
+  'user-123',
+]);
 const elapsed = Date.now() - start;
 // 結果: 800〜1200ms（365回のBatchGet）
 ```
 
 **Timestream:**
+
 ```typescript
 const start = Date.now();
 const yearData = await getDailyTokenUsage(
@@ -989,6 +1005,7 @@ const elapsed = Date.now() - start;
 **DynamoDB:** 不可能（手動実装が必要）
 
 **Timestream:**
+
 ```sql
 SELECT
   DATE_TRUNC('month', time) AS month,
@@ -1007,13 +1024,13 @@ ORDER BY month DESC
 
 ## リスクと軽減策
 
-| リスク | 確率 | 影響度 | 軽減策 | 残存リスク |
-|-------|------|--------|--------|----------|
-| データ移行失敗 | 中 | 高 | 二重書き込み、検証スクリプト、ロールバック計画 | 低 |
-| Timestreamクエリ性能問題 | 低 | 中 | 事前ベンチマーク、インデックス最適化 | 低 |
-| DynamoDB形式互換性 | 中 | 中 | 変換関数の徹底テスト | 低 |
-| コスト超過 | 低 | 低 | クエリ最適化、不要データの削除 | 低 |
-| Timestreamサービス障害 | 低 | 高 | DynamoDBフォールバック、監視 | 中 |
+| リスク                   | 確率 | 影響度 | 軽減策                                         | 残存リスク |
+| ------------------------ | ---- | ------ | ---------------------------------------------- | ---------- |
+| データ移行失敗           | 中   | 高     | 二重書き込み、検証スクリプト、ロールバック計画 | 低         |
+| Timestreamクエリ性能問題 | 低   | 中     | 事前ベンチマーク、インデックス最適化           | 低         |
+| DynamoDB形式互換性       | 中   | 中     | 変換関数の徹底テスト                           | 低         |
+| コスト超過               | 低   | 低     | クエリ最適化、不要データの削除                 | 低         |
+| Timestreamサービス障害   | 低   | 高     | DynamoDBフォールバック、監視                   | 中         |
 
 ### 軽減策詳細
 
@@ -1064,6 +1081,7 @@ export const aggregateTokenUsage = async (...args) => {
 #### トリガー条件
 
 以下のいずれかが発生した場合、即座にロールバック：
+
 1. データ整合性エラー率が1%を超える
 2. クエリエラー率が5%を超える
 3. レスポンスタイムがDynamoDB比で2倍以上悪化
@@ -1152,13 +1170,14 @@ aws cloudwatch get-metric-statistics \
 
 ## 変更履歴
 
-| 日付 | 変更内容 | 作成者 |
-|------|---------|--------|
+| 日付       | 変更内容 | 作成者               |
+| ---------- | -------- | -------------------- |
 | 2025-10-31 | 初版作成 | Claude Code Analysis |
 
 ---
 
 **レビュー・承認:**
+
 - [ ] 技術リード承認
 - [ ] データエンジニア承認
 - [ ] プロダクトマネージャー承認
