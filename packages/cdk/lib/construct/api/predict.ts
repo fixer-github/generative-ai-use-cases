@@ -121,6 +121,7 @@ class PredictApi extends Construct {
           '@aws-sdk/client-sagemaker-runtime',
 
           '@langchain/core',
+          '@langchain/aws',
           '@langchain/openai',
         ],
       },
