@@ -6,7 +6,7 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe';
 import { StartTranscriptionRequest } from 'generative-ai-use-cases';
-import { getTenantId } from './utils/tenantUtils';
+import { getTenantId, getSub } from './utils/tenantUtils';
 import { getTenantCredentials } from './utils/tenantCredentials';
 import { getTenant } from './tenantManager';
 import {
@@ -20,7 +20,7 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const req: StartTranscriptionRequest = JSON.parse(event.body!);
-    const userId = event.requestContext.authorizer!.claims.sub;
+    const userId = getSub(event);
     const tenantId = getTenantId(event);
 
     console.log(

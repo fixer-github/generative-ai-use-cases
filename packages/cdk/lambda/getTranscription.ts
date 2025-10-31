@@ -5,7 +5,7 @@ import {
 } from '@aws-sdk/client-transcribe';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetTranscriptionResponse, Transcript } from 'generative-ai-use-cases';
-import { getTenantId } from './utils/tenantUtils';
+import { getTenantId, getSub } from './utils/tenantUtils';
 import { getTenantCredentials } from './utils/tenantCredentials';
 import { createTenantS3Client } from './utils/tenantS3Client';
 import { isDefaultTenant } from './utils/tenantS3Utils';
@@ -25,7 +25,7 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const jobName = event.pathParameters!.jobName;
-    const userId = event.requestContext.authorizer!.claims.sub;
+    const userId = getSub(event);
     const tenantId = getTenantId(event);
 
     console.log(
