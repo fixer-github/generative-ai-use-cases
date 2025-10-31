@@ -37,16 +37,16 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
       </div>
 
       {/* Assistants Section */}
-      <div className="border-b border-gray-200 p-3">
+      {/* Temporarily hidden until backend support is implemented */}
+      {/* <div className="border-b border-gray-200 p-3">
         <div className="mb-2 text-xs font-semibold text-gray-600">
           アシスタント
         </div>
-        {/* Empty assistants list - will be populated later */}
         <button className="hover:bg-gray-100 flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-gray-600 transition-colors">
           <PiMagnifyingGlass className="text-base" />
           <span>アシスタントを探す</span>
         </button>
-      </div>
+      </div> */}
 
       {/* Chat History Section */}
       <div className="flex-1 overflow-hidden flex flex-col">
