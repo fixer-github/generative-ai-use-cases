@@ -70,7 +70,6 @@ const ChatPage: React.FC = () => {
     setModelId,
     loading,
     writing,
-    loadingMessages,
     isEmpty,
     messages,
     clear,
@@ -188,11 +187,6 @@ const ChatPage: React.FC = () => {
       overrideModelParameters
     );
   }, [retryGeneration, base64Cache, overrideModelParameters]);
-
-  const onReset = useCallback(() => {
-    clear();
-    setContent('');
-  }, [clear, setContent]);
 
   const onStop = useCallback(() => {
     forceToStop();
