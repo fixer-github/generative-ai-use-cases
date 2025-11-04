@@ -37,6 +37,9 @@ export interface Tenant {
     updatedAt: string;
     updatedBy: string;
   };
+  openSearchEndpoint?: string;
+  openSearchDomainArn?: string;
+  openSearchIndexName?: string;
 }
 
 // Request interfaces
@@ -49,13 +52,16 @@ interface RegisterTenantRequest {
   roleArn: string;
 }
 
-interface UpdateTenantRequest {
+export interface UpdateTenantRequest {
   tenantId: string;
   status?: TenantStatus;
   region?: string;
   metadata?: Record<string, any>;
   accountId?: string;
   roleArn?: string;
+  openSearchEndpoint?: string;
+  openSearchDomainArn?: string;
+  openSearchIndexName?: string;
 }
 
 /**
@@ -171,6 +177,28 @@ export async function updateTenant(
       updateExpression.push('#roleArn = :roleArn');
       expressionAttributeNames['#roleArn'] = 'roleArn';
       expressionAttributeValues[':roleArn'] = request.roleArn;
+    }
+
+    // OpenSearch fields
+    if (request.openSearchEndpoint !== undefined) {
+      updateExpression.push('#openSearchEndpoint = :openSearchEndpoint');
+      expressionAttributeNames['#openSearchEndpoint'] = 'openSearchEndpoint';
+      expressionAttributeValues[':openSearchEndpoint'] =
+        request.openSearchEndpoint;
+    }
+
+    if (request.openSearchDomainArn !== undefined) {
+      updateExpression.push('#openSearchDomainArn = :openSearchDomainArn');
+      expressionAttributeNames['#openSearchDomainArn'] = 'openSearchDomainArn';
+      expressionAttributeValues[':openSearchDomainArn'] =
+        request.openSearchDomainArn;
+    }
+
+    if (request.openSearchIndexName !== undefined) {
+      updateExpression.push('#openSearchIndexName = :openSearchIndexName');
+      expressionAttributeNames['#openSearchIndexName'] = 'openSearchIndexName';
+      expressionAttributeValues[':openSearchIndexName'] =
+        request.openSearchIndexName;
     }
 
     // Always update updatedAt

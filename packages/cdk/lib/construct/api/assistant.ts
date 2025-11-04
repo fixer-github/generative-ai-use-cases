@@ -47,6 +47,7 @@ class AssistantApi extends Construct {
           assistantMessagesTable.tableName,
         OPENSEARCH_INDEX: 'assistant-docs',
         ASSISTANT_FILES_BUCKET_NAME: fileBucket?.bucketName || '',
+        TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
       }),
     });
 
@@ -96,6 +97,7 @@ class AssistantApi extends Construct {
             assistantMessagesTable.tableName,
           MODEL_REGION: props.modelRegion,
           OPENSEARCH_INDEX: 'assistant-docs',
+          TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
         }),
       }
     );
@@ -186,6 +188,8 @@ class AssistantApi extends Construct {
         timeout: Duration.seconds(30),
         environment: getBaseEnvironment(this, props, {
           ASSISTANT_FILES_BUCKET_NAME: fileBucket.bucketName,
+          OPENSEARCH_INDEX: 'assistant-docs',
+          TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
         }),
       });
 
@@ -195,6 +199,26 @@ class AssistantApi extends Construct {
       // Grant tenant table read permissions for tenant-aware S3 access
       if (tenantManager) {
         tenantManager.tenantsTable.grantReadData(uploadHandler);
+      }
+
+      // Grant OpenSearch permissions for document indexing
+      uploadHandler.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'es:ESHttpGet',
+            'es:ESHttpPost',
+            'es:ESHttpPut',
+            'es:ESHttpDelete',
+            'es:ESHttpHead',
+          ],
+          resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+        })
+      );
+
+      // Grant Bedrock permissions for document embeddings
+      if (props.bedrockPolicy) {
+        uploadHandler.addToRolePolicy(props.bedrockPolicy);
       }
 
       // Create /assistant/upload-url endpoint

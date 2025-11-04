@@ -8,7 +8,8 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 
-let vectorStore: OpenSearchVectorStore | null = null;
+// Tenant-aware cache: store vector store per tenant to prevent cross-tenant data leakage
+const vectorStoreCache = new Map<string, OpenSearchVectorStore>();
 let cachedEndpoint: string | null = null;
 let cachedTenantId: string | null = null;
 
@@ -37,26 +38,21 @@ function getTenantIdFromEvent(event: APIGatewayProxyEvent): string {
 async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
   // Return cached endpoint if tenant hasn't changed
   if (cachedEndpoint && cachedTenantId === tenantId) {
+    console.log(`Using cached OpenSearch endpoint for tenant ${tenantId}`);
     return cachedEndpoint;
   }
 
   const tenantsTableName = process.env.TENANTS_TABLE_NAME;
 
-  // Fallback to environment variable for backward compatibility
   if (!tenantsTableName) {
-    const envEndpoint = process.env.OPENSEARCH_ENDPOINT;
-    if (!envEndpoint) {
-      throw new Error(
-        'Neither TENANTS_TABLE_NAME nor OPENSEARCH_ENDPOINT environment variable is set'
-      );
-    }
-    console.warn(
-      'Using OPENSEARCH_ENDPOINT from environment variable (deprecated)'
+    throw new Error(
+      'TENANTS_TABLE_NAME environment variable is required for multi-tenant OpenSearch access'
     );
-    return envEndpoint;
   }
 
   try {
+    console.log(`Retrieving OpenSearch endpoint for tenant ${tenantId} from table ${tenantsTableName}`);
+
     const response = await dynamoClient.send(
       new GetItemCommand({
         TableName: tenantsTableName,
@@ -67,7 +63,9 @@ async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
     );
 
     if (!response.Item) {
-      throw new Error(`Tenant ${tenantId} not found in tenants table`);
+      throw new Error(
+        `Tenant ${tenantId} not found in tenants table. Ensure tenant is registered with OpenSearch configuration.`
+      );
     }
 
     const tenant = unmarshall(response.Item);
@@ -75,7 +73,7 @@ async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
 
     if (!endpoint) {
       throw new Error(
-        `OpenSearch endpoint not configured for tenant ${tenantId}`
+        `OpenSearch endpoint not configured for tenant ${tenantId}. Please run tenant OpenSearch setup.`
       );
     }
 
@@ -83,10 +81,10 @@ async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
     cachedEndpoint = endpoint;
     cachedTenantId = tenantId;
 
-    console.log(`Retrieved OpenSearch endpoint for tenant ${tenantId}`);
+    console.log(`Successfully retrieved OpenSearch endpoint for tenant ${tenantId}: ${endpoint}`);
     return endpoint;
   } catch (error) {
-    console.error('Error retrieving OpenSearch endpoint from tenants table:', error);
+    console.error(`Failed to retrieve OpenSearch endpoint for tenant ${tenantId}:`, error);
     throw error;
   }
 }
@@ -105,38 +103,47 @@ async function initVectorStore(
   // Get OpenSearch endpoint from tenants table
   const endpoint = await getOpenSearchEndpoint(tenantId);
 
-  // If endpoint changed or no vector store exists, create new one
-  if (!vectorStore || cachedTenantId !== tenantId) {
-    // Ensure endpoint has https:// protocol
-    const nodeUrl = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
-
-    // Create OpenSearch client with AWS Sigv4 authentication
-    const client = new Client({
-      ...AwsSigv4Signer({
-        region,
-        service: 'es', // Use 'es' for managed OpenSearch, 'aoss' for OpenSearch Serverless
-        getCredentials: () => {
-          const credentialsProvider = defaultProvider();
-          return credentialsProvider();
-        },
-      }),
-      node: nodeUrl,
-    });
-
-    // Initialize embeddings with Bedrock
-    const embeddings = new BedrockEmbeddings({
-      region,
-      model: 'amazon.titan-embed-text-v2:0',
-    });
-
-    // Create vector store
-    vectorStore = new OpenSearchVectorStore(embeddings, {
-      client,
-      indexName,
-    });
+  // Check if we have a cached vector store for this tenant
+  const cachedStore = vectorStoreCache.get(tenantId);
+  if (cachedStore) {
+    console.log(`Using cached vector store for tenant ${tenantId}`);
+    return cachedStore;
   }
 
-  return vectorStore;
+  console.log(`Creating new vector store for tenant ${tenantId}`);
+
+  // Ensure endpoint has https:// protocol
+  const nodeUrl = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
+
+  // Create OpenSearch client with AWS Sigv4 authentication
+  const client = new Client({
+    ...AwsSigv4Signer({
+      region,
+      service: 'es', // Use 'es' for managed OpenSearch, 'aoss' for OpenSearch Serverless
+      getCredentials: () => {
+        const credentialsProvider = defaultProvider();
+        return credentialsProvider();
+      },
+    }),
+    node: nodeUrl,
+  });
+
+  // Initialize embeddings with Bedrock
+  const embeddings = new BedrockEmbeddings({
+    region,
+    model: 'amazon.titan-embed-text-v2:0',
+  });
+
+  // Create vector store
+  const newVectorStore = new OpenSearchVectorStore(embeddings, {
+    client,
+    indexName,
+  });
+
+  // Cache the vector store for this tenant
+  vectorStoreCache.set(tenantId, newVectorStore);
+
+  return newVectorStore;
 }
 
 /**

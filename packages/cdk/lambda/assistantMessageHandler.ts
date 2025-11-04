@@ -121,6 +121,24 @@ async function handleCreateMessage(
     };
   }
 
+  // Validate system prompt exists
+  if (!assistant.instruction) {
+    console.error(
+      `Assistant ${assistantId} has no instruction/system prompt configured`
+    );
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        message: 'Assistant has no system prompt configured',
+      }),
+    };
+  }
+
+  console.log(
+    `Using assistant ${assistantId} with system prompt (${assistant.instruction.length} chars)`
+  );
+
   // Store user message
   await createMessage(
     assistantId,
@@ -190,6 +208,14 @@ async function handleCreateMessage(
   }
 
   // Include RAG context in system message if available
+  if (ragContext) {
+    console.log(
+      `Enhancing system prompt with RAG context from ${sources.length} document chunks`
+    );
+  } else {
+    console.log('Using system prompt without RAG context');
+  }
+
   const systemMessage = ragContext
     ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
     : assistant.instruction;
