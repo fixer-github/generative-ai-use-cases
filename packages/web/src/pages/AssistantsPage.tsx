@@ -9,7 +9,7 @@ const AssistantsPage: React.FC = () => {
   const { searchStore } = useBedrockChatApi();
 
   const [assistants, setAssistants] = useState<BedrockChatBot[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInputValue, setSearchInputValue] = useState('');
   const searchDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(
@@ -195,9 +195,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
   onStartChat,
 }) => {
   return (
-    <div
-      className="flex cursor-pointer flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-      onClick={() => onStartChat(assistant.id)}>
+    <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
       {/* Icon */}
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
         <PiRobot className="text-2xl text-blue-600" />
@@ -215,10 +213,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 
       {/* Start Chat Button */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onStartChat(assistant.id);
-        }}
+        onClick={() => onStartChat(assistant.id)}
         className="w-full rounded-lg border border-gray-300 bg-white py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
         チャットを始める
       </button>

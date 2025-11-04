@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { BaseProps } from '../@types/common';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
+import { PiPlus, PiMagnifyingGlass, PiRobot } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
+import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 
 type Props = BaseProps & {
   onNewChat?: () => void;
@@ -13,6 +14,11 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { searchStore } = useBedrockChatApi();
+
+  const [featuredAssistants, setFeaturedAssistants] = useState<BedrockChatBot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleNewChat = () => {
     // If already on /chat page, just reset the chat
@@ -22,6 +28,57 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
       // Otherwise, navigate to /chat
       navigate('/chat');
     }
+  };
+
+  // Check if assistants page is active
+  const isAssistantsActive = location.pathname.startsWith('/chat/assistants');
+
+  // Fetch featured assistants (max 6)
+  const fetchFeaturedAssistants = useCallback(async () => {
+    // Cancel previous request if it exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
+    setLoading(true);
+    try {
+      const params = {
+        starred: undefined,
+        limit: 50,
+        sort: 'usage' as const,
+      };
+
+      const data = await searchStore(params);
+      // Featured assistants: starred assistants first, then top by usage (max 6)
+      const featured = [
+        ...(data?.filter((a: BedrockChatBot) => a.isStarred) || []),
+        ...(data?.filter((a: BedrockChatBot) => !a.isStarred) || []),
+      ].slice(0, 6);
+      setFeaturedAssistants(featured);
+    } catch (error) {
+      console.error('Failed to fetch featured assistants:', error);
+      setFeaturedAssistants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchStore]);
+
+  // Fetch featured assistants on mount
+  useEffect(() => {
+    fetchFeaturedAssistants();
+    // Cleanup AbortController on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchFeaturedAssistants]);
+
+  const handleAssistantClick = (assistantId: string) => {
+    navigate(`/rag-chat-bot/chat/${assistantId}`);
   };
 
   return (
@@ -41,9 +98,31 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
         <div className="mb-2 text-xs font-semibold text-gray-600">
           アシスタント
         </div>
+
+        {/* Featured Assistants List */}
+        {!loading && featuredAssistants.length > 0 && (
+          <div className="mb-2 space-y-1">
+            {featuredAssistants.map((assistant) => (
+              <button
+                key={assistant.id}
+                onClick={() => handleAssistantClick(assistant.id)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-gray-600 transition-colors hover:bg-gray-100"
+                title={assistant.description || assistant.title}>
+                <PiRobot className="flex-shrink-0 text-base text-blue-600" />
+                <span className="truncate">{assistant.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search Assistants Button */}
         <button
           onClick={() => navigate('/chat/assistants')}
-          className="hover:bg-gray-100 flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-gray-600 transition-colors">
+          className={`flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 transition-colors ${
+            isAssistantsActive
+              ? 'bg-gray-200 text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}>
           <PiMagnifyingGlass className="text-base" />
           <span>アシスタントを探す</span>
         </button>
