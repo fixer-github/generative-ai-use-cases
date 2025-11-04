@@ -16,6 +16,7 @@ import ChatLayout from './ChatLayout';
 import StatPage from '../pages/StatPage';
 import ChatPage from '../pages/ChatPage';
 import AssistantsPage from '../pages/AssistantsPage';
+import AssistantCreatePage from '../pages/AssistantCreatePage';
 import SharedChatPage from '../pages/SharedChatPage';
 import SummarizePage from '../pages/SummarizePage';
 import GenerateTextPage from '../pages/GenerateTextPage';
@@ -108,6 +109,10 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
         {
           path: 'assistants',
           element: <AssistantsPage />,
+        },
+        {
+          path: 'assistants/create',
+          element: <AssistantCreatePage />,
         },
       ],
     },
