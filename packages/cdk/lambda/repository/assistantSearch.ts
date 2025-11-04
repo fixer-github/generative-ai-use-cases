@@ -2,11 +2,11 @@ import { OpenSearchVectorStore } from '@langchain/community/vectorstores/opensea
 import { BedrockEmbeddings } from '@langchain/community/embeddings/bedrock';
 import { Document } from '@langchain/core/documents';
 import { Client } from '@opensearch-project/opensearch';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
+import { getTenantCredentials } from '../utils/tenantCredentials';
 
 // Tenant-aware cache: store vector store per tenant to prevent cross-tenant data leakage
 const vectorStoreCache = new Map<string, OpenSearchVectorStore>();
@@ -115,23 +115,36 @@ async function initVectorStore(
   // Ensure endpoint has https:// protocol
   const nodeUrl = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
 
-  // Create OpenSearch client with AWS Sigv4 authentication
+  // Get tenant credentials for OpenSearch access
+  const { credentials, tenant } = await getTenantCredentials(event);
+
+  if (!credentials.AccessKeyId || !credentials.SecretAccessKey) {
+    throw new Error('Invalid tenant credentials for OpenSearch access');
+  }
+
+  // Create OpenSearch client with AWS Sigv4 authentication using tenant credentials
   const client = new Client({
     ...AwsSigv4Signer({
       region,
       service: 'es', // Use 'es' for managed OpenSearch, 'aoss' for OpenSearch Serverless
-      getCredentials: () => {
-        const credentialsProvider = defaultProvider();
-        return credentialsProvider();
-      },
+      getCredentials: () => Promise.resolve({
+        accessKeyId: credentials.AccessKeyId!,
+        secretAccessKey: credentials.SecretAccessKey!,
+        sessionToken: credentials.SessionToken,
+      }),
     }),
     node: nodeUrl,
   });
 
-  // Initialize embeddings with Bedrock
+  // Initialize embeddings with Bedrock using tenant credentials
   const embeddings = new BedrockEmbeddings({
     region,
     model: 'amazon.titan-embed-text-v2:0',
+    credentials: {
+      accessKeyId: credentials.AccessKeyId!,
+      secretAccessKey: credentials.SecretAccessKey!,
+      sessionToken: credentials.SessionToken,
+    },
   });
 
   // Create vector store
