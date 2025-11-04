@@ -12,8 +12,10 @@ import AuthWithUserpool from './AuthWithUserpool';
 import AuthWithSAML from './AuthWithSAML';
 import AuthWithSamlOrUserpool from './AuthWithSamlOrUserpool';
 import App from '../App';
+import ChatLayout from './ChatLayout';
 import StatPage from '../pages/StatPage';
 import ChatPage from '../pages/ChatPage';
+import AssistantsPage from '../pages/AssistantsPage';
 import SharedChatPage from '../pages/SharedChatPage';
 import SummarizePage from '../pages/SummarizePage';
 import GenerateTextPage from '../pages/GenerateTextPage';
@@ -93,11 +95,21 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     },
     {
       path: '/chat',
-      element: <ChatPage />,
-    },
-    {
-      path: '/chat/:chatId',
-      element: <ChatPage />,
+      element: <ChatLayout />,
+      children: [
+        {
+          index: true,
+          element: <ChatPage />,
+        },
+        {
+          path: ':chatId',
+          element: <ChatPage />,
+        },
+        {
+          path: 'assistants',
+          element: <AssistantsPage />,
+        },
+      ],
     },
     {
       path: '/share/:shareId',

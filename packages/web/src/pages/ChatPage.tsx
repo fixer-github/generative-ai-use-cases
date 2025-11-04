@@ -25,7 +25,6 @@ import {
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
-import ChatSidebar from '../components/ChatSidebar';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -285,15 +284,10 @@ const ChatPage: React.FC = () => {
 
   return (
     <>
-      {/* Chat Sidebar */}
-      <div className="fixed left-24 top-0 z-40 h-screen print:hidden">
-        <ChatSidebar onNewChat={onReset} />
-      </div>
-
       {/* Main Content */}
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className="relative ml-64 min-h-screen flex flex-col">
+        className="relative min-h-screen flex flex-col">
         {isOver && fileUpload && (
           <div
             onDragLeave={handleDragLeave}
@@ -389,7 +383,7 @@ const ChatPage: React.FC = () => {
               ))}
             </div>
 
-            <div className="fixed bottom-0 left-64 right-0 bg-white print:hidden">
+            <div className="fixed bottom-0 left-0 right-0 bg-white print:hidden">
               <InputChatContent
                 className="mx-auto my-4"
                 content={content}

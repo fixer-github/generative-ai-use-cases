@@ -1,9 +1,7 @@
 import React from 'react';
 import { BaseProps } from '../@types/common';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { PiPlus } from 'react-icons/pi';
-// Temporarily commented out - used in Assistant search
-// import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
+import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
 
@@ -39,16 +37,17 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
       </div>
 
       {/* Assistants Section */}
-      {/* Temporarily hidden until backend support is implemented */}
-      {/* <div className="border-b border-gray-200 p-3">
+      <div className="border-b border-gray-200 p-3">
         <div className="mb-2 text-xs font-semibold text-gray-600">
           アシスタント
         </div>
-        <button className="hover:bg-gray-100 flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-gray-600 transition-colors">
+        <button
+          onClick={() => navigate('/chat/assistants')}
+          className="hover:bg-gray-100 flex w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-gray-600 transition-colors">
           <PiMagnifyingGlass className="text-base" />
           <span>アシスタントを探す</span>
         </button>
-      </div> */}
+      </div>
 
       {/* Chat History Section */}
       <div className="flex-1 overflow-hidden flex flex-col">
