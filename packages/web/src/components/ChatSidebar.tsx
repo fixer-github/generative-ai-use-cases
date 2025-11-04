@@ -1,7 +1,9 @@
 import React from 'react';
 import { BaseProps } from '../@types/common';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
+import { PiPlus } from 'react-icons/pi';
+// Temporarily commented out - used in Assistant search
+// import { PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
 

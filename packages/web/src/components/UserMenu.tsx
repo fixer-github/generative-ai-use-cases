@@ -3,12 +3,13 @@ import * as Popover from '@radix-ui/react-popover';
 import {
   PiGear,
   PiSignOut,
-  PiQuestion,
-  PiCaretRight,
-  PiEnvelope,
-  PiFileText,
-  PiBug,
-  PiBook,
+  // Temporarily commented out - used in Help menu
+  // PiQuestion,
+  // PiCaretRight,
+  // PiEnvelope,
+  // PiFileText,
+  // PiBug,
+  // PiBook,
 } from 'react-icons/pi';
 import useUserInfo from '../hooks/useUserInfo';
 import { performLogoutAndReload } from '../utils/auth';
@@ -17,7 +18,7 @@ import SettingsModal from './SettingsModal';
 const UserMenu: React.FC = () => {
   const { userInfo, loading } = useUserInfo();
   const [isOpen, setIsOpen] = useState(false);
-  const [isHelpSubmenuOpen, setIsHelpSubmenuOpen] = useState(false);
+  // const [isHelpSubmenuOpen, setIsHelpSubmenuOpen] = useState(false); // Temporarily commented out
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -62,8 +63,7 @@ const UserMenu: React.FC = () => {
           align="start"
           sideOffset={8}
           alignOffset={12}
-          className="z-50 w-64 rounded-lg border border-gray-200 bg-white shadow-lg"
-          onInteractOutside={() => setIsHelpSubmenuOpen(false)}>
+          className="z-50 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
           {/* User Info Section */}
           <div className="border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-3">
@@ -85,8 +85,8 @@ const UserMenu: React.FC = () => {
 
           {/* Menu Items */}
           <div className="py-2">
-            {/* Help Menu with Submenu */}
-            <div
+            {/* Help Menu with Submenu - Temporarily commented out */}
+            {/* <div
               className="relative"
               onMouseEnter={() => setIsHelpSubmenuOpen(true)}
               onMouseLeave={() => setIsHelpSubmenuOpen(false)}>
@@ -103,7 +103,6 @@ const UserMenu: React.FC = () => {
                 <PiCaretRight className="h-4 w-4 text-gray-400" />
               </button>
 
-              {/* Help Submenu */}
               {isHelpSubmenuOpen && (
                 <div className="absolute left-full top-0 ml-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg">
                   <div className="py-2">
@@ -149,7 +148,7 @@ const UserMenu: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </div> */}
 
             {/* Settings */}
             <button
