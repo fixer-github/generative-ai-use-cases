@@ -3,6 +3,7 @@ import {
   RouterProvider,
   createBrowserRouter,
   RouteObject,
+  Navigate,
 } from 'react-router-dom';
 import { MODELS } from '../hooks/useModel';
 import { optimizePromptEnabled } from '../hooks/useOptimizePrompt';
@@ -11,7 +12,6 @@ import AuthWithUserpool from './AuthWithUserpool';
 import AuthWithSAML from './AuthWithSAML';
 import AuthWithSamlOrUserpool from './AuthWithSamlOrUserpool';
 import App from '../App';
-import LandingPage from '../pages/LandingPage';
 import StatPage from '../pages/StatPage';
 import ChatPage from '../pages/ChatPage';
 import SharedChatPage from '../pages/SharedChatPage';
@@ -85,7 +85,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
   const routes: RouteObject[] = [
     {
       path: '/',
-      element: <LandingPage />,
+      element: <Navigate to="/chat" replace />,
     },
     {
       path: '/stats',
