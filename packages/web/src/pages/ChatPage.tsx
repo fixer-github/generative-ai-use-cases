@@ -118,6 +118,7 @@ const ChatPage: React.FC = () => {
   const accept = useMemo(() => {
     if (!modelId) return [];
     const feature = MODELS.modelMetadata[modelId];
+    if (!feature) return [];
     return [
       ...(feature.flags.doc ? fileLimit.accept.doc : []),
       ...(feature.flags.image ? fileLimit.accept.image : []),
@@ -442,7 +443,7 @@ const ChatPage: React.FC = () => {
             className="relative w-full"
             defaultOpened={true}>
             <ModelParameters
-              modelFeatureFlags={MODELS.modelMetadata[modelId].flags}
+              modelFeatureFlags={MODELS.modelMetadata[modelId]?.flags}
               overrideModelParameters={overrideModelParameters}
               setOverrideModelParameters={setOverrideModelParameters}
             />
