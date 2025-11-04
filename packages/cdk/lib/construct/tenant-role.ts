@@ -180,6 +180,23 @@ export class TenantRole extends Construct {
               ],
               resources: ['*'], // Transcribe doesn't have tenant-specific resources
             }),
+
+            // OpenSearch access for RAG functionality (tenant-specific)
+            new PolicyStatement({
+              sid: 'OpenSearchAccess',
+              effect: Effect.ALLOW,
+              actions: [
+                'es:ESHttpPost',
+                'es:ESHttpPut',
+                'es:ESHttpGet',
+                'es:ESHttpDelete',
+                'es:ESHttpHead',
+              ],
+              resources: [
+                // Tenant-specific OpenSearch domain
+                `arn:aws:es:${props.region}:${props.account}:domain/${props.env}-${props.tenantId}-opensearch/*`,
+              ],
+            }),
           ],
         }),
       },
