@@ -11,7 +11,6 @@ import ModalDialog from '../components/ModalDialog';
 import ExpandableField from '../components/ExpandableField';
 import ModelSelector from '../components/ModelSelector';
 import useFollow from '../hooks/useFollow';
-import { PiShareFatFill } from 'react-icons/pi';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
 import { MODELS } from '../hooks/useModel';
@@ -316,20 +315,6 @@ const ChatPage: React.FC = () => {
 
           {/* Spacer */}
           <div className="flex-1" />
-
-          {/* Share Button */}
-          <div className="w-64 flex justify-end">
-            {!isEmpty && !loadingMessages && chatId && (
-              <button
-                className="flex justify-center items-center text-sm hover:underline"
-                onClick={() => {
-                  setShowShareIdModal(true);
-                }}>
-                <PiShareFatFill className="mr-1" />
-                {share ? <>{t('chat.sharing')}</> : <>{t('chat.share')}</>}
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Print-only Title */}
