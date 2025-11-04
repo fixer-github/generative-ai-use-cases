@@ -2,7 +2,12 @@ import * as cdk from 'aws-cdk-lib';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import { Duration } from 'aws-cdk-lib';
+import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 
 export interface TenantOpenSearchStackProps extends cdk.StackProps {
   /**
@@ -54,6 +59,11 @@ export interface TenantOpenSearchStackProps extends cdk.StackProps {
    * Removal policy for the domain
    */
   readonly removalPolicy: cdk.RemovalPolicy;
+
+  /**
+   * DynamoDB table name for tenants (for OpenSearch endpoint mapping)
+   */
+  readonly tenantsTableName?: string;
 }
 
 /**
@@ -271,6 +281,63 @@ export class TenantOpenSearchStack extends cdk.Stack {
       description: `IAM role ARN for CodeBuild to create OpenSearch indices for tenant ${tenantId}`,
       exportName: `${this.stackName}-IndexCreationRoleArn`,
     });
+
+    // Create custom resource to sync OpenSearch endpoint to tenants table
+    if (props.tenantsTableName) {
+      const mapperFunction = new NodejsFunction(this, 'TenantOpenSearchMapper', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/tenantOpenSearchMapper.ts',
+        timeout: Duration.minutes(5),
+        environment: {
+          TENANTS_TABLE_NAME: props.tenantsTableName,
+        },
+      });
+
+      // Grant permissions to read CloudFormation stacks
+      mapperFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['cloudformation:DescribeStacks'],
+          resources: [this.stackId],
+        })
+      );
+
+      // Grant permissions to update tenants table
+      mapperFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:UpdateItem',
+          ],
+          resources: [
+            `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.tenantsTableName}`,
+          ],
+        })
+      );
+
+      // Create custom resource provider
+      const provider = new cr.Provider(this, 'TenantOpenSearchMapperProvider', {
+        onEventHandler: mapperFunction,
+        logRetention: 7,
+      });
+
+      // Create custom resource
+      new cdk.CustomResource(this, 'TenantOpenSearchMapping', {
+        serviceToken: provider.serviceToken,
+        properties: {
+          tenantId: tenantId.toString(),
+          openSearchStackName: this.stackName,
+          openSearchIndexName: 'assistant-docs',
+          // Force update on every deployment
+          timestamp: Date.now().toString(),
+        },
+      });
+
+      console.log(
+        `Created tenant-OpenSearch mapper for tenant ${tenantId} with table ${props.tenantsTableName}`
+      );
+    }
 
     // Add tags
     cdk.Tags.of(this).add('TenantId', tenantId.toString());
