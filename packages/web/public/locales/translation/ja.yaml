@@ -783,6 +783,7 @@ ragChatBot:
   syncStatus:
     completed: 同期完了
     failed: 同期失敗
+    partial: 部分的に同期
     syncing: 同期中
   tenantPublic: テナント内公開
   tenantPublicDescription: テナント内のメンバーが利用できます

@@ -941,6 +941,7 @@ ragChatBot:
   syncStatus:
     completed: Sync Complete
     failed: Sync Failed
+    partial: Partially Synced
     syncing: Syncing
   tenantPublic: Tenant Public
   tenantPublicDescription: Members of your tenant can use this bot

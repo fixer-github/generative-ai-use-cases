@@ -121,6 +121,29 @@ async function handleCreateMessage(
     };
   }
 
+  // Block chat if RAG is enabled and assistant is not fully synced
+  if (assistant.ragEnabled && assistant.syncStatus !== 'SUCCEEDED') {
+    const statusMessage =
+      assistant.syncStatus === 'QUEUED' ? 'Assistant is queued for document indexing' :
+      assistant.syncStatus === 'SYNCING' ? 'Assistant is currently indexing documents' :
+      assistant.syncStatus === 'FAILED' ? 'Assistant document indexing failed' :
+      assistant.syncStatus === 'PARTIAL' ? 'Some assistant documents failed to index' :
+      'Assistant is not ready';
+
+    console.log(
+      `Chat blocked for assistant ${assistantId}: status is ${assistant.syncStatus}`
+    );
+
+    return {
+      statusCode: 409, // Conflict - resource not ready
+      headers,
+      body: JSON.stringify({
+        message: `${statusMessage}. Please wait until indexing completes before chatting.`,
+        syncStatus: assistant.syncStatus,
+      }),
+    };
+  }
+
   // Validate system prompt exists
   if (!assistant.instruction) {
     console.error(

@@ -18,7 +18,7 @@ export type Assistant = {
   instruction: string;
   modelId: string;
   ragEnabled: boolean;
-  syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED';
+  syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED' | 'PARTIAL';
   syncStatusReason: string;
   knowledgeSources: KnowledgeSource[];
   s3Urls?: string[]; // Deprecated - for backward compatibility during migration

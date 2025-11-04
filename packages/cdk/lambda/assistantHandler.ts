@@ -6,6 +6,7 @@ import {
   updateAssistant,
   deleteAssistant,
   updateKnowledgeSourceStatus,
+  updateAssistantSyncStatus,
 } from './repository/assistant';
 import { deleteMessagesForAssistant } from './repository/assistantMessage';
 import {
@@ -129,16 +130,14 @@ async function handleCreate(
 
   const assistant = await createAssistant(userId, body, event);
 
-  // If RAG is enabled and knowledge sources are provided, ingest documents
-  if (
-    body.ragEnabled &&
-    body.knowledgeSources &&
-    body.knowledgeSources.length > 0
-  ) {
-    const cleanAssistantId = assistant.assistantId.replace('assistant#', '');
+  // If RAG is enabled, process knowledge sources and update status
+  if (body.ragEnabled) {
+    // If knowledge sources are provided, ingest documents
+    if (body.knowledgeSources && body.knowledgeSources.length > 0) {
+      const cleanAssistantId = assistant.assistantId.replace('assistant#', '');
 
-    // Process each knowledge source individually to track status per-source
-    for (const source of body.knowledgeSources) {
+      // Process each knowledge source individually to track status per-source
+      for (const source of body.knowledgeSources) {
       try {
         console.log(
           `Processing knowledge source ${source.id} for assistant ${cleanAssistantId}`
@@ -200,7 +199,11 @@ async function handleCreate(
         // Don't fail the assistant creation if one source fails
         // Continue processing other sources
       }
+      }
     }
+
+    // After all sources are processed (or if no sources), update overall assistant status
+    await updateAssistantSyncStatus(assistant, event);
   }
 
   return {
@@ -363,6 +366,9 @@ async function handleUpdate(
           }
         }
 
+        // After all sources are processed, update overall assistant status
+        await updateAssistantSyncStatus(assistant, event);
+
         // If all sources failed, throw error to surface to user
         if (!hasAnySuccess && lastError) {
           throw new Error(
@@ -373,6 +379,9 @@ async function handleUpdate(
         console.log(
           `Cleared all documents for assistant ${assistantId} (no new sources)`
         );
+
+        // Update status even when clearing all documents
+        await updateAssistantSyncStatus(assistant, event);
       }
     }
 

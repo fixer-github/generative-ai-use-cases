@@ -300,6 +300,71 @@ export const updateKnowledgeSourceStatus = async (
   assistant.knowledgeSources = cleanedSources;
 };;;
 
+/**
+ * Update the overall sync status of an assistant based on its knowledge sources
+ * Aggregates individual source statuses to determine overall state
+ */
+export const updateAssistantSyncStatus = async (
+  assistant: Assistant,
+  event: APIGatewayProxyEvent
+): Promise<void> => {
+  // Get all knowledge source statuses
+  const sources = assistant.knowledgeSources || [];
+
+  let syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED' | 'PARTIAL' = 'QUEUED';
+
+  if (sources.length === 0) {
+    // No sources means no indexing needed
+    syncStatus = 'SUCCEEDED';
+  } else {
+    const statuses = sources.map(s => s.status || 'QUEUED');
+    const hasQueued = statuses.some(s => s === 'QUEUED');
+    const hasSyncing = statuses.some(s => s === 'SYNCING');
+    const hasFailed = statuses.some(s => s === 'FAILED');
+    const hasSucceeded = statuses.some(s => s === 'SUCCEEDED');
+    const allSucceeded = statuses.every(s => s === 'SUCCEEDED');
+    const allFailed = statuses.every(s => s === 'FAILED');
+
+    if (hasQueued || hasSyncing) {
+      syncStatus = 'SYNCING';
+    } else if (allSucceeded) {
+      syncStatus = 'SUCCEEDED';
+    } else if (allFailed) {
+      syncStatus = 'FAILED';
+    } else if (hasSucceeded && hasFailed) {
+      syncStatus = 'PARTIAL';
+    } else {
+      syncStatus = 'FAILED';
+    }
+  }
+
+  // Update assistant record
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getAssistantTableName(event);
+
+  await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        userId: assistant.id,
+        createdDate: assistant.createdDate,
+      },
+      UpdateExpression: 'SET #syncStatus = :syncStatus, #updatedDate = :updatedDate',
+      ExpressionAttributeNames: {
+        '#syncStatus': 'syncStatus',
+        '#updatedDate': 'updatedDate',
+      },
+      ExpressionAttributeValues: {
+        ':syncStatus': syncStatus,
+        ':updatedDate': Date.now().toString(),
+      },
+    })
+  );
+
+  // Update in-memory object
+  assistant.syncStatus = syncStatus;
+};;;
+
 export const deleteAssistant = async (
   _assistantId: string,
   _userId: string,

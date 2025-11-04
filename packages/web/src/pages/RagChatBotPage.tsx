@@ -134,7 +134,7 @@ const RagChatBotPage: React.FC = () => {
   };
 
   const getSyncStatusDisplay = (
-    status: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED'
+    status: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED' | 'PARTIAL'
   ) => {
     switch (status) {
       case 'SUCCEEDED':
@@ -149,6 +149,12 @@ const RagChatBotPage: React.FC = () => {
           text: t('ragChatBot.syncStatus.syncing'),
           icon: <PiClockCountdown className="animate-pulse text-blue-600" />,
           className: 'text-blue-600',
+        };
+      case 'PARTIAL':
+        return {
+          text: t('ragChatBot.syncStatus.partial'),
+          icon: <PiWarningCircle className="text-yellow-600" />,
+          className: 'text-yellow-600',
         };
       case 'FAILED':
         return {
