@@ -57,16 +57,19 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
     }
   }, [listAssistants]);
 
-  // Fetch featured assistants on mount
+  // Fetch featured assistants on mount (but not on assistants page to avoid duplicate requests)
   useEffect(() => {
-    fetchFeaturedAssistants();
+    // Skip fetching if we're on the assistants page (AssistantsPage will handle it)
+    if (!isAssistantsActive) {
+      fetchFeaturedAssistants();
+    }
     // Cleanup AbortController on unmount
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [fetchFeaturedAssistants]);
+  }, [fetchFeaturedAssistants, isAssistantsActive]);
 
   const handleAssistantClick = (assistantId: string) => {
     navigate(`/rag-chat-bot/chat/${assistantId}`);

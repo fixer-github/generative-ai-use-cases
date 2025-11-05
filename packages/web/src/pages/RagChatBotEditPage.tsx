@@ -149,10 +149,12 @@ const RagChatBotEditPage: React.FC = () => {
           });
 
           // Add S3 URL to form data
-          setFormData((prev) => ({
-            ...prev,
-            s3Urls: [...prev.s3Urls, s3Url],
-          }));
+          if (s3Url) {
+            setFormData((prev) => ({
+              ...prev,
+              s3Urls: [...prev.s3Urls, s3Url],
+            }));
+          }
         } catch (error) {
           console.error('Failed to upload file:', error);
           alert(`Failed to upload ${file.name}`);

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Assistant,
   AssistantMessage,
@@ -32,79 +33,83 @@ function buildQueryString(params?: { limit?: number; nextToken?: string }): stri
 const useAssistantApi = () => {
   const http = useHttp();
 
-  return {
-    listAssistants: async (
-      params?: ListAssistantsQueryParams
-    ): Promise<ListAssistantsResponse> => {
-      const queryString = buildQueryString(params);
-      const url = queryString ? `assistant?${queryString}` : 'assistant';
-      const res = await http.api.get<ListAssistantsResponse>(url);
-      return res.data;
-    },
+  return useMemo(
+    () => ({
+      listAssistants: async (
+        params?: ListAssistantsQueryParams
+      ): Promise<ListAssistantsResponse> => {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `assistant?${queryString}` : 'assistant';
+        const res = await http.api.get<ListAssistantsResponse>(url);
+        return res.data;
+      },
 
-    getAssistant: async (assistantId: string): Promise<Assistant> => {
-      const res = await http.api.get<Assistant>(`assistant/${assistantId}`);
-      return res.data;
-    },
+      getAssistant: async (assistantId: string): Promise<Assistant> => {
+        const res = await http.api.get<Assistant>(`assistant/${assistantId}`);
+        return res.data;
+      },
 
-    createAssistant: async (
-      request: CreateAssistantRequest
-    ): Promise<Assistant> => {
-      const res = await http.post<Assistant, CreateAssistantRequest>(
-        'assistant',
-        request
-      );
-      return res.data;
-    },
+      createAssistant: async (
+        request: CreateAssistantRequest
+      ): Promise<Assistant> => {
+        const res = await http.post<Assistant, CreateAssistantRequest>(
+          'assistant',
+          request
+        );
+        return res.data;
+      },
 
-    updateAssistant: async (
-      assistantId: string,
-      request: UpdateAssistantRequest
-    ): Promise<Assistant> => {
-      const res = await http.put<Assistant, UpdateAssistantRequest>(
-        `assistant/${assistantId}`,
-        request
-      );
-      return res.data;
-    },
+      updateAssistant: async (
+        assistantId: string,
+        request: UpdateAssistantRequest
+      ): Promise<Assistant> => {
+        const res = await http.put<Assistant, UpdateAssistantRequest>(
+          `assistant/${assistantId}`,
+          request
+        );
+        return res.data;
+      },
 
-    deleteAssistant: async (assistantId: string): Promise<void> => {
-      await http.delete<void>(`assistant/${assistantId}`);
-    },
+      deleteAssistant: async (assistantId: string): Promise<void> => {
+        await http.delete<void>(`assistant/${assistantId}`);
+      },
 
-    listMessages: async (
-      assistantId: string,
-      params?: ListAssistantMessagesQueryParams
-    ): Promise<ListAssistantMessagesResponse> => {
-      const queryString = buildQueryString(params);
-      const url = queryString
-        ? `assistant/${assistantId}/messages?${queryString}`
-        : `assistant/${assistantId}/messages`;
-      const res = await http.api.get<ListAssistantMessagesResponse>(url);
-      return res.data;
-    },
+      listMessages: async (
+        assistantId: string,
+        params?: ListAssistantMessagesQueryParams
+      ): Promise<ListAssistantMessagesResponse> => {
+        const queryString = buildQueryString(params);
+        const url = queryString
+          ? `assistant/${assistantId}/messages?${queryString}`
+          : `assistant/${assistantId}/messages`;
+        const res = await http.api.get<ListAssistantMessagesResponse>(url);
+        return res.data;
+      },
 
-    createMessage: async (
-      assistantId: string,
-      request: CreateAssistantMessageRequest
-    ): Promise<AssistantMessage> => {
-      const res = await http.post<
-        AssistantMessage,
-        CreateAssistantMessageRequest
-      >(`assistant/${assistantId}/messages`, request);
-      return res.data;
-    },
+      createMessage: async (
+        assistantId: string,
+        request: CreateAssistantMessageRequest
+      ): Promise<AssistantMessage> => {
+        const res = await http.post<
+          AssistantMessage,
+          CreateAssistantMessageRequest
+        >(`assistant/${assistantId}/messages`, request);
+        return res.data;
+      },
 
-    requestUploadUrl: async (
-      request: RequestUploadUrlRequest
-    ): Promise<RequestUploadUrlResponse> => {
-      const res = await http.post<
-        RequestUploadUrlResponse,
-        RequestUploadUrlRequest
-      >('assistant/upload-url', request);
-      return res.data;
-    },
-  };
+      requestUploadUrl: async (
+        request: RequestUploadUrlRequest
+      ): Promise<RequestUploadUrlResponse> => {
+        const res = await http.post<
+          RequestUploadUrlResponse,
+          RequestUploadUrlRequest
+        >('assistant/upload-url', request);
+        return res.data;
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [] // http.api is stable - created once at module level in useHttp.ts
+  );
 };
 
 export default useAssistantApi;

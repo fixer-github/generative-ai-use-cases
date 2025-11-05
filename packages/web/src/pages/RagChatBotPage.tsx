@@ -79,7 +79,7 @@ const RagChatBotPage: React.FC = () => {
 
   // Function to update only sync status without full reload
   const updateSyncStatuses = useCallback(async () => {
-    const botsToUpdate = bots.filter((bot) => bot.syncStatus === 'RUNNING');
+    const botsToUpdate = bots.filter((bot) => bot.syncStatus === 'SYNCING');
 
     if (botsToUpdate.length === 0) return;
 
@@ -134,7 +134,7 @@ const RagChatBotPage: React.FC = () => {
 
   // Polling for sync status
   useEffect(() => {
-    const shouldPoll = bots.some((bot) => bot.syncStatus === 'RUNNING');
+    const shouldPoll = bots.some((bot) => bot.syncStatus === 'SYNCING');
 
     if (shouldPoll) {
       pollingInterval.current = setInterval(() => {
