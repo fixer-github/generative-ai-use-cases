@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import ExpandableField from '@/components/layout/ExpandableField';
 import Textarea from '@/components/ui/Textarea';
-import Markdown from '@/components/utility/Markdown';
-import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import Select from '@/components/ui/Select';
 import useChat from '@/hooks/useChat';
 import useTyping from '@/hooks/useTyping';
@@ -15,6 +12,9 @@ import { MODELS } from '@/hooks/useModel';
 import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
 import { useTranslation } from 'react-i18next';
+import PageContainer from '@/components/layout/PageContainer';
+import ActionButtonGroup from '@/components/ui/ActionButtonGroup';
+import ResultDisplay from '@/components/feature/result/ResultDisplay';
 
 type StateType = {
   sentence: string;
@@ -148,66 +148,47 @@ const SummarizePage: React.FC = () => {
   }, []);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('summarize.title')}
-      </div>
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
-        <Card label={t('summarize.text_to_summarize')}>
-          <div className="mb-2 flex w-full">
-            <Select
-              value={modelId}
-              onChange={setModelId}
-              options={availableModels.map((m) => {
-                return { value: m, label: modelDisplayName(m) };
-              })}
-            />
-          </div>
-
-          <Textarea
-            placeholder={t('summarize.enter_text')}
-            value={sentence}
-            onChange={setSentence}
-            maxHeight={-1}
+    <PageContainer title={t('summarize.title')}>
+      <Card label={t('summarize.text_to_summarize')}>
+        <div className="mb-2 flex w-full">
+          <Select
+            value={modelId}
+            onChange={setModelId}
+            options={availableModels.map((m) => {
+              return { value: m, label: modelDisplayName(m) };
+            })}
           />
+        </div>
 
-          <ExpandableField label={t('summarize.additional_context')} optional>
-            <Textarea
-              placeholder={t('summarize.additional_context_placeholder')}
-              value={additionalContext}
-              onChange={setAdditionalContext}
-            />
-          </ExpandableField>
+        <Textarea
+          placeholder={t('summarize.enter_text')}
+          value={sentence}
+          onChange={setSentence}
+          maxHeight={-1}
+        />
 
-          <div className="flex justify-end gap-3">
-            <Button outlined onClick={onClickClear} disabled={disabledExec}>
-              {t('common.clear')}
-            </Button>
+        <ExpandableField label={t('summarize.additional_context')} optional>
+          <Textarea
+            placeholder={t('summarize.additional_context_placeholder')}
+            value={additionalContext}
+            onChange={setAdditionalContext}
+          />
+        </ExpandableField>
 
-            <Button disabled={disabledExec} onClick={onClickExec}>
-              {t('common.execute')}
-            </Button>
-          </div>
+        <ActionButtonGroup
+          onExecute={onClickExec}
+          onClear={onClickClear}
+          disabled={disabledExec}
+        />
 
-          <div className="mt-5 rounded border border-black/30 p-1.5">
-            <Markdown>{typingTextOutput}</Markdown>
-            {!loading && summarizedSentence === '' && (
-              <div className="text-gray-500">
-                {t('summarize.result_placeholder')}
-              </div>
-            )}
-            {loading && (
-              <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
-            )}
-            <div className="flex w-full justify-end">
-              <ButtonCopy
-                text={summarizedSentence}
-                interUseCasesKey="summarizedSentence"></ButtonCopy>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
+        <ResultDisplay
+          content={typingTextOutput}
+          loading={loading}
+          placeholder={t('summarize.result_placeholder')}
+          interUseCasesKey="summarizedSentence"
+        />
+      </Card>
+    </PageContainer>
   );
 };
 
