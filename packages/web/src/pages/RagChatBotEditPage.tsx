@@ -13,12 +13,12 @@ import {
 import useBedrockChatApi, {
   BedrockChatBotInput,
 } from '@/hooks/useBedrockChatApi';
-import Button from '@/components/Button';
-import InputText from '@/components/InputText';
-import Textarea from '@/components/Textarea';
-import Card from '@/components/Card';
-import LoadingWave from '@/components/LoadingWave';
-import FileUploader from '@/components/FileUploader';
+import Button from '@/components/ui/Button';
+import InputText from '@/components/ui/InputText';
+import Textarea from '@/components/ui/Textarea';
+import Card from '@/components/ui/Card';
+import LoadingWave from '@/components/utility/LoadingWave';
+import FileUploader from '@/components/feature/file/FileUploader';
 
 const RagChatBotEditPage: React.FC = () => {
   const { t } = useTranslation();

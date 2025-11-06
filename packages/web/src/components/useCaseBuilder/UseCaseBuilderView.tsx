@@ -5,22 +5,22 @@ import React, {
   useState,
   useRef,
 } from 'react';
-import Select from '../Select';
-import Button from '../Button';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
 import useChat from '@/hooks/useChat';
 import { useLocation } from 'react-router-dom';
 import { MODELS } from '@/hooks/useModel';
-import Markdown from '../Markdown';
-import ButtonCopy from '../ButtonCopy';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import useTyping from '@/hooks/useTyping';
 import { create } from 'zustand';
-import Textarea from '../Textarea';
+import Textarea from '@/components/ui/Textarea';
 import { produce } from 'immer';
 import ButtonFavorite from './ButtonFavorite';
 import ButtonShare from './ButtonShare';
 import ButtonUseCaseEdit from './ButtonUseCaseEdit';
 import ButtonUseCaseExport from './ButtonUseCaseExport';
-import Skeleton from '../Skeleton';
+import Skeleton from '@/components/ui/Skeleton';
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import { UseCaseInputExample, FileLimit } from 'generative-ai-use-cases';
 import {
@@ -33,9 +33,9 @@ import {
 import useRagKnowledgeBaseApi from '@/hooks/useRagKnowledgeBaseApi';
 import useRagApi from '@/hooks/useRagApi';
 import useFiles from '@/hooks/useFiles';
-import ZoomUpImage from '../ZoomUpImage';
-import ZoomUpVideo from '../ZoomUpVideo';
-import FileCard from '../FileCard';
+import ZoomUpImage from '@/components/feature/file/ZoomUpImage';
+import ZoomUpVideo from '@/components/feature/file/ZoomUpVideo';
+import FileCard from '@/components/feature/file/FileCard';
 import { AcceptedDotExtensions } from '@/utils/MediaUtils';
 import { PiPaperclip, PiSpinnerGap } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';

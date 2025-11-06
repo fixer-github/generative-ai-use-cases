@@ -5,14 +5,14 @@ import React, {
   useState,
   useRef,
 } from 'react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ButtonIcon from '@/components/ButtonIcon';
-import Textarea from '@/components/Textarea';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ButtonIcon from '@/components/ui/ButtonIcon';
+import Textarea from '@/components/ui/Textarea';
 import { create } from 'zustand';
-import RowItem from '@/components/RowItem';
+import RowItem from '@/components/layout/RowItem';
 import AppBuilderView from '@/components/useCaseBuilder/UseCaseBuilderView';
-import InputText from '@/components/InputText';
+import InputText from '@/components/ui/InputText';
 import {
   PiPlus,
   PiQuestion,
@@ -25,7 +25,7 @@ import {
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import useUseCase from '@/hooks/useCaseBuilder/useUseCase';
-import LoadingOverlay from '@/components/LoadingOverlay';
+import LoadingOverlay from '@/components/utility/LoadingOverlay';
 import ModalDialogDeleteUseCase from '@/components/useCaseBuilder/ModalDialogDeleteUseCase';
 import UseCaseBuilderHelp from '@/components/useCaseBuilder/UseCaseBuilderHelp';
 import { UseCaseInputExample } from 'generative-ai-use-cases';
@@ -37,8 +37,8 @@ import {
   getTextFormItemsFromItems,
 } from '@/utils/UseCaseBuilderUtils';
 import usePageTitle from '@/hooks/usePageTitle';
-import Select from '@/components/Select';
-import Switch from '@/components/Switch';
+import Select from '@/components/ui/Select';
+import Switch from '@/components/ui/Switch';
 import { MODELS } from '@/hooks/useModel';
 import { useTranslation } from 'react-i18next';
 

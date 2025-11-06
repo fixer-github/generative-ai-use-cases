@@ -7,14 +7,14 @@ import {
   PiMicrophoneBold,
   PiEar,
 } from 'react-icons/pi';
-import ChatMessage from '@/components/ChatMessage';
-import Switch from '@/components/Switch';
-import ExpandableField from '@/components/ExpandableField';
-import Button from '@/components/Button';
-import InputChatContent from '@/components/InputChatContent';
-import ScrollTopBottom from '@/components/ScrollTopBottom';
-import Alert from '@/components/Alert.tsx';
-import Select from '@/components/Select';
+import ChatMessage from '@/components/feature/chat/ChatMessage';
+import Switch from '@/components/ui/Switch';
+import ExpandableField from '@/components/layout/ExpandableField';
+import Button from '@/components/ui/Button';
+import InputChatContent from '@/components/feature/chat/InputChatContent';
+import ScrollTopBottom from '@/components/feature/chat/ScrollTopBottom';
+import Alert from '@/components/ui/Alert';
+import Select from '@/components/ui/Select';
 import useFollow from '@/hooks/useFollow';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { toast } from 'sonner';

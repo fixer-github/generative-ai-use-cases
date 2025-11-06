@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import ModalDialog from '../ModalDialog';
-import Button from '../Button';
+import ModalDialog from '@/components/ui/ModalDialog';
+import Button from '@/components/ui/Button';
 import { BaseProps } from '../../@types/common';
-import Switch from '../Switch';
-import ButtonCopy from '../ButtonCopy';
+import Switch from '@/components/ui/Switch';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

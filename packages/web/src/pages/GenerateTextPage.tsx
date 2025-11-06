@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Textarea from '@/components/Textarea';
-import Markdown from '@/components/Markdown';
-import ButtonCopy from '@/components/ButtonCopy';
-import Select from '@/components/Select';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Textarea from '@/components/ui/Textarea';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import Select from '@/components/ui/Select';
 import useChat from '@/hooks/useChat';
 import useTyping from '@/hooks/useTyping';
 import { create } from 'zustand';

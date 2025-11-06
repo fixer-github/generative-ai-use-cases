@@ -16,10 +16,10 @@ import useBedrockChatApi, {
   BedrockChatBot,
   BedrockChatMessage,
 } from '@/hooks/useBedrockChatApi';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import LoadingWave from '@/components/LoadingWave';
-import Markdown from '@/components/Markdown';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import LoadingWave from '@/components/utility/LoadingWave';
+import Markdown from '@/components/utility/Markdown';
 
 interface Conversation {
   id: string;

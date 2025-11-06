@@ -5,15 +5,15 @@ import useVideo from '@/hooks/useVideo';
 import { MODELS } from '@/hooks/useModel';
 import useFileApi from '@/hooks/useFileApi';
 import useFiles from '@/hooks/useFiles';
-import Textarea from '@/components/Textarea';
-import Select from '@/components/Select';
-import RangeSlider from '@/components/RangeSlider';
-import Switch from '@/components/Switch';
-import ButtonIcon from '@/components/ButtonIcon';
-import Button from '@/components/Button';
-import ButtonCopy from '@/components/ButtonCopy';
-import Card from '@/components/Card';
-import ZoomUpImage from '@/components/ZoomUpImage';
+import Textarea from '@/components/ui/Textarea';
+import Select from '@/components/ui/Select';
+import RangeSlider from '@/components/ui/RangeSlider';
+import Switch from '@/components/ui/Switch';
+import ButtonIcon from '@/components/ui/ButtonIcon';
+import Button from '@/components/ui/Button';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import Card from '@/components/ui/Card';
+import ZoomUpImage from '@/components/feature/file/ZoomUpImage';
 import {
   PiPlayFill,
   PiDownload,

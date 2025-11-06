@@ -1,5 +1,5 @@
 import React from 'react';
-import ButtonIcon from '../ButtonIcon';
+import ButtonIcon from '@/components/ui/ButtonIcon';
 import { BaseProps } from '../../@types/common';
 import { useNavigate } from 'react-router-dom';
 import { PiPencilLine } from 'react-icons/pi';

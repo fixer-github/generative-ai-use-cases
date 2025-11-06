@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import InputChatContent from '@/components/InputChatContent';
+import InputChatContent from '@/components/feature/chat/InputChatContent';
 import useChat from '@/hooks/useChat';
-import ChatMessage from '@/components/ChatMessage';
-import Select from '@/components/Select';
-import ScrollTopBottom from '@/components/ScrollTopBottom';
+import ChatMessage from '@/components/feature/chat/ChatMessage';
+import Select from '@/components/ui/Select';
+import ScrollTopBottom from '@/components/feature/chat/ScrollTopBottom';
 import useFollow from '@/hooks/useFollow';
 import { create } from 'zustand';
 import BedrockIcon from '../assets/bedrock.svg?react';

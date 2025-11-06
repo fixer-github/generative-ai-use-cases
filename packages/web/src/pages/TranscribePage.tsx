@@ -1,17 +1,17 @@
 import React, { useCallback, useMemo, useRef, useEffect } from 'react';
 import { create } from 'zustand';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ButtonCopy from '@/components/ButtonCopy';
-import ButtonSendToUseCase from '@/components/ButtonSendToUseCase';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import ButtonSendToUseCase from '@/components/feature/chat/ButtonSendToUseCase';
 import useTranscribe from '@/hooks/useTranscribe';
 import useMicrophone from '@/hooks/useMicrophone';
 import { PiStopCircleBold, PiMicrophoneBold } from 'react-icons/pi';
-import Switch from '@/components/Switch';
-import RangeSlider from '@/components/RangeSlider';
-import ExpandableField from '@/components/ExpandableField';
+import Switch from '@/components/ui/Switch';
+import RangeSlider from '@/components/ui/RangeSlider';
+import ExpandableField from '@/components/layout/ExpandableField';
 import { Transcript } from 'generative-ai-use-cases';
-import Textarea from '@/components/Textarea';
+import Textarea from '@/components/ui/Textarea';
 import { useTranslation } from 'react-i18next';
 
 type StateType = {

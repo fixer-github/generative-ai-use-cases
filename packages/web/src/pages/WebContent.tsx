@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import RowItem from '@/components/RowItem';
-import ExpandableField from '@/components/ExpandableField';
-import Textarea from '@/components/Textarea';
-import Markdown from '@/components/Markdown';
-import ButtonCopy from '@/components/ButtonCopy';
-import Alert from '@/components/Alert';
-import Select from '@/components/Select';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import RowItem from '@/components/layout/RowItem';
+import ExpandableField from '@/components/layout/ExpandableField';
+import Textarea from '@/components/ui/Textarea';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import Alert from '@/components/ui/Alert';
+import Select from '@/components/ui/Select';
 import useChat from '@/hooks/useChat';
 import useChatApi from '@/hooks/useChatApi';
 import useTyping from '@/hooks/useTyping';
@@ -17,7 +17,7 @@ import { WebContentPageQueryParams } from '@/@types/navigate';
 import { MODELS } from '@/hooks/useModel';
 import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
-import InputText from '@/components/InputText';
+import InputText from '@/components/ui/InputText';
 import { useTranslation } from 'react-i18next';
 
 type StateType = {

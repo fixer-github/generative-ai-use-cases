@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Textarea from '@/components/Textarea';
-import Select from '@/components/Select';
-import ExpandableField from '@/components/ExpandableField';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Textarea from '@/components/ui/Textarea';
+import Select from '@/components/ui/Select';
+import ExpandableField from '@/components/layout/ExpandableField';
 import { create } from 'zustand';
 import { MODELS } from '@/hooks/useModel';
 import queryString from 'query-string';
 import useDiagram from '@/hooks/useDiagram';
 import { DiagramPageQueryParams } from '@/@types/navigate';
-import Markdown from '@/components/Markdown';
+import Markdown from '@/components/utility/Markdown';
 import { RiRobot2Line, RiMindMap } from 'react-icons/ri';
 import { BiAbacus } from 'react-icons/bi';
 import { BsDiagram3 } from 'react-icons/bs';
@@ -32,7 +32,7 @@ import {
 } from 'react-icons/tb';
 import { useTranslation } from 'react-i18next';
 
-const DiagramRenderer = lazy(() => import('../components/DiagramRenderer'));
+const DiagramRenderer = lazy(() => import('@/components/utility/DiagramRenderer'));
 
 type StateType = {
   content: string;

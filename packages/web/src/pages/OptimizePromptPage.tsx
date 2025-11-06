@@ -1,12 +1,12 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Textarea from '@/components/Textarea';
-import Select from '@/components/Select';
-import Markdown from '@/components/Markdown';
-import ButtonCopy from '@/components/ButtonCopy';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Textarea from '@/components/ui/Textarea';
+import Select from '@/components/ui/Select';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import useOptimizePrompt from '@/hooks/useOptimizePrompt';
 import { MODELS } from '@/hooks/useModel';
 

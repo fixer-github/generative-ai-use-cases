@@ -1,8 +1,8 @@
 import React from 'react';
-import ModalDialog from '../ModalDialog';
-import Button from '../Button';
+import ModalDialog from '@/components/ui/ModalDialog';
+import Button from '@/components/ui/Button';
 import { BaseProps } from '../../@types/common';
-import Alert from '../Alert';
+import Alert from '@/components/ui/Alert';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

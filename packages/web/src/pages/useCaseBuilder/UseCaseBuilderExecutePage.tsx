@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import Card from '@/components/Card';
+import Card from '@/components/ui/Card';
 import AppBuilderView from '@/components/useCaseBuilder/UseCaseBuilderView';
 import { useNavigate, useParams } from 'react-router-dom';
 import useUseCase from '@/hooks/useCaseBuilder/useUseCase';
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import ModalDialogShareUseCase from '@/components/useCaseBuilder/ModalDialogShareUseCase';
 import { produce } from 'immer';
-import ModalDialog from '@/components/ModalDialog';
-import Button from '@/components/Button';
+import ModalDialog from '@/components/ui/ModalDialog';
+import Button from '@/components/ui/Button';
 import usePageTitle from '@/hooks/usePageTitle';
 import { useTranslation } from 'react-i18next';
 

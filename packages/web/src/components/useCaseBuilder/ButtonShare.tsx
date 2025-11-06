@@ -1,7 +1,7 @@
 import React from 'react';
 import { BaseProps } from '../../@types/common';
 import { PiLinkBold, PiLockKey } from 'react-icons/pi';
-import Button from '../Button';
+import Button from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BaseProps } from '../../@types/common';
-import ButtonIcon from '../ButtonIcon';
+import ButtonIcon from '@/components/ui/ButtonIcon';
 import { PiStar, PiStarFill } from 'react-icons/pi';
 
 type Props = BaseProps & {

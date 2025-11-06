@@ -13,9 +13,9 @@ import {
 import useBedrockChatApi, {
   BedrockChatConversation,
 } from '@/hooks/useBedrockChatApi';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import LoadingWave from '@/components/LoadingWave';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import LoadingWave from '@/components/utility/LoadingWave';
 
 interface ConversationWithBot extends BedrockChatConversation {
   bot_id?: string;

@@ -6,11 +6,11 @@ import React, {
   useState,
 } from 'react';
 import { create } from 'zustand';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ButtonCopy from '@/components/ButtonCopy';
-import ButtonSendToUseCase from '@/components/ButtonSendToUseCase';
-import ButtonIcon from '@/components/ButtonIcon';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import ButtonSendToUseCase from '@/components/feature/chat/ButtonSendToUseCase';
+import ButtonIcon from '@/components/ui/ButtonIcon';
 import useTranscribe from '@/hooks/useTranscribe';
 import useMicrophone from '@/hooks/useMicrophone';
 import useScreenAudio from '@/hooks/useScreenAudio';
@@ -22,15 +22,15 @@ import {
   PiPencilLine,
   PiPaperclip,
 } from 'react-icons/pi';
-import Switch from '@/components/Switch';
-import RangeSlider from '@/components/RangeSlider';
-import ExpandableField from '@/components/ExpandableField';
-import Select from '@/components/Select';
+import Switch from '@/components/ui/Switch';
+import RangeSlider from '@/components/ui/RangeSlider';
+import ExpandableField from '@/components/layout/ExpandableField';
+import Select from '@/components/ui/Select';
 import { Transcript } from 'generative-ai-use-cases';
-import Textarea from '@/components/Textarea';
+import Textarea from '@/components/ui/Textarea';
 import { useTranslation, Trans } from 'react-i18next';
 import { toast } from 'sonner';
-import Markdown from '@/components/Markdown';
+import Markdown from '@/components/utility/Markdown';
 import { useNavigate } from 'react-router-dom';
 import queryString from 'query-string';
 import { MeetingMinutesStyle } from '@/hooks/useMeetingMinutes';

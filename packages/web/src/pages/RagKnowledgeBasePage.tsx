@@ -1,29 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import InputChatContent from '@/components/InputChatContent';
+import InputChatContent from '@/components/feature/chat/InputChatContent';
 import { create } from 'zustand';
 import useChat from '@/hooks/useChat';
 import { useLocation } from 'react-router-dom';
-import ChatMessage from '@/components/ChatMessage';
-import Select from '@/components/Select';
+import ChatMessage from '@/components/feature/chat/ChatMessage';
+import Select from '@/components/ui/Select';
 import useFollow from '@/hooks/useFollow';
-import ScrollTopBottom from '@/components/ScrollTopBottom';
+import ScrollTopBottom from '@/components/feature/chat/ScrollTopBottom';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { RagPageQueryParams } from '@/@types/navigate';
 import { MODELS } from '@/hooks/useModel';
 import queryString from 'query-string';
 import { getPrompter } from '@/prompts';
-import ExpandableField from '@/components/ExpandableField';
+import ExpandableField from '@/components/layout/ExpandableField';
 import { userDefinedExplicitFilters } from '@generative-ai-use-cases/common';
 import { RetrievalFilter } from '@aws-sdk/client-bedrock-agent-runtime';
-import { RetrievalFilterLabel } from '@/components/KbFilter';
-import KbFilter from '@/components/KbFilter';
+import { RetrievalFilterLabel } from '@/components/utility/KbFilter';
+import KbFilter from '@/components/utility/KbFilter';
 import {
   ExplicitFilterConfiguration,
   ExtraData,
 } from 'generative-ai-use-cases';
-import { Option, SelectValue } from '@/components/FilterSelect';
-import ModalDialog from '@/components/ModalDialog';
-import Button from '@/components/Button';
+import { Option, SelectValue } from '@/components/ui/FilterSelect';
+import ModalDialog from '@/components/ui/ModalDialog';
+import Button from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 
 type StateType = {

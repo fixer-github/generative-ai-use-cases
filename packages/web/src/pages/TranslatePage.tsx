@@ -6,15 +6,15 @@ import React, {
   useRef,
 } from 'react';
 import { useLocation } from 'react-router-dom';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ButtonIcon from '@/components/ButtonIcon';
-import Textarea from '@/components/Textarea';
-import ExpandableField from '@/components/ExpandableField';
-import Select from '@/components/Select';
-import Markdown from '@/components/Markdown';
-import ButtonCopy from '@/components/ButtonCopy';
-import Switch from '@/components/Switch';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ButtonIcon from '@/components/ui/ButtonIcon';
+import Textarea from '@/components/ui/Textarea';
+import ExpandableField from '@/components/layout/ExpandableField';
+import Select from '@/components/ui/Select';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import Switch from '@/components/ui/Switch';
 import useChat from '@/hooks/useChat';
 import useMicrophone from '@/hooks/useMicrophone';
 import useTyping from '@/hooks/useTyping';

@@ -11,10 +11,10 @@ import {
 import useBedrockChatApi, {
   BedrockChatBotInput,
 } from '@/hooks/useBedrockChatApi';
-import Button from '@/components/Button';
-import InputText from '@/components/InputText';
-import Textarea from '@/components/Textarea';
-import FileUploader from '@/components/FileUploader';
+import Button from '@/components/ui/Button';
+import InputText from '@/components/ui/InputText';
+import Textarea from '@/components/ui/Textarea';
+import FileUploader from '@/components/feature/file/FileUploader';
 
 const AssistantCreatePage: React.FC = () => {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import ButtonIcon from '../ButtonIcon';
+import ButtonIcon from '@/components/ui/ButtonIcon';
 import { BaseProps } from '../../@types/common';
 import { PiUploadSimple } from 'react-icons/pi';
 import useHttp from '@/hooks/useHttp';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PiCaretUp } from 'react-icons/pi';
-import ButtonCopy from '../ButtonCopy';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import { useTranslation } from 'react-i18next';
 
 type PromptSampleProps = {

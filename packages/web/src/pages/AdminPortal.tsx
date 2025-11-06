@@ -3,10 +3,10 @@ import { fetchAuthSession, signOut } from 'aws-amplify/auth';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { PiUsers, PiUserPlus, PiShieldCheck } from 'react-icons/pi';
-import Button from '@/components/Button';
-import Alert from '@/components/Alert';
-import LoadingOverlay from '@/components/LoadingOverlay';
-import UserInviteDialog from '@/components/UserInviteDialog';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import LoadingOverlay from '@/components/utility/LoadingOverlay';
+import UserInviteDialog from '@/components/ui/UserInviteDialog';
 import useHttp from '@/hooks/useHttp';
 
 interface AdminStatusResponse {

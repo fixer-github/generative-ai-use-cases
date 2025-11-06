@@ -6,7 +6,7 @@ import './index.css';
 import { SWRConfig } from 'swr';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { Toaster } from 'sonner';
-import DynamicRouter from './components/DynamicRouter';
+import DynamicRouter from '@/components/provider/DynamicRouter';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =

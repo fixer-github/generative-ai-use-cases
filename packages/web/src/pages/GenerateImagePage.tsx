@@ -1,23 +1,23 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Textarea from '@/components/Textarea';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Textarea from '@/components/ui/Textarea';
 import { create } from 'zustand';
-import RangeSlider from '@/components/RangeSlider';
-import Select from '@/components/Select';
-import ExpandableField from '@/components/ExpandableField';
-import ButtonIcon from '@/components/ButtonIcon';
+import RangeSlider from '@/components/ui/RangeSlider';
+import Select from '@/components/ui/Select';
+import ExpandableField from '@/components/layout/ExpandableField';
+import ButtonIcon from '@/components/ui/ButtonIcon';
 import { PiFileArrowUp, PiDiceFive, PiNotePencil } from 'react-icons/pi';
 import { MdDeleteOutline } from 'react-icons/md';
 import useImage from '@/hooks/useImage';
-import GenerateImageAssistant from '@/components/GenerateImageAssistant';
-import SketchPad, { Canvas } from '@/components/SketchPad';
-import ModalDialog from '@/components/ModalDialog';
+import GenerateImageAssistant from '@/components/utility/GenerateImageAssistant';
+import SketchPad, { Canvas } from '@/components/utility/SketchPad';
+import ModalDialog from '@/components/ui/ModalDialog';
 import { produce } from 'immer';
-import Help from '@/components/Help';
+import Help from '@/components/ui/Help';
 import { useLocation } from 'react-router-dom';
 import useChat from '@/hooks/useChat';
-import Base64Image from '@/components/Base64Image';
+import Base64Image from '@/components/utility/Base64Image';
 import { AxiosError } from 'axios';
 import { GenerateImagePageQueryParams } from '@/@types/navigate';
 import { MODELS } from '@/hooks/useModel';
@@ -29,7 +29,7 @@ import {
   AmazonUIImageGenerationMode,
   ControlMode,
 } from 'generative-ai-use-cases';
-import InputText from '@/components/InputText';
+import InputText from '@/components/ui/InputText';
 import { useTranslation } from 'react-i18next';
 
 const MAX_SAMPLE = 7;

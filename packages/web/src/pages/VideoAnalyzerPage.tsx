@@ -16,11 +16,11 @@ import { create } from 'zustand';
 import { getPrompter } from '@/prompts';
 import { VideoAnalyzerPageQueryParams } from '@/@types/navigate';
 import { MODELS } from '@/hooks/useModel';
-import Button from '@/components/Button';
-import Markdown from '@/components/Markdown';
-import InputChatContent from '@/components/InputChatContent';
-import Card from '@/components/Card';
-import Select from '@/components/Select';
+import Button from '@/components/ui/Button';
+import Markdown from '@/components/utility/Markdown';
+import InputChatContent from '@/components/feature/chat/InputChatContent';
+import Card from '@/components/ui/Card';
+import Select from '@/components/ui/Select';
 import queryString from 'query-string';
 import { v4 as uuidv4 } from 'uuid';
 
