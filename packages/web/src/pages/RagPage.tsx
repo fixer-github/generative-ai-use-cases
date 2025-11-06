@@ -15,6 +15,7 @@ import { RagPageQueryParams } from '@/@types/navigate';
 import { MODELS } from '@/hooks/useModel';
 import queryString from 'query-string';
 import { useTranslation } from 'react-i18next';
+import ChatEmptyState from '@/components/feature/chat/ChatEmptyState';
 
 type StateType = {
   content: string;
@@ -92,13 +93,15 @@ const RagPage: React.FC = () => {
         </div>
 
         {isEmpty && (
-          <div className="relative flex h-[calc(100vh-9rem)] flex-col items-center justify-center">
-            <div className="flex items-center gap-x-3">
-              <KendraIcon className="size-[64px] fill-gray-400" />
-              <PiPlus className="text-2xl text-gray-400" />
-              <BedrockIcon className="fill-gray-400" />
-            </div>
-          </div>
+          <ChatEmptyState
+            icon={
+              <div className="flex items-center gap-x-3">
+                <KendraIcon className="size-[64px] fill-gray-400" />
+                <PiPlus className="text-2xl text-gray-400" />
+                <BedrockIcon className="fill-gray-400" />
+              </div>
+            }
+          />
         )}
 
         <div ref={scrollableContainer}>

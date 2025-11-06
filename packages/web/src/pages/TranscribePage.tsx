@@ -13,6 +13,9 @@ import ExpandableField from '@/components/layout/ExpandableField';
 import { Transcript } from 'generative-ai-use-cases';
 import Textarea from '@/components/ui/Textarea';
 import { useTranslation } from 'react-i18next';
+import PageContainer from '@/components/layout/PageContainer';
+import ActionButtonGroup from '@/components/ui/ActionButtonGroup';
+import Spinner from '@/components/ui/loading/Spinner';
 
 type StateType = {
   content: Transcript[];
@@ -116,10 +119,6 @@ const TranscribePage: React.FC = () => {
     return !file || loading || recording;
   }, [file, loading, recording]);
 
-  const disableClearExec = useMemo(() => {
-    return (!file && content.length === 0) || loading || recording;
-  }, [content, file, loading, recording]);
-
   const disabledMicExec = useMemo(() => {
     return loading;
   }, [loading]);
@@ -161,11 +160,7 @@ const TranscribePage: React.FC = () => {
   }, [speakerLabel, clear, clearTranscripts, setContent, startTranscription]);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('transcribe.title')}
-      </div>
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
+    <PageContainer title={t('transcribe.title')}>
         <Card>
           <div className="mb-2 flex justify-center text-sm text-gray-500">
             {t('transcribe.select_input_method')}
@@ -251,15 +246,12 @@ const TranscribePage: React.FC = () => {
               </div>
             )}
           </ExpandableField>
-          <div className="flex justify-end gap-3">
-            <Button outlined disabled={disableClearExec} onClick={onClickClear}>
-              {t('common.clear')}
-            </Button>
-            <Button disabled={disabledExec} onClick={onClickExec}>
-              {t('common.execute')}
-            </Button>
-          </div>
-          <div className="mt-5 rounded border border-black/30 p-1.5">
+          <ActionButtonGroup
+            onExecute={onClickExec}
+            onClear={onClickClear}
+            disabled={disabledExec}
+          />
+          <div className="mt-5 rounded-md border border-input bg-background p-3">
             {content.length > 0 && (
               <div>
                 {content.map((transcript, idx) => (
@@ -278,12 +270,14 @@ const TranscribePage: React.FC = () => {
               </div>
             )}
             {!loading && formattedOutput == '' && (
-              <div className="text-gray-500">
+              <div className="text-muted-foreground">
                 {t('transcribe.result_placeholder')}
               </div>
             )}
             {loading && (
-              <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+              <div className="flex items-center justify-center py-4">
+                <Spinner />
+              </div>
             )}
 
             <div className="flex w-full justify-end">
@@ -298,8 +292,7 @@ const TranscribePage: React.FC = () => {
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 
