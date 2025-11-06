@@ -19,6 +19,7 @@ import useFollow from '@/hooks/useFollow';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { toast } from 'sonner';
 import { MODELS } from '@/hooks/useModel';
+import Spinner from '@/components/ui/loading/Spinner';
 
 const VoiceChatPage: React.FC = () => {
   const { t } = useTranslation();
@@ -115,7 +116,7 @@ const VoiceChatPage: React.FC = () => {
 
         {isEmpty && isLoading && (
           <div className="flex h-[calc(100vh-9rem)] animate-pulse flex-col items-center justify-center">
-            <span className="size-32 animate-spin rounded-full border-8 border-gray-400 border-t-transparent"></span>
+            <Spinner size="lg" className="!size-32 !border-8" />
           </div>
         )}
 
@@ -221,7 +222,7 @@ const VoiceChatPage: React.FC = () => {
                   {t('voiceChat.start')}
                 </>
               ) : (
-                <span className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></span>
+                <Spinner size="sm" />
               )}
             </Button>
           ) : (
@@ -235,7 +236,7 @@ const VoiceChatPage: React.FC = () => {
                   {t('voiceChat.close')}
                 </>
               ) : (
-                <span className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></span>
+                <Spinner size="sm" />
               )}
             </Button>
           )}
