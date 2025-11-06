@@ -15,6 +15,9 @@ import Button from '@/components/ui/Button';
 import InputText from '@/components/ui/InputText';
 import Textarea from '@/components/ui/Textarea';
 import FileUploader from '@/components/feature/file/FileUploader';
+import PageContainer from '@/components/layout/PageContainer';
+import Card from '@/components/ui/Card';
+import Spinner from '@/components/ui/loading/Spinner';
 
 const AssistantCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -143,156 +146,152 @@ const AssistantCreatePage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
-      {/* Left Form Section */}
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center gap-4">
-            <button
-              onClick={() => navigate('/chat/assistants')}
-              className="flex items-center gap-1 text-gray-600 transition-colors hover:text-gray-900">
-              <PiArrowLeft className="text-xl" />
-            </button>
-            <h1 className="flex-1 text-2xl font-bold text-gray-900">
-              アシスタントを作成
-            </h1>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2">
-              {saving ? '保存中...' : '保存'}
-            </Button>
-          </div>
-
-          {/* Basic Info Section */}
-          <div className="mb-8">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              基本情報
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  名前 <span className="text-red-500">*</span>
-                </label>
-                <InputText
-                  value={formData.title}
-                  onChange={(value) =>
-                    setFormData({ ...formData, title: value })
-                  }
-                  placeholder="社内規則QA"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  説明
-                </label>
-                <Textarea
-                  value={formData.description || ''}
-                  onChange={(value) =>
-                    setFormData({ ...formData, description: value })
-                  }
-                  placeholder="社内規則に関する質問に答えます"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  カスタム指示 <span className="text-red-500">*</span>
-                </label>
-                <Textarea
-                  value={formData.instruction}
-                  onChange={(value) =>
-                    setFormData({ ...formData, instruction: value })
-                  }
-                  placeholder="社内規則に関する質問に対して正確に回答します"
-                  rows={6}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Knowledge Section */}
-          <div className="mb-8">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <PiFile className="text-xl" />
-              ナレッジ
-            </h2>
-
-            <div className="space-y-6">
-              {/* URL Input */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  URL
-                </label>
-                <div className="mb-2 flex gap-2">
-                  <InputText
-                    value={newUrl}
-                    onChange={setNewUrl}
-                    placeholder="https://example.com"
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={addSourceUrl}
-                    outlined
-                    className="flex items-center gap-1">
-                    <PiPlus />
-                    追加
-                  </Button>
-                </div>
-                <div className="space-y-1">
-                  {formData.knowledge?.sourceUrls.map((url, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                      <PiGlobe className="text-gray-500" />
-                      <span className="flex-1 truncate">{url}</span>
-                      <button
-                        onClick={() => removeSourceUrl(index)}
-                        className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-red-600">
-                        <PiTrash />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  ファイルアップロード
-                </label>
-                <FileUploader
-                  onFileSelect={handleFileUpload}
-                  accept=".pdf,.txt,.doc,.docx,.md"
-                  multiple
-                />
-                <div className="mt-2 space-y-1">
-                  {uploadedFiles.map((filename) => (
-                    <div
-                      key={filename}
-                      className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                      <PiFile className="text-gray-500" />
-                      <span className="flex-1 truncate">{filename}</span>
-                      <button
-                        onClick={() => handleDeleteFile(filename)}
-                        className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-red-600">
-                        <PiTrash />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+    <PageContainer>
+      <div className="mx-auto w-full max-w-4xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center gap-4">
+          <button
+            onClick={() => navigate('/chat/assistants')}
+            className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground">
+            <PiArrowLeft className="text-xl" />
+          </button>
+          <h1 className="flex-1 text-2xl font-bold">
+            アシスタントを作成
+          </h1>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            loading={saving}
+            className="flex items-center gap-2">
+            {saving ? (
+              <>
+                <Spinner size="sm" />
+                保存中...
+              </>
+            ) : (
+              '保存'
+            )}
+          </Button>
         </div>
+
+        {/* Basic Info Section */}
+        <Card label="基本情報" className="mb-4">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                名前 <span className="text-red-500">*</span>
+              </label>
+              <InputText
+                value={formData.title}
+                onChange={(value) =>
+                  setFormData({ ...formData, title: value })
+                }
+                placeholder="社内規則QA"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                説明
+              </label>
+              <Textarea
+                value={formData.description || ''}
+                onChange={(value) =>
+                  setFormData({ ...formData, description: value })
+                }
+                placeholder="社内規則に関する質問に答えます"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                カスタム指示 <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                value={formData.instruction}
+                onChange={(value) =>
+                  setFormData({ ...formData, instruction: value })
+                }
+                placeholder="社内規則に関する質問に対して正確に回答します"
+                rows={6}
+                required
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Knowledge Section */}
+        <Card label="ナレッジ" className="mb-4">
+          <div className="space-y-6">
+            {/* URL Input */}
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                URL
+              </label>
+              <div className="mb-2 flex gap-2">
+                <InputText
+                  value={newUrl}
+                  onChange={setNewUrl}
+                  placeholder="https://example.com"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={addSourceUrl}
+                  outlined
+                  className="flex items-center gap-1">
+                  <PiPlus />
+                  追加
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {formData.knowledge?.sourceUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <PiGlobe className="text-muted-foreground" />
+                    <span className="flex-1 truncate">{url}</span>
+                    <button
+                      onClick={() => removeSourceUrl(index)}
+                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive">
+                      <PiTrash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* File Upload */}
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                ファイルアップロード
+              </label>
+              <FileUploader
+                onFileSelect={handleFileUpload}
+                accept=".pdf,.txt,.doc,.docx,.md"
+                multiple
+              />
+              <div className="mt-2 space-y-1">
+                {uploadedFiles.map((filename) => (
+                  <div
+                    key={filename}
+                    className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <PiFile className="text-muted-foreground" />
+                    <span className="flex-1 truncate">{filename}</span>
+                    <button
+                      onClick={() => handleDeleteFile(filename)}
+                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive">
+                      <PiTrash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 
