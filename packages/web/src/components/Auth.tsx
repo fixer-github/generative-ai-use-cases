@@ -17,11 +17,14 @@ const selfSignUpEnabled: boolean =
 const samlCognitoFederatedIdentityProviderName: string = import.meta.env
   .VITE_APP_SAML_COGNITO_FEDERATED_IDENTITY_PROVIDER_NAME;
 
+type AuthMode = 'userpool' | 'saml' | 'both';
+
 type Props = {
   children: React.ReactNode;
+  mode: AuthMode;
 };
 
-const AuthWithSamlOrUserpool: React.FC<Props> = (props) => {
+const Auth: React.FC<Props> = (props) => {
   const { t, i18n } = useTranslation();
   const { authStatus } = useAuthenticator((context) => [context.authStatus]);
 
@@ -54,6 +57,50 @@ const AuthWithSamlOrUserpool: React.FC<Props> = (props) => {
     });
   };
 
+  // Userpool only mode
+  if (props.mode === 'userpool') {
+    return (
+      <Authenticator
+        hideSignUp={!selfSignUpEnabled}
+        components={{
+          Header: () => (
+            <div className="text-aws-font-color mb-5 mt-10 flex justify-center text-3xl">
+              {t('auth.title')}
+            </div>
+          ),
+        }}>
+        {props.children}
+      </Authenticator>
+    );
+  }
+
+  // SAML only mode
+  if (props.mode === 'saml') {
+    return (
+      <>
+        {loading ? (
+          <div className="grid grid-cols-1 justify-items-center gap-4">
+            <Text className="mt-12 text-center">{t('auth.loading')}</Text>
+            <Loader width="5rem" height="5rem" />
+          </div>
+        ) : !authenticated ? (
+          <div className="grid grid-cols-1 justify-items-center gap-4">
+            <Text className="mt-12 text-center text-3xl">{t('auth.title')}</Text>
+            <Button
+              variation="primary"
+              onClick={() => signIn()}
+              className="mt-6 w-60">
+              {t('auth.login')}
+            </Button>
+          </div>
+        ) : (
+          <>{props.children}</>
+        )}
+      </>
+    );
+  }
+
+  // Both mode (SAML or Userpool)
   return (
     <>
       {loading ? (
@@ -86,4 +133,4 @@ const AuthWithSamlOrUserpool: React.FC<Props> = (props) => {
   );
 };
 
-export default AuthWithSamlOrUserpool;
+export default Auth;

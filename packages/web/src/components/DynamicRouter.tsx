@@ -8,9 +8,7 @@ import {
 import { MODELS } from '../hooks/useModel';
 import { optimizePromptEnabled } from '../hooks/useOptimizePrompt';
 import useUseCases from '../hooks/useUseCases';
-import AuthWithUserpool from './AuthWithUserpool';
-import AuthWithSAML from './AuthWithSAML';
-import AuthWithSamlOrUserpool from './AuthWithSamlOrUserpool';
+import Auth from './Auth';
 import App from '../App';
 import ChatLayout from './ChatLayout';
 import StatPage from '../pages/StatPage';
@@ -270,23 +268,17 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     },
   ].flatMap((r) => (r !== null ? [r] : []));
 
+  const authMode = samlAuthEnabled
+    ? (samlDefaultAuthEnabled ? 'both' : 'saml')
+    : 'userpool';
+
   const router = createBrowserRouter([
     {
       path: '/',
-      element: samlAuthEnabled ? (
-        samlDefaultAuthEnabled ? (
-          <AuthWithSamlOrUserpool>
-            <App />
-          </AuthWithSamlOrUserpool>
-        ) : (
-          <AuthWithSAML>
-            <App />
-          </AuthWithSAML>
-        )
-      ) : (
-        <AuthWithUserpool>
+      element: (
+        <Auth mode={authMode}>
           <App />
-        </AuthWithUserpool>
+        </Auth>
       ),
       children: routes,
     },

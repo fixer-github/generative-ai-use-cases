@@ -4,7 +4,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 // import ButtonIcon from '../components/ButtonIcon'; // Unused when template selector is hidden
 import Textarea from '../components/Textarea';
-import Slider from '../components/Slider';
+import RangeSlider from '../components/RangeSlider';
 import Switch from '../components/Switch';
 import Select from '../components/Select';
 import LoadingWave from '../components/LoadingWave';
@@ -204,10 +204,8 @@ const PptxGenerationPage: React.FC = () => {
 
                 {/* Slide Count */}
                 <div>
-                  <label className="mb-3 block text-sm font-medium text-aws-font-color">
-                    {t('pptx.slideCount.label')}: {slideCount}
-                  </label>
-                  <Slider
+                  <RangeSlider
+                    label={t('pptx.slideCount.label')}
                     value={slideCount}
                     onChange={setSlideCount}
                     min={1}
@@ -215,10 +213,6 @@ const PptxGenerationPage: React.FC = () => {
                     step={1}
                     className="w-full"
                   />
-                  <div className="mt-1 flex justify-between text-xs text-aws-font-color-secondary">
-                    <span>1</span>
-                    <span>20</span>
-                  </div>
                 </div>
 
                 {/* Options */}
