@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import ButtonSend from './ButtonSend';
+import ButtonSend from '@/components/ui/ButtonSend';
 import Textarea from '@/components/ui/Textarea';
-import ZoomUpImage from './ZoomUpImage';
-import ZoomUpVideo from './ZoomUpVideo';
+import ZoomUpImage from '@/components/feature/file/ZoomUpImage';
+import ZoomUpVideo from '@/components/feature/file/ZoomUpVideo';
 import useChat from '@/hooks/useChat';
 import { useLocation } from 'react-router-dom';
 import Button from '@/components/ui/Button';
@@ -13,7 +13,7 @@ import {
   PiSlidersHorizontal,
 } from 'react-icons/pi';
 import useFiles from '@/hooks/useFiles';
-import FileCard from './FileCard';
+import FileCard from '@/components/feature/file/FileCard';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
 

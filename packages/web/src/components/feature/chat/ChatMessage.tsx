@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import Markdown from './Markdown';
-import ButtonCopy from './ButtonCopy';
-import ButtonFeedback from './ButtonFeedback';
+import Markdown from '@/components/utility/Markdown';
+import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
+import ButtonFeedback from '@/components/feature/feedback/ButtonFeedback';
 import ButtonIcon from '@/components/ui/ButtonIcon';
-import ZoomUpImage from './ZoomUpImage';
-import ZoomUpVideo from './ZoomUpVideo';
+import ZoomUpImage from '@/components/feature/file/ZoomUpImage';
+import ZoomUpVideo from '@/components/feature/file/ZoomUpVideo';
 import {
   PiUserFill,
   PiChalkboardTeacher,
@@ -21,11 +21,11 @@ import {
 } from 'react-icons/pi';
 import { BaseProps } from '@/@types/common';
 import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
-import BedrockIcon from '../assets/bedrock.svg?react';
+import BedrockIcon from '@/assets/bedrock.svg?react';
 import useChat from '@/hooks/useChat';
 import useTyping from '@/hooks/useTyping';
-import FileCard from './FileCard';
-import FeedbackForm from './FeedbackForm';
+import FileCard from '@/components/feature/file/FileCard';
+import FeedbackForm from '@/components/feature/feedback/FeedbackForm';
 import Textarea from '@/components/ui/Textarea';
 import useFiles from '@/hooks/useFiles';
 import { useTranslation } from 'react-i18next';

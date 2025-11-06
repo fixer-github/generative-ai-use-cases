@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { RoleMonitorProvider } from './components/RoleMonitorProvider';
+import { RoleMonitorProvider } from '@/components/provider/RoleMonitorProvider';
 import {
   PiChatCircleText,
   PiPencil,
@@ -23,15 +23,15 @@ import {
   PiPresentation,
 } from 'react-icons/pi';
 import '@aws-amplify/ui-react/styles.css';
-import PopupInterUseCasesDemo from './components/PopupInterUseCasesDemo';
+import PopupInterUseCasesDemo from '@/components/utility/PopupInterUseCasesDemo';
 import useInterUseCases from './hooks/useInterUseCases';
 import { MODELS } from './hooks/useModel';
 import useScreen from './hooks/useScreen';
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import useUseCases from './hooks/useUseCases';
 import { useTranslation } from 'react-i18next';
-import GlobalLayout from './components/GlobalLayout';
-import { SidebarItemProps } from './components/Sidebar';
+import GlobalLayout from '@/components/layout/GlobalLayout';
+import { SidebarItemProps } from '@/components/layout/Sidebar';
 import { useSettings } from './hooks/useSettings';
 import i18n from './i18n/config';
 

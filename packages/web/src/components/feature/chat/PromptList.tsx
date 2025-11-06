@@ -7,7 +7,7 @@ import React, {
   useEffect,
 } from 'react';
 import { BaseProps } from '@/@types/common';
-import ExpandableMenu from './ExpandableMenu';
+import ExpandableMenu from '@/components/layout/ExpandableMenu';
 import {
   PiBookOpenText,
   PiFlask,
