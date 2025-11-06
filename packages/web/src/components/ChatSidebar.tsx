@@ -57,10 +57,12 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
     }
   }, [listAssistants]);
 
-  // Fetch featured assistants on mount (but not on assistants page to avoid duplicate requests)
+  // Fetch featured assistants on mount (but not on assistants list page to avoid duplicate requests)
   useEffect(() => {
-    // Skip fetching if we're on the assistants page (AssistantsPage will handle it)
-    if (!isAssistantsActive) {
+    // Skip fetching only if we're on the main assistants list page (AssistantsPage will handle it)
+    // Still fetch for edit/chat/history pages
+    const isAssistantsListPage = location.pathname === '/chat/assistants';
+    if (!isAssistantsListPage) {
       fetchFeaturedAssistants();
     }
     // Cleanup AbortController on unmount
@@ -69,10 +71,10 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
         abortControllerRef.current.abort();
       }
     };
-  }, [fetchFeaturedAssistants, isAssistantsActive]);
+  }, [fetchFeaturedAssistants, location.pathname]);
 
   const handleAssistantClick = (assistantId: string) => {
-    navigate(`/rag-chat-bot/chat/${assistantId}`);
+    navigate(`/chat/assistants/chat/${assistantId}`);
   };
 
   return (

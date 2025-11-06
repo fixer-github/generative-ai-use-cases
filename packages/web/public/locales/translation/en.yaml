@@ -849,6 +849,101 @@ rag:
   please_refer: .
   retrieving: Retrieving reference documents from Kendra...
   title: RAG Chat
+assistant:
+  all: All
+  allAssistants: All Assistants
+  changeVisibility: Change Visibility
+  chat: Chat
+  chatPage:
+    assistantInfo: Assistant Information
+    chunksEnabled: Chunks display enabled
+    confirmClear: Are you sure you want to clear the conversation?
+    copy: Copy
+    inputPlaceholder: Type a message...
+    instruction: Instruction
+    noMessages: No messages
+    quickStarters: Quick Starters
+    send: Send
+    sendError: Failed to send message
+    syncStatus: Sync Status
+    title: Assistant Chat
+  confirmDelete: Are you sure you want to delete this assistant?
+  createNew: Create New Assistant
+  delete: Delete
+  description: Create, manage, and share AI assistants
+  edit:
+    add: Add
+    back: Back
+    basicInfo: Basic Information
+    cancel: Cancel
+    createTitle: Create New Assistant
+    description: Description
+    displayRetrievedChunks: Display Retrieved Chunks
+    editTitle: Edit Assistant
+    enableRAG: Enable RAG (Knowledge Base)
+    instruction: Custom Instructions
+    knowledge: Knowledge Base
+    modelId: Model
+    requiredFields: Please fill in required fields
+    save: Save
+    saveBeforeUpload: Please save the assistant before uploading files
+    saveFailed: Failed to save
+    saving: Saving...
+    sourceUrls: Source URLs
+    title: Name
+    uploadFiles: Upload Files
+  editTitle: Edit
+  filter: Filter
+  filterAll: All
+  filterPrivate: Private
+  filterPublic: Public
+  filterStarred: Starred
+  history:
+    back: Back
+    confirmBulkDelete: 'Are you sure you want to delete {{count}} conversations?'
+    confirmDelete: Are you sure you want to delete this conversation?
+    daysAgo: '{{days}} days ago'
+    deleteSelected: Delete Selected
+    deselectAll: Deselect All
+    hoursAgo: '{{hours}} hours ago'
+    lastMessage: Last message
+    messageCount: 'Messages: {{count}}'
+    minutesAgo: '{{minutes}} minutes ago'
+    noConversations: No conversations found
+    noDate: No date
+    open: Open
+    search: Search
+    searchPlaceholder: Search conversations...
+    selectAll: Select All
+    selected: '{{count}} selected'
+    showing: 'Showing {{count}} conversations'
+    title: Conversation History
+    untitled: Untitled
+    yesterday: Yesterday
+  lastUsed: Last used
+  myAssistants: My Assistants
+  noAssistants: No assistants found
+  organizationPublic: Organization Public
+  organizationPublicDescription: Members of your organization can use this assistant
+  popularAssistants: Popular Assistants
+  private: Private
+  privateDescription: Only you can use this assistant
+  scopeFilter: Scope
+  search: Search
+  searchPlaceholder: Search by assistant name or description
+  shared: Shared
+  title: Assistant Management
+  showStarredOnly: Show starred only
+  star: Star
+  starredOnly: Starred Only
+  syncStatus:
+    completed: Sync Complete
+    failed: Sync Failed
+    syncing: Syncing
+  tenantPublic: Tenant Public
+  tenantPublicDescription: Members of your tenant can use this assistant
+  unstar: Unstar
+  viewMore: View More
 ragChatBot:
   all: All
   allBots: All Bots

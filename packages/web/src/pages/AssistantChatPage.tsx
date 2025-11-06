@@ -18,32 +18,32 @@ import Card from '../components/Card';
 import LoadingWave from '../components/LoadingWave';
 import Markdown from '../components/Markdown';
 
-const RagChatBotChatPage: React.FC = () => {
+const AssistantChatPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { botId } = useParams<{
-    botId?: string;
+  const { assistantId } = useParams<{
+    assistantId?: string;
   }>();
 
   const { getAssistant, listMessages, createMessage } = useAssistantApi();
 
-  const [bot, setBot] = useState<Assistant | null>(null);
+  const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [showBotInfo, setShowBotInfo] = useState(false);
+  const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (botId) {
-      fetchBot();
+    if (assistantId) {
+      fetchAssistant();
       fetchMessages();
     }
-  }, [botId]);
+  }, [assistantId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -53,13 +53,13 @@ const RagChatBotChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchBot = async () => {
-    if (!botId) return;
+  const fetchAssistant = async () => {
+    if (!assistantId) return;
 
     setLoading(true);
     try {
-      const assistant = await getAssistant(botId);
-      setBot(assistant);
+      const result = await getAssistant(assistantId);
+      setAssistant(result);
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
     } finally {
@@ -68,10 +68,10 @@ const RagChatBotChatPage: React.FC = () => {
   };
 
   const fetchMessages = async () => {
-    if (!botId) return;
+    if (!assistantId) return;
 
     try {
-      const response = await listMessages(botId, { limit: 100 });
+      const response = await listMessages(assistantId, { limit: 100 });
       setMessages(response.messages || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -79,7 +79,7 @@ const RagChatBotChatPage: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !botId) return;
+    if (!inputMessage.trim() || !assistantId) return;
 
     const userMessageContent = inputMessage;
     setInputMessage('');
@@ -87,7 +87,7 @@ const RagChatBotChatPage: React.FC = () => {
 
     try {
       // Send message and get response
-      await createMessage(botId, { content: userMessageContent });
+      await createMessage(assistantId, { content: userMessageContent });
 
       // Refresh messages to get both user and assistant messages
       await fetchMessages();
@@ -138,7 +138,7 @@ const RagChatBotChatPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `conversation-${botId || 'unknown'}.txt`;
+    a.download = `conversation-${assistantId || 'unknown'}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -228,7 +228,7 @@ const RagChatBotChatPage: React.FC = () => {
       <div className="flex items-center gap-4 border-b bg-white px-4 py-3">
         <Button
           outlined
-          onClick={() => navigate('/rag-chat-bot')}
+          onClick={() => navigate('/chat/assistants')}
           className="flex items-center gap-1">
           <PiArrowLeft />
         </Button>
@@ -236,17 +236,17 @@ const RagChatBotChatPage: React.FC = () => {
         <div className="flex-1">
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             <PiRobot />
-            {bot?.name || t('ragChatBot.chatPage.title')}
+            {assistant?.name || t('ragChatBot.chatPage.title')}
           </h1>
-          {bot?.description && (
-            <p className="text-sm text-gray-600">{bot.description}</p>
+          {assistant?.description && (
+            <p className="text-sm text-gray-600">{assistant.description}</p>
           )}
         </div>
 
         <div className="flex gap-2">
           <Button
             outlined
-            onClick={() => setShowBotInfo(!showBotInfo)}
+            onClick={() => setShowAssistantInfo(!showAssistantInfo)}
             className="flex items-center gap-1">
             <PiInfo />
           </Button>
@@ -267,7 +267,7 @@ const RagChatBotChatPage: React.FC = () => {
         </div>
       </div>
 
-      {showBotInfo && bot && (
+      {showAssistantInfo && assistant && (
         <Card className="m-4 p-4">
           <h3 className="mb-2 font-semibold">
             {t('ragChatBot.chatPage.botInfo')}
@@ -275,16 +275,16 @@ const RagChatBotChatPage: React.FC = () => {
           <div className="space-y-1 text-sm">
             <p>
               <strong>{t('ragChatBot.chatPage.instruction')}:</strong>{' '}
-              {bot.instruction}
+              {assistant.instruction}
             </p>
             <p>
-              <strong>Model:</strong> {bot.modelId}
+              <strong>Model:</strong> {assistant.modelId}
             </p>
-            {bot.ragEnabled && (
+            {assistant.ragEnabled && (
               <>
                 <p>
                   <strong>{t('ragChatBot.chatPage.syncStatus')}:</strong>{' '}
-                  {bot.syncStatus}
+                  {assistant.syncStatus}
                 </p>
                 <p className="text-green-600">RAG Enabled</p>
               </>
@@ -330,12 +330,12 @@ const RagChatBotChatPage: React.FC = () => {
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             placeholder={t('ragChatBot.chatPage.inputPlaceholder')}
-            disabled={sending || !botId}
+            disabled={sending || !assistantId}
             className="flex-1 rounded border border-black/30 p-1.5 outline-none"
           />
           <Button
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || sending || !botId}
+            disabled={!inputMessage.trim() || sending || !assistantId}
             className="flex items-center gap-1">
             <PiPaperPlaneTilt />
             {t('ragChatBot.chatPage.send')}
@@ -346,4 +346,4 @@ const RagChatBotChatPage: React.FC = () => {
   );
 };
 
-export default RagChatBotChatPage;
+export default AssistantChatPage;
