@@ -99,7 +99,7 @@ const Select: React.FC<Props> = (props) => {
                 key={idx}
                 className={({ active }) =>
                   `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                    active ? 'bg-aws-smile/10 text-aws-smile' : 'text-gray-900'
+                    active ? 'bg-primary/10 text-primary' : 'text-gray-900'
                   }`
                 }
                 value={option.value}>
@@ -115,7 +115,7 @@ const Select: React.FC<Props> = (props) => {
                       />
                     </span>
                     {selected ? (
-                      <span className="text-aws-smile absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-primary absolute inset-y-0 left-0 flex items-center pl-3">
                         <PiCheck className="size-5" />
                       </span>
                     ) : null}

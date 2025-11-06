@@ -620,7 +620,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
                   ref={fileInput}
                 />
                 <div
-                  className={`${uploading ? 'bg-gray-300' : 'bg-aws-smile cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}>
+                  className={`${uploading ? 'bg-gray-300' : 'bg-primary cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}>
                   {uploading ? (
                     <PiSpinnerGap className="animate-spin" />
                   ) : (

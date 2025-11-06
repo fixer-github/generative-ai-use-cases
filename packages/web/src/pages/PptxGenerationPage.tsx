@@ -135,8 +135,8 @@ const PptxGenerationPage: React.FC = () => {
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="mb-4 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-aws-smile/10">
-              <PiPresentation className="h-8 w-8 text-aws-smile" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <PiPresentation className="h-8 w-8 text-primary" />
             </div>
           </div>
           <h1 className="mb-2 text-3xl font-bold text-aws-font-color">
@@ -327,7 +327,7 @@ const PptxGenerationPage: React.FC = () => {
                       <button
                         key={index}
                         onClick={() => setInstructions(example.content)}
-                        className="rounded-lg border border-aws-border p-3 text-left hover:border-aws-smile hover:bg-aws-smile/5"
+                        className="rounded-lg border border-aws-border p-3 text-left hover:border-primary hover:bg-primary/5"
                       >
                         <h4 className="text-sm font-medium text-aws-font-color">
                           {example.title}

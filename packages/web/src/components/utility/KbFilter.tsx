@@ -184,7 +184,7 @@ const KbFilterFormElement: React.FC<{
             }}
           />
           <Input
-            className="focus:border-aws-smile focus:ring-aws-smile/20 grow rounded border border-gray-300 bg-white text-gray-500 shadow-sm transition-all duration-300 hover:border-gray-400 focus:outline-none focus:ring"
+            className="focus:border-primary focus:ring-aws-smile/20 grow rounded border border-gray-300 bg-white text-gray-500 shadow-sm transition-all duration-300 hover:border-gray-400 focus:outline-none focus:ring"
             type="text"
             value={(attribute.value as Option)?.value ?? ''}
             onChange={(e) => {

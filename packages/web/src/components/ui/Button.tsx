@@ -16,10 +16,12 @@ const Button: React.FC<Props> = (props) => {
     <button
       className={`${props.className ?? ''} ${
         props.outlined
-          ? 'text-aws-font-color border-aws-font-color/20 border bg-white'
-          : 'bg-aws-smile border text-white'
-      } flex items-center justify-center rounded-lg p-1 px-3 ${
-        props.disabled || props.loading ? 'opacity-30' : 'hover:brightness-75'
+          ? 'border border-input bg-white text-foreground hover:bg-accent hover:text-accent-foreground'
+          : 'bg-primary text-primary-foreground hover:bg-primary/90'
+      } inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+        props.disabled || props.loading
+          ? 'pointer-events-none opacity-50'
+          : ''
       }`}
       title={props.title}
       onClick={props.disabled || props.loading ? undefined : props.onClick}

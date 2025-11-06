@@ -33,8 +33,8 @@ const PptxTemplateSelector: React.FC<PptxTemplateSelectorProps> = ({
       <div
         className={`cursor-pointer rounded-lg border p-3 transition-colors ${
           selectedTemplate === null
-            ? 'border-aws-smile bg-aws-smile/10'
-            : 'border-aws-border hover:border-aws-smile/50'
+            ? 'border-primary bg-primary/10'
+            : 'border-aws-border hover:border-primary/50'
         }`}
         onClick={() => onSelectTemplate(null)}
       >
@@ -68,14 +68,14 @@ const PptxTemplateSelector: React.FC<PptxTemplateSelectorProps> = ({
               key={template.template_id}
               className={`cursor-pointer rounded-lg border p-3 transition-colors ${
                 selectedTemplate?.template_id === template.template_id
-                  ? 'border-aws-smile bg-aws-smile/10'
-                  : 'border-aws-border hover:border-aws-smile/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-aws-border hover:border-primary/50'
               }`}
               onClick={() => onSelectTemplate(template)}
             >
               <div className="flex items-start space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-aws-smile/10">
-                  <PiPresentation className="h-5 w-5 text-aws-smile" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
+                  <PiPresentation className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
@@ -100,7 +100,7 @@ const PptxTemplateSelector: React.FC<PptxTemplateSelectorProps> = ({
                       {template.tags.slice(0, 3).map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex rounded-full bg-aws-smile/10 px-2 py-0.5 text-xs font-medium text-aws-smile"
+                          className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                         >
                           {tag}
                         </span>

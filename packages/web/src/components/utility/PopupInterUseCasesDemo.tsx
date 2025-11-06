@@ -57,7 +57,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
               <div className="relative">
                 {idx < currentIndex && (
                   <PiCheckCircleFill
-                    className="text-aws-smile z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
+                    className="text-primary z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
                     onClick={() => {
                       setCurrentIndex(idx);
                       navigateUseCase(idx);
@@ -66,7 +66,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
                 )}
                 {idx == currentIndex && (
                   <PiCircleFill
-                    className="text-aws-smile z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
+                    className="text-primary z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
                     onClick={() => {
                       setCurrentIndex(idx);
                       navigateUseCase(idx);
@@ -87,7 +87,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
                 </div>
               </div>
               {idx < currentIndex && idx < useCases.length - 1 && (
-                <div className="border-aws-smile grow border-l-4 lg:border-t-4" />
+                <div className="border-primary grow border-l-4 lg:border-t-4" />
               )}
               {idx >= currentIndex && idx < useCases.length - 1 && (
                 <div className="grow border-l border-t border-gray-300" />

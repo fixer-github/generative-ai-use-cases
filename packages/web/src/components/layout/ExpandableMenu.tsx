@@ -20,7 +20,7 @@ const ExpandableMenu: React.FC<Props> = (props) => {
   return (
     <>
       <div
-        className={`text-aws-smile flex cursor-pointer items-center ${props.className}`}
+        className={`text-primary flex cursor-pointer items-center ${props.className}`}
         onClick={() => {
           setExpanded(!expanded);
         }}>

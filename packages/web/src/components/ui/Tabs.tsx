@@ -30,7 +30,7 @@ const Tabs: React.FC<Props> = (props) => {
           return (
             <div
               key={tab.id}
-              className={`${currentId === tab.id && 'text-aws-smile border-b-aws-smile -mb-2 border-b-4'} cursor-pointer border-l px-4 py-1 font-bold first:border-l-0`}
+              className={`${currentId === tab.id && 'text-primary border-b-aws-smile -mb-2 border-b-4'} cursor-pointer border-l px-4 py-1 font-bold first:border-l-0`}
               onClick={() => {
                 setCurrentId(tab.id);
               }}>

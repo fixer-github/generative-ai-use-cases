@@ -109,7 +109,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
           />
           {file && (
             <div className="mt-3 flex items-center space-x-3 rounded-lg border border-aws-border p-3">
-              <PiPresentation className="h-8 w-8 text-aws-smile" />
+              <PiPresentation className="h-8 w-8 text-primary" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-aws-font-color">
                   {file.name}

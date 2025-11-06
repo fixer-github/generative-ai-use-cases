@@ -328,7 +328,7 @@ const TranslatePage: React.FC = () => {
                         stopTranscription();
                         setAudioInput(false);
                       }}
-                      className="text-aws-smile h-5 w-5 cursor-pointer"></PiStopCircleBold>
+                      className="text-primary h-5 w-5 cursor-pointer"></PiStopCircleBold>
                   )}
                   {!audio && (
                     <PiMicrophoneBold

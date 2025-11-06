@@ -62,7 +62,7 @@ const EditableMarkdown: React.FC<EditableMarkdownProps> = ({
       <div className="flex justify-end">
         {t('diagram.mermaid_syntax')}
         <Link
-          className="text-aws-smile underline"
+          className="text-primary underline"
           to="https://mermaid.js.org/intro/"
           target="_blank">
           {t('common.here')}
