@@ -33,11 +33,12 @@ const headers = {
 /**
  * Helper function to strip the "assistant#" prefix from assistantId
  * Internal storage uses "assistant#<uuid>" format, but API returns clean UUID
+ * Handles multiple prefixes defensively (e.g., "assistant#assistant#uuid" -> "uuid")
  */
 function stripAssistantPrefix(assistant: Assistant): Assistant {
   return {
     ...assistant,
-    assistantId: assistant.assistantId.replace('assistant#', ''),
+    assistantId: assistant.assistantId.replace(/^(assistant#)+/, ''),
   };
 }
 

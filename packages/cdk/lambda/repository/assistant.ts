@@ -130,7 +130,9 @@ export const getAssistant = async (
   _assistantId: string,
   event: APIGatewayProxyEvent
 ): Promise<Assistant | null> => {
-  const assistantId = `assistant#${_assistantId}`;
+  const assistantId = _assistantId.startsWith('assistant#')
+    ? _assistantId
+    : `assistant#${_assistantId}`;
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getAssistantTableName(event);
 
@@ -161,7 +163,9 @@ export const updateAssistant = async (
   updates: UpdateAssistantRequest,
   event: APIGatewayProxyEvent
 ): Promise<Assistant> => {
-  const assistantId = `assistant#${_assistantId}`;
+  const assistantId = _assistantId.startsWith('assistant#')
+    ? _assistantId
+    : `assistant#${_assistantId}`;
   const userId = `user#${_userId}`;
 
   // First get the assistant to get the createdDate (sort key)
@@ -370,7 +374,9 @@ export const deleteAssistant = async (
   _userId: string,
   event: APIGatewayProxyEvent
 ): Promise<void> => {
-  const assistantId = `assistant#${_assistantId}`;
+  const assistantId = _assistantId.startsWith('assistant#')
+    ? _assistantId
+    : `assistant#${_assistantId}`;
   const userId = `user#${_userId}`;
 
   // First get the assistant to verify ownership and get keys

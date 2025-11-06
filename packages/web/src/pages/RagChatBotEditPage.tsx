@@ -21,6 +21,7 @@ import Textarea from '../components/Textarea';
 import Card from '../components/Card';
 import LoadingWave from '../components/LoadingWave';
 import FileUploader from '../components/FileUploader';
+import { MODELS } from '../hooks/useModel';
 
 const RagChatBotEditPage: React.FC = () => {
   const { t } = useTranslation();
@@ -50,7 +51,7 @@ const RagChatBotEditPage: React.FC = () => {
     name: '',
     description: '',
     instruction: '',
-    modelId: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    modelId: MODELS.modelIds[0] || 'anthropic.claude-3-5-sonnet-20241022-v2:0',
     ragEnabled: false,
     knowledgeSources: [],
     s3Urls: [],
@@ -287,15 +288,11 @@ const RagChatBotEditPage: React.FC = () => {
                 setFormData({ ...formData, modelId: e.target.value })
               }
               className="w-full rounded border border-black/30 px-3 py-2 outline-none">
-              <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">
-                Claude 3.5 Sonnet v2
-              </option>
-              <option value="anthropic.claude-3-5-sonnet-20240620-v1:0">
-                Claude 3.5 Sonnet v1
-              </option>
-              <option value="anthropic.claude-3-opus-20240229-v1:0">
-                Claude 3 Opus
-              </option>
+              {MODELS.modelIds.map((modelId) => (
+                <option key={modelId} value={modelId}>
+                  {MODELS.modelDisplayName(modelId)}
+                </option>
+              ))}
             </select>
           </div>
 
