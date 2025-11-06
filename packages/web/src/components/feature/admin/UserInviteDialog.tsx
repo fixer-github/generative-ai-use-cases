@@ -321,7 +321,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
             {/* Header */}
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center">
-                <PiUserPlus className="mr-3 text-2xl text-primary" />
+                <PiUserPlus className="mr-3 text-2xl text-blue-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
                   {t('adminPortal.invite.title')}
                 </h3>
@@ -339,7 +339,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 <button
                   className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
                     inviteMode === 'single'
-                      ? 'bg-accent text-accent-foreground'
+                      ? 'bg-blue-50 text-blue-800'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setInviteMode('single')}>
@@ -349,7 +349,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 <button
                   className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
                     inviteMode === 'bulk'
-                      ? 'bg-accent text-accent-foreground'
+                      ? 'bg-blue-50 text-blue-800'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setInviteMode('bulk')}>
@@ -387,7 +387,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                     type="file"
                     accept=".csv"
                     onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent/80"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-800 hover:file:bg-blue-100"
                   />
                   {csvFile && (
                     <p className="mt-2 text-sm text-green-600">

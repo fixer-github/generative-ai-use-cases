@@ -617,7 +617,7 @@ const GenerateVideoPage: React.FC = () => {
                       multiple
                       value={[]}
                     />
-                    <div className="text-primary border-primary my-2 flex w-full cursor-pointer flex-row items-center justify-center rounded-full border-2 bg-white p-1 text-sm hover:bg-gray-100">
+                    <div className="text-blue-600 border-blue-600 my-2 flex w-full cursor-pointer flex-row items-center justify-center rounded-full border-2 bg-white p-1 text-sm hover:bg-gray-100">
                       <PiUpload className="mr-1 text-base" />{' '}
                       {t('video.upload')}
                     </div>
@@ -824,7 +824,7 @@ const GenerateVideoPage: React.FC = () => {
                               setPreview(job);
                             }}
                             disabled={job.status !== 'Completed'}>
-                            <PiPlayFill className="text-primary" />
+                            <PiPlayFill className="text-blue-600" />
                           </ButtonIcon>
                         </td>
                         <td
@@ -856,7 +856,7 @@ const GenerateVideoPage: React.FC = () => {
                             }}
                             disabled={job.status !== 'Completed'}
                             loading={downloadingJobIds[job.createdDate]}>
-                            <PiDownload className="text-primary" />
+                            <PiDownload className="text-blue-600" />
                           </ButtonIcon>
                         </td>
                         <td

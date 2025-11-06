@@ -200,7 +200,7 @@ const TranscribePage: React.FC = () => {
                 {t('transcribe.file_upload')}
               </label>
               <input
-                className="border-aws-font-color/20 block h-10 w-full cursor-pointer rounded-lg border text-sm text-gray-900 file:mr-4 file:cursor-pointer file:border-0 file:bg-gray-500 file:px-4 file:py-2.5 file:text-white focus:outline-none"
+                className="border-slate-800/20 block h-10 w-full cursor-pointer rounded-lg border text-sm text-gray-900 file:mr-4 file:cursor-pointer file:border-0 file:bg-gray-500 file:px-4 file:py-2.5 file:text-white focus:outline-none"
                 onChange={onChangeFile}
                 aria-describedby="file_input_help"
                 id="file_input"
@@ -251,7 +251,7 @@ const TranscribePage: React.FC = () => {
             onClear={onClickClear}
             disabled={disabledExec}
           />
-          <div className="mt-5 rounded-md border border-input bg-background p-3">
+          <div className="mt-5 rounded-md border border-gray-200 bg-white p-3">
             {content.length > 0 && (
               <div>
                 {content.map((transcript, idx) => (
@@ -270,7 +270,7 @@ const TranscribePage: React.FC = () => {
               </div>
             )}
             {!loading && formattedOutput == '' && (
-              <div className="text-muted-foreground">
+              <div className="text-gray-500">
                 {t('transcribe.result_placeholder')}
               </div>
             )}

@@ -548,7 +548,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
         errorMessages.map((m, idx) => (
           <div
             key={idx}
-            className="text-aws-squid-ink mb-2 rounded bg-red-200 p-2 text-sm">
+            className="text-slate-800 mb-2 rounded bg-red-200 p-2 text-sm">
             {m}
           </div>
         ))}
@@ -620,7 +620,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
                   ref={fileInput}
                 />
                 <div
-                  className={`${uploading ? 'bg-gray-300' : 'bg-primary cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}>
+                  className={`${uploading ? 'bg-gray-300' : 'bg-blue-600 cursor-pointer'} flex w-fit items-center justify-center rounded-lg border px-2 py-1 text-white`}>
                   {uploading ? (
                     <PiSpinnerGap className="animate-spin" />
                   ) : (
@@ -737,7 +737,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
           </div>
         )}
         {loading && (
-          <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+          <div className="border-blue-600 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
         )}
         <div className="flex w-full justify-end">
           <ButtonCopy text={text} interUseCasesKey="text"></ButtonCopy>

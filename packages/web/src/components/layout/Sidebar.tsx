@@ -20,7 +20,7 @@ const Sidebar: React.FC<Props> = (props) => {
   }, [props.items]);
 
   return (
-    <nav className="bg-aws-squid-ink flex h-screen w-24 flex-col text-sm text-white">
+    <nav className="flex h-screen w-24 flex-col bg-slate-800 text-sm text-white">
       <div className="scrollbar-thin scrollbar-thumb-white flex-1 overflow-y-auto p-2">
         <div className="flex flex-col gap-1">
           {allItems.map((item, idx) => (

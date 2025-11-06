@@ -21,11 +21,11 @@ const ResultDisplay: React.FC<Props> = ({
   className,
 }) => {
   return (
-    <div className={`mt-5 rounded-md border border-input bg-background p-3 ${className ?? ''}`}>
+    <div className={`mt-5 rounded-md border border-gray-200 bg-white p-3 ${className ?? ''}`}>
       {content && <Markdown>{content}</Markdown>}
 
       {!loading && !content && placeholder && (
-        <div className="text-muted-foreground">{placeholder}</div>
+        <div className="text-gray-500">{placeholder}</div>
       )}
 
       {loading && (

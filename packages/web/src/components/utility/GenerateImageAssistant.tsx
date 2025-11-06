@@ -212,7 +212,7 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                 c.content.prompt === null &&
                 !c.content.error && (
                   <div className="flex items-center gap-2 text-gray-600">
-                    <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                    <div className="border-blue-600 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                     {t('generateImage.assistant.generating_prompt')}
                   </div>
                 )}
@@ -227,7 +227,7 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                         {t('generateImage.assistant.prompt_completed')}
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
-                        <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                        <div className="border-blue-600 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                         {t('generateImage.assistant.generating_image')}
                       </div>
                     </>

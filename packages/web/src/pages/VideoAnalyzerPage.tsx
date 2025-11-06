@@ -300,7 +300,7 @@ const VideoAnalyzerPage: React.FC = () => {
                 label={t('videoAnalyzer.model')}
               />
 
-              <div className="relative h-48 overflow-y-scroll rounded-md border border-input bg-background p-1.5 xl:h-96">
+              <div className="relative h-48 overflow-y-scroll rounded-md border border-gray-200 bg-white p-1.5 xl:h-96">
                 <Markdown>{typingTextOutput}</Markdown>
                 {(loading || sending) && (
                   <div className="flex items-center justify-center py-4">

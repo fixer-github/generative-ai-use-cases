@@ -11,7 +11,7 @@ const ChatEmptyState: React.FC<Props> = ({ icon, message, className }) => {
     <div
       className={`relative flex h-[calc(100vh-9rem)] flex-col items-center justify-center ${className ?? ''}`}>
       {icon}
-      {message && <p className="mt-4 text-muted-foreground">{message}</p>}
+      {message && <p className="mt-4 text-gray-500">{message}</p>}
     </div>
   );
 };

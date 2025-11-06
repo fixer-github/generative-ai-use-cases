@@ -16,9 +16,9 @@ const Button: React.FC<Props> = (props) => {
     <button
       className={`${props.className ?? ''} ${
         props.outlined
-          ? 'border border-input bg-white text-foreground hover:bg-accent hover:text-accent-foreground'
-          : 'bg-primary text-primary-foreground hover:bg-primary/90'
-      } inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+          ? 'border border-gray-200 bg-white text-gray-900 hover:bg-blue-50 hover:text-blue-800'
+          : 'bg-blue-600 text-white hover:bg-blue-700'
+      } inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
         props.disabled || props.loading
           ? 'pointer-events-none opacity-50'
           : ''

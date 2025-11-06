@@ -401,7 +401,7 @@ const ChatPage: React.FC = () => {
           {share ? t('chat.delete_link_message') : t('chat.create_link_message')}
         </p>
         {shareLink && (
-          <div className="flex justify-between items-center py-1 px-2 my-2 text-white rounded bg-aws-squid-ink">
+          <div className="flex justify-between items-center py-1 px-2 my-2 text-white rounded bg-slate-800">
             <span className="text-sm break-all">{shareLink}</span>
             <ButtonCopy text={shareLink} />
           </div>

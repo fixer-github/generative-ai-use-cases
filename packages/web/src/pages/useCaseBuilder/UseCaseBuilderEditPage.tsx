@@ -54,7 +54,7 @@ const ErrorMesage: React.FC<{
   const { t } = useTranslation();
   return (
     <li
-      className="text-primary cursor-pointer text-xs font-bold leading-6 underline"
+      className="text-blue-600 cursor-pointer text-xs font-bold leading-6 underline"
       onClick={props.onClick}>
       {t(props.message)}
     </li>
@@ -574,14 +574,14 @@ const UseCaseBuilderEditPage: React.FC = () => {
               return (
                 <div
                   key={idx}
-                  className={`text-primary border-primary flex cursor-pointer flex-row border-b-2 px-2 py-2 text-sm font-bold lg:border-b-0 lg:border-r-2`}
+                  className={`text-blue-600 border-blue-600 flex cursor-pointer flex-row border-b-2 px-2 py-2 text-sm font-bold lg:border-b-0 lg:border-r-2`}
                   onClick={() => {
                     setCurrentMenu(m);
                   }}>
                   {m}
                   {dottedMenu.includes(m) && (
                     <div className="ml-0.5">
-                      <PiCircleFill className="text-primary text-[6px]" />
+                      <PiCircleFill className="text-blue-600 text-[6px]" />
                     </div>
                   )}
                 </div>
@@ -590,14 +590,14 @@ const UseCaseBuilderEditPage: React.FC = () => {
               return (
                 <div
                   key={idx}
-                  className={`hover:text-primary flex cursor-pointer flex-row border-b-2 border-gray-200 px-2 py-2 text-sm text-gray-800 lg:border-b-0 lg:border-r-2`}
+                  className={`hover:text-blue-600 flex cursor-pointer flex-row border-b-2 border-gray-200 px-2 py-2 text-sm text-gray-800 lg:border-b-0 lg:border-r-2`}
                   onClick={() => {
                     setCurrentMenu(m);
                   }}>
                   {m}
                   {dottedMenu.includes(m) && (
                     <div className="ml-0.5">
-                      <PiCircleFill className="text-primary text-[6px]" />
+                      <PiCircleFill className="text-blue-600 text-[6px]" />
                     </div>
                   )}
                 </div>
@@ -611,7 +611,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
             {currentMenu === t('useCaseBuilder.menuUseCaseDefinition') && (
               <div className="absolute right-3 top-5">
                 <ButtonIcon
-                  className="hover:text-primary text-gray-600"
+                  className="hover:text-blue-600 text-gray-600"
                   onClick={handleImportClick}>
                   <PiDownloadSimple className="text-lg" />
                 </ButtonIcon>
@@ -807,7 +807,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
                 </div>
                 {createErrorMessages.length > 0 && (
                   <div className="my-2 flex flex-col gap-y-2">
-                    <div className="text-primary text-xs font-bold">
+                    <div className="text-blue-600 text-xs font-bold">
                       {t('useCaseBuilder.createErrorCondition')}
                     </div>
                     <ul className="list-inside list-disc">
@@ -837,7 +837,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
                 {(createErrorMessages.length > 0 ||
                   updateErrorMessages.length > 0) && (
                   <div className="my-2 flex flex-col gap-y-2">
-                    <div className="text-primary text-xs font-bold">
+                    <div className="text-blue-600 text-xs font-bold">
                       {t('useCaseBuilder.updateErrorCondition')}
                     </div>
                     <ul className="list-disc pl-4">

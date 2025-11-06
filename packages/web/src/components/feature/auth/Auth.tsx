@@ -64,7 +64,7 @@ const Auth: React.FC<Props> = (props) => {
         hideSignUp={!selfSignUpEnabled}
         components={{
           Header: () => (
-            <div className="text-aws-font-color mb-5 mt-10 flex justify-center text-3xl">
+            <div className="text-slate-800 mb-5 mt-10 flex justify-center text-3xl">
               {t('auth.title')}
             </div>
           ),

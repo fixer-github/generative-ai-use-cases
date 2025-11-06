@@ -37,7 +37,7 @@ const placeholder = Placeholder.configure({
 const tiptapLink = TiptapLink.configure({
   HTMLAttributes: {
     class:
-      'text-muted-foreground underline underline-offset-[3px] hover:text-primary transition-colors cursor-pointer',
+      'text-gray-500 underline underline-offset-[3px] hover:text-blue-600 transition-colors cursor-pointer',
   },
 });
 
@@ -55,7 +55,7 @@ const taskItem = TaskItem.configure({
 
 const horizontalRule = HorizontalRule.configure({
   HTMLAttributes: {
-    class: 'mt-4 mb-6 border-t border-muted-foreground',
+    class: 'mt-4 mb-6 border-t border-gray-500',
   },
 });
 
@@ -77,18 +77,18 @@ const starterKit = StarterKit.configure({
   },
   blockquote: {
     HTMLAttributes: {
-      class: 'border-l-4 border-primary',
+      class: 'border-l-4 border-blue-600',
     },
   },
   codeBlock: {
     HTMLAttributes: {
       class:
-        'rounded-md bg-muted text-muted-foreground border p-5 font-mono font-medium',
+        'rounded-md bg-gray-50 text-gray-500 border p-5 font-mono font-medium',
     },
   },
   code: {
     HTMLAttributes: {
-      class: 'rounded-md bg-muted px-1.5 py-1 font-mono font-medium',
+      class: 'rounded-md bg-gray-50 px-1.5 py-1 font-mono font-medium',
       spellcheck: 'false',
     },
   },
@@ -108,7 +108,7 @@ const codeBlockLowlight = CodeBlockLowlight.configure({
 
 const youtube = Youtube.configure({
   HTMLAttributes: {
-    class: 'rounded-lg border border-muted',
+    class: 'rounded-lg border border-gray-200',
   },
   inline: false,
 });

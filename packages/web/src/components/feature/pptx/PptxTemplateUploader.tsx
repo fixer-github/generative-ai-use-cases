@@ -99,7 +99,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
       <div className="space-y-6">
         {/* File Upload */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-aws-font-color">
+          <label className="mb-2 block text-sm font-medium text-slate-800">
             {t('pptx.upload.fileLabel')}
           </label>
           <FileUploader
@@ -108,13 +108,13 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
             className="w-full"
           />
           {file && (
-            <div className="mt-3 flex items-center space-x-3 rounded-lg border border-aws-border p-3">
-              <PiPresentation className="h-8 w-8 text-primary" />
+            <div className="mt-3 flex items-center space-x-3 rounded-lg border border-gray-200 p-3">
+              <PiPresentation className="h-8 w-8 text-blue-600" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-aws-font-color">
+                <p className="text-sm font-medium text-slate-800">
                   {file.name}
                 </p>
-                <p className="text-xs text-aws-font-color-secondary">
+                <p className="text-xs text-gray-500">
                   {(file.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
               </div>
@@ -130,7 +130,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
 
         {/* Template Name */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-aws-font-color">
+          <label className="mb-2 block text-sm font-medium text-slate-800">
             {t('pptx.upload.nameLabel')} *
           </label>
           <InputText
@@ -142,7 +142,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
 
         {/* Template Description */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-aws-font-color">
+          <label className="mb-2 block text-sm font-medium text-slate-800">
             {t('pptx.upload.descriptionLabel')}
           </label>
           <Textarea
@@ -155,7 +155,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
 
         {/* Tags */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-aws-font-color">
+          <label className="mb-2 block text-sm font-medium text-slate-800">
             {t('pptx.upload.tagsLabel')}
           </label>
           <InputText
@@ -163,7 +163,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
             onChange={setTags}
             placeholder={t('pptx.upload.tagsPlaceholder')}
           />
-          <p className="mt-1 text-xs text-aws-font-color-secondary">
+          <p className="mt-1 text-xs text-gray-500">
             {t('pptx.upload.tagsHelp')}
           </p>
         </div>
@@ -171,10 +171,10 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
         {/* Public Toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <label className="text-sm font-medium text-aws-font-color">
+            <label className="text-sm font-medium text-slate-800">
               {t('pptx.upload.publicLabel')}
             </label>
-            <p className="text-xs text-aws-font-color-secondary">
+            <p className="text-xs text-gray-500">
               {t('pptx.upload.publicHelp')}
             </p>
           </div>

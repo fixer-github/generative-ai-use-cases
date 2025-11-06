@@ -12,7 +12,7 @@ type Props = BaseProps & {
 const ButtonFavorite: React.FC<Props> = (props) => {
   return (
     <ButtonIcon
-      className={`${props.className ?? ''} ${props.isFavorite ? 'text-primary' : ''}`}
+      className={`${props.className ?? ''} ${props.isFavorite ? 'text-blue-600' : ''}`}
       disabled={props.disabled}
       onClick={() => {
         props.onClick();

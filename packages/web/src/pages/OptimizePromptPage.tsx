@@ -134,7 +134,7 @@ const OptimizePromptPage: React.FC = () => {
               />
             </div>
             <div className="w-full lg:ml-2 lg:w-1/2">
-              <div className="rounded-md border border-input bg-background p-1.5">
+              <div className="rounded-md border border-gray-200 bg-white p-1.5">
                 <Markdown>{optimizedPrompt}</Markdown>
                 {loading && (
                   <div className="flex items-center justify-center py-4">
@@ -142,7 +142,7 @@ const OptimizePromptPage: React.FC = () => {
                   </div>
                 )}
                 {!loading && optimizedPrompt === '' && (
-                  <div className="text-muted-foreground">
+                  <div className="text-gray-500">
                     {t('optimizePrompt.result_placeholder')}
                   </div>
                 )}

@@ -210,7 +210,7 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
         className={`flex rounded border border-gray-300 text-sm text-gray-500 shadow-sm transition-all duration-300 focus:outline-none ${
           isDisabled
             ? 'bg-gray-200'
-            : 'focus:ring-aws-smile/20 focus:border-primary bg-white hover:border-gray-400 focus:ring'
+            : 'focus:ring-orange-500/20 focus:border-blue-600 bg-white hover:border-gray-400 focus:ring'
         }`}>
         <div className="flex grow flex-wrap gap-1 py-2 pl-2.5 pr-2">
           {!isMultiple ? (
@@ -270,7 +270,7 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
               />
               {allowOther && (
                 <div
-                  className="hover:text-primary absolute right-4 top-3.5 cursor-pointer text-gray-500"
+                  className="hover:text-blue-600 absolute right-4 top-3.5 cursor-pointer text-gray-500"
                   onClick={handleAddOther}>
                   <PiPlusCircle className="h-5 w-5" />
                 </div>

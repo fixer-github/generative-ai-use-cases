@@ -152,7 +152,7 @@ const AssistantCreatePage: React.FC = () => {
         <div className="mb-6 flex items-center gap-4">
           <button
             onClick={() => navigate('/chat/assistants')}
-            className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground">
+            className="flex items-center gap-1 text-gray-500 transition-colors hover:text-gray-900">
             <PiArrowLeft className="text-xl" />
           </button>
           <h1 className="flex-1 text-2xl font-bold">
@@ -249,12 +249,12 @@ const AssistantCreatePage: React.FC = () => {
                 {formData.knowledge?.sourceUrls.map((url, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <PiGlobe className="text-muted-foreground" />
+                    className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                    <PiGlobe className="text-gray-500" />
                     <span className="flex-1 truncate">{url}</span>
                     <button
                       onClick={() => removeSourceUrl(index)}
-                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive">
+                      className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-red-500">
                       <PiTrash />
                     </button>
                   </div>
@@ -276,12 +276,12 @@ const AssistantCreatePage: React.FC = () => {
                 {uploadedFiles.map((filename) => (
                   <div
                     key={filename}
-                    className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <PiFile className="text-muted-foreground" />
+                    className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                    <PiFile className="text-gray-500" />
                     <span className="flex-1 truncate">{filename}</span>
                     <button
                       onClick={() => handleDeleteFile(filename)}
-                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive">
+                      className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-red-500">
                       <PiTrash />
                     </button>
                   </div>

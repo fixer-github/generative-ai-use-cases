@@ -268,10 +268,10 @@ const WebContent: React.FC = () => {
             />
           </div>
 
-          <div className="mt-2 rounded-md border border-input bg-background p-3">
+          <div className="mt-2 rounded-md border border-gray-200 bg-white p-3">
             <Markdown>{typingTextOutput}</Markdown>
             {!loading && !fetching && content === '' && (
-              <div className="text-muted-foreground">
+              <div className="text-gray-500">
                 {t('webcontent.result_placeholder')}
               </div>
             )}

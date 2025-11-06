@@ -283,18 +283,18 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
             className="w-48"
           />
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="bg-accent text-muted-foreground rounded-lg px-2 py-1">
+            <div className="bg-blue-50 text-gray-500 rounded-lg px-2 py-1">
               {saveStatus ? t('writer.saved') : t('writer.saving')}
             </div>
             {charsCount && (
-              <div className="bg-accent text-muted-foreground rounded-lg px-2 py-1">
+              <div className="bg-blue-50 text-gray-500 rounded-lg px-2 py-1">
                 {charsCount} {t('writer.characters')}
               </div>
             )}
             <ButtonCopy
               text={text}
               html={html}
-              className="hover:bg-accent/80 border"
+              className="hover:bg-blue-100 border"
             />
             <Button outlined onClick={handleClear}>
               {t('writer.clear')}
@@ -323,7 +323,7 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
             <EditorContent
               initialContent={initialContent}
               extensions={extensions}
-              className="border-muted bg-background relative min-h-[500px] w-full max-w-screen-lg sm:mb-[calc(20vh)] sm:rounded-lg sm:border sm:shadow-lg"
+              className="border-gray-200 bg-white relative min-h-[500px] w-full max-w-screen-lg sm:mb-[calc(20vh)] sm:rounded-lg sm:border sm:shadow-lg"
               editorProps={{
                 handleDOMEvents: {
                   keydown: (_view, event) => handleCommandNavigation(event),
@@ -343,8 +343,8 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
                 setSaveStatus(true);
               }}
               slotAfter={<ImageResizer />}>
-              <EditorCommand className="border-muted bg-background z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border px-1 py-2 shadow-md transition-all">
-                <EditorCommandEmpty className="text-muted-foreground px-2">
+              <EditorCommand className="border-gray-200 bg-white z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border px-1 py-2 shadow-md transition-all">
+                <EditorCommandEmpty className="text-gray-500 px-2">
                   {t('writer.no_results')}
                 </EditorCommandEmpty>
                 <EditorCommandList>
@@ -352,14 +352,14 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
                     <EditorCommandItem
                       value={item.title}
                       onCommand={(val) => item.command?.(val)}
-                      className="hover:bg-accent aria-selected:bg-accent flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm"
+                      className="hover:bg-blue-50 aria-selected:bg-blue-50 flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm"
                       key={item.title}>
-                      <div className="border-muted bg-background flex h-10 w-10 items-center justify-center rounded-md border">
+                      <div className="border-gray-200 bg-white flex h-10 w-10 items-center justify-center rounded-md border">
                         {item.icon}
                       </div>
                       <div>
                         <p className="font-medium">{item.title}</p>
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-gray-500 text-xs">
                           {item.description}
                         </p>
                       </div>

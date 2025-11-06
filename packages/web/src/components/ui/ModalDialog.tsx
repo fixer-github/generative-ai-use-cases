@@ -49,7 +49,7 @@ const ModalDialog: React.FC<Props> = (props) => {
                 <Dialog.Panel className="w-full max-w-2xl rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                   <Dialog.Title
                     as="h3"
-                    className="text-aws-font-color flex items-center border-b pb-2 text-lg font-medium leading-6">
+                    className="text-slate-800 flex items-center border-b pb-2 text-lg font-medium leading-6">
                     {props.title}
                     {props.help && (
                       <Help className="ml-2" message={props.help} />
@@ -57,7 +57,7 @@ const ModalDialog: React.FC<Props> = (props) => {
                   </Dialog.Title>
 
                   <div className="mt-3">
-                    <div className="text-aws-font-color/70 text-sm">
+                    <div className="text-slate-800/70 text-sm">
                       {props.children}
                     </div>
                   </div>

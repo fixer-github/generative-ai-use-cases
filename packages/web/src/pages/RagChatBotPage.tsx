@@ -259,7 +259,7 @@ const RagChatBotPage: React.FC = () => {
     return (
       <div
         key={bot.id}
-        className="border-aws-font-color/20 relative mb-4 cursor-pointer rounded-lg border p-5 shadow transition-shadow hover:shadow-lg"
+        className="border-slate-800/20 relative mb-4 cursor-pointer rounded-lg border p-5 shadow transition-shadow hover:shadow-lg"
         onClick={(e) => {
           // Check if click is on card itself, not on buttons
           const target = e.target as HTMLElement;

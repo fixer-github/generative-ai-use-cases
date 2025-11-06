@@ -203,14 +203,14 @@ const PromptList: React.FC<Props> = (props) => {
           expanded ? 'right-0 z-50' : '-right-64 z-30'
         } pointer-events-none flex h-full justify-center`}>
         <div
-          className="bg-primary pointer-events-auto mt-24 flex size-12 cursor-pointer items-center justify-center rounded-l-full transition-all lg:mt-16"
+          className="bg-blue-600 pointer-events-auto mt-24 flex size-12 cursor-pointer items-center justify-center rounded-l-full transition-all lg:mt-16"
           onClick={() => {
             setExpanded(!expanded);
           }}>
-          <PiBookOpenText className="text-aws-squid-ink size-6" />
+          <PiBookOpenText className="text-slate-800 size-6" />
         </div>
 
-        <div className="bg-aws-squid-ink scrollbar-thin scrollbar-thumb-white pointer-events-auto h-full w-64 overflow-y-scroll break-words p-3 text-sm text-white">
+        <div className="bg-slate-800 scrollbar-thin scrollbar-thumb-white pointer-events-auto h-full w-64 overflow-y-scroll break-words p-3 text-sm text-white">
           <div className="my-2 flex items-center text-sm font-semibold">
             <PiBookOpenText className="mr-1.5 text-lg" />
             {t('chat.saved_system_prompts')}

@@ -85,7 +85,7 @@ const ChatListItem: React.FC<Props> = (props) => {
     return text.split(regex).map((part, i) => {
       if (words.some((word) => part.toLowerCase() === word.toLowerCase())) {
         return (
-          <span key={i} className="font-semibold text-primary">
+          <span key={i} className="font-semibold text-blue-600">
             {part}
           </span>
         );
@@ -149,8 +149,8 @@ const ChatListItem: React.FC<Props> = (props) => {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}>
         <Link
-          className={`hover:bg-accent/30 group flex w-full flex-col justify-start rounded p-2 ${
-            props.active && 'bg-accent'
+          className={`hover:bg-blue-100/30 group flex w-full flex-col justify-start rounded p-2 ${
+            props.active && 'bg-blue-50'
           } ${props.className}`}
           to={`/chat/${chatId}`}
           onClick={(e) => {

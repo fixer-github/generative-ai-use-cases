@@ -601,7 +601,7 @@ const GenerateDiagramPage: React.FC = () => {
                       <span className="text-gray-600">
                         {t('diagram.step1_loading')}
                       </span>
-                      <div className="border-aws-sky ml-2 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                      <div className="border-blue-600 ml-2 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                     </div>
                   ) : (
                     <div className="flex min-h-[40px] flex-col items-center justify-center rounded-md bg-blue-50 p-3">
@@ -624,7 +624,7 @@ const GenerateDiagramPage: React.FC = () => {
                       <span className="text-gray-600">
                         {t('diagram.step2_loading')}
                       </span>
-                      <div className="border-aws-sky ml-2 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                      <div className="border-blue-600 ml-2 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                     </div>
                   )}
                 </div>

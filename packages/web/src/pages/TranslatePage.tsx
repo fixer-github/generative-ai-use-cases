@@ -327,7 +327,7 @@ const TranslatePage: React.FC = () => {
                         stopTranscription();
                         setAudioInput(false);
                       }}
-                      className="text-primary h-5 w-5 cursor-pointer"></PiStopCircleBold>
+                      className="text-blue-600 h-5 w-5 cursor-pointer"></PiStopCircleBold>
                   )}
                   {!audio && (
                     <PiMicrophoneBold
@@ -369,7 +369,7 @@ const TranslatePage: React.FC = () => {
                   onChange={setLanguage}
                 />
               </div>
-              <div className="rounded-md border border-input bg-background p-3">
+              <div className="rounded-md border border-gray-200 bg-white p-3">
                 <Markdown>{typingTextOutput}</Markdown>
                 {loading && (
                   <div className="flex items-center justify-center py-4">
@@ -377,7 +377,7 @@ const TranslatePage: React.FC = () => {
                   </div>
                 )}
                 {!loading && translatedSentence === '' && (
-                  <div className="text-muted-foreground">
+                  <div className="text-gray-500">
                     {t('translate.result_placeholder')}
                   </div>
                 )}

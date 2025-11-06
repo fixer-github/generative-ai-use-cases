@@ -122,7 +122,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
         className="my-1 flex max-h-80 w-48 flex-col overflow-hidden overflow-y-auto rounded border p-1 shadow-xl"
         align="start">
         <div className="flex flex-col">
-          <div className="text-muted-foreground my-1 px-2 text-sm font-semibold">
+          <div className="text-gray-500 my-1 px-2 text-sm font-semibold">
             {t('writer.color')}
           </div>
           {TEXT_COLORS.map(({ name, color }) => (
@@ -138,7 +138,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
                     .run();
                 onOpenChange(false);
               }}
-              className="hover:bg-accent flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
+              className="hover:bg-blue-50 flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
                 <div
@@ -152,7 +152,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
           ))}
         </div>
         <div>
-          <div className="text-muted-foreground my-1 px-2 text-sm font-semibold">
+          <div className="text-gray-500 my-1 px-2 text-sm font-semibold">
             {t('writer.background')}
           </div>
           {HIGHLIGHT_COLORS.map(({ name, color }) => (
@@ -164,7 +164,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
                   editor.chain().focus().setHighlight({ color }).run();
                 onOpenChange(false);
               }}
-              className="hover:bg-accent flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
+              className="hover:bg-blue-50 flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
                 <div

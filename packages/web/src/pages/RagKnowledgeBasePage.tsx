@@ -322,7 +322,7 @@ const RagKnowledgeBasePage: React.FC = () => {
               <div>
                 {t('rag.filter_settings')}{' '}
                 <a
-                  className="text-primary underline"
+                  className="text-blue-600 underline"
                   href="https://github.com/aws-samples/generative-ai-use-cases/blob/main/packages/common/src/custom/rag-knowledge-base.ts"
                   target="_blank">
                   {t('rag.here')}
@@ -343,7 +343,7 @@ const RagKnowledgeBasePage: React.FC = () => {
             {t('rag.no_settings_found')}
             {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
             <a
-              className="text-primary underline"
+              className="text-blue-600 underline"
               href="https://github.com/aws-samples/generative-ai-use-cases/blob/main/packages/common/src/custom/rag-knowledge-base.ts"
               target="_blank">
               packages/common/src/custom/rag-knowledge-base.ts

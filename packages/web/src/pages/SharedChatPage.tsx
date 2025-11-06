@@ -91,7 +91,7 @@ const SharedChatPage: React.FC = () => {
                     setShowSystemContext(!showSystemContext);
                   }}
                 />
-                <div className="peer-checked:bg-primary peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:start-[2px] after:top-[2px] after:size-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full"></div>
+                <div className="peer-checked:bg-blue-600 peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:start-[2px] after:top-[2px] after:size-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full"></div>
                 <span className="ml-1 text-xs font-medium">
                   {t('chat.show_system_prompt')}
                 </span>

@@ -33,7 +33,7 @@ const ModalSystemContext: React.FC<Props> = (props) => {
           value={props.saveSystemContextTitle}
           onChange={props.setSaveSystemContextTitle}
           maxHeight={-1}
-          className="text-aws-font-color"
+          className="text-slate-800"
         />
 
         <div className="py-2.5">{t('chat.system_prompt')}</div>
@@ -42,7 +42,7 @@ const ModalSystemContext: React.FC<Props> = (props) => {
           value={props.saveSystemContext}
           onChange={props.setSaveSystemContext}
           maxHeight={500}
-          className="text-aws-font-color"
+          className="text-slate-800"
         />
 
         <div className="mt-4 flex justify-end gap-2">

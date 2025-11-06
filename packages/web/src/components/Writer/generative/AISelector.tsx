@@ -85,7 +85,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
                   <div className="inline-flex gap-1">
                     {t('writer.ai.trace')}
                     {isLoading && !completion && (
-                      <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                      <div className="border-blue-600 size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                     )}
                   </div>
                 </summary>

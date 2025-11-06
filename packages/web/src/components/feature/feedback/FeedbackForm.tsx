@@ -49,7 +49,7 @@ const FeedbackForm: React.FC<Props> = ({ onSubmit, onCancel }) => {
             onClick={() => handleReasonChange(reason)}
             className={`rounded-full border px-3 py-1 text-sm ${
               selectedReasons.includes(reason)
-                ? 'border-primary bg-accent text-accent-foreground'
+                ? 'border-blue-600 bg-blue-50 text-blue-800'
                 : 'border-gray-300 bg-white text-gray-700'
             }`}>
             {reason}

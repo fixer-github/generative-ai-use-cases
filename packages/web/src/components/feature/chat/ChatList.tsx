@@ -84,7 +84,7 @@ const ChatList: React.FC<Props> = (props) => {
             .map((_, idx) => (
               <div
                 key={idx}
-                className="bg-aws-sky/20 my-1 h-6 w-full animate-pulse rounded"></div>
+                className="bg-blue-600/20 my-1 h-6 w-full animate-pulse rounded"></div>
             ))}
       </div>
     </>

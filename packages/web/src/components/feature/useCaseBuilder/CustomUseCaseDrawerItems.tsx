@@ -27,7 +27,7 @@ const CustomUseCaseDrawerItems: React.FC<Props> = (props) => {
         return (
           <div
             key={usecase.useCaseId}
-            className={`${location.pathname.startsWith('/use-case-builder/execute/') && useCaseId === usecase.useCaseId ? 'bg-aws-sky' : ''} hover:bg-aws-sky flex h-8 cursor-pointer items-center rounded p-2`}
+            className={`${location.pathname.startsWith('/use-case-builder/execute/') && useCaseId === usecase.useCaseId ? 'bg-blue-600' : ''} hover:bg-blue-600 flex h-8 cursor-pointer items-center rounded p-2`}
             onClick={() => {
               onClick(usecase.useCaseId);
             }}>

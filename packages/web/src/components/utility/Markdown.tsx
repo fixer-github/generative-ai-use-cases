@@ -175,7 +175,7 @@ const CodeRenderer = memo(
           </code>
         ) : (
           // Inline code
-          <span className="bg-aws-squid-ink/10 border-aws-squid-ink/30 inline rounded-md border px-1 py-0.5">
+          <span className="bg-slate-800/10 border-slate-800/30 inline rounded-md border px-1 py-0.5">
             {codeText}
           </span>
         )}

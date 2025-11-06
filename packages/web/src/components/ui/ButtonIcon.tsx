@@ -23,7 +23,7 @@ const ButtonIcon: React.FC<Props> = (props) => {
     <button
       className={`${
         props.className ?? ''
-      } inline-flex items-center justify-center rounded-full p-1.5 text-xl transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+      } inline-flex items-center justify-center rounded-full p-1.5 text-xl transition-colors hover:bg-blue-50 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
         props.disabled || props.loading ? 'pointer-events-none opacity-50' : ''
       }`}
       onClick={onClick}

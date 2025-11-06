@@ -35,7 +35,7 @@ const AICompletionCommands = ({
               )
               .run();
           }}>
-          <PiCheck className="text-muted-foreground h-4 w-4" />
+          <PiCheck className="text-gray-500 h-4 w-4" />
           {t('writer.ai.replace_selection')}
         </CommandItem>
         <CommandItem
@@ -49,7 +49,7 @@ const AICompletionCommands = ({
               .insertContentAt(selection.to + 1, completion)
               .run();
           }}>
-          <PiQuotes className="text-muted-foreground h-4 w-4" />
+          <PiQuotes className="text-gray-500 h-4 w-4" />
           {t('writer.ai.insert_below')}
         </CommandItem>
       </CommandGroup>
@@ -57,7 +57,7 @@ const AICompletionCommands = ({
 
       <CommandGroup>
         <CommandItem onSelect={onDiscard} value="thrash" className="gap-2 px-4">
-          <PiTrash className="text-muted-foreground h-4 w-4" />
+          <PiTrash className="text-gray-500 h-4 w-4" />
           {t('writer.ai.discard')}
         </CommandItem>
       </CommandGroup>

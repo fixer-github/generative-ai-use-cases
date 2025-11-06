@@ -60,7 +60,7 @@ export const TextButtons = () => {
             type="button">
             <item.icon
               className={cn('h-4 w-4', {
-                'text-primary': item.isActive(editor),
+                'text-blue-600': item.isActive(editor),
               })}
             />
           </Button>

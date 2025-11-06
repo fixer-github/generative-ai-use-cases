@@ -34,7 +34,7 @@ export default function Menu() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-52 p-2" align="end">
-        <p className="text-muted-foreground p-2 text-xs font-medium">
+        <p className="text-gray-500 p-2 text-xs font-medium">
           {t('writer.appearance')}
         </p>
         {appearances.map(({ theme, label, icon }) => (

@@ -27,7 +27,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="text-aws-squid-ink bg-white shadow-xl">
+    <div className="text-slate-800 bg-white shadow-xl">
       <div
         className="flex cursor-pointer items-center justify-between py-2 pl-2 pr-1 text-sm"
         onClick={() => {
@@ -57,7 +57,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
               <div className="relative">
                 {idx < currentIndex && (
                   <PiCheckCircleFill
-                    className="text-primary z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
+                    className="text-blue-600 z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
                     onClick={() => {
                       setCurrentIndex(idx);
                       navigateUseCase(idx);
@@ -66,7 +66,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
                 )}
                 {idx == currentIndex && (
                   <PiCircleFill
-                    className="text-primary z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
+                    className="text-blue-600 z-10 cursor-pointer bg-white text-2xl transition-all duration-100 hover:scale-125"
                     onClick={() => {
                       setCurrentIndex(idx);
                       navigateUseCase(idx);
@@ -87,7 +87,7 @@ const PopupInterUseCasesDemo: React.FC<Props> = () => {
                 </div>
               </div>
               {idx < currentIndex && idx < useCases.length - 1 && (
-                <div className="border-primary grow border-l-4 lg:border-t-4" />
+                <div className="border-blue-600 grow border-l-4 lg:border-t-4" />
               )}
               {idx >= currentIndex && idx < useCases.length - 1 && (
                 <div className="grow border-l border-t border-gray-300" />

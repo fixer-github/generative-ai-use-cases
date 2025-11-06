@@ -68,7 +68,7 @@ const Base64Image: React.FC<Props> = (props) => {
       ) : !props.imageBase64 || props.imageBase64 === '' ? (
         <>
           {props.loading ? (
-            <div className="border-aws-sky size-6 animate-spin rounded-full border-4 border-t-transparent"></div>
+            <div className="border-blue-600 size-6 animate-spin rounded-full border-4 border-t-transparent"></div>
           ) : (
             <PiImageLight className="size-3/4 text-gray-300" />
           )}

@@ -19,7 +19,7 @@ const FileCard: React.FC<Props> = (props) => {
       <div className="group relative cursor-pointer">
         <div
           className={`${
-            props.error ? 'border-red-500' : 'border-aws-squid-ink/50'
+            props.error ? 'border-red-500' : 'border-slate-800/50'
           } max-w-36 break-all rounded border object-cover object-center p-1 ${
             props.size === 's' ? 'max-h-24' : 'max-h-32'
           }`}>
@@ -31,7 +31,7 @@ const FileCard: React.FC<Props> = (props) => {
           )}
         </div>
         {(props.loading || props.deleting) && (
-          <div className="bg-aws-squid-ink/20 absolute top-0 flex h-full w-full items-center justify-center rounded">
+          <div className="bg-slate-800/20 absolute top-0 flex h-full w-full items-center justify-center rounded">
             <PiSpinnerGap className="animate-spin text-4xl text-white" />
           </div>
         )}

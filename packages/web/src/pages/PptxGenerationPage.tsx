@@ -135,14 +135,14 @@ const PptxGenerationPage: React.FC = () => {
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="mb-4 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <PiPresentation className="h-8 w-8 text-primary" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+              <PiPresentation className="h-8 w-8 text-blue-600" />
             </div>
           </div>
-          <h1 className="mb-2 text-3xl font-bold text-aws-font-color">
+          <h1 className="mb-2 text-3xl font-bold text-slate-800">
             {t('pptx.title')}
           </h1>
-          <p className="text-aws-font-color-secondary">
+          <p className="text-gray-500">
             {t('pptx.description')}
           </p>
         </div>
@@ -166,7 +166,7 @@ const PptxGenerationPage: React.FC = () => {
                 {/* Template Selection - TEMPORARILY HIDDEN (forced blank template only) */}
                 {/* <div>
                   <div className="mb-3 flex items-center justify-between">
-                    <label className="block text-sm font-medium text-aws-font-color">
+                    <label className="block text-sm font-medium text-slate-800">
                       {t('pptx.template.label')}
                     </label>
                     <ButtonIcon
@@ -186,7 +186,7 @@ const PptxGenerationPage: React.FC = () => {
 
                 {/* Model Selection */}
                 <div>
-                  <label className="mb-3 block text-sm font-medium text-aws-font-color">
+                  <label className="mb-3 block text-sm font-medium text-slate-800">
                     AI Model
                   </label>
                   <Select
@@ -197,7 +197,7 @@ const PptxGenerationPage: React.FC = () => {
                       label: modelDisplayName(m)
                     }))}
                   />
-                  <p className="mt-2 text-xs text-aws-font-color-secondary">
+                  <p className="mt-2 text-xs text-gray-500">
                     Select the AI model to generate presentation content
                   </p>
                 </div>
@@ -218,7 +218,7 @@ const PptxGenerationPage: React.FC = () => {
                 {/* Options */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-aws-font-color">
+                    <label className="text-sm font-medium text-slate-800">
                       {t('pptx.options.titleSlide')}
                     </label>
                     <Switch
@@ -228,7 +228,7 @@ const PptxGenerationPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-aws-font-color">
+                    <label className="text-sm font-medium text-slate-800">
                       {t('pptx.options.summarySlide')}
                     </label>
                     <Switch
@@ -248,7 +248,7 @@ const PptxGenerationPage: React.FC = () => {
               <div className="space-y-6">
                 {/* Instructions Input */}
                 <div>
-                  <label className="mb-3 block text-sm font-medium text-aws-font-color">
+                  <label className="mb-3 block text-sm font-medium text-slate-800">
                     {t('pptx.instructions.label')}
                   </label>
                   <Textarea
@@ -258,20 +258,20 @@ const PptxGenerationPage: React.FC = () => {
                     rows={8}
                     className="w-full"
                   />
-                  <p className="mt-2 text-xs text-aws-font-color-secondary">
+                  <p className="mt-2 text-xs text-gray-500">
                     {t('pptx.instructions.help')}
                   </p>
                 </div>
 
                 {/* Generation Status */}
                 {currentGeneration && (
-                  <div className="rounded-lg border border-aws-border p-4">
+                  <div className="rounded-lg border border-gray-200 p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-aws-font-color">
+                        <h3 className="font-medium text-slate-800">
                           {t('pptx.generation.status')}
                         </h3>
-                        <p className="text-sm text-aws-font-color-secondary">
+                        <p className="text-sm text-gray-500">
                           {currentGeneration.status === 'generating' && t('pptx.generation.generating')}
                           {currentGeneration.status === 'completed' && t('pptx.generation.completed')}
                           {currentGeneration.status === 'failed' && t('pptx.generation.failed')}
@@ -309,8 +309,8 @@ const PptxGenerationPage: React.FC = () => {
                 </Button>
 
                 {/* Examples */}
-                <div className="border-t border-aws-border pt-6">
-                  <h3 className="mb-3 text-sm font-medium text-aws-font-color">
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="mb-3 text-sm font-medium text-slate-800">
                     {t('pptx.examples.title')}
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -327,12 +327,12 @@ const PptxGenerationPage: React.FC = () => {
                       <button
                         key={index}
                         onClick={() => setInstructions(example.content)}
-                        className="rounded-lg border border-aws-border p-3 text-left hover:border-primary hover:bg-primary/5"
+                        className="rounded-lg border border-gray-200 p-3 text-left hover:border-blue-600 hover:bg-blue-600/5"
                       >
-                        <h4 className="text-sm font-medium text-aws-font-color">
+                        <h4 className="text-sm font-medium text-slate-800">
                           {example.title}
                         </h4>
-                        <p className="mt-1 text-xs text-aws-font-color-secondary">
+                        <p className="mt-1 text-xs text-gray-500">
                           {example.content.slice(0, 100)}...
                         </p>
                       </button>

@@ -51,7 +51,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
           <p className="text-base">↗</p>
           <p
             className={cn('underline decoration-stone-400 underline-offset-4', {
-              'text-primary': editor.isActive('link'),
+              'text-blue-600': editor.isActive('link'),
             })}>
             {t('writer.link')}
           </p>
@@ -74,7 +74,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
             ref={inputRef}
             type="text"
             placeholder={t('writer.paste_link')}
-            className="bg-background flex-1 p-1 text-sm outline-none"
+            className="bg-white flex-1 p-1 text-sm outline-none"
             defaultValue={editor.getAttributes('link').href || ''}
           />
           {editor.getAttributes('link').href ? (
