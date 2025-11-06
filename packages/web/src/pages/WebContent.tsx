@@ -19,6 +19,9 @@ import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
 import InputText from '@/components/ui/InputText';
 import { useTranslation } from 'react-i18next';
+import PageContainer from '@/components/layout/PageContainer';
+import ActionButtonGroup from '@/components/ui/ActionButtonGroup';
+import Spinner from '@/components/ui/loading/Spinner';
 
 type StateType = {
   url: string;
@@ -205,12 +208,7 @@ const WebContent: React.FC = () => {
   }, [clear, clearChat]);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('webcontent.title')}
-      </div>
-
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
+    <PageContainer title={t('webcontent.title')}>
         {showError && (
           <Alert
             severity="error"
@@ -262,25 +260,25 @@ const WebContent: React.FC = () => {
                 {t('translate.continue_output')}
               </Button>
             )}
-
-            <Button outlined onClick={onClickClear} disabled={disabledExec}>
-              {t('common.clear')}
-            </Button>
-
-            <Button disabled={disabledExec} onClick={onClickExec}>
-              {t('common.execute')}
-            </Button>
+            <ActionButtonGroup
+              onExecute={onClickExec}
+              onClear={onClickClear}
+              disabled={disabledExec}
+              className="flex-1"
+            />
           </div>
 
-          <div className="mt-2 rounded border border-black/30 p-1.5">
+          <div className="mt-2 rounded-md border border-input bg-background p-3">
             <Markdown>{typingTextOutput}</Markdown>
             {!loading && !fetching && content === '' && (
-              <div className="text-gray-500">
+              <div className="text-muted-foreground">
                 {t('webcontent.result_placeholder')}
               </div>
             )}
             {(loading || fetching) && (
-              <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+              <div className="flex items-center justify-center py-4">
+                <Spinner />
+              </div>
             )}
             <div className="flex w-full justify-end">
               <ButtonCopy
@@ -311,8 +309,7 @@ const WebContent: React.FC = () => {
             </div>
           </ExpandableField>
         </Card>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 

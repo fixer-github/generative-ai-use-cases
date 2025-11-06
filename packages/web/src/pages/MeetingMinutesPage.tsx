@@ -16,6 +16,8 @@ import useMicrophone from '@/hooks/useMicrophone';
 import useScreenAudio from '@/hooks/useScreenAudio';
 import useMeetingMinutes from '@/hooks/useMeetingMinutes';
 import { MODELS } from '@/hooks/useModel';
+import PageContainer from '@/components/layout/PageContainer';
+import Spinner from '@/components/ui/loading/Spinner';
 import {
   PiStopCircleBold,
   PiMicrophoneBold,
@@ -651,12 +653,8 @@ const MeetingMinutesPage: React.FC = () => {
   }, [clearMinutes]);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('meetingMinutes.title')}
-      </div>
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
-        <Card>
+    <PageContainer title={t('meetingMinutes.title')}>
+      <Card>
           {/* Two-column layout */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Left Column - Record & Transcribe */}
@@ -1036,7 +1034,9 @@ const MeetingMinutesPage: React.FC = () => {
                 readOnly={inputMethod !== 'direct'}
               />
               {loading && (
-                <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                <div className="flex items-center justify-center py-4">
+                  <Spinner />
+                </div>
               )}
             </div>
 
@@ -1083,7 +1083,7 @@ const MeetingMinutesPage: React.FC = () => {
               </div>
               {minutesLoading && (
                 <div className="flex items-center gap-2">
-                  <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                  <Spinner />
                   <span className="text-sm text-gray-600">
                     {t('meetingMinutes.generating')}
                   </span>
@@ -1092,8 +1092,7 @@ const MeetingMinutesPage: React.FC = () => {
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 

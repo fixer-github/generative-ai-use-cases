@@ -23,6 +23,8 @@ import Card from '@/components/ui/Card';
 import Select from '@/components/ui/Select';
 import queryString from 'query-string';
 import { v4 as uuidv4 } from 'uuid';
+import PageContainer from '@/components/layout/PageContainer';
+import Spinner from '@/components/ui/loading/Spinner';
 
 type StateType = {
   content: string;
@@ -250,12 +252,8 @@ const VideoAnalyzerPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('videoAnalyzer.title')}
-      </div>
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
-        <Card label={t('videoAnalyzer.label')}>
+    <PageContainer title={t('videoAnalyzer.title')}>
+      <Card label={t('videoAnalyzer.label')}>
           <div className="flex flex-col gap-x-4 xl:flex-row">
             <div className="">
               <div className="mb-3 flex w-full flex-col lg:flex-row lg:items-end">
@@ -302,10 +300,12 @@ const VideoAnalyzerPage: React.FC = () => {
                 label={t('videoAnalyzer.model')}
               />
 
-              <div className="relative h-48 overflow-y-scroll rounded border border-black/30 p-1.5 xl:h-96">
+              <div className="relative h-48 overflow-y-scroll rounded-md border border-input bg-background p-1.5 xl:h-96">
                 <Markdown>{typingTextOutput}</Markdown>
                 {(loading || sending) && (
-                  <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                  <div className="flex items-center justify-center py-4">
+                    <Spinner />
+                  </div>
                 )}
 
                 <div className="absolute bottom-3 right-3">
@@ -334,8 +334,7 @@ const VideoAnalyzerPage: React.FC = () => {
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 

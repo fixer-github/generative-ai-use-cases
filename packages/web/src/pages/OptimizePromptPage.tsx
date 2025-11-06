@@ -2,13 +2,15 @@ import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import Markdown from '@/components/utility/Markdown';
 import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import useOptimizePrompt from '@/hooks/useOptimizePrompt';
 import { MODELS } from '@/hooks/useModel';
+import PageContainer from '@/components/layout/PageContainer';
+import ActionButtonGroup from '@/components/ui/ActionButtonGroup';
+import Spinner from '@/components/ui/loading/Spinner';
 
 type StateType = {
   prompt: string;
@@ -112,12 +114,8 @@ const OptimizePromptPage: React.FC = () => {
   }, [prompt, loading]);
 
   return (
-    <div className="grid grid-cols-12">
-      <div className="invisible col-span-12 my-0 flex h-0 items-center justify-center text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-        {t('optimizePrompt.title')}
-      </div>
-      <div className="col-span-12 col-start-1 mx-2 lg:col-span-10 lg:col-start-2 xl:col-span-10 xl:col-start-2">
-        <Card>
+    <PageContainer title={t('optimizePrompt.title')}>
+      <Card>
           <Select
             value={modelId}
             onChange={setModelId}
@@ -136,13 +134,15 @@ const OptimizePromptPage: React.FC = () => {
               />
             </div>
             <div className="w-full lg:ml-2 lg:w-1/2">
-              <div className="rounded border border-black/30 p-1.5">
+              <div className="rounded-md border border-input bg-background p-1.5">
                 <Markdown>{optimizedPrompt}</Markdown>
                 {loading && (
-                  <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
+                  <div className="flex items-center justify-center py-4">
+                    <Spinner />
+                  </div>
                 )}
                 {!loading && optimizedPrompt === '' && (
-                  <div className="text-gray-500">
+                  <div className="text-muted-foreground">
                     {t('optimizePrompt.result_placeholder')}
                   </div>
                 )}
@@ -153,19 +153,19 @@ const OptimizePromptPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-3 flex justify-end gap-3">
-                <Button onClick={clear} outlined disabled={disabledExec}>
-                  {t('optimizePrompt.clear')}
-                </Button>
-                <Button onClick={onClickExec} disabled={disabledExec}>
-                  {t('optimizePrompt.execute')}
-                </Button>
-              </div>
+              <ActionButtonGroup
+                onExecute={onClickExec}
+                onClear={clear}
+                disabled={disabledExec}
+                loading={loading}
+                executeLabel={t('optimizePrompt.execute')}
+                clearLabel={t('optimizePrompt.clear')}
+                className="mt-3"
+              />
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 
