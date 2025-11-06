@@ -227,7 +227,7 @@ const RagChatBotEditPage: React.FC = () => {
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-4">
         <Button
-          outlined
+          variant="secondary"
           onClick={() => navigate('/rag-chat-bot')}
           className="flex items-center gap-1">
           <PiArrowLeft />
@@ -294,7 +294,7 @@ const RagChatBotEditPage: React.FC = () => {
               />
               <Button
                 onClick={addSourceUrl}
-                outlined
+                variant="secondary"
                 className="flex items-center gap-1">
                 <PiPlus />
                 {t('ragChatBot.edit.add')}
@@ -306,7 +306,7 @@ const RagChatBotEditPage: React.FC = () => {
                   <PiGlobe className="text-gray-500" />
                   <span className="flex-1">{url}</span>
                   <Button
-                    outlined
+                    variant="secondary"
                     className="text-sm"
                     onClick={() =>
                       setFormData({
@@ -341,7 +341,7 @@ const RagChatBotEditPage: React.FC = () => {
                   <PiFile className="text-gray-500" />
                   <span className="flex-1">{filename}</span>
                   <Button
-                    outlined
+                    variant="secondary"
                     className="text-sm"
                     onClick={() => handleDeleteFile(filename)}>
                     <PiTrash />
@@ -354,7 +354,7 @@ const RagChatBotEditPage: React.FC = () => {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button outlined onClick={() => navigate('/rag-chat-bot')}>
+        <Button variant="secondary" onClick={() => navigate('/rag-chat-bot')}>
           {t('ragChatBot.edit.cancel')}
         </Button>
         <Button

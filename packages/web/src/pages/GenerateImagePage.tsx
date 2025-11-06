@@ -972,7 +972,7 @@ const GenerateImagePage: React.FC = () => {
             ))}
             <Button
               title="Generate Variant"
-              outlined
+              variant="secondary"
               className="mt-3 size-10"
               disabled={
                 !image[selectedImageIndex].base64 || !isImageVariationSupported
@@ -1324,7 +1324,7 @@ const GenerateImagePage: React.FC = () => {
 
             <Button
               className="h-8 w-full"
-              outlined
+              variant="secondary"
               onClick={() => {
                 clearAll();
               }}

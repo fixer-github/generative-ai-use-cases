@@ -413,7 +413,7 @@ const ChatPage: React.FC = () => {
                 onClick={() => {
                   window.open(shareLink!, '_blank', 'noreferrer');
                 }}
-                outlined
+                variant="secondary"
                 loading={deletingShareId}>
                 {t('chat.open_link')}
               </Button>

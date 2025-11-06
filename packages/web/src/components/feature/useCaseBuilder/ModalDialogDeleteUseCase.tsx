@@ -36,7 +36,7 @@ const ModalDialogDeleteUseCase: React.FC<Props> = (props) => {
 
         <div className="flex justify-end gap-2">
           <Button
-            outlined
+            variant="secondary"
             onClick={() => {
               props.onClose();
             }}>

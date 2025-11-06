@@ -167,7 +167,7 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
   const DownloadButton: React.FC<{ type: 'SVG' | 'PNG' }> = ({ type }) => {
     return (
       <Button
-        outlined
+        variant="secondary"
         onClick={type === 'SVG' ? downloadAsSVG : downloadAsPNG}
         title={
           type === 'SVG'

@@ -175,7 +175,7 @@ const VoiceChatPage: React.FC = () => {
               <>
                 <div className="absolute -top-2 right-0 mb-2 flex justify-end">
                   <Button
-                    outlined
+                    variant="secondary"
                     className="text-xs"
                     onClick={() => {
                       setInputSystemPrompt(
@@ -214,7 +214,7 @@ const VoiceChatPage: React.FC = () => {
                 setFollowing(true);
                 startSession(systemPrompt, model!);
               }}
-              outlined={true}
+              variant="secondary"
               disabled={isLoading}>
               {!isLoading ? (
                 <>

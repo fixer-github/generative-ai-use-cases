@@ -310,7 +310,7 @@ const VideoAnalyzerPage: React.FC = () => {
 
                 <div className="absolute bottom-3 right-3">
                   <Button
-                    outlined
+                    variant="secondary"
                     onClick={onClickClear}
                     disabled={loading || sending || content.length === 0}>
                     {t('videoAnalyzer.clear')}

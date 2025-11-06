@@ -717,7 +717,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
           )}
 
           <Button
-            outlined
+            variant="secondary"
             onClick={onClickClear}
             disabled={props.isLoading || loading}>
             {t('common.clear')}

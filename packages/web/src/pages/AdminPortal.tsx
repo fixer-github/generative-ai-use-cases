@@ -516,7 +516,7 @@ const AdminPortal: React.FC = () => {
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                       {user.username !== adminStatus?.username && (
                         <Button
-                          outlined={true}
+                          variant="secondary"
                           className="border-red-300 text-red-600 hover:border-red-400 hover:text-red-700"
                           onClick={() => handleRemoveUser(user.username)}>
                           {t('adminPortal.actions.remove')}

@@ -720,7 +720,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
                   );
                 })}
                 <Button
-                  outlined
+                  variant="secondary"
                   onClick={() => {
                     const examples: Record<string, string> = {};
                     items.forEach((item) => {

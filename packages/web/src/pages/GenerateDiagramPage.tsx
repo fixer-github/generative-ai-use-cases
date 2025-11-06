@@ -563,7 +563,7 @@ const GenerateDiagramPage: React.FC = () => {
                       onClick={() =>
                         setContent(DiagramData[selectedType].example.content)
                       }
-                      outlined>
+                      variant="secondary">
                       {DiagramData[selectedType].example.title}
                     </Button>
                   </div>
@@ -572,7 +572,7 @@ const GenerateDiagramPage: React.FC = () => {
                 {/* Clear & Generate buttons */}
                 <div className="mr-2 flex flex-col gap-1 sm:flex-row">
                   <Button
-                    outlined
+                    variant="secondary"
                     onClick={onClickClear}
                     disabled={disabledExec}>
                     {t('diagram.clear')}

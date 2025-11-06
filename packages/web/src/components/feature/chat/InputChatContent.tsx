@@ -247,7 +247,7 @@ const InputChatContent: React.FC<Props> = (props) => {
         {!isEmpty && !props.resetDisabled && !props.hideReset && (
           <Button
             className="absolute -top-14 right-0 p-2 text-sm"
-            outlined
+            variant="secondary"
             disabled={loading}
             onClick={props.onReset}>
             <PiArrowsCounterClockwise className="mr-2" />

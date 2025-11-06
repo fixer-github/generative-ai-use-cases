@@ -202,7 +202,7 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                     {t('generateImage.assistant.error_message')}
                   </div>
                   <div className="mt-3 flex w-full justify-center">
-                    <Button outlined onClick={onRetrySend}>
+                    <Button variant="secondary" onClick={onRetrySend}>
                       {t('generateImage.assistant.retry')}
                     </Button>
                   </div>
@@ -257,7 +257,7 @@ const GenerateImageAssistant: React.FC<Props> = (props) => {
                             )
                           )}
                           <Button
-                            outlined
+                            variant="secondary"
                             onClick={() => {
                               props.onGenerate(
                                 c.content.prompt ?? '',

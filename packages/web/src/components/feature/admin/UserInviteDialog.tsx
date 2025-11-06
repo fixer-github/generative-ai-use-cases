@@ -518,13 +518,17 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
 
             {/* Actions */}
             <div className="flex justify-end space-x-3">
-              <Button outlined={true} onClick={handleClose} disabled={loading}>
+              <Button
+                variant="secondary"
+                onClick={handleClose}
+                disabled={loading}>
                 {results
                   ? t('adminPortal.invite.actions.close')
                   : t('adminPortal.invite.actions.cancel')}
               </Button>
               {!results && (
                 <Button
+                  variant="primary"
                   onClick={handleInvite}
                   disabled={loading}>
                   {loading ? (
@@ -581,10 +585,13 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 </div>
 
                 <div className="flex justify-end space-x-3">
-                  <Button outlined={true} onClick={handleCancelInvitation}>
+                  <Button
+                    variant="secondary"
+                    onClick={handleCancelInvitation}>
                     {t('adminPortal.invite.unconfiguredDomain.cancel')}
                   </Button>
                   <Button
+                    variant="primary"
                     onClick={handleConfirmInvitation}
                     disabled={loading}
                     className="bg-orange-600 text-white hover:bg-orange-700">

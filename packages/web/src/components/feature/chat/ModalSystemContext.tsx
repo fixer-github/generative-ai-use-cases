@@ -47,7 +47,7 @@ const ModalSystemContext: React.FC<Props> = (props) => {
 
         <div className="mt-4 flex justify-end gap-2">
           <Button
-            outlined
+            variant="secondary"
             onClick={() => props.setShowSystemContextModal(false)}
             className="p-2">
             {t('common.cancel')}

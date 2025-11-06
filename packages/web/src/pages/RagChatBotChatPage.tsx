@@ -436,7 +436,7 @@ const RagChatBotChatPage: React.FC = () => {
     <div className="flex h-screen flex-col">
       <div className="flex items-center gap-4 border-b bg-white px-4 py-3">
         <Button
-          outlined
+          variant="secondary"
           onClick={() => navigate('/chat/assistants')}
           className="flex items-center gap-1">
           <PiArrowLeft />
@@ -454,20 +454,20 @@ const RagChatBotChatPage: React.FC = () => {
 
         <div className="flex gap-2">
           <Button
-            outlined
+            variant="secondary"
             onClick={() => setShowBotInfo(!showBotInfo)}
             className="flex items-center gap-1">
             <PiInfo />
           </Button>
           <Button
-            outlined
+            variant="secondary"
             onClick={handleDownloadConversation}
             disabled={messages.length === 0}
             className="flex items-center gap-1">
             <PiDownloadSimple />
           </Button>
           <Button
-            outlined
+            variant="secondary"
             onClick={handleClearConversation}
             disabled={messages.length === 0}
             className="flex items-center gap-1">
@@ -520,7 +520,7 @@ const RagChatBotChatPage: React.FC = () => {
                       ) => (
                         <Button
                           key={index}
-                          outlined
+                          variant="secondary"
                           onClick={() => setInputMessage(starter.example)}
                           className="text-sm">
                           {starter.title}

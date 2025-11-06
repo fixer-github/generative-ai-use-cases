@@ -6,18 +6,25 @@ type Props = BaseProps & {
   title?: string;
   disabled?: boolean;
   loading?: boolean;
-  outlined?: boolean;
+  variant?: 'primary' | 'secondary' | 'tertiary';
   onClick: () => void;
   children: React.ReactNode;
 };
 
 const Button: React.FC<Props> = (props) => {
+  const variant = props.variant ?? 'primary';
+
+  const variantStyles = {
+    primary: 'bg-blue-600 text-white hover:bg-blue-700',
+    secondary:
+      'border border-gray-200 bg-white text-gray-900 hover:bg-blue-50 hover:text-blue-800',
+    tertiary: 'bg-transparent text-blue-600 hover:bg-blue-50',
+  };
+
   return (
     <button
       className={`${props.className ?? ''} ${
-        props.outlined
-          ? 'border border-gray-200 bg-white text-gray-900 hover:bg-blue-50 hover:text-blue-800'
-          : 'bg-blue-600 text-white hover:bg-blue-700'
+        variantStyles[variant]
       } inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
         props.disabled || props.loading
           ? 'pointer-events-none opacity-50'

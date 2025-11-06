@@ -195,7 +195,7 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
         {/* Action Buttons */}
         <div className="flex justify-end space-x-3">
           <Button
-            outlined
+            variant="secondary"
             onClick={onClose}
             disabled={isUploading}
           >

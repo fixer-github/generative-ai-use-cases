@@ -509,7 +509,7 @@ const RagChatBotPage: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button outlined onClick={() => setVisibilityModalBotId(null)}>
+              <Button variant="secondary" onClick={() => setVisibilityModalBotId(null)}>
                 {t('common.cancel')}
               </Button>
               <Button

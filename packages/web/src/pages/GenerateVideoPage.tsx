@@ -700,7 +700,7 @@ const GenerateVideoPage: React.FC = () => {
             </Button>
             <Button
               className="h-8 w-full"
-              outlined
+              variant="secondary"
               onClick={() => {
                 clear();
                 clearFiles();

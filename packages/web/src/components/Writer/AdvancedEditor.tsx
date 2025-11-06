@@ -296,10 +296,10 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
               html={html}
               className="hover:bg-blue-100 border"
             />
-            <Button outlined onClick={handleClear}>
+            <Button variant="secondary" onClick={handleClear}>
               {t('writer.clear')}
             </Button>
-            <Button outlined onClick={handleTutorialClick}>
+            <Button variant="secondary" onClick={handleTutorialClick}>
               {t('writer.tutorial')}
             </Button>
             <Button
@@ -453,7 +453,7 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
 
             {commentManager && filteredComments.length > 0 && !loading && (
               <div className="mt-4 flex justify-end gap-3">
-                <Button outlined onClick={() => commentManager.clearComments()}>
+                <Button variant="secondary" onClick={() => commentManager.clearComments()}>
                   {t('writer.clear_comments')}
                 </Button>
               </div>

@@ -252,7 +252,7 @@ const RagChatBotHistoryPage: React.FC = () => {
 
             <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
               <Button
-                outlined
+                variant="secondary"
                 onClick={() => {
                   handleOpenConversation(conversation);
                 }}
@@ -261,7 +261,7 @@ const RagChatBotHistoryPage: React.FC = () => {
                 {t('ragChatBot.history.open')}
               </Button>
               <Button
-                outlined
+                variant="secondary"
                 onClick={() => {
                   handleDeleteConversation(conversation.id);
                 }}
@@ -279,7 +279,7 @@ const RagChatBotHistoryPage: React.FC = () => {
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center gap-4">
         <Button
-          outlined
+          variant="secondary"
           onClick={() => navigate('/rag-chat-bot')}
           className="flex items-center gap-1">
           <PiArrowLeft />
@@ -304,7 +304,7 @@ const RagChatBotHistoryPage: React.FC = () => {
           />
           <Button
             onClick={handleSearch}
-            outlined
+            variant="secondary"
             className="flex items-center gap-1">
             <PiMagnifyingGlass />
             {t('ragChatBot.history.search')}
@@ -318,13 +318,13 @@ const RagChatBotHistoryPage: React.FC = () => {
                 count: selectedConversations.size,
               })}
             </span>
-            <Button outlined onClick={handleSelectAll} className="text-sm">
+            <Button variant="secondary" onClick={handleSelectAll} className="text-sm">
               {selectedConversations.size === filteredConversations.length
                 ? t('ragChatBot.history.deselectAll')
                 : t('ragChatBot.history.selectAll')}
             </Button>
             <Button
-              outlined
+              variant="secondary"
               onClick={handleBulkDelete}
               className="flex items-center gap-1 text-sm text-red-600 hover:bg-red-50">
               <PiTrash />

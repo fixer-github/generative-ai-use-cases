@@ -193,7 +193,7 @@ const McpChatPage: React.FC = () => {
             <>
               <div className="absolute -top-2 right-0 mb-2 flex justify-end">
                 <Button
-                  outlined
+                  variant="secondary"
                   className="text-xs"
                   onClick={() => {
                     clear();

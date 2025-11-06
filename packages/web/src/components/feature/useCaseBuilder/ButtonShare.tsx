@@ -14,7 +14,7 @@ const ButtonShare: React.FC<Props> = (props) => {
   const { t } = useTranslation();
   return (
     <Button
-      outlined
+      variant="secondary"
       className={`${props.className ?? ''} text-xs ${props.isShared ? 'font-bold' : ''}`}
       disabled={props.disabled}
       onClick={() => {

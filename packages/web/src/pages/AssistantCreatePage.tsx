@@ -239,7 +239,7 @@ const AssistantCreatePage: React.FC = () => {
                 />
                 <Button
                   onClick={addSourceUrl}
-                  outlined
+                  variant="secondary"
                   className="flex items-center gap-1">
                   <PiPlus />
                   追加

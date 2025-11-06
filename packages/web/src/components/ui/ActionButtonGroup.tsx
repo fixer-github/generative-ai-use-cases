@@ -25,7 +25,7 @@ const ActionButtonGroup: React.FC<Props> = ({
 
   return (
     <div className={`flex justify-end gap-3 ${className ?? ''}`}>
-      <Button outlined onClick={onClear} disabled={disabled || loading}>
+      <Button variant="secondary" onClick={onClear} disabled={disabled || loading}>
         {clearLabel || t('common.clear')}
       </Button>
       <Button disabled={disabled} loading={loading} onClick={onExecute}>

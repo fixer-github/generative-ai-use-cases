@@ -23,7 +23,7 @@ const DialogConfirmDeleteChat: React.FC<Props> = (props) => {
       </div>
 
       <div className="mt-4 flex justify-end gap-2">
-        <Button outlined onClick={props.onClose} className="p-2">
+        <Button variant="secondary" onClick={props.onClose} className="p-2">
           {t('common.cancel')}
         </Button>
         <Button

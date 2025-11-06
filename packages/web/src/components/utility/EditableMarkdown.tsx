@@ -52,7 +52,7 @@ const EditableMarkdown: React.FC<EditableMarkdownProps> = ({
         <div>
           <Markdown>{['```mermaid', editedCode, '```'].join('\n')}</Markdown>
           <div className="mt-2 flex justify-end">
-            <Button onClick={handleEditClick} outlined>
+            <Button onClick={handleEditClick} variant="secondary">
               <PiPencilLine />
               {t('diagram.markdown_edit')}
             </Button>

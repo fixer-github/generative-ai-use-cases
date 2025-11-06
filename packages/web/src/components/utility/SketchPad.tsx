@@ -230,7 +230,7 @@ const SketchPad: React.FC<Props> = (props) => {
 
           <div className="mt-3 flex w-full justify-end gap-3">
             <Button
-              outlined
+              variant="secondary"
               onClick={() => {
                 setIsOpenUpload(false);
               }}>
@@ -329,7 +329,7 @@ const SketchPad: React.FC<Props> = (props) => {
             </SketchButton>
           </div>
 
-          <Button outlined onClick={onClickClear}>
+          <Button variant="secondary" onClick={onClickClear}>
             <PiTrash className="mr-2" />
             {t('sketch.clear')}
           </Button>
@@ -362,7 +362,7 @@ const SketchPad: React.FC<Props> = (props) => {
             {t('sketch.upload_image')}
           </Button>
           <div className="flex gap-3">
-            <Button outlined onClick={props.onCancel}>
+            <Button variant="secondary" onClick={props.onCancel}>
               {t('common.cancel')}
             </Button>
             <Button onClick={onClickComplete}>{t('common.complete')}</Button>

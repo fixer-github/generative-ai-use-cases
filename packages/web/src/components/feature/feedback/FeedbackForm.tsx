@@ -65,10 +65,10 @@ const FeedbackForm: React.FC<Props> = ({ onSubmit, onCancel }) => {
         rows={3}
       />
       <div className="flex justify-end gap-2">
-        <Button onClick={onCancel} outlined={true}>
+        <Button onClick={onCancel} variant="secondary">
           {t('common.cancel')}
         </Button>
-        <Button onClick={handleSubmit} outlined={false}>
+        <Button onClick={handleSubmit} variant="primary">
           {t('common.submit')}
         </Button>
       </div>

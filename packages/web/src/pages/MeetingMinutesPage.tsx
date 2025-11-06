@@ -720,7 +720,7 @@ const MeetingMinutesPage: React.FC = () => {
                                 onClickExecStartTranscription();
                               }
                             }}
-                            outlined={true}>
+                            variant="secondary">
                             <PiMicrophoneBold className="mr-2 h-5 w-5" />
                             {t('transcribe.start_recording')}
                           </Button>
@@ -834,7 +834,7 @@ const MeetingMinutesPage: React.FC = () => {
                 {/* Left Column Buttons */}
                 <div className="flex justify-end gap-3">
                   <Button
-                    outlined
+                    variant="secondary"
                     disabled={disableClearExec}
                     onClick={onClickClear}>
                     {t('common.clear')}
@@ -971,7 +971,7 @@ const MeetingMinutesPage: React.FC = () => {
 
                 {/* Right Column Buttons */}
                 <div className="flex justify-end gap-3">
-                  <Button outlined onClick={handleClearMinutes}>
+                  <Button variant="secondary" onClick={handleClearMinutes}>
                     {t('common.clear')}
                   </Button>
                   <Button
