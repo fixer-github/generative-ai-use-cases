@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiUploadSimple } from 'react-icons/pi';
 
 type Props = BaseProps & {

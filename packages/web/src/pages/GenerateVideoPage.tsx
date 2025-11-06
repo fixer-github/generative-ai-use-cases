@@ -1,19 +1,19 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { VideoJob, GenerateVideoParams } from 'generative-ai-use-cases';
 import { create } from 'zustand';
-import useVideo from '../hooks/useVideo';
-import { MODELS } from '../hooks/useModel';
-import useFileApi from '../hooks/useFileApi';
-import useFiles from '../hooks/useFiles';
-import Textarea from '../components/Textarea';
-import Select from '../components/Select';
-import RangeSlider from '../components/RangeSlider';
-import Switch from '../components/Switch';
-import ButtonIcon from '../components/ButtonIcon';
-import Button from '../components/Button';
-import ButtonCopy from '../components/ButtonCopy';
-import Card from '../components/Card';
-import ZoomUpImage from '../components/ZoomUpImage';
+import useVideo from '@/hooks/useVideo';
+import { MODELS } from '@/hooks/useModel';
+import useFileApi from '@/hooks/useFileApi';
+import useFiles from '@/hooks/useFiles';
+import Textarea from '@/components/Textarea';
+import Select from '@/components/Select';
+import RangeSlider from '@/components/RangeSlider';
+import Switch from '@/components/Switch';
+import ButtonIcon from '@/components/ButtonIcon';
+import Button from '@/components/Button';
+import ButtonCopy from '@/components/ButtonCopy';
+import Card from '@/components/Card';
+import ZoomUpImage from '@/components/ZoomUpImage';
 import {
   PiPlayFill,
   PiDownload,
@@ -23,12 +23,12 @@ import {
   PiUpload,
   PiTranslate,
 } from 'react-icons/pi';
-import { GenerateVideoPageQueryParams } from '../@types/navigate';
+import { GenerateVideoPageQueryParams } from '@/@types/navigate';
 import { useLocation } from 'react-router-dom';
 import queryString from 'query-string';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import useOneshotTranslation from '../hooks/useOneshotTranslation';
+import useOneshotTranslation from '@/hooks/useOneshotTranslation';
 
 const TASK_TYPES = (modelId: string): string[] => {
   if (modelId === 'amazon.nova-reel-v1:1') {

@@ -1,9 +1,9 @@
 import { ExplicitFilterConfiguration } from 'generative-ai-use-cases';
-import { FilterSelect, SelectValue } from '../components/FilterSelect';
+import { FilterSelect, SelectValue } from '@/components/FilterSelect';
 import { Input } from '@aws-amplify/ui-react';
 import { RetrievalFilter } from '@aws-sdk/client-bedrock-agent-runtime';
 import { useMemo } from 'react';
-import { Option } from '../components/FilterSelect';
+import { Option } from '@/components/FilterSelect';
 
 // Alowed operators for each filter type
 // https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_RetrievalFilter.html

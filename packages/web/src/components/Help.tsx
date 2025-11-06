@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiQuestionFill } from 'react-icons/pi';
 
 type Props = BaseProps & {

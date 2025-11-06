@@ -6,10 +6,10 @@
 import { useMemo } from 'react';
 import useChat from './useChat';
 import useRagKnowledgeBaseApi from './useRagKnowledgeBaseApi';
-import { getPrompter } from '../prompts';
+import { getPrompter } from '@/prompts';
 import { RetrieveResultItem } from '@aws-sdk/client-kendra';
 import { ShownMessage } from 'generative-ai-use-cases';
-import { cleanEncode } from '../utils/URLUtils';
+import { cleanEncode } from '@/utils/URLUtils';
 import { arrangeItems } from './useRag';
 import { useTranslation } from 'react-i18next';
 

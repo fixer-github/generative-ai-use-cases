@@ -1,6 +1,6 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useCallback } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import Help from './Help';
 
 type Props = BaseProps & {

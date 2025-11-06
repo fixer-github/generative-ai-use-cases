@@ -25,8 +25,8 @@ import {
 } from '@aws-sdk/client-lambda';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
-import useHttp from '../hooks/useHttp';
-import { decomposeId } from '../utils/ChatUtils';
+import useHttp from '@/hooks/useHttp';
+import { decomposeId } from '@/utils/ChatUtils';
 import { AxiosResponse } from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 

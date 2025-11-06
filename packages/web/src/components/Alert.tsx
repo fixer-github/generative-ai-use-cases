@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiInfo, PiXCircle, PiX, PiWarning } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
 

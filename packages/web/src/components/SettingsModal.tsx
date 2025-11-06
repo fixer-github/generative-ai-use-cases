@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import { PiGear, PiPencilSimple, PiX, PiCaretDown, PiCheck } from 'react-icons/pi';
-import { useSettings, Theme, Language, SendMessageMethod } from '../hooks/useSettings';
+import { useSettings, Theme, Language, SendMessageMethod } from '@/hooks/useSettings';
 
 interface SettingsModalProps {
   open: boolean;

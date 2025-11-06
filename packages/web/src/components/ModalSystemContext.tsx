@@ -1,6 +1,6 @@
 import React from 'react';
 import ModalDialog from './ModalDialog';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import Textarea from './Textarea';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';

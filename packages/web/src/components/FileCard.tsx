@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import ButtonIcon from './ButtonIcon';
 import { PiFile, PiSpinnerGap, PiX } from 'react-icons/pi';
 

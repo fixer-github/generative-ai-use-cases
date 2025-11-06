@@ -1,17 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { UseCaseAsOutput } from 'generative-ai-use-cases';
-import ButtonIcon from '../../components/ButtonIcon';
+import ButtonIcon from '@/components/ButtonIcon';
 import { PiNotePencil, PiTrash } from 'react-icons/pi';
-import Button from '../../components/Button';
+import Button from '@/components/Button';
 import { useNavigate } from 'react-router-dom';
-import useMyUseCases from '../../hooks/useCaseBuilder/useMyUseCases';
-import ModalDialogDeleteUseCase from '../../components/useCaseBuilder/ModalDialogDeleteUseCase';
-import Skeleton from '../../components/Skeleton';
-import ModalDialogShareUseCase from '../../components/useCaseBuilder/ModalDialogShareUseCase';
-import ButtonFavorite from '../../components/useCaseBuilder/ButtonFavorite';
-import ButtonShare from '../../components/useCaseBuilder/ButtonShare';
-import ButtonUseCaseEdit from '../../components/useCaseBuilder/ButtonUseCaseEdit';
-import Card from '../../components/Card';
+import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
+import ModalDialogDeleteUseCase from '@/components/useCaseBuilder/ModalDialogDeleteUseCase';
+import Skeleton from '@/components/Skeleton';
+import ModalDialogShareUseCase from '@/components/useCaseBuilder/ModalDialogShareUseCase';
+import ButtonFavorite from '@/components/useCaseBuilder/ButtonFavorite';
+import ButtonShare from '@/components/useCaseBuilder/ButtonShare';
+import ButtonUseCaseEdit from '@/components/useCaseBuilder/ButtonUseCaseEdit';
+import Card from '@/components/Card';
 import { useTranslation } from 'react-i18next';
 
 const UseCaseBuilderMyUseCasePage: React.FC = () => {

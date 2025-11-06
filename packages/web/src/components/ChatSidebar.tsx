@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PiPlus, PiMagnifyingGlass, PiRobot } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
-import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
+import useBedrockChatApi, { BedrockChatBot } from '@/hooks/useBedrockChatApi';
 
 type Props = BaseProps & {
   onNewChat?: () => void;

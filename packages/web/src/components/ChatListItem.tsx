@@ -6,12 +6,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { Link } from 'react-router-dom';
 import { PiChat, PiCheck, PiPencilLine, PiTrash, PiX, PiDotsThreeVertical } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
 import { Chat } from 'generative-ai-use-cases';
-import { decomposeId } from '../utils/ChatUtils';
+import { decomposeId } from '@/utils/ChatUtils';
 import DialogConfirmDeleteChat from './DialogConfirmDeleteChat';
 
 type Props = BaseProps & {

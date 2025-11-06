@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect } from 'react';
-import InputChatContent from '../components/InputChatContent';
+import InputChatContent from '@/components/InputChatContent';
 import { create } from 'zustand';
-import useChat from '../hooks/useChat';
-import useRag from '../hooks/useRag';
+import useChat from '@/hooks/useChat';
+import useRag from '@/hooks/useRag';
 import { useLocation } from 'react-router-dom';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import useFollow from '../hooks/useFollow';
+import ChatMessage from '@/components/ChatMessage';
+import Select from '@/components/Select';
+import ScrollTopBottom from '@/components/ScrollTopBottom';
+import useFollow from '@/hooks/useFollow';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import KendraIcon from '../assets/kendra.svg?react';
 import { PiPlus } from 'react-icons/pi';
-import { RagPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { RagPageQueryParams } from '@/@types/navigate';
+import { MODELS } from '@/hooks/useModel';
 import queryString from 'query-string';
 import { useTranslation } from 'react-i18next';
 

@@ -1,28 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import InputChatContent from '../components/InputChatContent';
-import useChat from '../hooks/useChat';
-import useChatApi from '../hooks/useChatApi';
-import useChatList from '../hooks/useChatList';
-import ChatMessage from '../components/ChatMessage';
-import Button from '../components/Button';
-import ButtonCopy from '../components/ButtonCopy';
-import ModalDialog from '../components/ModalDialog';
-import ExpandableField from '../components/ExpandableField';
-import ModelSelector from '../components/ModelSelector';
-import useFollow from '../hooks/useFollow';
+import InputChatContent from '@/components/InputChatContent';
+import useChat from '@/hooks/useChat';
+import useChatApi from '@/hooks/useChatApi';
+import useChatList from '@/hooks/useChatList';
+import ChatMessage from '@/components/ChatMessage';
+import Button from '@/components/Button';
+import ButtonCopy from '@/components/ButtonCopy';
+import ModalDialog from '@/components/ModalDialog';
+import ExpandableField from '@/components/ExpandableField';
+import ModelSelector from '@/components/ModelSelector';
+import useFollow from '@/hooks/useFollow';
 import { create } from 'zustand';
-import { ChatPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
+import { ChatPageQueryParams } from '@/@types/navigate';
+import { MODELS } from '@/hooks/useModel';
+import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
-import useFiles from '../hooks/useFiles';
+import useFiles from '@/hooks/useFiles';
 import {
   AdditionalModelRequestFields,
   FileLimit,
 } from 'generative-ai-use-cases';
-import ModelParameters from '../components/ModelParameters';
-import { AcceptedDotExtensions } from '../utils/MediaUtils';
+import ModelParameters from '@/components/ModelParameters';
+import { AcceptedDotExtensions } from '@/utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 
 const fileLimit: FileLimit = {

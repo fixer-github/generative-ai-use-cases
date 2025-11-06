@@ -3,7 +3,7 @@ import ButtonSend from './ButtonSend';
 import Textarea from './Textarea';
 import ZoomUpImage from './ZoomUpImage';
 import ZoomUpVideo from './ZoomUpVideo';
-import useChat from '../hooks/useChat';
+import useChat from '@/hooks/useChat';
 import { useLocation } from 'react-router-dom';
 import Button from './Button';
 import {
@@ -12,7 +12,7 @@ import {
   PiSpinnerGap,
   PiSlidersHorizontal,
 } from 'react-icons/pi';
-import useFiles from '../hooks/useFiles';
+import useFiles from '@/hooks/useFiles';
 import FileCard from './FileCard';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';

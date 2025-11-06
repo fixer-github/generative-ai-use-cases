@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
-import { BaseProps } from '../@types/common';
-import useChatList from '../hooks/useChatList';
+import { BaseProps } from '@/@types/common';
+import useChatList from '@/hooks/useChatList';
 import { useNavigate, useParams } from 'react-router-dom';
 import ChatListItem from './ChatListItem';
-import { decomposeId } from '../utils/ChatUtils';
+import { decomposeId } from '@/utils/ChatUtils';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

@@ -19,15 +19,15 @@ import {
   PiCheck,
   PiX,
 } from 'react-icons/pi';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
 import BedrockIcon from '../assets/bedrock.svg?react';
-import useChat from '../hooks/useChat';
-import useTyping from '../hooks/useTyping';
+import useChat from '@/hooks/useChat';
+import useTyping from '@/hooks/useTyping';
 import FileCard from './FileCard';
 import FeedbackForm from './FeedbackForm';
 import Textarea from './Textarea';
-import useFiles from '../hooks/useFiles';
+import useFiles from '@/hooks/useFiles';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

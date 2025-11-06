@@ -21,7 +21,7 @@ import { v4 as uuid } from 'uuid';
 import useChatApi from './useChatApi';
 import useChatList from './useChatList';
 import { SWRInfiniteKeyedMutator } from 'swr/infinite';
-import { getPrompter } from '../prompts';
+import { getPrompter } from '@/prompts';
 import { findModelByModelId } from './useModel';
 import useFileApi from './useFileApi';
 import { useSettings } from './useSettings';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import {
   PiCaretDown,
   PiX,
@@ -9,7 +9,7 @@ import {
   PiArrowFatLineRightLight,
 } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
-import useInterUseCases from '../hooks/useInterUseCases';
+import useInterUseCases from '@/hooks/useInterUseCases';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps;

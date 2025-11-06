@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 
 type Props = BaseProps & {
   checked: boolean;

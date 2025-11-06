@@ -6,7 +6,7 @@ import React, {
   useLayoutEffect,
   useEffect,
 } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import ExpandableMenu from './ExpandableMenu';
 import {
   PiBookOpenText,
@@ -16,10 +16,10 @@ import {
   PiCheck,
   PiX,
 } from 'react-icons/pi';
-import { ChatPageQueryParams } from '../@types/navigate';
-import useChat from '../hooks/useChat';
-import { getPrompter, PromptListItem } from '../prompts';
-import type { PromptList } from '../prompts';
+import { ChatPageQueryParams } from '@/@types/navigate';
+import useChat from '@/hooks/useChat';
+import { getPrompter, PromptListItem } from '@/prompts';
+import type { PromptList } from '@/prompts';
 import ButtonIcon from './ButtonIcon';
 import { SystemContext } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';

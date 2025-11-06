@@ -3,12 +3,12 @@ import Card from './Card';
 import InputChatContent from './InputChatContent';
 import Select from './Select';
 import { useLocation } from 'react-router-dom';
-import useChat from '../hooks/useChat';
+import useChat from '@/hooks/useChat';
 import { PiLightbulbFilamentBold, PiWarningFill } from 'react-icons/pi';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';
-import { MODELS } from '../hooks/useModel';
+import { MODELS } from '@/hooks/useModel';
 
 type Props = BaseProps & {
   modelId: string;

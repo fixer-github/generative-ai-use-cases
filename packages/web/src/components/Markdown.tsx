@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, memo } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { default as ReactMarkdown } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import ButtonCopy from './ButtonCopy';
-import useRagFile from '../hooks/useRagFile';
+import useRagFile from '@/hooks/useRagFile';
 import { PiSpinnerGap } from 'react-icons/pi';
-import useFileApi from '../hooks/useFileApi';
+import useFileApi from '@/hooks/useFileApi';
 
 // Reduce bundle size by registering only the languages used in the project
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';

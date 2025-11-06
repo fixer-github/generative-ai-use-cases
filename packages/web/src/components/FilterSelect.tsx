@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 
-import useOnClickOutside from '../hooks/useOnClickOutside';
+import useOnClickOutside from '@/hooks/useOnClickOutside';
 
 import { PiMagnifyingGlass, PiPlusCircle, PiX } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';

@@ -12,7 +12,7 @@ import {
 import { ChartProps } from './types';
 import { format } from 'date-fns';
 import { Payload } from 'recharts/types/component/DefaultTooltipContent';
-import { MODELS } from '../../hooks/useModel';
+import { MODELS } from '@/hooks/useModel';
 import { useTranslation } from 'react-i18next';
 
 const COLORS = [

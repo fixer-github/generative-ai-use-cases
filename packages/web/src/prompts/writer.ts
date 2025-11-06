@@ -1,6 +1,6 @@
 import { Model, UnrecordedMessage } from 'generative-ai-use-cases';
 import { v4 as uuidv4 } from 'uuid';
-import { MODELS } from '../hooks/useModel';
+import { MODELS } from '@/hooks/useModel';
 
 export type WriterOption =
   | 'continue'

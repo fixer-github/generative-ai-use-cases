@@ -18,7 +18,7 @@ import {
 } from 'react-icons/pi';
 import SignatureCanvas from 'react-signature-canvas';
 import Button from './Button';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import ModalDialog from './ModalDialog';
 import RangeSlider from './RangeSlider';
 import { useTranslation } from 'react-i18next';

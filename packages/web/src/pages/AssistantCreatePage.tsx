@@ -10,11 +10,11 @@ import {
 } from 'react-icons/pi';
 import useBedrockChatApi, {
   BedrockChatBotInput,
-} from '../hooks/useBedrockChatApi';
-import Button from '../components/Button';
-import InputText from '../components/InputText';
-import Textarea from '../components/Textarea';
-import FileUploader from '../components/FileUploader';
+} from '@/hooks/useBedrockChatApi';
+import Button from '@/components/Button';
+import InputText from '@/components/InputText';
+import Textarea from '@/components/Textarea';
+import FileUploader from '@/components/FileUploader';
 
 const AssistantCreatePage: React.FC = () => {
   const navigate = useNavigate();

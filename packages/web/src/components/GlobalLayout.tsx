@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar, { SidebarItemProps } from './Sidebar';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 
 type Props = BaseProps & {
   sidebarItems: SidebarItemProps[];

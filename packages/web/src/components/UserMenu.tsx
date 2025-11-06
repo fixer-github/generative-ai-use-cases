@@ -11,8 +11,8 @@ import {
   // PiBug,
   // PiBook,
 } from 'react-icons/pi';
-import useUserInfo from '../hooks/useUserInfo';
-import { performLogoutAndReload } from '../utils/auth';
+import useUserInfo from '@/hooks/useUserInfo';
+import { performLogoutAndReload } from '@/utils/auth';
 import SettingsModal from './SettingsModal';
 
 const UserMenu: React.FC = () => {

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import queryString from 'query-string';
 import ButtonIcon from './ButtonIcon';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiPaperPlaneRight } from 'react-icons/pi';
-import ModalDialog from '../components/ModalDialog';
+import ModalDialog from '@/components/ModalDialog';
 import { useTranslation } from 'react-i18next';
 
 type UseCaseItemProps = BaseProps & {

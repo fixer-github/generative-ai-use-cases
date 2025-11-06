@@ -1,9 +1,9 @@
 import React from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import Button from './Button';
 import ModalDialog from './ModalDialog';
 import { Chat } from 'generative-ai-use-cases';
-import { decomposeId } from '../utils/ChatUtils';
+import { decomposeId } from '@/utils/ChatUtils';
 import { useTranslation } from 'react-i18next';
 
 type Props = BaseProps & {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import useHttp from './useHttp';
-import { performLogoutAndReload, isRoleMismatchError } from '../utils/auth';
+import { performLogoutAndReload, isRoleMismatchError } from '@/utils/auth';
 
 interface AdminStatus {
   isAdmin: boolean;

@@ -3,7 +3,7 @@ import { events, EventsChannel } from 'aws-amplify/data';
 import { AudioPlayer } from './AudioPlayer';
 import { AudioRecorder } from './AudioRecorder';
 import { v4 as uuid } from 'uuid';
-import useHttp from '../../hooks/useHttp';
+import useHttp from '@/hooks/useHttp';
 import useChatHistory from './useChatHistory';
 import {
   SpeechToSpeechEventType,

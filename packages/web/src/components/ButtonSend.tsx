@@ -4,7 +4,7 @@ import {
   PiSpinnerGap,
   PiStopFill,
 } from 'react-icons/pi';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 
 type Props = BaseProps & {
   disabled?: boolean;

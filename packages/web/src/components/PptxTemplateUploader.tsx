@@ -8,7 +8,7 @@ import Textarea from './Textarea';
 import Switch from './Switch';
 import FileUploader from './FileUploader';
 import ModalDialog from './ModalDialog';
-import { PptxTemplateInput } from '../@types/pptx';
+import { PptxTemplateInput } from '@/@types/pptx';
 
 interface PptxTemplateUploaderProps {
   onUpload: (file: File, templateData: PptxTemplateInput) => Promise<void>;

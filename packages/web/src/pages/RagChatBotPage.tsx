@@ -16,10 +16,10 @@ import {
   PiUsers,
   PiX,
 } from 'react-icons/pi';
-import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
-import Button from '../components/Button';
-import LoadingWave from '../components/LoadingWave';
-import Switch from '../components/Switch';
+import useBedrockChatApi, { BedrockChatBot } from '@/hooks/useBedrockChatApi';
+import Button from '@/components/Button';
+import LoadingWave from '@/components/LoadingWave';
+import Switch from '@/components/Switch';
 
 type ScopeFilter = 'none' | 'all' | 'private';
 

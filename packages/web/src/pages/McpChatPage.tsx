@@ -1,21 +1,21 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import useMcp from '../hooks/useMcp';
-import useFollow from '../hooks/useFollow';
+import useMcp from '@/hooks/useMcp';
+import useFollow from '@/hooks/useFollow';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
 import { PiArrowClockwiseBold } from 'react-icons/pi';
-import { MODELS, findModelByModelId } from '../hooks/useModel';
+import { MODELS, findModelByModelId } from '@/hooks/useModel';
 import StrandsIcon from '../assets/strands.svg?react';
-import ChatMessage from '../components/ChatMessage';
-import Select from '../components/Select';
-import Switch from '../components/Switch';
-import ExpandableField from '../components/ExpandableField';
-import InputChatContent from '../components/InputChatContent';
-import Button from '../components/Button';
-import ScrollTopBottom from '../components/ScrollTopBottom';
+import ChatMessage from '@/components/ChatMessage';
+import Select from '@/components/Select';
+import Switch from '@/components/Switch';
+import ExpandableField from '@/components/ExpandableField';
+import InputChatContent from '@/components/InputChatContent';
+import Button from '@/components/Button';
+import ScrollTopBottom from '@/components/ScrollTopBottom';
 import { UnrecordedMessage } from 'generative-ai-use-cases';
-import { McpPageQueryParams } from '../@types/navigate';
+import { McpPageQueryParams } from '@/@types/navigate';
 import queryString from 'query-string';
 
 type StateType = {

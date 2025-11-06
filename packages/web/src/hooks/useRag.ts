@@ -4,9 +4,9 @@ import useChatApi from './useChatApi';
 import useRagApi from './useRagApi';
 import { ShownMessage } from 'generative-ai-use-cases';
 import { findModelByModelId } from './useModel';
-import { getPrompter } from '../prompts';
+import { getPrompter } from '@/prompts';
 import { RetrieveResultItem, DocumentAttribute } from '@aws-sdk/client-kendra';
-import { cleanEncode } from '../utils/URLUtils';
+import { cleanEncode } from '@/utils/URLUtils';
 import { useTranslation } from 'react-i18next';
 
 // Key value to consider the same document

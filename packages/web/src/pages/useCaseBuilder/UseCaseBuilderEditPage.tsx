@@ -5,14 +5,14 @@ import React, {
   useState,
   useRef,
 } from 'react';
-import Card from '../../components/Card';
-import Button from '../../components/Button';
-import ButtonIcon from '../../components/ButtonIcon';
-import Textarea from '../../components/Textarea';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import ButtonIcon from '@/components/ButtonIcon';
+import Textarea from '@/components/Textarea';
 import { create } from 'zustand';
-import RowItem from '../../components/RowItem';
-import AppBuilderView from '../../components/useCaseBuilder/UseCaseBuilderView';
-import InputText from '../../components/InputText';
+import RowItem from '@/components/RowItem';
+import AppBuilderView from '@/components/useCaseBuilder/UseCaseBuilderView';
+import InputText from '@/components/InputText';
 import {
   PiPlus,
   PiQuestion,
@@ -22,12 +22,12 @@ import {
   PiCircleFill,
   PiDownloadSimple,
 } from 'react-icons/pi';
-import useMyUseCases from '../../hooks/useCaseBuilder/useMyUseCases';
+import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import useUseCase from '../../hooks/useCaseBuilder/useUseCase';
-import LoadingOverlay from '../../components/LoadingOverlay';
-import ModalDialogDeleteUseCase from '../../components/useCaseBuilder/ModalDialogDeleteUseCase';
-import UseCaseBuilderHelp from '../../components/useCaseBuilder/UseCaseBuilderHelp';
+import useUseCase from '@/hooks/useCaseBuilder/useUseCase';
+import LoadingOverlay from '@/components/LoadingOverlay';
+import ModalDialogDeleteUseCase from '@/components/useCaseBuilder/ModalDialogDeleteUseCase';
+import UseCaseBuilderHelp from '@/components/useCaseBuilder/UseCaseBuilderHelp';
 import { UseCaseInputExample } from 'generative-ai-use-cases';
 import { produce } from 'immer';
 import {
@@ -35,11 +35,11 @@ import {
   extractPlaceholdersFromPromptTemplate,
   getItemsFromPlaceholders,
   getTextFormItemsFromItems,
-} from '../../utils/UseCaseBuilderUtils';
-import usePageTitle from '../../hooks/usePageTitle';
-import Select from '../../components/Select';
-import Switch from '../../components/Switch';
-import { MODELS } from '../../hooks/useModel';
+} from '@/utils/UseCaseBuilderUtils';
+import usePageTitle from '@/hooks/usePageTitle';
+import Select from '@/components/Select';
+import Switch from '@/components/Switch';
+import { MODELS } from '@/hooks/useModel';
 import { useTranslation } from 'react-i18next';
 
 type ErrorWithMenu = {

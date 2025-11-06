@@ -1,14 +1,14 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Textarea from '../components/Textarea';
-import Select from '../components/Select';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import useOptimizePrompt from '../hooks/useOptimizePrompt';
-import { MODELS } from '../hooks/useModel';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import Textarea from '@/components/Textarea';
+import Select from '@/components/Select';
+import Markdown from '@/components/Markdown';
+import ButtonCopy from '@/components/ButtonCopy';
+import useOptimizePrompt from '@/hooks/useOptimizePrompt';
+import { MODELS } from '@/hooks/useModel';
 
 type StateType = {
   prompt: string;

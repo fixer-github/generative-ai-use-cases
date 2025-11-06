@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef } from 'react';
 import RowItem, { RowItemProps } from './RowItem';
 import Help from './Help';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings } from '@/hooks/useSettings';
 
 type Props = RowItemProps & {
   value?: string;

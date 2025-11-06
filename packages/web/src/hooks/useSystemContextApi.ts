@@ -5,7 +5,7 @@ import {
 } from 'generative-ai-use-cases';
 
 import useHttp from './useHttp';
-import { decomposeId } from '../utils/ChatUtils';
+import { decomposeId } from '@/utils/ChatUtils';
 
 const useSystemContextApi = () => {
   const http = useHttp();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ButtonIcon from '../ButtonIcon';
 import { BaseProps } from '../../@types/common';
 import { PiUploadSimple } from 'react-icons/pi';
-import useHttp from '../../hooks/useHttp';
+import useHttp from '@/hooks/useHttp';
 
 type Props = BaseProps & {
   useCaseId: string;

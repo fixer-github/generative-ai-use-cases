@@ -2,7 +2,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import axios, { AxiosRequestConfig } from 'axios';
 import useSWR, { SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { performLogoutAndReload, isRoleMismatchError, isAuthorizationError } from '../utils/auth';
+import { performLogoutAndReload, isRoleMismatchError, isAuthorizationError } from '@/utils/auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_ENDPOINT,

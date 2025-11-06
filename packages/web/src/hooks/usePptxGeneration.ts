@@ -5,7 +5,7 @@ import {
   PptxGenerationInput,
   PptxGenerationStatus,
   PptxGenerationListResponse,
-} from '../@types/pptx';
+} from '@/@types/pptx';
 
 export const usePptxGeneration = () => {
   const http = useHttp();

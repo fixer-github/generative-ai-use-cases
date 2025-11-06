@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import SidebarItem, {
   SidebarItemProps as SidebarItemBaseProps,
 } from './SidebarItem';

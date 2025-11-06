@@ -9,7 +9,7 @@ import {
   getFileTypeFromMimeType,
   getMimeTypeFromFileHeader,
   validateMimeTypeAndExtension,
-} from '../utils/MediaUtils';
+} from '@/utils/MediaUtils';
 
 export const extractBaseURL = (url: string) => {
   return url.split(/[?#]/)[0];

@@ -6,7 +6,7 @@ import InputText from './InputText';
 import Textarea from './Textarea';
 import Alert from './Alert';
 import LoadingWave from './LoadingWave';
-import useHttp from '../hooks/useHttp';
+import useHttp from '@/hooks/useHttp';
 
 interface UserInviteDialogProps {
   isOpen: boolean;

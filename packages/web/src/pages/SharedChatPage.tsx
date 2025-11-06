@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import useChatApi from '../hooks/useChatApi';
-import useSystemContextApi from '../hooks/useSystemContextApi';
-import ChatMessage from '../components/ChatMessage';
+import useChatApi from '@/hooks/useChatApi';
+import useSystemContextApi from '@/hooks/useSystemContextApi';
+import ChatMessage from '@/components/ChatMessage';
 import BedrockIcon from '../assets/bedrock.svg?react';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import ModalSystemContext from '../components/ModalSystemContext';
+import ScrollTopBottom from '@/components/ScrollTopBottom';
+import ModalSystemContext from '@/components/ModalSystemContext';
 import { useTranslation } from 'react-i18next';
 
 const SharedChatPage: React.FC = () => {

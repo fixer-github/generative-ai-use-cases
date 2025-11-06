@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiCaretRightFill } from 'react-icons/pi';
-import useLocalStorageBoolean from '../hooks/useLocalStorageBoolean';
+import useLocalStorageBoolean from '@/hooks/useLocalStorageBoolean';
 
 type Props = BaseProps & {
   title: string;

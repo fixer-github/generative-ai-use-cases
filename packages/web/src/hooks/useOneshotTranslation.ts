@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState } from 'react';
-import { getPrompter } from '../prompts';
+import { getPrompter } from '@/prompts';
 import { MODELS, findModelByModelId } from './useModel';
-import useChatApi from '../hooks/useChatApi';
+import useChatApi from '@/hooks/useChatApi';
 
 const useOneshotTranslation = () => {
   const { predict } = useChatApi();

@@ -1,27 +1,27 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Textarea from '../components/Textarea';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import Textarea from '@/components/Textarea';
 import { create } from 'zustand';
-import RangeSlider from '../components/RangeSlider';
-import Select from '../components/Select';
-import ExpandableField from '../components/ExpandableField';
-import ButtonIcon from '../components/ButtonIcon';
+import RangeSlider from '@/components/RangeSlider';
+import Select from '@/components/Select';
+import ExpandableField from '@/components/ExpandableField';
+import ButtonIcon from '@/components/ButtonIcon';
 import { PiFileArrowUp, PiDiceFive, PiNotePencil } from 'react-icons/pi';
 import { MdDeleteOutline } from 'react-icons/md';
-import useImage from '../hooks/useImage';
-import GenerateImageAssistant from '../components/GenerateImageAssistant';
-import SketchPad, { Canvas } from '../components/SketchPad';
-import ModalDialog from '../components/ModalDialog';
+import useImage from '@/hooks/useImage';
+import GenerateImageAssistant from '@/components/GenerateImageAssistant';
+import SketchPad, { Canvas } from '@/components/SketchPad';
+import ModalDialog from '@/components/ModalDialog';
 import { produce } from 'immer';
-import Help from '../components/Help';
+import Help from '@/components/Help';
 import { useLocation } from 'react-router-dom';
-import useChat from '../hooks/useChat';
-import Base64Image from '../components/Base64Image';
+import useChat from '@/hooks/useChat';
+import Base64Image from '@/components/Base64Image';
 import { AxiosError } from 'axios';
-import { GenerateImagePageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
+import { GenerateImagePageQueryParams } from '@/@types/navigate';
+import { MODELS } from '@/hooks/useModel';
+import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
 import { GenerateImageParams } from 'generative-ai-use-cases';
 import {
@@ -29,7 +29,7 @@ import {
   AmazonUIImageGenerationMode,
   ControlMode,
 } from 'generative-ai-use-cases';
-import InputText from '../components/InputText';
+import InputText from '@/components/InputText';
 import { useTranslation } from 'react-i18next';
 
 const MAX_SAMPLE = 7;

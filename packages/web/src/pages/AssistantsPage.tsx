@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PiMagnifyingGlass, PiPlus, PiRobot } from 'react-icons/pi';
-import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
-import LoadingWave from '../components/LoadingWave';
+import useBedrockChatApi, { BedrockChatBot } from '@/hooks/useBedrockChatApi';
+import LoadingWave from '@/components/LoadingWave';
 
 const AssistantsPage: React.FC = () => {
   const navigate = useNavigate();

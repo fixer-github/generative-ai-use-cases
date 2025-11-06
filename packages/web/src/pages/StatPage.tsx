@@ -1,8 +1,8 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format, subDays } from 'date-fns';
-import useStat from '../hooks/useStat';
-import useStatApi from '../hooks/useStatApi';
+import useStat from '@/hooks/useStat';
+import useStatApi from '@/hooks/useStatApi';
 
 const TokensTimeSeriesChart = lazy(
   () => import('../components/charts/TokensTimeSeriesChart')

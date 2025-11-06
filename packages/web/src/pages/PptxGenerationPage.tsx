@@ -1,21 +1,21 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Card from '../components/Card';
-import Button from '../components/Button';
-// import ButtonIcon from '../components/ButtonIcon'; // Unused when template selector is hidden
-import Textarea from '../components/Textarea';
-import RangeSlider from '../components/RangeSlider';
-import Switch from '../components/Switch';
-import Select from '../components/Select';
-import LoadingWave from '../components/LoadingWave';
-import Alert from '../components/Alert';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+// import ButtonIcon from '@/components/ButtonIcon'; // Unused when template selector is hidden
+import Textarea from '@/components/Textarea';
+import RangeSlider from '@/components/RangeSlider';
+import Switch from '@/components/Switch';
+import Select from '@/components/Select';
+import LoadingWave from '@/components/LoadingWave';
+import Alert from '@/components/Alert';
 import { /* PiPlus, */ PiPresentation } from 'react-icons/pi'; // PiPlus unused when template selector is hidden
-import { usePptxGeneration } from '../hooks/usePptxGeneration';
-import { usePptxTemplates } from '../hooks/usePptxTemplates';
-// import PptxTemplateSelector from '../components/PptxTemplateSelector'; // Unused when template selector is hidden
-// import PptxTemplateUploader from '../components/PptxTemplateUploader'; // Unused when template selector is hidden
-import { PptxTemplate, PptxGeneration } from '../@types/pptx';
-import { MODELS } from '../hooks/useModel';
+import { usePptxGeneration } from '@/hooks/usePptxGeneration';
+import { usePptxTemplates } from '@/hooks/usePptxTemplates';
+// import PptxTemplateSelector from '@/components/PptxTemplateSelector'; // Unused when template selector is hidden
+// import PptxTemplateUploader from '@/components/PptxTemplateUploader'; // Unused when template selector is hidden
+import { PptxTemplate, PptxGeneration } from '@/@types/pptx';
+import { MODELS } from '@/hooks/useModel';
 
 const PptxGenerationPage: React.FC = () => {
   const { t } = useTranslation();

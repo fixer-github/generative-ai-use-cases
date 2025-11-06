@@ -5,7 +5,7 @@ import {
   PptxTemplateInput,
   PptxTemplateListResponse,
   PptxPresignedUrl,
-} from '../@types/pptx';
+} from '@/@types/pptx';
 
 export const usePptxTemplates = () => {
   const http = useHttp();

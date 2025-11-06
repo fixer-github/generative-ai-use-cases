@@ -6,19 +6,19 @@ import React, {
   useRef,
 } from 'react';
 import { useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import ButtonIcon from '../components/ButtonIcon';
-import Textarea from '../components/Textarea';
-import ExpandableField from '../components/ExpandableField';
-import Select from '../components/Select';
-import Markdown from '../components/Markdown';
-import ButtonCopy from '../components/ButtonCopy';
-import Switch from '../components/Switch';
-import useChat from '../hooks/useChat';
-import useMicrophone from '../hooks/useMicrophone';
-import useTyping from '../hooks/useTyping';
-import useLocalStorageBoolean from '../hooks/useLocalStorageBoolean';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import ButtonIcon from '@/components/ButtonIcon';
+import Textarea from '@/components/Textarea';
+import ExpandableField from '@/components/ExpandableField';
+import Select from '@/components/Select';
+import Markdown from '@/components/Markdown';
+import ButtonCopy from '@/components/ButtonCopy';
+import Switch from '@/components/Switch';
+import useChat from '@/hooks/useChat';
+import useMicrophone from '@/hooks/useMicrophone';
+import useTyping from '@/hooks/useTyping';
+import useLocalStorageBoolean from '@/hooks/useLocalStorageBoolean';
 import {
   PiMicrophoneBold,
   PiStopCircleBold,
@@ -27,11 +27,11 @@ import {
 } from 'react-icons/pi';
 import { create } from 'zustand';
 import debounce from 'lodash.debounce';
-import { TranslatePageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
-import { getPrompter } from '../prompts';
+import { TranslatePageQueryParams } from '@/@types/navigate';
+import { MODELS } from '@/hooks/useModel';
+import { getPrompter } from '@/prompts';
 import queryString from 'query-string';
-import useSpeach from '../hooks/useSpeach';
+import useSpeach from '@/hooks/useSpeach';
 import { useTranslation } from 'react-i18next';
 
 const languages = ['en', 'ja', 'zh', 'ko', 'fr', 'es', 'de', 'th', 'vi'];

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSpeechToSpeech } from '../hooks/useSpeechToSpeech';
+import { useSpeechToSpeech } from '@/hooks/useSpeechToSpeech';
 import { useTranslation } from 'react-i18next';
 import {
   PiArrowClockwiseBold,
@@ -7,18 +7,18 @@ import {
   PiMicrophoneBold,
   PiEar,
 } from 'react-icons/pi';
-import ChatMessage from '../components/ChatMessage';
-import Switch from '../components/Switch';
-import ExpandableField from '../components/ExpandableField';
-import Button from '../components/Button';
-import InputChatContent from '../components/InputChatContent';
-import ScrollTopBottom from '../components/ScrollTopBottom';
-import Alert from '../components/Alert.tsx';
-import Select from '../components/Select';
-import useFollow from '../hooks/useFollow';
+import ChatMessage from '@/components/ChatMessage';
+import Switch from '@/components/Switch';
+import ExpandableField from '@/components/ExpandableField';
+import Button from '@/components/Button';
+import InputChatContent from '@/components/InputChatContent';
+import ScrollTopBottom from '@/components/ScrollTopBottom';
+import Alert from '@/components/Alert.tsx';
+import Select from '@/components/Select';
+import useFollow from '@/hooks/useFollow';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { toast } from 'sonner';
-import { MODELS } from '../hooks/useModel';
+import { MODELS } from '@/hooks/useModel';
 
 const VoiceChatPage: React.FC = () => {
   const { t } = useTranslation();

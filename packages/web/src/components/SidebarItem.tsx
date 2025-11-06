@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 
 export type SidebarItemProps = BaseProps & {
   label: string;

@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
-import { BaseProps } from '../@types/common';
+import { BaseProps } from '@/@types/common';
 import { PiFileX, PiImageLight, PiDownload } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
-import ButtonIcon from '../components/ButtonIcon';
+import ButtonIcon from '@/components/ButtonIcon';
 
 type Props = BaseProps & {
   imageBase64: string | null;
