@@ -5,6 +5,7 @@ import svgr from 'vite-plugin-svgr';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { VitePWA } from 'vite-plugin-pwa';
 import { visualizer } from 'rollup-plugin-visualizer';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -21,7 +22,12 @@ export default defineConfig(({ mode }) => ({
       ],
     },
   },
-  resolve: { alias: { './runtimeConfig': './runtimeConfig.browser' } },
+  resolve: {
+    alias: {
+      './runtimeConfig': './runtimeConfig.browser',
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   plugins: [
     react(),
     svgr(),
