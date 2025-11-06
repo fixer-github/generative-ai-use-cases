@@ -1,7 +1,7 @@
 import React from 'react';
 import ModalDialog from '@/components/ui/ModalDialog';
 import Button from '@/components/ui/Button';
-import { BaseProps } from '../../@types/common';
+import { BaseProps } from '@/@types/common';
 import Alert from '@/components/ui/Alert';
 import { useTranslation } from 'react-i18next';
 

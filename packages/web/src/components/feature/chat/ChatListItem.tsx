@@ -12,7 +12,7 @@ import { PiChat, PiCheck, PiPencilLine, PiTrash, PiX, PiDotsThreeVertical } from
 import ButtonIcon from '@/components/ui/ButtonIcon';
 import { Chat } from 'generative-ai-use-cases';
 import { decomposeId } from '@/utils/ChatUtils';
-import DialogConfirmDeleteChat from '@/components/ui/DialogConfirmDeleteChat';
+import DialogConfirmDeleteChat from '@/components/feature/chat/DialogConfirmDeleteChat';
 
 type Props = BaseProps & {
   active: boolean;

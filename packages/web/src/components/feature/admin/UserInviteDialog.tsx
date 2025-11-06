@@ -4,9 +4,20 @@ import { useTranslation } from 'react-i18next';
 import Button from '@/components/ui/Button';
 import InputText from '@/components/ui/InputText';
 import Textarea from '@/components/ui/Textarea';
-import Alert from './Alert';
-import LoadingWave from '@/components/utility/LoadingWave';
+import Alert from '@/components/ui/Alert';
+import LoadingWave from '@/components/ui/loading/LoadingWave';
 import useHttp from '@/hooks/useHttp';
+import { AxiosError } from 'axios';
+
+// Type guard for Axios errors
+function isAxiosError(error: unknown): error is AxiosError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'isAxiosError' in error &&
+    (error as AxiosError).isAxiosError === true
+  );
+}
 
 interface UserInviteDialogProps {
   isOpen: boolean;
@@ -159,12 +170,17 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       if (onInviteSuccess) {
         onInviteSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to invite users:', error);
-      setError(
-        error.response?.data?.message ||
-          t('adminPortal.invite.errors.invitationFailed')
-      );
+      if (isAxiosError(error)) {
+        const responseData = error.response?.data as { message?: string } | undefined;
+        setError(
+          responseData?.message ||
+            t('adminPortal.invite.errors.invitationFailed')
+        );
+      } else {
+        setError(t('adminPortal.invite.errors.invitationFailed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -177,26 +193,28 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to validate domains:', error);
 
       // Provide more specific error messages for domain validation failures
-      if (error.response?.status === 403) {
-        throw new Error(t('adminPortal.invite.errors.noPermission'));
-      } else if (error.response?.status === 409) {
-        throw new Error(t('adminPortal.invite.errors.roleRevoked'));
-      } else if (error.response?.status === 400) {
-        const errorData = error.response?.data;
-        if (errorData?.invalidEmails?.length > 0) {
+      if (isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error(t('adminPortal.invite.errors.noPermission'));
+        } else if (error.response?.status === 409) {
+          throw new Error(t('adminPortal.invite.errors.roleRevoked'));
+        } else if (error.response?.status === 400) {
+          const errorData = error.response?.data as { message?: string; invalidEmails?: string[] } | undefined;
+          if (errorData?.invalidEmails && errorData.invalidEmails.length > 0) {
+            throw new Error(
+              t('adminPortal.invite.errors.invalidEmails', {
+                emails: errorData.invalidEmails.join(', '),
+              })
+            );
+          }
           throw new Error(
-            t('adminPortal.invite.errors.invalidEmails', {
-              emails: errorData.invalidEmails.join(', '),
-            })
+            errorData?.message || t('adminPortal.invite.errors.invalidRequest')
           );
         }
-        throw new Error(
-          errorData?.message || t('adminPortal.invite.errors.invalidRequest')
-        );
       }
 
       // Let role monitor handle privilege revocation errors to avoid conflicts
@@ -238,26 +256,31 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
           await performInvitation(emails, sendEmail);
           // performInvitation will handle resuming
         }
-      } catch (validationError: any) {
+      } catch (validationError: unknown) {
         throw validationError;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to prepare invitation:', error);
 
       // Check for specific admin privilege errors and let role monitor handle them
-      if (error.response?.status === 403 || error.response?.status === 409) {
-        // Let the role monitor handle privilege revocation - just close dialog
-        handleClose();
-        return;
+      if (isAxiosError(error)) {
+        if (error.response?.status === 403 || error.response?.status === 409) {
+          // Let the role monitor handle privilege revocation - just close dialog
+          handleClose();
+          return;
+        }
+
+        // Use the specific error message if available, otherwise use generic message
+        const responseData = error.response?.data as { message?: string } | undefined;
+        setError(
+          responseData?.message ||
+          t('adminPortal.invite.errors.invitationFailed')
+        );
+      } else if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError(t('adminPortal.invite.errors.invitationFailed'));
       }
-
-      // Use the specific error message if available, otherwise use generic message
-      const errorMessage =
-        error.message ||
-        error.response?.data?.message ||
-        t('adminPortal.invite.errors.invitationFailed');
-
-      setError(errorMessage);
     }
   };
 

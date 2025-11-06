@@ -5,7 +5,7 @@ import useSystemContextApi from '@/hooks/useSystemContextApi';
 import ChatMessage from '@/components/feature/chat/ChatMessage';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import ScrollTopBottom from '@/components/feature/chat/ScrollTopBottom';
-import ModalSystemContext from '@/components/ui/ModalSystemContext';
+import ModalSystemContext from '@/components/feature/chat/ModalSystemContext';
 import { useTranslation } from 'react-i18next';
 
 const SharedChatPage: React.FC = () => {

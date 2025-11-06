@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseProps } from '../../@types/common';
+import { BaseProps } from '@/@types/common';
 import ButtonIcon from '@/components/ui/ButtonIcon';
 import { PiStar, PiStarFill } from 'react-icons/pi';
 

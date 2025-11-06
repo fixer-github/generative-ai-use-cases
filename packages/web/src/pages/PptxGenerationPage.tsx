@@ -7,7 +7,7 @@ import Textarea from '@/components/ui/Textarea';
 import RangeSlider from '@/components/ui/RangeSlider';
 import Switch from '@/components/ui/Switch';
 import Select from '@/components/ui/Select';
-import LoadingWave from '@/components/utility/LoadingWave';
+import LoadingWave from '@/components/ui/loading/LoadingWave';
 import Alert from '@/components/ui/Alert';
 import { /* PiPlus, */ PiPresentation } from 'react-icons/pi'; // PiPlus unused when template selector is hidden
 import { usePptxGeneration } from '@/hooks/usePptxGeneration';

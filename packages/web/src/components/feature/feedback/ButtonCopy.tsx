@@ -27,9 +27,10 @@ const ButtonCopy: React.FC<Props> = (props) => {
     copy(message, {
       format: 'text/plain',
       onCopy: (clipboardData) => {
-        if (html) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (clipboardData as any).setData('text/html', html);
+        if (html && clipboardData) {
+          // TypeScript doesn't recognize setData method on the object type from copy-to-clipboard
+          // but it's actually a DataTransfer object at runtime
+          (clipboardData as DataTransfer).setData('text/html', html);
         }
       },
     });

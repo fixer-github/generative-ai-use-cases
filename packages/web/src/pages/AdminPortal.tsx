@@ -5,8 +5,8 @@ import { Navigate } from 'react-router-dom';
 import { PiUsers, PiUserPlus, PiShieldCheck } from 'react-icons/pi';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import LoadingOverlay from '@/components/utility/LoadingOverlay';
-import UserInviteDialog from '@/components/ui/UserInviteDialog';
+import LoadingOverlay from '@/components/ui/loading/LoadingOverlay';
+import UserInviteDialog from '@/components/feature/admin/UserInviteDialog';
 import useHttp from '@/hooks/useHttp';
 
 interface AdminStatusResponse {

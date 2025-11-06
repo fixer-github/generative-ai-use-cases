@@ -17,7 +17,7 @@ import Button from '@/components/ui/Button';
 import InputText from '@/components/ui/InputText';
 import Textarea from '@/components/ui/Textarea';
 import Card from '@/components/ui/Card';
-import LoadingWave from '@/components/utility/LoadingWave';
+import LoadingWave from '@/components/ui/loading/LoadingWave';
 import FileUploader from '@/components/feature/file/FileUploader';
 
 const RagChatBotEditPage: React.FC = () => {

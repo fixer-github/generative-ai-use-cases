@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, memo } from 'react';
+import { useEffect, useMemo, useState, memo, ReactNode } from 'react';
 import { BaseProps } from '@/@types/common';
 import { default as ReactMarkdown } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,6 +7,24 @@ import ButtonCopy from '@/components/feature/feedback/ButtonCopy';
 import useRagFile from '@/hooks/useRagFile';
 import { PiSpinnerGap } from 'react-icons/pi';
 import useFileApi from '@/hooks/useFileApi';
+
+// Type definitions for react-markdown component renderers
+interface LinkRendererProps {
+  id?: string;
+  href?: string;
+  children?: ReactNode;
+}
+
+interface ImageRendererProps {
+  id?: string;
+  src?: string;
+  alt?: string;
+}
+
+interface CodeRendererProps {
+  className?: string;
+  children?: ReactNode;
+}
 
 // Reduce bundle size by registering only the languages used in the project
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -63,12 +81,11 @@ type Props = BaseProps & {
   prefix?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const LinkRenderer = (props: any) => {
+const LinkRenderer = (props: LinkRendererProps) => {
   // Currently, the file download function from S3 is only used in RAG chat
   const { downloadDoc, isS3Url, downloading } = useRagFile();
   const isS3 = useMemo(() => {
-    return isS3Url(props.href);
+    return props.href ? isS3Url(props.href) : false;
   }, [isS3Url, props.href]);
 
   // For Knowledge Base, we pass s3Type as a parameter
@@ -84,7 +101,7 @@ const LinkRenderer = (props: any) => {
         <a
           id={props.id}
           onClick={() => {
-            if (!downloading) {
+            if (!downloading && props.href) {
               downloadDoc(
                 props.href,
                 isKnowledgeBase ? 'knowledgeBase' : 'default'
@@ -101,7 +118,7 @@ const LinkRenderer = (props: any) => {
         <a
           id={props.id}
           href={props.href}
-          target={props.href.startsWith('#') ? '_self' : '_blank'}
+          target={props.href?.startsWith('#') ? '_self' : '_blank'}
           rel="noreferrer">
           {props.children}
         </a>
@@ -110,14 +127,13 @@ const LinkRenderer = (props: any) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ImageRenderer = (props: any) => {
+const ImageRenderer = (props: ImageRendererProps) => {
   const { isS3Url } = useRagFile();
   const { getFileDownloadSignedUrl } = useFileApi();
   const [src, setSrc] = useState(props.src);
 
   useEffect(() => {
-    if (isS3Url(props.src)) {
+    if (props.src && isS3Url(props.src)) {
       getFileDownloadSignedUrl(props.src).then((url) => setSrc(url));
     }
   }, [getFileDownloadSignedUrl, isS3Url, props.src]);
@@ -126,8 +142,7 @@ const ImageRenderer = (props: any) => {
 };
 
 const CodeRenderer = memo(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (props: any) => {
+  (props: CodeRendererProps) => {
     const language = /language-(\w+)/.exec(props.className || '')?.[1];
     const codeText = String(props.children).replace(/\n$/, '');
     const isCodeBlock = codeText.includes('\n');

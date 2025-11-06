@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiPresentation, PiGlobe, PiUser } from 'react-icons/pi';
-import LoadingWave from '@/components/utility/LoadingWave';
+import LoadingWave from '@/components/ui/loading/LoadingWave';
 import { PptxTemplate } from '@/@types/pptx';
 
 interface PptxTemplateSelectorProps {

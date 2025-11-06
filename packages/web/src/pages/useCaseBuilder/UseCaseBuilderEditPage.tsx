@@ -11,7 +11,7 @@ import ButtonIcon from '@/components/ui/ButtonIcon';
 import Textarea from '@/components/ui/Textarea';
 import { create } from 'zustand';
 import RowItem from '@/components/layout/RowItem';
-import AppBuilderView from '@/components/useCaseBuilder/UseCaseBuilderView';
+import AppBuilderView from '@/components/feature/useCaseBuilder/UseCaseBuilderView';
 import InputText from '@/components/ui/InputText';
 import {
   PiPlus,
@@ -25,9 +25,9 @@ import {
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import useUseCase from '@/hooks/useCaseBuilder/useUseCase';
-import LoadingOverlay from '@/components/utility/LoadingOverlay';
-import ModalDialogDeleteUseCase from '@/components/useCaseBuilder/ModalDialogDeleteUseCase';
-import UseCaseBuilderHelp from '@/components/useCaseBuilder/UseCaseBuilderHelp';
+import LoadingOverlay from '@/components/ui/loading/LoadingOverlay';
+import ModalDialogDeleteUseCase from '@/components/feature/useCaseBuilder/ModalDialogDeleteUseCase';
+import UseCaseBuilderHelp from '@/components/feature/useCaseBuilder/UseCaseBuilderHelp';
 import { UseCaseInputExample } from 'generative-ai-use-cases';
 import { produce } from 'immer';
 import {

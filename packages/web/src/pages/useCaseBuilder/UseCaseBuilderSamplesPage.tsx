@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   SamplePromptType,
   getUseCaseBuilderSamplePrompts,
-} from '../../prompts/useCaseBuilderSamples';
+} from '@/prompts/useCaseBuilderSamples';
 import { useTranslation } from 'react-i18next';
 
 type CardSampleProps = SamplePromptType;

@@ -20,7 +20,7 @@ import ButtonFavorite from './ButtonFavorite';
 import ButtonShare from './ButtonShare';
 import ButtonUseCaseEdit from './ButtonUseCaseEdit';
 import ButtonUseCaseExport from './ButtonUseCaseExport';
-import Skeleton from '@/components/ui/Skeleton';
+import Skeleton from '@/components/ui/loading/Skeleton';
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
 import { UseCaseInputExample, FileLimit } from 'generative-ai-use-cases';
 import {

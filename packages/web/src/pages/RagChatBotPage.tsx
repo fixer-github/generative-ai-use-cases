@@ -18,7 +18,7 @@ import {
 } from 'react-icons/pi';
 import useBedrockChatApi, { BedrockChatBot } from '@/hooks/useBedrockChatApi';
 import Button from '@/components/ui/Button';
-import LoadingWave from '@/components/utility/LoadingWave';
+import LoadingWave from '@/components/ui/loading/LoadingWave';
 import Switch from '@/components/ui/Switch';
 
 type ScopeFilter = 'none' | 'all' | 'private';

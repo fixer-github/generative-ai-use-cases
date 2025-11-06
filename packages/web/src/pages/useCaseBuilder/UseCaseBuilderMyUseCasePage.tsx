@@ -5,12 +5,12 @@ import { PiNotePencil, PiTrash } from 'react-icons/pi';
 import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import useMyUseCases from '@/hooks/useCaseBuilder/useMyUseCases';
-import ModalDialogDeleteUseCase from '@/components/useCaseBuilder/ModalDialogDeleteUseCase';
-import Skeleton from '@/components/ui/Skeleton';
-import ModalDialogShareUseCase from '@/components/useCaseBuilder/ModalDialogShareUseCase';
-import ButtonFavorite from '@/components/useCaseBuilder/ButtonFavorite';
-import ButtonShare from '@/components/useCaseBuilder/ButtonShare';
-import ButtonUseCaseEdit from '@/components/useCaseBuilder/ButtonUseCaseEdit';
+import ModalDialogDeleteUseCase from '@/components/feature/useCaseBuilder/ModalDialogDeleteUseCase';
+import Skeleton from '@/components/ui/loading/Skeleton';
+import ModalDialogShareUseCase from '@/components/feature/useCaseBuilder/ModalDialogShareUseCase';
+import ButtonFavorite from '@/components/feature/useCaseBuilder/ButtonFavorite';
+import ButtonShare from '@/components/feature/useCaseBuilder/ButtonShare';
+import ButtonUseCaseEdit from '@/components/feature/useCaseBuilder/ButtonUseCaseEdit';
 import Card from '@/components/ui/Card';
 import { useTranslation } from 'react-i18next';
 
