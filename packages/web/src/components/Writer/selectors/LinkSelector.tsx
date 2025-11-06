@@ -51,7 +51,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
           <p className="text-base">↗</p>
           <p
             className={cn('underline decoration-stone-400 underline-offset-4', {
-              'text-blue-500': editor.isActive('link'),
+              'text-primary': editor.isActive('link'),
             })}>
             {t('writer.link')}
           </p>

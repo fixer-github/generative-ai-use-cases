@@ -321,7 +321,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
             {/* Header */}
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center">
-                <PiUserPlus className="mr-3 text-2xl text-blue-600" />
+                <PiUserPlus className="mr-3 text-2xl text-primary" />
                 <h3 className="text-lg font-semibold text-gray-900">
                   {t('adminPortal.invite.title')}
                 </h3>
@@ -339,7 +339,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 <button
                   className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
                     inviteMode === 'single'
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-accent text-accent-foreground'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setInviteMode('single')}>
@@ -349,7 +349,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                 <button
                   className={`flex-1 rounded-md px-4 py-2 text-sm font-medium ${
                     inviteMode === 'bulk'
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-accent text-accent-foreground'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setInviteMode('bulk')}>
@@ -387,7 +387,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
                     type="file"
                     accept=".csv"
                     onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent/80"
                   />
                   {csvFile && (
                     <p className="mt-2 text-sm text-green-600">
@@ -526,8 +526,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
               {!results && (
                 <Button
                   onClick={handleInvite}
-                  disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700">
+                  disabled={loading}>
                   {loading ? (
                     <>
                       <LoadingWave />

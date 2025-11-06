@@ -86,7 +86,7 @@ const PptxTemplateSelector: React.FC<PptxTemplateSelectorProps> = ({
                       {template.is_public ? (
                         <PiGlobe className="h-3 w-3 text-green-600" title={t('pptx.template.public')} />
                       ) : (
-                        <PiUser className="h-3 w-3 text-blue-600" title={t('pptx.template.private')} />
+                        <PiUser className="h-3 w-3 text-primary" title={t('pptx.template.private')} />
                       )}
                     </div>
                   </div>

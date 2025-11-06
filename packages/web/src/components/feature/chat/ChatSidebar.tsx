@@ -87,7 +87,7 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
       <div className="border-b border-gray-200 p-3">
         <button
           onClick={handleNewChat}
-          className="hover:bg-blue-700 flex w-full items-center justify-center gap-2 rounded bg-blue-600 text-white p-2 transition-colors">
+          className="flex w-full items-center justify-center gap-2 rounded bg-primary p-2 text-primary-foreground transition-colors hover:bg-primary/90">
           <PiPlus className="text-lg" />
           <span>{t('chat.button.newChat')}</span>
         </button>
@@ -108,7 +108,7 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
                 onClick={() => handleAssistantClick(assistant.id)}
                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-gray-600 transition-colors hover:bg-gray-100"
                 title={assistant.description || assistant.title}>
-                <PiRobot className="flex-shrink-0 text-base text-blue-600" />
+                <PiRobot className="flex-shrink-0 text-base text-primary" />
                 <span className="truncate">{assistant.title}</span>
               </button>
             ))}
