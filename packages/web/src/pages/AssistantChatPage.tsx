@@ -72,7 +72,21 @@ const AssistantChatPage: React.FC = () => {
 
     try {
       const response = await listMessages(assistantId, { limit: 100 });
-      setMessages(response.messages || []);
+      // Sort messages chronologically (oldest first)
+      // Backend returns newest first (ScanIndexForward: false), so we reverse
+      // createdDate is stored as numeric string (timestamp), so parse it
+      // Normalize to handle both numeric strings and potential legacy ISO strings
+      const normalizeTimestamp = (value?: string): number => {
+        const parsed = parseInt(value ?? '', 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const sortedMessages = [...(response.messages || [])].sort((a, b) => {
+        const timeA = normalizeTimestamp(a.createdDate);
+        const timeB = normalizeTimestamp(b.createdDate);
+        return timeA - timeB;
+      });
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }
@@ -96,7 +110,7 @@ const AssistantChatPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to send message:', error);
       setSending(false);
-      alert(t('ragChatBot.chatPage.sendError', 'Failed to send message'));
+      alert(t('assistant.chatPage.sendError'));
     } finally {
       inputRef.current?.focus();
     }
@@ -119,7 +133,7 @@ const AssistantChatPage: React.FC = () => {
   };
 
   const handleClearConversation = () => {
-    if (window.confirm(t('ragChatBot.chatPage.confirmClear'))) {
+    if (window.confirm(t('assistant.chatPage.confirmClear'))) {
       // Just clear local messages - server will handle message history
       setMessages([]);
     }
@@ -176,7 +190,7 @@ const AssistantChatPage: React.FC = () => {
               <button
                 onClick={() => handleCopyMessage(message.content)}
                 className="text-xs opacity-60 hover:opacity-100"
-                title={t('ragChatBot.chatPage.copy')}>
+                title={t('assistant.chatPage.copy')}>
                 <PiCopy />
               </button>
             </div>
@@ -236,7 +250,7 @@ const AssistantChatPage: React.FC = () => {
         <div className="flex-1">
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             <PiRobot />
-            {assistant?.name || t('ragChatBot.chatPage.title')}
+            {assistant?.name || t('assistant.chatPage.title')}
           </h1>
           {assistant?.description && (
             <p className="text-sm text-gray-600">{assistant.description}</p>
@@ -270,11 +284,11 @@ const AssistantChatPage: React.FC = () => {
       {showAssistantInfo && assistant && (
         <Card className="m-4 p-4">
           <h3 className="mb-2 font-semibold">
-            {t('ragChatBot.chatPage.botInfo')}
+            {t('assistant.chatPage.assistantInfo')}
           </h3>
           <div className="space-y-1 text-sm">
             <p>
-              <strong>{t('ragChatBot.chatPage.instruction')}:</strong>{' '}
+              <strong>{t('assistant.chatPage.instruction')}:</strong>{' '}
               {assistant.instruction}
             </p>
             <p>
@@ -283,7 +297,7 @@ const AssistantChatPage: React.FC = () => {
             {assistant.ragEnabled && (
               <>
                 <p>
-                  <strong>{t('ragChatBot.chatPage.syncStatus')}:</strong>{' '}
+                  <strong>{t('assistant.chatPage.syncStatus')}:</strong>{' '}
                   {assistant.syncStatus}
                 </p>
                 <p className="text-green-600">RAG Enabled</p>
@@ -298,7 +312,7 @@ const AssistantChatPage: React.FC = () => {
           <div className="py-12 text-center">
             <PiRobot className="mx-auto mb-4 text-6xl text-gray-300" />
             <p className="text-gray-500">
-              {t('ragChatBot.chatPage.noMessages')}
+              {t('assistant.chatPage.noMessages')}
             </p>
           </div>
         ) : (
@@ -329,7 +343,7 @@ const AssistantChatPage: React.FC = () => {
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder={t('ragChatBot.chatPage.inputPlaceholder')}
+            placeholder={t('assistant.chatPage.inputPlaceholder')}
             disabled={sending || !assistantId}
             className="flex-1 rounded border border-black/30 p-1.5 outline-none"
           />
@@ -338,7 +352,7 @@ const AssistantChatPage: React.FC = () => {
             disabled={!inputMessage.trim() || sending || !assistantId}
             className="flex items-center gap-1">
             <PiPaperPlaneTilt />
-            {t('ragChatBot.chatPage.send')}
+            {t('assistant.chatPage.send')}
           </Button>
         </div>
       </div>

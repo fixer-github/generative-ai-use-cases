@@ -104,7 +104,7 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
                 onClick={() => handleAssistantClick(assistant.assistantId)}
                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-gray-600 transition-colors hover:bg-gray-100"
                 title={assistant.description || assistant.name}>
-                <PiRobot className="flex-shrink-0 text-base text-blue-600" />
+                <PiRobot className="shrink-0 text-base text-blue-600" />
                 <span className="truncate">{assistant.name}</span>
               </button>
             ))}

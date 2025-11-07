@@ -116,7 +116,7 @@ const AssistantsPage: React.FC = () => {
       {/* Header */}
       <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-3xl font-bold text-gray-900">
-          {t('ragChatBot.title', 'アシスタントを探す')}
+          {t('assistant.title')}
         </h1>
 
         {/* Search Bar and Create Button */}
@@ -125,7 +125,7 @@ const AssistantsPage: React.FC = () => {
             <PiMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400" />
             <input
               type="text"
-              placeholder={t('ragChatBot.searchPlaceholder', 'アシスタントを検索')}
+              placeholder={t('assistant.searchPlaceholder')}
               value={searchInputValue}
               onChange={(e) => setSearchInputValue(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -135,7 +135,7 @@ const AssistantsPage: React.FC = () => {
             onClick={handleCreateAssistant}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
             <PiPlus className="text-lg" />
-            {t('ragChatBot.button.newBot', 'アシスタントを作成')}
+            {t('assistant.createNew')}
           </button>
         </div>
 
@@ -150,7 +150,7 @@ const AssistantsPage: React.FC = () => {
             {featuredAssistants.length > 0 && (
               <section className="mb-12">
                 <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                  {t('ragChatBot.featured', 'おすすめのアシスタント')}
+                  {t('assistant.popularAssistants')}
                 </h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {featuredAssistants.map((assistant) => (
@@ -168,7 +168,7 @@ const AssistantsPage: React.FC = () => {
             {/* All Assistants Section */}
             <section>
               <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                {t('ragChatBot.allAssistants', '全てのアシスタント')}
+                {t('assistant.allAssistants')}
               </h2>
               {allAssistants.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -184,7 +184,7 @@ const AssistantsPage: React.FC = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                   <PiMagnifyingGlass className="mb-4 text-6xl" />
-                  <p>{t('ragChatBot.noResults', '検索条件に一致するアシスタントが見つかりませんでした')}</p>
+                  <p>{t('assistant.noAssistants')}</p>
                 </div>
               )}
             </section>
@@ -223,7 +223,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 
       {/* Description */}
       <p className="mb-4 line-clamp-2 flex-1 text-sm text-gray-600">
-        {assistant.description || t('ragChatBot.noDescription', 'アシスタントの説明はありません')}
+        {assistant.description || t('assistant.description')}
       </p>
 
       {/* Action Buttons */}
@@ -231,12 +231,12 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         <button
           onClick={() => onStartChat(assistant.assistantId)}
           className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-          {t('ragChatBot.button.startChat', 'チャットを始める')}
+          {t('assistant.chat')}
         </button>
         <button
           onClick={() => onEdit(assistant.assistantId)}
           className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          title={t('ragChatBot.button.edit', '編集')}>
+          title={t('assistant.editTitle')}>
           <PiPencil />
         </button>
       </div>

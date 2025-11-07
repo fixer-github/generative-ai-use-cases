@@ -92,9 +92,16 @@ const AssistantHistoryPage: React.FC = () => {
     }
 
     // Sort by most recent message first
+    // Dates are stored as numeric strings (timestamps), so parse them
+    // Normalize to handle both numeric strings and potential legacy ISO strings
+    const normalizeTimestamp = (value?: string): number => {
+      const parsed = parseInt(value ?? '', 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
     filtered.sort((a, b) => {
-      const dateA = new Date(a.lastMessageAt || a.assistant.createdDate || 0).getTime();
-      const dateB = new Date(b.lastMessageAt || b.assistant.createdDate || 0).getTime();
+      const dateA = normalizeTimestamp(a.lastMessageAt || a.assistant.createdDate);
+      const dateB = normalizeTimestamp(b.lastMessageAt || b.assistant.createdDate);
       return dateB - dateA;
     });
 
@@ -106,9 +113,13 @@ const AssistantHistoryPage: React.FC = () => {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return t('ragChatBot.history.noDate');
+    if (!dateString) return t('assistant.history.noDate');
 
-    const date = new Date(dateString);
+    // dateString is a numeric timestamp string, parse it first
+    const timestamp = parseInt(dateString, 10);
+    if (isNaN(timestamp)) return t('assistant.history.noDate');
+
+    const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -117,13 +128,13 @@ const AssistantHistoryPage: React.FC = () => {
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       if (diffHours === 0) {
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
-        return t('ragChatBot.history.minutesAgo', { minutes: diffMinutes });
+        return t('assistant.history.minutesAgo', { minutes: diffMinutes });
       }
-      return t('ragChatBot.history.hoursAgo', { hours: diffHours });
+      return t('assistant.history.hoursAgo', { hours: diffHours });
     } else if (diffDays === 1) {
-      return t('ragChatBot.history.yesterday');
+      return t('assistant.history.yesterday');
     } else if (diffDays < 7) {
-      return t('ragChatBot.history.daysAgo', { days: diffDays });
+      return t('assistant.history.daysAgo', { days: diffDays });
     } else {
       return date.toLocaleDateString();
     }
@@ -160,13 +171,13 @@ const AssistantHistoryPage: React.FC = () => {
                   {lastMessageAt && (
                     <span className="flex items-center gap-1">
                       <PiClock />
-                      {t('ragChatBot.history.lastMessage')}:{' '}
+                      {t('assistant.history.lastMessage')}:{' '}
                       {formatDate(lastMessageAt)}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
                     <PiChatCircleText />
-                    {t('ragChatBot.history.messageCount', {
+                    {t('assistant.history.messageCount', {
                       count: messageCount,
                     })}
                   </span>
@@ -182,7 +193,7 @@ const AssistantHistoryPage: React.FC = () => {
                 }}
                 className="flex items-center gap-1 text-sm">
                 <PiChatCircleText />
-                {t('ragChatBot.history.open')}
+                {t('assistant.history.open')}
               </Button>
             </div>
           </div>
@@ -199,17 +210,17 @@ const AssistantHistoryPage: React.FC = () => {
           onClick={() => navigate('/chat/assistants')}
           className="flex items-center gap-1">
           <PiArrowLeft />
-          {t('ragChatBot.history.back')}
+          {t('assistant.history.back')}
         </Button>
         <h1 className="flex-1 text-2xl font-bold">
-          {t('ragChatBot.history.title')}
+          {t('assistant.history.title')}
         </h1>
       </div>
 
       <div className="mb-6">
         <input
           type="text"
-          placeholder={t('ragChatBot.history.searchPlaceholder')}
+          placeholder={t('assistant.history.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded border border-black/30 p-2 outline-none"
@@ -224,13 +235,13 @@ const AssistantHistoryPage: React.FC = () => {
         <div className="py-12 text-center">
           <PiChatCircleText className="mx-auto mb-4 text-6xl text-gray-300" />
           <p className="text-gray-500">
-            {t('ragChatBot.history.noConversations')}
+            {t('assistant.history.noConversations')}
           </p>
         </div>
       ) : (
         <div>
           <div className="mb-4 text-sm text-gray-600">
-            {t('ragChatBot.history.showing', {
+            {t('assistant.history.showing', {
               count: filteredAssistants.length,
             })}
           </div>

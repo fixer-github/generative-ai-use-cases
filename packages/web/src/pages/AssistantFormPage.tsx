@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { PiArrowLeft, PiFloppyDisk, PiFile } from 'react-icons/pi';
+import { PiArrowLeft, PiFloppyDisk, PiFile, PiTrash } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
 import useAssistantForm from '../hooks/useAssistantForm';
 import {
@@ -13,15 +13,18 @@ import Card from '../components/Card';
 import LoadingWave from '../components/LoadingWave';
 import BasicInfoFields from '../components/assistants/BasicInfoFields';
 import KnowledgeSection from '../components/assistants/KnowledgeSection';
+import ModalDialogDeleteAssistant from '../components/assistants/ModalDialogDeleteAssistant';
 
 const AssistantFormPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { assistantId } = useParams<{ assistantId?: string }>();
-  const { getAssistant, createAssistant, updateAssistant } = useAssistantApi();
+  const { getAssistant, createAssistant, updateAssistant, deleteAssistant } = useAssistantApi();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const {
     formData,
@@ -99,6 +102,22 @@ const AssistantFormPage: React.FC = () => {
     navigate('/chat/assistants');
   };
 
+  const handleDelete = async () => {
+    if (!assistantId) return;
+
+    setDeleting(true);
+    try {
+      await deleteAssistant(assistantId);
+      navigate('/chat/assistants');
+    } catch (error) {
+      console.error('Failed to delete assistant:', error);
+      alert(t('assistant.deleteError'));
+    } finally {
+      setDeleting(false);
+      setIsDeleteModalOpen(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -153,18 +172,39 @@ const AssistantFormPage: React.FC = () => {
       )}
 
       {/* Action Buttons */}
-      <div className="flex justify-end gap-2">
-        <Button outlined onClick={handleCancel}>
-          {t('assistant.edit.cancel')}
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving || uploadingFiles}
-          className="flex items-center gap-1">
-          <PiFloppyDisk />
-          {saving ? t('assistant.edit.saving') : t('assistant.edit.save')}
-        </Button>
+      <div className="flex justify-between gap-2">
+        {assistantId && (
+          <Button
+            outlined
+            onClick={() => setIsDeleteModalOpen(true)}
+            disabled={deleting}
+            className="flex items-center gap-1 border-red-600 text-red-600 hover:bg-red-50">
+            <PiTrash />
+            {t('assistant.delete')}
+          </Button>
+        )}
+        <div className="flex flex-1 justify-end gap-2">
+          <Button outlined onClick={handleCancel}>
+            {t('assistant.edit.cancel')}
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || uploadingFiles}
+            className="flex items-center gap-1">
+            <PiFloppyDisk />
+            {saving ? t('assistant.edit.saving') : t('assistant.edit.save')}
+          </Button>
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ModalDialogDeleteAssistant
+        isOpen={isDeleteModalOpen}
+        assistantName={formData.name}
+        deleting={deleting}
+        onDelete={handleDelete}
+        onClose={() => setIsDeleteModalOpen(false)}
+      />
     </div>
   );
 };
