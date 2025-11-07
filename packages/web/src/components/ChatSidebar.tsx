@@ -4,8 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PiPlus, PiMagnifyingGlass, PiRobot } from 'react-icons/pi';
 import ChatList from './ChatList';
 import { useTranslation } from 'react-i18next';
-import useAssistantApi from '../hooks/useAssistantApi';
-import { Assistant } from 'generative-ai-use-cases';
+import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 
 type Props = BaseProps & {
   onNewChat?: () => void;
@@ -15,9 +14,9 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { listAssistants } = useAssistantApi();
+  const { searchStore } = useBedrockChatApi();
 
-  const [featuredAssistants, setFeaturedAssistants] = useState<Assistant[]>([]);
+  const [featuredAssistants, setFeaturedAssistants] = useState<BedrockChatBot[]>([]);
   const [loading, setLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -46,35 +45,40 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
 
     setLoading(true);
     try {
-      const response = await listAssistants({ limit: 6 });
-      // Featured assistants: first 6 assistants
-      setFeaturedAssistants(response.assistants || []);
+      const params = {
+        starred: undefined,
+        limit: 50,
+        sort: 'usage' as const,
+      };
+
+      const data = await searchStore(params);
+      // Featured assistants: starred assistants first, then top by usage (max 6)
+      const featured = [
+        ...(data?.filter((a: BedrockChatBot) => a.isStarred) || []),
+        ...(data?.filter((a: BedrockChatBot) => !a.isStarred) || []),
+      ].slice(0, 6);
+      setFeaturedAssistants(featured);
     } catch (error) {
       console.error('Failed to fetch featured assistants:', error);
       setFeaturedAssistants([]);
     } finally {
       setLoading(false);
     }
-  }, [listAssistants]);
+  }, [searchStore]);
 
-  // Fetch featured assistants on mount (but not on assistants list page to avoid duplicate requests)
+  // Fetch featured assistants on mount
   useEffect(() => {
-    // Skip fetching only if we're on the main assistants list page (AssistantsPage will handle it)
-    // Still fetch for edit/chat/history pages
-    const isAssistantsListPage = location.pathname === '/chat/assistants';
-    if (!isAssistantsListPage) {
-      fetchFeaturedAssistants();
-    }
+    fetchFeaturedAssistants();
     // Cleanup AbortController on unmount
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [fetchFeaturedAssistants, location.pathname]);
+  }, [fetchFeaturedAssistants]);
 
   const handleAssistantClick = (assistantId: string) => {
-    navigate(`/chat/assistants/chat/${assistantId}`);
+    navigate(`/rag-chat-bot/chat/${assistantId}`);
   };
 
   return (
@@ -100,12 +104,12 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
           <div className="mb-2 space-y-1">
             {featuredAssistants.map((assistant) => (
               <button
-                key={assistant.assistantId}
-                onClick={() => handleAssistantClick(assistant.assistantId)}
+                key={assistant.id}
+                onClick={() => handleAssistantClick(assistant.id)}
                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-gray-600 transition-colors hover:bg-gray-100"
-                title={assistant.description || assistant.name}>
+                title={assistant.description || assistant.title}>
                 <PiRobot className="flex-shrink-0 text-base text-blue-600" />
-                <span className="truncate">{assistant.name}</span>
+                <span className="truncate">{assistant.title}</span>
               </button>
             ))}
           </div>

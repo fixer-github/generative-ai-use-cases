@@ -16,7 +16,7 @@ import ChatLayout from './ChatLayout';
 import StatPage from '../pages/StatPage';
 import ChatPage from '../pages/ChatPage';
 import AssistantsPage from '../pages/AssistantsPage';
-import AssistantFormPage from '../pages/AssistantFormPage';
+import AssistantCreatePage from '../pages/AssistantCreatePage';
 import SharedChatPage from '../pages/SharedChatPage';
 import SummarizePage from '../pages/SummarizePage';
 import GenerateTextPage from '../pages/GenerateTextPage';
@@ -42,8 +42,6 @@ import RagChatBotPage from '../pages/RagChatBotPage';
 import RagChatBotEditPage from '../pages/RagChatBotEditPage';
 import RagChatBotChatPage from '../pages/RagChatBotChatPage';
 import RagChatBotHistoryPage from '../pages/RagChatBotHistoryPage';
-import AssistantChatPage from '../pages/AssistantChatPage';
-import AssistantHistoryPage from '../pages/AssistantHistoryPage';
 import AdminPortal from '../pages/AdminPortal';
 
 interface DynamicRouterProps {
@@ -114,23 +112,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
         },
         {
           path: 'assistants/create',
-          element: <AssistantFormPage />,
-        },
-        {
-          path: 'assistants/edit/:assistantId',
-          element: <AssistantFormPage />,
-        },
-        {
-          path: 'assistants/chat/:assistantId',
-          element: <AssistantChatPage />,
-        },
-        {
-          path: 'assistants/chat/:assistantId/:conversationId',
-          element: <AssistantChatPage />,
-        },
-        {
-          path: 'assistants/history',
-          element: <AssistantHistoryPage />,
+          element: <AssistantCreatePage />,
         },
       ],
     },

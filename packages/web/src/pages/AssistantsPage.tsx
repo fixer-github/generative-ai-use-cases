@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { PiMagnifyingGlass, PiPlus, PiRobot, PiPencil } from 'react-icons/pi';
-import useAssistantApi from '../hooks/useAssistantApi';
-import { Assistant } from 'generative-ai-use-cases';
+import { PiMagnifyingGlass, PiPlus, PiRobot } from 'react-icons/pi';
+import useBedrockChatApi, { BedrockChatBot } from '../hooks/useBedrockChatApi';
 import LoadingWave from '../components/LoadingWave';
 
 const AssistantsPage: React.FC = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { listAssistants } = useAssistantApi();
+  const { searchStore } = useBedrockChatApi();
 
-  const [assistants, setAssistants] = useState<Assistant[]>([]);
+  const [assistants, setAssistants] = useState<BedrockChatBot[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInputValue, setSearchInputValue] = useState('');
@@ -33,22 +30,17 @@ const AssistantsPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await listAssistants({ limit: 100 });
+      const params = {
+        query: searchQuery || undefined,
+        starred: undefined,
+        limit: 50,
+        sort: 'usage' as const,
+      };
+
+      const data = await searchStore(params);
       // Only update state if request wasn't cancelled
       if (!signal.aborted) {
-        let filtered = response.assistants || [];
-
-        // Client-side search filtering
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          filtered = filtered.filter(
-            (a) =>
-              a.name.toLowerCase().includes(query) ||
-              a.description?.toLowerCase().includes(query)
-          );
-        }
-
-        setAssistants(filtered);
+        setAssistants(data || []);
       }
     } catch (error) {
       // Only update state if request wasn't cancelled
@@ -62,7 +54,7 @@ const AssistantsPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [searchQuery, listAssistants]);
+  }, [searchQuery, searchStore]);
 
   // Debounce search input
   useEffect(() => {
@@ -95,16 +87,15 @@ const AssistantsPage: React.FC = () => {
     };
   }, []);
 
-  // Featured assistants: first 6
-  const featuredAssistants = assistants.slice(0, 6);
+  // Featured assistants: starred assistants first, then top by usage (max 6)
+  const featuredAssistants = [
+    ...assistants.filter((a) => a.isStarred),
+    ...assistants.filter((a) => !a.isStarred),
+  ].slice(0, 6);
   const allAssistants = assistants;
 
   const handleStartChat = (assistantId: string) => {
-    navigate(`/chat/assistants/chat/${assistantId}`);
-  };
-
-  const handleEditAssistant = (assistantId: string) => {
-    navigate(`/chat/assistants/edit/${assistantId}`);
+    navigate(`/rag-chat-bot/chat/${assistantId}`);
   };
 
   const handleCreateAssistant = () => {
@@ -116,7 +107,7 @@ const AssistantsPage: React.FC = () => {
       {/* Header */}
       <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-3xl font-bold text-gray-900">
-          {t('ragChatBot.title', 'アシスタントを探す')}
+          アシスタントを探す
         </h1>
 
         {/* Search Bar and Create Button */}
@@ -125,7 +116,7 @@ const AssistantsPage: React.FC = () => {
             <PiMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400" />
             <input
               type="text"
-              placeholder={t('ragChatBot.searchPlaceholder', 'アシスタントを検索')}
+              placeholder="アシスタントを検索"
               value={searchInputValue}
               onChange={(e) => setSearchInputValue(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -135,7 +126,7 @@ const AssistantsPage: React.FC = () => {
             onClick={handleCreateAssistant}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
             <PiPlus className="text-lg" />
-            {t('ragChatBot.button.newBot', 'アシスタントを作成')}
+            アシスタントを作成
           </button>
         </div>
 
@@ -150,15 +141,14 @@ const AssistantsPage: React.FC = () => {
             {featuredAssistants.length > 0 && (
               <section className="mb-12">
                 <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                  {t('ragChatBot.featured', 'おすすめのアシスタント')}
+                  おすすめのアシスタント
                 </h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {featuredAssistants.map((assistant) => (
                     <AssistantCard
-                      key={assistant.assistantId}
+                      key={assistant.id}
                       assistant={assistant}
                       onStartChat={handleStartChat}
-                      onEdit={handleEditAssistant}
                     />
                   ))}
                 </div>
@@ -168,23 +158,22 @@ const AssistantsPage: React.FC = () => {
             {/* All Assistants Section */}
             <section>
               <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                {t('ragChatBot.allAssistants', '全てのアシスタント')}
+                全てのアシスタント
               </h2>
               {allAssistants.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {allAssistants.map((assistant) => (
                     <AssistantCard
-                      key={assistant.assistantId}
+                      key={assistant.id}
                       assistant={assistant}
                       onStartChat={handleStartChat}
-                      onEdit={handleEditAssistant}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                   <PiMagnifyingGlass className="mb-4 text-6xl" />
-                  <p>{t('ragChatBot.noResults', '検索条件に一致するアシスタントが見つかりませんでした')}</p>
+                  <p>検索条件に一致するアシスタントが見つかりませんでした</p>
                 </div>
               )}
             </section>
@@ -197,18 +186,14 @@ const AssistantsPage: React.FC = () => {
 
 // Assistant Card Component
 interface AssistantCardProps {
-  assistant: Assistant;
+  assistant: BedrockChatBot;
   onStartChat: (assistantId: string) => void;
-  onEdit: (assistantId: string) => void;
 }
 
 const AssistantCard: React.FC<AssistantCardProps> = ({
   assistant,
   onStartChat,
-  onEdit,
 }) => {
-  const { t } = useTranslation();
-
   return (
     <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
       {/* Icon */}
@@ -218,28 +203,20 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 
       {/* Name */}
       <h3 className="mb-2 text-lg font-semibold text-gray-900">
-        {assistant.name}
+        {assistant.title}
       </h3>
 
       {/* Description */}
       <p className="mb-4 line-clamp-2 flex-1 text-sm text-gray-600">
-        {assistant.description || t('ragChatBot.noDescription', 'アシスタントの説明はありません')}
+        {assistant.description || 'アシスタントの説明はありません'}
       </p>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => onStartChat(assistant.assistantId)}
-          className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-          {t('ragChatBot.button.startChat', 'チャットを始める')}
-        </button>
-        <button
-          onClick={() => onEdit(assistant.assistantId)}
-          className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          title={t('ragChatBot.button.edit', '編集')}>
-          <PiPencil />
-        </button>
-      </div>
+      {/* Start Chat Button */}
+      <button
+        onClick={() => onStartChat(assistant.id)}
+        className="w-full rounded-lg border border-gray-300 bg-white py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+        チャットを始める
+      </button>
     </div>
   );
 };
