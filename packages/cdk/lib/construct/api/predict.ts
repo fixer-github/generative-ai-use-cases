@@ -74,6 +74,7 @@ class PredictApi extends Construct {
 
           '@langchain/core',
           '@langchain/openai',
+          '@langchain/aws',
         ],
       },
     });
@@ -122,6 +123,7 @@ class PredictApi extends Construct {
 
           '@langchain/core',
           '@langchain/openai',
+          '@langchain/aws',
         ],
       },
     });
