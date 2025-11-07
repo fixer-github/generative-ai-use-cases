@@ -112,6 +112,12 @@ const langchainModelIds = [
   'openai:o3',
   'openai:gpt-4.1',
   'openai:gpt-5',
+
+  // Bedrock
+  'bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0',
+  'bedrock:us.anthropic.claude-opus-4-20250514-v1:0',
+  'bedrock:us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  'bedrock:us.anthropic.claude-3-5-haiku-20241022-v1:0',
 ];
 
 // Define model objects
@@ -202,6 +208,7 @@ const liteLlmModelMetadata: Record<string, ModelMetadata> = {
 };
 
 const langchainModelMetadata: Record<string, ModelMetadata> = {
+  // OpenAI
   'openai:gpt-4o': {
     flags: { text: true, doc: true, image: true, video: false },
     displayName: 'GPT 4o',
@@ -226,6 +233,28 @@ const langchainModelMetadata: Record<string, ModelMetadata> = {
     flags: { text: true, doc: true, image: true, video: false },
     displayName: 'GPT 5',
     description: '高速な推論能力モデル',
+  },
+
+  // Bedrock
+  'bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'Claude Sonnet 4',
+    description: '高性能な推論と画像理解が可能なモデル',
+  },
+  'bedrock:us.anthropic.claude-opus-4-20250514-v1:0': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'Claude Opus 4',
+    description: '最も高性能な推論能力を持つモデル',
+  },
+  'bedrock:us.anthropic.claude-3-7-sonnet-20250219-v1:0': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'Claude 3.7 Sonnet',
+    description: 'バランスの取れた高性能モデル',
+  },
+  'bedrock:us.anthropic.claude-3-5-haiku-20241022-v1:0': {
+    flags: { text: true, doc: true, image: true, video: false },
+    displayName: 'Claude 3.5 Haiku',
+    description: '高速で軽量なモデル',
   },
 };
 
@@ -262,10 +291,10 @@ const modelDisplayName = (modelId: string): string => {
 // Note: Claude Sonnet 4 model ID should be updated based on the actual Bedrock model ID
 const featuredModelIds: string[] = [
   // Find Claude Sonnet 4 model (pattern: anthropic.claude-sonnet-4*)
-  bedrockModelIds.find(id => id.includes('claude-sonnet-4')) || '',
+  bedrockModelIds.find((id) => id.includes('claude-sonnet-4')) || '',
   'openai:gpt-5',
   'gemini-2.5-pro',
-].filter(id => id !== '');
+].filter((id) => id !== '');
 
 export const MODELS = {
   modelRegion: modelRegion,
