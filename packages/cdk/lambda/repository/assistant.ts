@@ -47,6 +47,46 @@ function removeUndefinedValues(obj: any): any {
   return obj;
 }
 
+/**
+ * Normalize knowledge sources by initializing status to QUEUED and clearing error field
+ * This ensures consistent state for new or updated knowledge sources
+ */
+function normalizeKnowledgeSources(
+  sources: any[] | undefined
+): any[] {
+  if (!sources) {
+    return [];
+  }
+
+  return sources.map((source) => {
+    const normalized: any = {
+      ...source,
+      status: 'QUEUED' as const,
+    };
+    // Remove error field when resetting to QUEUED to avoid stale error messages
+    delete normalized.error;
+    return normalized;
+  });
+}
+
+/**
+ * Ensure knowledge sources have default status for backward compatibility
+ * Used when reading existing data that may not have status initialized
+ */
+export function ensureKnowledgeSourceStatus(
+  sources: any[] | undefined
+): any[] {
+  if (!sources) {
+    return [];
+  }
+
+  return sources.map((source) => ({
+    ...source,
+    status: source.status ?? ('QUEUED' as const),
+    // Keep error if it exists
+  }));
+}
+
 export const createAssistant = async (
   _userId: string,
   data: CreateAssistantRequest,
@@ -68,7 +108,7 @@ export const createAssistant = async (
     ragEnabled: data.ragEnabled,
     syncStatus: 'QUEUED',
     syncStatusReason: '',
-    knowledgeSources: data.knowledgeSources || [],
+    knowledgeSources: normalizeKnowledgeSources(data.knowledgeSources),
     ...(data.s3Urls && { s3Urls: data.s3Urls }),
     updatedDate: now,
   };
@@ -118,8 +158,14 @@ export const listAssistants = async (
     })
   );
 
+  // Ensure knowledge sources have default status for backward compatibility
+  const assistants = (res.Items || []).map((item: any) => ({
+    ...item,
+    knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
+  })) as Assistant[];
+
   return {
-    assistants: res.Items as Assistant[],
+    assistants,
     lastEvaluatedKey: res.LastEvaluatedKey
       ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
       : undefined,
@@ -154,7 +200,12 @@ export const getAssistant = async (
     return null;
   }
 
-  return res.Items[0] as Assistant;
+  // Ensure knowledge sources have default status for backward compatibility
+  const item = res.Items[0] as any;
+  return {
+    ...item,
+    knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
+  } as Assistant;
 };
 
 export const updateAssistant = async (
@@ -216,7 +267,7 @@ export const updateAssistant = async (
     updateExpressions.push('#knowledgeSources = :knowledgeSources');
     expressionAttributeNames['#knowledgeSources'] = 'knowledgeSources';
     expressionAttributeValues[':knowledgeSources'] = removeUndefinedValues(
-      updates.knowledgeSources
+      normalizeKnowledgeSources(updates.knowledgeSources)
     );
   }
   if (updates.s3Urls !== undefined) {
@@ -244,7 +295,12 @@ export const updateAssistant = async (
     })
   );
 
-  return res.Attributes as Assistant;
+  // Ensure knowledge sources have default status for backward compatibility
+  const updated = res.Attributes as any;
+  return {
+    ...updated,
+    knowledgeSources: ensureKnowledgeSourceStatus(updated.knowledgeSources),
+  } as Assistant;
 };
 
 /**
@@ -267,6 +323,9 @@ export const updateKnowledgeSourceStatus = async (
       const updated: any = { ...source, status };
       if (error !== undefined) {
         updated.error = error;
+      } else {
+        // Clear error field when no error is provided (e.g., when transitioning to SYNCING/SUCCEEDED)
+        delete updated.error;
       }
       return updated;
     }

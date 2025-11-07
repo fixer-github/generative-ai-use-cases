@@ -3,6 +3,8 @@
  * Provides shared utilities for assistant and assistant message repositories
  */
 
+import { ensureKnowledgeSourceStatus } from './assistant';
+
 /**
  * Format assistant from DynamoDB item to API response format
  */
@@ -17,7 +19,7 @@ export function formatAssistantFromDb(item: any): any {
     ragEnabled: item.ragEnabled,
     syncStatus: item.syncStatus,
     syncStatusReason: item.syncStatusReason,
-    knowledgeSources: item.knowledgeSources || [],
+    knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
     s3Urls: item.s3Urls || [],
     createdDate: item.createdDate,
     updatedDate: item.updatedDate,
