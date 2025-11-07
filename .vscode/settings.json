@@ -13,8 +13,5 @@
   "i18n-ally.pathMatcher": "{namespace}/{locale}.{ext}",
   "i18n-ally.defaultNamespace": "translation",
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
 }
