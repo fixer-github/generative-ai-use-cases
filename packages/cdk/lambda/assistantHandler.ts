@@ -118,6 +118,10 @@ async function handleCreate(
 ): Promise<APIGatewayProxyResult> {
   const body: CreateAssistantRequest = JSON.parse(event.body || '{}');
 
+  console.log(
+    `Creating assistant: ragEnabled=${body.ragEnabled}, knowledgeSources=${body.knowledgeSources?.length || 0}, s3Urls=${body.s3Urls?.length || 0}`
+  );
+
   // Basic validation
   if (!body.name || !body.instruction || !body.modelId) {
     return {
@@ -133,6 +137,7 @@ async function handleCreate(
 
   // If RAG is enabled, process knowledge sources and update status
   if (body.ragEnabled) {
+    console.log(`RAG is enabled, checking knowledge sources...`);
     // If knowledge sources are provided, ingest documents
     if (body.knowledgeSources && body.knowledgeSources.length > 0) {
       const cleanAssistantId = assistant.assistantId.replace('assistant#', '');
@@ -141,7 +146,7 @@ async function handleCreate(
       for (const source of body.knowledgeSources) {
       try {
         console.log(
-          `Processing knowledge source ${source.id} for assistant ${cleanAssistantId}`
+          `Processing knowledge source ${source.id} (type=${source.type}, storageKey=${source.storageKey}) for assistant ${cleanAssistantId}`
         );
 
         // Update status to SYNCING
@@ -201,12 +206,19 @@ async function handleCreate(
         // Continue processing other sources
       }
       }
+    } else {
+      console.log(
+        `No knowledge sources provided (knowledgeSources=${body.knowledgeSources?.length || 0})`
+      );
     }
 
     // After all sources are processed (or if no sources), update overall assistant status
     await updateAssistantSyncStatus(assistant, event);
+  } else {
+    console.log(`RAG is not enabled`);
   }
 
+  // Note: updateAssistantSyncStatus updates assistant.syncStatus in memory
   return {
     statusCode: 201,
     headers,

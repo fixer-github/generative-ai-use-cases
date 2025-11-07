@@ -121,14 +121,16 @@ async function handleCreateMessage(
     };
   }
 
-  // Block chat if RAG is enabled and assistant is not fully synced
-  if (assistant.ragEnabled && assistant.syncStatus !== 'SUCCEEDED') {
+  // Block chat if RAG is enabled and documents are still being indexed
+  // Allow chat with PARTIAL status (some documents indexed successfully)
+  if (
+    assistant.ragEnabled &&
+    (assistant.syncStatus === 'QUEUED' || assistant.syncStatus === 'SYNCING')
+  ) {
     const statusMessage =
-      assistant.syncStatus === 'QUEUED' ? 'Assistant is queued for document indexing' :
-      assistant.syncStatus === 'SYNCING' ? 'Assistant is currently indexing documents' :
-      assistant.syncStatus === 'FAILED' ? 'Assistant document indexing failed' :
-      assistant.syncStatus === 'PARTIAL' ? 'Some assistant documents failed to index' :
-      'Assistant is not ready';
+      assistant.syncStatus === 'QUEUED'
+        ? 'Assistant is queued for document indexing'
+        : 'Assistant is currently indexing documents';
 
     console.log(
       `Chat blocked for assistant ${assistantId}: status is ${assistant.syncStatus}`
@@ -142,6 +144,13 @@ async function handleCreateMessage(
         syncStatus: assistant.syncStatus,
       }),
     };
+  }
+
+  // Warn if RAG failed but allow chat (assistant can still work without RAG)
+  if (assistant.ragEnabled && assistant.syncStatus === 'FAILED') {
+    console.warn(
+      `Assistant ${assistantId} has FAILED sync status but allowing chat without RAG`
+    );
   }
 
   // Validate system prompt exists
