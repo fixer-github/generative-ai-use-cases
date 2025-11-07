@@ -83,7 +83,7 @@ const useAssistantForm = (
           const file = files[i];
           try {
             // Request upload URL
-            const { uploadUrl, s3Url } = await requestUploadUrl({
+            const { uploadUrl, fileKey, s3Url } = await requestUploadUrl({
               fileName: file.name,
               fileSize: file.size,
               contentType: file.type,
@@ -98,13 +98,22 @@ const useAssistantForm = (
               },
             });
 
-            // Add S3 URL to form data
-            if (s3Url) {
-              setFormData((prev) => ({
-                ...prev,
-                s3Urls: [...prev.s3Urls, s3Url],
-              }));
-            }
+            // Add file to knowledge sources with proper structure
+            const newSource: KnowledgeSource = {
+              id: crypto.randomUUID(),
+              type: 'file',
+              sourceType: 'file',
+              name: file.name,
+              displayName: file.name,
+              storageKey: fileKey,
+            };
+
+            setFormData((prev) => ({
+              ...prev,
+              knowledgeSources: [...prev.knowledgeSources, newSource],
+              // Keep s3Urls for backward compatibility during migration
+              s3Urls: s3Url ? [...prev.s3Urls, s3Url] : prev.s3Urls,
+            }));
           } catch (error) {
             console.error('Failed to upload file:', error);
             alert(`Failed to upload ${file.name}`);
@@ -117,10 +126,12 @@ const useAssistantForm = (
     [requestUploadUrl]
   );
 
-  const deleteFile = useCallback((s3Url: string) => {
+  const deleteFile = useCallback((sourceId: string) => {
     setFormData((prev) => ({
       ...prev,
-      s3Urls: prev.s3Urls.filter((url) => url !== s3Url),
+      knowledgeSources: prev.knowledgeSources.filter((ks) => ks.id !== sourceId),
+      // Also remove from s3Urls for backward compatibility
+      s3Urls: prev.s3Urls.filter((url) => !url.includes(sourceId)),
     }));
   }, []);
 

@@ -16,7 +16,7 @@ export type KnowledgeSectionProps = {
   onAddUrl: () => void;
   onRemoveSource: (index: number) => void;
   onFileUpload: (files: FileList) => Promise<void>;
-  onDeleteFile: (s3Url: string) => void;
+  onDeleteFile: (sourceIdOrS3Url: string) => void;
 };
 
 const KnowledgeSection: React.FC<KnowledgeSectionProps> = ({
@@ -94,12 +94,53 @@ const KnowledgeSection: React.FC<KnowledgeSectionProps> = ({
           <p className="mt-2 text-sm text-blue-600">Uploading files...</p>
         )}
         <div className="mt-2 space-y-1">
+          {knowledgeSources
+            .filter((ks) => ks.sourceType === 'file' || ks.type === 'file')
+            .map((source) => {
+              return (
+                <div key={source.id} className="flex items-center gap-2 text-sm">
+                  <PiFile className="text-gray-500" />
+                  <span className="flex-1">{source.displayName || source.name}</span>
+                  {source.status && (
+                    <span
+                      className={`text-xs ${
+                        source.status === 'SUCCEEDED'
+                          ? 'text-green-600'
+                          : source.status === 'FAILED'
+                            ? 'text-red-600'
+                            : source.status === 'SYNCING'
+                              ? 'text-blue-600'
+                              : 'text-gray-600'
+                      }`}>
+                      {source.status}
+                    </span>
+                  )}
+                  <Button
+                    outlined
+                    className="text-sm"
+                    onClick={() => onDeleteFile(source.id!)}>
+                    <PiTrash />
+                  </Button>
+                </div>
+              );
+            })}
+          {/* Show legacy s3Urls for backward compatibility */}
           {s3Urls.map((s3Url, index) => {
             const fileName = s3Url.split('/').pop() || s3Url;
+            // Skip if already in knowledgeSources
+            if (
+              knowledgeSources.some(
+                (ks) =>
+                  ks.storageKey && s3Url.includes(ks.storageKey)
+              )
+            ) {
+              return null;
+            }
             return (
-              <div key={index} className="flex items-center gap-2 text-sm">
+              <div key={`legacy-${index}`} className="flex items-center gap-2 text-sm">
                 <PiFile className="text-gray-500" />
                 <span className="flex-1">{fileName}</span>
+                <span className="text-xs text-gray-600">LEGACY</span>
                 <Button
                   outlined
                   className="text-sm"
