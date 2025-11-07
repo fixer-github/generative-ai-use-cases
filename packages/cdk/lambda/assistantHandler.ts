@@ -207,6 +207,7 @@ async function handleCreate(
     await updateAssistantSyncStatus(assistant, event);
   }
 
+  // Note: updateAssistantSyncStatus updates assistant.syncStatus in memory
   return {
     statusCode: 201,
     headers,
