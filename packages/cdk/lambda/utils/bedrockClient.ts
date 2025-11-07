@@ -82,16 +82,36 @@ export const initBedrockRuntimeClient = async (
 ) => {
   // Use cross-account role
   if (process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN) {
-    return new BedrockRuntimeClient({
+    const cacheKey = `cross-account-${config.region}`;
+
+    // Check if we need to refresh credentials and recreate client
+    if (bedrockRuntimeClient[cacheKey] && !isCredentialRefreshRequired()) {
+      console.debug('Reusing cached cross-account Bedrock client:', { region: config.region });
+      return bedrockRuntimeClient[cacheKey];
+    }
+
+    console.debug('Creating new cross-account Bedrock client:', {
+      region: config.region,
+      credentialRefreshRequired: isCredentialRefreshRequired(),
+    });
+
+    // Refresh credentials and create new client
+    bedrockRuntimeClient[cacheKey] = new BedrockRuntimeClient({
       ...(await getCrossAccountCredentials(
         process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN
       )),
       ...config,
     });
+
+    return bedrockRuntimeClient[cacheKey];
   }
+
   // Use Lambda execution role
   if (!(config.region in bedrockRuntimeClient)) {
+    console.debug('Creating new Bedrock client with Lambda execution role:', { region: config.region });
     bedrockRuntimeClient[config.region] = new BedrockRuntimeClient(config);
+  } else {
+    console.debug('Reusing cached Bedrock client:', { region: config.region });
   }
   return bedrockRuntimeClient[config.region];
 };
@@ -101,13 +121,24 @@ export const initBedrockAgentClient = async (
 ) => {
   // Use cross-account role
   if (process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN) {
-    return new BedrockAgentClient({
+    const cacheKey = `cross-account-${config.region}`;
+
+    // Check if we need to refresh credentials and recreate client
+    if (bedrockAgentClient[cacheKey] && !isCredentialRefreshRequired()) {
+      return bedrockAgentClient[cacheKey];
+    }
+
+    // Refresh credentials and create new client
+    bedrockAgentClient[cacheKey] = new BedrockAgentClient({
       ...(await getCrossAccountCredentials(
         process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN
       )),
       ...config,
     });
+
+    return bedrockAgentClient[cacheKey];
   }
+
   // Use Lambda execution role
   if (!(config.region in bedrockAgentClient)) {
     bedrockAgentClient[config.region] = new BedrockAgentClient(config);
@@ -120,13 +151,24 @@ export const initBedrockAgentRuntimeClient = async (
 ) => {
   // Use cross-account role
   if (process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN) {
-    return new BedrockAgentRuntimeClient({
+    const cacheKey = `cross-account-${config.region}`;
+
+    // Check if we need to refresh credentials and recreate client
+    if (bedrockAgentRuntimeClient[cacheKey] && !isCredentialRefreshRequired()) {
+      return bedrockAgentRuntimeClient[cacheKey];
+    }
+
+    // Refresh credentials and create new client
+    bedrockAgentRuntimeClient[cacheKey] = new BedrockAgentRuntimeClient({
       ...(await getCrossAccountCredentials(
         process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN
       )),
       ...config,
     });
+
+    return bedrockAgentRuntimeClient[cacheKey];
   }
+
   // Use Lambda execution role
   if (!(config.region in bedrockAgentRuntimeClient)) {
     bedrockAgentRuntimeClient[config.region] = new BedrockAgentRuntimeClient(
@@ -141,13 +183,24 @@ export const initKnowledgeBaseS3Client = async (
 ) => {
   // Use cross-account role (to get pre-signed URLs for S3 objects in a different account)
   if (process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN) {
-    return new S3Client({
+    const cacheKey = `cross-account-${config.region}`;
+
+    // Check if we need to refresh credentials and recreate client
+    if (knowledgeBaseS3Client[cacheKey] && !isCredentialRefreshRequired()) {
+      return knowledgeBaseS3Client[cacheKey];
+    }
+
+    // Refresh credentials and create new client
+    knowledgeBaseS3Client[cacheKey] = new S3Client({
       ...(await getCrossAccountCredentials(
         process.env.CROSS_ACCOUNT_BEDROCK_ROLE_ARN
       )),
       ...config,
     });
+
+    return knowledgeBaseS3Client[cacheKey];
   }
+
   // Use Lambda execution role
   if (!(config.region in knowledgeBaseS3Client)) {
     knowledgeBaseS3Client[config.region] = new S3Client(config);

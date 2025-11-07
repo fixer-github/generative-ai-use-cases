@@ -264,7 +264,12 @@ export class Api extends Construct {
       const bedrockPolicy = new PolicyStatement({
         effect: Effect.ALLOW,
         resources: ['*'],
-        actions: ['bedrock:*', 'logs:*'],
+        actions: [
+          'bedrock:*',
+          'logs:*',
+          'aws-marketplace:Subscribe',
+          'aws-marketplace:ViewSubscriptions',
+        ],
       });
       apiProps.bedrockPolicy = bedrockPolicy;
     } else {

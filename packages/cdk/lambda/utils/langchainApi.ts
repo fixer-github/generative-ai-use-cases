@@ -22,6 +22,12 @@ import {
 } from 'langchain';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
+import { initBedrockRuntimeClient } from './bedrockClient';
+
+const MODEL_REGION = process.env.MODEL_REGION as string;
+
+// Cache LangChain model instances per modelId+region
+const langchainModels: Record<string, any> = {};
 
 /**
  * S3からファイルを取得してBase64形式で返す
@@ -173,20 +179,93 @@ const convertMessages = (messages: UnrecordedMessage[]) => {
   );
 };
 
+/**
+ * LangChainモデルインスタンスを作成またはキャッシュから取得する
+ * @param model モデル情報
+ * @returns LangChainモデルインスタンス
+ */
+const createModel = async (model: Model) => {
+  const region = model.region || MODEL_REGION;
+  const cacheKey = `${model.modelId}-${region}`;
+
+  // キャッシュされたモデルインスタンスがあれば再利用
+  if (langchainModels[cacheKey]) {
+    console.debug('Reusing cached LangChain model instance:', { modelId: model.modelId, region });
+    return langchainModels[cacheKey];
+  }
+
+  console.debug('Creating new LangChain model instance:', { modelId: model.modelId, region });
+
+  let llm;
+  if (model.modelId.startsWith('bedrock:')) {
+    // Bedrockモデルの場合は、bedrock:プレフィックスを除去してモデルIDを取得
+    const actualModelId = model.modelId.replace(/^bedrock:/, '');
+
+    // BedrockRuntimeClientを取得
+    const bedrockClient = await initBedrockRuntimeClient({ region });
+
+    console.debug('Initializing Bedrock model via LangChain:', {
+      originalModelId: model.modelId,
+      actualModelId,
+      region
+    });
+
+    // initChatModelにmodelProviderとclientを渡す
+    llm = await initChatModel(actualModelId, {
+      modelProvider: 'bedrock',
+      client: bedrockClient,
+    });
+  } else if (model.modelId.startsWith('openai:')) {
+    // OpenAIモデルの場合は、openai:プレフィックスを除去
+    const actualModelId = model.modelId.replace(/^openai:/, '');
+
+    llm = await initChatModel(actualModelId, {
+      modelProvider: 'openai',
+    });
+  } else {
+    // その他のモデル
+    llm = await initChatModel(model.modelId);
+  }
+
+  // モデルインスタンスをキャッシュ
+  langchainModels[cacheKey] = llm;
+  return llm;
+};
+
 const langchainApi: ApiInterface = {
   invoke: async function (
     model: Model,
     messages: UnrecordedMessage[],
     id: string
   ): Promise<string> {
-    const llm = await initChatModel(model.modelId);
-    const langchainMessages = await convertMessages(messages);
+    try {
+      const llm = await createModel(model);
+      const langchainMessages = await convertMessages(messages);
 
-    console.debug(JSON.stringify(messages));
+      console.debug('Invoking LangChain model:', {
+        modelId: model.modelId,
+        region: model.region || MODEL_REGION,
+        messageCount: messages.length,
+      });
 
-    const response = await llm.invoke(langchainMessages);
+      const response = await llm.invoke(langchainMessages);
 
-    return response.text;
+      console.debug('LangChain model response received:', {
+        modelId: model.modelId,
+        responseLength: response.text?.length || 0,
+      });
+
+      return response.text;
+    } catch (error) {
+      console.error('LangChain invoke error:', {
+        modelId: model.modelId,
+        region: model.region || MODEL_REGION,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+      throw error;
+    }
   },
   invokeStream: async function* (
     model: Model,
@@ -194,23 +273,42 @@ const langchainApi: ApiInterface = {
     id: string,
     idToken?: string | undefined
   ): AsyncIterable<string> {
-    const llm = await initChatModel(model.modelId);
-    const langchainMessages = await convertMessages(messages);
+    try {
+      const llm = await createModel(model);
+      const langchainMessages = await convertMessages(messages);
 
-    console.debug(JSON.stringify(messages));
-
-    const stream = await llm.stream(langchainMessages);
-
-    for await (const chunk of stream) {
-      yield streamingChunk({
-        text: chunk.text,
+      console.debug('Invoking LangChain model (stream):', {
+        modelId: model.modelId,
+        region: model.region || MODEL_REGION,
+        messageCount: messages.length,
       });
-    }
 
-    yield streamingChunk({
-      text: '',
-      stopReason: StopReason.END_TURN,
-    });
+      const stream = await llm.stream(langchainMessages);
+
+      for await (const chunk of stream) {
+        yield streamingChunk({
+          text: chunk.text,
+        });
+      }
+
+      yield streamingChunk({
+        text: '',
+        stopReason: StopReason.END_TURN,
+      });
+
+      console.debug('LangChain model stream completed:', {
+        modelId: model.modelId,
+      });
+    } catch (error) {
+      console.error('LangChain invokeStream error:', {
+        modelId: model.modelId,
+        region: model.region || MODEL_REGION,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+      throw error;
+    }
   },
   generateImage: function (
     model: Model,
