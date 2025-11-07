@@ -11,15 +11,15 @@ import {
   GenerateVideoParams,
   ExtraData,
 } from 'generative-ai-use-cases';
-import {
-  SystemMessage,
-  HumanMessage,
-  AIMessage,
-  DataContentBlock,
-} from '@langchain/core/messages';
 import { streamingChunk } from './streamingChunk';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
-import { initChatModel } from 'langchain/chat_models/universal';
+import {
+  AIMessage,
+  HumanMessage,
+  initChatModel,
+  SystemMessage,
+  ContentBlock,
+} from 'langchain';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
 
@@ -77,7 +77,7 @@ const getTextDataFromExtraData = async (
  */
 const convertExtraData = async (
   extraData: ExtraData
-): Promise<DataContentBlock> => {
+): Promise<ContentBlock> => {
   const { type: dataType, name, source } = extraData;
   const { type: sourceType, mediaType } = source;
 
