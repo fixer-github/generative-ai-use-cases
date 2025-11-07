@@ -10,7 +10,6 @@ export type AssistantFormData = {
   modelId: string;
   ragEnabled: boolean;
   knowledgeSources: KnowledgeSource[];
-  s3Urls: string[];
 };
 
 export type UseAssistantFormOptions = {
@@ -40,7 +39,6 @@ const getInitialFormData = (
   modelId: initialData?.modelId || MODELS.modelIds[0] || 'anthropic.claude-3-5-sonnet-20241022-v2:0',
   ragEnabled: initialData?.ragEnabled || false,
   knowledgeSources: initialData?.knowledgeSources || [],
-  s3Urls: initialData?.s3Urls || [],
 });
 
 const useAssistantForm = (
@@ -83,7 +81,7 @@ const useAssistantForm = (
           const file = files[i];
           try {
             // Request upload URL
-            const { uploadUrl, fileKey, s3Url } = await requestUploadUrl({
+            const { uploadUrl, fileKey } = await requestUploadUrl({
               fileName: file.name,
               fileSize: file.size,
               contentType: file.type,
@@ -111,8 +109,6 @@ const useAssistantForm = (
             setFormData((prev) => ({
               ...prev,
               knowledgeSources: [...prev.knowledgeSources, newSource],
-              // Keep s3Urls for backward compatibility during migration
-              s3Urls: s3Url ? [...prev.s3Urls, s3Url] : prev.s3Urls,
             }));
           } catch (error) {
             console.error('Failed to upload file:', error);
@@ -130,8 +126,6 @@ const useAssistantForm = (
     setFormData((prev) => ({
       ...prev,
       knowledgeSources: prev.knowledgeSources.filter((ks) => ks.id !== sourceId),
-      // Also remove from s3Urls for backward compatibility
-      s3Urls: prev.s3Urls.filter((url) => !url.includes(sourceId)),
     }));
   }, []);
 

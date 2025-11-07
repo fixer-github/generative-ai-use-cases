@@ -55,7 +55,6 @@ const AssistantFormPage: React.FC = () => {
         modelId: assistant.modelId,
         ragEnabled: assistant.ragEnabled,
         knowledgeSources: assistant.knowledgeSources || [],
-        s3Urls: assistant.s3Urls || [],
       });
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
@@ -79,7 +78,6 @@ const AssistantFormPage: React.FC = () => {
         modelId: formData.modelId,
         ragEnabled: formData.ragEnabled,
         knowledgeSources: formData.knowledgeSources,
-        s3Urls: formData.s3Urls,
       };
 
       if (assistantId) {
@@ -143,7 +141,6 @@ const AssistantFormPage: React.FC = () => {
           <KnowledgeSection
             ragEnabled={formData.ragEnabled}
             knowledgeSources={formData.knowledgeSources}
-            s3Urls={formData.s3Urls}
             newUrl={newUrl}
             uploadingFiles={uploadingFiles}
             onNewUrlChange={setNewUrl}

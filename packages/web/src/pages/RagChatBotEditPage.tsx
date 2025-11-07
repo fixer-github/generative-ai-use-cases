@@ -46,7 +46,6 @@ const RagChatBotEditPage: React.FC = () => {
     modelId: string;
     ragEnabled: boolean;
     knowledgeSources: KnowledgeSource[];
-    s3Urls: string[];
   }>({
     name: '',
     description: '',
@@ -54,7 +53,6 @@ const RagChatBotEditPage: React.FC = () => {
     modelId: MODELS.modelIds[0] || 'anthropic.claude-3-5-sonnet-20241022-v2:0',
     ragEnabled: false,
     knowledgeSources: [],
-    s3Urls: [],
   });
 
   const [newUrl, setNewUrl] = useState('');
@@ -78,7 +76,6 @@ const RagChatBotEditPage: React.FC = () => {
         modelId: assistant.modelId,
         ragEnabled: assistant.ragEnabled,
         knowledgeSources: assistant.knowledgeSources || [],
-        s3Urls: assistant.s3Urls || [],
       });
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
@@ -103,7 +100,6 @@ const RagChatBotEditPage: React.FC = () => {
           modelId: formData.modelId,
           ragEnabled: formData.ragEnabled,
           knowledgeSources: formData.knowledgeSources,
-          s3Urls: formData.s3Urls,
         };
         await updateAssistant(botId, updateRequest);
       } else {
@@ -114,7 +110,6 @@ const RagChatBotEditPage: React.FC = () => {
           modelId: formData.modelId,
           ragEnabled: formData.ragEnabled,
           knowledgeSources: formData.knowledgeSources,
-          s3Urls: formData.s3Urls,
         };
         await createAssistant(createRequest);
       }
@@ -134,7 +129,7 @@ const RagChatBotEditPage: React.FC = () => {
         const file = files[i];
         try {
           // Request upload URL
-          const { uploadUrl, s3Url } = await requestUploadUrl({
+          const { uploadUrl, fileKey } = await requestUploadUrl({
             fileName: file.name,
             fileSize: file.size,
             contentType: file.type,
@@ -149,13 +144,20 @@ const RagChatBotEditPage: React.FC = () => {
             },
           });
 
-          // Add S3 URL to form data
-          if (s3Url) {
-            setFormData((prev) => ({
-              ...prev,
-              s3Urls: [...prev.s3Urls, s3Url],
-            }));
-          }
+          // Add file to knowledge sources with proper structure
+          const newSource: KnowledgeSource = {
+            id: crypto.randomUUID(),
+            type: 'file',
+            sourceType: 'file',
+            name: file.name,
+            displayName: file.name,
+            storageKey: fileKey,
+          };
+
+          setFormData((prev) => ({
+            ...prev,
+            knowledgeSources: [...prev.knowledgeSources, newSource],
+          }));
         } catch (error) {
           console.error('Failed to upload file:', error);
           alert(`Failed to upload ${file.name}`);
@@ -166,10 +168,10 @@ const RagChatBotEditPage: React.FC = () => {
     }
   };
 
-  const handleDeleteFile = (s3Url: string) => {
+  const handleDeleteFile = (sourceId: string) => {
     setFormData((prev) => ({
       ...prev,
-      s3Urls: prev.s3Urls.filter((url) => url !== s3Url),
+      knowledgeSources: prev.knowledgeSources.filter((ks) => ks.id !== sourceId),
     }));
   };
 
@@ -379,23 +381,22 @@ const RagChatBotEditPage: React.FC = () => {
                 </p>
               )}
               <div className="mt-2 space-y-1">
-                {formData.s3Urls.map((s3Url, index) => {
-                  const fileName = s3Url.split('/').pop() || s3Url;
-                  return (
+                {formData.knowledgeSources
+                  .filter((ks) => ks.sourceType === 'file')
+                  .map((source) => (
                     <div
-                      key={index}
+                      key={source.id}
                       className="flex items-center gap-2 text-sm">
                       <PiFile className="text-gray-500" />
-                      <span className="flex-1">{fileName}</span>
+                      <span className="flex-1">{source.displayName || source.name}</span>
                       <Button
                         outlined
                         className="text-sm"
-                        onClick={() => handleDeleteFile(s3Url)}>
+                        onClick={() => handleDeleteFile(source.id!)}>
                         <PiTrash />
                       </Button>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </div>
           </div>

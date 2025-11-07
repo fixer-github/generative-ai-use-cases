@@ -9,20 +9,18 @@ import FileUploader from '../FileUploader';
 export type KnowledgeSectionProps = {
   ragEnabled: boolean;
   knowledgeSources: KnowledgeSource[];
-  s3Urls: string[];
   newUrl: string;
   uploadingFiles: boolean;
   onNewUrlChange: (url: string) => void;
   onAddUrl: () => void;
   onRemoveSource: (index: number) => void;
   onFileUpload: (files: FileList) => Promise<void>;
-  onDeleteFile: (sourceIdOrS3Url: string) => void;
+  onDeleteFile: (sourceId: string) => void;
 };
 
 const KnowledgeSection: React.FC<KnowledgeSectionProps> = ({
   ragEnabled,
   knowledgeSources,
-  s3Urls,
   newUrl,
   uploadingFiles,
   onNewUrlChange,
@@ -124,32 +122,6 @@ const KnowledgeSection: React.FC<KnowledgeSectionProps> = ({
                 </div>
               );
             })}
-          {/* Show legacy s3Urls for backward compatibility */}
-          {s3Urls.map((s3Url, index) => {
-            const fileName = s3Url.split('/').pop() || s3Url;
-            // Skip if already in knowledgeSources
-            if (
-              knowledgeSources.some(
-                (ks) =>
-                  ks.storageKey && s3Url.includes(ks.storageKey)
-              )
-            ) {
-              return null;
-            }
-            return (
-              <div key={`legacy-${index}`} className="flex items-center gap-2 text-sm">
-                <PiFile className="text-gray-500" />
-                <span className="flex-1">{fileName}</span>
-                <span className="text-xs text-gray-600">LEGACY</span>
-                <Button
-                  outlined
-                  className="text-sm"
-                  onClick={() => onDeleteFile(s3Url)}>
-                  <PiTrash />
-                </Button>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>

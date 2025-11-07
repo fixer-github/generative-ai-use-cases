@@ -119,7 +119,7 @@ async function handleCreate(
   const body: CreateAssistantRequest = JSON.parse(event.body || '{}');
 
   console.log(
-    `Creating assistant: ragEnabled=${body.ragEnabled}, knowledgeSources=${body.knowledgeSources?.length || 0}, s3Urls=${body.s3Urls?.length || 0}`
+    `Creating assistant: ragEnabled=${body.ragEnabled}, knowledgeSources=${body.knowledgeSources?.length || 0}`
   );
 
   // Basic validation

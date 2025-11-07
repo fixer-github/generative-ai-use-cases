@@ -28,7 +28,7 @@ interface RequestPresignedUrlRequest {
 
 interface RequestPresignedUrlResponse {
   uploadUrl: string;
-  storageKey: string;
+  fileKey: string;
   expiresIn: number;
 }
 
@@ -194,7 +194,7 @@ export const handler = async (
 
     const response: RequestPresignedUrlResponse = {
       uploadUrl,
-      storageKey,
+      fileKey: storageKey,
       expiresIn: UPLOAD_EXPIRATION_SECONDS,
     };
 
