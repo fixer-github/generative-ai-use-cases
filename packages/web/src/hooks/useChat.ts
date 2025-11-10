@@ -28,6 +28,53 @@ import { useSettings } from './useSettings';
 
 type GenerationMode = 'normal' | 'continue' | 'retry' | 'edit';
 
+// Error classes for better error handling
+class ChatError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public context?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'ChatError';
+  }
+}
+
+class StreamingError extends ChatError {
+  constructor(message: string, context?: Record<string, any>) {
+    super(message, 'STREAMING_ERROR', context);
+  }
+}
+
+class SaveError extends ChatError {
+  constructor(message: string, context?: Record<string, any>) {
+    super(message, 'SAVE_ERROR', context);
+  }
+}
+
+// Retry logic with exponential backoff
+const retryWithExponentialBackoff = async <T>(
+  fn: () => Promise<T>,
+  options: { maxRetries: number; baseDelay: number }
+): Promise<T> => {
+  let lastError: Error | unknown;
+
+  for (let i = 0; i < options.maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (i < options.maxRetries - 1) {
+        const delay = options.baseDelay * Math.pow(2, i);
+        console.log(`Retry attempt ${i + 1}/${options.maxRetries} after ${delay}ms`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw new SaveError('Max retries exceeded', { lastError });
+};
+
 const useChatState = create<{
   chats: {
     [id: string]: {
@@ -35,6 +82,11 @@ const useChatState = create<{
       messages: ShownMessage[];
       stopReason: string;
       forcedStop: boolean;
+      error?: {
+        message: string;
+        timestamp: number;
+        recoverable: boolean;
+      };
     };
   };
   modelIds: {
@@ -134,6 +186,7 @@ const useChatState = create<{
   addMessageIdsToUnrecordedMessages: (id: string) => ToBeRecordedMessage[];
   replaceMessages: (id: string, messages: RecordedMessage[]) => void;
   setPredictedTitle: (id: string) => Promise<void>;
+  clearError: (id: string) => void;
 }>((set, get) => {
   const {
     createChat,
@@ -190,6 +243,7 @@ const useChatState = create<{
             messages,
             stopReason: '',
             forcedStop: false,
+            error: undefined,
           };
         }),
         base64Cache: {},
@@ -471,34 +525,105 @@ const useChatState = create<{
       | AdditionalModelRequestFields
       | undefined = undefined
   ) => {
-    const modelId = get().modelIds[id];
+    try {
+      const modelId = get().modelIds[id];
 
-    if (!modelId) {
-      console.error('modelId is not set');
-      return;
-    }
+      if (!modelId) {
+        console.error('modelId is not set');
+        return;
+      }
 
-    const model = findModelByModelId(modelId);
+      const model = findModelByModelId(modelId);
 
-    if (!model) {
-      console.error(`model not found for ${modelId}`);
-      return;
-    }
+      if (!model) {
+        console.error(`model not found for ${modelId}`);
+        return;
+      }
 
-    if (overrideModelType) {
-      model.type = overrideModelType;
-    }
+      if (overrideModelType) {
+        model.type = overrideModelType;
+      }
 
-    if (overrideModelParameters) {
-      model.modelParameters = overrideModelParameters;
-    }
+      if (overrideModelParameters) {
+        model.modelParameters = overrideModelParameters;
+      }
 
-    // For Agent
-    if (sessionId) {
-      model.sessionId = sessionId;
-    }
+      // For Agent
+      if (sessionId) {
+        model.sessionId = sessionId;
+      }
 
-    setLoading(id, true);
+      setLoading(id, true);
+
+      // Phase 1: Create chat BEFORE streaming (critical change for data loss prevention)
+      let chatId: string;
+      try {
+        chatId = await retryWithExponentialBackoff(
+          () => createChatIfNotExist(id),
+          { maxRetries: 3, baseDelay: 1000 }
+        );
+      } catch (error) {
+        console.error('[Chat Creation Failed]', error);
+        setLoading(id, false);
+        set((state) => ({
+          chats: produce(state.chats, (draft) => {
+            draft[id].error = {
+              message: 'チャットの作成に失敗しました。もう一度お試しください。',
+              timestamp: Date.now(),
+              recoverable: false,
+            };
+          }),
+        }));
+        return;
+      }
+
+      // Phase 1: Save user message immediately (for new chats in 'normal' mode)
+      if (generationMode === 'normal') {
+        const chatMessages = get().chats[id].messages;
+        const userMessageIndex = chatMessages.length - 2; // User message is second to last
+
+        if (userMessageIndex >= 0) {
+          const userMessage = chatMessages[userMessageIndex];
+
+          // Only save if it doesn't have a messageId yet
+          if (!userMessage.messageId) {
+            const match = id.match(/([^/]+)/);
+            const usecase = match ? '/' + match[1] : id;
+
+            const toBeRecordedUserMessage: ToBeRecordedMessage = {
+              messageId: uuid(),
+              usecase,
+              ...userMessage,
+            };
+
+            try {
+              await retryWithExponentialBackoff(
+                async () => {
+                  const { messages: savedMessages } = await createMessages(chatId, {
+                    messages: [toBeRecordedUserMessage],
+                  });
+
+                  // Update the user message with the saved messageId
+                  set((state) => ({
+                    chats: produce(state.chats, (draft) => {
+                      if (draft[id].messages[userMessageIndex]) {
+                        draft[id].messages[userMessageIndex].messageId = savedMessages[0].messageId;
+                        draft[id].messages[userMessageIndex].createdDate = savedMessages[0].createdDate;
+                      }
+                    }),
+                  }));
+                },
+                { maxRetries: 3, baseDelay: 1000 }
+              );
+            } catch (error) {
+              console.error('[User Message Save Failed]', error);
+              // Continue despite error - we'll try to save everything at the end
+            }
+          }
+        }
+      }
+
+      setLoading(id, true);
 
     // Reset the stop reason
     updateStopReason(id, '');
@@ -556,24 +681,27 @@ const useChatState = create<{
       inputMessages = preProcessInput(inputMessages);
     }
 
-    // Request to LLM
-    const formattedMessages = formatMessageProperties(
-      inputMessages,
-      uploadedFiles,
-      extraData,
-      base64Cache
-    );
+      // Request to LLM
+      const formattedMessages = formatMessageProperties(
+        inputMessages,
+        uploadedFiles,
+        extraData,
+        base64Cache
+      );
 
-    const stream = predictStream({
-      model: model,
-      messages: formattedMessages,
-      id: id,
-    });
+      // Phase 1: Wrap streaming in try-catch for error handling
+      let assistantContent = '';
+      try {
+        const stream = predictStream({
+          model: model,
+          messages: formattedMessages,
+          id: id,
+        });
 
-    // Update the assistant's message
-    let tmpChunk = '';
+        // Update the assistant's message
+        let tmpChunk = '';
 
-    for await (const chunk of stream) {
+        for await (const chunk of stream) {
       if (get().chats[id].forcedStop) {
         updateStopReason(id, 'forcedStop');
         setForcedStop(id, false);
@@ -592,6 +720,7 @@ const useChatState = create<{
 
           if (payload.text.length > 0) {
             tmpChunk += payload.text;
+            assistantContent += payload.text;
           }
 
           if (payload.stopReason && payload.stopReason.length > 0) {
@@ -635,74 +764,145 @@ const useChatState = create<{
       addChunkToAssistantMessage(id, tmpChunk, undefined, model);
     }
 
-    setWriting(id, false);
+        setWriting(id, false);
 
-    // Postprocessing of messages (example: addition of footnote)
-    if (postProcessOutput) {
-      set((state) => {
-        const newChats = produce(state.chats, (draft) => {
-          const oldAssistantMessage = draft[id].messages.pop()!;
-          const newAssistantMessage: UnrecordedMessage = {
-            ...oldAssistantMessage,
-            role: 'assistant',
-            content: postProcessOutput(oldAssistantMessage.content),
-            trace: oldAssistantMessage.trace,
-            llmType: model?.modelId,
-            metadata: oldAssistantMessage.metadata,
-          };
-          draft[id].messages.push(newAssistantMessage);
-        });
-        return {
-          chats: newChats,
-        };
+        // Postprocessing of messages (example: addition of footnote)
+        if (postProcessOutput) {
+          set((state) => {
+            const newChats = produce(state.chats, (draft) => {
+              const oldAssistantMessage = draft[id].messages.pop()!;
+              const newAssistantMessage: UnrecordedMessage = {
+                ...oldAssistantMessage,
+                role: 'assistant',
+                content: postProcessOutput(oldAssistantMessage.content),
+                trace: oldAssistantMessage.trace,
+                llmType: model?.modelId,
+                metadata: oldAssistantMessage.metadata,
+              };
+              draft[id].messages.push(newAssistantMessage);
+            });
+            return {
+              chats: newChats,
+            };
+          });
+        }
+      } catch (streamingError) {
+        console.error('[Streaming Error]', streamingError);
+        setWriting(id, false);
+
+        // Phase 1: Handle streaming errors gracefully
+        if (assistantContent.length > 0) {
+          // Save partial content
+          addChunkToAssistantMessage(
+            id,
+            '\n\n⚠️ ネットワークエラーが発生しましたが、ここまでの回答を保存しました。',
+            undefined,
+            model
+          );
+        } else {
+          // No content received
+          addChunkToAssistantMessage(
+            id,
+            '❌ エラー: メッセージの生成に失敗しました。もう一度お試しください。',
+            undefined,
+            model
+          );
+        }
+
+        set((state) => ({
+          chats: produce(state.chats, (draft) => {
+            draft[id].error = {
+              message: 'メッセージの生成中にエラーが発生しました',
+              timestamp: Date.now(),
+              recoverable: true,
+            };
+          }),
+        }));
+      }
+
+      setLoading(id, false);
+
+      // Phase 1: chatId is already created at the beginning, no need to call createChatIfNotExist again
+      // (line 788 removed: const chatId = await createChatIfNotExist(id);)
+
+      // Phase 1: Make title prediction non-blocking (run in background)
+      setPredictedTitle(id).then(() => {
+        mutateListChat();
+      }).catch((error) => {
+        console.error('[Title Prediction Error]', error);
+        // Title prediction failure is non-critical, just log it
       });
+
+      const toBeRecordedMessages = addMessageIdsToUnrecordedMessages(id);
+
+      // In the case of editting, update the last user's message
+      if (generationMode === 'edit') {
+        const lastUserMessage: ShownMessage =
+          get().chats[id].messages[get().chats[id].messages.length - 2];
+        const updatedUserMessage: ToBeRecordedMessage = {
+          createdDate: lastUserMessage.createdDate!,
+          messageId: lastUserMessage.messageId!,
+          usecase: lastUserMessage.usecase!,
+          ...lastUserMessage,
+        };
+        toBeRecordedMessages.push(updatedUserMessage);
+      }
+
+      // In the case of continuing to output, retrying, or editing, update the last assistant's message
+      if (
+        generationMode === 'continue' ||
+        generationMode === 'retry' ||
+        generationMode == 'edit'
+      ) {
+        const lastAssistantMessage: ShownMessage =
+          get().chats[id].messages[get().chats[id].messages.length - 1];
+        const updatedAssistantMessage: ToBeRecordedMessage = {
+          createdDate: lastAssistantMessage.createdDate!,
+          messageId: lastAssistantMessage.messageId!,
+          usecase: lastAssistantMessage.usecase!,
+          ...lastAssistantMessage,
+        };
+        toBeRecordedMessages.push(updatedAssistantMessage);
+      }
+
+      // Phase 1: Add retry logic to message saving
+      try {
+        const { messages } = await retryWithExponentialBackoff(
+          () => createMessages(chatId, { messages: toBeRecordedMessages }),
+          { maxRetries: 3, baseDelay: 1000 }
+        );
+
+        replaceMessages(id, messages);
+      } catch (saveError) {
+        console.error('[Message Save Failed]', saveError);
+
+        set((state) => ({
+          chats: produce(state.chats, (draft) => {
+            draft[id].error = {
+              message: 'メッセージの保存に失敗しました。自動リカバリーを試みています。',
+              timestamp: Date.now(),
+              recoverable: true,
+            };
+          }),
+        }));
+        // Message is still visible in UI, user can try resending
+      }
+    } catch (error) {
+      // Phase 1: Final catch block for any unexpected errors
+      console.error('[Generate Message Error]', error);
+      setLoading(id, false);
+      setWriting(id, false);
+
+      set((state) => ({
+        chats: produce(state.chats, (draft) => {
+          draft[id].error = {
+            message: '予期しないエラーが発生しました',
+            timestamp: Date.now(),
+            recoverable: false,
+          };
+        }),
+      }));
     }
-
-    setLoading(id, false);
-
-    const chatId = await createChatIfNotExist(id);
-
-    setPredictedTitle(id).then(() => {
-      mutateListChat();
-    });
-
-    const toBeRecordedMessages = addMessageIdsToUnrecordedMessages(id);
-
-    // In the case of editting, update the last user's message
-    if (generationMode === 'edit') {
-      const lastUserMessage: ShownMessage =
-        get().chats[id].messages[get().chats[id].messages.length - 2];
-      const updatedUserMessage: ToBeRecordedMessage = {
-        createdDate: lastUserMessage.createdDate!,
-        messageId: lastUserMessage.messageId!,
-        usecase: lastUserMessage.usecase!,
-        ...lastUserMessage,
-      };
-      toBeRecordedMessages.push(updatedUserMessage);
-    }
-
-    // In the case of continuing to output, retrying, or editing, update the last assistant's message
-    if (
-      generationMode === 'continue' ||
-      generationMode === 'retry' ||
-      generationMode == 'edit'
-    ) {
-      const lastAssistantMessage: ShownMessage =
-        get().chats[id].messages[get().chats[id].messages.length - 1];
-      const updatedAssistantMessage: ToBeRecordedMessage = {
-        createdDate: lastAssistantMessage.createdDate!,
-        messageId: lastAssistantMessage.messageId!,
-        usecase: lastAssistantMessage.usecase!,
-        ...lastAssistantMessage,
-      };
-      toBeRecordedMessages.push(updatedAssistantMessage);
-    }
-
-    const { messages } = await createMessages(chatId, {
-      messages: toBeRecordedMessages,
-    });
-
-    replaceMessages(id, messages);
   };
 
   return {
@@ -941,6 +1141,15 @@ const useChatState = create<{
     addMessageIdsToUnrecordedMessages,
     replaceMessages,
     setPredictedTitle,
+    clearError: (id: string) => {
+      set((state) => ({
+        chats: produce(state.chats, (draft) => {
+          if (draft[id]) {
+            delete draft[id].error;
+          }
+        }),
+      }));
+    },
   };
 });
 
@@ -979,6 +1188,7 @@ const useChat = (id: string, chatId?: string) => {
     addMessageIdsToUnrecordedMessages,
     replaceMessages,
     setPredictedTitle,
+    clearError,
   } = useChatState();
   const { data: messagesData, isLoading: isLoadingMessage } =
     useChatApi().listMessages(chatId);
@@ -1239,6 +1449,10 @@ const useChat = (id: string, chatId?: string) => {
     setPredictedTitle: async () => {
       await setPredictedTitle(id);
     },
+    clearError: () => {
+      clearError(id);
+    },
+    error: chats[id]?.error,
   };
 };
 

@@ -24,6 +24,38 @@ export const handler = async (
     const userId = getUsername(event);
     const chatId = event.pathParameters!.chatId!;
 
+    // Phase 1: Validate request body
+    if (!req.messages || req.messages.length === 0) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({
+          message: 'messages is required and must not be empty',
+          errorCode: 'INVALID_REQUEST',
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    // Phase 1: Add message count limit to prevent abuse
+    if (req.messages.length > 100) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({
+          message: 'Too many messages in a single request (max 100)',
+          errorCode: 'TOO_MANY_MESSAGES',
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
     // Extract tenant ID to determine appropriate file upload bucket
     const tenantId = getTenantId(event);
     console.log(`Processing create messages request for tenant: ${tenantId}`);
@@ -39,6 +71,8 @@ export const handler = async (
         },
         body: JSON.stringify({
           message: 'You do not have permission to post messages in the chat.',
+          errorCode: 'FORBIDDEN',
+          timestamp: Date.now(),
         }),
       };
     }
@@ -101,14 +135,18 @@ export const handler = async (
       }),
     };
   } catch (error) {
-    console.log(error);
+    console.error('[createMessages Lambda Error]', error);
     return {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({
+        message: 'Internal Server Error',
+        errorCode: 'MESSAGE_SAVE_FAILED',
+        timestamp: Date.now(),
+      }),
     };
   }
 };

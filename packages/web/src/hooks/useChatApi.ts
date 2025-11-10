@@ -35,16 +35,26 @@ const useChatApi = () => {
 
   return {
     createChat: async (): Promise<CreateChatResponse> => {
-      const res = await http.post('chats', {});
-      return res.data;
+      try {
+        const res = await http.post('chats', {});
+        return res.data;
+      } catch (error) {
+        console.error('[createChat API Error]', error);
+        throw new Error('チャットの作成に失敗しました');
+      }
     },
     createMessages: async (
       _chatId: string,
       req: CreateMessagesRequest
     ): Promise<CreateMessagesResponse> => {
-      const chatId = decomposeId(_chatId);
-      const res = await http.post(`chats/${chatId}/messages`, req);
-      return res.data;
+      try {
+        const chatId = decomposeId(_chatId);
+        const res = await http.post(`chats/${chatId}/messages`, req);
+        return res.data;
+      } catch (error) {
+        console.error('[createMessages API Error]', error);
+        throw new Error('メッセージの保存に失敗しました');
+      }
     },
     deleteChat: async (chatId: string) => {
       return http.delete<void>(`chats/${chatId}`);
@@ -95,46 +105,57 @@ const useChatApi = () => {
     },
     // Streaming Response
     predictStream: async function* (req: PredictRequest) {
-      const token = (await fetchAuthSession()).tokens?.idToken?.toString();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
-
-      const region = import.meta.env.VITE_APP_REGION;
-      const userPoolId = import.meta.env.VITE_APP_USER_POOL_ID;
-      const idPoolId = import.meta.env.VITE_APP_IDENTITY_POOL_ID;
-      const cognito = new CognitoIdentityClient({ region });
-      const providerName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
-      const lambda = new LambdaClient({
-        region,
-        credentials: fromCognitoIdentityPool({
-          client: cognito,
-          identityPoolId: idPoolId,
-          logins: {
-            [providerName]: token,
-          },
-        }),
-      });
-
-      // Append idToken to req
-      req.idToken = token;
-
-      const res = await lambda.send(
-        new InvokeWithResponseStreamCommand({
-          FunctionName: import.meta.env.VITE_APP_PREDICT_STREAM_FUNCTION_ARN,
-          Payload: JSON.stringify(req),
-        })
-      );
-      const events = res.EventStream!;
-
-      for await (const event of events) {
-        if (event.PayloadChunk) {
-          yield new TextDecoder('utf-8').decode(event.PayloadChunk.Payload);
+      try {
+        const token = (await fetchAuthSession()).tokens?.idToken?.toString();
+        if (!token) {
+          throw new Error('認証情報が取得できませんでした');
         }
 
-        if (event.InvokeComplete) {
-          break;
+        const region = import.meta.env.VITE_APP_REGION;
+        const userPoolId = import.meta.env.VITE_APP_USER_POOL_ID;
+        const idPoolId = import.meta.env.VITE_APP_IDENTITY_POOL_ID;
+        const cognito = new CognitoIdentityClient({ region });
+        const providerName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
+        const lambda = new LambdaClient({
+          region,
+          credentials: fromCognitoIdentityPool({
+            client: cognito,
+            identityPoolId: idPoolId,
+            logins: {
+              [providerName]: token,
+            },
+          }),
+        });
+
+        // Append idToken to req
+        req.idToken = token;
+
+        const res = await lambda.send(
+          new InvokeWithResponseStreamCommand({
+            FunctionName: import.meta.env.VITE_APP_PREDICT_STREAM_FUNCTION_ARN,
+            Payload: JSON.stringify(req),
+          })
+        );
+        const events = res.EventStream!;
+
+        for await (const event of events) {
+          if (event.PayloadChunk) {
+            yield new TextDecoder('utf-8').decode(event.PayloadChunk.Payload);
+          }
+
+          if (event.InvokeComplete) {
+            break;
+          }
+
+          // Phase 1: Handle error events
+          if (event.InvokeError) {
+            console.error('[Streaming InvokeError]', event.InvokeError);
+            throw new Error('ストリーミング中にエラーが発生しました');
+          }
         }
+      } catch (error) {
+        console.error('[predictStream API Error]', error);
+        throw error;
       }
     },
     predictTitle: async (
