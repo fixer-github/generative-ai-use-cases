@@ -23,6 +23,7 @@ import {
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
 import { initBedrockRuntimeClient } from './bedrockClient';
+import { ChatBedrockConverse } from '@langchain/aws';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -204,15 +205,16 @@ const createModel = async (model: Model) => {
     // BedrockRuntimeClientを取得
     const bedrockClient = await initBedrockRuntimeClient({ region });
 
-    console.debug('Initializing Bedrock model via LangChain:', {
+    console.debug('Initializing Bedrock model via ChatBedrockConverse:', {
       originalModelId: model.modelId,
       actualModelId,
       region
     });
 
-    // initChatModelにmodelProviderとclientを渡す
-    llm = await initChatModel(actualModelId, {
-      modelProvider: 'bedrock',
+    // ChatBedrockConverseを直接インスタンス化（initChatModelは使わない）
+    llm = new ChatBedrockConverse({
+      model: actualModelId,
+      region: region,
       client: bedrockClient,
     });
   } else if (model.modelId.startsWith('openai:')) {
