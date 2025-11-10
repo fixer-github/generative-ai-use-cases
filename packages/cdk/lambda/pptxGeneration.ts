@@ -383,8 +383,8 @@ async function generatePptx(slides: SlideContent[], templateBuffer?: Buffer): Pr
   }
 
   // Generate the PPTX file as buffer
-  const pptxData = await pptx.write({ outputType: 'nodebuffer' });
-  return Buffer.from(pptxData);
+  const pptxData = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;
+  return pptxData;
 }
 
 async function uploadPptx(tenantId: string, s3Key: string, buffer: Buffer): Promise<void> {
