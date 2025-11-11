@@ -99,6 +99,7 @@ assistant:
   delete: 削除
   deleteConfirmation: '"{{assistantName}}" を削除してもよろしいですか？この操作は取り消せません。'
   deleteError: アシスタントの削除に失敗しました
+  deleteInitiated: アシスタントの削除を開始しました。リソースをクリーンアップ中...
   deleteSuccess: アシスタントを削除しました
   deleteTitle: アシスタントを削除
   deleting: 削除中...
@@ -121,6 +122,8 @@ assistant:
     saveBeforeUpload: ファイルをアップロードする前にアシスタントを保存してください
     saveFailed: 保存に失敗しました
     saving: 保存中...
+    createInitiated: アシスタントの作成を開始しました。バックグラウンドでナレッジベースを同期中...
+    updateInitiated: アシスタントを更新しました。バックグラウンドでナレッジベースを再同期中...
     sourceUrls: ソースURL
     title: 名前
     uploadFiles: ファイルをアップロード

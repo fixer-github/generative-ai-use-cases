@@ -99,6 +99,7 @@ assistant:
   delete: Delete
   deleteConfirmation: Are you sure you want to delete "{{assistantName}}"? This action cannot be undone.
   deleteError: Failed to delete assistant
+  deleteInitiated: Assistant deletion started. Cleaning up resources...
   deleteSuccess: Assistant deleted successfully
   deleteTitle: Delete Assistant
   deleting: Deleting...
@@ -121,6 +122,8 @@ assistant:
     saveBeforeUpload: Please save the assistant before uploading files
     saveFailed: Failed to save
     saving: Saving...
+    createInitiated: Assistant creation started. Syncing knowledge base in background...
+    updateInitiated: Assistant updated. Re-syncing knowledge base in background...
     sourceUrls: Source URLs
     title: Name
     uploadFiles: Upload Files

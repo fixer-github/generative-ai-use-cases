@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { PiArrowLeft, PiFloppyDisk, PiFile, PiTrash } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
 import useAssistantForm from '../hooks/useAssistantForm';
@@ -22,9 +23,7 @@ const AssistantFormPage: React.FC = () => {
   const { getAssistant, createAssistant, updateAssistant, deleteAssistant } = useAssistantApi();
 
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const {
     formData,
@@ -66,56 +65,62 @@ const AssistantFormPage: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!isValid()) {
-      alert(t('assistant.edit.requiredFields'));
+      toast.error(t('assistant.edit.requiredFields'));
       return;
     }
 
-    setSaving(true);
-    try {
-      const requestData: CreateAssistantRequest | UpdateAssistantRequest = {
-        name: formData.name,
-        description: formData.description,
-        instruction: formData.instruction,
-        modelId: formData.modelId,
-        ragEnabled: formData.ragEnabled,
-        knowledgeSources: formData.knowledgeSources,
-      };
+    const requestData: CreateAssistantRequest | UpdateAssistantRequest = {
+      name: formData.name,
+      description: formData.description,
+      instruction: formData.instruction,
+      modelId: formData.modelId,
+      ragEnabled: formData.ragEnabled,
+      knowledgeSources: formData.knowledgeSources,
+    };
 
-      if (assistantId) {
-        await updateAssistant(assistantId, requestData as UpdateAssistantRequest);
-        navigate('/chat/assistants');
-      } else {
-        const assistant = await createAssistant(requestData as CreateAssistantRequest);
-        navigate(`/chat/assistants/chat/${assistant.assistantId}`);
+    // Show toast and navigate immediately - fire and forget
+    toast.success(t(assistantId ? 'assistant.edit.updateInitiated' : 'assistant.edit.createInitiated'));
+    navigate('/chat/assistants');
+
+    // Fire API call in background without blocking navigation
+    (async () => {
+      try {
+        if (assistantId) {
+          await updateAssistant(assistantId, requestData as UpdateAssistantRequest);
+        } else {
+          await createAssistant(requestData as CreateAssistantRequest);
+        }
+      } catch (error) {
+        console.error(`Failed to ${assistantId ? 'update' : 'create'} assistant:`, error);
+        toast.error(t('assistant.edit.saveFailed'));
       }
-    } catch (error) {
-      console.error(`Failed to ${assistantId ? 'update' : 'create'} assistant:`, error);
-      alert(t('assistant.edit.saveFailed'));
-    } finally {
-      setSaving(false);
-    }
+    })();
   };
 
   const handleCancel = () => {
     navigate('/chat/assistants');
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!assistantId) return;
 
-    setDeleting(true);
-    try {
-      await deleteAssistant(assistantId);
-      navigate('/chat/assistants');
-    } catch (error) {
-      console.error('Failed to delete assistant:', error);
-      alert(t('assistant.deleteError'));
-    } finally {
-      setDeleting(false);
-      setIsDeleteModalOpen(false);
-    }
+    setIsDeleteModalOpen(false);
+
+    // Show toast and navigate immediately - fire and forget
+    toast.success(t('assistant.deleteInitiated'));
+    navigate('/chat/assistants');
+
+    // Fire API call in background without blocking navigation
+    (async () => {
+      try {
+        await deleteAssistant(assistantId);
+      } catch (error) {
+        console.error('Failed to delete assistant:', error);
+        toast.error(t('assistant.deleteError'));
+      }
+    })();
   };
 
   if (loading) {
@@ -177,7 +182,6 @@ const AssistantFormPage: React.FC = () => {
           <Button
             outlined
             onClick={() => setIsDeleteModalOpen(true)}
-            disabled={deleting}
             className="flex items-center gap-1 border-red-600 text-red-600 hover:bg-red-50">
             <PiTrash />
             {t('assistant.delete')}
@@ -189,10 +193,10 @@ const AssistantFormPage: React.FC = () => {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || uploadingFiles}
+            disabled={uploadingFiles}
             className="flex items-center gap-1">
             <PiFloppyDisk />
-            {saving ? t('assistant.edit.saving') : t('assistant.edit.save')}
+            {t('assistant.edit.save')}
           </Button>
         </div>
       </div>
@@ -201,7 +205,7 @@ const AssistantFormPage: React.FC = () => {
       <ModalDialogDeleteAssistant
         isOpen={isDeleteModalOpen}
         assistantName={formData.name}
-        deleting={deleting}
+        deleting={false}
         onDelete={handleDelete}
         onClose={() => setIsDeleteModalOpen(false)}
       />

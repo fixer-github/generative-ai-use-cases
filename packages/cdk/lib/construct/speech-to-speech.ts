@@ -79,7 +79,7 @@ export class SpeechToSpeech extends Construct {
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: props.crossAccountBedrockRoleArn ?? '',
       },
       bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        nodeModules: ['@aws-sdk/client-bedrock-runtime', 'aws-amplify', 'ws'],
       },
       memorySize: 512,
     });
