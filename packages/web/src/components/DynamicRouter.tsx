@@ -40,6 +40,9 @@ import PptxGenerationPage from '../pages/PptxGenerationPage';
 import WriterPage from '../pages/WriterPage';
 import AssistantChatPage from '../pages/AssistantChatPage';
 import AdminPortal from '../pages/AdminPortal';
+import PlanManagementPage from '../pages/PlanManagementPage';
+import PlanDetailPage from '../pages/PlanDetailPage';
+import PlanCreatePage from '../pages/PlanCreatePage';
 
 interface DynamicRouterProps {
   ragEnabled: boolean;
@@ -250,6 +253,18 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     {
       path: '/admin',
       element: <AdminPortal />,
+    },
+    {
+      path: '/admin/billing/plans',
+      element: <PlanManagementPage />,
+    },
+    {
+      path: '/admin/billing/plans/create',
+      element: <PlanCreatePage />,
+    },
+    {
+      path: '/admin/billing/plans/:planId',
+      element: <PlanDetailPage />,
     },
     {
       path: '*',
