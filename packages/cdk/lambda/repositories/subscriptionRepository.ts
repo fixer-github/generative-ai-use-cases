@@ -86,7 +86,7 @@ export class SubscriptionRepository extends BaseRepository {
     `;
 
     const result = await this.query<Subscription>(query, [userId]);
-    return result.rows.map((row) => this.mapRowToSubscription(row));
+    return result.rows.map((row: any) => this.mapRowToSubscription(row));
   }
 
   /**
@@ -103,7 +103,7 @@ export class SubscriptionRepository extends BaseRepository {
     `;
 
     const result = await this.query<Subscription>(query, [userId, status]);
-    return result.rows.map((row) => this.mapRowToSubscription(row));
+    return result.rows.map((row: any) => this.mapRowToSubscription(row));
   }
 
   /**
@@ -124,7 +124,7 @@ export class SubscriptionRepository extends BaseRepository {
     `;
 
     const result = await this.query<Subscription>(query);
-    return result.rows.map((row) => this.mapRowToSubscription(row));
+    return result.rows.map((row: any) => this.mapRowToSubscription(row));
   }
 
   /**
@@ -139,7 +139,7 @@ export class SubscriptionRepository extends BaseRepository {
     `;
 
     const result = await this.query<Subscription>(query, [thresholdDate]);
-    return result.rows.map((row) => this.mapRowToSubscription(row));
+    return result.rows.map((row: any) => this.mapRowToSubscription(row));
   }
 
   /**
@@ -227,6 +227,258 @@ export class SubscriptionRepository extends BaseRepository {
       current_period_start: newPeriodStart,
       current_period_end: newPeriodEnd,
     });
+  }
+
+  /**
+   * 管理者向け: サブスクリプション統計情報を取得する
+   */
+  async getStatistics(): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    byPlatform: Record<string, Record<string, number>>;
+    byPlan: Array<{
+      planId: string;
+      planName: string;
+      count: number;
+    }>;
+  }> {
+    // ステータス別の集計
+    const statusQuery = `
+      SELECT subscription_status, COUNT(*) as count
+      FROM subscriptions
+      GROUP BY subscription_status
+    `;
+    const statusResult = await this.query<{ subscription_status: string; count: string }>(statusQuery);
+
+    const byStatus: Record<string, number> = {};
+    let total = 0;
+    for (const row of statusResult.rows) {
+      const count = parseInt(row.count, 10);
+      byStatus[row.subscription_status] = count;
+      total += count;
+    }
+
+    // プラットフォーム × ステータス別の集計
+    const platformQuery = `
+      SELECT platform_type, subscription_status, COUNT(*) as count
+      FROM subscriptions
+      GROUP BY platform_type, subscription_status
+    `;
+    const platformResult = await this.query<{
+      platform_type: string;
+      subscription_status: string;
+      count: string;
+    }>(platformQuery);
+
+    const byPlatform: Record<string, Record<string, number>> = {
+      stripe: {},
+      apple: {},
+      google: {},
+    };
+    for (const row of platformResult.rows) {
+      if (!byPlatform[row.platform_type]) {
+        byPlatform[row.platform_type] = {};
+      }
+      byPlatform[row.platform_type][row.subscription_status] = parseInt(row.count, 10);
+    }
+
+    // プラン別の集計
+    const planQuery = `
+      SELECT s.plan_id, p.display_name, COUNT(*) as count
+      FROM subscriptions s
+      LEFT JOIN plans p ON s.plan_id = p.plan_id
+      WHERE s.subscription_status = 'active'
+      GROUP BY s.plan_id, p.display_name
+      ORDER BY count DESC
+    `;
+    const planResult = await this.query<{
+      plan_id: string;
+      display_name: string;
+      count: string;
+    }>(planQuery);
+
+    const byPlan = planResult.rows.map((row: any) => ({
+      planId: row.plan_id,
+      planName: row.display_name || 'Unknown Plan',
+      count: parseInt(row.count, 10),
+    }));
+
+    return {
+      total,
+      byStatus,
+      byPlatform,
+      byPlan,
+    };
+  }
+
+  /**
+   * 管理者向け: サブスクリプション一覧を検索・フィルタして取得する
+   */
+  async findAllForAdmin(options: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    subscriptionId?: string;
+    userId?: string;
+    userName?: string;
+    platformType?: string;
+    platformSubscriptionId?: string;
+    status?: string;
+    planId?: string;
+    periodStartFrom?: Date;
+    periodStartTo?: Date;
+    createdAtFrom?: Date;
+    createdAtTo?: Date;
+  } = {}): Promise<{
+    subscriptions: Array<Subscription & { user_name?: string; plan_name?: string }>;
+    totalCount: number;
+  }> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // フィルタ条件の構築
+    if (options.subscriptionId) {
+      conditions.push(`s.subscription_id::text ILIKE $${paramIndex++}`);
+      params.push(`%${options.subscriptionId}%`);
+    }
+
+    if (options.userId) {
+      conditions.push(`s.user_id ILIKE $${paramIndex++}`);
+      params.push(`%${options.userId}%`);
+    }
+
+    if (options.platformType) {
+      conditions.push(`s.platform_type = $${paramIndex++}`);
+      params.push(options.platformType);
+    }
+
+    if (options.platformSubscriptionId) {
+      conditions.push(`s.platform_subscription_id ILIKE $${paramIndex++}`);
+      params.push(`%${options.platformSubscriptionId}%`);
+    }
+
+    if (options.status) {
+      conditions.push(`s.subscription_status = $${paramIndex++}`);
+      params.push(options.status);
+    }
+
+    if (options.planId) {
+      conditions.push(`s.plan_id = $${paramIndex++}`);
+      params.push(options.planId);
+    }
+
+    if (options.periodStartFrom) {
+      conditions.push(`s.current_period_start >= $${paramIndex++}`);
+      params.push(options.periodStartFrom);
+    }
+
+    if (options.periodStartTo) {
+      conditions.push(`s.current_period_start <= $${paramIndex++}`);
+      params.push(options.periodStartTo);
+    }
+
+    if (options.createdAtFrom) {
+      conditions.push(`s.created_at >= $${paramIndex++}`);
+      params.push(options.createdAtFrom);
+    }
+
+    if (options.createdAtTo) {
+      conditions.push(`s.created_at <= $${paramIndex++}`);
+      params.push(options.createdAtTo);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // ソート条件
+    const sortBy = options.sortBy || 'created_at';
+    const sortOrder = options.sortOrder || 'desc';
+    const orderByClause = `ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}`;
+
+    // 総件数を取得
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM subscriptions s
+      ${whereClause}
+    `;
+    const countResult = await this.query<{ total: string }>(countQuery, params);
+    const totalCount = parseInt(countResult.rows[0].total, 10);
+
+    // ページネーション
+    const page = options.page || 1;
+    const limit = Math.min(options.limit || 20, 100);
+    const offset = (page - 1) * limit;
+
+    // データ取得（JOINでプラン名も取得）
+    const dataQuery = `
+      SELECT
+        s.*,
+        p.display_name as plan_name
+      FROM subscriptions s
+      LEFT JOIN plans p ON s.plan_id = p.plan_id
+      ${whereClause}
+      ${orderByClause}
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    params.push(limit, offset);
+
+    const dataResult = await this.query<any>(dataQuery, params);
+    const subscriptions = dataResult.rows.map((row: any) => ({
+      ...this.mapRowToSubscription(row),
+      plan_name: row.plan_name,
+    }));
+
+    return {
+      subscriptions,
+      totalCount,
+    };
+  }
+
+  /**
+   * 管理者向け: サブスクリプション詳細情報を取得する（プラン情報とユーザ情報を含む）
+   */
+  async findByIdWithDetails(subscriptionId: string): Promise<{
+    subscription: Subscription;
+    plan: any;
+  } | null> {
+    const query = `
+      SELECT
+        s.*,
+        p.plan_id,
+        p.internal_name,
+        p.display_name as plan_display_name,
+        p.platform_type as plan_platform_type,
+        p.platform_product_id,
+        p.permissions,
+        p.status as plan_status
+      FROM subscriptions s
+      LEFT JOIN plans p ON s.plan_id = p.plan_id
+      WHERE s.subscription_id = $1
+    `;
+
+    const result = await this.query<any>(query, [subscriptionId]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    return {
+      subscription: this.mapRowToSubscription(row),
+      plan: {
+        plan_id: row.plan_id,
+        internal_name: row.internal_name,
+        display_name: row.plan_display_name,
+        platform_type: row.plan_platform_type,
+        platform_product_id: row.platform_product_id,
+        permissions: typeof row.permissions === 'string'
+          ? JSON.parse(row.permissions)
+          : row.permissions,
+        status: row.plan_status,
+      },
+    };
   }
 
   /**

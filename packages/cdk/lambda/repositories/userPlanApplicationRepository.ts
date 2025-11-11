@@ -61,6 +61,66 @@ export class UserPlanApplicationRepository extends BaseRepository {
   }
 
   /**
+   * プラン適用一覧を取得する
+   *
+   * @returns フィルタ条件に合致するプラン適用のリスト
+   */
+  async findAll(
+    options: {
+      planId?: string;
+      userId?: string;
+      status?: string | string[];
+      applicationSource?: string;
+    } = {}
+  ): Promise<UserPlanApplication[]> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // フィルタ条件の追加
+    if (options.planId) {
+      conditions.push(`plan_id = $${paramIndex++}`);
+      params.push(options.planId);
+    }
+
+    if (options.userId) {
+      conditions.push(`user_id = $${paramIndex++}`);
+      params.push(options.userId);
+    }
+
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        const placeholders = options.status
+          .map(() => `$${paramIndex++}`)
+          .join(', ');
+        conditions.push(`application_status IN (${placeholders})`);
+        params.push(...options.status);
+      } else {
+        conditions.push(`application_status = $${paramIndex++}`);
+        params.push(options.status);
+      }
+    }
+
+    if (options.applicationSource) {
+      conditions.push(`application_source = $${paramIndex++}`);
+      params.push(options.applicationSource);
+    }
+
+    // WHERE句の構築
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT * FROM user_plan_applications
+      ${whereClause}
+      ORDER BY created_at DESC
+    `;
+
+    const result = await this.query<UserPlanApplication>(query, params);
+    return result.rows.map((row) => this.mapRowToUserPlanApplication(row));
+  }
+
+  /**
    * ユーザIDでプラン適用一覧を取得する
    */
   async findByUserId(userId: string): Promise<UserPlanApplication[]> {

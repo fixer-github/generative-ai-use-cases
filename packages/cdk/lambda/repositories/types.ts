@@ -40,7 +40,8 @@ export interface Subscription {
     | 'pending_verification'
     | 'past_due'
     | 'canceled'
-    | 'expired';
+    | 'expired'
+    | 'rejected';
   current_period_start: Date;
   current_period_end: Date;
   cancel_at_period_end: boolean;
