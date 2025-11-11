@@ -33,21 +33,15 @@ class ChatError extends Error {
   constructor(
     message: string,
     public code: string,
-    public context?: Record<string, any>
+    public context?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ChatError';
   }
 }
 
-class StreamingError extends ChatError {
-  constructor(message: string, context?: Record<string, any>) {
-    super(message, 'STREAMING_ERROR', context);
-  }
-}
-
 class SaveError extends ChatError {
-  constructor(message: string, context?: Record<string, any>) {
+  constructor(message: string, context?: Record<string, unknown>) {
     super(message, 'SAVE_ERROR', context);
   }
 }

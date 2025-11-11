@@ -146,12 +146,6 @@ const useChatApi = () => {
           if (event.InvokeComplete) {
             break;
           }
-
-          // Phase 1: Handle error events
-          if (event.InvokeError) {
-            console.error('[Streaming InvokeError]', event.InvokeError);
-            throw new Error('ストリーミング中にエラーが発生しました');
-          }
         }
       } catch (error) {
         console.error('[predictStream API Error]', error);
