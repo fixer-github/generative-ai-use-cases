@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 
 export interface TenantOpenSearchStackProps extends cdk.StackProps {
@@ -59,7 +61,12 @@ export interface TenantOpenSearchStackProps extends cdk.StackProps {
    * The tenant IAM role ARN for accessing OpenSearch
    * This role is assumed by Lambda functions to access tenant-specific resources
    */
-  readonly tenantRoleArn: string;
+  readonly tenantIamRoleArn?: string;
+
+  /**
+   * DynamoDB table name for tenants
+   */
+  readonly tenantsTableName?: string;
 
   /**
    * Control plane region for DynamoDB access
@@ -230,13 +237,19 @@ export class TenantOpenSearchStack extends cdk.Stack {
 
     // Grant access to the domain from CodeBuild role, Tenant role, and Bedrock service
     // Note: Tenant role is used by Lambda functions to access OpenSearch for assistant RAG functionality
+    const principals: iam.IPrincipal[] = [
+      this.opensearchIndexCreationRole,
+      new iam.ServicePrincipal('bedrock.amazonaws.com'),
+    ];
+
+    // Add tenant role if provided
+    if (props.tenantIamRoleArn) {
+      principals.push(new iam.ArnPrincipal(props.tenantIamRoleArn));
+    }
+
     const accessPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      principals: [
-        this.opensearchIndexCreationRole,
-        new iam.ArnPrincipal(props.tenantRoleArn), // Add tenant role for Lambda access
-        new iam.ServicePrincipal('bedrock.amazonaws.com'),
-      ],
+      principals,
       actions: [
         'es:ESHttpPost',
         'es:ESHttpPut',
@@ -258,6 +271,58 @@ export class TenantOpenSearchStack extends cdk.Stack {
     });
 
     this.domain.addAccessPolicies(describeDomainPolicy);
+
+    // Create custom resource to update tenant record with OpenSearch information
+    // Only create if tenantsTableName is provided
+    if (props.tenantsTableName && props.controlPlaneRegion) {
+      // Create Lambda function for custom resource
+      const tenantUpdaterLambda = new lambda.SingletonFunction(
+        this,
+        'OpenSearchTenantUpdater',
+        {
+          uuid: '8c3b3f3a-5d9e-4c7a-9f2e-1a8b9c0d1e2f',
+          runtime: lambda.Runtime.NODEJS_22_X,
+          code: lambda.Code.fromAsset('custom-resources'),
+          handler: 'opensearch-tenant-updater.handler',
+          timeout: cdk.Duration.minutes(5),
+          environment: {
+            TENANTS_TABLE_NAME: props.tenantsTableName,
+            CONTROL_PLANE_REGION: props.controlPlaneRegion,
+            DEFAULT_OPENSEARCH_INDEX: props.openSearchIndexName || 'assistant-docs',
+          },
+        }
+      );
+
+      // Grant DynamoDB permissions to the Lambda
+      const tenantsTableArn = `arn:aws:dynamodb:${props.controlPlaneRegion}:${this.account}:table/${props.tenantsTableName}`;
+      const tenantsTable = dynamodb.Table.fromTableArn(
+        this,
+        'TenantsTable',
+        tenantsTableArn
+      );
+      tenantsTable.grantReadWriteData(tenantUpdaterLambda);
+
+      // Create custom resource
+      const tenantUpdaterResource = new cdk.CustomResource(
+        this,
+        'TenantOpenSearchUpdater',
+        {
+          serviceToken: tenantUpdaterLambda.functionArn,
+          resourceType: 'Custom::TenantOpenSearchUpdater',
+          properties: {
+            tenantId: typeof tenantId === 'string' ? tenantId : (tenantId as cdk.CfnParameter).valueAsString,
+            openSearchDomainArn: this.domain.domainArn,
+            openSearchEndpoint: `https://${this.domain.domainEndpoint}`,
+            openSearchIndexName: props.openSearchIndexName || 'assistant-docs',
+          },
+        }
+      );
+
+      // Ensure custom resource runs after domain is created
+      tenantUpdaterResource.node.addDependency(this.domain);
+
+      console.log(`Created custom resource to update tenant ${tenantId} with OpenSearch info`);
+    }
 
     // Export domain outputs
     new cdk.CfnOutput(this, 'DomainEndpoint', {
