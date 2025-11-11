@@ -83,6 +83,63 @@ export class PlanRepository extends BaseRepository {
   }
 
   /**
+   * プラン一覧を取得する
+   *
+   * @returns すべてのプランのリスト（デフォルトでは作成日の降順）
+   */
+  async findAll(
+    options: {
+      platformType?: string;
+      status?: string;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    } = {}
+  ): Promise<Plan[]> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // フィルタ条件の追加
+    if (options.platformType) {
+      conditions.push(`platform_type = $${paramIndex++}`);
+      params.push(options.platformType);
+    }
+
+    if (options.status) {
+      conditions.push(`status = $${paramIndex++}`);
+      params.push(options.status);
+    }
+
+    if (options.search) {
+      conditions.push(
+        `(internal_name ILIKE $${paramIndex} OR display_name ILIKE $${paramIndex})`
+      );
+      params.push(`%${options.search}%`);
+      paramIndex++;
+    }
+
+    // WHERE句の構築
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // ORDER BY句の構築
+    const sortBy = options.sortBy || 'created_at';
+    const sortOrder =
+      options.sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const orderByClause = `ORDER BY ${sortBy} ${sortOrder}`;
+
+    const query = `
+      SELECT * FROM plans
+      ${whereClause}
+      ${orderByClause}
+    `;
+
+    const result = await this.query<Plan>(query, params);
+    return result.rows.map((row) => this.mapRowToPlan(row));
+  }
+
+  /**
    * プラットフォームとステータスでプラン一覧を取得する
    */
   async findByPlatformAndStatus(
