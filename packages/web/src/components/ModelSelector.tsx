@@ -72,7 +72,7 @@ const ModelSelector: React.FC<Props> = ({
     <Menu as="div" className={`relative ${className}`}>
       {({ open, close }) => (
         <>
-          <Menu.Button className="relative h-10 w-full cursor-pointer rounded-lg px-4 py-2 text-left focus:outline-none">
+          <Menu.Button className="relative h-10 w-full cursor-pointer rounded-lg px-4 py-2 text-left hover:bg-gray-100 focus:outline-none">
             <span className="flex items-center justify-between">
               <span className="block truncate font-medium">
                 {currentModel?.label || value}
@@ -103,9 +103,8 @@ const ModelSelector: React.FC<Props> = ({
                           setIsSubMenuOpen(false);
                           close();
                         }}
-                        className={`${
-                          active ? 'bg-gray-100' : ''
-                        } group flex w-full items-start px-4 py-3 text-left`}>
+                        className={`${active ? 'bg-gray-100' : ''
+                          } group flex w-full items-start px-4 py-3 text-left`}>
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                           {value === model.value && (
                             <PiCheck className="h-5 w-5 text-aws-smile" />
