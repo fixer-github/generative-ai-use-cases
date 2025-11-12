@@ -56,12 +56,11 @@ export interface TenantOpenSearchStackProps extends cdk.StackProps {
    * Removal policy for the domain
    */
   readonly removalPolicy: cdk.RemovalPolicy;
-
   /**
    * The tenant IAM role ARN for accessing OpenSearch
    * This role is assumed by Lambda functions to access tenant-specific resources
    */
-  readonly tenantIamRoleArn?: string;
+  readonly tenantRoleArn: string;
 
   /**
    * DynamoDB table name for tenants
@@ -242,10 +241,8 @@ export class TenantOpenSearchStack extends cdk.Stack {
       new iam.ServicePrincipal('bedrock.amazonaws.com'),
     ];
 
-    // Add tenant role if provided
-    if (props.tenantIamRoleArn) {
-      principals.push(new iam.ArnPrincipal(props.tenantIamRoleArn));
-    }
+    // Add tenant role
+    principals.push(new iam.ArnPrincipal(props.tenantRoleArn));
 
     const accessPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -275,6 +272,27 @@ export class TenantOpenSearchStack extends cdk.Stack {
     // Create custom resource to update tenant record with OpenSearch information
     // Only create if tenantsTableName is provided
     if (props.tenantsTableName && props.controlPlaneRegion) {
+      // Get control plane account from context or use current account
+      const controlPlaneAccount = this.node.tryGetContext('controlPlaneAccount');
+      const currentAccount = cdk.Stack.of(this).account;
+
+      // Determine if cross-account access is needed
+      const isCrossAccount = controlPlaneAccount && controlPlaneAccount !== currentAccount;
+
+      // Get or construct the control plane role ARN for cross-account access
+      let controlPlaneRoleArn: string | undefined;
+      if (isCrossAccount) {
+        // Use the role from context or construct the ARN
+        const controlPlaneLambdaRoleArn = this.node.tryGetContext('controlPlaneLambdaRoleArn');
+        if (controlPlaneLambdaRoleArn) {
+          controlPlaneRoleArn = controlPlaneLambdaRoleArn;
+        } else {
+          // Construct a standard role ARN for the control plane
+          // This assumes a role exists in the control plane account that trusts this tenant account
+          controlPlaneRoleArn = `arn:aws:iam::${controlPlaneAccount}:role/TenantAccessRole`;
+        }
+      }
+
       // Create Lambda function for custom resource
       const tenantUpdaterLambda = new lambda.SingletonFunction(
         this,
@@ -288,19 +306,34 @@ export class TenantOpenSearchStack extends cdk.Stack {
           environment: {
             TENANTS_TABLE_NAME: props.tenantsTableName,
             CONTROL_PLANE_REGION: props.controlPlaneRegion,
+            CONTROL_PLANE_ACCOUNT: controlPlaneAccount || currentAccount,
+            CONTROL_PLANE_ROLE_ARN: controlPlaneRoleArn || '',
             DEFAULT_OPENSEARCH_INDEX: props.openSearchIndexName || 'assistant-docs',
           },
         }
       );
 
       // Grant DynamoDB permissions to the Lambda
-      const tenantsTableArn = `arn:aws:dynamodb:${props.controlPlaneRegion}:${this.account}:table/${props.tenantsTableName}`;
+      const tenantsTableArn = `arn:aws:dynamodb:${props.controlPlaneRegion}:${controlPlaneAccount || currentAccount}:table/${props.tenantsTableName}`;
       const tenantsTable = dynamodb.Table.fromTableArn(
         this,
         'TenantsTable',
         tenantsTableArn
       );
-      tenantsTable.grantReadWriteData(tenantUpdaterLambda);
+
+      // If cross-account, grant STS assume role permission
+      if (isCrossAccount && controlPlaneRoleArn) {
+        tenantUpdaterLambda.addToRolePolicy(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ['sts:AssumeRole'],
+            resources: [controlPlaneRoleArn],
+          })
+        );
+      } else {
+        // Same account: grant direct DynamoDB access
+        tenantsTable.grantReadWriteData(tenantUpdaterLambda);
+      }
 
       // Create custom resource
       const tenantUpdaterResource = new cdk.CustomResource(

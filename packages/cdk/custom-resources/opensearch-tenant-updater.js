@@ -1,11 +1,33 @@
 const { DynamoDBClient, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall } = require('@aws-sdk/util-dynamodb');
+const { STSClient, AssumeRoleCommand } = require('@aws-sdk/client-sts');
+const { fromTemporaryCredentials } = require('@aws-sdk/credential-providers');
 
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME;
 const CONTROL_PLANE_REGION = process.env.CONTROL_PLANE_REGION;
+const CONTROL_PLANE_ACCOUNT = process.env.CONTROL_PLANE_ACCOUNT;
+const CONTROL_PLANE_ROLE_ARN = process.env.CONTROL_PLANE_ROLE_ARN;
 const DEFAULT_OPENSEARCH_INDEX = process.env.DEFAULT_OPENSEARCH_INDEX || 'assistant-docs';
 
-const dynamoClient = new DynamoDBClient({ region: CONTROL_PLANE_REGION });
+// Create DynamoDB client with cross-account credentials if needed
+const createDynamoClient = () => {
+  const config = { region: CONTROL_PLANE_REGION };
+
+  // If a control plane role ARN is provided, assume that role for cross-account access
+  if (CONTROL_PLANE_ROLE_ARN) {
+    config.credentials = fromTemporaryCredentials({
+      params: {
+        RoleArn: CONTROL_PLANE_ROLE_ARN,
+        RoleSessionName: 'OpenSearchTenantUpdater',
+        ExternalId: 'opensearch-tenant-updater',
+      },
+    });
+  }
+
+  return new DynamoDBClient(config);
+};
+
+const dynamoClient = createDynamoClient();
 
 const updateStatus = async (event, status, reason, physicalResourceId) => {
   const body = JSON.stringify({
