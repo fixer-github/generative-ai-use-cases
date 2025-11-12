@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { PiArrowLeft, PiFloppyDisk, PiFile, PiTrash } from 'react-icons/pi';
+import { PiArrowLeft, PiFloppyDisk, PiFile, PiTrash, PiEye, PiLock } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
 import useAssistantForm from '../hooks/useAssistantForm';
+import useUserInfo from '../hooks/useUserInfo';
 import {
   CreateAssistantRequest,
   UpdateAssistantRequest,
@@ -20,11 +21,13 @@ const AssistantFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { assistantId } = useParams<{ assistantId?: string }>();
   const { getAssistant, createAssistant, updateAssistant, deleteAssistant } = useAssistantApi();
+  const { userInfo } = useUserInfo();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isOwner, setIsOwner] = useState(true); // Default true for create mode
 
   const {
     formData,
@@ -43,6 +46,7 @@ const AssistantFormPage: React.FC = () => {
     if (assistantId) {
       fetchAssistant();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantId]);
 
   const fetchAssistant = async () => {
@@ -51,12 +55,18 @@ const AssistantFormPage: React.FC = () => {
     setLoading(true);
     try {
       const assistant = await getAssistant(assistantId);
+
+      // Check ownership
+      const ownerCheck = userInfo?.username === assistant.userId;
+      setIsOwner(ownerCheck);
+
       setFormData({
         name: assistant.name,
         description: assistant.description || '',
         instruction: assistant.instruction,
         modelId: assistant.modelId,
         ragEnabled: assistant.ragEnabled,
+        visibility: assistant.visibility,
         knowledgeSources: assistant.knowledgeSources || [],
       });
     } catch (error) {
@@ -72,6 +82,12 @@ const AssistantFormPage: React.FC = () => {
       return;
     }
 
+    // Check if user is owner when editing
+    if (assistantId && !isOwner) {
+      alert(t('assistant.edit.notOwner'));
+      return;
+    }
+
     setSaving(true);
     try {
       const requestData: CreateAssistantRequest | UpdateAssistantRequest = {
@@ -80,6 +96,7 @@ const AssistantFormPage: React.FC = () => {
         instruction: formData.instruction,
         modelId: formData.modelId,
         ragEnabled: formData.ragEnabled,
+        visibility: formData.visibility,
         knowledgeSources: formData.knowledgeSources,
       };
 
@@ -142,12 +159,88 @@ const AssistantFormPage: React.FC = () => {
         </h1>
       </div>
 
+      {/* Read-only banner for non-owners */}
+      {assistantId && !isOwner && (
+        <Card className="mb-6 border-l-4 border-blue-500 bg-blue-50">
+          <div className="flex items-start gap-3">
+            <PiEye className="mt-0.5 text-xl text-blue-600" />
+            <div>
+              <h3 className="mb-1 font-semibold text-blue-900">
+                {t('assistant.edit.readOnlyMode')}
+              </h3>
+              <p className="text-sm text-blue-800">
+                {t('assistant.edit.readOnlyDescription')}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Basic Information Section */}
       <Card className="mb-6">
         <h2 className="mb-4 text-lg font-semibold">
           {t('assistant.edit.basicInfo')}
         </h2>
-        <BasicInfoFields formData={formData} onChange={setFormData} />
+        <BasicInfoFields
+          formData={formData}
+          onChange={setFormData}
+          disabled={assistantId ? !isOwner : false}
+        />
+
+        {/* Visibility Selector (only for owners) */}
+        {(!assistantId || isOwner) && (
+          <div className="mt-6">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              {t('assistant.visibility.label')}
+            </label>
+            <div className="flex gap-4">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="private"
+                  checked={formData.visibility === 'private'}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      visibility: e.target.value as 'private' | 'public',
+                    }))
+                  }
+                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <PiLock className="text-lg text-gray-600" />
+                <span className="text-sm text-gray-900">
+                  {t('assistant.visibility.private')}
+                </span>
+                <span className="text-xs text-gray-500">
+                  ({t('assistant.visibility.privateDescription')})
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="public"
+                  checked={formData.visibility === 'public'}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      visibility: e.target.value as 'private' | 'public',
+                    }))
+                  }
+                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <PiEye className="text-lg text-gray-600" />
+                <span className="text-sm text-gray-900">
+                  {t('assistant.visibility.public')}
+                </span>
+                <span className="text-xs text-gray-500">
+                  ({t('assistant.visibility.publicDescription')})
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Knowledge Section */}
@@ -167,13 +260,14 @@ const AssistantFormPage: React.FC = () => {
             onRemoveSource={removeKnowledgeSource}
             onFileUpload={handleFileUpload}
             onDeleteFile={deleteFile}
+            disabled={assistantId ? !isOwner : false}
           />
         </Card>
       )}
 
       {/* Action Buttons */}
       <div className="flex justify-between gap-2">
-        {assistantId && (
+        {assistantId && isOwner && (
           <Button
             outlined
             onClick={() => setIsDeleteModalOpen(true)}
@@ -185,15 +279,19 @@ const AssistantFormPage: React.FC = () => {
         )}
         <div className="flex flex-1 justify-end gap-2">
           <Button outlined onClick={handleCancel}>
-            {t('assistant.edit.cancel')}
+            {assistantId && !isOwner
+              ? t('assistant.edit.close')
+              : t('assistant.edit.cancel')}
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving || uploadingFiles}
-            className="flex items-center gap-1">
-            <PiFloppyDisk />
-            {saving ? t('assistant.edit.saving') : t('assistant.edit.save')}
-          </Button>
+          {(!assistantId || isOwner) && (
+            <Button
+              onClick={handleSave}
+              disabled={saving || uploadingFiles}
+              className="flex items-center gap-1">
+              <PiFloppyDisk />
+              {saving ? t('assistant.edit.saving') : t('assistant.edit.save')}
+            </Button>
+          )}
         </div>
       </div>
 

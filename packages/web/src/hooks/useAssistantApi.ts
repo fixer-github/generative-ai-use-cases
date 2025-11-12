@@ -74,6 +74,17 @@ const useAssistantApi = () => {
         await http.delete<void>(`assistant/${assistantId}`);
       },
 
+      updateAssistantVisibility: async (
+        assistantId: string,
+        visibility: 'private' | 'public'
+      ): Promise<Assistant> => {
+        const res = await http.put<Assistant, { visibility: 'private' | 'public' }>(
+          `assistant/${assistantId}`,
+          { visibility }
+        );
+        return res.data;
+      },
+
       listMessages: async (
         assistantId: string,
         params?: ListAssistantMessagesQueryParams

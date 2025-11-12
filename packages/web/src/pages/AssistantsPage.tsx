@@ -1,23 +1,34 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { PiMagnifyingGlass, PiPlus, PiRobot, PiPencil } from 'react-icons/pi';
+import { PiMagnifyingGlass, PiPlus, PiRobot, PiPencil, PiEye, PiLock } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
+import useUserInfo from '../hooks/useUserInfo';
 import { Assistant } from 'generative-ai-use-cases';
 import LoadingWave from '../components/LoadingWave';
 import AssistantStatusTag from '../components/assistants/AssistantStatusTag';
 import Tooltip from '../components/Tooltip';
+import ModalDialogVisibilityToggle from '../components/assistants/ModalDialogVisibilityToggle';
 import { isSyncBlocking, isStatusFinal } from '../components/assistants/statusMetadata';
+
+type FilterTab = 'all' | 'mine';
 
 const AssistantsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { listAssistants } = useAssistantApi();
+  const { listAssistants, updateAssistantVisibility } = useAssistantApi();
+  const { userInfo } = useUserInfo();
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInputValue, setSearchInputValue] = useState('');
+  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  const [visibilityDialog, setVisibilityDialog] = useState<{
+    isOpen: boolean;
+    assistant: Assistant | null;
+  }>({ isOpen: false, assistant: null });
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const searchDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -45,6 +56,11 @@ const AssistantsPage: React.FC = () => {
       if (!signal.aborted) {
         let filtered = response.assistants || [];
 
+        // Filter by tab (mine vs all)
+        if (filterTab === 'mine' && userInfo) {
+          filtered = filtered.filter((a) => a.userId === userInfo.username);
+        }
+
         // Client-side search filtering
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
@@ -69,7 +85,7 @@ const AssistantsPage: React.FC = () => {
         setIsInitialLoad(false);
       }
     }
-  }, [searchQuery, listAssistants]);
+  }, [searchQuery, filterTab, userInfo, listAssistants]);
 
   // Debounce search input
   useEffect(() => {
@@ -142,6 +158,43 @@ const AssistantsPage: React.FC = () => {
     navigate('/chat/assistants/create');
   };
 
+  const handleVisibilityClick = (assistant: Assistant) => {
+    setVisibilityDialog({ isOpen: true, assistant });
+  };
+
+  const handleVisibilityConfirm = async () => {
+    if (!visibilityDialog.assistant) return;
+
+    setIsUpdatingVisibility(true);
+    try {
+      const newVisibility = visibilityDialog.assistant.visibility === 'private' ? 'public' : 'private';
+      const updatedAssistant = await updateAssistantVisibility(
+        visibilityDialog.assistant.assistantId,
+        newVisibility
+      );
+
+      // Update the assistant in the list
+      setAssistants((prev) =>
+        prev.map((a) =>
+          a.assistantId === updatedAssistant.assistantId ? updatedAssistant : a
+        )
+      );
+
+      setVisibilityDialog({ isOpen: false, assistant: null });
+    } catch (error) {
+      console.error('Failed to update visibility:', error);
+      alert(t('assistant.visibility.updateFailed'));
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
+
+  const handleVisibilityClose = () => {
+    if (!isUpdatingVisibility) {
+      setVisibilityDialog({ isOpen: false, assistant: null });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white p-8">
       {/* Header */}
@@ -149,6 +202,28 @@ const AssistantsPage: React.FC = () => {
         <h1 className="mb-6 text-3xl font-bold text-gray-900">
           {t('assistant.title')}
         </h1>
+
+        {/* Filter Tabs */}
+        <div className="mb-6 flex gap-1 border-b border-gray-200">
+          <button
+            onClick={() => setFilterTab('all')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              filterTab === 'all'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}>
+            {t('assistant.filter.allAssistants')}
+          </button>
+          <button
+            onClick={() => setFilterTab('mine')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              filterTab === 'mine'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}>
+            {t('assistant.filter.myAssistants')}
+          </button>
+        </div>
 
         {/* Search Bar and Create Button */}
         <div className="mb-8 flex gap-4">
@@ -188,8 +263,10 @@ const AssistantsPage: React.FC = () => {
                     <AssistantCard
                       key={assistant.assistantId}
                       assistant={assistant}
+                      currentUserId={userInfo?.username}
                       onStartChat={handleStartChat}
                       onEdit={handleEditAssistant}
+                      onVisibilityClick={handleVisibilityClick}
                     />
                   ))}
                 </div>
@@ -207,8 +284,10 @@ const AssistantsPage: React.FC = () => {
                     <AssistantCard
                       key={assistant.assistantId}
                       assistant={assistant}
+                      currentUserId={userInfo?.username}
                       onStartChat={handleStartChat}
                       onEdit={handleEditAssistant}
+                      onVisibilityClick={handleVisibilityClick}
                     />
                   ))}
                 </div>
@@ -222,6 +301,18 @@ const AssistantsPage: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Visibility Toggle Dialog */}
+      {visibilityDialog.assistant && (
+        <ModalDialogVisibilityToggle
+          isOpen={visibilityDialog.isOpen}
+          assistantName={visibilityDialog.assistant.name}
+          currentVisibility={visibilityDialog.assistant.visibility}
+          isUpdating={isUpdatingVisibility}
+          onConfirm={handleVisibilityConfirm}
+          onClose={handleVisibilityClose}
+        />
+      )}
     </div>
   );
 };
@@ -229,18 +320,23 @@ const AssistantsPage: React.FC = () => {
 // Assistant Card Component
 interface AssistantCardProps {
   assistant: Assistant;
+  currentUserId?: string;
   onStartChat: (assistant: Assistant) => void;
   onEdit: (assistantId: string) => void;
+  onVisibilityClick: (assistant: Assistant) => void;
 }
 
 const AssistantCard: React.FC<AssistantCardProps> = ({
   assistant,
+  currentUserId,
   onStartChat,
   onEdit,
+  onVisibilityClick,
 }) => {
   const { t } = useTranslation();
   const isBlocked =
     assistant.ragEnabled && isSyncBlocking(assistant.syncStatus);
+  const isOwner = currentUserId === assistant.userId;
 
   const chatButton = (
     <button
@@ -262,6 +358,20 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         <AssistantStatusTag assistant={assistant} />
       </div>
 
+      {/* Visibility Icon - Top Left (Owner Only) */}
+      {isOwner && (
+        <button
+          onClick={() => onVisibilityClick(assistant)}
+          className="absolute left-3 top-3 rounded-full p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
+          title={t(`assistant.visibility.${assistant.visibility}`)}>
+          {assistant.visibility === 'public' ? (
+            <PiEye className="text-lg" />
+          ) : (
+            <PiLock className="text-lg" />
+          )}
+        </button>
+      )}
+
       {/* Icon */}
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
         <PiRobot className="text-2xl text-blue-600" />
@@ -271,6 +381,15 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
       <h3 className="mb-2 pr-20 text-lg font-semibold text-gray-900">
         {assistant.name}
       </h3>
+
+      {/* Ownership Badge */}
+      {isOwner && (
+        <div className="mb-2">
+          <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+            {t('assistant.owner.mine')}
+          </span>
+        </div>
+      )}
 
       {/* Description */}
       <p className="mb-4 line-clamp-2 flex-1 text-sm text-gray-600">
