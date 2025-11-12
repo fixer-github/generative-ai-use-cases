@@ -63,10 +63,10 @@ class ShareApi extends Construct {
     });
     table.grantReadData(getSharedChat);
 
+    // 共有リンクは認証なしでアクセス可能にする（shareIdはUUIDで推測困難）
     shareShareIdResource.addMethod(
       'GET',
-      new LambdaIntegration(getSharedChat),
-      commonAuthorizerProps
+      new LambdaIntegration(getSharedChat)
     );
 
     // DELETE: /shares/share/{shareId}
