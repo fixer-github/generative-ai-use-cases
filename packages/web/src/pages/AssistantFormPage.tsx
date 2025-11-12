@@ -118,6 +118,14 @@ const AssistantFormPage: React.FC = () => {
         return;
       }
       console.error('Failed to fetch assistant:', error);
+      // Redirect to assistants page if access is forbidden (403)
+      if (!signal?.aborted && error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError.response?.status === 403) {
+          navigate('/chat/assistants');
+          return;
+        }
+      }
     } finally {
       if (!signal?.aborted) {
         setLoading(false);

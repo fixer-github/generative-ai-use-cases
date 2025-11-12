@@ -371,24 +371,22 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
 
   return (
     <div className="relative flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-      {/* Status Tag - Top Right */}
-      <div className="absolute right-3 top-3">
+      {/* Top Right: Visibility Icon (Owner Only) and Status Tag */}
+      <div className="absolute right-3 top-3 flex items-center gap-2">
+        {isOwner && (
+          <button
+            onClick={() => onVisibilityClick(assistant)}
+            className="rounded-full p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
+            title={t(`assistant.visibility.${assistant.visibility}`)}>
+            {assistant.visibility === 'public' ? (
+              <PiEye className="text-lg" />
+            ) : (
+              <PiLock className="text-lg" />
+            )}
+          </button>
+        )}
         <AssistantStatusTag assistant={assistant} />
       </div>
-
-      {/* Visibility Icon - Top Left (Owner Only) */}
-      {isOwner && (
-        <button
-          onClick={() => onVisibilityClick(assistant)}
-          className="absolute left-3 top-3 rounded-full p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
-          title={t(`assistant.visibility.${assistant.visibility}`)}>
-          {assistant.visibility === 'public' ? (
-            <PiEye className="text-lg" />
-          ) : (
-            <PiLock className="text-lg" />
-          )}
-        </button>
-      )}
 
       {/* Icon */}
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
@@ -399,15 +397,6 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
       <h3 className="mb-2 pr-20 text-lg font-semibold text-gray-900">
         {assistant.name}
       </h3>
-
-      {/* Ownership Badge */}
-      {isOwner && (
-        <div className="mb-2">
-          <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-            {t('assistant.owner.mine')}
-          </span>
-        </div>
-      )}
 
       {/* Description */}
       <p className="mb-4 line-clamp-2 flex-1 text-sm text-gray-600">
