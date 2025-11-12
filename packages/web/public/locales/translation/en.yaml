@@ -135,9 +135,6 @@ assistant:
     title: Name
     uploadFiles: Upload Files
   editTitle: Edit
-  filter:
-    allAssistants: All Assistants
-    myAssistants: My Assistants
   filterAll: All
   filterPrivate: Private
   filterPublic: Public

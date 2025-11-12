@@ -11,8 +11,6 @@ import Tooltip from '../components/Tooltip';
 import ModalDialogVisibilityToggle from '../components/assistants/ModalDialogVisibilityToggle';
 import { isSyncBlocking, isStatusFinal } from '../components/assistants/statusMetadata';
 
-type FilterTab = 'all' | 'mine';
-
 const AssistantsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -21,10 +19,8 @@ const AssistantsPage: React.FC = () => {
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isFilterChanging, setIsFilterChanging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInputValue, setSearchInputValue] = useState('');
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [visibilityDialog, setVisibilityDialog] = useState<{
     isOpen: boolean;
     assistant: Assistant | null;
@@ -49,7 +45,6 @@ const AssistantsPage: React.FC = () => {
     // Only show loading spinner on initial load, not during polling
     if (!isPollingRequest) {
       setIsInitialLoad(true);
-      setIsFilterChanging(true);
     }
 
     try {
@@ -57,11 +52,6 @@ const AssistantsPage: React.FC = () => {
       // Only update state if request wasn't cancelled
       if (!signal.aborted) {
         let filtered = response.assistants || [];
-
-        // Filter by tab (mine vs all)
-        if (filterTab === 'mine' && userInfo) {
-          filtered = filtered.filter((a) => a.userId === userInfo.username);
-        }
 
         // Client-side search filtering
         if (searchQuery) {
@@ -85,10 +75,9 @@ const AssistantsPage: React.FC = () => {
       // Only set loading to false if request wasn't cancelled (check local signal)
       if (!signal.aborted && !isPollingRequest) {
         setIsInitialLoad(false);
-        setIsFilterChanging(false);
       }
     }
-  }, [searchQuery, filterTab, userInfo, listAssistants]);
+  }, [searchQuery, listAssistants]);
 
   // Debounce search input
   useEffect(() => {
@@ -107,13 +96,7 @@ const AssistantsPage: React.FC = () => {
     };
   }, [searchInputValue]);
 
-  // Clear stale data immediately when filter tab changes
-  useEffect(() => {
-    setAssistants([]);
-    setIsFilterChanging(true);
-  }, [filterTab]);
-
-  // Fetch assistants on filter changes
+  // Fetch assistants on search changes
   useEffect(() => {
     fetchAssistants();
   }, [fetchAssistants]);
@@ -212,28 +195,6 @@ const AssistantsPage: React.FC = () => {
           {t('assistant.title')}
         </h1>
 
-        {/* Filter Tabs */}
-        <div className="mb-6 flex gap-1 border-b border-gray-200">
-          <button
-            onClick={() => setFilterTab('all')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              filterTab === 'all'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}>
-            {t('assistant.filter.allAssistants')}
-          </button>
-          <button
-            onClick={() => setFilterTab('mine')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              filterTab === 'mine'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}>
-            {t('assistant.filter.myAssistants')}
-          </button>
-        </div>
-
         {/* Search Bar and Create Button */}
         <div className="mb-8 flex gap-4">
           <div className="relative flex-1">
@@ -261,14 +222,7 @@ const AssistantsPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Filter Change Loading Overlay */}
-            {isFilterChanging && assistants.length === 0 ? (
-              <div className="flex justify-center py-12">
-                <LoadingWave />
-              </div>
-            ) : (
-              <>
-                {/* Featured Assistants Section */}
+            {/* Featured Assistants Section */}
                 {featuredAssistants.length > 0 && (
                   <section className="mb-12">
                     <h2 className="mb-4 text-sm font-semibold text-gray-600">
@@ -314,8 +268,6 @@ const AssistantsPage: React.FC = () => {
                     </div>
                   )}
                 </section>
-              </>
-            )}
           </>
         )}
       </div>

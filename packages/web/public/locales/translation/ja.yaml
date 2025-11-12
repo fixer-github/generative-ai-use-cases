@@ -135,9 +135,6 @@ assistant:
     title: 名前
     uploadFiles: ファイルをアップロード
   editTitle: 編集
-  filter:
-    allAssistants: すべてのアシスタント
-    myAssistants: マイアシスタント
   filterAll: すべて
   filterPrivate: プライベート
   filterPublic: パブリック
