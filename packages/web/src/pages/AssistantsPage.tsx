@@ -21,6 +21,7 @@ const AssistantsPage: React.FC = () => {
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isFilterChanging, setIsFilterChanging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInputValue, setSearchInputValue] = useState('');
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
@@ -48,6 +49,7 @@ const AssistantsPage: React.FC = () => {
     // Only show loading spinner on initial load, not during polling
     if (!isPollingRequest) {
       setIsInitialLoad(true);
+      setIsFilterChanging(true);
     }
 
     try {
@@ -74,15 +76,16 @@ const AssistantsPage: React.FC = () => {
         setAssistants(filtered);
       }
     } catch (error) {
-      // Only update state if request wasn't cancelled
-      if (!abortControllerRef.current?.signal.aborted) {
+      // Only update state if request wasn't cancelled (check local signal)
+      if (!signal.aborted) {
         console.error('Failed to fetch assistants:', error);
         setAssistants([]);
       }
     } finally {
-      // Only set loading to false if request wasn't cancelled
-      if (!abortControllerRef.current?.signal.aborted && !isPollingRequest) {
+      // Only set loading to false if request wasn't cancelled (check local signal)
+      if (!signal.aborted && !isPollingRequest) {
         setIsInitialLoad(false);
+        setIsFilterChanging(false);
       }
     }
   }, [searchQuery, filterTab, userInfo, listAssistants]);
@@ -103,6 +106,12 @@ const AssistantsPage: React.FC = () => {
       }
     };
   }, [searchInputValue]);
+
+  // Clear stale data immediately when filter tab changes
+  useEffect(() => {
+    setAssistants([]);
+    setIsFilterChanging(true);
+  }, [filterTab]);
 
   // Fetch assistants on filter changes
   useEffect(() => {
@@ -252,52 +261,61 @@ const AssistantsPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Featured Assistants Section */}
-            {featuredAssistants.length > 0 && (
-              <section className="mb-12">
-                <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                  {t('assistant.popularAssistants')}
-                </h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {featuredAssistants.map((assistant) => (
-                    <AssistantCard
-                      key={assistant.assistantId}
-                      assistant={assistant}
-                      currentUserId={userInfo?.username}
-                      onStartChat={handleStartChat}
-                      onEdit={handleEditAssistant}
-                      onVisibilityClick={handleVisibilityClick}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* Filter Change Loading Overlay */}
+            {isFilterChanging && assistants.length === 0 ? (
+              <div className="flex justify-center py-12">
+                <LoadingWave />
+              </div>
+            ) : (
+              <>
+                {/* Featured Assistants Section */}
+                {featuredAssistants.length > 0 && (
+                  <section className="mb-12">
+                    <h2 className="mb-4 text-sm font-semibold text-gray-600">
+                      {t('assistant.popularAssistants')}
+                    </h2>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {featuredAssistants.map((assistant) => (
+                        <AssistantCard
+                          key={assistant.assistantId}
+                          assistant={assistant}
+                          currentUserId={userInfo?.username}
+                          onStartChat={handleStartChat}
+                          onEdit={handleEditAssistant}
+                          onVisibilityClick={handleVisibilityClick}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-            {/* All Assistants Section */}
-            <section>
-              <h2 className="mb-4 text-sm font-semibold text-gray-600">
-                {t('assistant.allAssistants')}
-              </h2>
-              {allAssistants.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {allAssistants.map((assistant) => (
-                    <AssistantCard
-                      key={assistant.assistantId}
-                      assistant={assistant}
-                      currentUserId={userInfo?.username}
-                      onStartChat={handleStartChat}
-                      onEdit={handleEditAssistant}
-                      onVisibilityClick={handleVisibilityClick}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                  <PiMagnifyingGlass className="mb-4 text-6xl" />
-                  <p>{t('assistant.noAssistants')}</p>
-                </div>
-              )}
-            </section>
+                {/* All Assistants Section */}
+                <section>
+                  <h2 className="mb-4 text-sm font-semibold text-gray-600">
+                    {t('assistant.allAssistants')}
+                  </h2>
+                  {allAssistants.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {allAssistants.map((assistant) => (
+                        <AssistantCard
+                          key={assistant.assistantId}
+                          assistant={assistant}
+                          currentUserId={userInfo?.username}
+                          onStartChat={handleStartChat}
+                          onEdit={handleEditAssistant}
+                          onVisibilityClick={handleVisibilityClick}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <PiMagnifyingGlass className="mb-4 text-6xl" />
+                      <p>{t('assistant.noAssistants')}</p>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </>
         )}
       </div>
