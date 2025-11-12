@@ -213,7 +213,7 @@ const PlanDetailPage: React.FC = () => {
 
         {success && (
           <div className="mb-6">
-            <Alert severity="success" className="w-full">
+            <Alert severity="info" className="w-full">
               {success}
             </Alert>
           </div>
@@ -582,7 +582,7 @@ const PlanDetailPage: React.FC = () => {
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
                   onClick={handleStatusUpdate}
-                  disabled={!selectedStatus || statusUpdateLoading || (selectedStatus === 'deprecated' && subscriptions && subscriptions.total_subscribers > 0)}>
+                  disabled={!selectedStatus || statusUpdateLoading || (selectedStatus === 'deprecated' && (subscriptions?.total_subscribers ?? 0) > 0)}>
                   {statusUpdateLoading ? '更新中...' : '変更を実行'}
                 </Button>
               </div>
