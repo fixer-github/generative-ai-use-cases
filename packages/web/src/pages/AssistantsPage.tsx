@@ -51,7 +51,7 @@ const AssistantsPage: React.FC = () => {
     }
 
     try {
-      const response = await listAssistants({ limit: 100 });
+      const response = await listAssistants({ limit: 100 }, signal);
       // Only update state if request wasn't cancelled
       if (!signal.aborted) {
         let filtered = response.assistants || [];

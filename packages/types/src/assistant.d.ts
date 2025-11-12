@@ -93,7 +93,8 @@ export type ListAssistantsQueryParams = {
 
 export type ListAssistantsResponse = {
   assistants: Assistant[];
-  lastEvaluatedKey?: string;
+  lastEvaluatedKey?: string; // Alias for nextToken for backward compatibility
+  nextToken?: string;
 };
 
 export type ListAssistantMessagesQueryParams = {

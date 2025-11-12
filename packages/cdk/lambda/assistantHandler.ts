@@ -32,14 +32,17 @@ const headers = {
 };
 
 /**
- * Helper function to strip the "assistant#" prefix from assistantId
- * Internal storage uses "assistant#<uuid>" format, but API returns clean UUID
- * Handles multiple prefixes defensively (e.g., "assistant#assistant#uuid" -> "uuid")
+ * Helper function to normalize assistant data for API responses
+ * - Strips "assistant#" prefix from assistantId
+ * - Strips "user#" prefix from userId and id for anonymity and frontend compatibility
+ * Internal storage uses prefixed format, but API returns clean values
  */
 function stripAssistantPrefix(assistant: Assistant): Assistant {
   return {
     ...assistant,
     assistantId: assistant.assistantId.replace(/^(assistant#)+/, ''),
+    userId: assistant.userId.replace(/^user#/, ''),
+    id: assistant.id.replace(/^user#/, ''), // Normalize partition key duplicate
   };
 }
 
@@ -264,21 +267,53 @@ async function handleList(
   userId: string,
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
-  const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;
+  // Read nextToken parameter (aligned with frontend API contract)
+  const nextToken = event.queryStringParameters?.nextToken;
 
-  const result = await listAssistants(userId, event, exclusiveStartKey);
+  // Parse and validate limit parameter
+  let limit = 100; // default
+  if (event.queryStringParameters?.limit) {
+    const parsedLimit = parseInt(event.queryStringParameters.limit, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          message: 'Invalid limit parameter. Must be between 1 and 100.'
+        }),
+      };
+    }
+    limit = parsedLimit;
+  }
 
-  // Strip prefix from all assistants
-  const sanitizedResult: ListAssistantsResponse = {
-    ...result,
-    assistants: result.assistants.map(stripAssistantPrefix),
-  };
+  try {
+    const result = await listAssistants(userId, event, nextToken, limit);
 
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify(sanitizedResult),
-  };
+    // Strip prefix from all assistants
+    // Provide both lastEvaluatedKey (backward compatibility) and nextToken (new standard)
+    const sanitizedResult: ListAssistantsResponse = {
+      assistants: result.assistants.map(stripAssistantPrefix),
+      lastEvaluatedKey: result.lastEvaluatedKey,
+      nextToken: result.lastEvaluatedKey,
+    };
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(sanitizedResult),
+    };
+  } catch (error: any) {
+    if (error.message === 'Invalid pagination token') {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          message: 'Invalid pagination token. Please start from the beginning.'
+        }),
+      };
+    }
+    throw error;
+  }
 }
 
 /**

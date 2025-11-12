@@ -36,11 +36,12 @@ const useAssistantApi = () => {
   return useMemo(
     () => ({
       listAssistants: async (
-        params?: ListAssistantsQueryParams
+        params?: ListAssistantsQueryParams,
+        signal?: AbortSignal
       ): Promise<ListAssistantsResponse> => {
         const queryString = buildQueryString(params);
         const url = queryString ? `assistant?${queryString}` : 'assistant';
-        const res = await http.api.get<ListAssistantsResponse>(url);
+        const res = await http.api.get<ListAssistantsResponse>(url, { signal });
         return res.data;
       },
 
