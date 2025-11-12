@@ -558,18 +558,11 @@ export class TenantOpenFgaStack extends cdk.Stack {
       endpointConfiguration: {
         types: [apigateway.EndpointType.REGIONAL],
       },
-      deployOptions: {
-        stageName: 'prod',
-        loggingLevel:
-          loggingLevelMap[props.openFgaConfig.apiGateway.loggingLevel] ||
-          apigateway.MethodLoggingLevel.INFO,
-        dataTraceEnabled: props.openFgaConfig.apiGateway.dataTraceEnabled,
-        metricsEnabled: true,
-      },
-      defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
-      },
+      deploy: false, // Disable automatic deployment to avoid circular dependencies
+      // defaultCorsPreflightOptions: {
+      //   allowOrigins: apigateway.Cors.ALL_ORIGINS,
+      //   allowMethods: apigateway.Cors.ALL_METHODS,
+      // },
     });
 
     // Create integration with VPC Link
@@ -588,7 +581,7 @@ export class TenantOpenFgaStack extends cdk.Stack {
 
     // Add proxy resource to forward all requests
     const proxyResource = api.root.addResource('{proxy+}');
-    proxyResource.addMethod('ANY', integration, {
+    const proxyMethod = proxyResource.addMethod('ANY', integration, {
       authorizationType: apigateway.AuthorizationType.IAM,
       requestParameters: {
         'method.request.path.proxy': true,
@@ -612,11 +605,31 @@ export class TenantOpenFgaStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         principals: allowedPrincipals,
         actions: ['execute-api:Invoke'],
-        resources: [api.arnForExecuteApi()],
+        resources: ['execute-api:/*'],
       })
     );
 
-    this.apiEndpoint = api.url;
+    // Create manual deployment after all resources and methods are defined
+    // This avoids circular dependencies that occur when using deployOptions
+    const deployment = new apigateway.Deployment(this, 'OpenFgaApiDeployment', {
+      api: api,
+    });
+
+    // Ensure deployment depends on all resources and methods
+    deployment.node.addDependency(proxyMethod);
+
+    // Create stage with logging configuration
+    const stage = new apigateway.Stage(this, 'OpenFgaApiStage', {
+      deployment: deployment,
+      stageName: 'prod',
+      loggingLevel:
+        loggingLevelMap[props.openFgaConfig.apiGateway.loggingLevel] ||
+        apigateway.MethodLoggingLevel.INFO,
+      dataTraceEnabled: props.openFgaConfig.apiGateway.dataTraceEnabled,
+      metricsEnabled: true,
+    });
+
+    this.apiEndpoint = stage.urlForPath('/');
     this.apiGatewayId = api.restApiId;
 
     // Create Lambda for schema initialization
@@ -660,18 +673,17 @@ export class TenantOpenFgaStack extends cdk.Stack {
     // Ensure schema initialization happens after migration, API Gateway, and ECS service are ready
     // Dependency order: Database → Migration → ECS Service → Schema Initialization
     schemaInitializer.node.addDependency(migrateRunner);
-    schemaInitializer.node.addDependency(api);
     schemaInitializer.node.addDependency(service);
 
     // Get the StoreId from the Custom Resource
     this.storeId = schemaInitializer.getAttString('StoreId');
 
     // Outputs
-    new cdk.CfnOutput(this, 'OpenFgaApiEndpoint', {
-      value: this.apiEndpoint,
-      description: `OpenFGA API Gateway endpoint for tenant ${props.tenantId}`,
-      exportName: `${this.stackName}-ApiEndpoint`,
-    });
+    // new cdk.CfnOutput(this, 'OpenFgaApiEndpoint', {
+    //   value: this.apiEndpoint,
+    //   description: `OpenFGA API Gateway endpoint for tenant ${props.tenantId}`,
+    //   exportName: `${this.stackName}-ApiEndpoint`,
+    // });
 
     new cdk.CfnOutput(this, 'OpenFgaApiGatewayId', {
       value: this.apiGatewayId,
