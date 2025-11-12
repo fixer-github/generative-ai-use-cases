@@ -1,26 +1,27 @@
 import Stripe from 'stripe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { PlatformType } from '../repositories/types';
 import { google } from 'googleapis';
+import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * Lambda関数ハンドラーのイベント型
+ * リクエストボディの型
  */
-interface CancelSubscriptionEvent {
+interface CancelSubscriptionRequest {
   platformType: PlatformType;
   subscriptionId: string;
   cancelImmediately: boolean; // 即時キャンセルか期限終了時キャンセルか
-  tenantId: string;
   // Google固有のパラメータ
   packageName?: string;
   purchaseToken?: string;
 }
 
 /**
- * Lambda関数ハンドラーのレスポンス型
+ * レスポンスボディの型
  */
 interface CancelSubscriptionResponse {
   success: boolean;
@@ -60,42 +61,99 @@ async function getSecret(secretName: string): Promise<any> {
  * Lambda関数のメインハンドラー
  */
 export async function handler(
-  event: CancelSubscriptionEvent
-): Promise<CancelSubscriptionResponse> {
-  console.log('Cancel subscription request:', event);
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  console.log('Cancel subscription request received');
 
   try {
-    const { platformType, subscriptionId, cancelImmediately, tenantId } = event;
+    // 1. Cognitoの認証情報からテナントIDを取得
+    const tenantId = getTenantId(event);
 
+    // 2. リクエストボディを取得
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Request body is required' }),
+      };
+    }
+
+    const requestBody: CancelSubscriptionRequest = JSON.parse(event.body);
+    const {
+      platformType,
+      subscriptionId,
+      cancelImmediately,
+      packageName,
+      purchaseToken,
+    } = requestBody;
+
+    console.log('Cancel subscription request:', {
+      platformType,
+      subscriptionId,
+      tenantId,
+    });
+
+    // 3. プラットフォームごとにキャンセル処理を実行
+    let result;
     switch (platformType) {
       case 'stripe':
-        return cancelStripeSubscription(
+        result = await cancelStripeSubscription(
           subscriptionId,
           cancelImmediately,
           tenantId
         );
+        break;
 
       case 'apple':
         // Appleの場合、サーバー側からのキャンセルはできない
         // ユーザーがApp Storeの設定から解約する必要がある
-        throw new Error(
-          'Apple subscriptions cannot be canceled server-side. Users must cancel through App Store settings.'
-        );
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error:
+              'Apple subscriptions cannot be canceled server-side. Users must cancel through App Store settings.',
+          }),
+        };
 
       case 'google':
-        return cancelGoogleSubscription(
+        if (!packageName || !purchaseToken) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              error:
+                'packageName and purchaseToken are required for Google subscriptions',
+            }),
+          };
+        }
+        result = await cancelGoogleSubscription(
           subscriptionId,
-          event.packageName!,
-          event.purchaseToken!,
+          packageName,
+          purchaseToken,
           tenantId
         );
+        break;
 
       default:
-        throw new Error(`Unsupported platform type: ${platformType}`);
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: `Unsupported platform type: ${platformType}`,
+          }),
+        };
     }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
   } catch (error) {
     console.error('Error canceling subscription:', error);
-    throw error;
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    };
   }
 }
 
@@ -110,17 +168,18 @@ async function cancelStripeSubscription(
   const secretName = `${tenantId}/billing/stripe`;
   const secret = await getSecret(secretName);
 
-  const stripe = new Stripe(secret.apiKey, { apiVersion: '2024-11-20.acacia' });
+  const stripe = new Stripe(secret.apiKey, { apiVersion: '2025-10-29.clover' });
 
   if (cancelImmediately) {
     // 即時キャンセル
-    const canceledSubscription = await stripe.subscriptions.cancel(
-      subscriptionId
-    );
+    const canceledSubscription =
+      await stripe.subscriptions.cancel(subscriptionId);
 
     return {
       success: true,
-      canceledAt: new Date(canceledSubscription.canceled_at! * 1000).toISOString(),
+      canceledAt: new Date(
+        canceledSubscription.canceled_at! * 1000
+      ).toISOString(),
       serviceEndDate: new Date(
         canceledSubscription.canceled_at! * 1000
       ).toISOString(),
@@ -134,11 +193,14 @@ async function cancelStripeSubscription(
       }
     );
 
+    // Stripe API Clover系では、current_period_endはSubscriptionItemレベルに移行
+    const subscriptionItem = updatedSubscription.items.data[0];
+
     return {
       success: true,
       canceledAt: new Date().toISOString(),
       serviceEndDate: new Date(
-        updatedSubscription.current_period_end * 1000
+        subscriptionItem.current_period_end * 1000
       ).toISOString(),
     };
   }

@@ -18,34 +18,31 @@ import { WebhookEvent } from '../../repositories/types';
 /**
  * シークレットのキャッシュ（コールドスタート対策）
  */
-let webhookSecretCache: string | null = null;
+const webhookSecretCache: Record<string, string> = {};
 
 /**
  * Secrets Managerから Webhook Secret を取得する
  */
-async function getWebhookSecret(): Promise<string> {
-  if (webhookSecretCache) {
-    return webhookSecretCache;
-  }
+async function getWebhookSecret(tenantId: string): Promise<string> {
+  const secretName = `${tenantId}/billing/stripe`;
 
-  const secretArn = process.env.STRIPE_WEBHOOK_SECRET_ARN;
-  if (!secretArn) {
-    throw new Error('STRIPE_WEBHOOK_SECRET_ARN is not set');
+  if (webhookSecretCache[secretName]) {
+    return webhookSecretCache[secretName];
   }
 
   const client = new SecretsManagerClient({});
-  const command = new GetSecretValueCommand({ SecretId: secretArn });
+  const command = new GetSecretValueCommand({ SecretId: secretName });
 
   const response = await client.send(command);
 
   if (!response.SecretString) {
-    throw new Error('Webhook secret is empty');
+    throw new Error(`Webhook secret is empty for ${secretName}`);
   }
 
   const secret = JSON.parse(response.SecretString);
-  webhookSecretCache = secret.webhookSecret;
+  webhookSecretCache[secretName] = secret.webhookSecret;
 
-  return webhookSecretCache!;
+  return webhookSecretCache[secretName];
 }
 
 /**
@@ -57,9 +54,9 @@ export async function handler(
   console.log('Received Stripe webhook request');
 
   try {
-    const tenantId = process.env.TENANT_ID || event.queryStringParameters?.tenantId;
+    // 1. パスパラメータからテナントIDを取得
+    const tenantId = event.pathParameters?.tenantId;
     const eventBusName = process.env.EVENT_BUS_NAME;
-    const webhookEventTableName = process.env.WEBHOOK_EVENT_TABLE_NAME;
 
     if (!tenantId) {
       return {
@@ -75,14 +72,12 @@ export async function handler(
       };
     }
 
-    if (!webhookEventTableName) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'WEBHOOK_EVENT_TABLE_NAME is not set' }),
-      };
-    }
+    console.log(`Processing Stripe webhook for tenant: ${tenantId}`);
 
-    // リクエストボディと署名を取得
+    // 2. テーブル名を動的に構築
+    const webhookEventTableName = `${tenantId}-payment-gateway-webhook-events`;
+
+    // 3. リクエストボディと署名を取得
     const payload = event.body;
     const signature = event.headers['stripe-signature'];
 
@@ -93,10 +88,10 @@ export async function handler(
       };
     }
 
-    // Webhook Secretを取得
-    const webhookSecret = await getWebhookSecret();
+    // 4. Webhook Secretを取得（テナント専用）
+    const webhookSecret = await getWebhookSecret(tenantId);
 
-    // 署名検証
+    // 5. 署名検証
     const isValid = verifyStripeSignature(payload, signature, webhookSecret);
 
     if (!isValid) {
@@ -109,12 +104,12 @@ export async function handler(
 
     console.log('Stripe signature verified successfully');
 
-    // イベントをパース
+    // 6. イベントをパース
     const stripeEvent = JSON.parse(payload);
     const eventId = stripeEvent.id;
     const eventType = stripeEvent.type;
 
-    // イベントリポジトリを初期化
+    // 7. イベントリポジトリを初期化
     const eventRepository = new WebhookEventRepository(webhookEventTableName);
 
     // 重複チェック

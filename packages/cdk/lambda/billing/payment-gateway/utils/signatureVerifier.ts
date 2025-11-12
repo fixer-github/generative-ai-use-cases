@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
 
 /**
@@ -14,7 +14,7 @@ export function verifyStripeSignature(
   secret: string
 ): boolean {
   try {
-    const stripe = new Stripe(secret, { apiVersion: '2024-11-20.acacia' });
+    const stripe = new Stripe(secret, { apiVersion: '2025-10-29.clover' });
 
     // Stripe SDKの検証機能を使用
     stripe.webhooks.constructEvent(payload, signature, secret);
@@ -118,7 +118,7 @@ export function verifyHmacSha256Signature(
 
   // タイミング攻撃を防ぐため、定数時間比較を使用
   try {
-    return crypto.timingSafeEqual(
+    return timingSafeEqual(
       Buffer.from(signature, 'hex'),
       Buffer.from(expectedSignature, 'hex')
     );

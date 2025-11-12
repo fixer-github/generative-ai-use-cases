@@ -1,22 +1,14 @@
 import Stripe from 'stripe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { PlatformType } from '../repositories/types';
+import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * Lambda関数ハンドラーのイベント型
- */
-interface GetInvoiceEvent {
-  platformType: PlatformType;
-  invoiceId?: string; // Stripeのみ
-  subscriptionId?: string; // Apple/Google用
-  tenantId: string;
-}
-
-/**
- * Lambda関数ハンドラーのレスポンス型
+ * レスポンスボディの型
  */
 interface GetInvoiceResponse {
   invoiceUrl: string;
@@ -55,32 +47,77 @@ async function getSecret(secretName: string): Promise<any> {
  * Lambda関数のメインハンドラー
  */
 export async function handler(
-  event: GetInvoiceEvent
-): Promise<GetInvoiceResponse> {
-  console.log('Get invoice request:', event);
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  console.log('Get invoice request received');
 
   try {
-    const { platformType, invoiceId, subscriptionId, tenantId } = event;
+    // 1. Cognitoの認証情報からテナントIDを取得
+    const tenantId = getTenantId(event);
 
+    // 2. クエリパラメータを取得
+    const platformType = event.queryStringParameters?.platformType as
+      | PlatformType
+      | undefined;
+    const invoiceId = event.queryStringParameters?.invoiceId;
+    const subscriptionId = event.queryStringParameters?.subscriptionId;
+
+    if (!platformType) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'platformType is required' }),
+      };
+    }
+
+    console.log('Get invoice request:', {
+      platformType,
+      invoiceId,
+      tenantId,
+    });
+
+    // 3. プラットフォームごとに請求書を取得
+    let result;
     switch (platformType) {
       case 'stripe':
         if (!invoiceId) {
-          throw new Error('invoiceId is required for Stripe');
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'invoiceId is required for Stripe' }),
+          };
         }
-        return getStripeInvoice(invoiceId, tenantId);
+        result = await getStripeInvoice(invoiceId, tenantId);
+        break;
 
       case 'apple':
-        return getAppleInvoiceLink();
+        result = getAppleInvoiceLink();
+        break;
 
       case 'google':
-        return getGoogleInvoiceLink();
+        result = getGoogleInvoiceLink();
+        break;
 
       default:
-        throw new Error(`Unsupported platform type: ${platformType}`);
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: `Unsupported platform type: ${platformType}`,
+          }),
+        };
     }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
   } catch (error) {
     console.error('Error getting invoice:', error);
-    throw error;
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    };
   }
 }
 
@@ -94,7 +131,7 @@ async function getStripeInvoice(
   const secretName = `${tenantId}/billing/stripe`;
   const secret = await getSecret(secretName);
 
-  const stripe = new Stripe(secret.apiKey, { apiVersion: '2024-11-20.acacia' });
+  const stripe = new Stripe(secret.apiKey, { apiVersion: '2025-10-29.clover' });
 
   const invoice = await stripe.invoices.retrieve(invoiceId);
 

@@ -5,7 +5,7 @@ export class StripeVerifier {
   private stripe: Stripe;
 
   constructor(apiKey: string) {
-    this.stripe = new Stripe(apiKey, { apiVersion: '2024-11-20.acacia' });
+    this.stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
   }
 
   /**
@@ -25,6 +25,9 @@ export class StripeVerifier {
       // サブスクリプションの状態をチェック
       const isActive = ['active', 'trialing'].includes(subscription.status);
 
+      // Stripe API Clover系では、current_period_start/endはSubscriptionItemレベルに移行
+      const subscriptionItem = subscription.items.data[0];
+
       return {
         success: isActive,
         data: {
@@ -35,12 +38,12 @@ export class StripeVerifier {
               : subscription.customer.id,
           status: subscription.status,
           currentPeriodStart: new Date(
-            subscription.current_period_start * 1000
+            subscriptionItem.current_period_start * 1000
           ).toISOString(),
           currentPeriodEnd: new Date(
-            subscription.current_period_end * 1000
+            subscriptionItem.current_period_end * 1000
           ).toISOString(),
-          productId: subscription.items.data[0]?.price?.id,
+          productId: subscriptionItem?.price?.id,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           canceledAt: subscription.canceled_at
             ? new Date(subscription.canceled_at * 1000).toISOString()

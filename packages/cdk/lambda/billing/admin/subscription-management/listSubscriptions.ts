@@ -12,7 +12,7 @@ import {
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConfig } from '../../../utils/rdsConfig';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 interface QueryParams {
   page?: string;
@@ -112,8 +112,8 @@ export const handler = async (
     }
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const subscriptionRepository = new SubscriptionRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
 
     // 日付パラメータのパース
     const periodStartFrom = params.period_start_from ? new Date(params.period_start_from) : undefined;
