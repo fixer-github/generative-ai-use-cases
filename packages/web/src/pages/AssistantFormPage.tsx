@@ -8,6 +8,7 @@ import useUserInfo from '../hooks/useUserInfo';
 import {
   CreateAssistantRequest,
   UpdateAssistantRequest,
+  Assistant,
 } from 'generative-ai-use-cases';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -15,6 +16,11 @@ import LoadingWave from '../components/LoadingWave';
 import BasicInfoFields from '../components/assistants/BasicInfoFields';
 import KnowledgeSection from '../components/assistants/KnowledgeSection';
 import ModalDialogDeleteAssistant from '../components/assistants/ModalDialogDeleteAssistant';
+
+// Helper function to normalize user IDs for comparison
+const normalizeUserId = (id?: string): string => {
+  return id?.trim().replace(/^user#/i, '').toLowerCase() || '';
+};
 
 const AssistantFormPage: React.FC = () => {
   const { t } = useTranslation();
@@ -27,7 +33,9 @@ const AssistantFormPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [isOwner, setIsOwner] = useState(true); // Default true for create mode
+  const [isOwner, setIsOwner] = useState(!assistantId); // True for create mode, false for edit until verified
+  const [assistant, setAssistant] = useState<Assistant | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   const {
     formData,
@@ -43,36 +51,77 @@ const AssistantFormPage: React.FC = () => {
   } = useAssistantForm();
 
   useEffect(() => {
-    if (assistantId) {
-      fetchAssistant();
+    // Abort any pending request when assistantId changes
+    if (abortController) {
+      abortController.abort();
     }
+
+    if (assistantId) {
+      // Reset state when assistantId changes
+      setAssistant(null);
+      setIsOwner(false);
+
+      // Create new AbortController for this request
+      const controller = new AbortController();
+      setAbortController(controller);
+
+      fetchAssistant(controller.signal);
+    } else {
+      // Create mode - reset to defaults
+      setAssistant(null);
+      setIsOwner(true);
+      setAbortController(null);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantId]);
 
-  const fetchAssistant = async () => {
+  // Check ownership whenever assistant or userInfo changes
+  useEffect(() => {
+    if (assistant && userInfo) {
+      const ownerCheck =
+        normalizeUserId(userInfo.username) === normalizeUserId(assistant.userId);
+      setIsOwner(ownerCheck);
+    }
+  }, [assistant, userInfo]);
+
+  const fetchAssistant = async (signal?: AbortSignal) => {
     if (!assistantId) return;
 
     setLoading(true);
     try {
-      const assistant = await getAssistant(assistantId);
+      const fetchedAssistant = await getAssistant(assistantId);
 
-      // Check ownership
-      const ownerCheck = userInfo?.username === assistant.userId;
-      setIsOwner(ownerCheck);
+      // Only update state if request wasn't aborted
+      if (!signal?.aborted) {
+        setAssistant(fetchedAssistant);
 
-      setFormData({
-        name: assistant.name,
-        description: assistant.description || '',
-        instruction: assistant.instruction,
-        modelId: assistant.modelId,
-        ragEnabled: assistant.ragEnabled,
-        visibility: assistant.visibility,
-        knowledgeSources: assistant.knowledgeSources || [],
-      });
+        setFormData({
+          name: fetchedAssistant.name,
+          description: fetchedAssistant.description || '',
+          instruction: fetchedAssistant.instruction,
+          modelId: fetchedAssistant.modelId,
+          ragEnabled: fetchedAssistant.ragEnabled,
+          visibility: fetchedAssistant.visibility,
+          knowledgeSources: fetchedAssistant.knowledgeSources || [],
+        });
+      }
     } catch (error) {
+      // Ignore aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Failed to fetch assistant:', error);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 
@@ -85,6 +134,12 @@ const AssistantFormPage: React.FC = () => {
     // Check if user is owner when editing
     if (assistantId && !isOwner) {
       alert(t('assistant.edit.notOwner'));
+      return;
+    }
+
+    // Ensure userInfo is loaded before allowing save in edit mode
+    if (assistantId && !userInfo) {
+      alert(t('assistant.edit.userInfoNotLoaded') || 'User information not loaded. Please try again.');
       return;
     }
 
@@ -121,6 +176,13 @@ const AssistantFormPage: React.FC = () => {
 
   const handleDelete = async () => {
     if (!assistantId) return;
+
+    // Verify ownership before allowing delete
+    if (!isOwner) {
+      alert(t('assistant.edit.notOwner'));
+      setIsDeleteModalOpen(false);
+      return;
+    }
 
     setDeleting(true);
     try {
