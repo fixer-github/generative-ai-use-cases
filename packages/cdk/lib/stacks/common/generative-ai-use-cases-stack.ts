@@ -1,4 +1,5 @@
 import { Stack, StackProps, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import {
   Auth,
@@ -17,6 +18,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilderStack } from '../nested/use-case-builder-stack';
+import { BillingManagementStack } from '../nested/billing-management-stack';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { env } from 'process';
@@ -286,6 +288,26 @@ export class GenerativeAiUseCasesStack extends Stack {
         userPool: auth.userPool,
         api: api.restApi,
         idPool: auth.idPool,
+        environment: params.env,
+        tenantManager: tenantManager,
+      });
+    }
+
+    // Billing Management (as Nested Stack)
+    // Note: This requires a common RDS instance for billing data
+    // Set BILLING_RDS_SECRET_ARN environment variable to enable
+    if (process.env.BILLING_RDS_SECRET_ARN) {
+      const billingRdsSecret = secretsmanager.Secret.fromSecretCompleteArn(
+        this,
+        'BillingRdsSecret',
+        process.env.BILLING_RDS_SECRET_ARN
+      );
+
+      new BillingManagementStack(this, `BillingManagementStack${params.env}`, {
+        api: api.restApi,
+        userPool: auth.userPool,
+        idPool: auth.idPool,
+        rdsSecret: billingRdsSecret,
         environment: params.env,
         tenantManager: tenantManager,
       });

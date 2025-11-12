@@ -1,0 +1,270 @@
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Construct } from 'constructs';
+import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
+import { Duration } from 'aws-cdk-lib';
+import { LambdaIntegration, RestApi, CognitoUserPoolsAuthorizer } from 'aws-cdk-lib/aws-apigateway';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+
+export interface PlanManagementApiProps {
+  /**
+   * API Gateway REST API
+   */
+  readonly api: RestApi;
+
+  /**
+   * User Pool for authentication
+   */
+  readonly userPool: UserPool;
+
+  /**
+   * Identity Pool for authorization
+   */
+  readonly idPool: IdentityPool;
+
+  /**
+   * RDS secret for database connection
+   */
+  readonly rdsSecret: ISecret;
+
+  /**
+   * Environment name (e.g., dev, staging, prod)
+   */
+  readonly environment: string;
+
+  /**
+   * VPC for Lambda functions (optional, required for RDS access)
+   */
+  readonly vpc?: ec2.IVpc;
+
+  /**
+   * Security group for Lambda functions (optional, required for RDS access)
+   */
+  readonly securityGroup?: ec2.ISecurityGroup;
+}
+
+/**
+ * Plan Management API Construct
+ *
+ * Provides administrator-facing API endpoints for plan management:
+ * 1. List plans (with search, filter, sort, pagination)
+ * 2. Get plan details
+ * 3. Create plan
+ * 4. Update plan status
+ * 5. Get plan change history
+ * 6. Get plan subscription statistics
+ * 7. Check internal name availability
+ */
+class PlanManagementApi extends Construct {
+  constructor(scope: Construct, id: string, props: PlanManagementApiProps) {
+    super(scope, id);
+
+    const { api, userPool, rdsSecret, environment, vpc, securityGroup } = props;
+
+    // Create Cognito authorizer
+    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [userPool],
+      authorizerName: 'PlanManagementAuthorizer',
+    });
+
+    // Common Lambda configuration
+    const commonLambdaConfig = {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      timeout: Duration.seconds(30),
+      memorySize: 512,
+      bundling: {
+        nodeModules: [
+          '@aws-sdk/client-rds-data',
+          '@aws-sdk/client-secrets-manager',
+          'pg', // PostgreSQL client
+          '@aws-sdk/client-cognito-identity',
+        ],
+      },
+      environment: {
+        RDS_SECRET_ARN: rdsSecret.secretArn,
+        ENVIRONMENT: environment,
+      },
+      ...(vpc && securityGroup
+        ? {
+            vpc,
+            securityGroups: [securityGroup],
+            vpcSubnets: {
+              subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+            },
+          }
+        : {}),
+    };
+
+    // ========================================
+    // 1. List Plans
+    // ========================================
+    const listPlansFunction = new NodejsFunction(this, 'ListPlans', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/listPlans.ts',
+      functionName: `${environment}-billing-admin-list-plans`,
+    });
+
+    // ========================================
+    // 2. Get Plan Details
+    // ========================================
+    const getPlanFunction = new NodejsFunction(this, 'GetPlan', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/getPlan.ts',
+      functionName: `${environment}-billing-admin-get-plan`,
+    });
+
+    // ========================================
+    // 3. Create Plan
+    // ========================================
+    const createPlanFunction = new NodejsFunction(this, 'CreatePlan', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/createPlan.ts',
+      functionName: `${environment}-billing-admin-create-plan`,
+    });
+
+    // ========================================
+    // 4. Update Plan Status
+    // ========================================
+    const updatePlanStatusFunction = new NodejsFunction(
+      this,
+      'UpdatePlanStatus',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/admin/plan-management/updatePlanStatus.ts',
+        functionName: `${environment}-billing-admin-update-plan-status`,
+      }
+    );
+
+    // ========================================
+    // 5. Get Plan Change History
+    // ========================================
+    const getPlanHistoryFunction = new NodejsFunction(this, 'GetPlanHistory', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/getPlanHistory.ts',
+      functionName: `${environment}-billing-admin-get-plan-history`,
+    });
+
+    // ========================================
+    // 6. Get Plan Subscription Statistics
+    // ========================================
+    const getPlanSubscriptionsFunction = new NodejsFunction(
+      this,
+      'GetPlanSubscriptions',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/admin/plan-management/getPlanSubscriptions.ts',
+        functionName: `${environment}-billing-admin-get-plan-subscriptions`,
+      }
+    );
+
+    // ========================================
+    // 7. Check Internal Name Availability
+    // ========================================
+    const checkPlanNameFunction = new NodejsFunction(this, 'CheckPlanName', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/checkPlanName.ts',
+      functionName: `${environment}-billing-admin-check-plan-name`,
+    });
+
+    // ========================================
+    // IAM Permissions
+    // ========================================
+    const functions = [
+      listPlansFunction,
+      getPlanFunction,
+      createPlanFunction,
+      updatePlanStatusFunction,
+      getPlanHistoryFunction,
+      getPlanSubscriptionsFunction,
+      checkPlanNameFunction,
+    ];
+
+    functions.forEach((func) => {
+      // Grant RDS secret read access
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: [rdsSecret.secretArn],
+        })
+      );
+
+      // Grant OpenFGA authorization check (if needed)
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['cognito-identity:GetId', 'cognito-identity:GetCredentialsForIdentity'],
+          resources: ['*'],
+        })
+      );
+    });
+
+    // ========================================
+    // API Gateway Endpoints
+    // ========================================
+    const adminResource = api.root.resourceForPath('/admin');
+    const billingResource = adminResource.addResource('billing');
+    const plansResource = billingResource.addResource('plans');
+
+    // GET /admin/billing/plans - List plans
+    plansResource.addMethod('GET', new LambdaIntegration(listPlansFunction), {
+      authorizer,
+    });
+
+    // POST /admin/billing/plans - Create plan
+    plansResource.addMethod('POST', new LambdaIntegration(createPlanFunction), {
+      authorizer,
+    });
+
+    // GET /admin/billing/plans/check-name - Check internal name availability
+    const checkNameResource = plansResource.addResource('check-name');
+    checkNameResource.addMethod(
+      'GET',
+      new LambdaIntegration(checkPlanNameFunction),
+      {
+        authorizer,
+      }
+    );
+
+    // GET /admin/billing/plans/{plan_id} - Get plan details
+    const planIdResource = plansResource.addResource('{plan_id}');
+    planIdResource.addMethod('GET', new LambdaIntegration(getPlanFunction), {
+      authorizer,
+    });
+
+    // PATCH /admin/billing/plans/{plan_id}/status - Update plan status
+    const statusResource = planIdResource.addResource('status');
+    statusResource.addMethod(
+      'PATCH',
+      new LambdaIntegration(updatePlanStatusFunction),
+      {
+        authorizer,
+      }
+    );
+
+    // GET /admin/billing/plans/{plan_id}/history - Get plan change history
+    const historyResource = planIdResource.addResource('history');
+    historyResource.addMethod(
+      'GET',
+      new LambdaIntegration(getPlanHistoryFunction),
+      {
+        authorizer,
+      }
+    );
+
+    // GET /admin/billing/plans/{plan_id}/subscriptions - Get plan subscription statistics
+    const subscriptionsResource = planIdResource.addResource('subscriptions');
+    subscriptionsResource.addMethod(
+      'GET',
+      new LambdaIntegration(getPlanSubscriptionsFunction),
+      {
+        authorizer,
+      }
+    );
+  }
+}
+
+export default PlanManagementApi;
