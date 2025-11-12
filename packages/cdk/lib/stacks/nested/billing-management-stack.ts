@@ -3,10 +3,10 @@ import { Construct } from 'constructs';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
-import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
+import PaymentGatewayApi from '../../construct/api/payment-gateway';
 
 export interface BillingManagementStackProps extends NestedStackProps {
   /**
@@ -25,19 +25,20 @@ export interface BillingManagementStackProps extends NestedStackProps {
   readonly idPool: IdentityPool;
 
   /**
-   * RDS secret for billing database connection
-   */
-  readonly rdsSecret: ISecret;
-
-  /**
    * Environment name (e.g., dev, staging, prod)
    */
   readonly environment: string;
 
   /**
-   * Tenant Manager for multi-tenant support
+   * Tenant Manager for multi-tenant support (required for IAM-based RDS access)
    */
-  readonly tenantManager?: TenantManager;
+  readonly tenantManager: TenantManager;
+
+  /**
+   * EventBridge event bus name for webhook event distribution
+   * @default 'default'
+   */
+  readonly eventBusName?: string;
 }
 
 /**
@@ -46,8 +47,9 @@ export interface BillingManagementStackProps extends NestedStackProps {
  * This stack contains all the resources needed for plan and subscription management:
  * - Plan Management API (7 Lambda functions)
  * - Subscription Management API (8 Lambda functions)
+ * - Payment Gateway API (8 Lambda functions)
  *
- * Total: 15 Lambda functions
+ * Total: 23 Lambda functions
  *
  * Note: Orchestration API (3 Lambda functions) will be added later as needed
  */
@@ -60,7 +62,7 @@ export class BillingManagementStack extends NestedStack {
       api: props.api,
       userPool: props.userPool,
       idPool: props.idPool,
-      rdsSecret: props.rdsSecret,
+      tenantManager: props.tenantManager,
       environment: props.environment,
     });
 
@@ -72,8 +74,19 @@ export class BillingManagementStack extends NestedStack {
         api: props.api,
         userPool: props.userPool,
         idPool: props.idPool,
-        rdsSecret: props.rdsSecret,
+        tenantManager: props.tenantManager,
         environment: props.environment,
+      }
+    );
+
+    // Payment Gateway API
+    const paymentGatewayApi = new PaymentGatewayApi(
+      this,
+      'PaymentGateway',
+      {
+        api: props.api,
+        userPool: props.userPool,
+        eventBusName: props.eventBusName,
       }
     );
 
