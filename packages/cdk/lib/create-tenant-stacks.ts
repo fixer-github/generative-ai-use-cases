@@ -6,6 +6,7 @@ import { TenantPptxStack } from './stacks/tenant/tenant-pptx-stack';
 import { TenantVpcStack } from './stacks/tenant/tenant-vpc-stack';
 import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
 import { TenantOpenFgaStack } from './stacks/tenant/tenant-openfga-stack';
+import { TenantPaymentGatewayStack } from './stacks/tenant/tenant-payment-gateway-stack';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
@@ -64,6 +65,7 @@ export interface TenantStackInput {
   removalPolicy: boolean;
   bedrockRegion?: string;
   pptxEnabled?: boolean;
+  paymentGatewayEnabled?: boolean;
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
@@ -216,6 +218,26 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
   tenantOpenFgaStack.addDependency(tenantVpcStack);
   tenantOpenFgaStack.addDependency(tenantIAMStack);
 
+  // Tenant Payment Gateway Stack (optional)
+  let tenantPaymentGatewayStack;
+  if (params.paymentGatewayEnabled) {
+    tenantPaymentGatewayStack = new TenantPaymentGatewayStack(
+      app,
+      `TenantPaymentGatewayStack${params.environment}-${params.tenantId}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        tenantId: params.tenantId,
+        environment: params.environment,
+        removalPolicy: params.removalPolicy
+          ? cdk.RemovalPolicy.DESTROY
+          : cdk.RemovalPolicy.RETAIN,
+      }
+    );
+  }
+
   return {
     tenantIAMStack,
     tenantDynamoDBStack,
@@ -224,5 +246,6 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantOpenSearchStack,
     tenantPptxStack,
     tenantOpenFgaStack,
+    tenantPaymentGatewayStack,
   };
 };

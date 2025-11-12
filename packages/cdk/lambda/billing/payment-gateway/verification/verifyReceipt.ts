@@ -1,4 +1,8 @@
 import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+} from 'aws-lambda';
+import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
@@ -8,26 +12,16 @@ import { AppleVerifier } from './appleVerifier';
 import { GoogleVerifier } from './googleVerifier';
 import { ReceiptCacheRepository } from '../repositories/receiptCacheRepository';
 import { detectPlatformFromReceipt } from '../utils/platformDetector';
+import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * Lambda関数ハンドラーのイベント型
+ * リクエストボディの型
  */
-interface VerifyReceiptEvent {
+interface VerifyReceiptRequest {
   platformType?: PlatformType;
   receipt: string;
-  tenantId: string;
   // Google固有のパラメータ
   subscriptionId?: string; // Google Play Billingのプロダクト（サブスクリプション）ID
-}
-
-/**
- * Lambda関数ハンドラーのレスポンス型
- */
-interface VerifyReceiptResponse {
-  success: boolean;
-  data?: any;
-  cached?: boolean;
-  error?: string;
 }
 
 /**
@@ -62,59 +56,83 @@ async function getSecret(secretName: string): Promise<any> {
  * Lambda関数のメインハンドラー
  */
 export async function handler(
-  event: VerifyReceiptEvent
-): Promise<VerifyReceiptResponse> {
-  console.log('Verify receipt request:', {
-    platformType: event.platformType,
-    tenantId: event.tenantId,
-    receiptLength: event.receipt?.length,
-  });
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  console.log('Verify receipt request received');
 
   try {
-    const { receipt, tenantId } = event;
+    // 1. Cognitoの認証情報からテナントIDを取得
+    const tenantId = getTenantId(event);
+
+    // 2. リクエストボディを取得
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Request body is required' }),
+      };
+    }
+
+    const requestBody: VerifyReceiptRequest = JSON.parse(event.body);
+    const { receipt, platformType, subscriptionId } = requestBody;
+
+    console.log('Verify receipt request:', {
+      platformType,
+      tenantId,
+      receiptLength: receipt?.length,
+    });
 
     if (!receipt) {
       return {
-        success: false,
-        error: 'Receipt is required',
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: 'Receipt is required',
+        }),
       };
     }
 
-    // プラットフォーム種別を判定（指定がない場合は自動判定）
-    const platformType =
-      event.platformType || detectPlatformFromReceipt(receipt);
+    // 3. プラットフォーム種別を判定（指定がない場合は自動判定）
+    const detectedPlatformType =
+      platformType || detectPlatformFromReceipt(receipt);
 
-    if (!platformType) {
+    if (!detectedPlatformType) {
       return {
-        success: false,
-        error: 'Could not detect platform type from receipt',
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: 'Could not detect platform type from receipt',
+        }),
       };
     }
 
-    console.log('Detected platform:', platformType);
+    console.log('Detected platform:', detectedPlatformType);
 
-    // レシート検証キャッシュリポジトリを初期化
-    const cacheTableName =
-      process.env.RECEIPT_CACHE_TABLE_NAME ||
-      `${tenantId}-payment-gateway-receipt-cache`;
+    // 4. テーブル名を動的に構築
+    const cacheTableName = `${tenantId}-payment-gateway-receipt-cache`;
     const cacheRepository = new ReceiptCacheRepository(cacheTableName);
 
-    // レシート検証を実行
+    // 5. レシート検証を実行
     const result = await verifyReceiptWithFallback(
-      platformType,
+      detectedPlatformType,
       receipt,
       tenantId,
       cacheRepository,
-      event.subscriptionId
+      subscriptionId
     );
 
-    return result;
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
   } catch (error) {
     console.error('Receipt verification error:', error);
 
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      statusCode: 500,
+      body: JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
     };
   }
 }
@@ -128,7 +146,7 @@ async function verifyReceiptWithFallback(
   tenantId: string,
   cacheRepository: ReceiptCacheRepository,
   subscriptionId?: string
-): Promise<VerifyReceiptResponse> {
+): Promise<VerificationResult> {
   try {
     // 通常のレシート検証を試行
     const result = await verifyReceiptByPlatform(
@@ -183,10 +201,12 @@ async function verifyReceiptWithFallback(
       // 再検証も失敗した場合は、検証失敗結果を返す
       return {
         success: false,
-        error:
-          retryError instanceof Error
-            ? retryError.message
-            : 'Verification failed after retry',
+        data: {
+          error:
+            retryError instanceof Error
+              ? retryError.message
+              : 'Verification failed after retry',
+        },
       };
     }
   }

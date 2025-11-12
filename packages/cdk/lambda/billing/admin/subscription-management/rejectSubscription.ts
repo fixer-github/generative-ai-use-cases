@@ -12,10 +12,14 @@ import {
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConfig } from '../../../utils/rdsConfig';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 interface RejectRequest {
-  rejection_reason: 'invalid_receipt' | 'invalid_signature' | 'duplicate_receipt' | 'other';
+  rejection_reason:
+    | 'invalid_receipt'
+    | 'invalid_signature'
+    | 'duplicate_receipt'
+    | 'other';
   rejection_details?: string;
 }
 
@@ -83,7 +87,12 @@ export const handler = async (
       };
     }
 
-    const validReasons = ['invalid_receipt', 'invalid_signature', 'duplicate_receipt', 'other'];
+    const validReasons = [
+      'invalid_receipt',
+      'invalid_signature',
+      'duplicate_receipt',
+      'other',
+    ];
     if (!validReasons.includes(requestBody.rejection_reason)) {
       return {
         statusCode: 400,
@@ -102,8 +111,8 @@ export const handler = async (
     }
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const subscriptionRepository = new SubscriptionRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
 
     // サブスクリプション情報を取得
     const subscription = await subscriptionRepository.findById(subscriptionId);
@@ -135,7 +144,8 @@ export const handler = async (
             details: {
               subscription_id: subscriptionId,
               current_status: subscription.subscription_status,
-              reason: '却下できるのは pending_verification ステータスのサブスクリプションのみです',
+              reason:
+                '却下できるのは pending_verification ステータスのサブスクリプションのみです',
             },
           },
         }),
@@ -145,9 +155,12 @@ export const handler = async (
     const now = new Date();
 
     // サブスクリプションのステータスを更新
-    const updatedSubscription = await subscriptionRepository.update(subscriptionId, {
-      subscription_status: 'rejected',
-    });
+    const updatedSubscription = await subscriptionRepository.update(
+      subscriptionId,
+      {
+        subscription_status: 'rejected',
+      }
+    );
 
     if (!updatedSubscription) {
       throw new Error('Failed to update subscription status');
@@ -164,7 +177,7 @@ export const handler = async (
       previous_status: 'pending_verification',
       new_status: 'rejected',
       rejected_at: now.toISOString(),
-      rejected_by: adminResult.userId,
+      rejected_by: adminResult.username,
       rejection_reason: requestBody.rejection_reason,
       rejection_details: requestBody.rejection_details || null,
       notification_sent: false, // TODO: 通知実装後にtrueに変更

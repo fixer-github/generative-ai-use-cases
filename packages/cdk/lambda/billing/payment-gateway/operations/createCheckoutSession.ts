@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
@@ -7,24 +8,16 @@ import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * Lambda関数ハンドラーのイベント型
+ * リクエストボディの型
  */
-interface CreateCheckoutSessionEvent {
+interface CreateCheckoutSessionRequest {
   userId: string;
   priceId: string; // Stripeの価格ID
   successUrl: string;
   cancelUrl: string;
-  tenantId: string;
-}
-
-/**
- * Lambda関数ハンドラーのレスポンス型
- */
-interface CreateCheckoutSessionResponse {
-  sessionId: string;
-  url: string;
 }
 
 /**
@@ -91,25 +84,39 @@ async function getUserInfo(userId: string): Promise<{ email: string }> {
  * Lambda関数のメインハンドラー
  */
 export async function handler(
-  event: CreateCheckoutSessionEvent
-): Promise<CreateCheckoutSessionResponse> {
-  console.log('Create Checkout Session request:', {
-    userId: event.userId,
-    priceId: event.priceId,
-    tenantId: event.tenantId,
-  });
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  console.log('Create Checkout Session request received');
 
   try {
-    const { userId, priceId, successUrl, cancelUrl, tenantId } = event;
+    // 1. Cognitoの認証情報からテナントIDを取得
+    const tenantId = getTenantId(event);
 
-    // Stripe APIキーを取得
+    // 2. リクエストボディを取得
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Request body is required' }),
+      };
+    }
+
+    const requestBody: CreateCheckoutSessionRequest = JSON.parse(event.body);
+    const { userId, priceId, successUrl, cancelUrl } = requestBody;
+
+    console.log('Create Checkout Session request:', {
+      userId,
+      priceId,
+      tenantId,
+    });
+
+    // 3. Stripe APIキーを取得（テナント専用）
     const apiKey = await getStripeApiKey(tenantId);
-    const stripe = new Stripe(apiKey, { apiVersion: '2024-11-20.acacia' });
+    const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // ユーザー情報を取得
+    // 4. ユーザー情報を取得
     const userInfo = await getUserInfo(userId);
 
-    // Checkout Sessionを作成
+    // 5. Checkout Sessionを作成
     const session = await stripe.checkout.sessions.create({
       customer_email: userInfo.email,
       mode: 'subscription',
@@ -133,11 +140,20 @@ export async function handler(
     console.log('Checkout Session created:', session.id);
 
     return {
-      sessionId: session.id,
-      url: session.url!,
+      statusCode: 200,
+      body: JSON.stringify({
+        sessionId: session.id,
+        url: session.url!,
+      }),
     };
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    throw error;
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    };
   }
 }

@@ -294,24 +294,14 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // Billing Management (as Nested Stack)
-    // Note: This requires a common RDS instance for billing data
-    // Set BILLING_RDS_SECRET_ARN environment variable to enable
-    if (process.env.BILLING_RDS_SECRET_ARN) {
-      const billingRdsSecret = secretsmanager.Secret.fromSecretCompleteArn(
-        this,
-        'BillingRdsSecret',
-        process.env.BILLING_RDS_SECRET_ARN
-      );
-
-      new BillingManagementStack(this, `BillingManagementStack${params.env}`, {
-        api: api.restApi,
-        userPool: auth.userPool,
-        idPool: auth.idPool,
-        rdsSecret: billingRdsSecret,
-        environment: params.env,
-        tenantManager: tenantManager,
-      });
-    }
+    // Uses IAM authentication for RDS access via tenant-specific credentials
+    new BillingManagementStack(this, `BillingManagementStack${params.env}`, {
+      api: api.restApi,
+      userPool: auth.userPool,
+      idPool: auth.idPool,
+      tenantManager: tenantManager,
+      environment: params.env,
+    });
 
     new TranscribeStack(this, `TranscribeStack${params.env}`, {
       env: {

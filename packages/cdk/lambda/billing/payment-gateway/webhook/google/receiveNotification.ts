@@ -20,9 +20,9 @@ export async function handler(
   console.log('Received Google Real-time Developer Notification');
 
   try {
-    const tenantId = process.env.TENANT_ID || event.queryStringParameters?.tenantId;
+    // 1. パスパラメータからテナントIDを取得
+    const tenantId = event.pathParameters?.tenantId;
     const eventBusName = process.env.EVENT_BUS_NAME;
-    const webhookEventTableName = process.env.WEBHOOK_EVENT_TABLE_NAME;
     const packageName = process.env.GOOGLE_PACKAGE_NAME;
 
     if (!tenantId) {
@@ -32,12 +32,17 @@ export async function handler(
       };
     }
 
-    if (!eventBusName || !webhookEventTableName || !packageName) {
+    if (!eventBusName || !packageName) {
       return {
         statusCode: 500,
         body: JSON.stringify({ error: 'Environment variables not set' }),
       };
     }
+
+    console.log(`Processing Google notification for tenant: ${tenantId}`);
+
+    // 2. テーブル名を動的に構築
+    const webhookEventTableName = `${tenantId}-payment-gateway-webhook-events`;
 
     // リクエストボディを取得（Pub/Subメッセージフォーマット）
     const payload = event.body;

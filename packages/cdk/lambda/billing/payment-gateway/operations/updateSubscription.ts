@@ -1,24 +1,25 @@
 import Stripe from 'stripe';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { PlatformType } from '../repositories/types';
 import { google } from 'googleapis';
+import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * Lambda関数ハンドラーのイベント型
+ * リクエストボディの型
  */
-interface UpdateSubscriptionEvent {
+interface UpdateSubscriptionRequest {
   platformType: PlatformType;
   subscriptionId: string;
   newPriceId: string;
   isUpgrade: boolean;
-  tenantId: string;
 }
 
 /**
- * Lambda関数ハンドラーのレスポンス型
+ * レスポンスボディの型
  */
 interface UpdateSubscriptionResponse {
   success: boolean;
@@ -57,44 +58,85 @@ async function getSecret(secretName: string): Promise<any> {
  * Lambda関数のメインハンドラー
  */
 export async function handler(
-  event: UpdateSubscriptionEvent
-): Promise<UpdateSubscriptionResponse> {
-  console.log('Update subscription request:', event);
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  console.log('Update subscription request received');
 
   try {
-    const { platformType, subscriptionId, newPriceId, isUpgrade, tenantId } =
-      event;
+    // 1. Cognitoの認証情報からテナントIDを取得
+    const tenantId = getTenantId(event);
 
+    // 2. リクエストボディを取得
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Request body is required' }),
+      };
+    }
+
+    const requestBody: UpdateSubscriptionRequest = JSON.parse(event.body);
+    const { platformType, subscriptionId, newPriceId, isUpgrade } = requestBody;
+
+    console.log('Update subscription request:', {
+      platformType,
+      subscriptionId,
+      tenantId,
+    });
+
+    // 3. プラットフォームごとに更新処理を実行
+    let result;
     switch (platformType) {
       case 'stripe':
-        return updateStripeSubscription(
+        result = await updateStripeSubscription(
           subscriptionId,
           newPriceId,
           isUpgrade,
           tenantId
         );
+        break;
 
       case 'apple':
         // Appleの場合、サーバー側からのプラン変更は制限されている
         // クライアント側でユーザーがApp Storeから変更する必要がある
-        throw new Error(
-          'Apple subscription updates must be initiated by the user in the App Store'
-        );
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error:
+              'Apple subscription updates must be initiated by the user in the App Store',
+          }),
+        };
 
       case 'google':
         // Googleの場合、プラン変更は一部サポートされているが制限あり
-        return updateGoogleSubscription(
+        result = await updateGoogleSubscription(
           subscriptionId,
           newPriceId,
           tenantId
         );
+        break;
 
       default:
-        throw new Error(`Unsupported platform type: ${platformType}`);
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: `Unsupported platform type: ${platformType}`,
+          }),
+        };
     }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
   } catch (error) {
     console.error('Error updating subscription:', error);
-    throw error;
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    };
   }
 }
 
@@ -110,7 +152,7 @@ async function updateStripeSubscription(
   const secretName = `${tenantId}/billing/stripe`;
   const secret = await getSecret(secretName);
 
-  const stripe = new Stripe(secret.apiKey, { apiVersion: '2024-11-20.acacia' });
+  const stripe = new Stripe(secret.apiKey, { apiVersion: '2025-10-29.clover' });
 
   // 現在のサブスクリプションを取得
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -134,9 +176,11 @@ async function updateStripeSubscription(
   );
 
   // 有効日を計算
+  // Stripe API Clover系では、current_period_endはSubscriptionItemレベルに移行
+  const updatedSubscriptionItem = updatedSubscription.items.data[0];
   const effectiveDate = isUpgrade
     ? new Date()
-    : new Date(updatedSubscription.current_period_end * 1000);
+    : new Date(updatedSubscriptionItem.current_period_end * 1000);
 
   return {
     success: true,

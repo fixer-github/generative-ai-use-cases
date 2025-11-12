@@ -12,7 +12,7 @@ import {
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConfig } from '../../../utils/rdsConfig';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -45,8 +45,8 @@ export const handler = async (
     }
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const subscriptionRepository = new SubscriptionRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
 
     // サブスクリプション詳細情報を取得
     const result = await subscriptionRepository.findByIdWithDetails(subscriptionId);

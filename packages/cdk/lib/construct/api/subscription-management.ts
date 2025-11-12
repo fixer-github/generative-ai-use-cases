@@ -2,11 +2,16 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
-import { LambdaIntegration, RestApi, CognitoUserPoolsAuthorizer } from 'aws-cdk-lib/aws-apigateway';
+import {
+  LambdaIntegration,
+  RestApi,
+  CognitoUserPoolsAuthorizer,
+  AuthorizationType,
+} from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { TenantManager } from '../../construct/tenant-manager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export interface SubscriptionManagementApiProps {
@@ -26,9 +31,9 @@ export interface SubscriptionManagementApiProps {
   readonly idPool: IdentityPool;
 
   /**
-   * RDS secret for database connection
+   * Tenant Manager for multi-tenant RDS access
    */
-  readonly rdsSecret: ISecret;
+  readonly tenantManager: TenantManager;
 
   /**
    * Environment name (e.g., dev, staging, prod)
@@ -60,10 +65,22 @@ export interface SubscriptionManagementApiProps {
  * 8. Sync with payment platform
  */
 class SubscriptionManagementApi extends Construct {
-  constructor(scope: Construct, id: string, props: SubscriptionManagementApiProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: SubscriptionManagementApiProps
+  ) {
     super(scope, id);
 
-    const { api, userPool, rdsSecret, environment, vpc, securityGroup } = props;
+    const {
+      api,
+      userPool,
+      idPool,
+      tenantManager,
+      environment,
+      vpc,
+      securityGroup,
+    } = props;
 
     // Create Cognito authorizer
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
@@ -76,18 +93,11 @@ class SubscriptionManagementApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.seconds(30),
       memorySize: 512,
-      bundling: {
-        nodeModules: [
-          '@aws-sdk/client-rds-data',
-          '@aws-sdk/client-secrets-manager',
-          'pg', // PostgreSQL client
-          '@aws-sdk/client-cognito-identity',
-          'stripe', // For platform sync
-          'googleapis', // For Google Play
-        ],
-      },
       environment: {
-        RDS_SECRET_ARN: rdsSecret.secretArn,
+        TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
+        IDENTITY_POOL_ID: idPool.identityPoolId,
+        USER_POOL_ID: userPool.userPoolId,
+        AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
       },
       ...(vpc && securityGroup
@@ -118,7 +128,8 @@ class SubscriptionManagementApi extends Construct {
       'ListSubscriptions',
       {
         ...commonLambdaConfig,
-        entry: './lambda/billing/admin/subscription-management/listSubscriptions.ts',
+        entry:
+          './lambda/billing/admin/subscription-management/listSubscriptions.ts',
         functionName: `${environment}-billing-admin-list-subscriptions`,
       }
     );
@@ -131,7 +142,8 @@ class SubscriptionManagementApi extends Construct {
       'GetSubscription',
       {
         ...commonLambdaConfig,
-        entry: './lambda/billing/admin/subscription-management/getSubscription.ts',
+        entry:
+          './lambda/billing/admin/subscription-management/getSubscription.ts',
         functionName: `${environment}-billing-admin-get-subscription`,
       }
     );
@@ -144,7 +156,8 @@ class SubscriptionManagementApi extends Construct {
       'ApproveSubscription',
       {
         ...commonLambdaConfig,
-        entry: './lambda/billing/admin/subscription-management/approveSubscription.ts',
+        entry:
+          './lambda/billing/admin/subscription-management/approveSubscription.ts',
         functionName: `${environment}-billing-admin-approve-subscription`,
       }
     );
@@ -157,7 +170,8 @@ class SubscriptionManagementApi extends Construct {
       'RejectSubscription',
       {
         ...commonLambdaConfig,
-        entry: './lambda/billing/admin/subscription-management/rejectSubscription.ts',
+        entry:
+          './lambda/billing/admin/subscription-management/rejectSubscription.ts',
         functionName: `${environment}-billing-admin-reject-subscription`,
       }
     );
@@ -181,7 +195,8 @@ class SubscriptionManagementApi extends Construct {
       {
         ...commonLambdaConfig,
         timeout: Duration.seconds(60), // Longer timeout for verification
-        entry: './lambda/billing/admin/subscription-management/retryVerification.ts',
+        entry:
+          './lambda/billing/admin/subscription-management/retryVerification.ts',
         functionName: `${environment}-billing-admin-retry-verification`,
       }
     );
@@ -211,21 +226,37 @@ class SubscriptionManagementApi extends Construct {
     ];
 
     functions.forEach((func) => {
-      // Grant RDS secret read access
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(func);
+
+      // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ['secretsmanager:GetSecretValue'],
-          resources: [rdsSecret.secretArn, `${rdsSecret.secretArn}*`],
+          actions: [
+            'cognito-identity:GetId',
+            'cognito-identity:GetOpenIdToken',
+            'cognito-identity:GetCredentialsForIdentity',
+          ],
+          resources: ['*'],
         })
       );
 
-      // Grant OpenFGA authorization check (if needed)
+      // Grant STS AssumeRoleWithWebIdentity permission
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ['cognito-identity:GetId', 'cognito-identity:GetCredentialsForIdentity'],
+          actions: ['sts:AssumeRoleWithWebIdentity'],
           resources: ['*'],
+        })
+      );
+
+      // Grant RDS IAM authentication permission
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['rds-db:connect'],
+          resources: ['*'], // Tenant-specific resources will be constrained by assumed role
         })
       );
     });
@@ -259,6 +290,7 @@ class SubscriptionManagementApi extends Construct {
       new LambdaIntegration(getStatisticsFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -268,28 +300,31 @@ class SubscriptionManagementApi extends Construct {
       new LambdaIntegration(listSubscriptionsFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
     // POST /admin/billing/subscriptions/batch-process - Batch approve/reject
-    const batchProcessResource = subscriptionsResource.addResource('batch-process');
+    const batchProcessResource =
+      subscriptionsResource.addResource('batch-process');
     batchProcessResource.addMethod(
       'POST',
       new LambdaIntegration(batchProcessFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
     // GET /admin/billing/subscriptions/{subscription_id} - Get subscription details
-    const subscriptionIdResource = subscriptionsResource.addResource(
-      '{subscription_id}'
-    );
+    const subscriptionIdResource =
+      subscriptionsResource.addResource('{subscription_id}');
     subscriptionIdResource.addMethod(
       'GET',
       new LambdaIntegration(getSubscriptionFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -300,6 +335,7 @@ class SubscriptionManagementApi extends Construct {
       new LambdaIntegration(approveSubscriptionFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -310,16 +346,19 @@ class SubscriptionManagementApi extends Construct {
       new LambdaIntegration(rejectSubscriptionFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
     // POST /admin/billing/subscriptions/{subscription_id}/retry-verification - Retry verification
-    const retryResource = subscriptionIdResource.addResource('retry-verification');
+    const retryResource =
+      subscriptionIdResource.addResource('retry-verification');
     retryResource.addMethod(
       'POST',
       new LambdaIntegration(retryVerificationFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -330,6 +369,7 @@ class SubscriptionManagementApi extends Construct {
       new LambdaIntegration(syncPlatformFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
   }
