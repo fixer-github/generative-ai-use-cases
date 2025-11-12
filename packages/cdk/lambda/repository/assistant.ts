@@ -17,6 +17,7 @@ import {
   executeDynamoDBOperation,
   getAssistantTableName,
 } from './common';
+import { getTenantId } from '../utils/tenantUtils';
 
 /**
  * Deep clean an object to remove all undefined values recursively
@@ -95,17 +96,30 @@ export const createAssistant = async (
   const userId = `user#${_userId}`;
   const assistantId = `assistant#${crypto.randomUUID()}`;
   const now = Date.now().toString();
+  const tenantId = getTenantId(event);
+
+  // Validate and normalize visibility
+  let visibility: 'private' | 'public' = 'private';
+  if (data.visibility) {
+    const normalizedVisibility = data.visibility.toLowerCase();
+    if (normalizedVisibility !== 'private' && normalizedVisibility !== 'public') {
+      throw new Error(`Invalid visibility value: ${data.visibility}. Must be 'private' or 'public'.`);
+    }
+    visibility = normalizedVisibility as 'private' | 'public';
+  }
 
   const item: Assistant = {
     id: userId,
     createdDate: now,
     assistantId,
     userId,
+    tenantId: `tenant#${tenantId}`,
     name: data.name,
     description: data.description,
     instruction: data.instruction,
     modelId: data.modelId,
     ragEnabled: data.ragEnabled,
+    visibility,
     syncStatus: 'QUEUED',
     syncStatusReason: '',
     knowledgeSources: normalizeKnowledgeSources(data.knowledgeSources),
@@ -135,6 +149,7 @@ export const listAssistants = async (
   _exclusiveStartKey?: string
 ): Promise<ListAssistantsResponse> => {
   const userId = `user#${_userId}`;
+  const tenantId = getTenantId(event);
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getAssistantTableName(event);
 
@@ -142,32 +157,74 @@ export const listAssistants = async (
     ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
     : undefined;
 
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#userId = :userId',
-      ExpressionAttributeNames: {
-        '#userId': 'userId',
-      },
-      ExpressionAttributeValues: {
-        ':userId': userId,
-      },
-      ScanIndexForward: false,
-      Limit: 100,
-      ExclusiveStartKey: exclusiveStartKey,
-    })
-  );
+  // Run both queries in parallel for better performance
+  const [ownedRes, publicRes] = await Promise.all([
+    // Query 1: Get user's own assistants (both private and public)
+    dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: '#userId = :userId',
+        ExpressionAttributeNames: {
+          '#userId': 'userId',
+        },
+        ExpressionAttributeValues: {
+          ':userId': userId,
+        },
+        ScanIndexForward: false,
+        Limit: 100,
+        ExclusiveStartKey: exclusiveStartKey,
+      })
+    ),
+    // Query 2: Get public assistants from other users in the same tenant
+    dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: 'TenantVisibilityIndex',
+        KeyConditionExpression: '#tenantId = :tenantId',
+        FilterExpression: '#visibility = :public AND #userId <> :userId',
+        ExpressionAttributeNames: {
+          '#tenantId': 'tenantId',
+          '#visibility': 'visibility',
+          '#userId': 'userId',
+        },
+        ExpressionAttributeValues: {
+          ':tenantId': `tenant#${tenantId}`,
+          ':public': 'public',
+          ':userId': userId,
+        },
+        ScanIndexForward: false,
+        Limit: 100,
+      })
+    ),
+  ]);
 
-  // Ensure knowledge sources have default status for backward compatibility
-  const assistants = (res.Items || []).map((item: any) => ({
-    ...item,
-    knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
-  })) as Assistant[];
+  // Merge and deduplicate by assistantId
+  const assistantMap = new Map<string, any>();
+
+  // Add owned assistants first (they take precedence)
+  for (const item of ownedRes.Items || []) {
+    assistantMap.set(item.assistantId, item);
+  }
+
+  // Add public assistants (skip if already exists)
+  for (const item of publicRes.Items || []) {
+    if (!assistantMap.has(item.assistantId)) {
+      assistantMap.set(item.assistantId, item);
+    }
+  }
+
+  // Convert to array and ensure knowledge sources have default status
+  const assistants = Array.from(assistantMap.values())
+    .map((item: any) => ({
+      ...item,
+      knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
+    }))
+    .sort((a, b) => parseInt(b.createdDate) - parseInt(a.createdDate)) as Assistant[];
 
   return {
     assistants,
-    lastEvaluatedKey: res.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+    lastEvaluatedKey: ownedRes.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(ownedRes.LastEvaluatedKey)).toString('base64')
       : undefined,
   };
 };
@@ -262,6 +319,16 @@ export const updateAssistant = async (
     updateExpressions.push('#ragEnabled = :ragEnabled');
     expressionAttributeNames['#ragEnabled'] = 'ragEnabled';
     expressionAttributeValues[':ragEnabled'] = updates.ragEnabled;
+  }
+  if (updates.visibility !== undefined) {
+    // Validate and normalize visibility
+    const normalizedVisibility = updates.visibility.toLowerCase();
+    if (normalizedVisibility !== 'private' && normalizedVisibility !== 'public') {
+      throw new Error(`Invalid visibility value: ${updates.visibility}. Must be 'private' or 'public'.`);
+    }
+    updateExpressions.push('#visibility = :visibility');
+    expressionAttributeNames['#visibility'] = 'visibility';
+    expressionAttributeValues[':visibility'] = normalizedVisibility;
   }
   if (updates.knowledgeSources !== undefined) {
     updateExpressions.push('#knowledgeSources = :knowledgeSources');

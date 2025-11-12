@@ -16,14 +16,17 @@ export type Assistant = {
   createdDate: string; // sort key
   assistantId: string;
   userId: string; // Duplicate for clarity, same as id
+  tenantId: string; // Tenant ID for GSI queries
   name: string;
   description: string;
   instruction: string;
   modelId: string;
   ragEnabled: boolean;
+  visibility: 'private' | 'public'; // Visibility within tenant
   syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED' | 'PARTIAL';
   syncStatusReason: string;
   knowledgeSources: KnowledgeSource[];
+  s3Urls?: string[]; // Legacy field for backward compatibility
   updatedDate: string;
 };
 
@@ -63,7 +66,9 @@ export type CreateAssistantRequest = {
   instruction: string;
   modelId: string;
   ragEnabled: boolean;
+  visibility?: 'private' | 'public'; // Optional, defaults to 'private'
   knowledgeSources?: KnowledgeSource[];
+  s3Urls?: string[]; // Legacy field for backward compatibility
 };
 
 export type UpdateAssistantRequest = {
@@ -72,7 +77,9 @@ export type UpdateAssistantRequest = {
   instruction?: string;
   modelId?: string;
   ragEnabled?: boolean;
+  visibility?: 'private' | 'public';
   knowledgeSources?: KnowledgeSource[];
+  s3Urls?: string[]; // Legacy field for backward compatibility
 };
 
 export type CreateAssistantMessageRequest = {

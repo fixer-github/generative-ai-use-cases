@@ -24,6 +24,7 @@ import {
   UpdateAssistantRequest,
   ListAssistantsResponse,
 } from 'generative-ai-use-cases';
+import { getTenantId } from './utils/tenantUtils';
 
 const headers = {
   'Content-Type': 'application/json',
@@ -145,6 +146,12 @@ async function handleCreate(
       // Process each knowledge source individually to track status per-source
       for (const source of body.knowledgeSources) {
       try {
+        // Generate ID server-side if not provided (for backward compatibility and URL sources)
+        if (!source.id) {
+          source.id = crypto.randomUUID();
+          console.log(`Generated ID ${source.id} for knowledge source without ID`);
+        }
+
         console.log(
           `Processing knowledge source ${source.id} (type=${source.type}, storageKey=${source.storageKey}) for assistant ${cleanAssistantId}`
         );
@@ -213,16 +220,18 @@ async function handleCreate(
           }
         }
 
-        await updateKnowledgeSourceStatus(
-          assistant,
-          source.id,
-          'FAILED',
-          errorMessage,
-          event
-        ).catch((statusError) => {
-          // Don't fail if status update fails
-          console.error('Failed to update source status:', statusError);
-        });
+        if (source.id) {
+          await updateKnowledgeSourceStatus(
+            assistant,
+            source.id,
+            'FAILED',
+            errorMessage,
+            event
+          ).catch((statusError) => {
+            // Don't fail if status update fails
+            console.error('Failed to update source status:', statusError);
+          });
+        }
 
         // Don't fail the assistant creation if one source fails
         // Continue processing other sources
@@ -273,6 +282,29 @@ async function handleList(
 }
 
 /**
+ * Helper function to check if user can access an assistant
+ * Returns true if: owner OR (public AND same tenant)
+ */
+function canAccessAssistant(
+  assistant: Assistant,
+  userId: string,
+  event: APIGatewayProxyEvent
+): boolean {
+  const userIdWithPrefix = `user#${userId}`;
+
+  // Owner can always access
+  if (assistant.userId === userIdWithPrefix) {
+    return true;
+  }
+
+  // Non-owners can access if assistant is public and in same tenant
+  const tenantId = getTenantId(event);
+  const assistantTenantId = assistant.tenantId?.replace('tenant#', '');
+
+  return assistant.visibility === 'public' && assistantTenantId === tenantId;
+}
+
+/**
  * Handle GET /{assistantId} - Get assistant
  */
 async function handleGet(
@@ -290,8 +322,8 @@ async function handleGet(
     };
   }
 
-  // Verify ownership (userId is stored with 'user#' prefix)
-  if (assistant.userId !== `user#${userId}`) {
+  // Check access: owner OR (public AND same tenant)
+  if (!canAccessAssistant(assistant, userId, event)) {
     return {
       statusCode: 403,
       headers,
@@ -339,6 +371,12 @@ async function handleUpdate(
         // Process each knowledge source individually to track status per-source
         for (const source of body.knowledgeSources) {
           try {
+            // Generate ID server-side if not provided (for backward compatibility and URL sources)
+            if (!source.id) {
+              source.id = crypto.randomUUID();
+              console.log(`Generated ID ${source.id} for knowledge source without ID`);
+            }
+
             console.log(
               `Processing knowledge source ${source.id} for assistant ${assistantId}`
             );
@@ -386,9 +424,10 @@ async function handleUpdate(
             // Update status to FAILED with error message
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error';
+            // source.id is guaranteed to exist at this point (generated above if not provided)
             await updateKnowledgeSourceStatus(
               assistant,
-              source.id,
+              source.id!,
               'FAILED',
               errorMessage,
               event
