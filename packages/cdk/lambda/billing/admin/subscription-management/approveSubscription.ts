@@ -15,7 +15,7 @@ import {
   SubscriptionRepository,
   UserPlanApplicationRepository,
 } from '../../../repositories';
-import { getRdsConfig } from '../../../utils/rdsConfig';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 interface ApproveRequest {
   note?: string;
@@ -52,12 +52,16 @@ export const handler = async (
     }
 
     // リクエストボディのパース
-    const requestBody: ApproveRequest = event.body ? JSON.parse(event.body) : {};
+    const requestBody: ApproveRequest = event.body
+      ? JSON.parse(event.body)
+      : {};
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const subscriptionRepository = new SubscriptionRepository(rdsConfig);
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
+    const userPlanApplicationRepository = new UserPlanApplicationRepository(
+      rdsConnection
+    );
 
     // サブスクリプション情報を取得
     const subscription = await subscriptionRepository.findById(subscriptionId);
@@ -108,7 +112,8 @@ export const handler = async (
             details: {
               subscription_id: subscriptionId,
               current_status: subscription.subscription_status,
-              reason: '承認できるのは pending_verification ステータスのサブスクリプションのみです',
+              reason:
+                '承認できるのは pending_verification ステータスのサブスクリプションのみです',
             },
           },
         }),
@@ -118,9 +123,12 @@ export const handler = async (
     const now = new Date();
 
     // 1. サブスクリプションのステータスを更新
-    const updatedSubscription = await subscriptionRepository.update(subscriptionId, {
-      subscription_status: 'active',
-    });
+    const updatedSubscription = await subscriptionRepository.update(
+      subscriptionId,
+      {
+        subscription_status: 'active',
+      }
+    );
 
     if (!updatedSubscription) {
       throw new Error('Failed to update subscription status');
@@ -151,7 +159,7 @@ export const handler = async (
       previous_status: 'pending_verification',
       new_status: 'active',
       approved_at: now.toISOString(),
-      approved_by: adminResult.userId,
+      approved_by: adminResult.username,
       user_plan_application_id: userPlanApplication.application_id,
       notification_sent: false, // TODO: 通知実装後にtrueに変更
     };

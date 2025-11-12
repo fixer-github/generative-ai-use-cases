@@ -10,13 +10,13 @@ import {
   verifyAdminAccess,
   isAdminContext,
   CORS_HEADERS,
-} from '../../utils/adminAuth';
+} from '../../../utils/adminAuth';
 import {
   PlanRepository,
   UserPlanApplicationRepository,
   SubscriptionRepository,
-} from '../../repositories';
-import { getRdsConfig } from '../../utils/rdsConfig';
+} from '../../../repositories';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -50,12 +50,12 @@ export const handler = async (
     }
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const planRepository = new PlanRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const planRepository = new PlanRepository(rdsConnection);
     const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConfig
+      rdsConnection
     );
-    const subscriptionRepository = new SubscriptionRepository(rdsConfig);
+    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
 
     // プランの存在確認
     const plan = await planRepository.findById(planId);

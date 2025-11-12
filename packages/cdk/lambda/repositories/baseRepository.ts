@@ -3,8 +3,8 @@
  * Manages connection pooling and provides common database operations
  */
 
-import { Pool, PoolClient, QueryResult } from 'pg';
-import { RdsConfig } from './types';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { RdsConnectionConfig } from '../utils/rdsConnection';
 
 /**
  * 接続プールの管理
@@ -18,7 +18,7 @@ const connectionPools: Map<string, Pool> = new Map();
 export abstract class BaseRepository {
   protected pool: Pool;
 
-  constructor(config: RdsConfig) {
+  constructor(config: RdsConnectionConfig) {
     // 接続プールのキーを生成（テナントごとに異なる）
     const poolKey = `${config.host}:${config.port}/${config.database}`;
 
@@ -33,6 +33,7 @@ export abstract class BaseRepository {
         database: config.database,
         user: config.user,
         password: config.password,
+        ssl: config.ssl,
         // Lambda環境に最適化された設定
         max: 10, // 最大接続数
         idleTimeoutMillis: 30000, // アイドル接続のタイムアウト
@@ -48,7 +49,7 @@ export abstract class BaseRepository {
   /**
    * クエリを実行する
    */
-  protected async query<T = any>(
+  protected async query<T extends QueryResultRow = any>(
     text: string,
     params?: any[]
   ): Promise<QueryResult<T>> {

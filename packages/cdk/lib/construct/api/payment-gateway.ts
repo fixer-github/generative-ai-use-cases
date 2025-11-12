@@ -2,33 +2,43 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
-import { GenericApiProps } from './props';
-import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
+import {
+  LambdaIntegration,
+  RestApi,
+  CognitoUserPoolsAuthorizer,
+} from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
 
-export interface PaymentGatewayApiProps extends GenericApiProps {
-  readonly webhookEventTable: Table;
-  readonly receiptCacheTable: Table;
-  readonly stripeWebhookSecret: ISecret;
-  readonly eventBusName: string;
-  readonly tenantId: string;
+export interface PaymentGatewayApiProps {
+  /**
+   * API Gateway REST API
+   */
+  readonly api: RestApi;
+
+  /**
+   * User Pool for authentication
+   */
+  readonly userPool: UserPool;
+
+  /**
+   * EventBridge event bus name for webhook event distribution
+   * @default 'default'
+   */
+  readonly eventBusName?: string;
 }
 
 class PaymentGatewayApi extends Construct {
   constructor(scope: Construct, id: string, props: PaymentGatewayApiProps) {
     super(scope, id);
 
-    const {
-      api,
-      commonAuthorizerProps,
-      webhookEventTable,
-      receiptCacheTable,
-      stripeWebhookSecret,
-      eventBusName,
-      tenantId,
-    } = props;
+    const { api, userPool, eventBusName = 'default' } = props;
+
+    // Create Cognito authorizer for protected endpoints
+    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [userPool],
+      authorizerName: 'PaymentGatewayAuthorizer',
+    });
 
     // ========================================
     // Webhookエンドポイント（3つ）
@@ -40,7 +50,8 @@ class PaymentGatewayApi extends Construct {
       'ReceiveStripeWebhook',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/webhook/stripe/receiveWebhook.ts',
+        entry:
+          './lambda/billing/payment-gateway/webhook/stripe/receiveWebhook.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -53,10 +64,7 @@ class PaymentGatewayApi extends Construct {
           ],
         },
         environment: {
-          STRIPE_WEBHOOK_SECRET_ARN: stripeWebhookSecret.secretArn,
           EVENT_BUS_NAME: eventBusName,
-          TENANT_ID: tenantId,
-          WEBHOOK_EVENT_TABLE_NAME: webhookEventTable.tableName,
         },
       }
     );
@@ -67,7 +75,8 @@ class PaymentGatewayApi extends Construct {
       'ReceiveAppleNotification',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts',
+        entry:
+          './lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -79,8 +88,6 @@ class PaymentGatewayApi extends Construct {
         },
         environment: {
           EVENT_BUS_NAME: eventBusName,
-          TENANT_ID: tenantId,
-          WEBHOOK_EVENT_TABLE_NAME: webhookEventTable.tableName,
           APPLE_BUNDLE_ID: process.env.APPLE_BUNDLE_ID || '',
         },
       }
@@ -92,7 +99,8 @@ class PaymentGatewayApi extends Construct {
       'ReceiveGoogleNotification',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/webhook/google/receiveNotification.ts',
+        entry:
+          './lambda/billing/payment-gateway/webhook/google/receiveNotification.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -104,8 +112,6 @@ class PaymentGatewayApi extends Construct {
         },
         environment: {
           EVENT_BUS_NAME: eventBusName,
-          TENANT_ID: tenantId,
-          WEBHOOK_EVENT_TABLE_NAME: webhookEventTable.tableName,
           GOOGLE_PACKAGE_NAME: process.env.GOOGLE_PACKAGE_NAME || '',
         },
       }
@@ -115,29 +121,24 @@ class PaymentGatewayApi extends Construct {
     // レシート検証処理
     // ========================================
 
-    const verifyReceiptFunction = new NodejsFunction(
-      this,
-      'VerifyReceipt',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/verification/verifyReceipt.ts',
-        timeout: Duration.seconds(60),
-        memorySize: 512,
-        bundling: {
-          nodeModules: [
-            'stripe',
-            '@aws-sdk/client-dynamodb',
-            '@aws-sdk/util-dynamodb',
-            '@aws-sdk/client-secrets-manager',
-            'googleapis',
-          ],
-        },
-        environment: {
-          RECEIPT_CACHE_TABLE_NAME: receiptCacheTable.tableName,
-          TENANT_ID: tenantId,
-        },
-      }
-    );
+    const verifyReceiptFunction = new NodejsFunction(this, 'VerifyReceipt', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/billing/payment-gateway/verification/verifyReceipt.ts',
+      timeout: Duration.seconds(60),
+      memorySize: 512,
+      bundling: {
+        nodeModules: [
+          'stripe',
+          '@aws-sdk/client-dynamodb',
+          '@aws-sdk/util-dynamodb',
+          '@aws-sdk/client-secrets-manager',
+          'googleapis',
+        ],
+      },
+      environment: {
+        // テナント専用リソースへのアクセスは実行時に動的に決定
+      },
+    });
 
     // ========================================
     // 決済操作実行
@@ -149,7 +150,8 @@ class PaymentGatewayApi extends Construct {
       'CreateCheckoutSession',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/operations/createCheckoutSession.ts',
+        entry:
+          './lambda/billing/payment-gateway/operations/createCheckoutSession.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -160,7 +162,6 @@ class PaymentGatewayApi extends Construct {
           ],
         },
         environment: {
-          TENANT_ID: tenantId,
           USER_POOL_ID: process.env.USER_POOL_ID || '',
         },
       }
@@ -172,7 +173,8 @@ class PaymentGatewayApi extends Construct {
       'UpdateSubscription',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/operations/updateSubscription.ts',
+        entry:
+          './lambda/billing/payment-gateway/operations/updateSubscription.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -183,7 +185,7 @@ class PaymentGatewayApi extends Construct {
           ],
         },
         environment: {
-          TENANT_ID: tenantId,
+          // テナント専用リソースへのアクセスは実行時に動的に決定
         },
       }
     );
@@ -194,7 +196,8 @@ class PaymentGatewayApi extends Construct {
       'CancelSubscription',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/payment-gateway/operations/cancelSubscription.ts',
+        entry:
+          './lambda/billing/payment-gateway/operations/cancelSubscription.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         bundling: {
@@ -205,7 +208,7 @@ class PaymentGatewayApi extends Construct {
           ],
         },
         environment: {
-          TENANT_ID: tenantId,
+          // テナント専用リソースへのアクセスは実行時に動的に決定
         },
       }
     );
@@ -220,7 +223,7 @@ class PaymentGatewayApi extends Construct {
         nodeModules: ['stripe', '@aws-sdk/client-secrets-manager'],
       },
       environment: {
-        TENANT_ID: tenantId,
+        // テナント専用リソースへのアクセスは実行時に動的に決定
       },
     });
 
@@ -238,7 +241,9 @@ class PaymentGatewayApi extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
-          resources: [webhookEventTable.tableArn],
+          resources: [
+            'arn:aws:dynamodb:*:*:table/*-payment-gateway-webhook-events',
+          ],
         })
       );
 
@@ -258,7 +263,7 @@ class PaymentGatewayApi extends Construct {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [stripeWebhookSecret.secretArn],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
       })
     );
 
@@ -267,7 +272,9 @@ class PaymentGatewayApi extends Construct {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
-        resources: [receiptCacheTable.tableArn],
+        resources: [
+          'arn:aws:dynamodb:*:*:table/*-payment-gateway-receipt-cache',
+        ],
       })
     );
 
@@ -275,9 +282,7 @@ class PaymentGatewayApi extends Construct {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          `arn:aws:secretsmanager:*:*:secret:${tenantId}/billing/*`,
-        ],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/*'],
       })
     );
 
@@ -292,9 +297,7 @@ class PaymentGatewayApi extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['secretsmanager:GetSecretValue'],
-          resources: [
-            `arn:aws:secretsmanager:*:*:secret:${tenantId}/billing/*`,
-          ],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/*'],
         })
       );
     });
@@ -315,21 +318,24 @@ class PaymentGatewayApi extends Construct {
     const billingResource = api.root.addResource('billing');
 
     // Webhookエンドポイント（認証不要）
+    // パターン2: パスパラメータでテナントIDを識別
+    // URL形式: POST /billing/webhook/{tenantId}/stripe
     const webhookResource = billingResource.addResource('webhook');
+    const tenantResource = webhookResource.addResource('{tenantId}');
 
-    const stripeWebhookResource = webhookResource.addResource('stripe');
+    const stripeWebhookResource = tenantResource.addResource('stripe');
     stripeWebhookResource.addMethod(
       'POST',
       new LambdaIntegration(receiveStripeWebhookFunction)
     );
 
-    const appleWebhookResource = webhookResource.addResource('apple');
+    const appleWebhookResource = tenantResource.addResource('apple');
     appleWebhookResource.addMethod(
       'POST',
       new LambdaIntegration(receiveAppleNotificationFunction)
     );
 
-    const googleWebhookResource = webhookResource.addResource('google');
+    const googleWebhookResource = tenantResource.addResource('google');
     googleWebhookResource.addMethod(
       'POST',
       new LambdaIntegration(receiveGoogleNotificationFunction)
@@ -345,7 +351,7 @@ class PaymentGatewayApi extends Construct {
       'POST',
       new LambdaIntegration(createCheckoutSessionFunction),
       {
-        authorizer: commonAuthorizerProps,
+        authorizer: authorizer,
       }
     );
 
@@ -354,7 +360,7 @@ class PaymentGatewayApi extends Construct {
       'POST',
       new LambdaIntegration(updateSubscriptionFunction),
       {
-        authorizer: commonAuthorizerProps,
+        authorizer: authorizer,
       }
     );
 
@@ -363,7 +369,7 @@ class PaymentGatewayApi extends Construct {
       'POST',
       new LambdaIntegration(cancelSubscriptionFunction),
       {
-        authorizer: commonAuthorizerProps,
+        authorizer: authorizer,
       }
     );
 
@@ -372,7 +378,7 @@ class PaymentGatewayApi extends Construct {
       'GET',
       new LambdaIntegration(getInvoiceFunction),
       {
-        authorizer: commonAuthorizerProps,
+        authorizer: authorizer,
       }
     );
   }

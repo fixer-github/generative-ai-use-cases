@@ -2,11 +2,16 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
-import { LambdaIntegration, RestApi, CognitoUserPoolsAuthorizer } from 'aws-cdk-lib/aws-apigateway';
+import {
+  LambdaIntegration,
+  RestApi,
+  CognitoUserPoolsAuthorizer,
+  AuthorizationType,
+} from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { TenantManager } from '../../construct/tenant-manager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export interface PlanManagementApiProps {
@@ -26,9 +31,9 @@ export interface PlanManagementApiProps {
   readonly idPool: IdentityPool;
 
   /**
-   * RDS secret for database connection
+   * Tenant Manager for multi-tenant RDS access
    */
-  readonly rdsSecret: ISecret;
+  readonly tenantManager: TenantManager;
 
   /**
    * Environment name (e.g., dev, staging, prod)
@@ -62,7 +67,15 @@ class PlanManagementApi extends Construct {
   constructor(scope: Construct, id: string, props: PlanManagementApiProps) {
     super(scope, id);
 
-    const { api, userPool, rdsSecret, environment, vpc, securityGroup } = props;
+    const {
+      api,
+      userPool,
+      idPool,
+      tenantManager,
+      environment,
+      vpc,
+      securityGroup,
+    } = props;
 
     // Create Cognito authorizer
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
@@ -75,16 +88,11 @@ class PlanManagementApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.seconds(30),
       memorySize: 512,
-      bundling: {
-        nodeModules: [
-          '@aws-sdk/client-rds-data',
-          '@aws-sdk/client-secrets-manager',
-          'pg', // PostgreSQL client
-          '@aws-sdk/client-cognito-identity',
-        ],
-      },
       environment: {
-        RDS_SECRET_ARN: rdsSecret.secretArn,
+        TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
+        IDENTITY_POOL_ID: idPool.identityPoolId,
+        USER_POOL_ID: userPool.userPoolId,
+        AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
       },
       ...(vpc && securityGroup
@@ -183,21 +191,37 @@ class PlanManagementApi extends Construct {
     ];
 
     functions.forEach((func) => {
-      // Grant RDS secret read access
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(func);
+
+      // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ['secretsmanager:GetSecretValue'],
-          resources: [rdsSecret.secretArn],
+          actions: [
+            'cognito-identity:GetId',
+            'cognito-identity:GetOpenIdToken',
+            'cognito-identity:GetCredentialsForIdentity',
+          ],
+          resources: ['*'],
         })
       );
 
-      // Grant OpenFGA authorization check (if needed)
+      // Grant STS AssumeRoleWithWebIdentity permission
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ['cognito-identity:GetId', 'cognito-identity:GetCredentialsForIdentity'],
+          actions: ['sts:AssumeRoleWithWebIdentity'],
           resources: ['*'],
+        })
+      );
+
+      // Grant RDS IAM authentication permission
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['rds-db:connect'],
+          resources: ['*'], // Tenant-specific resources will be constrained by assumed role
         })
       );
     });
@@ -212,11 +236,13 @@ class PlanManagementApi extends Construct {
     // GET /admin/billing/plans - List plans
     plansResource.addMethod('GET', new LambdaIntegration(listPlansFunction), {
       authorizer,
+      authorizationType: AuthorizationType.COGNITO,
     });
 
     // POST /admin/billing/plans - Create plan
     plansResource.addMethod('POST', new LambdaIntegration(createPlanFunction), {
       authorizer,
+      authorizationType: AuthorizationType.COGNITO,
     });
 
     // GET /admin/billing/plans/check-name - Check internal name availability
@@ -226,6 +252,7 @@ class PlanManagementApi extends Construct {
       new LambdaIntegration(checkPlanNameFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -233,6 +260,7 @@ class PlanManagementApi extends Construct {
     const planIdResource = plansResource.addResource('{plan_id}');
     planIdResource.addMethod('GET', new LambdaIntegration(getPlanFunction), {
       authorizer,
+      authorizationType: AuthorizationType.COGNITO,
     });
 
     // PATCH /admin/billing/plans/{plan_id}/status - Update plan status
@@ -242,6 +270,7 @@ class PlanManagementApi extends Construct {
       new LambdaIntegration(updatePlanStatusFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -252,6 +281,7 @@ class PlanManagementApi extends Construct {
       new LambdaIntegration(getPlanHistoryFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -262,6 +292,7 @@ class PlanManagementApi extends Construct {
       new LambdaIntegration(getPlanSubscriptionsFunction),
       {
         authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
   }

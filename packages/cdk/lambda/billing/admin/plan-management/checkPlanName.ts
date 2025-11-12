@@ -10,9 +10,9 @@ import {
   verifyAdminAccess,
   isAdminContext,
   CORS_HEADERS,
-} from '../../utils/adminAuth';
-import { PlanRepository } from '../../repositories';
-import { getRdsConfig } from '../../utils/rdsConfig';
+} from '../../../utils/adminAuth';
+import { PlanRepository } from '../../../repositories';
+import { getRdsConnection } from '../../../utils/rdsConnection';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -46,8 +46,8 @@ export const handler = async (
     }
 
     // RDS接続設定の取得
-    const rdsConfig = await getRdsConfig(adminResult.tenantId);
-    const planRepository = new PlanRepository(rdsConfig);
+    const rdsConnection = await getRdsConnection(event);
+    const planRepository = new PlanRepository(rdsConnection);
 
     // 内部名称の重複チェック
     const existingPlan = await planRepository.findByInternalName(internalName);
