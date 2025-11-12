@@ -224,7 +224,7 @@ export class TenantOpenSearchStack extends cdk.Stack {
       effect: iam.Effect.ALLOW,
       principals: [
         this.opensearchIndexCreationRole,
-        iam.ArnPrincipal.fromArnString(props.tenantRoleArn), // Add tenant role for Lambda access
+        new iam.ArnPrincipal(props.tenantRoleArn), // Add tenant role for Lambda access
         new iam.ServicePrincipal('bedrock.amazonaws.com'),
       ],
       actions: [
