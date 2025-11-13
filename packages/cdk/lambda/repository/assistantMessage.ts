@@ -13,6 +13,7 @@ import {
 
 export const createMessage = async (
   _assistantId: string,
+  _chatId: string,
   userId: string,
   role: 'user' | 'assistant',
   content: string,
@@ -21,6 +22,7 @@ export const createMessage = async (
   event?: APIGatewayProxyEvent
 ): Promise<AssistantMessage> => {
   const assistantId = `assistant#${_assistantId}`;
+  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
   const timestamp = Date.now();
   const messageId = `${timestamp}#${crypto.randomUUID()}`;
 
@@ -29,6 +31,7 @@ export const createMessage = async (
     createdDate: timestamp.toString(),
     messageId,
     assistantId,
+    chatId,
     userId,
     role,
     content,
@@ -52,6 +55,7 @@ export const createMessage = async (
 export const listMessages = async (
   _assistantId: string,
   userId: string,
+  _chatId: string | undefined,
   event: APIGatewayProxyEvent,
   _exclusiveStartKey?: string,
   limit?: number
@@ -64,24 +68,36 @@ export const listMessages = async (
     ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
     : undefined;
 
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#assistantId = :assistantId',
-      FilterExpression: '#userId = :userId',
-      ExpressionAttributeNames: {
-        '#assistantId': 'assistantId',
-        '#userId': 'userId',
-      },
-      ExpressionAttributeValues: {
-        ':assistantId': assistantId,
-        ':userId': userId,
-      },
-      ScanIndexForward: false,
-      Limit: limit || 100,
-      ExclusiveStartKey: exclusiveStartKey,
-    })
-  );
+  // Build query with userId and optional chatId filters
+  const queryParams: any = {
+    TableName: tableName,
+    KeyConditionExpression: '#assistantId = :assistantId',
+    ExpressionAttributeNames: {
+      '#assistantId': 'assistantId',
+      '#userId': 'userId',
+    },
+    ExpressionAttributeValues: {
+      ':assistantId': assistantId,
+      ':userId': userId,
+    },
+    ScanIndexForward: false,
+    Limit: limit || 100,
+    ExclusiveStartKey: exclusiveStartKey,
+  };
+
+  // Build filter expression: always filter by userId, optionally by chatId
+  const filterExpressions: string[] = ['#userId = :userId'];
+
+  if (_chatId) {
+    const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
+    filterExpressions.push('#chatId = :chatId');
+    queryParams.ExpressionAttributeNames['#chatId'] = 'chatId';
+    queryParams.ExpressionAttributeValues[':chatId'] = chatId;
+  }
+
+  queryParams.FilterExpression = filterExpressions.join(' AND ');
+
+  const res = await dynamoDbDocument.send(new QueryCommand(queryParams));
 
   return {
     messages: res.Items as AssistantMessage[],

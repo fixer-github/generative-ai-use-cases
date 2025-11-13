@@ -1,6 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import * as crypto from 'crypto';
 import { getAssistant } from './repository/assistant';
 import { createMessage, listMessages } from './repository/assistantMessage';
+import { createAssistantChat, findChatById, updateChatUpdatedDate } from './repository/chat';
 import {
   CreateAssistantMessageRequest,
   AssistantMessage,
@@ -102,6 +104,18 @@ async function handleCreateMessage(
     };
   }
 
+  // Get or create chatId for this conversation
+  // Can come from query params or body, if not provided, create a new conversation
+  let chatId = event.queryStringParameters?.chatId || (body as any).chatId;
+  const isNewConversation = !chatId;
+
+  if (!chatId) {
+    chatId = crypto.randomUUID();
+  }
+
+  // Remove chat# prefix if present to ensure consistent format
+  const cleanChatId = chatId.replace('chat#', '');
+
   // Get assistant configuration
   const assistant = await getAssistant(assistantId, event);
 
@@ -178,6 +192,7 @@ async function handleCreateMessage(
   // Store user message
   await createMessage(
     assistantId,
+    cleanChatId,
     userId,
     'user',
     body.content,
@@ -185,6 +200,18 @@ async function handleCreateMessage(
     undefined,
     event
   );
+
+  // Create chat history entry only for new conversations
+  // This ensures the assistant conversation appears in the unified chat history
+  if (isNewConversation) {
+    await createAssistantChat(
+      userId,
+      assistantId,
+      cleanChatId,
+      assistant.name,
+      event
+    );
+  }
 
   // RAG context retrieval from OpenSearch when ragEnabled is true
   let ragContext = '';
@@ -290,6 +317,7 @@ async function handleCreateMessage(
   // Store assistant response with sources
   const assistantMessage = await createMessage(
     assistantId,
+    cleanChatId,
     userId,
     'assistant',
     assistantResponse,
@@ -298,10 +326,19 @@ async function handleCreateMessage(
     event
   );
 
+  // Update the chat's updatedDate to reflect the latest activity
+  const chatRecord = await findChatById(userId, cleanChatId, event);
+  if (chatRecord) {
+    await updateChatUpdatedDate(chatRecord.id, chatRecord.createdDate, event);
+  }
+
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(stripAssistantPrefixFromMessage(assistantMessage)),
+    body: JSON.stringify({
+      ...stripAssistantPrefixFromMessage(assistantMessage),
+      chatId: cleanChatId, // Return chatId to frontend for routing
+    }),
   };
 }
 
@@ -336,18 +373,13 @@ async function handleListMessages(
     };
   }
 
+  const chatId = event.queryStringParameters?.chatId;
   const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;
   const limit = event.queryStringParameters?.limit
     ? parseInt(event.queryStringParameters.limit)
     : undefined;
 
-  const result = await listMessages(
-    assistantId,
-    userId,
-    event,
-    exclusiveStartKey,
-    limit
-  );
+  const result = await listMessages(assistantId, userId, chatId, event, exclusiveStartKey, limit);
 
   // Strip prefix from all messages
   const sanitizedResult: ListAssistantMessagesResponse = {

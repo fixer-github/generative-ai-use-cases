@@ -41,6 +41,42 @@ export const createChat = async (
   return item;
 };
 
+export const createAssistantChat = async (
+  _userId: string,
+  _assistantId: string,
+  _chatId: string,
+  assistantName: string,
+  event: APIGatewayProxyEvent
+): Promise<Chat> => {
+  const userId = `user#${_userId}`;
+  const assistantId = `assistant#${_assistantId}`;
+  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
+  const timestamp = Date.now();
+
+  const item: Chat = {
+    id: userId,
+    createdDate: `${timestamp}`,
+    chatId: chatId,
+    usecase: '/assistant',
+    title: assistantName,
+    updatedDate: `${timestamp}`,
+    conversationType: 'assistant',
+    assistantId: assistantId,
+    assistantName: assistantName,
+  };
+
+  await executeDynamoDBOperation(event, async (client, tableName) => {
+    return client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: item,
+      })
+    );
+  });
+
+  return item;
+};
+
 export const findChatById = async (
   _userId: string,
   _chatId: string,
@@ -133,6 +169,33 @@ export const setChatTitle = async (
       UpdateExpression: 'set title = :title',
       ExpressionAttributeValues: {
         ':title': title,
+      },
+      ReturnValues: 'ALL_NEW',
+    })
+  );
+
+  return res.Attributes as Chat;
+};
+
+export const updateChatUpdatedDate = async (
+  id: string,
+  createdDate: string,
+  event: APIGatewayProxyEvent
+) => {
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  const timestamp = Date.now();
+  const res = await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        id: id,
+        createdDate: createdDate,
+      },
+      UpdateExpression: 'set updatedDate = :updatedDate',
+      ExpressionAttributeValues: {
+        ':updatedDate': `${timestamp}`,
       },
       ReturnValues: 'ALL_NEW',
     })

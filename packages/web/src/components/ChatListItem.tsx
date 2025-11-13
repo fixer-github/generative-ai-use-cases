@@ -15,6 +15,7 @@ import {
   PiTrash,
   PiX,
   PiDotsThreeVertical,
+  PiRobot,
 } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
 import { Chat } from 'generative-ai-use-cases';
@@ -40,6 +41,16 @@ const ChatListItem: React.FC<Props> = (props) => {
     return decomposeId(props.chat.chatId) ?? '';
   }, [props.chat.chatId]);
 
+  const isAssistantChat = props.chat.conversationType === 'assistant';
+  const linkPath = useMemo(() => {
+    if (isAssistantChat && props.chat.assistantId) {
+      const cleanAssistantId = decomposeId(props.chat.assistantId);
+      // For assistant chats, include the chatId (conversation ID) in the route
+      return `/chat/assistants/chat/${cleanAssistantId}/${chatId}`;
+    }
+    return `/chat/${chatId}`;
+  }, [isAssistantChat, props.chat.assistantId, chatId]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [tempTitle, setTempTitle] = useState('');
@@ -59,7 +70,7 @@ const ChatListItem: React.FC<Props> = (props) => {
 
   useLayoutEffect(() => {
     if (editing) {
-      const listener = (e: DocumentEventMap['keypress']) => {
+      const listener = (e: KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
 
@@ -118,26 +129,6 @@ const ChatListItem: React.FC<Props> = (props) => {
     };
   }, [showMenu]);
 
-  // 日付のフォーマット
-  const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInHours < 24) {
-      return '今日';
-    } else if (diffInDays === 1) {
-      return '1日前';
-    } else if (diffInDays < 7) {
-      return `${diffInDays}日前`;
-    } else {
-      return `${date.getMonth() + 1}/${date.getDate()}`;
-    }
-  }, []);
-
   return (
     <>
       {openDialog && (
@@ -161,7 +152,7 @@ const ChatListItem: React.FC<Props> = (props) => {
           className={`group flex w-full flex-col justify-start rounded p-2 hover:bg-blue-50 ${
             props.active && 'bg-blue-100'
           } ${props.className}`}
-          to={`/chat/${chatId}`}
+          to={linkPath}
           onClick={(e) => {
             // 編集中やメニュー表示中はリンク遷移を無効化
             if (editing || showMenu) {
@@ -170,7 +161,7 @@ const ChatListItem: React.FC<Props> = (props) => {
           }}>
           <div className="flex w-full items-start gap-2">
             <div className="shrink-0 pt-0.5">
-              <PiChat />
+              {isAssistantChat ? <PiRobot className="text-blue-600" /> : <PiChat />}
             </div>
             <div className="min-w-0 flex-1 overflow-hidden">
               {editing ? (
@@ -184,16 +175,9 @@ const ChatListItem: React.FC<Props> = (props) => {
                   }}
                 />
               ) : (
-                <>
-                  <div className="truncate text-sm">
-                    {highlightText(props.chat.title, props.highlightWords)}
-                  </div>
-                  {props.chat.updatedDate && (
-                    <div className="mt-0.5 text-xs text-gray-500">
-                      {formatDate(props.chat.updatedDate)}
-                    </div>
-                  )}
-                </>
+                <div className="truncate text-sm">
+                  {highlightText(props.chat.title, props.highlightWords)}
+                </div>
               )}
             </div>
             {editing && (

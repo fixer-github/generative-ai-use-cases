@@ -35,6 +35,7 @@ export type AssistantMessage = {
   createdDate: string; // Derived from messageId timestamp
   messageId: string; // sort key: timestamp#uuid
   assistantId: string; // Duplicate for clarity, same as id
+  chatId: string; // Conversation identifier (chat#uuid)
   userId: string;
   role: 'user' | 'assistant';
   content: string;

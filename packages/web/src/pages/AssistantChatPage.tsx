@@ -33,8 +33,9 @@ import {
 const AssistantChatPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { assistantId } = useParams<{
+  const { assistantId, conversationId } = useParams<{
     assistantId?: string;
+    conversationId?: string;
   }>();
 
   const { getAssistant, listMessages, createMessage } = useAssistantApi();
@@ -46,6 +47,7 @@ const AssistantChatPage: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | undefined>(conversationId);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,8 +66,10 @@ const AssistantChatPage: React.FC = () => {
     if (assistantId) {
       fetchAssistant();
       fetchMessages();
+      // Update currentChatId when conversationId changes
+      setCurrentChatId(conversationId);
     }
-  }, [assistantId]);
+  }, [assistantId, conversationId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -135,7 +139,10 @@ const AssistantChatPage: React.FC = () => {
     if (!assistantId) return;
 
     try {
-      const response = await listMessages(assistantId, { limit: 100 });
+      const response = await listMessages(assistantId, {
+        limit: 100,
+        chatId: currentChatId
+      });
       // Sort messages chronologically (oldest first)
       // Backend returns newest first (ScanIndexForward: false), so we reverse
       // createdDate is stored as numeric string (timestamp), so parse it
@@ -171,7 +178,18 @@ const AssistantChatPage: React.FC = () => {
 
     try {
       // Send message and get response
-      await createMessage(assistantId, { content: userMessageContent });
+      const response = await createMessage(assistantId, {
+        content: userMessageContent,
+        chatId: currentChatId
+      });
+
+      // If this was a new conversation (no currentChatId), update state and navigate
+      if (!currentChatId && (response as any).chatId) {
+        const newChatId = (response as any).chatId;
+        setCurrentChatId(newChatId);
+        // Navigate to the conversation URL
+        navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, { replace: true });
+      }
 
       // Refresh messages to get both user and assistant messages
       await fetchMessages();
