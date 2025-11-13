@@ -6,6 +6,7 @@ import {
   LambdaIntegration,
   RestApi,
   CognitoUserPoolsAuthorizer,
+  AuthorizationType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
@@ -29,6 +30,12 @@ export interface PaymentGatewayApiProps {
 }
 
 class PaymentGatewayApi extends Construct {
+  // Public プロパティとして関数を公開（統括責務から直接呼び出すため）
+  public readonly verifyReceiptFunction: NodejsFunction;
+  public readonly createCheckoutSessionFunction: NodejsFunction;
+  public readonly updateSubscriptionFunction: NodejsFunction;
+  public readonly cancelSubscriptionFunction: NodejsFunction;
+
   constructor(scope: Construct, id: string, props: PaymentGatewayApiProps) {
     super(scope, id);
 
@@ -54,15 +61,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/webhook/stripe/receiveWebhook.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            'stripe',
-            '@aws-sdk/client-eventbridge',
-            '@aws-sdk/client-dynamodb',
-            '@aws-sdk/util-dynamodb',
-            '@aws-sdk/client-secrets-manager',
-          ],
-        },
         environment: {
           EVENT_BUS_NAME: eventBusName,
         },
@@ -79,13 +77,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            '@aws-sdk/client-eventbridge',
-            '@aws-sdk/client-dynamodb',
-            '@aws-sdk/util-dynamodb',
-          ],
-        },
         environment: {
           EVENT_BUS_NAME: eventBusName,
           APPLE_BUNDLE_ID: process.env.APPLE_BUNDLE_ID || '',
@@ -103,13 +94,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/webhook/google/receiveNotification.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            '@aws-sdk/client-eventbridge',
-            '@aws-sdk/client-dynamodb',
-            '@aws-sdk/util-dynamodb',
-          ],
-        },
         environment: {
           EVENT_BUS_NAME: eventBusName,
           GOOGLE_PACKAGE_NAME: process.env.GOOGLE_PACKAGE_NAME || '',
@@ -124,17 +108,8 @@ class PaymentGatewayApi extends Construct {
     const verifyReceiptFunction = new NodejsFunction(this, 'VerifyReceipt', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/billing/payment-gateway/verification/verifyReceipt.ts',
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(120), // フォールバック処理（2秒待機 + 再試行）を考慮して120秒に延長
       memorySize: 512,
-      bundling: {
-        nodeModules: [
-          'stripe',
-          '@aws-sdk/client-dynamodb',
-          '@aws-sdk/util-dynamodb',
-          '@aws-sdk/client-secrets-manager',
-          'googleapis',
-        ],
-      },
       environment: {
         // テナント専用リソースへのアクセスは実行時に動的に決定
       },
@@ -154,13 +129,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/operations/createCheckoutSession.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            'stripe',
-            '@aws-sdk/client-secrets-manager',
-            '@aws-sdk/client-cognito-identity-provider',
-          ],
-        },
         environment: {
           USER_POOL_ID: process.env.USER_POOL_ID || '',
         },
@@ -177,13 +145,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/operations/updateSubscription.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            'stripe',
-            '@aws-sdk/client-secrets-manager',
-            'googleapis',
-          ],
-        },
         environment: {
           // テナント専用リソースへのアクセスは実行時に動的に決定
         },
@@ -200,13 +161,6 @@ class PaymentGatewayApi extends Construct {
           './lambda/billing/payment-gateway/operations/cancelSubscription.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          nodeModules: [
-            'stripe',
-            '@aws-sdk/client-secrets-manager',
-            'googleapis',
-          ],
-        },
         environment: {
           // テナント専用リソースへのアクセスは実行時に動的に決定
         },
@@ -219,9 +173,6 @@ class PaymentGatewayApi extends Construct {
       entry: './lambda/billing/payment-gateway/operations/getInvoice.ts',
       timeout: Duration.seconds(30),
       memorySize: 256,
-      bundling: {
-        nodeModules: ['stripe', '@aws-sdk/client-secrets-manager'],
-      },
       environment: {
         // テナント専用リソースへのアクセスは実行時に動的に決定
       },
@@ -352,6 +303,7 @@ class PaymentGatewayApi extends Construct {
       new LambdaIntegration(createCheckoutSessionFunction),
       {
         authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -361,6 +313,7 @@ class PaymentGatewayApi extends Construct {
       new LambdaIntegration(updateSubscriptionFunction),
       {
         authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -370,6 +323,7 @@ class PaymentGatewayApi extends Construct {
       new LambdaIntegration(cancelSubscriptionFunction),
       {
         authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
 
@@ -379,8 +333,17 @@ class PaymentGatewayApi extends Construct {
       new LambdaIntegration(getInvoiceFunction),
       {
         authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
       }
     );
+
+    // ========================================
+    // Lambda関数をプロパティに割り当て（統括責務から直接呼び出すため）
+    // ========================================
+    this.verifyReceiptFunction = verifyReceiptFunction;
+    this.createCheckoutSessionFunction = createCheckoutSessionFunction;
+    this.updateSubscriptionFunction = updateSubscriptionFunction;
+    this.cancelSubscriptionFunction = cancelSubscriptionFunction;
   }
 }
 
