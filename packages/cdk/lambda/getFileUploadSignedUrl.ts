@@ -11,6 +11,7 @@ import {
   isDefaultTenant,
   extractAccountIdFromRoleArn,
 } from './utils/tenantS3Utils';
+import { internalServerError500Response } from './utils/apiResponse';
 
 // Constants
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
@@ -120,13 +121,6 @@ export const handler = async (
     };
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

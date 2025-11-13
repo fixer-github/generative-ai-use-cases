@@ -10,6 +10,12 @@ import {
   isAdminUserResult,
   CORS_HEADERS,
 } from './utils/adminAuth';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,
@@ -32,23 +38,15 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ message: 'Invalid JSON in request body' }),
-      };
+      return badRequest400Response('Invalid JSON in request body');
     }
 
     const { username, tenantAdmin } = requestBody;
 
     if (!username || typeof tenantAdmin !== 'boolean') {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'username (string) and tenantAdmin (boolean) are required',
-        }),
-      };
+      return badRequest400Response(
+        'username (string) and tenantAdmin (boolean) are required'
+      );
     }
 
     // Verify admin access and user membership in same tenant
@@ -61,13 +59,9 @@ export const handler = async (
 
     // Prevent admin from removing their own admin status
     if (username === admin.username && !tenantAdmin) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'Cannot remove admin privileges from yourself',
-        }),
-      };
+      return badRequest400Response(
+        'Cannot remove admin privileges from yourself'
+      );
     }
 
     // Check current admin status to avoid unnecessary sign-outs
@@ -152,40 +146,25 @@ export const handler = async (
           : 'User has been demoted to regular user.';
       }
 
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: userMessage,
-          username,
-          tenantAdmin,
-          sessionInvalidated,
-          actionType,
-          requiresRefresh: actionType === 'promoted',
-        }),
-      };
+      return ok200Response({
+        message: userMessage,
+        username,
+        tenantAdmin,
+        sessionInvalidated,
+        actionType,
+        requiresRefresh: actionType === 'promoted',
+      });
     } catch (error: unknown) {
       console.error(`Failed to update user ${username}:`, error);
 
       if (error instanceof Error && error.name === 'UserNotFoundException') {
-        return {
-          statusCode: 404,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({ message: 'User not found' }),
-        };
+        return notFound404Response('User not found');
       }
 
       throw error; // Re-throw to be caught by outer catch block
     }
   } catch (error) {
     console.error('Error updating user role:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        message: 'Failed to update user role',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-    };
+    return internalServerError500Response('Failed to update user role');
   }
 };

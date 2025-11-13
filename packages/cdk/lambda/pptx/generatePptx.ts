@@ -7,6 +7,14 @@ import {
   validateInstructions,
 } from './pptxService';
 import { getUsername, getTenantId } from '../utils/tenantUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  forbidden403Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../utils/apiResponse';
 
 interface GenerateRequest {
   template_id?: string;
@@ -27,66 +35,29 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+      return unauthorized401Response('Unauthorized');
     }
 
     // Parse request body
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Request body is required' }),
-      };
+      return badRequest400Response('Request body is required');
     }
 
     const generationInput: GenerateRequest = JSON.parse(event.body);
 
     // Validate input
     if (!generationInput.instructions) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Instructions are required' }),
-      };
+      return badRequest400Response('Instructions are required');
     }
 
     if (!validateInstructions(generationInput.instructions)) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Instructions must be between 1 and 5000 characters',
-        }),
-      };
+      return badRequest400Response(
+        'Instructions must be between 1 and 5000 characters'
+      );
     }
 
     if (!validateSlideCount(generationInput.slide_count)) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Slide count must be between 1 and 50',
-        }),
-      };
+      return badRequest400Response('Slide count must be between 1 and 50');
     }
 
     // Validate template exists if provided
@@ -94,14 +65,7 @@ export const handler = async (
     if (generationInput.template_id) {
       template = await findTemplateById(event, generationInput.template_id);
       if (!template) {
-        return {
-          statusCode: 404,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-          body: JSON.stringify({ message: 'Template not found' }),
-        };
+        return notFound404Response('Template not found');
       }
 
       // Check if user has access to template
@@ -110,16 +74,7 @@ export const handler = async (
         template.userId !== userId &&
         template.tenantId !== tenantId
       ) {
-        return {
-          statusCode: 403,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-          body: JSON.stringify({
-            message: 'Not authorized to use this template',
-          }),
-        };
+        return forbidden403Response('Not authorized to use this template');
       }
     }
 
@@ -172,23 +127,9 @@ export const handler = async (
         : undefined,
     };
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error generating PPTX:', error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

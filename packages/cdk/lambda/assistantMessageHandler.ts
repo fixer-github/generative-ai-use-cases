@@ -13,6 +13,13 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import { similaritySearch } from './repository/assistantSearch';
 import { canAccessAssistant } from './utils/assistantAccessControl';
+import {
+  ok200Response,
+  badRequest400Response,
+  forbidden403Response,
+  notFound404Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -52,11 +59,7 @@ export const handler = async (
     const method = event.httpMethod;
 
     if (!assistantId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Missing assistantId' }),
-      };
+      return badRequest400Response('Missing assistantId');
     }
 
     // Route based on HTTP method
@@ -76,11 +79,7 @@ export const handler = async (
     }
   } catch (error) {
     console.error('Error in assistant message handler:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };
 
@@ -95,34 +94,19 @@ async function handleCreateMessage(
   const body: CreateAssistantMessageRequest = JSON.parse(event.body || '{}');
 
   if (!body.content) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ message: 'Missing content' }),
-    };
+    return badRequest400Response('Missing content');
   }
 
   // Get assistant configuration
   const assistant = await getAssistant(assistantId, event);
 
   if (!assistant) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'Assistant not found' }),
-    };
+    return notFound404Response('Assistant not found');
   }
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({
-        message: 'Access denied to this assistant',
-        code: 'ASSISTANT_ACCESS_DENIED',
-      }),
-    };
+    return forbidden403Response('Access denied to this assistant');
   }
 
   // Block chat if RAG is enabled and documents are still being indexed
@@ -162,13 +146,7 @@ async function handleCreateMessage(
     console.error(
       `Assistant ${assistantId} has no instruction/system prompt configured`
     );
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        message: 'Assistant has no system prompt configured',
-      }),
-    };
+    return badRequest400Response('Assistant has no system prompt configured');
   }
 
   console.log(
@@ -298,11 +276,7 @@ async function handleCreateMessage(
     event
   );
 
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify(stripAssistantPrefixFromMessage(assistantMessage)),
-  };
+  return ok200Response(stripAssistantPrefixFromMessage(assistantMessage));
 }
 
 /**
@@ -317,23 +291,12 @@ async function handleListMessages(
   const assistant = await getAssistant(assistantId, event);
 
   if (!assistant) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'Assistant not found' }),
-    };
+    return notFound404Response('Assistant not found');
   }
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({
-        message: 'Access denied to this assistant',
-        code: 'ASSISTANT_ACCESS_DENIED',
-      }),
-    };
+    return forbidden403Response('Access denied to this assistant');
   }
 
   const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;
@@ -355,9 +318,5 @@ async function handleListMessages(
     messages: result.messages.map(stripAssistantPrefixFromMessage),
   };
 
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify(sanitizedResult),
-  };
+  return ok200Response(sanitizedResult);
 }

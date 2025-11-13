@@ -12,6 +12,7 @@ import {
   extractAccountIdFromRoleArn,
 } from './utils/tenantS3Utils';
 import { getTenant } from './tenantManager';
+import { internalServerError500Response } from './utils/apiResponse';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -106,13 +107,6 @@ export const handler = async (
     };
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

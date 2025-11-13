@@ -4,6 +4,12 @@ import {
   validateFileExtension,
 } from './pptxService';
 import { getUsername, getTenantId } from '../utils/tenantUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  internalServerError500Response,
+} from '../utils/apiResponse';
 
 interface QueryParams {
   filename: string;
@@ -19,14 +25,7 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+      return unauthorized401Response('Unauthorized');
     }
 
     // Parse query parameters
@@ -36,28 +35,12 @@ export const handler = async (
       'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
     if (!filename) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Filename parameter is required' }),
-      };
+      return badRequest400Response('Filename parameter is required');
     }
 
     // Validate file extension
     if (!validateFileExtension(filename)) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Only PPTX and POTX files are allowed',
-        }),
-      };
+      return badRequest400Response('Only PPTX and POTX files are allowed');
     }
 
     // Generate presigned URL (pass event for tenant role assumption)
@@ -70,27 +53,13 @@ export const handler = async (
       'template'
     );
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        upload_url: presignedUrl.uploadUrl,
-        s3_key: presignedUrl.s3Key,
-        expires_in: presignedUrl.expiresIn,
-      }),
-    };
+    return ok200Response({
+      upload_url: presignedUrl.uploadUrl,
+      s3_key: presignedUrl.s3Key,
+      expires_in: presignedUrl.expiresIn,
+    });
   } catch (error) {
     console.error('Error generating upload URL:', error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

@@ -2,6 +2,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuid4 } from 'uuid';
 import { createTemplate } from './pptxRepository';
 import { getUsername, getTenantId } from '../utils/tenantUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  internalServerError500Response,
+} from '../utils/apiResponse';
 
 interface CreateTemplateRequest {
   template_name: string;
@@ -19,40 +25,19 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+      return unauthorized401Response('Unauthorized');
     }
 
     // Parse request body
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Request body is required' }),
-      };
+      return badRequest400Response('Request body is required');
     }
 
     const templateInput: CreateTemplateRequest = JSON.parse(event.body);
     const s3Key = event.queryStringParameters?.s3_key;
 
     if (!s3Key) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'S3 key parameter is required' }),
-      };
+      return badRequest400Response('S3 key parameter is required');
     }
 
     // Validate required fields
@@ -60,43 +45,22 @@ export const handler = async (
       !templateInput.template_name ||
       templateInput.template_name.trim().length === 0
     ) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Template name is required' }),
-      };
+      return badRequest400Response('Template name is required');
     }
 
     if (templateInput.template_name.length > 100) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Template name must be 100 characters or less',
-        }),
-      };
+      return badRequest400Response(
+        'Template name must be 100 characters or less'
+      );
     }
 
     if (
       templateInput.template_description &&
       templateInput.template_description.length > 500
     ) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Template description must be 500 characters or less',
-        }),
-      };
+      return badRequest400Response(
+        'Template description must be 500 characters or less'
+      );
     }
 
     // Generate template ID and create template
@@ -128,23 +92,9 @@ export const handler = async (
       updated_at: template.updatedAt,
     };
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error creating template:', error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

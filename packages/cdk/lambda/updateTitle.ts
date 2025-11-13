@@ -2,6 +2,11 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { UpdateTitleRequest } from 'generative-ai-use-cases';
 import { findChatById, setChatTitle } from './repository';
 import { getUsername } from './utils/tenantUtils';
+import {
+  ok200Response,
+  notFound404Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -14,14 +19,7 @@ export const handler = async (
     const chatItem = await findChatById(userId, chatId, event);
 
     if (!chatItem) {
-      return {
-        statusCode: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: '',
-      };
+      return notFound404Response('Chat not found');
     }
 
     const updatedChat = await setChatTitle(
@@ -31,23 +29,9 @@ export const handler = async (
       event
     );
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ chat: updatedChat }),
-    };
+    return ok200Response({ chat: updatedChat });
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

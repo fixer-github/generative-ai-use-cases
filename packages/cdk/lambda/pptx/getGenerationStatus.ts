@@ -2,6 +2,14 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { findGenerationById } from './pptxRepository';
 import { getPptxDownloadUrl } from './pptxService';
 import { getUsername, getTenantId } from '../utils/tenantUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  forbidden403Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -12,56 +20,26 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+      return unauthorized401Response('Unauthorized');
     }
 
     // Get generation ID from path parameters
     const generationId = event.pathParameters?.generationId;
 
     if (!generationId) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Generation ID is required' }),
-      };
+      return badRequest400Response('Generation ID is required');
     }
 
     // Find the generation
     const generation = await findGenerationById(event, generationId);
 
     if (!generation) {
-      return {
-        statusCode: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'Generation not found' }),
-      };
+      return notFound404Response('Generation not found');
     }
 
     // Check permission - only owner can view
     if (generation.userId !== userId) {
-      return {
-        statusCode: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: 'Not authorized to view this generation',
-        }),
-      };
+      return forbidden403Response('Not authorized to view this generation');
     }
 
     // Generate download URL if generation is completed
@@ -90,23 +68,9 @@ export const handler = async (
       error_message: generation.errorMessage,
     };
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error getting generation status:', error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

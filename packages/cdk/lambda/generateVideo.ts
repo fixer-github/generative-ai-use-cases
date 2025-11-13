@@ -4,6 +4,10 @@ import api from './utils/api';
 import { defaultVideoGenerationModel } from './utils/models';
 import { createJob } from './repositoryVideoJob';
 import { getUsername } from './utils/tenantUtils';
+import {
+  ok200Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -19,23 +23,9 @@ export const handler = async (
 
     const res = await createJob(userId, invocationArn, req);
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(res),
-    };
+    return ok200Response(res);
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: (error as Error).message }),
-    };
+    return internalServerError500Response((error as Error).message);
   }
 };

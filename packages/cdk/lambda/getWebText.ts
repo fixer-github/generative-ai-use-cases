@@ -4,6 +4,12 @@ import sanitizeHtml from 'sanitize-html';
 import { URL } from 'url';
 import dns from 'dns';
 import { promisify } from 'util';
+import {
+  ok200Response,
+  badRequest400Response,
+  forbidden403Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 const dnsLookup = promisify(dns.lookup);
 
@@ -112,29 +118,13 @@ export const handler = async (
     const url = event?.queryStringParameters?.url;
 
     if (!url) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ message: 'url is missing' }),
-      };
+      return badRequest400Response('url is missing');
     }
 
     // Validate URL safety
     const validation = await validateUrl(url);
     if (!validation.valid) {
-      return {
-        statusCode: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({
-          message: validation.message || 'Access denied',
-        }),
-      };
+      return forbidden403Response(validation.message || 'Access denied');
     }
 
     // Execute request if URL is confirmed safe
@@ -156,23 +146,9 @@ export const handler = async (
     });
     const text = root?.querySelector('body')?.removeWhitespace().text;
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ text }),
-    };
+    return ok200Response({ text });
   } catch (error) {
     console.log(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    };
+    return internalServerError500Response('Internal Server Error');
   }
 };

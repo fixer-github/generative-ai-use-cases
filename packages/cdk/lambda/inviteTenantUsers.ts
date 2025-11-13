@@ -12,6 +12,11 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from './utils/adminAuth';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,
@@ -85,56 +90,31 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ message: 'Invalid JSON in request body' }),
-      };
+      return badRequest400Response('Invalid JSON in request body');
     }
 
     const { emails, sendEmail = false } = requestBody;
 
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'emails array is required and must not be empty',
-        }),
-      };
+      return badRequest400Response(
+        'emails array is required and must not be empty'
+      );
     }
 
     if (emails.length > 100) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'Maximum 100 users can be invited at once',
-        }),
-      };
+      return badRequest400Response('Maximum 100 users can be invited at once');
     }
 
     // Validate all emails
     const invalidEmails = emails.filter((email) => !isValidEmail(email));
     if (invalidEmails.length > 0) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'Invalid email addresses found',
-          invalidEmails,
-        }),
-      };
+      return badRequest400Response('Invalid email addresses found');
     }
 
     // Check for duplicate emails
     const uniqueEmails = Array.from(new Set(emails));
     if (uniqueEmails.length !== emails.length) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ message: 'Duplicate emails found in request' }),
-      };
+      return badRequest400Response('Duplicate emails found in request');
     }
 
     // Invite users
@@ -242,27 +222,16 @@ export const handler = async (
       `Invitation results: ${successCount} successful, ${failCount} failed`
     );
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        results,
-        summary: {
-          totalRequested: uniqueEmails.length,
-          successful: successCount,
-          failed: failCount,
-        },
-      }),
-    };
+    return ok200Response({
+      results,
+      summary: {
+        totalRequested: uniqueEmails.length,
+        successful: successCount,
+        failed: failCount,
+      },
+    });
   } catch (error) {
     console.error('Error inviting users:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        message: 'Failed to invite users',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-    };
+    return internalServerError500Response('Failed to invite users');
   }
 };
