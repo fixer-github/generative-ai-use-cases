@@ -14,10 +14,14 @@ import {
   PiSpinnerGap,
 } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
+import useChatApi from '../hooks/useChatApi';
+import useHttp from '../hooks/useHttp';
 import {
   Assistant,
   AssistantMessage,
   KnowledgeSource,
+  UnrecordedMessage,
+  FindChatByIdResponse,
 } from 'generative-ai-use-cases';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -29,6 +33,8 @@ import {
   isSyncBlocking,
   isStatusFinal,
 } from '../components/assistants/statusMetadata';
+import { findModelByModelId } from '../hooks/useModel';
+import { getPrompter } from '../prompts';
 
 const AssistantChatPage: React.FC = () => {
   const { t } = useTranslation();
@@ -39,6 +45,8 @@ const AssistantChatPage: React.FC = () => {
   }>();
 
   const { getAssistant, listMessages, createMessage } = useAssistantApi();
+  const { predictTitle, updateTitle } = useChatApi();
+  const http = useHttp();
 
   const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
@@ -163,6 +171,60 @@ const AssistantChatPage: React.FC = () => {
     }
   };
 
+  const generateChatTitle = async (newChatId: string) => {
+    if (!assistant) return;
+
+    try {
+      // Fetch the latest messages for title generation
+      const response = await listMessages(assistantId!, {
+        limit: 10,
+        chatId: newChatId
+      });
+
+      // Need at least one user and one assistant message
+      if (!response.messages || response.messages.length < 2) return;
+
+      // Get chat data
+      const chatResponse = await http.api.get<FindChatByIdResponse>(`chats/${newChatId}`);
+      const chat = chatResponse.data.chat;
+
+      if (chat.title && chat.title.trim() !== '' && chat.title !== assistant.name) {
+        // Title already exists and is not the default assistant name
+        return;
+      }
+
+      // Convert assistant messages to the format needed for title generation
+      const messagesForTitle: UnrecordedMessage[] = response.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // Get the model and prompter for title generation
+      const model = findModelByModelId(assistant.modelId);
+      if (!model) return;
+
+      const prompter = getPrompter(assistant.modelId);
+      const titlePrompt = prompter.setTitlePrompt({
+        messages: messagesForTitle,
+      });
+
+      // Generate title
+      const title = await predictTitle({
+        model,
+        chat,
+        prompt: titlePrompt,
+        id: '/title',
+      });
+
+      // Update the title
+      if (title && title.trim() !== '') {
+        await updateTitle(newChatId, title);
+      }
+    } catch (error) {
+      console.error('Failed to generate chat title:', error);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !assistantId) return;
 
@@ -173,6 +235,7 @@ const AssistantChatPage: React.FC = () => {
     }
 
     const userMessageContent = inputMessage;
+    const isFirstMessage = !currentChatId;
     setInputMessage('');
     setSending(true);
 
@@ -184,8 +247,8 @@ const AssistantChatPage: React.FC = () => {
       });
 
       // If this was a new conversation (no currentChatId), update state and navigate
-      if (!currentChatId && (response as any).chatId) {
-        const newChatId = (response as any).chatId;
+      if (!currentChatId && response.chatId) {
+        const newChatId = response.chatId;
         setCurrentChatId(newChatId);
         // Navigate to the conversation URL
         navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, { replace: true });
@@ -193,6 +256,11 @@ const AssistantChatPage: React.FC = () => {
 
       // Refresh messages to get both user and assistant messages
       await fetchMessages();
+
+      // Generate title for the first message
+      if (isFirstMessage && response.chatId) {
+        await generateChatTitle(response.chatId);
+      }
 
       setSending(false);
     } catch (error) {
@@ -205,7 +273,7 @@ const AssistantChatPage: React.FC = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // 日本語入力の変換中はEnterキーで送信しない
+    // Don't send on Enter while composing Japanese input
     if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault();
       handleSendMessage();

@@ -15,7 +15,6 @@ import {
   PiTrash,
   PiX,
   PiDotsThreeVertical,
-  PiRobot,
 } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
 import { Chat } from 'generative-ai-use-cases';
@@ -161,7 +160,7 @@ const ChatListItem: React.FC<Props> = (props) => {
           }}>
           <div className="flex w-full items-start gap-2">
             <div className="shrink-0 pt-0.5">
-              {isAssistantChat ? <PiRobot className="text-blue-600" /> : <PiChat />}
+              <PiChat />
             </div>
             <div className="min-w-0 flex-1 overflow-hidden">
               {editing ? (
