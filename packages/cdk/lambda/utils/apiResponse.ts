@@ -3,16 +3,7 @@
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
-
-/**
- * CORS headers
- */
-export const CORS_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-};
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 /**
  * Create Lambda error response
