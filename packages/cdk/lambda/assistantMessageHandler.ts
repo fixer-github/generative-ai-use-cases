@@ -106,7 +106,10 @@ async function handleCreateMessage(
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response('Access denied to this assistant');
+    return forbidden403Response(
+      'Access denied to this assistant',
+      'ASSISTANT_ACCESS_DENIED'
+    );
   }
 
   // Block chat if RAG is enabled and documents are still being indexed
@@ -296,7 +299,10 @@ async function handleListMessages(
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response('Access denied to this assistant');
+    return forbidden403Response(
+      'Access denied to this assistant',
+      'ASSISTANT_ACCESS_DENIED'
+    );
   }
 
   const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;

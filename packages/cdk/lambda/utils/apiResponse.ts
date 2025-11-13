@@ -26,16 +26,19 @@ function createSuccessResponse<TBody>(
  * Create Lambda error response
  * @param statusCode HTTP status code
  * @param message Error Message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response
  */
 function createErrorResponse(
   statusCode: number,
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
+  const body = code ? { message, code } : { message };
   return {
     statusCode,
     headers: CORS_HEADERS,
-    body: JSON.stringify({ message: message }),
+    body: JSON.stringify(body),
   };
 }
 
@@ -85,87 +88,121 @@ export function noContent204Response(): APIGatewayProxyResult {
 /**
  * Create 400 Bad Request response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 400 status code
  */
-export function badRequest400Response(message: string): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.BAD_REQUEST, message);
+export function badRequest400Response(
+  message: string,
+  code?: string
+): APIGatewayProxyResult {
+  return createErrorResponse(HttpStatus.ClientError.BAD_REQUEST, message, code);
 }
 
 /**
  * Create 401 Unauthorized response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 401 status code
  */
 export function unauthorized401Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.UNAUTHORIZED, message);
+  return createErrorResponse(
+    HttpStatus.ClientError.UNAUTHORIZED,
+    message,
+    code
+  );
 }
 
 /**
  * Create 403 Forbidden response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 403 status code
  */
-export function forbidden403Response(message: string): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.FORBIDDEN, message);
+export function forbidden403Response(
+  message: string,
+  code?: string
+): APIGatewayProxyResult {
+  return createErrorResponse(HttpStatus.ClientError.FORBIDDEN, message, code);
 }
 
 /**
  * Create 404 Not Found response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 404 status code
  */
-export function notFound404Response(message: string): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.NOT_FOUND, message);
+export function notFound404Response(
+  message: string,
+  code?: string
+): APIGatewayProxyResult {
+  return createErrorResponse(HttpStatus.ClientError.NOT_FOUND, message, code);
 }
 
 /**
  * Create 405 Method Not Allowed response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 405 status code
  */
 export function methodNotAllowed405Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
   return createErrorResponse(
     HttpStatus.ClientError.METHOD_NOT_ALLOWED,
-    message
+    message,
+    code
   );
 }
 
 /**
  * Create 409 Conflict response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 409 status code
  */
-export function conflict409Response(message: string): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.CONFLICT, message);
+export function conflict409Response(
+  message: string,
+  code?: string
+): APIGatewayProxyResult {
+  return createErrorResponse(HttpStatus.ClientError.CONFLICT, message, code);
 }
 
 /**
  * Create 422 Unprocessable Entity response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 422 status code
  */
 export function unprocessableEntity422Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
   return createErrorResponse(
     HttpStatus.ClientError.UNPROCESSABLE_ENTITY,
-    message
+    message,
+    code
   );
 }
 
 /**
  * Create 429 Too Many Requests response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 429 status code
  */
 export function tooManyRequests429Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.TOO_MANY_REQUESTS, message);
+  return createErrorResponse(
+    HttpStatus.ClientError.TOO_MANY_REQUESTS,
+    message,
+    code
+  );
 }
 
 // ============================================================================
@@ -175,58 +212,80 @@ export function tooManyRequests429Response(
 /**
  * Create 500 Internal Server Error response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 500 status code
  */
 export function internalServerError500Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
   return createErrorResponse(
     HttpStatus.ServerError.INTERNAL_SERVER_ERROR,
-    message
+    message,
+    code
   );
 }
 
 /**
  * Create 501 Not Implemented response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 501 status code
  */
 export function notImplemented501Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.NOT_IMPLEMENTED, message);
+  return createErrorResponse(
+    HttpStatus.ServerError.NOT_IMPLEMENTED,
+    message,
+    code
+  );
 }
 
 /**
  * Create 502 Bad Gateway response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 502 status code
  */
-export function badGateway502Response(message: string): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.BAD_GATEWAY, message);
+export function badGateway502Response(
+  message: string,
+  code?: string
+): APIGatewayProxyResult {
+  return createErrorResponse(HttpStatus.ServerError.BAD_GATEWAY, message, code);
 }
 
 /**
  * Create 503 Service Unavailable response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 503 status code
  */
 export function serviceUnavailable503Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
   return createErrorResponse(
     HttpStatus.ServerError.SERVICE_UNAVAILABLE,
-    message
+    message,
+    code
   );
 }
 
 /**
  * Create 504 Gateway Timeout response
  * @param message Error message
+ * @param code Optional error code for client-side error handling
  * @returns Lambda response with 504 status code
  */
 export function gatewayTimeout504Response(
-  message: string
+  message: string,
+  code?: string
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.GATEWAY_TIMEOUT, message);
+  return createErrorResponse(
+    HttpStatus.ServerError.GATEWAY_TIMEOUT,
+    message,
+    code
+  );
 }

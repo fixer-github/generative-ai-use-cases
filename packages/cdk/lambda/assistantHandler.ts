@@ -315,7 +315,10 @@ async function handleGet(
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response('Access denied to this assistant');
+    return forbidden403Response(
+      'Access denied to this assistant',
+      'ASSISTANT_ACCESS_DENIED'
+    );
   }
 
   return ok200Response(stripAssistantPrefix(assistant));
@@ -451,7 +454,10 @@ async function handleUpdate(
       return notFound404Response('Assistant not found');
     }
     if (error.message === 'Unauthorized') {
-      return forbidden403Response('Access denied to this assistant');
+      return forbidden403Response(
+        'Access denied to this assistant',
+        'ASSISTANT_ACCESS_DENIED'
+      );
     }
     throw error;
   }
@@ -487,7 +493,10 @@ async function handleDelete(
       return notFound404Response('Assistant not found');
     }
     if (error.message === 'Unauthorized') {
-      return forbidden403Response('Access denied to this assistant');
+      return forbidden403Response(
+        'Access denied to this assistant',
+        'ASSISTANT_ACCESS_DENIED'
+      );
     }
     throw error;
   }
