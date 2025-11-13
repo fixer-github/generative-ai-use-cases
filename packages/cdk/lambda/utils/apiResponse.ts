@@ -31,9 +31,9 @@ export function createErrorResponse(
 /**
  * Create success response
  */
-export function createSuccessResponse(
+export function createSuccessResponse<TBody>(
   statusCode: number,
-  body: unknown
+  body: TBody
 ): APIGatewayProxyResult {
   return {
     statusCode,
