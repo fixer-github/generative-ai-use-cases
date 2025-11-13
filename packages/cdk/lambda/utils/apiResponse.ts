@@ -15,7 +15,10 @@ export const CORS_HEADERS = {
 };
 
 /**
- * Create error response
+ * Create Lambda error response
+ * @param statusCode HTTP status code
+ * @param message Error Message
+ * @returns Lambda response
  */
 export function createErrorResponse(
   statusCode: number,
@@ -29,7 +32,10 @@ export function createErrorResponse(
 }
 
 /**
- * Create success response
+ * Create Lambda success response
+ * @param statusCode HTTP status code
+ * @param body Response body
+ * @returns Lambda response
  */
 export function createSuccessResponse<TBody>(
   statusCode: number,
