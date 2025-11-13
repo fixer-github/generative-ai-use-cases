@@ -24,7 +24,7 @@ export function createErrorResponse(
   return {
     statusCode,
     headers: CORS_HEADERS,
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message: message }),
   };
 }
 
