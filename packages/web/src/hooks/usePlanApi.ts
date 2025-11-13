@@ -1,4 +1,4 @@
-import useHttp from './useHttp';
+import { useBillingHttp } from './useHttp';
 
 // Type definitions based on API specification
 export interface Plan {
@@ -143,7 +143,7 @@ export interface UpdatePlanStatusResponse {
 }
 
 const usePlanApi = () => {
-  const { api } = useHttp();
+  const { api } = useBillingHttp();
 
   return {
     /**
@@ -169,7 +169,7 @@ const usePlanApi = () => {
       if (params?.search) queryParams.append('search', params.search);
 
       const queryString = queryParams.toString();
-      const url = `/admin/billing/plans${queryString ? `?${queryString}` : ''}`;
+      const url = `/plans${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.get<PlanListResponse>(url);
       return response.data;
@@ -179,7 +179,7 @@ const usePlanApi = () => {
      * Get detailed information of a specific plan
      */
     getPlanDetails: async (planId: string): Promise<Plan> => {
-      const response = await api.get<Plan>(`/admin/billing/plans/${planId}`);
+      const response = await api.get<Plan>(`/plans/${planId}`);
       return response.data;
     },
 
@@ -187,7 +187,7 @@ const usePlanApi = () => {
      * Create a new plan
      */
     createPlan: async (planData: CreatePlanRequest): Promise<Plan> => {
-      const response = await api.post<Plan>('/admin/billing/plans', planData);
+      const response = await api.post<Plan>('/plans', planData);
       return response.data;
     },
 
@@ -199,7 +199,7 @@ const usePlanApi = () => {
       statusData: UpdatePlanStatusRequest
     ): Promise<UpdatePlanStatusResponse> => {
       const response = await api.patch<UpdatePlanStatusResponse>(
-        `/admin/billing/plans/${planId}/status`,
+        `/plans/${planId}/status`,
         statusData
       );
       return response.data;
@@ -221,7 +221,7 @@ const usePlanApi = () => {
       if (params?.limit) queryParams.append('limit', params.limit.toString());
 
       const queryString = queryParams.toString();
-      const url = `/admin/billing/plans/${planId}/history${queryString ? `?${queryString}` : ''}`;
+      const url = `/plans/${planId}/history${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.get<PlanHistoryResponse>(url);
       return response.data;
@@ -232,7 +232,7 @@ const usePlanApi = () => {
      */
     getPlanSubscriptions: async (planId: string): Promise<PlanSubscriptionsResponse> => {
       const response = await api.get<PlanSubscriptionsResponse>(
-        `/admin/billing/plans/${planId}/subscriptions`
+        `/plans/${planId}/subscriptions`
       );
       return response.data;
     },
@@ -242,7 +242,7 @@ const usePlanApi = () => {
      */
     checkPlanName: async (internalName: string): Promise<CheckNameResponse> => {
       const response = await api.get<CheckNameResponse>(
-        `/admin/billing/plans/check-name?internal_name=${encodeURIComponent(internalName)}`
+        `/plans/check-name?internal_name=${encodeURIComponent(internalName)}`
       );
       return response.data;
     },

@@ -179,17 +179,17 @@ class SubscriptionManagementApi extends Construct {
     // ========================================
     // 6. Batch Approve/Reject Subscriptions
     // ========================================
-    const batchProcessFunction = new NodejsFunction(this, 'BatchProcess', {
+    /* const batchProcessFunction = new NodejsFunction(this, 'BatchProcess', {
       ...commonLambdaConfig,
       timeout: Duration.seconds(60), // Longer timeout for batch operations
       entry: './lambda/billing/admin/subscription-management/batchProcess.ts',
       functionName: `${environment}-billing-admin-batch-process-subscriptions`,
-    });
+    }); */
 
     // ========================================
     // 7. Retry Receipt Verification
     // ========================================
-    const retryVerificationFunction = new NodejsFunction(
+    /* const retryVerificationFunction = new NodejsFunction(
       this,
       'RetryVerification',
       {
@@ -199,17 +199,17 @@ class SubscriptionManagementApi extends Construct {
           './lambda/billing/admin/subscription-management/retryVerification.ts',
         functionName: `${environment}-billing-admin-retry-verification`,
       }
-    );
+    ); */
 
     // ========================================
     // 8. Sync with Payment Platform
     // ========================================
-    const syncPlatformFunction = new NodejsFunction(this, 'SyncPlatform', {
+    /* const syncPlatformFunction = new NodejsFunction(this, 'SyncPlatform', {
       ...commonLambdaConfig,
       timeout: Duration.seconds(60), // Longer timeout for platform sync
       entry: './lambda/billing/admin/subscription-management/syncPlatform.ts',
       functionName: `${environment}-billing-admin-sync-platform`,
-    });
+    }); */
 
     // ========================================
     // IAM Permissions
@@ -220,9 +220,9 @@ class SubscriptionManagementApi extends Construct {
       getSubscriptionFunction,
       approveSubscriptionFunction,
       rejectSubscriptionFunction,
-      batchProcessFunction,
-      retryVerificationFunction,
-      syncPlatformFunction,
+      // batchProcessFunction,
+      // retryVerificationFunction,
+      // syncPlatformFunction,
     ];
 
     functions.forEach((func) => {
@@ -262,25 +262,28 @@ class SubscriptionManagementApi extends Construct {
     });
 
     // Additional permissions for functions that interact with payment platforms
-    [retryVerificationFunction, syncPlatformFunction].forEach((func) => {
+    /* [retryVerificationFunction, syncPlatformFunction].forEach((func) => {
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['secretsmanager:GetSecretValue'],
           resources: [
-            `arn:aws:secretsmanager:*:*:secret:*/billing/stripe/*`,
-            `arn:aws:secretsmanager:*:*:secret:*/billing/apple/*`,
-            `arn:aws:secretsmanager:*:*:secret:*/billing/google/*`,
+            `arn:aws:secretsmanager:*:*:secret:*\/billing/stripe/*`,
+            `arn:aws:secretsmanager:*:*:secret:*\/billing/apple/*`,
+            `arn:aws:secretsmanager:*:*:secret:*\/billing/google/*`,
           ],
         })
       );
-    });
+    }); */
 
     // ========================================
     // API Gateway Endpoints
     // ========================================
     const adminResource = api.root.resourceForPath('/admin');
-    const billingResource = adminResource.addResource('billing');
+    // Get existing 'billing' resource or create if it doesn't exist
+    const billingResource =
+      adminResource.getResource('billing') ||
+      adminResource.addResource('billing');
     const subscriptionsResource = billingResource.addResource('subscriptions');
 
     // GET /admin/billing/subscriptions/statistics - Get subscription statistics
@@ -304,7 +307,7 @@ class SubscriptionManagementApi extends Construct {
       }
     );
 
-    // POST /admin/billing/subscriptions/batch-process - Batch approve/reject
+    /* // POST /admin/billing/subscriptions/batch-process - Batch approve/reject
     const batchProcessResource =
       subscriptionsResource.addResource('batch-process');
     batchProcessResource.addMethod(
@@ -314,7 +317,7 @@ class SubscriptionManagementApi extends Construct {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
       }
-    );
+    ); */
 
     // GET /admin/billing/subscriptions/{subscription_id} - Get subscription details
     const subscriptionIdResource =
@@ -351,7 +354,7 @@ class SubscriptionManagementApi extends Construct {
     );
 
     // POST /admin/billing/subscriptions/{subscription_id}/retry-verification - Retry verification
-    const retryResource =
+    /* const retryResource =
       subscriptionIdResource.addResource('retry-verification');
     retryResource.addMethod(
       'POST',
@@ -360,10 +363,10 @@ class SubscriptionManagementApi extends Construct {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
       }
-    );
+    ); */
 
     // POST /admin/billing/subscriptions/{subscription_id}/sync - Sync with platform
-    const syncResource = subscriptionIdResource.addResource('sync');
+    /* const syncResource = subscriptionIdResource.addResource('sync');
     syncResource.addMethod(
       'POST',
       new LambdaIntegration(syncPlatformFunction),
@@ -371,7 +374,7 @@ class SubscriptionManagementApi extends Construct {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
       }
-    );
+    ); */
   }
 }
 
