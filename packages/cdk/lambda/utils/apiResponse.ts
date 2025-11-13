@@ -17,7 +17,7 @@ export const CORS_HEADERS = {
 /**
  * Create error response
  */
-export function errorResponse(
+export function createErrorResponse(
   statusCode: number,
   message: string
 ): APIGatewayProxyResult {
@@ -31,7 +31,7 @@ export function errorResponse(
 /**
  * Create success response
  */
-export function successResponse(
+export function createSuccessResponse(
   statusCode: number,
   body: unknown
 ): APIGatewayProxyResult {
