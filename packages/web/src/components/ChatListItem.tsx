@@ -15,7 +15,6 @@ import {
   PiTrash,
   PiX,
   PiDotsThreeVertical,
-  PiRobot,
 } from 'react-icons/pi';
 import ButtonIcon from './ButtonIcon';
 import { Chat } from 'generative-ai-use-cases';
@@ -129,6 +128,28 @@ const ChatListItem: React.FC<Props> = (props) => {
     };
   }, [showMenu]);
 
+  // 日付のフォーマット
+  const formatDate = useCallback((dateString: string) => {
+    // Parse as timestamp (numeric string) or ISO date string
+    const timestamp = parseInt(dateString, 10);
+    const date = isNaN(timestamp) ? new Date(dateString) : new Date(timestamp);
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInHours < 24) {
+      return '今日';
+    } else if (diffInDays === 1) {
+      return '1日前';
+    } else if (diffInDays < 7) {
+      return `${diffInDays}日前`;
+    } else {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+  }, []);
+
   return (
     <>
       {openDialog && (
@@ -161,7 +182,7 @@ const ChatListItem: React.FC<Props> = (props) => {
           }}>
           <div className="flex w-full items-start gap-2">
             <div className="shrink-0 pt-0.5">
-              {isAssistantChat ? <PiRobot className="text-blue-600" /> : <PiChat />}
+              <PiChat />
             </div>
             <div className="min-w-0 flex-1 overflow-hidden">
               {editing ? (
@@ -175,9 +196,16 @@ const ChatListItem: React.FC<Props> = (props) => {
                   }}
                 />
               ) : (
-                <div className="truncate text-sm">
-                  {highlightText(props.chat.title, props.highlightWords)}
-                </div>
+                <>
+                  <div className="truncate text-sm">
+                    {highlightText(props.chat.title, props.highlightWords)}
+                  </div>
+                  {props.chat.updatedDate && (
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {formatDate(props.chat.updatedDate)}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             {editing && (
