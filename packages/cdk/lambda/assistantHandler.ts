@@ -25,6 +25,7 @@ import {
   ListAssistantsResponse,
 } from 'generative-ai-use-cases';
 import { getTenantId } from './utils/tenantUtils';
+import { canAccessAssistant } from './utils/assistantAccessControl';
 
 const headers = {
   'Content-Type': 'application/json',
@@ -315,30 +316,6 @@ async function handleList(
     throw error;
   }
 }
-
-/**
- * Helper function to check if user can access an assistant
- * Returns true if: owner OR (public AND same tenant)
- */
-function canAccessAssistant(
-  assistant: Assistant,
-  userId: string,
-  event: APIGatewayProxyEvent
-): boolean {
-  const userIdWithPrefix = `user#${userId}`;
-
-  // Owner can always access
-  if (assistant.userId === userIdWithPrefix) {
-    return true;
-  }
-
-  // Non-owners can access if assistant is public and in same tenant
-  const tenantId = getTenantId(event);
-  const assistantTenantId = assistant.tenantId?.replace('tenant#', '');
-
-  return assistant.visibility === 'public' && assistantTenantId === tenantId;
-}
-
 /**
  * Handle GET /{assistantId} - Get assistant
  */

@@ -58,6 +58,7 @@ export type AssistantMessageSource = {
   excerpt: string;
   sourceUrl?: string; // Original URL for web sources
   storageKey?: string; // S3 key for file sources
+  s3Url?: string; // Legacy field for backward compatibility
 };
 
 export type CreateAssistantRequest = {
