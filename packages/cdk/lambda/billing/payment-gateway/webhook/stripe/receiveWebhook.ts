@@ -14,6 +14,8 @@ import { verifyStripeSignature } from '../../utils/signatureVerifier';
 import { WebhookEventRepository } from '../../repositories/webhookEventRepository';
 import { isDuplicateEvent } from '../../utils/eventDeduplicator';
 import { WebhookEvent } from '../../repositories/types';
+import { mapStripeEventToBusinessEvent } from './eventMapper';
+import { extractEventDetail } from './eventExtractor';
 
 /**
  * シークレットのキャッシュ（コールドスタート対策）
@@ -142,21 +144,49 @@ export async function handler(
 
     console.log(`Webhook event saved: ${eventId}`);
 
-    // EventBridgeに送信
+    // ビジネスイベントにマッピング
+    const businessEventType = mapStripeEventToBusinessEvent(eventType);
+
+    if (!businessEventType) {
+      // マッピング対象外のイベントはスキップ（またはログのみ記録）
+      console.log(
+        `Event type ${eventType} is not mapped to business event. Skipping EventBridge send.`
+      );
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ received: true, skipped: true }),
+      };
+    }
+
+    console.log(
+      `Mapped Stripe event ${eventType} to business event ${businessEventType}`
+    );
+
+    // イベント詳細情報の抽出
+    let eventDetail;
+    try {
+      eventDetail = await extractEventDetail(stripeEvent, tenantId);
+    } catch (error) {
+      console.error('Failed to extract event details:', error);
+      // 抽出失敗時もイベントは受信済みとして扱う
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          received: true,
+          error: 'Failed to extract event details',
+        }),
+      };
+    }
+
+    // EventBridgeに送信（正規化された形式）
     const eventBridgeClient = new EventBridgeClient({});
 
     const putEventsCommand = new PutEventsCommand({
       Entries: [
         {
-          Source: 'payment-gateway.webhook',
-          DetailType: 'StripeWebhookReceived',
-          Detail: JSON.stringify({
-            platform: 'stripe',
-            eventId,
-            eventType,
-            eventData: stripeEvent,
-            tenantId,
-          }),
+          Source: 'billing.payment-gateway',
+          DetailType: businessEventType,
+          Detail: JSON.stringify(eventDetail),
           EventBusName: eventBusName,
         },
       ],
@@ -164,7 +194,9 @@ export async function handler(
 
     await eventBridgeClient.send(putEventsCommand);
 
-    console.log(`Event sent to EventBridge: ${eventId}`);
+    console.log(
+      `Business event sent to EventBridge: ${businessEventType} (original: ${eventId})`
+    );
 
     return {
       statusCode: 200,

@@ -14,6 +14,7 @@ interface WebStackProps extends StackProps {
   readonly params: ProcessedStackInput;
   readonly auth: Auth;
   readonly api: Api;
+  readonly billingApiEndpointUrl: string;
   readonly speechToSpeech: SpeechToSpeech;
   readonly webAclId?: string;
   readonly mcpEndpoint: string | null;
@@ -29,6 +30,7 @@ class WebStack extends NestedStack {
       params,
       auth,
       api,
+      billingApiEndpointUrl,
       speechToSpeech,
       webAclId,
       mcpEndpoint,
@@ -55,6 +57,7 @@ class WebStack extends NestedStack {
         params.samlCognitoFederatedIdentityProviderName,
       // Backend
       apiEndpointUrl: api.restApi.url,
+      billingApiEndpointUrl: billingApiEndpointUrl,
       predictStreamFunctionArn: api.predictStreamFunction.functionArn,
       assistantMessageStreamFunctionArn: assistantMessageStreamFunctionArn,
       ragEnabled: params.ragEnabled,

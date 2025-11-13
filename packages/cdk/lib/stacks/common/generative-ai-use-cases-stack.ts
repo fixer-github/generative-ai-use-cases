@@ -207,22 +207,6 @@ export class GenerativeAiUseCasesStack extends Stack {
       mcpEndpoint = mcpApiStack.mcpApi.endpoint;
     }
 
-    // Web Frontend (only deploy if useWebUi is true)
-    if (params.useWebUi) {
-      new WebStack(this, 'Web', {
-        params: params,
-        auth: auth,
-        api: api,
-        speechToSpeech: speechToSpeech,
-        webAclId: props.webAclId,
-        mcpEndpoint: mcpEndpoint,
-        cert: props.cert,
-        assistantMessageStreamFunctionArn:
-          assistantApiStack.assistantApi.assistantMessageStreamFunction
-            .functionArn,
-      });
-    }
-
     // RAG
     if (params.ragEnabled) {
       const rag = new Rag(this, 'Rag', {
@@ -297,15 +281,45 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // Billing Management (as Nested Stack)
+    // Billing Management (as Nested Stack with independent API)
     // Uses IAM authentication for RDS access via tenant-specific credentials
-    new BillingManagementStack(this, `BillingManagementStack${params.env}`, {
-      api: api.restApi,
-      userPool: auth.userPool,
-      idPool: auth.idPool,
-      tenantManager: tenantManager,
-      environment: params.env,
+    // Separated from main API to avoid CloudFormation 500 resource limit
+    const billingManagementStack = new BillingManagementStack(
+      this,
+      `BillingManagementStack${params.env}`,
+      {
+        userPool: auth.userPool,
+        idPool: auth.idPool,
+        tenantManager: tenantManager,
+        environment: params.env,
+        allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
+        allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+      }
+    );
+
+    // Output Billing API endpoint for frontend configuration
+    new CfnOutput(this, 'BillingApiEndpoint', {
+      value: billingManagementStack.billingApi.url,
+      description: 'Billing API endpoint URL (separate from main API)',
     });
+
+    // Web Frontend (must be after BillingManagementStack to use billingApi.url)
+    // Only deploy if useWebUi is true
+    if (params.useWebUi) {
+      new WebStack(this, 'Web', {
+        params: params,
+        auth: auth,
+        api: api,
+        billingApiEndpointUrl: billingManagementStack.billingApi.url,
+        speechToSpeech: speechToSpeech,
+        webAclId: props.webAclId,
+        mcpEndpoint: mcpEndpoint,
+        cert: props.cert,
+        assistantMessageStreamFunctionArn:
+          assistantApiStack.assistantApi.assistantMessageStreamFunction
+            .functionArn,
+      });
+    }
 
     new TranscribeStack(this, `TranscribeStack${params.env}`, {
       env: {
