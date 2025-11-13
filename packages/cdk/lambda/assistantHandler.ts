@@ -339,7 +339,10 @@ async function handleGet(
     return {
       statusCode: 403,
       headers,
-      body: JSON.stringify({ message: 'Forbidden' }),
+      body: JSON.stringify({
+        message: 'Access denied to this assistant',
+        code: 'ASSISTANT_ACCESS_DENIED'
+      }),
     };
   }
 
@@ -488,7 +491,10 @@ async function handleUpdate(
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ message: 'Forbidden' }),
+        body: JSON.stringify({
+          message: 'Access denied to this assistant',
+          code: 'ASSISTANT_ACCESS_DENIED'
+        }),
       };
     }
     throw error;
@@ -538,7 +544,10 @@ async function handleDelete(
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ message: 'Forbidden' }),
+        body: JSON.stringify({
+          message: 'Access denied to this assistant',
+          code: 'ASSISTANT_ACCESS_DENIED'
+        }),
       };
     }
     throw error;
