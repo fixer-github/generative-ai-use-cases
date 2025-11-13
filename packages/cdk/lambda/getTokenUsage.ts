@@ -18,7 +18,9 @@ export const handler = async (
     const { startDate, endDate } = event.queryStringParameters || {};
 
     if (!startDate || !endDate) {
-      return badRequest400Response('startDate and endDate parameters are required');
+      return badRequest400Response(
+        'startDate and endDate parameters are required'
+      );
     }
 
     // Get aggregated data for the specified period

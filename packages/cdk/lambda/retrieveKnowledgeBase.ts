@@ -2,10 +2,7 @@ import * as lambda from 'aws-lambda';
 import { RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
 import { RetrieveKnowledgeBaseRequest } from 'generative-ai-use-cases';
 import { initBedrockAgentRuntimeClient } from './utils/bedrockClient';
-import {
-  ok200Response,
-  badRequest400Response,
-} from './utils/apiResponse';
+import { ok200Response, badRequest400Response } from './utils/apiResponse';
 
 const KNOWLEDGE_BASE_ID = process.env.KNOWLEDGE_BASE_ID;
 const MODEL_REGION = process.env.MODEL_REGION as string;

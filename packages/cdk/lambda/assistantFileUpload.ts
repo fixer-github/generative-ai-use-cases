@@ -115,7 +115,9 @@ export const handler = async (
       const tenant = await getTenant(tenantId);
 
       if (!tenant || !tenant.roleArn || !tenant.region || !tenant.environment) {
-        return internalServerError500Response('Tenant configuration incomplete');
+        return internalServerError500Response(
+          'Tenant configuration incomplete'
+        );
       }
 
       const tenantAccountId = extractAccountIdFromRoleArn(tenant.roleArn);

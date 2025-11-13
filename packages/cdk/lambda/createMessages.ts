@@ -37,7 +37,9 @@ export const handler = async (
     // Authorization check: Verify if the specified chat belongs to the user
     const chat = await findChatById(userId, chatId, event);
     if (chat === null) {
-      return forbidden403Response('You do not have permission to post messages in the chat.');
+      return forbidden403Response(
+        'You do not have permission to post messages in the chat.'
+      );
     }
 
     // Get tenant information for bucket name generation

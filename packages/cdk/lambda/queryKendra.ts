@@ -5,10 +5,7 @@ import {
   QueryCommand,
 } from '@aws-sdk/client-kendra';
 import { QueryKendraRequest } from 'generative-ai-use-cases';
-import {
-  ok200Response,
-  badRequest400Response,
-} from './utils/apiResponse';
+import { ok200Response, badRequest400Response } from './utils/apiResponse';
 
 const INDEX_ID = process.env.INDEX_ID;
 const LANGUAGE = process.env.LANGUAGE;
