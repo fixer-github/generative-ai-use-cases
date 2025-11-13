@@ -1,9 +1,17 @@
-import { Chat, ListChatsResponse } from 'generative-ai-use-cases';
+import {
+  Chat,
+  ListChatsResponse,
+  AssistantMessage,
+  AssistantMessageSource,
+  ListAssistantMessagesResponse,
+} from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import {
+  BatchWriteCommand,
   DeleteCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
@@ -226,4 +234,168 @@ export const deleteChat = async (
 
   // Delete Messages
   await deleteMessagesForChat(_chatId, event);
+};
+
+export const createAssistantMessage = async (
+  _chatId: string,
+  userId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  sources?: AssistantMessageSource[],
+  metadata?: AssistantMessage['metadata'],
+  event?: APIGatewayProxyEvent
+): Promise<AssistantMessage> => {
+  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
+  const timestamp = Date.now();
+  const messageId = `${timestamp}#${crypto.randomUUID()}`;
+
+  const item: AssistantMessage = {
+    id: chatId,
+    createdDate: messageId,
+    messageId,
+    assistantId: '',
+    chatId,
+    userId,
+    role,
+    content,
+    sources,
+    metadata,
+  };
+
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event!);
+  const tableName = getTableName(event!);
+
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
+
+  return item;
+};
+
+export const listAssistantMessages = async (
+  userId: string,
+  _chatId: string,
+  event: APIGatewayProxyEvent,
+  _exclusiveStartKey?: string,
+  limit?: number
+): Promise<ListAssistantMessagesResponse> => {
+  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  const exclusiveStartKey = _exclusiveStartKey
+    ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
+    : undefined;
+
+  const queryParams: any = {
+    TableName: tableName,
+    KeyConditionExpression: '#id = :id',
+    FilterExpression: '#userId = :userId',
+    ExpressionAttributeNames: {
+      '#id': 'id',
+      '#userId': 'userId',
+    },
+    ExpressionAttributeValues: {
+      ':id': chatId,
+      ':userId': userId,
+    },
+    ScanIndexForward: true,
+    Limit: limit || 100,
+    ExclusiveStartKey: exclusiveStartKey,
+  };
+
+  const res = await dynamoDbDocument.send(new QueryCommand(queryParams));
+
+  return {
+    messages: res.Items as AssistantMessage[],
+    lastEvaluatedKey: res.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+      : undefined,
+  };
+};
+
+export const deleteAssistantMessagesForChat = async (
+  _chatId: string,
+  event: APIGatewayProxyEvent
+): Promise<void> => {
+  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: '#id = :id',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+      },
+      ExpressionAttributeValues: {
+        ':id': chatId,
+      },
+    })
+  );
+
+  if (res.Items && res.Items.length > 0) {
+    await dynamoDbDocument.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [tableName]: res.Items.map((item) => ({
+            DeleteRequest: {
+              Key: {
+                id: item.id,
+                createdDate: item.createdDate,
+              },
+            },
+          })),
+        },
+      })
+    );
+  }
+};
+
+export const deleteAllMessagesForAssistant = async (
+  _assistantId: string,
+  event: APIGatewayProxyEvent
+): Promise<void> => {
+  const assistantId = `assistant#${_assistantId}`;
+  const dynamoDbDocument = await getTenantDynamoDBDocument(event);
+  const tableName = getTableName(event);
+
+  // Find all chats for this assistant by scanning for conversations with matching assistantId
+  // Since we're querying by userId (id), we need to find all users who have chats with this assistant
+  // This is a limitation of the single-table design - we'll need to scan with filter
+  let chats: Chat[] = [];
+  let lastEvaluatedKey: any = undefined;
+
+  do {
+    const scanResult = await dynamoDbDocument.send(
+      new ScanCommand({
+        TableName: tableName,
+        FilterExpression:
+          '#assistantId = :assistantId AND attribute_exists(chatId)',
+        ExpressionAttributeNames: {
+          '#assistantId': 'assistantId',
+        },
+        ExpressionAttributeValues: {
+          ':assistantId': assistantId,
+        },
+        ExclusiveStartKey: lastEvaluatedKey,
+      })
+    );
+
+    if (scanResult.Items) {
+      chats = chats.concat(scanResult.Items as Chat[]);
+    }
+
+    lastEvaluatedKey = scanResult.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+
+  // Delete messages for each chat
+  for (const chat of chats) {
+    const chatId = chat.chatId.replace('chat#', '');
+    await deleteAssistantMessagesForChat(chatId, event);
+  }
 };

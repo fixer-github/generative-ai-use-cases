@@ -31,11 +31,11 @@ export type Assistant = {
 };
 
 export type AssistantMessage = {
-  id: string; // assistantId - partition key
-  createdDate: string; // Derived from messageId timestamp
-  messageId: string; // sort key: timestamp#uuid
-  assistantId: string; // Duplicate for clarity, same as id
-  chatId: string; // Conversation identifier (chat#uuid)
+  id: string; // chatId - partition key (chat#uuid)
+  createdDate: string; // sort key: timestamp#uuid (same as messageId)
+  messageId: string; // timestamp#uuid
+  assistantId: string; // For API response only, not stored
+  chatId: string; // Conversation identifier (chat#uuid), same as id
   userId: string;
   role: 'user' | 'assistant';
   content: string;
