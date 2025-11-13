@@ -14,22 +14,3 @@ const api = {
   liteLlm: liteLlmApi,
   langchain: langchainApi,
 };
-
-/**
- * Helper function to create standardized API Gateway responses
- */
-export const createResponse = (
-  statusCode: number,
-  body: any
-): APIGatewayProxyResult => {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-    body: JSON.stringify(body),
-  };
-};
-
-export default api;
