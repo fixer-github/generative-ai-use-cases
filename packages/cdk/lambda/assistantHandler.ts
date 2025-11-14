@@ -33,13 +33,9 @@ import {
   badRequest400Response,
   forbidden403Response,
   notFound404Response,
+  methodNotAllowed405Response,
   internalServerError500Response,
 } from './utils/apiResponse';
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
 
 /**
  * Helper function to normalize assistant data for API responses
@@ -99,11 +95,7 @@ export const handler = async (
         return await handleDelete(userId, assistantId, event);
 
       default:
-        return {
-          statusCode: 405,
-          headers,
-          body: JSON.stringify({ message: 'Method not allowed' }),
-        };
+        return methodNotAllowed405Response('Method not allowed');
     }
   } catch (error) {
     console.error('Error in assistant handler:', error);

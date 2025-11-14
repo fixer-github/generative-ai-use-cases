@@ -7,6 +7,7 @@ import { setChatTitle } from './repository';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 import { internalServerError500Response } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -46,10 +47,7 @@ export const handler = async (
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: CORS_HEADERS,
       body: title,
     };
   } catch (error) {

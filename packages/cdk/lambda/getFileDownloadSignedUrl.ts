@@ -13,6 +13,7 @@ import {
 } from './utils/tenantS3Utils';
 import { getTenant } from './tenantManager';
 import { internalServerError500Response } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -99,10 +100,7 @@ export const handler = async (
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: CORS_HEADERS,
       body: signedUrl,
     };
   } catch (error) {

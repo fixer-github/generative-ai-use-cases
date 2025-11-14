@@ -11,6 +11,7 @@ import {
   badRequest400Response,
   internalServerError500Response,
 } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
@@ -173,7 +174,7 @@ export const handler = async (
     ) {
       return {
         statusCode: 409,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           error: 'Tenant already exists',
         }),

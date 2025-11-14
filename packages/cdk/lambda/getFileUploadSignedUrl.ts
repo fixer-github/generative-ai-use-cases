@@ -12,6 +12,7 @@ import {
   extractAccountIdFromRoleArn,
 } from './utils/tenantS3Utils';
 import { internalServerError500Response } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 // Constants
 const DEFAULT_BUCKET_NAME = process.env.BUCKET_NAME!;
@@ -113,10 +114,7 @@ export const handler = async (
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: CORS_HEADERS,
       body: signedUrl,
     };
   } catch (error) {

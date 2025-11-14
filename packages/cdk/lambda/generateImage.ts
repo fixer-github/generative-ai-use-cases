@@ -3,6 +3,7 @@ import { GenerateImageRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultImageGenerationModel } from './utils/models';
 import { internalServerError500Response } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -14,10 +15,7 @@ export const handler = async (
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: CORS_HEADERS,
       body: res,
       isBase64Encoded: true,
     };

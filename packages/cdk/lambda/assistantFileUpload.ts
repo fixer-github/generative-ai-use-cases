@@ -20,12 +20,6 @@ import {
 const MANAGED_BUCKET_NAME = process.env.ASSISTANT_FILES_BUCKET_NAME;
 const UPLOAD_EXPIRATION_SECONDS = 300; // 5 minutes
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': '*',
-};
-
 interface RequestPresignedUrlRequest {
   fileName: string;
   fileSize: number;

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { verifyAdminAccess, CORS_HEADERS, JWTClaims } from './utils/adminAuth';
+import { verifyAdminAccess, JWTClaims } from './utils/adminAuth';
 import { verifyToken, verifyTokenWithRoleCheck } from './utils/auth';
 import {
   ok200Response,

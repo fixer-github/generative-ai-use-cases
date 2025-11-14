@@ -8,7 +8,6 @@ import {
   verifyAdminAccess,
   isAdminContext,
   getAttributeValue,
-  CORS_HEADERS,
 } from './utils/adminAuth';
 import {
   ok200Response,

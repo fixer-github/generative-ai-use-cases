@@ -8,7 +8,6 @@ import {
 import {
   verifyAdminAccessWithUser,
   isAdminUserResult,
-  CORS_HEADERS,
 } from './utils/adminAuth';
 import {
   ok200Response,
@@ -16,6 +15,7 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,

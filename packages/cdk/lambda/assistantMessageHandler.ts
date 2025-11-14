@@ -18,17 +18,14 @@ import {
   badRequest400Response,
   forbidden403Response,
   notFound404Response,
+  methodNotAllowed405Response,
   internalServerError500Response,
 } from './utils/apiResponse';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
 });
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
 
 /**
  * Helper function to strip the "assistant#" prefix from assistantId in messages
@@ -71,11 +68,7 @@ export const handler = async (
         return await handleListMessages(userId, assistantId, event);
 
       default:
-        return {
-          statusCode: 405,
-          headers,
-          body: JSON.stringify({ message: 'Method not allowed' }),
-        };
+        return methodNotAllowed405Response('Method not allowed');
     }
   } catch (error) {
     console.error('Error in assistant message handler:', error);
@@ -129,7 +122,7 @@ async function handleCreateMessage(
 
     return {
       statusCode: 409, // Conflict - resource not ready
-      headers,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         message: `${statusMessage}. Please wait until indexing completes before chatting.`,
         syncStatus: assistant.syncStatus,

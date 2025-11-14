@@ -5,6 +5,7 @@ import {
   AttributeType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyToken, verifyTokenWithRoleCheck } from './auth';
+import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,
@@ -31,12 +32,6 @@ export interface TenantUser {
   tenantId: string;
   attributes?: AttributeType[];
 }
-
-export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
 
 /**
  * Verify JWT token and admin status with real-time role checking
