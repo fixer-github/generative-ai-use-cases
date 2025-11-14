@@ -6,6 +6,7 @@ import {
 import {
   BatchWriteCommand,
   QueryCommand,
+  QueryCommandOutput,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
@@ -159,7 +160,7 @@ export const listMessages = async (
 
   // Paginate through all messages
   do {
-    const res = await dynamoDbDocument.send(
+    const res: QueryCommandOutput = await dynamoDbDocument.send(
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: '#id = :id',

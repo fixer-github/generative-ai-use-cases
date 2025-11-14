@@ -12,7 +12,9 @@ import {
   PutCommand,
   QueryCommand,
   QueryCommandInput,
+  QueryCommandOutput,
   ScanCommand,
+  ScanCommandOutput,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
@@ -319,10 +321,9 @@ export const listAssistantMessages = async (
 };
 
 export const deleteAssistantMessagesForChat = async (
-  _chatId: string,
+  chatId: string,
   event: APIGatewayProxyEvent
 ): Promise<void> => {
-  const chatId = _chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`;
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
 
@@ -331,7 +332,7 @@ export const deleteAssistantMessagesForChat = async (
 
   // Paginate through all messages
   do {
-    const res = await dynamoDbDocument.send(
+    const res: QueryCommandOutput = await dynamoDbDocument.send(
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: '#id = :id',
@@ -397,7 +398,7 @@ export const deleteAllMessagesForAssistant = async (
   let lastEvaluatedKey: Record<string, string> | undefined = undefined;
 
   do {
-    const scanResult = await dynamoDbDocument.send(
+    const scanResult: ScanCommandOutput = await dynamoDbDocument.send(
       new ScanCommand({
         TableName: tableName,
         FilterExpression:
@@ -421,7 +422,7 @@ export const deleteAllMessagesForAssistant = async (
 
   // Delete messages for each chat
   for (const chat of chats) {
-    const chatId = chat.chatId.replace('chat#', '');
-    await deleteAssistantMessagesForChat(chatId, event);
+    // chat.chatId already has the 'chat#' prefix from the database
+    await deleteAssistantMessagesForChat(chat.chatId, event);
   }
 };

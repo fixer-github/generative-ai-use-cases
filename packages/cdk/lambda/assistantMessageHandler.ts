@@ -380,6 +380,7 @@ async function handleListMessages(
 
   const chatId = event.queryStringParameters?.chatId;
 
+  // TODO: 将来的には統合チャット履歴のメッセージ取得に置き換える予定
   if (!chatId) {
     return {
       statusCode: 400,
