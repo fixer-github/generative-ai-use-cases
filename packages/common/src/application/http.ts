@@ -85,7 +85,7 @@ export const CORS_HEADERS_JSON = {
 } as const;
 
 export const CORS_HEADERS_BASE64 = {
-  'Content-Type': 'text/plain', // TODO: inference from request header or something others
+  'Content-Type': 'application/octet-stream',
   ...BASE_CORS_HEADERS,
 } as const;
 
