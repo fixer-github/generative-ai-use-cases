@@ -72,9 +72,14 @@ export const HttpStatus = {
 /**
  * CORS headers
  */
-export const CORS_HEADERS = {
-  'Content-Type': 'application/json',
+
+const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+} as const;
+
+export const CORS_HEADERS = {
+  'Content-Type': 'application/json',
+  ...BASE_CORS_HEADERS,
 } as const;
