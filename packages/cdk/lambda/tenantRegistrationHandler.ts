@@ -9,9 +9,9 @@ import { TenantStatus } from './tenantManager';
 import {
   ok200Response,
   badRequest400Response,
+  conflict409Response,
   internalServerError500Response,
 } from './utils/apiResponse';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 // Environment variables
 const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
@@ -42,7 +42,7 @@ export const handler = async (
   try {
     // Parse and validate request
     if (!event.body) {
-      return badRequest400Response('Request body is required');
+      return badRequest400Response({ message: 'Request body is required' });
     }
 
     const request: TenantRegistrationRequest = JSON.parse(event.body);
@@ -172,15 +172,11 @@ export const handler = async (
       error instanceof Error &&
       error.name === 'ConditionalCheckFailedException'
     ) {
-      return {
-        statusCode: 409,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: 'Tenant already exists',
-        }),
-      };
+      return conflict409Response({
+        error: 'Tenant already exists',
+      });
     }
 
-    return internalServerError500Response('Failed to register tenant');
+    return internalServerError500Response({ message: 'Failed to register tenant' });
   }
 };

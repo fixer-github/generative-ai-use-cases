@@ -20,26 +20,26 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Get generation ID from path parameters
     const generationId = event.pathParameters?.generationId;
 
     if (!generationId) {
-      return badRequest400Response('Generation ID is required');
+      return badRequest400Response({ message: 'Generation ID is required' });
     }
 
     // Find the generation
     const generation = await findGenerationById(event, generationId);
 
     if (!generation) {
-      return notFound404Response('Generation not found');
+      return notFound404Response({ message: 'Generation not found' });
     }
 
     // Check permission - only owner can download
     if (generation.userId !== userId) {
-      return forbidden403Response('Not authorized to download this generation');
+      return forbidden403Response({ message: 'Not authorized to download this generation' });
     }
 
     // Check if generation is completed and has output
@@ -59,6 +59,6 @@ export const handler = async (
     return ok200Response({ download_url: downloadUrl });
   } catch (error) {
     console.error('Error getting download URL:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

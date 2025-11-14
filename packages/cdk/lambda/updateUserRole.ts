@@ -37,7 +37,7 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return badRequest400Response('Invalid JSON in request body');
+      return badRequest400Response({ message: 'Invalid JSON in request body' });
     }
 
     const { username, tenantAdmin } = requestBody;
@@ -153,13 +153,13 @@ export const handler = async (
       console.error(`Failed to update user ${username}:`, error);
 
       if (error instanceof Error && error.name === 'UserNotFoundException') {
-        return notFound404Response('User not found');
+        return notFound404Response({ message: 'User not found' });
       }
 
       throw error; // Re-throw to be caught by outer catch block
     }
   } catch (error) {
     console.error('Error updating user role:', error);
-    return internalServerError500Response('Failed to update user role');
+    return internalServerError500Response({ message: 'Failed to update user role' });
   }
 };

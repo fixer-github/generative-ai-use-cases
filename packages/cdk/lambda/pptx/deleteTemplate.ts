@@ -22,26 +22,26 @@ export const handler = async (
       event.requestContext.authorizer?.['custom:is_admin'] === 'true';
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Get template ID from path parameters
     const templateId = event.pathParameters?.templateId;
 
     if (!templateId) {
-      return badRequest400Response('Template ID is required');
+      return badRequest400Response({ message: 'Template ID is required' });
     }
 
     // Find the template to check permissions
     const template = await findTemplateById(event, templateId);
 
     if (!template) {
-      return notFound404Response('Template not found');
+      return notFound404Response({ message: 'Template not found' });
     }
 
     // Check permission - only owner or admin can delete
     if (template.userId !== userId && !isAdmin) {
-      return forbidden403Response('Not authorized to delete this template');
+      return forbidden403Response({ message: 'Not authorized to delete this template' });
     }
 
     // Delete the template
@@ -50,6 +50,6 @@ export const handler = async (
     return ok200Response({ message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Error deleting template:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

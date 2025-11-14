@@ -16,7 +16,7 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Parse query parameters
@@ -70,6 +70,6 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error listing templates:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

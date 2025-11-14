@@ -5,7 +5,6 @@ import {
   AttributeType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { verifyToken, verifyTokenWithRoleCheck } from './auth';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 import {
   badRequest400Response,
   unauthorized401Response,
@@ -51,13 +50,13 @@ export async function verifyAdminAccess(
   // Extract token
   const token = event.headers.Authorization || event.headers.authorization;
   if (!token) {
-    return unauthorized401Response('Missing authorization token');
+    return unauthorized401Response({ message: 'Missing authorization token' });
   }
 
   // Verify token with real-time role checking
   const verificationResult = await verifyTokenWithRoleCheck(token, true);
   if (!verificationResult) {
-    return unauthorized401Response('Invalid token');
+    return unauthorized401Response({ message: 'Invalid token' });
   }
 
   const { claims, isCurrentlyAdmin, tokenClaimAdmin } = verificationResult;
@@ -66,7 +65,7 @@ export async function verifyAdminAccess(
 
   // Check tenant ID
   if (!tenantId) {
-    return badRequest400Response('Tenant ID not found in token');
+    return badRequest400Response({ message: 'Tenant ID not found in token' });
   }
 
   // Use current admin status from Cognito, not token claim
@@ -74,18 +73,15 @@ export async function verifyAdminAccess(
     // Provide different messages based on token vs current status
     if (tokenClaimAdmin) {
       // Role was revoked - return 409 with special body
-      return {
-        statusCode: 409,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          message: 'Admin privileges have been revoked. Please refresh your session.',
-          roleChanged: true,
-          refreshRequired: true,
-        }),
-      };
+      return conflict409Response({
+        message:
+          'Admin privileges have been revoked. Please refresh your session.',
+        roleChanged: true,
+        refreshRequired: true,
+      });
     } else {
       // No admin privileges - return 403
-      return forbidden403Response('Access denied. Admin privileges required.');
+      return forbidden403Response({ message: 'Access denied. Admin privileges required.' });
     }
   }
 
@@ -113,7 +109,7 @@ export async function verifyTenantMembership(
     const userResponse = await cognitoClient.send(getUserCommand);
 
     if (!userResponse.UserAttributes) {
-      return notFound404Response('User not found');
+      return notFound404Response({ message: 'User not found' });
     }
 
     // Check if user belongs to the same tenant
@@ -122,7 +118,7 @@ export async function verifyTenantMembership(
     )?.Value;
 
     if (userTenantId !== adminTenantId) {
-      return forbidden403Response('Cannot access user from different tenant');
+      return forbidden403Response({ message: 'Cannot access user from different tenant' });
     }
 
     return {
@@ -137,10 +133,10 @@ export async function verifyTenantMembership(
     );
 
     if (error instanceof Error && error.name === 'UserNotFoundException') {
-      return notFound404Response('User not found');
+      return notFound404Response({ message: 'User not found' });
     }
 
-    return internalServerError500Response('Failed to verify user access');
+    return internalServerError500Response({ message: 'Failed to verify user access' });
   }
 }
 

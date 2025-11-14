@@ -18,7 +18,7 @@ export const handler = async (
     const userIdAndChatId = await findUserIdAndChatId(shareId, event);
 
     if (!userIdAndChatId) {
-      return notFound404Response('Share not found');
+      return notFound404Response({ message: 'Share not found' });
     }
 
     // Get current user ID
@@ -29,7 +29,7 @@ export const handler = async (
 
     // Ownership check
     if (ownerUserId !== currentUserId) {
-      return forbidden403Response('Forbidden: You do not own this resource');
+      return forbidden403Response({ message: 'Forbidden: You do not own this resource' });
     }
 
     // If ownership is verified, proceed with deletion
@@ -38,6 +38,6 @@ export const handler = async (
     return noContent204Response();
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

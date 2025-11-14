@@ -44,7 +44,7 @@ export const handler = async (
   try {
     // Check bucket configuration
     if (!MANAGED_BUCKET_NAME) {
-      return internalServerError500Response('File upload not configured');
+      return internalServerError500Response({ message: 'File upload not configured' });
     }
 
     // Parse request
@@ -85,7 +85,7 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
     if (!userId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Get tenant-aware S3 bucket and client
@@ -166,6 +166,6 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error generating pre-signed URL:', error);
-    return internalServerError500Response('Internal server error');
+    return internalServerError500Response({ message: 'Internal server error' });
   }
 };

@@ -14,7 +14,7 @@ export const handler = async (
     const res = await findUserIdAndChatId(shareId, event);
 
     if (res === null) {
-      return notFound404Response('Shared chat not found');
+      return notFound404Response({ message: 'Shared chat not found' });
     }
 
     const userId = res.userId;
@@ -35,6 +35,6 @@ export const handler = async (
     });
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

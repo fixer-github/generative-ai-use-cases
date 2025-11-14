@@ -118,7 +118,7 @@ export const handler = async (
     const url = event?.queryStringParameters?.url;
 
     if (!url) {
-      return badRequest400Response('url is missing');
+      return badRequest400Response({ message: 'url is missing' });
     }
 
     // Validate URL safety
@@ -149,6 +149,6 @@ export const handler = async (
     return ok200Response({ text });
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

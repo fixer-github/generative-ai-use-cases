@@ -17,7 +17,7 @@ exports.handler = async (
   const query = req.query;
 
   if (!query) {
-    return badRequest400Response('query is not specified');
+    return badRequest400Response({ message: 'query is not specified' });
   }
 
   // The default language is English, so language settings must be done.

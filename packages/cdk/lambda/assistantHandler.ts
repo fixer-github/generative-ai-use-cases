@@ -84,22 +84,22 @@ export const handler = async (
 
       case 'PUT':
         if (!assistantId) {
-          return badRequest400Response('Missing assistantId');
+          return badRequest400Response({ message: 'Missing assistantId' });
         }
         return await handleUpdate(userId, assistantId, event);
 
       case 'DELETE':
         if (!assistantId) {
-          return badRequest400Response('Missing assistantId');
+          return badRequest400Response({ message: 'Missing assistantId' });
         }
         return await handleDelete(userId, assistantId, event);
 
       default:
-        return methodNotAllowed405Response('Method not allowed');
+        return methodNotAllowed405Response({ message: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Error in assistant handler:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };
 
@@ -302,15 +302,15 @@ async function handleGet(
   const assistant = await getAssistant(assistantId, event);
 
   if (!assistant) {
-    return notFound404Response('Assistant not found');
+    return notFound404Response({ message: 'Assistant not found' });
   }
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response(
-      'Access denied to this assistant',
-      'ASSISTANT_ACCESS_DENIED'
-    );
+    return forbidden403Response({
+      message: 'Access denied to this assistant',
+      code: 'ASSISTANT_ACCESS_DENIED'
+    });
   }
 
   return ok200Response(stripAssistantPrefix(assistant));
@@ -443,13 +443,13 @@ async function handleUpdate(
     return ok200Response(stripAssistantPrefix(assistant));
   } catch (error: any) {
     if (error.message === 'Assistant not found') {
-      return notFound404Response('Assistant not found');
+      return notFound404Response({ message: 'Assistant not found' });
     }
     if (error.message === 'Unauthorized') {
-      return forbidden403Response(
-        'Access denied to this assistant',
-        'ASSISTANT_ACCESS_DENIED'
-      );
+      return forbidden403Response({
+        message: 'Access denied to this assistant',
+        code: 'ASSISTANT_ACCESS_DENIED'
+      });
     }
     throw error;
   }
@@ -482,13 +482,13 @@ async function handleDelete(
     return noContent204Response();
   } catch (error: any) {
     if (error.message === 'Assistant not found') {
-      return notFound404Response('Assistant not found');
+      return notFound404Response({ message: 'Assistant not found' });
     }
     if (error.message === 'Unauthorized') {
-      return forbidden403Response(
-        'Access denied to this assistant',
-        'ASSISTANT_ACCESS_DENIED'
-      );
+      return forbidden403Response({
+        message: 'Access denied to this assistant',
+        code: 'ASSISTANT_ACCESS_DENIED'
+      });
     }
     throw error;
   }

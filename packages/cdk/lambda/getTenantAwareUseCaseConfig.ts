@@ -9,23 +9,6 @@ import {
 } from './utils/apiResponse';
 
 /**
- * Helper function to create standardized API Gateway responses
- */
-const createResponse = (
-  statusCode: number,
-  body: any
-): APIGatewayProxyResult => {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-    body: JSON.stringify(body),
-  };
-};
-
-/**
  * This endpoint provides tenant-specific use case configuration for the frontend.
  * It only returns configuration stored in the tenant's database record.
  * Unlike the admin endpoint, this doesn't require admin privileges - any authenticated user can access their tenant's configuration.
@@ -42,7 +25,7 @@ export const handler = async (
     const tenantId = getUserTenantId(event);
     if (!tenantId) {
       console.log('[getTenantAwareUseCaseConfig] No tenant ID found');
-      return badRequest400Response('No tenant ID found in user claims');
+      return badRequest400Response({ message: 'No tenant ID found in user claims' });
     }
 
     console.log(
@@ -54,7 +37,7 @@ export const handler = async (
 
     if (!tenant) {
       console.log(`[getTenantAwareUseCaseConfig] Tenant ${tenantId} not found`);
-      return notFound404Response('Tenant not found');
+      return notFound404Response({ message: 'Tenant not found' });
     }
 
     const response = {

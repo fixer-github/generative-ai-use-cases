@@ -25,19 +25,19 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Parse request body
     if (!event.body) {
-      return badRequest400Response('Request body is required');
+      return badRequest400Response({ message: 'Request body is required' });
     }
 
     const templateInput: CreateTemplateRequest = JSON.parse(event.body);
     const s3Key = event.queryStringParameters?.s3_key;
 
     if (!s3Key) {
-      return badRequest400Response('S3 key parameter is required');
+      return badRequest400Response({ message: 'S3 key parameter is required' });
     }
 
     // Validate required fields
@@ -45,7 +45,7 @@ export const handler = async (
       !templateInput.template_name ||
       templateInput.template_name.trim().length === 0
     ) {
-      return badRequest400Response('Template name is required');
+      return badRequest400Response({ message: 'Template name is required' });
     }
 
     if (templateInput.template_name.length > 100) {
@@ -95,6 +95,6 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error creating template:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

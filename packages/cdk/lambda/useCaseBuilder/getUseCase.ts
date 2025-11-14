@@ -17,12 +17,12 @@ export const handler = async (
     const useCase = await getUseCase(userId, useCaseId, event);
 
     if (!useCase) {
-      return notFound404Response('Use case not found');
+      return notFound404Response({ message: 'Use case not found' });
     }
 
     return ok200Response(useCase);
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

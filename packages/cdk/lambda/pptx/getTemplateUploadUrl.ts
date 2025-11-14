@@ -25,7 +25,7 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Parse query parameters
@@ -35,12 +35,12 @@ export const handler = async (
       'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
     if (!filename) {
-      return badRequest400Response('Filename parameter is required');
+      return badRequest400Response({ message: 'Filename parameter is required' });
     }
 
     // Validate file extension
     if (!validateFileExtension(filename)) {
-      return badRequest400Response('Only PPTX and POTX files are allowed');
+      return badRequest400Response({ message: 'Only PPTX and POTX files are allowed' });
     }
 
     // Generate presigned URL (pass event for tenant role assumption)
@@ -60,6 +60,6 @@ export const handler = async (
     });
   } catch (error) {
     console.error('Error generating upload URL:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

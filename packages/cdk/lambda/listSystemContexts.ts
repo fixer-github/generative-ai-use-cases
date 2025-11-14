@@ -20,6 +20,6 @@ export const handler = async (
     return ok200Response(systemContextItems);
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

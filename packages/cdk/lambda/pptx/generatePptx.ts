@@ -35,19 +35,19 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!userId || !tenantId) {
-      return unauthorized401Response('Unauthorized');
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Parse request body
     if (!event.body) {
-      return badRequest400Response('Request body is required');
+      return badRequest400Response({ message: 'Request body is required' });
     }
 
     const generationInput: GenerateRequest = JSON.parse(event.body);
 
     // Validate input
     if (!generationInput.instructions) {
-      return badRequest400Response('Instructions are required');
+      return badRequest400Response({ message: 'Instructions are required' });
     }
 
     if (!validateInstructions(generationInput.instructions)) {
@@ -57,7 +57,7 @@ export const handler = async (
     }
 
     if (!validateSlideCount(generationInput.slide_count)) {
-      return badRequest400Response('Slide count must be between 1 and 50');
+      return badRequest400Response({ message: 'Slide count must be between 1 and 50' });
     }
 
     // Validate template exists if provided
@@ -65,7 +65,7 @@ export const handler = async (
     if (generationInput.template_id) {
       template = await findTemplateById(event, generationInput.template_id);
       if (!template) {
-        return notFound404Response('Template not found');
+        return notFound404Response({ message: 'Template not found' });
       }
 
       // Check if user has access to template
@@ -74,7 +74,7 @@ export const handler = async (
         template.userId !== userId &&
         template.tenantId !== tenantId
       ) {
-        return forbidden403Response('Not authorized to use this template');
+        return forbidden403Response({ message: 'Not authorized to use this template' });
       }
     }
 
@@ -130,6 +130,6 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error generating PPTX:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

@@ -19,9 +19,9 @@ import {
   forbidden403Response,
   notFound404Response,
   methodNotAllowed405Response,
+  conflict409Response,
   internalServerError500Response,
 } from './utils/apiResponse';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -56,7 +56,7 @@ export const handler = async (
     const method = event.httpMethod;
 
     if (!assistantId) {
-      return badRequest400Response('Missing assistantId');
+      return badRequest400Response({ message: 'Missing assistantId' });
     }
 
     // Route based on HTTP method
@@ -68,11 +68,11 @@ export const handler = async (
         return await handleListMessages(userId, assistantId, event);
 
       default:
-        return methodNotAllowed405Response('Method not allowed');
+        return methodNotAllowed405Response({ message: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Error in assistant message handler:', error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };
 
@@ -87,22 +87,22 @@ async function handleCreateMessage(
   const body: CreateAssistantMessageRequest = JSON.parse(event.body || '{}');
 
   if (!body.content) {
-    return badRequest400Response('Missing content');
+    return badRequest400Response({ message: 'Missing content' });
   }
 
   // Get assistant configuration
   const assistant = await getAssistant(assistantId, event);
 
   if (!assistant) {
-    return notFound404Response('Assistant not found');
+    return notFound404Response({ message: 'Assistant not found' });
   }
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response(
-      'Access denied to this assistant',
-      'ASSISTANT_ACCESS_DENIED'
-    );
+    return forbidden403Response({
+      message: 'Access denied to this assistant',
+      code: 'ASSISTANT_ACCESS_DENIED'
+    });
   }
 
   // Block chat if RAG is enabled and documents are still being indexed
@@ -120,14 +120,10 @@ async function handleCreateMessage(
       `Chat blocked for assistant ${assistantId}: status is ${assistant.syncStatus}`
     );
 
-    return {
-      statusCode: 409, // Conflict - resource not ready
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        message: `${statusMessage}. Please wait until indexing completes before chatting.`,
-        syncStatus: assistant.syncStatus,
-      }),
-    };
+    return conflict409Response({
+      message: `${statusMessage}. Please wait until indexing completes before chatting.`,
+      syncStatus: assistant.syncStatus,
+    });
   }
 
   // Warn if RAG failed but allow chat (assistant can still work without RAG)
@@ -142,7 +138,7 @@ async function handleCreateMessage(
     console.error(
       `Assistant ${assistantId} has no instruction/system prompt configured`
     );
-    return badRequest400Response('Assistant has no system prompt configured');
+    return badRequest400Response({ message: 'Assistant has no system prompt configured' });
   }
 
   console.log(
@@ -287,15 +283,15 @@ async function handleListMessages(
   const assistant = await getAssistant(assistantId, event);
 
   if (!assistant) {
-    return notFound404Response('Assistant not found');
+    return notFound404Response({ message: 'Assistant not found' });
   }
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response(
-      'Access denied to this assistant',
-      'ASSISTANT_ACCESS_DENIED'
-    );
+    return forbidden403Response({
+      message: 'Access denied to this assistant',
+      code: 'ASSISTANT_ACCESS_DENIED'
+    });
   }
 
   const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;

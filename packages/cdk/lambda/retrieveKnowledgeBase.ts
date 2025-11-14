@@ -14,7 +14,7 @@ exports.handler = async (
   const query = req.query;
 
   if (!query) {
-    return badRequest400Response('query is not specified');
+    return badRequest400Response({ message: 'query is not specified' });
   }
 
   const client = await initBedrockAgentRuntimeClient({ region: MODEL_REGION });

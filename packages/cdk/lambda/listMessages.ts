@@ -16,7 +16,7 @@ export const handler = async (
     const chat = await findChatById(userId, chatId, event);
 
     if (chat === null) {
-      return forbidden403Response('Forbidden');
+      return forbidden403Response({ message: 'Forbidden' });
     }
 
     const messages = await listMessages(chatId, event);
@@ -26,6 +26,6 @@ export const handler = async (
     });
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

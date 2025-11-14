@@ -66,7 +66,7 @@ export const handler = async (
         if (message.extraData && message.extraData.length > 0) {
           for (const extra of message.extraData) {
             if (!isValidExtraData(extra, uploadBucketName)) {
-              return badRequest400Response('Invalid extraData');
+              return badRequest400Response({ message: 'Invalid extraData' });
             }
           }
         }
@@ -85,6 +85,6 @@ export const handler = async (
     });
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

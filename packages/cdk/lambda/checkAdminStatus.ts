@@ -23,13 +23,13 @@ export const handler = async (
     // Extract token
     const token = event.headers.Authorization || event.headers.authorization;
     if (!token) {
-      return unauthorized401Response('Missing authorization token');
+      return unauthorized401Response({ message: 'Missing authorization token' });
     }
 
     // Use real-time role checking to ensure consistency with other endpoints
     const verificationResult = await verifyTokenWithRoleCheck(token);
     if (!verificationResult) {
-      return unauthorized401Response('Invalid token');
+      return unauthorized401Response({ message: 'Invalid token' });
     }
 
     const { claims, isCurrentlyAdmin } = verificationResult;
@@ -37,7 +37,7 @@ export const handler = async (
     const username = claims['cognito:username'] || claims.username || '';
 
     if (!tenantId) {
-      return badRequest400Response('Tenant ID not found in token');
+      return badRequest400Response({ message: 'Tenant ID not found in token' });
     }
 
     const response: AdminStatusResponse = {

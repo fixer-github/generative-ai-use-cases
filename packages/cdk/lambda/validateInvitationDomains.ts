@@ -68,7 +68,7 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return badRequest400Response('Invalid JSON in request body');
+      return badRequest400Response({ message: 'Invalid JSON in request body' });
     }
 
     const { emails } = requestBody;
@@ -82,7 +82,7 @@ export const handler = async (
     // Validate all emails
     const invalidEmails = emails.filter((email) => !isValidEmail(email));
     if (invalidEmails.length > 0) {
-      return badRequest400Response('Invalid email addresses found');
+      return badRequest400Response({ message: 'Invalid email addresses found' });
     }
 
     // Check domain configuration for each email
@@ -108,6 +108,6 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error validating domains:', error);
-    return internalServerError500Response('Failed to validate domains');
+    return internalServerError500Response({ message: 'Failed to validate domains' });
   }
 };

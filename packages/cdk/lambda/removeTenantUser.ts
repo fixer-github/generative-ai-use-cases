@@ -36,13 +36,13 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return badRequest400Response('Invalid JSON in request body');
+      return badRequest400Response({ message: 'Invalid JSON in request body' });
     }
 
     const { username, action = 'disable' } = requestBody;
 
     if (!username) {
-      return badRequest400Response('username is required');
+      return badRequest400Response({ message: 'username is required' });
     }
 
     if (action !== 'disable' && action !== 'delete') {
@@ -61,7 +61,7 @@ export const handler = async (
 
     // Prevent admin from removing themselves
     if (username === admin.username) {
-      return badRequest400Response('Cannot remove yourself');
+      return badRequest400Response({ message: 'Cannot remove yourself' });
     }
 
     // Perform the user removal action
@@ -93,13 +93,13 @@ export const handler = async (
       console.error(`Failed to ${action} user ${username}:`, error);
 
       if (error instanceof Error && error.name === 'UserNotFoundException') {
-        return notFound404Response('User not found');
+        return notFound404Response({ message: 'User not found' });
       }
 
       throw error; // Re-throw to be caught by outer catch block
     }
   } catch (error) {
     console.error('Error removing user:', error);
-    return internalServerError500Response('Failed to remove user');
+    return internalServerError500Response({ message: 'Failed to remove user' });
   }
 };

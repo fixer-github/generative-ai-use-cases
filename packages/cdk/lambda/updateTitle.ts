@@ -19,7 +19,7 @@ export const handler = async (
     const chatItem = await findChatById(userId, chatId, event);
 
     if (!chatItem) {
-      return notFound404Response('Chat not found');
+      return notFound404Response({ message: 'Chat not found' });
     }
 
     const updatedChat = await setChatTitle(
@@ -32,6 +32,6 @@ export const handler = async (
     return ok200Response({ chat: updatedChat });
   } catch (error) {
     console.log(error);
-    return internalServerError500Response('Internal Server Error');
+    return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

@@ -86,7 +86,7 @@ export const handler = async (
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch (error) {
-      return badRequest400Response('Invalid JSON in request body');
+      return badRequest400Response({ message: 'Invalid JSON in request body' });
     }
 
     const { emails, sendEmail = false } = requestBody;
@@ -98,19 +98,19 @@ export const handler = async (
     }
 
     if (emails.length > 100) {
-      return badRequest400Response('Maximum 100 users can be invited at once');
+      return badRequest400Response({ message: 'Maximum 100 users can be invited at once' });
     }
 
     // Validate all emails
     const invalidEmails = emails.filter((email) => !isValidEmail(email));
     if (invalidEmails.length > 0) {
-      return badRequest400Response('Invalid email addresses found');
+      return badRequest400Response({ message: 'Invalid email addresses found' });
     }
 
     // Check for duplicate emails
     const uniqueEmails = Array.from(new Set(emails));
     if (uniqueEmails.length !== emails.length) {
-      return badRequest400Response('Duplicate emails found in request');
+      return badRequest400Response({ message: 'Duplicate emails found in request' });
     }
 
     // Invite users
@@ -228,6 +228,6 @@ export const handler = async (
     });
   } catch (error) {
     console.error('Error inviting users:', error);
-    return internalServerError500Response('Failed to invite users');
+    return internalServerError500Response({ message: 'Failed to invite users' });
   }
 };
