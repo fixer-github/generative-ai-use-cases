@@ -82,7 +82,10 @@ export const handler = async (
     // Validate all emails
     const invalidEmails = emails.filter((email) => !isValidEmail(email));
     if (invalidEmails.length > 0) {
-      return badRequest400Response({ message: 'Invalid email addresses found' });
+      return badRequest400Response({
+        message: 'Invalid email addresses found',
+        invalidEmails,
+      });
     }
 
     // Check domain configuration for each email
