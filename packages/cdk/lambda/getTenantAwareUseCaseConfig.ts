@@ -51,8 +51,8 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('[getTenantAwareUseCaseConfig] Error:', error);
-    return internalServerError500Response(
-      'Failed to get tenant use case configuration'
-    );
+    return internalServerError500Response({
+      message: 'Failed to get tenant use case configuration',
+    });
   }
 };

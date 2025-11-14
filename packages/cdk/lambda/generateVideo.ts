@@ -26,6 +26,8 @@ export const handler = async (
     return ok200Response(res);
   } catch (error) {
     console.log(error);
-    return internalServerError500Response((error as Error).message);
+    return internalServerError500Response({
+      message: (error as Error).message,
+    });
   }
 };
