@@ -55,7 +55,9 @@ const AssistantChatPage: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
-  const [currentChatId, setCurrentChatId] = useState<string | undefined>(conversationId);
+  const [currentChatId, setCurrentChatId] = useState<string | undefined>(
+    conversationId
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -149,7 +151,7 @@ const AssistantChatPage: React.FC = () => {
     try {
       const response = await listMessages(assistantId, {
         limit: 100,
-        chatId: currentChatId
+        chatId: currentChatId,
       });
       // Sort messages chronologically (oldest first)
       // Backend returns newest first (ScanIndexForward: false), so we reverse
@@ -178,26 +180,34 @@ const AssistantChatPage: React.FC = () => {
       // Fetch the latest messages for title generation
       const response = await listMessages(assistantId!, {
         limit: 10,
-        chatId: newChatId
+        chatId: newChatId,
       });
 
       // Need at least one user and one assistant message
       if (!response.messages || response.messages.length < 2) return;
 
       // Get chat data
-      const chatResponse = await http.api.get<FindChatByIdResponse>(`chats/${newChatId}`);
+      const chatResponse = await http.api.get<FindChatByIdResponse>(
+        `chats/${newChatId}`
+      );
       const chat = chatResponse.data.chat;
 
-      if (chat.title && chat.title.trim() !== '' && chat.title !== assistant.name) {
+      if (
+        chat.title &&
+        chat.title.trim() !== '' &&
+        chat.title !== assistant.name
+      ) {
         // Title already exists and is not the default assistant name
         return;
       }
 
       // Convert assistant messages to the format needed for title generation
-      const messagesForTitle: UnrecordedMessage[] = response.messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
+      const messagesForTitle: UnrecordedMessage[] = response.messages.map(
+        (msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })
+      );
 
       // Get the model and prompter for title generation
       const model = findModelByModelId(assistant.modelId);
@@ -243,7 +253,7 @@ const AssistantChatPage: React.FC = () => {
       // Send message and get response
       const response = await createMessage(assistantId, {
         content: userMessageContent,
-        chatId: currentChatId
+        chatId: currentChatId,
       });
 
       // If this was a new conversation (no currentChatId), update state and navigate
@@ -251,7 +261,9 @@ const AssistantChatPage: React.FC = () => {
         const newChatId = response.chatId;
         setCurrentChatId(newChatId);
         // Navigate to the conversation URL
-        navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, { replace: true });
+        navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, {
+          replace: true,
+        });
       }
 
       // Refresh messages to get both user and assistant messages

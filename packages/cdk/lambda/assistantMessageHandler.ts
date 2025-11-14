@@ -112,7 +112,9 @@ async function handleCreateMessage(
 
   // Get or create chatId for this conversation
   // Can come from query params or body, if not provided, create a new conversation
-  const bodyChatId = (body as CreateAssistantMessageRequest & { chatId?: string }).chatId;
+  const bodyChatId = (
+    body as CreateAssistantMessageRequest & { chatId?: string }
+  ).chatId;
   let chatId = event.queryStringParameters?.chatId || bodyChatId;
   const isNewConversation = !chatId;
 

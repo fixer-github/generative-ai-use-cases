@@ -49,7 +49,7 @@ export type AssistantMessage = {
   messageId: string;
   assistantId: string;
   chatId: string;
-  userId: sting;
+  userId: string;
   role: 'user' | 'assistant';
   content: string;
   sources?: AssistantMessageSource[];

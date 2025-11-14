@@ -182,7 +182,7 @@ export const listMessages = async (
   } while (exclusiveStartKey);
 
   return allItems as RecordedMessage[];
-};;
+};
 
 export const batchCreateMessages = async (
   messages: ToBeRecordedMessage[],
@@ -324,4 +324,4 @@ export const deleteMessagesForChat = async (
 
     await Promise.all(batchPromises);
   }
-};;
+};

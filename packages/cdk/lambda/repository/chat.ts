@@ -381,7 +381,7 @@ export const deleteAssistantMessagesForChat = async (
 
     await Promise.all(batchPromises);
   }
-};;
+};
 
 export const deleteAllMessagesForAssistant = async (
   _assistantId: string,
