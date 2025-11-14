@@ -79,7 +79,17 @@ const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 } as const;
 
-export const CORS_HEADERS = {
+export const CORS_HEADERS_JSON = {
   'Content-Type': 'application/json',
+  ...BASE_CORS_HEADERS,
+} as const;
+
+export const CORS_HEADERS_BASE64 = {
+  'Content-Type': 'text/plain', // TODO: inference from request header or something others
+  ...BASE_CORS_HEADERS,
+} as const;
+
+export const CORS_HEADERS_TEXT = {
+  'Content-Type': 'text/plain',
   ...BASE_CORS_HEADERS,
 } as const;

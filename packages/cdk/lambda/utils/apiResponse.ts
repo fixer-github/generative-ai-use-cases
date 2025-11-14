@@ -3,10 +3,15 @@
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CORS_HEADERS, HttpStatus } from '@generative-ai-use-cases/common';
+import {
+  CORS_HEADERS_BASE64,
+  CORS_HEADERS_JSON,
+  CORS_HEADERS_TEXT,
+  HttpStatus,
+} from '@generative-ai-use-cases/common';
 
 // TODO: remove later
-export { CORS_HEADERS };
+export { CORS_HEADERS_JSON as CORS_HEADERS };
 
 /**
  * Create Lambda success response
@@ -20,7 +25,7 @@ function createLambdaResponse<TBody>(
 ): APIGatewayProxyResult {
   return {
     statusCode,
-    headers: CORS_HEADERS,
+    headers: CORS_HEADERS_JSON,
     body: JSON.stringify(body),
   };
 }
@@ -63,7 +68,7 @@ export function accepted202Response<TBody>(body: TBody): APIGatewayProxyResult {
 export function noContent204Response(): APIGatewayProxyResult {
   return {
     statusCode: HttpStatus.Success.NO_CONTENT,
-    headers: CORS_HEADERS,
+    headers: CORS_HEADERS_JSON,
     body: '',
   };
 }
@@ -80,7 +85,7 @@ export function noContent204Response(): APIGatewayProxyResult {
 export function ok200Base64Response(base64Data: string): APIGatewayProxyResult {
   return {
     statusCode: HttpStatus.Success.OK,
-    headers: CORS_HEADERS,
+    headers: CORS_HEADERS_BASE64,
     body: base64Data,
     isBase64Encoded: true,
   };
@@ -94,7 +99,7 @@ export function ok200Base64Response(base64Data: string): APIGatewayProxyResult {
 export function ok200PlainTextResponse(text: string): APIGatewayProxyResult {
   return {
     statusCode: HttpStatus.Success.OK,
-    headers: CORS_HEADERS,
+    headers: CORS_HEADERS_TEXT,
     body: text,
   };
 }
