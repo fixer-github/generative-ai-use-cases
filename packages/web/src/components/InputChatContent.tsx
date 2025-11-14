@@ -31,6 +31,7 @@ type Props = {
   // When using it outside the bottom of the page, disable the margin bottom
   disableMarginBottom?: boolean;
   fileUpload?: boolean;
+  disableFileUpload?: boolean; // Explicitly disable all file upload functionality
   fileLimit?: FileLimit;
   accept?: string[];
   canStop?: boolean;
@@ -85,6 +86,10 @@ const InputChatContent: React.FC<Props> = (props) => {
     [deleteUploadedFile, props.fileLimit, props.accept]
   );
   const handlePaste = async (pasteEvent: React.ClipboardEvent) => {
+    // Don't handle file paste if file upload is explicitly disabled
+    if (props.disableFileUpload) {
+      return;
+    }
     const fileList = pasteEvent.clipboardData.items || [];
     const files = Array.from(fileList)
       .filter((file) => file.kind === 'file')
@@ -192,7 +197,11 @@ const InputChatContent: React.FC<Props> = (props) => {
             notItem
             value={props.content}
             onChange={props.onChangeContent}
-            onPaste={props.fileUpload ? handlePaste : undefined}
+            onPaste={
+              props.fileUpload && !props.disableFileUpload
+                ? handlePaste
+                : undefined
+            }
             onEnter={disabledSend ? undefined : props.onSend}
           />
         </div>
@@ -201,7 +210,7 @@ const InputChatContent: React.FC<Props> = (props) => {
         <div className="mx-2 mb-2 flex items-center justify-between pt-2">
           {/* 左側のボタングループ */}
           <div className="flex items-center gap-1">
-            {props.fileUpload && (
+            {props.fileUpload && !props.disableFileUpload && (
               <div className="">
                 <label>
                   <input

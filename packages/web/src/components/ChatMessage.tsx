@@ -20,7 +20,11 @@ import {
   PiX,
 } from 'react-icons/pi';
 import { BaseProps } from '../@types/common';
-import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
+import {
+  ShownMessage,
+  UpdateFeedbackRequest,
+  AssistantMessageSource,
+} from 'generative-ai-use-cases';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';
@@ -29,6 +33,7 @@ import FeedbackForm from './FeedbackForm';
 import Textarea from './Textarea';
 import useFiles from '../hooks/useFiles';
 import { useTranslation } from 'react-i18next';
+import SourceDisplay from './assistants/SourceDisplay';
 
 type Props = BaseProps & {
   idx?: number;
@@ -42,6 +47,7 @@ type Props = BaseProps & {
   editable?: boolean;
   retryGeneration?: () => void;
   onCommitEdit?: (modifiedPrompt: string) => void;
+  sources?: AssistantMessageSource[]; // Optional RAG sources for assistant messages
 };
 
 const ChatMessage: React.FC<Props> = (props) => {
@@ -313,14 +319,22 @@ const ChatMessage: React.FC<Props> = (props) => {
                   </>
                 )}
                 {chatContent?.role === 'assistant' && (
-                  <Markdown prefix={`${props.idx}`}>
-                    {typingTextOutput +
-                      `${
-                        props.loading && (chatContent?.content ?? '') !== ''
-                          ? '▍'
-                          : ''
-                      }`}
-                  </Markdown>
+                  <>
+                    <Markdown prefix={`${props.idx}`}>
+                      {typingTextOutput +
+                        `${
+                          props.loading && (chatContent?.content ?? '') !== ''
+                            ? '▍'
+                            : ''
+                        }`}
+                    </Markdown>
+                    {/* Display RAG sources if provided */}
+                    {!props.loading &&
+                      props.sources &&
+                      props.sources.length > 0 && (
+                        <SourceDisplay sources={props.sources} />
+                      )}
+                  </>
                 )}
                 {chatContent?.role === 'system' && (
                   <div className="whitespace-pre-wrap">{typingTextOutput}</div>
