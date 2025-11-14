@@ -2,8 +2,10 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { GenerateImageRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultImageGenerationModel } from './utils/models';
-import { internalServerError500Response } from './utils/apiResponse';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
+import {
+  ok200Base64Response,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -13,14 +15,11 @@ export const handler = async (
     const model = req.model || defaultImageGenerationModel;
     const res = await api[model.type].generateImage(model, req.params);
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: res,
-      isBase64Encoded: true,
-    };
+    return ok200Base64Response(res);
   } catch (error) {
     console.log(error);
-    return internalServerError500Response((error as Error).message);
+    return internalServerError500Response({
+      message: (error as Error).message,
+    });
   }
 };

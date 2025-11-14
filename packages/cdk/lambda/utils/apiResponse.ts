@@ -66,6 +66,37 @@ export function noContent204Response(): APIGatewayProxyResult {
 }
 
 // ============================================================================
+// Special Response Types
+// ============================================================================
+
+/**
+ * Create 200 OK response with Base64-encoded data
+ * @param base64Data Base64-encoded data
+ * @returns Lambda response with 200 status code and isBase64Encoded flag
+ */
+export function ok200Base64Response(base64Data: string): APIGatewayProxyResult {
+  return {
+    statusCode: HttpStatus.Success.OK,
+    headers: CORS_HEADERS,
+    body: base64Data,
+    isBase64Encoded: true,
+  };
+}
+
+/**
+ * Create 200 OK response with plain text (non-JSON)
+ * @param text Plain text content (e.g., URL, title)
+ * @returns Lambda response with 200 status code
+ */
+export function ok200PlainTextResponse(text: string): APIGatewayProxyResult {
+  return {
+    statusCode: HttpStatus.Success.OK,
+    headers: CORS_HEADERS,
+    body: text,
+  };
+}
+
+// ============================================================================
 // Client Error Responses (4xx)
 // ============================================================================
 

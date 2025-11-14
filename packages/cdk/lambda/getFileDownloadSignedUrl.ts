@@ -12,8 +12,10 @@ import {
   extractAccountIdFromRoleArn,
 } from './utils/tenantS3Utils';
 import { getTenant } from './tenantManager';
-import { internalServerError500Response } from './utils/apiResponse';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
+import {
+  ok200PlainTextResponse,
+  internalServerError500Response,
+} from './utils/apiResponse';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 
@@ -98,11 +100,7 @@ export const handler = async (
 
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: signedUrl,
-    };
+    return ok200PlainTextResponse(signedUrl);
   } catch (error) {
     console.log(error);
     return internalServerError500Response({ message: 'Internal Server Error' });
