@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useBillingHttp } from './useHttp';
 
 // Type definitions based on API specification
@@ -145,7 +146,7 @@ export interface UpdatePlanStatusResponse {
 const usePlanApi = () => {
   const { api } = useBillingHttp();
 
-  return {
+  return useMemo(() => ({
     /**
      * Get paginated list of plans with optional filters
      */
@@ -246,7 +247,7 @@ const usePlanApi = () => {
       );
       return response.data;
     },
-  };
+  }), [api]);
 };
 
 export default usePlanApi;

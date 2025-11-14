@@ -9,7 +9,7 @@ import {
   AuthorizationType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { TenantManager } from '../../construct/tenant-manager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -24,6 +24,11 @@ export interface SubscriptionManagementApiProps {
    * User Pool for authentication
    */
   readonly userPool: UserPool;
+
+  /**
+   * User Pool Client for authentication
+   */
+  readonly userPoolClient: UserPoolClient;
 
   /**
    * Identity Pool for authorization
@@ -63,8 +68,25 @@ export interface SubscriptionManagementApiProps {
  * 6. Batch approve/reject subscriptions
  * 7. Retry receipt verification
  * 8. Sync with payment platform
+ *
+ * Also provides internal Lambda functions for orchestrator:
+ * 1. createSubscription - Create subscription from purchase flow
+ * 2. updateSubscriptionStatus - Update status from webhook handler
+ * 3. getSubscription - Get subscription from orchestrator flows
+ * 4. extendSubscriptionPeriod - Extend period from payment.succeeded event
  */
 class SubscriptionManagementApi extends Construct {
+  /**
+   * Internal Lambda functions for orchestrator
+   * These are not exposed via API Gateway
+   */
+  public readonly internalFunctions: {
+    createSubscription: NodejsFunction;
+    updateSubscriptionStatus: NodejsFunction;
+    getSubscription: NodejsFunction;
+    extendSubscriptionPeriod: NodejsFunction;
+  };
+
   constructor(
     scope: Construct,
     id: string,
@@ -75,6 +97,7 @@ class SubscriptionManagementApi extends Construct {
     const {
       api,
       userPool,
+      userPoolClient,
       idPool,
       tenantManager,
       environment,
@@ -97,6 +120,7 @@ class SubscriptionManagementApi extends Construct {
         TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
         IDENTITY_POOL_ID: idPool.identityPoolId,
         USER_POOL_ID: userPool.userPoolId,
+        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
         AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
       },
@@ -109,6 +133,66 @@ class SubscriptionManagementApi extends Construct {
             },
           }
         : {}),
+    };
+
+    // ========================================
+    // Internal Lambda Functions (for Orchestrator)
+    // ========================================
+
+    // Internal: Create Subscription
+    const createSubscriptionFunction = new NodejsFunction(
+      this,
+      'InternalCreateSubscription',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/subscription-management/internal/createSubscription.ts',
+        functionName: `${environment}-billing-subscription-internal-create`,
+      }
+    );
+
+    // Internal: Update Subscription Status
+    const updateSubscriptionStatusFunction = new NodejsFunction(
+      this,
+      'InternalUpdateSubscriptionStatus',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/subscription-management/internal/updateSubscriptionStatus.ts',
+        functionName: `${environment}-billing-subscription-internal-update-status`,
+      }
+    );
+
+    // Internal: Get Subscription
+    const getSubscriptionInternalFunction = new NodejsFunction(
+      this,
+      'InternalGetSubscription',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/subscription-management/internal/getSubscription.ts',
+        functionName: `${environment}-billing-subscription-internal-get`,
+      }
+    );
+
+    // Internal: Extend Subscription Period
+    const extendSubscriptionPeriodFunction = new NodejsFunction(
+      this,
+      'InternalExtendSubscriptionPeriod',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/subscription-management/internal/extendSubscriptionPeriod.ts',
+        functionName: `${environment}-billing-subscription-internal-extend-period`,
+      }
+    );
+
+    // Export internal functions for orchestrator
+    this.internalFunctions = {
+      createSubscription: createSubscriptionFunction,
+      updateSubscriptionStatus: updateSubscriptionStatusFunction,
+      getSubscription: getSubscriptionInternalFunction,
+      extendSubscriptionPeriod: extendSubscriptionPeriodFunction,
     };
 
     // ========================================
@@ -215,6 +299,12 @@ class SubscriptionManagementApi extends Construct {
     // IAM Permissions
     // ========================================
     const functions = [
+      // Internal functions
+      createSubscriptionFunction,
+      updateSubscriptionStatusFunction,
+      getSubscriptionInternalFunction,
+      extendSubscriptionPeriodFunction,
+      // Admin API functions
       getStatisticsFunction,
       listSubscriptionsFunction,
       getSubscriptionFunction,
@@ -228,6 +318,15 @@ class SubscriptionManagementApi extends Construct {
     functions.forEach((func) => {
       // Grant Tenants table read access
       tenantManager.tenantsTable.grantReadData(func);
+
+      // Grant Cognito User Pool AdminGetUser permission for real-time role verification
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['cognito-idp:AdminGetUser'],
+          resources: [userPool.userPoolArn],
+        })
+      );
 
       // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
       func.addToRolePolicy(

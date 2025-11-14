@@ -1,607 +1,310 @@
-# Authorization Service実装調査結果
+# Authorization機構 調査結果
 
-## 1. 実装状況の概要
+## 調査概要
 
-- **OpenFGAの実装**: ✅ 実装済み
-- **カウント機構**: ✅ 実装済み
-- **権限付与・剥奪API**: ✅ 実装済み
-- **Lambda-to-Lambda呼び出し対応**: ❌ 未実装（API Gateway + IAM認証のみ）
+### 調査対象
+- `packages/cdk/lambda/authorization/` ディレクトリ配下のLambda関数（5関数）
+- `packages/cdk/lib/construct/authorization-system.ts` CDK Construct
+- `packages/cdk/lib/stacks/nested/billing-management-stack.ts` 課金管理スタック
+- `packages/cdk/lib/construct/api/plan-management.ts` プラン管理API
+- `packages/cdk/lib/construct/api/subscription-management.ts` サブスク管理API
 
-## 2. 実装されている機能の詳細
+### 調査結果サマリ
+**Authorization機構は実装済み**だが、**統括責務との連携が未実装**。統括責務（Orchestration）自体がまだ実装されていない。
 
-### 2.1 DynamoDBテーブル
+---
 
-#### UsageCounter テーブル
-- **目的**: 利用回数カウント情報の管理
-- **パーティションキー**: `userId`
-- **ソートキー**: `featureIdPeriod` (例: `feature-model-b#daily`)
-- **GSI**:
-  - `grantId-index`: 権限付与IDで検索
-  - `periodType-nextResetTime-index`: リセット処理用
+## 権限付与関数/エンドポイント
 
-**データ構造**:
-```typescript
-{
-  userId: string;
-  featureIdPeriod: string; // 機能ID#期間タイプ
-  featureId: string;
-  periodType: 'daily' | 'monthly';
-  currentCount: number;
-  limitCount: number;
-  nextResetTime: number; // Unixタイムスタンプ
-  grantId: string;
-  createdAt: number;
-  updatedAt: number;
-}
-```
+### 実装状況: **実装済み**
 
-#### PermissionGrant テーブル
-- **目的**: 権限付与履歴の管理
-- **パーティションキー**: `grantId`
-- **GSI**: `userId-status-index`（ユーザーID+状態で検索）
-
-**データ構造**:
-```typescript
-{
-  grantId: string;
-  userId: string;
-  features: Array<{
-    featureId: string;
-    limitType: 'unlimited' | 'daily' | 'monthly';
-    limitCount?: number;
-  }>;
-  status: 'active' | 'revoked';
-  sourceType: string; // "subscription", "trial", "campaign", "manual"
-  sourceId: string; // サブスクリプションIDなど
-  grantedAt: number;
-  revokedAt?: number;
-}
-```
-
-### 2.2 Lambda関数
-
-#### grantPermission.ts
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/grantPermission.ts`
-
-**責務**:
-1. OpenFGAにfeatureアクセス権限を登録
-2. DynamoDBにカウンター情報を作成（回数制限がある場合）
-3. 権限付与履歴をDynamoDBに記録
-
-**入力**:
-```typescript
-{
-  tenantId: string;
-  userId: string;
-  grantId: string; // UUID（呼び出し元が生成）
-  features: Array<{
-    featureId: string;
-    limitType: 'unlimited' | 'daily' | 'monthly';
-    limitCount?: number;
-  }>;
-  sourceType: string;
-  sourceId: string;
-}
-```
-
-**処理フロー**:
-1. バリデーション
-2. テナント情報の取得
-3. テナントロールをAssumeRole
-4. OpenFGAに権限を登録（tupleを書き込み）
-5. DynamoDBにカウンター情報を作成
-6. DynamoDB書き込み失敗時はOpenFGAをロールバック
-
-**OpenFGA連携**:
-- Tuple形式: `user:${userId}` - `can_access` - `feature:${featureId}`
-- API Gateway経由でSigV4署名付きリクエスト
-
-#### revokePermission.ts
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/revokePermission.ts`
-
-**責務**:
-1. OpenFGAから権限を削除
-2. DynamoDBからカウンター情報を削除
-3. 権限付与履歴の状態を'revoked'に更新
-
-**入力**:
-```typescript
-{
-  tenantId: string;
-  grantId: string;
-}
-```
-
-**処理フロー**:
-1. DynamoDBから権限付与情報を取得
-2. 既にrevokedの場合は冪等性を保証（成功を返す）
-3. OpenFGAからtupleを削除
-4. DynamoDBからカウンター情報を削除
-5. 権限付与履歴を更新
-
-#### checkPermission.ts
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/checkPermission.ts`
-
-**責務**:
-1. OpenFGAに権限の有無を問い合わせ
-2. DynamoDBに利用回数の残数を問い合わせ
-3. 両方OKなら許可、どちらかNGなら拒否
-
-**入力**:
-```typescript
-{
-  tenantId: string;
-  userId: string;
-  featureId: string;
-}
-```
-
-**出力**:
-```typescript
-{
-  allowed: boolean;
-  reason?: 'no_permission' | 'quota_exceeded';
-  usage?: {
-    daily?: { current: number; limit: number; remaining: number; };
-    monthly?: { current: number; limit: number; remaining: number; };
-  };
-}
-```
-
-**処理フロー**:
-1. OpenFGAで権限チェック
-2. 権限なし → 拒否
-3. 権限あり → DynamoDBで日次・月次カウンターをチェック
-4. カウンター超過 → 拒否（quota_exceeded）
-5. すべてOK → 許可
-
-#### incrementUsageCount.ts
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/incrementUsageCount.ts`
-
-**責務**: DynamoDBのカウンターをアトミックに+1
-
-**入力**:
-```typescript
-{
-  tenantId: string;
-  userId: string;
-  featureId: string;
-  periodType: 'daily' | 'monthly';
-}
-```
-
-**処理**: DynamoDB UpdateItemでcurrentCountをADD演算
-
-#### resetUsageCount.ts
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/resetUsageCount.ts`
-
-**責務**: 全テナントのカウンターを定期的にリセット
-
-**入力**:
-```typescript
-{
-  periodType: 'daily' | 'monthly';
-}
-```
-
-**処理フロー**:
-1. 全テナントのリストを取得
-2. 各テナントのDynamoDBから期限切れカウンターを検索
-3. カウンターをリセット（currentCount=0、nextResetTime更新）
-
-**EventBridge Scheduler**:
-- 日次リセット: 毎日00:00 UTC
-- 月次リセット: 毎月1日00:00 UTC
-
-### 2.3 リポジトリ実装
-
-#### UsageCountRepository
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/repositories/usageCountRepository.ts`
-
-**メソッド**:
-- `create(item)`: カウンター情報を作成
-- `get(userId, featureIdPeriod)`: カウンター情報を取得
-- `increment(userId, featureIdPeriod)`: アトミックに加算
-- `findByGrantId(grantId)`: 権限付与IDで検索
-- `findByPeriodTypeAndResetTime(periodType, beforeTime)`: リセット対象を検索
-- `reset(userId, featureIdPeriod, nextResetTime)`: カウンターをリセット
-- `batchDelete(items)`: 一括削除（最大25件ずつ）
-
-#### PermissionGrantRepository
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/repositories/permissionGrantRepository.ts`
-
-**メソッド**:
-- `create(item)`: 権限付与履歴を作成
-- `get(grantId)`: 権限付与履歴を取得
-- `findByUserIdAndStatus(userId, status)`: ユーザーID+状態で検索
-- `updateStatus(grantId, status, revokedAt)`: 状態を更新
-
-### 2.4 インフラ構成
-
-#### AuthorizationSystem Construct
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/authorization-system.ts`
-
-**作成リソース**:
-- DynamoDBテーブル x2（UsageCounter、PermissionGrant）
-- Lambda関数 x5（grant、revoke、check、increment、reset）
-- EventBridge Rules x2（日次・月次リセット）
-
-**IAM権限**:
-- DynamoDB読み書き権限
-- STS AssumeRole権限（テナントロール引き受け用）
-- API Gateway Invoke権限（OpenFGA呼び出し用）
-- DynamoDB Scan/GetItem権限（TenantManagerテーブル読み取り）
-
-#### TenantAuthorizationStack
-**場所**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/stacks/tenant/tenant-authorization-stack.ts`
-
-**役割**: テナント専用のAuthorizationSystemスタックを作成
-
-### 2.5 OpenFGA連携
-
-#### OpenFGAスキーマ（Authorization Model）
-```
-type user
-
-type feature
-  relations
-    define can_access: [user]
-```
-
-**Tuple例**:
-```
-user:john@example.com, can_access, feature:gpt-4
-```
-
-**チェック方法**:
-```json
-POST /stores/{storeId}/check
-{
-  "tuple_key": {
-    "user": "user:john@example.com",
-    "relation": "can_access",
-    "object": "feature:gpt-4"
-  }
-}
-```
-
-**認証方式**:
-- API Gateway（IAM認証）経由
-- SigV4署名付きリクエスト
-- テナントロールをAssumeRoleして取得したクレデンシャルを使用
-
-## 3. 統括責務実装のための必須修正事項まとめ
-
-### 3.1 Lambda-to-Lambda呼び出し対応が未実装
-
-**現状**: すべてのLambda関数がAPI Gateway + IAM認証経由でのみ呼び出し可能
-
-**課題**: 統括責務（Orchestrator）が他のLambda関数を呼び出す際、以下のいずれかが必要
-1. Lambda SDK経由で直接呼び出し（推奨）
-2. API Gateway経由で呼び出し（現状のまま）
-
-**推奨対応**:
-
-#### 対応案A: Lambda InvokeCommandを使用（推奨）
-
-Lambda関数に環境変数で他のLambda関数のARNを渡し、Lambda SDKで直接呼び出す。
-
-**メリット**:
-- レイテンシーが低い
-- API Gatewayのコスト不要
-- シンプルな実装
-
-**必要な修正**:
-1. `authorization-system.ts`で各Lambda関数のARNを出力
-2. Orchestrator Lambda関数に環境変数でARNを渡す
-3. Orchestrator側でLambda InvokeCommandを使用
-
-**実装例**:
-```typescript
-import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-
-const grantPermissionFunctionArn = process.env.GRANT_PERMISSION_FUNCTION_ARN;
-
-const response = await lambdaClient.send(new InvokeCommand({
-  FunctionName: grantPermissionFunctionArn,
-  InvocationType: 'RequestResponse',
-  Payload: JSON.stringify({
-    tenantId: 'tenant001',
-    userId: 'user123',
-    grantId: 'grant-uuid',
-    features: [...],
-    sourceType: 'subscription',
-    sourceId: 'sub-123'
-  })
-}));
-
-const result = JSON.parse(new TextDecoder().decode(response.Payload));
-```
-
-**IAM権限の追加**:
-```typescript
-orchestratorFunction.addToRolePolicy(new iam.PolicyStatement({
-  effect: iam.Effect.ALLOW,
-  actions: ['lambda:InvokeFunction'],
-  resources: [
-    authorizationSystem.grantPermissionFunction.functionArn,
-    authorizationSystem.revokePermissionFunction.functionArn,
-    authorizationSystem.checkPermissionFunction.functionArn,
-    authorizationSystem.incrementUsageCountFunction.functionArn
-  ]
-}));
-```
-
-#### 対応案B: API Gateway経由で呼び出し（現状維持）
-
-現状の実装を活かして、API Gateway経由で呼び出す。
-
-**メリット**:
-- 既存の認証・認可フローをそのまま使える
-- 修正範囲が小さい
-
-**デメリット**:
-- レイテンシーが高い
-- API Gatewayのコスト増加
-
-**必要な修正**:
-1. Authorization Service用のAPI Gatewayエンドポイントを作成
-2. Orchestrator Lambda関数にAPI Gateway呼び出し権限を付与
-
-### 3.2 grantId生成ロジックの明確化
-
-**現状**: `grantId`は呼び出し元が生成する仕様
-
-**課題**: 統括責務がgrantIdを生成する際の規則が不明確
-
-**推奨対応**:
-
-```typescript
-import { randomUUID } from 'crypto';
-
-// grantId生成関数
-function generateGrantId(sourceType: string, sourceId: string): string {
-  // フォーマット: {sourceType}_{sourceId}_{uuid}
-  return `${sourceType}_${sourceId}_${randomUUID()}`;
-}
-
-// 使用例
-const grantId = generateGrantId('subscription', subscription.subscription_id);
-// 結果: "subscription_sub-123_a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-```
-
-### 3.3 エラーハンドリングとリトライ
-
-**現状**: 各Lambda関数は基本的なエラーハンドリングのみ
-
-**課題**: 統括責務から呼び出す際、一時的なエラー（タイムアウト、RateLimit）のリトライが必要
-
-**推奨対応**:
-
-```typescript
-async function invokeWithRetry<T>(
-  lambdaClient: LambdaClient,
-  functionArn: string,
-  payload: any,
-  maxRetries: number = 3
-): Promise<T> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await lambdaClient.send(new InvokeCommand({
-        FunctionName: functionArn,
-        InvocationType: 'RequestResponse',
-        Payload: JSON.stringify(payload)
-      }));
-
-      if (response.FunctionError) {
-        const errorPayload = JSON.parse(new TextDecoder().decode(response.Payload));
-        throw new Error(`Lambda error: ${errorPayload.errorMessage}`);
-      }
-
-      return JSON.parse(new TextDecoder().decode(response.Payload));
-    } catch (error) {
-      console.error(`Attempt ${attempt} failed:`, error);
-
-      if (attempt === maxRetries) {
-        throw error;
-      }
-
-      // 指数バックオフ
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-    }
-  }
-
-  throw new Error('Unreachable');
-}
-```
-
-### 3.4 権限剥奪時の一括削除対応
-
-**現状**: `revokePermission`はgrantId単位で削除
-
-**課題**: ユーザーが持つすべての権限を一括削除する機能がない
-
-**推奨対応**:
-
-**方法1**: 複数のgrantIdを受け取れるように拡張
-```typescript
-interface RevokePermissionRequest {
-  tenantId: string;
-  grantIds: string[]; // 配列に変更
-}
-```
-
-**方法2**: ユーザーIDで検索して全削除する新しいLambda関数を追加
-```typescript
-// revokeAllPermissionsByUserId.ts
-export const handler = async (event: { tenantId: string; userId: string }) => {
-  // 1. PermissionGrantRepositoryでユーザーの全grantIdを取得
-  const grants = await permissionGrantRepository.findByUserIdAndStatus(userId, 'active');
-
-  // 2. 各grantIdに対してrevokePermissionを呼び出し
-  for (const grant of grants) {
-    await revokePermission({ tenantId, grantId: grant.grantId });
-  }
-};
-```
-
-### 3.5 カウンターの初期化タイミング
-
-**現状**: `grantPermission`でカウンターを作成
-
-**課題**: 権限付与直後に利用した場合、カウンターが存在しない可能性
-
-**推奨対応**:
-
-`checkPermission`と`incrementUsageCount`でカウンターが存在しない場合の処理を追加:
-
-```typescript
-// checkPermission.ts 内
-const dailyCounter = await usageCountRepository.get(userId, `${featureId}#daily`);
-
-if (!dailyCounter) {
-  // カウンターが存在しない = unlimited または付与直後
-  console.log(`Counter not found for ${userId}, ${featureId}#daily - treating as unlimited`);
-  usage.daily = undefined;
-} else {
-  // 既存の処理
-  ...
-}
-```
-
-### 3.6 統括責務からの呼び出しフロー例
-
-#### サブスクリプション承認時の権限付与
-
-```typescript
-// approveSubscription.ts 内
-// TODO部分の実装
-
-// 3. OpenFGAに権限を登録 & 4. 利用回数カウンターを初期化
-const grantId = generateGrantId('subscription', subscription.subscription_id);
-
-// プラン情報からfeaturesを構築
-const plan = await planRepository.findById(subscription.plan_id);
-const features = plan.features.map(f => ({
-  featureId: f.feature_id,
-  limitType: f.limit_type,
-  limitCount: f.limit_count
-}));
-
-// Authorization Serviceを呼び出し
-await invokeWithRetry(lambdaClient, process.env.GRANT_PERMISSION_FUNCTION_ARN!, {
-  tenantId: adminResult.tenantId,
-  userId: subscription.user_id,
-  grantId,
-  features,
-  sourceType: 'subscription',
-  sourceId: subscription.subscription_id
-});
-
-console.log(`Granted permissions for subscription ${subscription.subscription_id}, grantId: ${grantId}`);
-```
-
-#### サブスクリプション解約時の権限剥奪
-
-```typescript
-// cancelSubscription.ts 内
-
-// 既存のサブスクリプション取得処理後
-
-// 権限を剥奪
-const userPlanApplications = await userPlanApplicationRepository.findBySubscriptionId(subscriptionId);
-
-for (const application of userPlanApplications) {
-  // application_source_idにgrantIdが入っていると仮定
-  // または、PermissionGrantRepositoryでsubscriptionIdから検索
-  const grants = await permissionGrantRepository.findBySourceId(subscriptionId);
-
-  for (const grant of grants) {
-    await invokeWithRetry(lambdaClient, process.env.REVOKE_PERMISSION_FUNCTION_ARN!, {
-      tenantId: subscription.tenant_id,
-      grantId: grant.grantId
-    });
-  }
-}
-
-console.log(`Revoked permissions for subscription ${subscriptionId}`);
-```
-
-## 4. まとめ
-
-### 4.1 実装済みの機能
-
-✅ **完全に実装済み**:
-- OpenFGA連携（権限チェック、権限登録・削除）
-- カウント機構（作成、加算、リセット、削除）
-- 権限付与・剥奪Lambda関数
-- 権限付与履歴管理
-- 日次・月次カウンターリセット
-
-### 4.2 統括責務実装前の必須対応
-
-- [ ] **Lambda-to-Lambda呼び出し対応**（対応案A推奨）
-  - Authorization Service Lambda関数のARNをOrchestratorに環境変数で渡す
-  - Orchestrator LambdaにLambda Invoke権限を付与
-  - Lambda InvokeCommandでの呼び出し実装
-
-- [ ] **grantId生成ルールの実装**
-  - 統括責務側で`generateGrantId`関数を実装
-  - フォーマット: `{sourceType}_{sourceId}_{uuid}`
-
-- [ ] **エラーハンドリングとリトライの実装**
-  - 統括責務側で`invokeWithRetry`関数を実装
-  - 指数バックオフによるリトライ
-
-- [ ] **権限剥奪の一括削除対応（オプション）**
-  - ユーザーIDで全権限を削除する関数の追加
-  - または、既存のrevokePermissionを配列対応に拡張
-
-- [ ] **approveSubscription、rejectSubscription、cancelFlowでの呼び出し実装**
-  - TODOコメント箇所の実装
-  - OpenFGA権限登録・剥奪
-  - カウンター初期化
-
-### 4.3 オプション対応
-
-- [ ] カウンター不在時の処理改善（checkPermission、incrementUsageCount）
-- [ ] PermissionGrantRepositoryに`findBySourceId`メソッドを追加
-- [ ] 権限変更ログの強化（CloudWatch Logs Insightsでの分析用）
-- [ ] モニタリングダッシュボードの作成（権限付与・剥奪の統計）
-
-## 5. 参考情報
-
-### 5.1 関連ドキュメント
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/docs/AUTHORIZATION_SYSTEM.md`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/docs/AUTHORIZATION_GRANTS.md`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/docs/OPENFGA_IMPLEMENTATION.md`
-
-### 5.2 実装ファイル一覧
-
-**Lambda関数**:
+### ファイルパス
 - `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/grantPermission.ts`
+- CDK定義: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/authorization-system.ts` (L222-L235)
+
+### シグネチャ
+
+**入力パラメータ (GrantPermissionRequest)**:
+```typescript
+{
+  tenantId: string;              // テナントID
+  userId: string;                // ユーザID
+  grantId: string;               // 権限付与ID（呼び出し元が生成するUUID）
+  features: Array<{              // 付与する機能のリスト
+    featureId: string;           // 機能ID（例: "feature-model-a"）
+    limitType: 'unlimited' | 'daily' | 'monthly';
+    limitCount?: number;         // limitTypeが'unlimited'以外の場合に必須
+  }>;
+  sourceType: string;            // 付与元のタイプ（例: "subscription", "trial", "campaign", "manual"）
+  sourceId: string;              // 付与元のID（サブスクリプションID、キャンペーンIDなど）
+}
+```
+
+**出力パラメータ (GrantPermissionResponse)**:
+```typescript
+{
+  success: true;
+  grantId: string;
+  grantedAt: string;  // ISO8601形式
+}
+```
+
+### 実装内容
+1. **OpenFGA統合**: テナントロールをAssumeRoleして、OpenFGA API Gatewayに署名付きリクエストを送信し、`user:${userId}` → `can_access` → `feature:${featureId}` の関係性を登録
+2. **DynamoDB UsageCounter**: 回数制限がある機能について、利用回数カウンター情報をDynamoDBに作成
+3. **DynamoDB PermissionGrant**: 権限付与履歴をDynamoDBに記録（grantId、userId、features、status、sourceType、sourceId、grantedAt）
+4. **ロールバック機能**: DynamoDB書き込み失敗時、OpenFGAの関係性を削除してロールバック
+
+### 問題点
+
+#### 1. **統括責務からの呼び出し未実装**
+- 技術実装詳細.mdには「ステップ6: 権限付与（planManagementClientが内部で呼び出す想定、または統括責務から直接呼び出す）」と記載
+- **現状**: `applyPlanToUser.ts` (plan-management) は権限付与を呼び出していない（RDB `user_plan_applications` テーブルに記録するのみ）
+- **必須修正**: 統括責務の購入フロー、プラン変更フローから `grantPermission` Lambda関数を呼び出す必要がある
+
+#### 2. **Lambda Invoke権限の未付与**
+- **現状**: BillingManagementStackには統括責務（Orchestration）が存在しない
+- **必須修正**: 統括責務のLambda関数から `grantPermissionFunction` を呼び出すIAM権限を付与する必要がある
+
+#### 3. **grantIdの生成責任が不明確**
+- 技術実装詳細.mdでは「付与には一意のIDが割り当てられる（後でまとめて削除するため）」と記載
+- **現状**: `grantPermission` の入力パラメータとして `grantId` を要求（呼び出し元がUUID生成）
+- **問題**: 統括責務側で `grantId` を生成して渡す必要があるが、その仕様が明確でない
+- **推奨**: `application_id` (プラン適用ID) を `grantId` として利用すると、後で剥奪時に対応付けが容易
+
+---
+
+## 権限剥奪関数/エンドポイント
+
+### 実装状況: **実装済み**
+
+### ファイルパス
 - `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/revokePermission.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/checkPermission.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/incrementUsageCount.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/resetUsageCount.ts`
+- CDK定義: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/authorization-system.ts` (L237-L251)
 
-**リポジトリ**:
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/repositories/usageCountRepository.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/repositories/permissionGrantRepository.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/repositories/types.ts`
+### シグネチャ
 
-**CDK構成**:
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/authorization-system.ts`
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/stacks/tenant/tenant-authorization-stack.ts`
+**入力パラメータ (RevokePermissionRequest)**:
+```typescript
+{
+  tenantId: string;  // テナントID
+  grantId: string;   // 権限付与ID
+}
+```
 
-### 5.3 呼び出し側の実装箇所
+**出力パラメータ (RevokePermissionResponse)**:
+```typescript
+{
+  success: true;
+  grantId: string;
+  revokedAt: string;  // ISO8601形式
+}
+```
 
-**TODO実装が必要な箇所**:
-- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/admin/subscription-management/approveSubscription.ts` (L148-152)
-  ```typescript
-  // TODO: 以下の処理を実装
-  // 3. OpenFGAに権限を登録
-  // 4. 利用回数カウンターを初期化
-  ```
+### 実装内容
+1. **DynamoDBから権限付与履歴を取得**: `grantId` で権限付与履歴を検索
+2. **OpenFGA関係性削除**: テナントロールをAssumeRoleして、OpenFGA API Gatewayから `user:${userId}` → `can_access` → `feature:${featureId}` の関係性を削除
+3. **DynamoDB UsageCounter削除**: `grantId` で検索した利用回数カウンター情報を一括削除
+4. **DynamoDB PermissionGrant更新**: 権限付与履歴のstatusを `revoked` に更新、`revokedAt` を記録
+5. **冪等性保証**: 既に剥奪済み（`status: 'revoked'`）の場合も成功を返す
+
+### 問題点
+
+#### 1. **統括責務からの呼び出し未実装**
+- **現状**: `terminatePlanApplication.ts` (plan-management) は権限剥奪を呼び出していない（RDB `user_plan_applications.application_status` を `expired` に変更するのみ）
+- **必須修正**: 統括責務の解約フロー、プラン変更フローから `revokePermission` Lambda関数を呼び出す必要がある
+
+#### 2. **Lambda Invoke権限の未付与**
+- **必須修正**: 統括責務のLambda関数から `revokePermissionFunction` を呼び出すIAM権限を付与する必要がある
+
+#### 3. **grantIdの逆引きが必要**
+- **問題**: `terminatePlanApplication` の入力パラメータには `grantId` が含まれていない
+- **現状**: `terminatePlanApplication` は `applicationSourceId` (サブスクリプションID) から `user_plan_applications` を検索して `application_id` を取得
+- **必須修正**: 統括責務は `application_id` を `grantId` として使用し、`revokePermission` に渡す必要がある
+
+---
+
+## OpenFGA統合
+
+### 実装状況: **実装済み**
+
+### 統合箇所
+- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/grantPermission.ts` (L62-L118, L179-L209)
+- `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/revokePermission.ts` (L38-L93, L176-L206)
+
+### 統合内容
+1. **テナントロール AssumeRole**: テナント情報からロールARNを取得し、STSでAssumeRole
+2. **署名付きリクエスト**: AWS Signature V4で署名付きHTTPリクエストを作成
+3. **OpenFGA API Gateway呼び出し**: `POST /stores/{storeId}/write` エンドポイントに関係性の書き込み/削除リクエスト送信
+4. **関係性のフォーマット**:
+   - `user`: `user:${userId}`
+   - `relation`: `can_access`
+   - `object`: `feature:${featureId}`
+
+### 問題点
+**なし**（OpenFGA統合は適切に実装済み）
+
+---
+
+## 回数制限カウント機構
+
+### 実装状況: **実装済み**
+
+### DynamoDBテーブル
+- **テーブル名**: `UsageCounter-{environment}-tenant-{sanitizedTenantId}`
+- **CDK定義**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/authorization-system.ts` (L129-L169)
+- **パーティションキー**: `userId` (String)
+- **ソートキー**: `featureIdPeriod` (String) - 例: `"feature-model-b#daily"`
+- **GSI 1**: `grantId-index` (権限付与IDで検索、剥奪時に使用)
+- **GSI 2**: `periodType-nextResetTime-index` (期間タイプとリセット日時で検索、バッチリセット用)
+- **課金モード**: オンデマンド（PAY_PER_REQUEST）
+
+### カウンター操作関数
+
+#### 1. **カウンター作成** (grantPermission内で実施)
+- ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/grantPermission.ts` (L239-L262)
+- Repository: `UsageCountRepository.create()` (L30-L37)
+- 処理: `limitType` が `'unlimited'` 以外の機能について、`currentCount: 0`, `limitCount`, `nextResetTime` を記録
+
+#### 2. **カウンター加算** (incrementUsageCount Lambda関数)
+- ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/incrementUsageCount.ts`
+- Repository: `UsageCountRepository.increment()` (L65-L97)
+- 処理: DynamoDB `UpdateItem` の `ADD` オペレーションでアトミックに加算
+
+#### 3. **カウンターリセット** (resetUsageCount Lambda関数)
+- ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/resetUsageCount.ts`
+- Repository: `UsageCountRepository.reset()` (L151-L174)
+- スケジュール:
+  - **Daily**: 毎日 00:00 UTC (EventBridge Rule: L378-L397)
+  - **Monthly**: 毎月1日 00:00 UTC (EventBridge Rule: L400-L423)
+
+#### 4. **カウンター削除** (revokePermission内で実施)
+- ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/authorization/revokePermission.ts` (L208-L222)
+- Repository: `UsageCountRepository.batchDelete()` (L179-L209)
+- 処理: `grantId` で検索したカウンター情報を一括削除（最大25件ずつバッチ処理）
+
+### 問題点
+**なし**（回数制限カウント機構は適切に実装済み）
+
+---
+
+## 統括責務が動作する上で必須の修正事項
+
+### 1. **統括責務（Orchestration）の実装**
+**必須度: 最高**
+
+- **現状**: `packages/cdk/lib/construct/api/orchestration.ts` が存在しない
+- **技術実装詳細.md**: L9で定義されているが、未実装
+- **必須修正内容**:
+  - OrchestrationApi Constructの作成
+  - 4つのフロー統括Lambda関数の実装（purchaseFlow, planChangeFlow, cancellationFlow, webhookEventFlow）
+  - DynamoDBテーブルの定義（フロー実行履歴、ステップ実行履歴）
+  - EventBridgeルールの定義（Webhookイベント起動）
+
+### 2. **統括責務から権限付与・剥奪の呼び出し実装**
+**必須度: 最高**
+
+#### 2-1. 購入フロー（purchaseFlow.ts）
+- **ステップ5**: `planManagementClient.applyPlanToUser` を呼び出し、`application_id` を取得
+- **ステップ6**: `grantId = application_id` として、`authorizationClient.grantPermission` を呼び出す
+  - 入力: `tenantId`, `userId`, `grantId`, `features` (プラン情報から取得), `sourceType: 'subscription'`, `sourceId: subscription_id`
+
+#### 2-2. プラン変更フロー（planChangeFlow.ts）
+- **ステップ4**: `authorizationClient.revokePermission` を呼び出して古いプランの権限剥奪
+  - 入力: `tenantId`, `grantId` (古い `application_id`)
+- **ステップ5**: `planManagementClient.applyPlanToUser` を呼び出し、新しい `application_id` を取得
+- **ステップ6**: `authorizationClient.grantPermission` を呼び出して新しいプランの権限付与
+  - 入力: `tenantId`, `userId`, `grantId` (新しい `application_id`), `features`, `sourceType: 'subscription'`, `sourceId: subscription_id`
+
+#### 2-3. 解約フロー（cancellationFlow.ts）
+- **ステップ3（即時解約）**: `authorizationClient.revokePermission` を呼び出し
+  - 入力: `tenantId`, `grantId` (`application_id`)
+- **ステップ4（即時解約）**: `planManagementClient.terminatePlanApplication` を呼び出し
+- **ステップ3（期限終了時解約）**: 権限剥奪は実施せず、`planManagementClient.updatePlanApplicationStatus` で `scheduled_termination` に更新
+- **（後日バッチ処理）**: 期限到達時に `authorizationClient.revokePermission` を呼び出し、その後 `planManagementClient.terminatePlanApplication` を呼び出し
+
+#### 2-4. Webhookイベント処理フロー（webhookEventFlow.ts）
+- **refund.created（返金）の場合のステップ2**: `authorizationClient.revokePermission` を呼び出し
+  - 入力: `tenantId`, `grantId` (`application_id`)
+
+### 3. **統括責務のLambda関数にIAM権限付与**
+**必須度: 最高**
+
+- **必須権限**:
+  - `lambda:InvokeFunction` for `grantPermissionFunction.functionArn`
+  - `lambda:InvokeFunction` for `revokePermissionFunction.functionArn`
+  - `lambda:InvokeFunction` for `checkPermissionFunction.functionArn` (必要に応じて)
+
+- **実装箇所**: `packages/cdk/lib/construct/api/orchestration.ts` (OrchestrationConstruct内)
+
+### 4. **BillingManagementStackへのOrchestration追加**
+**必須度: 最高**
+
+- **ファイル**: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/stacks/nested/billing-management-stack.ts`
+- **現状**: L205でコメント「Note: Orchestration API (統括処理) will be added later as needed」と記載
+- **必須修正内容**:
+  - OrchestrationConstructのインスタンス化
+  - `planManagementApi.internalFunctions` と `subscriptionManagementApi.internalFunctions` を引数として渡す
+  - **Authorization関数へのアクセス権限**: OrchestrationConstructに `authorizationFunctions` として `grantPermissionFunction`, `revokePermissionFunction` を渡す必要がある
+
+### 5. **authorizationClientモジュールの実装**
+**必須度: 最高**
+
+- **ファイルパス**: `packages/cdk/lambda/billing/orchestration/clients/authorizationClient.ts` (新規作成)
+- **必須メソッド**:
+  - `grantPermission(tenantId, userId, grantId, features, sourceType, sourceId)`: 権限付与Lambda関数を同期呼び出し
+  - `revokePermission(tenantId, grantId)`: 権限剥奪Lambda関数を同期呼び出し
+  - `checkPermission(tenantId, userId, featureId)`: 権限チェックLambda関数を同期呼び出し（必要に応じて）
+- **実装方式**: 技術実装詳細.md L784-L800のパターンを踏襲（AWS SDK v3の `LambdaClient`, `InvokeCommand`）
+
+### 6. **プラン情報から機能リストへの変換ロジック**
+**必須度: 高**
+
+- **問題**: 統括責務は「このプランにはどの機能が含まれ、それぞれ何回まで使えるか」の情報を取得する必要がある
+- **現状**: `planManagementClient.applyPlanToUser` は `planId` を受け取るが、プラン詳細（含まれる機能リスト）を返さない
+- **必須修正内容**:
+  - **方法1**: `planManagementClient.getPlan(planId)` を呼び出して、プランに含まれる機能リスト (`features: Array<{featureId, limitType, limitCount}>`) を取得
+  - **方法2**: 統括責務の入力パラメータに `features` を含める（呼び出し元が事前にプラン情報を取得）
+- **推奨**: 方法1（統括責務内でプラン情報を取得して変換）
+
+### 7. **RDBスキーマへの対応付け保存（任意）**
+**必須度: 低（推奨）**
+
+- **問題**: `user_plan_applications.application_id` と `PermissionGrant.grantId` の対応付けがRDB側に記録されていない
+- **推奨修正**: `user_plan_applications` テーブルに `grant_id` カラムを追加し、`application_id` と同じ値を記録
+  - メリット: RDBクエリだけで「このユーザーのこのプラン適用に紐づく権限付与ID」を特定可能
+  - トラブルシューティング時に有用
+
+---
+
+## 補足事項
+
+### 1. Authorization機構の設計品質
+- OpenFGA統合、回数制限カウント、DynamoDB設計、EventBridgeスケジューラなど、すべて適切に実装されている
+- ロールバック処理、冪等性保証、エラーハンドリングも適切
+- IAM権限、テナントロール AssumeRole、署名付きリクエストも正しく実装
+
+### 2. 統括責務（Orchestration）の実装優先度
+- **技術実装詳細.md**: L1-L1111で詳細な設計が記載されているが、コード実装は0%
+- **Authorization機構との連携**: 統括責務が実装されない限り、Authorization機構は呼び出されない
+- **実装優先順位**:
+  1. OrchestrationConstruct + 購入フロー統括Lambda関数
+  2. authorizationClientモジュール
+  3. 購入フロー内で権限付与呼び出し
+  4. プラン変更フロー、解約フロー、Webhookイベント処理フロー（順次実装）
+
+### 3. プラン情報と機能リストの対応付け
+- **現状不明**: RDBスキーマに「プランに含まれる機能リスト」がどのように格納されているか調査が必要
+- **推測**: `plans` テーブルに `features` (JSON型) カラムがあると想定
+- **必須確認**: `packages/cdk/lambda/repositories/planRepository.ts` で `features` の取得方法を確認
+
+### 4. テストの実施
+- Authorization機構の各Lambda関数は単体で動作確認可能（手動Invokeテスト）
+- 統括責務実装後、エンドツーエンドテストが必要:
+  - 購入フロー → OpenFGA関係性が登録されているか確認
+  - 解約フロー → OpenFGA関係性が削除されているか確認
+  - プラン変更フロー → 古い関係性削除、新しい関係性登録を確認
+
+### 5. ドキュメントの一貫性
+- 技術実装詳細.mdは詳細に記載されており、実装の指針として活用可能
+- ただし、実装が0%のため、実際のコード実装時に詳細な設計変更が必要になる可能性がある

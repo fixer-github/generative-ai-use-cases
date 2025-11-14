@@ -1,0 +1,217 @@
+/**
+ * 内部用: プラン適用Lambda関数
+ *
+ * 統括責務の購入フロー、プラン変更フロー、Webhookハンドラーから呼び出されます。
+ * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
+ */
+
+import {
+  PlanRepository,
+  UserPlanApplicationRepository,
+} from '../../repositories';
+import { getRdsConnection } from '../../utils/rdsConnection';
+import { UserPlanApplication } from '../../repositories/types';
+
+/**
+ * 入力パラメータ
+ */
+export interface ApplyPlanToUserInput {
+  userId: string;
+  planId: string;
+  applicationSource:
+    | 'subscription'
+    | 'default'
+    | 'trial'
+    | 'campaign'
+    | 'manual';
+  applicationSourceId?: string;
+  validFrom: string; // ISO 8601
+  validUntil?: string; // ISO 8601
+  tenantId: string; // テナントID（RDS接続に必要）
+}
+
+/**
+ * 出力パラメータ
+ */
+export interface ApplyPlanToUserOutput {
+  applicationId: string;
+  userId: string;
+  planId: string;
+  applicationStatus: 'active' | 'scheduled_termination' | 'expired';
+  validFrom: string; // ISO 8601
+  validUntil?: string; // ISO 8601
+  previousApplicationIds: string[]; // 終了させた既存のプラン適用ID一覧
+}
+
+/**
+ * エラークラス
+ */
+export class ApplyPlanToUserError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly details?: unknown
+  ) {
+    super(message);
+    this.name = 'ApplyPlanToUserError';
+  }
+}
+
+/**
+ * Lambda handler
+ */
+export const handler = async (
+  input: ApplyPlanToUserInput
+): Promise<ApplyPlanToUserOutput> => {
+  console.log('applyPlanToUser input:', JSON.stringify(input, null, 2));
+
+  try {
+    // 入力バリデーション
+    if (!input.userId || !input.planId || !input.validFrom) {
+      throw new ApplyPlanToUserError(
+        'INVALID_INPUT',
+        '必須パラメータが不足しています',
+        {
+          userId: !!input.userId,
+          planId: !!input.planId,
+          validFrom: !!input.validFrom,
+        }
+      );
+    }
+
+    // 日付の検証とパース
+    let validFrom: Date;
+    let validUntil: Date | undefined;
+    try {
+      validFrom = new Date(input.validFrom);
+      if (isNaN(validFrom.getTime())) {
+        throw new Error('Invalid validFrom format');
+      }
+
+      if (input.validUntil) {
+        validUntil = new Date(input.validUntil);
+        if (isNaN(validUntil.getTime())) {
+          throw new Error('Invalid validUntil format');
+        }
+
+        if (validUntil <= validFrom) {
+          throw new Error('validUntil must be after validFrom');
+        }
+      }
+    } catch (error) {
+      throw new ApplyPlanToUserError('INVALID_DATE', '無効な日付形式です', {
+        validFrom: input.validFrom,
+        validUntil: input.validUntil,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    // RDS接続設定の取得（テナント専用のRDS接続）
+    const rdsConnection = await getRdsConnection({
+      requestContext: {
+        authorizer: {
+          claims: {
+            'custom:tenant_id': input.tenantId,
+          },
+        },
+      },
+    } as any);
+
+    const planRepository = new PlanRepository(rdsConnection);
+    const userPlanApplicationRepository = new UserPlanApplicationRepository(
+      rdsConnection
+    );
+
+    // 1. プランの存在確認
+    const plan = await planRepository.findById(input.planId);
+    if (!plan) {
+      throw new ApplyPlanToUserError('PLAN_NOT_FOUND', 'プランが見つかりません', {
+        planId: input.planId,
+      });
+    }
+
+    // プランが購入可能な状態かチェック
+    if (plan.status === 'deprecated') {
+      throw new ApplyPlanToUserError(
+        'PLAN_DEPRECATED',
+        'このプランは廃止されており、適用できません',
+        {
+          planId: input.planId,
+          status: plan.status,
+        }
+      );
+    }
+
+    // 2. 既存の有効なプラン適用を終了
+    const activeApplications = await userPlanApplicationRepository.findActiveByUserId(
+      input.userId
+    );
+
+    const terminatedApplicationIds: string[] = [];
+    for (const activeApplication of activeApplications) {
+      // 既存のプラン適用を期限切れに変更
+      const expired = await userPlanApplicationRepository.expire(
+        activeApplication.application_id
+      );
+      if (expired) {
+        terminatedApplicationIds.push(expired.application_id);
+        console.log('Expired existing application:', {
+          applicationId: expired.application_id,
+          previousPlanId: expired.plan_id,
+        });
+      }
+    }
+
+    // 3. 新しいプラン適用を作成
+    const newApplication: Omit<
+      UserPlanApplication,
+      'application_id' | 'created_at' | 'updated_at'
+    > = {
+      user_id: input.userId,
+      plan_id: input.planId,
+      application_source: input.applicationSource,
+      application_source_id: input.applicationSourceId,
+      application_status: 'active',
+      valid_from: validFrom,
+      valid_until: validUntil,
+    };
+
+    const createdApplication = await userPlanApplicationRepository.create(
+      newApplication
+    );
+
+    console.log('Plan application created successfully:', {
+      applicationId: createdApplication.application_id,
+      userId: createdApplication.user_id,
+      planId: createdApplication.plan_id,
+      terminatedApplicationIds,
+    });
+
+    // 4. 結果を返却
+    return {
+      applicationId: createdApplication.application_id,
+      userId: createdApplication.user_id,
+      planId: createdApplication.plan_id,
+      applicationStatus: createdApplication.application_status,
+      validFrom: createdApplication.valid_from.toISOString(),
+      validUntil: createdApplication.valid_until?.toISOString(),
+      previousApplicationIds: terminatedApplicationIds,
+    };
+  } catch (error) {
+    console.error('Error applying plan to user:', error);
+
+    // ApplyPlanToUserErrorの場合はそのまま再スロー
+    if (error instanceof ApplyPlanToUserError) {
+      throw error;
+    }
+
+    // その他のエラーは内部エラーとしてラップ
+    throw new ApplyPlanToUserError(
+      'INTERNAL_ERROR',
+      'プラン適用処理中に予期しないエラーが発生しました',
+      {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    );
+  }
+};
