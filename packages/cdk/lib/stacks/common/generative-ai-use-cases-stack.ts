@@ -285,6 +285,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       `BillingManagementStack${params.env}`,
       {
         userPool: auth.userPool,
+        userPoolClient: auth.client,
         idPool: auth.idPool,
         tenantManager: tenantManager,
         environment: params.env,

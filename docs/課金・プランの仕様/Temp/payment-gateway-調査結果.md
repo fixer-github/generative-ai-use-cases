@@ -1,570 +1,407 @@
-# Payment Gateway実装調査結果
+# Payment Gateway責務 調査結果
 
-**調査日**: 2025-11-13
-**対象ブランチ**: feature/add-authorization-system-poc
-**調査者**: AI Assistant
+## 調査概要
 
----
+- **調査日時**: 2025-11-14
+- **調査対象ディレクトリ**: `packages/cdk/lambda/billing/payment-gateway/`
+- **調査対象ファイル数**: 20ファイル（TypeScript実装ファイルのみ、型定義ファイルを除く）
+- **参照ドキュメント**: `docs/課金・プランの仕様/購入・変更・解約などの複数ステップの処理を統括する/技術実装詳細.md`
 
-## 1. レシート検証API
+## verifyReceipt関数
 
-### 実装状況
-✅ **実装済み**
+### 実装状況: **実装済み**
 
 ### ファイルパス
-- メインハンドラー: `/packages/cdk/lambda/billing/payment-gateway/verification/verifyReceipt.ts`
-- プラットフォーム別実装:
-  - Stripe: `/packages/cdk/lambda/billing/payment-gateway/verification/stripeVerifier.ts`
-  - Apple: `/packages/cdk/lambda/billing/payment-gateway/verification/appleVerifier.ts`
-  - Google: `/packages/cdk/lambda/billing/payment-gateway/verification/googleVerifier.ts`
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/verification/verifyReceipt.ts`
 
-### インターフェース
+### シグネチャの一致度: **部分一致**
 
-#### 入力形式
+#### 技術実装詳細.mdの期待シグネチャ
 ```typescript
-interface VerifyReceiptRequest {
-  platformType?: 'stripe' | 'apple' | 'google';
-  receipt: string;
-  subscriptionId?: string; // Google専用
-}
+paymentGatewayClient.verifyReceipt(platform, receiptData)
+// 出力: 検証結果（isValid, subscriptionId等）
 ```
 
-#### 出力形式
+#### 実際の実装シグネチャ
 ```typescript
-interface VerificationResult {
-  success: boolean;
-  cached?: boolean;
-  data: {
-    subscriptionId?: string;
-    productId?: string;
-    expiresAt?: string;
-    error?: string;
-    // プラットフォーム固有の情報...
-  };
-}
+// Lambda handler（API Gateway経由）
+handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
+
+// 内部関数
+verifyReceiptWithFallback(
+  platformType: PlatformType,
+  receipt: string,
+  tenantId: string,
+  cacheRepository: ReceiptCacheRepository,
+  subscriptionId?: string
+): Promise<VerificationResult>
 ```
 
-#### 呼び出し方式
-- **API Gateway**: `POST /billing/operations/verify-receipt` (Cognitoオーソライザー付き)
-- **Lambda直接呼び出し**: 統括責務から`lambda:InvokeFunction`で呼び出し可能
+### 問題点
 
-### キャッシュ機構
-✅ **実装済み**
+1. **呼び出しインターフェースの不一致**
+   - 技術実装詳細では、統括責務が`paymentGatewayClient.verifyReceipt(platform, receiptData)`という形式で**Lambda同期呼び出し**することを期待
+   - 実際の実装は**API Gatewayエンドポイント**として公開されており、HTTPリクエスト経由でのみ呼び出し可能
+   - 統括責務から直接Lambda invokeで呼び出すことは可能だが、リクエスト形式がAPI Gatewayイベントを前提としているため、統括責務側で`APIGatewayProxyEvent`形式にラップする必要がある
 
-#### キャッシュストア
-- DynamoDBテーブル: `{tenantId}-payment-gateway-receipt-cache`
-- TTL: 24時間（自動削除）
-- キー: `receipt_hash` (SHA256ハッシュ)
+2. **関数シグネチャの複雑性**
+   - Google検証の場合、`subscriptionId`が必須パラメータとして要求される
+   - 統括責務側でプラットフォームごとに異なるパラメータを意識する必要がある
 
-#### フォールバックフロー
-1. 通常のレシート検証を試行
-2. 検証成功 → キャッシュに保存して結果を返す
-3. 検証失敗 → キャッシュを確認
-   - キャッシュヒット → キャッシュ結果を返す（`cached: true`）
-   - キャッシュミス → 2秒待機後に再検証を1回試行
-   - 再検証も失敗 → 検証失敗結果を返す
+3. **出力形式の一貫性**
+   - API Gatewayレスポンスとして`statusCode`と`body`（JSON文字列）を返す
+   - 統括責務がLambda invokeで呼び出す場合、レスポンスペイロードから`body`をパースして`VerificationResult`を取り出す必要がある
 
-### 検証失敗時のエラーハンドリング
-✅ **実装済み**
+### 実装内容の評価
 
-- ネットワークエラー等による検証失敗時は、キャッシュフォールバックを試行
-- キャッシュミス時は2秒待機後に再試行（合計2回の試行）
-- 最終的に失敗した場合は `success: false` を返す
-- 統括責務側で検証保留フローに遷移させる想定
+**良い点**:
+- レシート検証キャッシュ機構が実装済み（`ReceiptCacheRepository`）
+- フォールバック処理（キャッシュ参照 → 2秒待機 → 再試行）が実装済み
+- 3つのプラットフォーム（Stripe、Apple、Google）すべてに対応
 
-### 必須修正事項
-なし（期待仕様通りに実装されている）
+**改善が必要な点**:
+- 統括責務から呼び出しやすいように、Internal用のLambda関数（API Gateway非依存）を別途作成すべき
 
----
+## updateSubscription関数
 
-## 2. EventBridge連携
+### 実装状況: **実装済み**
 
-### 実装状況
-✅ **実装済み**（ビジネスイベント形式への変換も含む）
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/operations/updateSubscription.ts`
 
-### Webhook受信Lambda関数
-- **Stripe**: `/packages/cdk/lambda/billing/payment-gateway/webhook/stripe/receiveWebhook.ts`
-- **Apple**: `/packages/cdk/lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts`
-- **Google**: `/packages/cdk/lambda/billing/payment-gateway/webhook/google/receiveNotification.ts`
+### シグネチャの一致度: **部分一致**
 
-### 処理フロー（Stripe例）
-1. リクエストボディと`stripe-signature`ヘッダーを取得
-2. Stripe署名検証（`verifyStripeSignature()`）
-3. 署名検証失敗 → 401エラー
-4. 署名検証成功 → イベントIDを抽出
-5. DynamoDBで重複チェック（`isDuplicateEvent()`）
-6. 重複イベント → 200 OK（冪等性保証）
-7. 重複なし → DynamoDBにイベント保存
-8. **ビジネスイベントにマッピング**（`mapStripeEventToBusinessEvent()`）
-9. マッピング対象外 → 200 OK（スキップ）
-10. **イベント詳細情報を抽出**（`extractEventDetail()`）
-11. **EventBridgeに正規化された形式で送信**
-12. 200 OK
-
-### イベント形式
-
-#### 送信先
-- EventBridgeイベントバス: 環境変数 `EVENT_BUS_NAME` で指定（デフォルト: `default`）
-
-#### 送信形式
-```json
-{
-  "Source": "billing.payment-gateway",
-  "DetailType": "payment.succeeded | payment.failed | subscription.canceled | payment.refunded",
-  "Detail": {
-    "platform": "stripe | apple | google",
-    "tenantId": "tenant-xxx",
-    "eventId": "evt_xxx",
-    "originalEventType": "invoice.payment_succeeded",
-    "subscriptionId": "sub_xxx",
-    "userId": "user-xxx",
-    "planId": "plan_standard_monthly",
-    "expirationDate": "2025-12-13T10:30:00Z",
-    "amount": 1980,
-    "currency": "jpy",
-    "platformPaymentId": "pi_xxx",
-    "errorMessage": "...", // payment.failed時のみ
-    "eventData": { /* 生イベントデータ */ }
-  }
-}
+#### 技術実装詳細.mdの期待シグネチャ
+```typescript
+paymentGatewayClient.updateSubscription(platform, subscriptionId, newPlanId, prorate)
 ```
 
-### ビジネスイベントマッピング
-
-#### 実装ファイル
-- `/packages/cdk/lambda/billing/payment-gateway/webhook/stripe/eventMapper.ts`
-- `/packages/cdk/lambda/billing/payment-gateway/webhook/stripe/eventExtractor.ts`
-- `/packages/cdk/lambda/billing/payment-gateway/types/businessEvent.ts`
-
-#### マッピングルール（Stripe）
-| Stripeイベントタイプ            | ビジネスイベント        |
-| ------------------------------- | ----------------------- |
-| `invoice.payment_succeeded`     | `payment.succeeded`     |
-| `invoice.paid`                  | `payment.succeeded`     |
-| `invoice.payment_failed`        | `payment.failed`        |
-| `customer.subscription.deleted` | `subscription.canceled` |
-| `charge.refunded`               | `payment.refunded`      |
-
-#### 情報抽出ロジック（Stripe）
-- **subscriptionId**: `invoice.subscription` または `lines.data[].subscription`
-- **userId**: `invoice.metadata.userId` または `subscription_details.metadata.userId`
-- **planId**: `lines.data[].pricing.price_details.price` または `lines.data[].price.id`
-- **expirationDate**: `lines.data[].period.end` をISO 8601形式に変換
-- **amount/currency**: `invoice.amount_paid`, `invoice.currency`
-
-### 統括責務が期待するイベント形式との整合性
-✅ **完全整合**
-
-実装されているイベント形式は、`docs/課金・プランの仕様/購入・変更・解約などの複数ステップの処理を統括する/統括責務が必要とするイベント形式定義.md` で定義された仕様と完全に一致している。
-
-### 必須修正事項
-なし（期待仕様通りに実装されている）
-
-### 補足事項
-- Apple/GoogleのWebhookエンドポイントも同様の構造で実装されていると想定（未確認）
-- 重複チェックによる冪等性保証が実装されている
-- プラットフォーム固有のイベントデータも`eventData`フィールドに含まれており、詳細調査が可能
-
----
-
-## 3. 決済操作API
-
-### 実装状況
-✅ **実装済み**（全4種類のAPI）
-
-### 3.1 Checkout Session作成（Stripe）
-
-#### ファイルパス
-`/packages/cdk/lambda/billing/payment-gateway/operations/createCheckoutSession.ts`
-
-#### エンドポイント
-- `POST /billing/operations/checkout`
-- 認証: Cognitoオーソライザー必須
-
-#### 入力形式
+#### 実際の実装シグネチャ
 ```typescript
-interface CreateCheckoutSessionRequest {
-  userId: string;
-  priceId: string;
-  successUrl: string;
-  cancelUrl: string;
-}
-```
+// Lambda handler（API Gateway経由）
+handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 
-#### 出力形式
-```typescript
-{
-  sessionId: string;
-  url: string; // Checkout URL
-}
-```
-
-#### 処理フロー
-1. CognitoトークンからテナントIDを取得
-2. Secrets Managerから`{tenantId}/billing/stripe`を取得してStripe APIキーを取得
-3. Cognitoから`userId`のメールアドレスを取得
-4. `stripe.checkout.sessions.create()`を呼び出し
-   - `customer_email`: ユーザーのメールアドレス
-   - `mode`: "subscription"
-   - `line_items`: `[{ price: priceId, quantity: 1 }]`
-   - `metadata`: `{ userId, tenantId }`（Webhookで識別するため）
-5. Checkout SessionのURLを返す
-
----
-
-### 3.2 サブスクリプション変更
-
-#### ファイルパス
-`/packages/cdk/lambda/billing/payment-gateway/operations/updateSubscription.ts`
-
-#### エンドポイント
-- `POST /billing/operations/update`
-- 認証: Cognitoオーソライザー必須
-
-#### 入力形式
-```typescript
+// リクエストボディ
 interface UpdateSubscriptionRequest {
-  platformType: 'stripe' | 'apple' | 'google';
+  platformType: PlatformType;
   subscriptionId: string;
-  newPriceId: string;
-  isUpgrade: boolean;
+  newPriceId: string;  // 技術実装詳細では "newPlanId"
+  isUpgrade: boolean;  // 技術実装詳細では "prorate"
 }
 ```
 
-#### 出力形式
+### 問題点
+
+1. **パラメータ名の不一致**
+   - `newPlanId` → `newPriceId`（実装では"Price ID"と呼んでいる）
+   - `prorate` → `isUpgrade`（実装ではアップグレード判定のブール値）
+   - 技術実装詳細の意図とは異なるパラメータ形式
+
+2. **prorateの解釈違い**
+   - 技術実装詳細では`prorate: true/false`で「日割り請求の有無」を直接制御する想定
+   - 実装では`isUpgrade`から`proration_behavior`を推論（`'always_invoice'` or `'none'`）
+   - アップグレード/ダウングレード以外のシナリオ（同じ価格帯での変更など）に対応していない
+
+3. **プラットフォーム制限の明示**
+   - Appleはサーバー側からのプラン変更不可（400エラーを返す）
+   - Googleは部分的サポート（実際にはクライアント側処理が必要）
+   - これらの制限が技術実装詳細に明記されていない
+
+4. **呼び出しインターフェースの不一致**
+   - `verifyReceipt`と同様、API Gatewayエンドポイントとして実装されており、統括責務からのLambda同期呼び出しには適していない
+
+### 実装内容の評価
+
+**良い点**:
+- Stripeのプラン変更が正しく実装されている（アップグレード時は即時、ダウングレード時は次回更新時）
+- プラットフォーム別の制約を適切にハンドリング
+
+**改善が必要な点**:
+- パラメータ名を技術実装詳細と一致させる
+- Internal用のLambda関数を別途作成
+
+## cancelSubscription関数
+
+### 実装状況: **実装済み**
+
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/operations/cancelSubscription.ts`
+
+### シグネチャの一致度: **部分一致**
+
+#### 技術実装詳細.mdの期待シグネチャ
 ```typescript
-{
-  success: boolean;
-  effectiveDate: string; // ISO 8601
-}
+paymentGatewayClient.cancelSubscription(platform, subscriptionId, atPeriodEnd)
 ```
 
-#### プラットフォーム別動作
-- **Stripe**:
-  - `stripe.subscriptions.update()`でサブスクリプションアイテムを更新
-  - アップグレード: 即座に変更（`proration_behavior: "always_invoice"`）
-  - ダウングレード: 次回更新時に変更（`proration_behavior: "none"`）
-- **Apple**: エラーを返す（サーバー側からの変更不可、ユーザーがApp Storeから変更する必要がある）
-- **Google**: 限定的サポート（クライアント側で変更する必要がある）
-
----
-
-### 3.3 サブスクリプションキャンセル
-
-#### ファイルパス
-`/packages/cdk/lambda/billing/payment-gateway/operations/cancelSubscription.ts`
-
-#### エンドポイント
-- `POST /billing/operations/cancel`
-- 認証: Cognitoオーソライザー必須
-
-#### 入力形式
+#### 実際の実装シグネチャ
 ```typescript
+// Lambda handler（API Gateway経由）
+handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
+
+// リクエストボディ
 interface CancelSubscriptionRequest {
-  platformType: 'stripe' | 'apple' | 'google';
+  platformType: PlatformType;
   subscriptionId: string;
-  cancelImmediately: boolean;
-  // Google専用
-  packageName?: string;
-  purchaseToken?: string;
+  cancelImmediately: boolean;  // 技術実装詳細では "atPeriodEnd"（論理が逆）
+  packageName?: string;        // Google固有
+  purchaseToken?: string;      // Google固有
 }
 ```
 
-#### 出力形式
+### 問題点
+
+1. **パラメータの論理が逆**
+   - 技術実装詳細: `atPeriodEnd: true`（期限終了時にキャンセル）
+   - 実装: `cancelImmediately: true`（即時キャンセル）
+   - 命名の違いにより、呼び出し側で混乱が生じる可能性
+
+2. **Google固有パラメータの存在**
+   - `packageName`と`purchaseToken`が必須
+   - 技術実装詳細ではこれらのパラメータが言及されていない
+   - 統括責務がこれらの情報を事前に把握している必要がある
+
+3. **プラットフォーム制限**
+   - Appleはサーバー側からのキャンセル不可（400エラーを返す）
+   - 技術実装詳細に明記されていない
+
+4. **呼び出しインターフェースの不一致**
+   - 同様に、API Gatewayエンドポイントとして実装
+
+### 実装内容の評価
+
+**良い点**:
+- Stripeの2パターン（即時キャンセル/期限終了時キャンセル）を正しく実装
+- Googleのキャンセル処理が実装済み
+- 各プラットフォームの制約を適切にハンドリング
+
+**改善が必要な点**:
+- パラメータ名を技術実装詳細と一致させる（`atPeriodEnd`に変更、または技術実装詳細を修正）
+- Internal用のLambda関数を別途作成
+
+## Webhookエンドポイント
+
+### 実装状況: **実装済み**
+
+### 実装ファイル
+- Stripe: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/webhook/stripe/receiveWebhook.ts`
+- Apple: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts`
+- Google: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/webhook/google/receiveNotification.ts`
+
+### 署名検証: **実装済み**
+
+実装ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/utils/signatureVerifier.ts`
+
+- **Stripe**: `verifyStripeSignature()` - Stripe SDKを使用した署名検証（実装済み）
+- **Apple**: `verifyAppleJws()` - JWS検証（構造チェックのみ、完全な証明書チェーン検証は未実装）
+- **Google**: `verifyGooglePubSubMessage()` - Base64デコード + JSON検証（実装済み、ただしGoogle Cloud認証はAPI Gateway側で実施する前提）
+
+### 重複チェック: **実装済み**
+
+実装ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/utils/eventDeduplicator.ts`
+
+- `isDuplicateEvent()` - DynamoDB上のWebhookイベント履歴テーブルを参照して重複チェック
+- 重複イベントは200レスポンスを返して冪等性を保証
+
+### EventBridge連携: **実装済み**
+
+- `EventBridgeClient`を使用して`PutEventsCommand`でイベントを送信
+- イベント送信先: `billing.payment-gateway`ソース
+- DetailTypeはビジネスイベントにマッピング済み（`eventMapper.ts`、`eventExtractor.ts`使用）
+- 技術実装詳細に記載された形式（Source: `billing.payment-gateway`、DetailType: プラットフォーム固有）に準拠
+
+### 実装内容の評価
+
+**良い点**:
+- 3つのプラットフォームすべてのWebhookエンドポイントを実装
+- 署名検証、重複チェック、EventBridge送信が正しく実装されている
+- Webhookイベント履歴テーブル（`WebhookEventRepository`）でイベントを永続化
+- TTL（90日）が設定されている
+
+**問題点**:
+1. **Apple JWS署名検証が不完全**
+   - コメントに「TODO: node-joseまたは類似のライブラリを使用して完全な検証を実装」と記載
+   - 現状は構造チェックのみで、Appleのルート証明書までの証明書チェーン検証が未実装
+   - **セキュリティリスク**: 悪意あるリクエストを検証なしで受け入れる可能性
+
+2. **Google署名検証の責任分界点が不明確**
+   - コメントに「API Gateway側でGoogle Cloud認証を使用して検証されることを前提」と記載
+   - しかし、CDK定義では特にGoogle Cloud認証の設定が見当たらない
+   - **セキュリティリスク**: Google Pub/Subからの正当なリクエストかどうかを確認できない
+
+## レシート検証キャッシュ機構
+
+### 実装状況: **実装済み**
+
+実装ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/payment-gateway/repositories/receiptCacheRepository.ts`
+
+### 実装内容
+
+- **キャッシュテーブル**: `${tenantId}-payment-gateway-receipt-cache`（DynamoDB）
+- **TTL**: 24時間
+- **ハッシュ化**: レシート文字列をSHA256でハッシュ化してプライマリキーとして使用
+- **キャッシュヒット時の処理**: `cached: true`フラグを付けて結果を返す
+- **キャッシュミス時の処理**: `verifyReceipt.ts`内で2秒待機後に再検証を試行
+
+### 実装内容の評価
+
+**良い点**:
+- 技術実装詳細の要件を満たしている
+- TTL、ハッシュ化、キャッシュフラグなど、適切に実装されている
+
+**問題点**:
+- 特になし（要件を満たしている）
+
+## CDK Construct定義
+
+### 実装状況: **実装済み**
+
+実装ファイル: `/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/api/payment-gateway.ts`
+
+### 実装内容
+
+- **Webhookエンドポイント**: Stripe、Apple、Googleの3つのWebhook Lambda関数を定義
+- **決済操作関数**: `verifyReceipt`、`createCheckoutSession`、`updateSubscription`、`cancelSubscription`、`getInvoice`を定義
+- **IAMポリシー**: 必要な権限（DynamoDB、Secrets Manager、EventBridge、Cognito）を付与
+- **API Gatewayエンドポイント**: すべての関数をAPIエンドポイントとして公開
+
+### 公開プロパティ
+
 ```typescript
-{
-  success: boolean;
-  canceledAt: string; // ISO 8601
-  serviceEndDate: string; // ISO 8601
+public readonly verifyReceiptFunction: NodejsFunction;
+public readonly createCheckoutSessionFunction: NodejsFunction;
+public readonly updateSubscriptionFunction: NodejsFunction;
+public readonly cancelSubscriptionFunction: NodejsFunction;
+```
+
+### 問題点
+
+1. **統括責務からの呼び出しインターフェースが不適切**
+   - 技術実装詳細では、統括責務が`paymentGatewayFunctions`プロパティを通じて関数を呼び出す想定
+   - 実際の実装では、公開されている関数はすべてAPI Gateway経由の呼び出しを前提としている
+   - 統括責務がLambda同期呼び出し（`InvokeCommand`）で呼び出す際、`APIGatewayProxyEvent`形式に整形する必要があり、煩雑
+
+2. **技術実装詳細との命名の不一致**
+   - 技術実装詳細: `paymentGatewayFunctions.verifyReceipt`（optional）
+   - 実装: `verifyReceiptFunction`（必須プロパティ）
+   - 技術実装詳細では`verifyReceipt`以外の関数がoptionalとして記載されているが、実装ではすべてpublicプロパティとして公開
+
+3. **Internal関数が存在しない**
+   - 技術実装詳細では、統括責務が他の責務の「Internal関数」を呼び出す設計
+   - Payment Gateway責務には、統括責務専用のInternal関数が存在せず、すべてAPI Gatewayエンドポイントとして公開されている
+
+## 統括責務が動作する上で必須の修正事項
+
+### 1. Internal Lambda関数の新規作成（最優先）
+
+**必要な理由**: 統括責務は`paymentGatewayClient`を通じてLambda同期呼び出し（`InvokeCommand`）でPayment Gateway関数を呼び出す設計だが、現在の関数はすべてAPI Gateway経由の呼び出しを前提としており、直接呼び出しに適していない。
+
+**対応内容**:
+- `verifyReceipt`、`updateSubscription`、`cancelSubscription`のInternal版Lambda関数を新規作成
+- 入力: プレーンなJSONオブジェクト（API Gatewayイベント形式ではない）
+- 出力: プレーンなJSONオブジェクト（`statusCode`や`body`ラップなし）
+- 配置場所: `packages/cdk/lambda/billing/payment-gateway/internal/`
+
+**実装例**:
+```typescript
+// packages/cdk/lambda/billing/payment-gateway/internal/verifyReceipt.ts
+
+export interface VerifyReceiptInput {
+  platform: PlatformType;
+  receiptData: string;
+  subscriptionId?: string; // Google用
+}
+
+export async function handler(input: VerifyReceiptInput): Promise<VerificationResult> {
+  // API Gatewayイベント形式への変換なしで直接処理
+  // ...
 }
 ```
 
-#### プラットフォーム別動作
-- **Stripe**:
-  - 即時キャンセル: `stripe.subscriptions.cancel()`
-  - 期限終了時キャンセル: `stripe.subscriptions.update({ cancel_at_period_end: true })`
-- **Apple**: エラーを返す（サーバー側からのキャンセル不可）
-- **Google**: `androidpublisher.purchases.subscriptions.cancel()`
+### 2. CDK Constructでの公開プロパティ修正
 
----
+**必要な理由**: 技術実装詳細に記載された`OrchestrationApiProps`の型定義と一致させる必要がある。
 
-### 3.4 請求書PDF取得
+**対応内容**:
+- `PaymentGatewayApi`のコンストラクタで、Internal関数を`internalFunctions`プロパティとして公開
+- 型定義を技術実装詳細と一致させる
 
-#### ファイルパス
-`/packages/cdk/lambda/billing/payment-gateway/operations/getInvoice.ts`
-
-#### エンドポイント
-- `GET /billing/operations/invoice`
-- 認証: Cognitoオーソライザー必須
-
-#### 実装状況
-⚠️ **未確認**（ファイルが存在するが内容は未読）
-
----
-
-## 4. Lambda関数の呼び出しインターフェース
-
-### CDK構成
-
-#### ファイルパス
-`/packages/cdk/lib/construct/api/payment-gateway.ts`
-
-#### Lambda関数のpublic公開
+**実装例**:
 ```typescript
-class PaymentGatewayApi extends Construct {
-  // Public プロパティとして関数を公開（統括責務から直接呼び出すため）
-  public readonly verifyReceiptFunction: NodejsFunction;
-  public readonly createCheckoutSessionFunction: NodejsFunction;
-  public readonly updateSubscriptionFunction: NodejsFunction;
-  public readonly cancelSubscriptionFunction: NodejsFunction;
-}
+// packages/cdk/lib/construct/api/payment-gateway.ts
+
+public readonly internalFunctions = {
+  verifyReceipt: this.verifyReceiptInternalFunction,
+  updateSubscription: this.updateSubscriptionInternalFunction,
+  cancelSubscription: this.cancelSubscriptionInternalFunction,
+};
 ```
 
-### 統括責務からの呼び出し可能性
-✅ **完全対応**
+### 3. パラメータ名の統一
 
-- すべてのLambda関数がpublicプロパティとして公開されている
-- 統括責務のCDK Constructから以下のように参照可能:
+**必要な理由**: 統括責務が技術実装詳細に基づいてClient関数を実装するため、パラメータ名が一致していないと実装時に混乱が生じる。
 
-```typescript
-// 統括責務のConstruct内
-const paymentGatewayApi = new PaymentGatewayApi(this, 'PaymentGateway', props);
+**対応内容**:
+- `updateSubscription`の`newPriceId` → `newPlanId`、`isUpgrade` → `prorate`に変更
+- `cancelSubscription`の`cancelImmediately` → `atPeriodEnd`に変更（論理を反転）
 
-// Lambda関数参照
-paymentGatewayApi.verifyReceiptFunction
-paymentGatewayApi.createCheckoutSessionFunction
-paymentGatewayApi.updateSubscriptionFunction
-paymentGatewayApi.cancelSubscriptionFunction
-```
+### 4. Apple JWS署名検証の完全実装
 
-- 統括責務のLambda関数から`AWS SDK`の`lambda.invoke()`で直接呼び出し可能
+**必要な理由**: 現状の署名検証は構造チェックのみで、Appleのルート証明書までの証明書チェーン検証が未実装。悪意あるリクエストを受け入れるセキュリティリスクがある。
 
-### 入力/出力の形式
-✅ **明確に定義**
+**対応内容**:
+- `node-jose`または類似のライブラリを使用してJWS署名検証を実装
+- Appleのルート証明書を使用した証明書チェーン検証を追加
 
-各Lambda関数のインターフェースは上記セクション1〜3に記載の通り、TypeScript型定義で明確に定義されている。
+**参考リンク**: https://developer.apple.com/documentation/appstoreserverapi/jwstransaction
 
-### IAM権限設定
-✅ **実装済み**
+### 5. Google Pub/Sub認証の明確化
 
-CDK構成で以下の権限が付与されている:
-- DynamoDB読み書き権限（テーブルパターン: `*-payment-gateway-*`）
-- EventBridge送信権限（`events:PutEvents`）
-- Secrets Manager読み取り権限（パターン: `*/billing/*`）
-- Cognito読み取り権限（`cognito-idp:AdminGetUser`）
+**必要な理由**: 現状のコメントでは「API Gateway側でGoogle Cloud認証を使用」とあるが、実際のCDK定義では該当する設定が見当たらない。
 
----
+**対応内容**:
+- API GatewayでGoogle Cloud認証（Push Subscriptionの署名検証）を設定するか、Lambda関数内で署名検証を実装
+- 技術実装詳細に認証方法を明記
 
-## 5. 統括責務実装のための必須修正事項まとめ
+## 補足事項
 
-### 修正不要項目
-✅ すべての主要機能が期待仕様通りに実装されている
+### 1. 実装の完成度
 
-### 確認推奨項目
-⚠️ 以下の項目は実装状況を最終確認することを推奨:
+Payment Gateway責務は、以下の点で高い完成度を持っています:
+- 3つのプラットフォーム（Stripe、Apple、Google）すべてに対応
+- Webhookエンドポイント、署名検証、重複チェック、EventBridge連携がすべて実装済み
+- レシート検証キャッシュ機構が実装済み
+- DynamoDBテーブル（Webhookイベント履歴、レシートキャッシュ）が適切に設計されている
 
-- [ ] **Apple Webhookエンドポイント**: `/packages/cdk/lambda/billing/payment-gateway/webhook/apple/receiveNotification.ts` のビジネスイベントマッピング実装を確認
-- [ ] **Google Webhookエンドポイント**: `/packages/cdk/lambda/billing/payment-gateway/webhook/google/receiveNotification.ts` のビジネスイベントマッピング実装を確認
-- [ ] **請求書PDF取得API**: `/packages/cdk/lambda/billing/payment-gateway/operations/getInvoice.ts` の実装内容を確認
-- [ ] **EventBridgeルール**: EventBridgeルールが正しく設定され、統括責務のWebhookハンドラーがターゲットとして登録されているか確認
+### 2. 主要な問題点
 
-### 統括責務実装時の連携ポイント
+最大の問題は、**統括責務からの呼び出しインターフェースが技術実装詳細と異なる**ことです:
+- 技術実装詳細: Lambda同期呼び出しでInternal関数を直接呼び出す想定
+- 実装: API Gatewayエンドポイントとして公開されており、HTTPリクエスト形式での呼び出しを前提
 
-#### 5.1 Lambda-to-Lambda呼び出しサービス層の実装
+この問題を解決するには、**Internal Lambda関数の新規作成**（上記「必須の修正事項1」）が最優先です。
 
-統括責務側で以下のサービスクラスを実装する必要がある:
+### 3. その他の改善提案（範囲外）
 
-```typescript
-// packages/cdk/lambda/billing/orchestrator/services/paymentGatewayService.ts
-class PaymentGatewayService {
-  async verifyReceipt(params: VerifyReceiptParams): Promise<VerifyReceiptResult> {
-    const functionName = `${PAYMENT_GATEWAY_FUNCTION_PREFIX}-verify-receipt`;
-    // lambda.invoke() でレシート検証関数を呼び出し
-  }
+以下は統括責務の動作には直接影響しないが、改善が望ましい点です:
+- `getInvoice`関数が技術実装詳細に記載されていない（実装済みだが、統括責務からの呼び出しは想定されていない）
+- `createCheckoutSession`関数が技術実装詳細に記載されていない（ユーザ向けAPIとして実装済み）
+- CDKでのEventBridge ARN生成が不正確（`this.node.addr`ではなく、正しいリージョン/アカウントIDを使用すべき）
 
-  async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<CreateCheckoutSessionResult> {
-    const functionName = `${PAYMENT_GATEWAY_FUNCTION_PREFIX}-create-checkout-session`;
-    // lambda.invoke() でCheckout Session作成関数を呼び出し
-  }
+### 4. ファイル構成の評価
 
-  async updateSubscription(params: UpdateSubscriptionParams): Promise<UpdateSubscriptionResult> {
-    const functionName = `${PAYMENT_GATEWAY_FUNCTION_PREFIX}-update-subscription`;
-    // lambda.invoke() でサブスクリプション変更関数を呼び出し
-  }
+実装ファイルは適切に構造化されています:
+- `verification/`: レシート検証ロジック
+- `operations/`: 決済操作（作成、変更、キャンセル）
+- `webhook/`: Webhookエンドポイント（Stripe、Apple、Google）
+- `repositories/`: DynamoDBアクセスレイヤー
+- `utils/`: ユーティリティ（署名検証、重複チェック、プラットフォーム判定）
+- `types/`: 型定義
 
-  async cancelSubscription(params: CancelSubscriptionParams): Promise<CancelSubscriptionResult> {
-    const functionName = `${PAYMENT_GATEWAY_FUNCTION_PREFIX}-cancel-subscription`;
-    // lambda.invoke() でサブスクリプションキャンセル関数を呼び出し
-  }
-}
-```
+この構造は保守性が高く、拡張も容易です。
 
-#### 5.2 EventBridgeルールの設定
+## 結論
 
-統括責務のCDK Constructで、以下のEventBridgeルールを設定する必要がある:
+Payment Gateway責務は**ほぼ実装済み**ですが、統括責務が動作するためには、**Internal Lambda関数の新規作成**が必須です。その他、パラメータ名の統一、Apple JWS署名検証の完全実装、Google認証の明確化が必要です。
 
-```typescript
-// packages/cdk/lib/construct/api/orchestrator.ts
-import { Rule } from 'aws-cdk-lib/aws-events';
-import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-
-// payment.succeeded用ルール
-new Rule(this, 'PaymentSucceededRule', {
-  eventBus: eventBus,
-  eventPattern: {
-    source: ['billing.payment-gateway'],
-    detailType: ['payment.succeeded'],
-  },
-  targets: [new LambdaFunction(webhookEventHandlerFunction)],
-});
-
-// payment.failed用ルール
-new Rule(this, 'PaymentFailedRule', {
-  eventBus: eventBus,
-  eventPattern: {
-    source: ['billing.payment-gateway'],
-    detailType: ['payment.failed'],
-  },
-  targets: [new LambdaFunction(webhookEventHandlerFunction)],
-});
-
-// subscription.canceled用ルール
-new Rule(this, 'SubscriptionCanceledRule', {
-  eventBus: eventBus,
-  eventPattern: {
-    source: ['billing.payment-gateway'],
-    detailType: ['subscription.canceled'],
-  },
-  targets: [new LambdaFunction(webhookEventHandlerFunction)],
-});
-
-// payment.refunded用ルール
-new Rule(this, 'PaymentRefundedRule', {
-  eventBus: eventBus,
-  eventPattern: {
-    source: ['billing.payment-gateway'],
-    detailType: ['payment.refunded'],
-  },
-  targets: [new LambdaFunction(webhookEventHandlerFunction)],
-});
-```
-
-#### 5.3 Webhookイベントハンドラーの実装
-
-統括責務のWebhookイベントハンドラーで、以下の形式でイベントを受信・処理する:
-
-```typescript
-// packages/cdk/lambda/billing/orchestrator/flows/webhookEventHandler.ts
-interface EventBridgeEvent {
-  version: '0';
-  id: string;
-  source: 'billing.payment-gateway';
-  'detail-type': 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'payment.refunded';
-  detail: EventDetail; // EventDetail型は既に定義済み
-}
-
-export async function handler(event: EventBridgeEvent): Promise<void> {
-  const businessEventType = event['detail-type'];
-  const eventDetail = event.detail;
-
-  switch (businessEventType) {
-    case 'payment.succeeded':
-      await handlePaymentSucceeded(eventDetail);
-      break;
-    case 'payment.failed':
-      await handlePaymentFailed(eventDetail);
-      break;
-    case 'subscription.canceled':
-      await handleSubscriptionCanceled(eventDetail);
-      break;
-    case 'payment.refunded':
-      await handlePaymentRefunded(eventDetail);
-      break;
-  }
-}
-```
-
----
-
-## 6. 実装品質の評価
-
-### 6.1 アーキテクチャ
-✅ **優秀**
-
-- 責務分離が明確（Webhook受信、レシート検証、決済操作が独立）
-- マルチテナント対応（テナントIDベースのリソース分離）
-- キャッシュによるフォールバック機構
-- ビジネスイベント形式への正規化
-- 冪等性保証（重複チェック）
-
-### 6.2 セキュリティ
-✅ **適切**
-
-- Webhook署名検証の実装
-- Secrets Managerの活用（APIキー、Webhookシークレット）
-- Cognitoオーソライザーによる認証
-- IAM最小権限の原則
-
-### 6.3 エラーハンドリング
-✅ **堅牢**
-
-- レシート検証のキャッシュフォールバック
-- 再試行ロジック（2秒待機後の再検証）
-- 検証失敗時の適切なエラーレスポンス
-- 詳細なログ出力
-
-### 6.4 拡張性
-✅ **高い**
-
-- プラットフォーム追加が容易（interface定義が明確）
-- EventBridgeによる疎結合
-- Lambda関数の直接呼び出しとAPI Gateway経由の両対応
-
----
-
-## 7. 技術実装詳細.mdとの差異
-
-### 期待仕様との整合性
-✅ **完全整合**
-
-`docs/課金・プランの仕様/Stripe・Apple・Googleの決済システムとのやり取りを一本化する/技術実装構成.md` に記載されている以下の仕様がすべて実装されている:
-
-- Lambda関数の配置と命名
-- DynamoDBテーブルの構造（Webhookイベントログ、レシート検証キャッシュ）
-- EventBridge連携とイベント形式
-- Secrets Managerの活用
-- マルチテナント対応
-- プラットフォーム別の検証実装
-
-### 追加実装事項
-✅ **ビジネスイベントマッピング**（技術実装詳細.mdには未記載）
-
-以下の機能が追加実装されている:
-- Stripeイベント → ビジネスイベントのマッピング（`eventMapper.ts`）
-- イベント詳細情報の抽出と正規化（`eventExtractor.ts`）
-- ビジネスイベント型定義（`businessEvent.ts`）
-
-これにより、統括責務が期待する正規化されたイベント形式でのEventBridge送信が実現されている。
-
----
-
-## 8. 結論
-
-**Payment Gateway責務の実装は、統括責務の実装に必要な機能をすべて備えており、期待仕様を満たしている。**
-
-### 実装完了項目
-✅ レシート検証API（キャッシュフォールバック含む）
-✅ EventBridge連携（ビジネスイベント形式への変換含む）
-✅ 決済操作API（Checkout Session作成、サブスクリプション変更・キャンセル）
-✅ Lambda関数の呼び出しインターフェース（public公開）
-✅ マルチテナント対応
-✅ セキュリティ対策（署名検証、Secrets Manager、Cognito認証）
-✅ 冪等性保証（重複チェック）
-
-### 統括責務実装時のアクションアイテム
-- [ ] PaymentGatewayServiceクラスの実装（Lambda-to-Lambda呼び出し）
-- [ ] EventBridgeルールの設定（4種類のビジネスイベント用）
-- [ ] Webhookイベントハンドラーの実装（4種類のイベント処理）
-- [ ] Apple/Google Webhookエンドポイントのビジネスイベントマッピング実装の最終確認
-
-統括責務の実装は、Payment Gateway責務の既存実装をそのまま活用できる状態にある。
+これらの修正が完了すれば、統括責務は技術実装詳細に記載された通りに`paymentGatewayClient`を通じてPayment Gateway関数を呼び出すことができます。
