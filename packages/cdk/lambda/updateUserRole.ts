@@ -15,7 +15,6 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from './utils/apiResponse';
-import { CORS_HEADERS } from '@generative-ai-use-cases/common';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION!,
@@ -114,17 +113,13 @@ export const handler = async (
             signOutError
           );
 
-          return {
-            statusCode: 200,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({
-              message:
-                'User role updated but sessions remain active. User should sign out manually.',
-              username,
-              tenantAdmin,
-              warning: 'SESSION_INVALIDATION_FAILED',
-            }),
-          };
+          return ok200Response({
+            message:
+              'User role updated but sessions remain active. User should sign out manually.',
+            username,
+            tenantAdmin,
+            warning: 'SESSION_INVALIDATION_FAILED',
+          });
         }
       }
 
