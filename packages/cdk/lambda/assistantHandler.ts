@@ -118,9 +118,9 @@ async function handleCreate(
 
   // Basic validation
   if (!body.name || !body.instruction || !body.modelId) {
-    return badRequest400Response(
-      'Missing required fields: name, instruction, modelId'
-    );
+    return badRequest400Response({
+      message: 'Missing required fields: name, instruction, modelId',
+    });
   }
 
   const assistant = await createAssistant(userId, body, event);
