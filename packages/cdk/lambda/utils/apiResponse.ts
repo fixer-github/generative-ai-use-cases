@@ -58,7 +58,11 @@ export function accepted202Response<TBody>(body: TBody): APIGatewayProxyResult {
  * @returns Lambda response with 204 status code
  */
 export function noContent204Response(): APIGatewayProxyResult {
-  return createLambdaResponse(HttpStatus.Success.NO_CONTENT, null);
+  return {
+    statusCode: HttpStatus.Success.NO_CONTENT,
+    headers: CORS_HEADERS,
+    body: '',
+  };
 }
 
 // ============================================================================
