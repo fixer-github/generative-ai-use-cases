@@ -154,21 +154,34 @@ export const listMessages = async (
 
   const chatId = `chat#${_chatId}`;
 
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#id = :id',
-      ExpressionAttributeNames: {
-        '#id': 'id',
-      },
-      ExpressionAttributeValues: {
-        ':id': chatId,
-      },
-    })
-  );
+  let allItems: any[] = [];
+  let exclusiveStartKey: Record<string, any> | undefined = undefined;
 
-  return res.Items as RecordedMessage[];
-};
+  // Paginate through all messages
+  do {
+    const res = await dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: '#id = :id',
+        ExpressionAttributeNames: {
+          '#id': 'id',
+        },
+        ExpressionAttributeValues: {
+          ':id': chatId,
+        },
+        ExclusiveStartKey: exclusiveStartKey,
+      })
+    );
+
+    if (res.Items && res.Items.length > 0) {
+      allItems = allItems.concat(res.Items);
+    }
+
+    exclusiveStartKey = res.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+
+  return allItems as RecordedMessage[];
+};;
 
 export const batchCreateMessages = async (
   messages: ToBeRecordedMessage[],
@@ -281,21 +294,33 @@ export const deleteMessagesForChat = async (
 
   const messageItems = await listMessages(_chatId, event);
   if (messageItems.length > 0) {
-    await dynamoDbDocument.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [tableName]: messageItems.map((m) => {
-            return {
-              DeleteRequest: {
-                Key: {
-                  id: m.id,
-                  createdDate: m.createdDate,
+    // Delete in batches of 25 (DynamoDB BatchWrite limit)
+    const batchSize = 25;
+    const batches = [];
+    for (let i = 0; i < messageItems.length; i += batchSize) {
+      batches.push(messageItems.slice(i, i + batchSize));
+    }
+
+    // Execute all batch deletes
+    const batchPromises = batches.map((batch) =>
+      dynamoDbDocument.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [tableName]: batch.map((m) => {
+              return {
+                DeleteRequest: {
+                  Key: {
+                    id: m.id,
+                    createdDate: m.createdDate,
+                  },
                 },
-              },
-            };
-          }),
-        },
-      })
+              };
+            }),
+          },
+        })
+      )
     );
+
+    await Promise.all(batchPromises);
   }
-};
+};;

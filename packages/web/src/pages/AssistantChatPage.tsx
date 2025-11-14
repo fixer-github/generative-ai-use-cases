@@ -319,7 +319,6 @@ const AssistantChatPage: React.FC = () => {
 
     return (
       <div
-        key={message.messageId}
         className={`mb-4 flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
         {isAssistant && (
           <div className="shrink-0">
@@ -546,7 +545,11 @@ const AssistantChatPage: React.FC = () => {
           </div>
         ) : (
           <div>
-            {messages.map(renderMessage)}
+            {messages.map((message) => (
+              <React.Fragment key={message.messageId}>
+                {renderMessage(message)}
+              </React.Fragment>
+            ))}
             {sending && (
               <div className="mb-4 flex gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">

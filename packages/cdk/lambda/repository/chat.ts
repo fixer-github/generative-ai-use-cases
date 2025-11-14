@@ -325,36 +325,61 @@ export const deleteAssistantMessagesForChat = async (
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
 
-  const res = await dynamoDbDocument.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: '#id = :id',
-      ExpressionAttributeNames: {
-        '#id': 'id',
-      },
-      ExpressionAttributeValues: {
-        ':id': chatId,
-      },
-    })
-  );
+  let allItems: any[] = [];
+  let exclusiveStartKey: Record<string, any> | undefined = undefined;
 
-  if (res.Items && res.Items.length > 0) {
-    await dynamoDbDocument.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [tableName]: res.Items.map((item) => ({
-            DeleteRequest: {
-              Key: {
-                id: item.id,
-                createdDate: item.createdDate,
-              },
-            },
-          })),
+  // Paginate through all messages
+  do {
+    const res = await dynamoDbDocument.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: '#id = :id',
+        ExpressionAttributeNames: {
+          '#id': 'id',
         },
+        ExpressionAttributeValues: {
+          ':id': chatId,
+        },
+        ExclusiveStartKey: exclusiveStartKey,
       })
     );
+
+    if (res.Items && res.Items.length > 0) {
+      allItems = allItems.concat(res.Items);
+    }
+
+    exclusiveStartKey = res.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+
+  // Delete in batches of 25 (DynamoDB BatchWrite limit)
+  if (allItems.length > 0) {
+    const batchSize = 25;
+    const batches = [];
+    for (let i = 0; i < allItems.length; i += batchSize) {
+      batches.push(allItems.slice(i, i + batchSize));
+    }
+
+    // Execute all batch deletes
+    const batchPromises = batches.map((batch) =>
+      dynamoDbDocument.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [tableName]: batch.map((item) => ({
+              DeleteRequest: {
+                Key: {
+                  id: item.id,
+                  createdDate: item.createdDate,
+                },
+              },
+            })),
+          },
+        })
+      )
+    );
+
+    await Promise.all(batchPromises);
   }
-};
+};;
 
 export const deleteAllMessagesForAssistant = async (
   _assistantId: string,
