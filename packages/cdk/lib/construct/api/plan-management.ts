@@ -9,7 +9,7 @@ import {
   AuthorizationType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { TenantManager } from '../../construct/tenant-manager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -24,6 +24,11 @@ export interface PlanManagementApiProps {
    * User Pool for authentication
    */
   readonly userPool: UserPool;
+
+  /**
+   * User Pool Client for authentication
+   */
+  readonly userPoolClient: UserPoolClient;
 
   /**
    * Identity Pool for authorization
@@ -62,14 +67,30 @@ export interface PlanManagementApiProps {
  * 5. Get plan change history
  * 6. Get plan subscription statistics
  * 7. Check internal name availability
+ *
+ * Also provides internal Lambda functions for orchestrator:
+ * 1. applyPlanToUser - Apply plan to user
+ * 2. terminatePlanApplication - Terminate plan application
+ * 3. updatePlanApplicationStatus - Update plan application status
  */
 class PlanManagementApi extends Construct {
+  /**
+   * Internal Lambda functions for orchestrator
+   * These are not exposed via API Gateway
+   */
+  public readonly internalFunctions: {
+    applyPlanToUser: NodejsFunction;
+    terminatePlanApplication: NodejsFunction;
+    updatePlanApplicationStatus: NodejsFunction;
+  };
+
   constructor(scope: Construct, id: string, props: PlanManagementApiProps) {
     super(scope, id);
 
     const {
       api,
       userPool,
+      userPoolClient,
       idPool,
       tenantManager,
       environment,
@@ -92,6 +113,7 @@ class PlanManagementApi extends Construct {
         TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
         IDENTITY_POOL_ID: idPool.identityPoolId,
         USER_POOL_ID: userPool.userPoolId,
+        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
         AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
       },
@@ -104,6 +126,50 @@ class PlanManagementApi extends Construct {
             },
           }
         : {}),
+    };
+
+    // ========================================
+    // Internal Lambda Functions (for Orchestrator)
+    // ========================================
+
+    // Internal: Apply Plan to User
+    const applyPlanToUserFunction = new NodejsFunction(
+      this,
+      'InternalApplyPlanToUser',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/plan-management/applyPlanToUser.ts',
+        functionName: `${environment}-billing-plan-internal-apply`,
+      }
+    );
+
+    // Internal: Terminate Plan Application
+    const terminatePlanApplicationFunction = new NodejsFunction(
+      this,
+      'InternalTerminatePlanApplication',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/plan-management/terminatePlanApplication.ts',
+        functionName: `${environment}-billing-plan-internal-terminate`,
+      }
+    );
+
+    // Internal: Update Plan Application Status
+    const updatePlanApplicationStatusFunction = new NodejsFunction(
+      this,
+      'InternalUpdatePlanApplicationStatus',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/plan-management/updatePlanApplicationStatus.ts',
+        functionName: `${environment}-billing-plan-internal-update-status`,
+      }
+    );
+
+    // Export internal functions for orchestrator
+    this.internalFunctions = {
+      applyPlanToUser: applyPlanToUserFunction,
+      terminatePlanApplication: terminatePlanApplicationFunction,
+      updatePlanApplicationStatus: updatePlanApplicationStatusFunction,
     };
 
     // ========================================
@@ -181,6 +247,7 @@ class PlanManagementApi extends Construct {
     // IAM Permissions
     // ========================================
     const functions = [
+      // Admin functions
       listPlansFunction,
       getPlanFunction,
       createPlanFunction,
@@ -188,11 +255,24 @@ class PlanManagementApi extends Construct {
       getPlanHistoryFunction,
       getPlanSubscriptionsFunction,
       checkPlanNameFunction,
+      // Internal functions
+      applyPlanToUserFunction,
+      terminatePlanApplicationFunction,
+      updatePlanApplicationStatusFunction,
     ];
 
     functions.forEach((func) => {
       // Grant Tenants table read access
       tenantManager.tenantsTable.grantReadData(func);
+
+      // Grant Cognito User Pool AdminGetUser permission for real-time role verification
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['cognito-idp:AdminGetUser'],
+          resources: [userPool.userPoolArn],
+        })
+      );
 
       // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
       func.addToRolePolicy(

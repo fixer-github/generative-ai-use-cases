@@ -8,7 +8,7 @@ import {
   AuthorizationType,
   IdentitySource,
 } from 'aws-cdk-lib/aws-apigateway';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
@@ -23,6 +23,11 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * User Pool for authentication
    */
   readonly userPool: UserPool;
+
+  /**
+   * User Pool Client for authentication
+   */
+  readonly userPoolClient: UserPoolClient;
 
   /**
    * Identity Pool for authorization
@@ -148,6 +153,7 @@ export class BillingManagementStack extends NestedStack {
     const planManagementApi = new PlanManagementApi(this, 'PlanManagement', {
       api: billingApi,
       userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
       idPool: props.idPool,
       tenantManager: props.tenantManager,
       environment: props.environment,
@@ -160,6 +166,7 @@ export class BillingManagementStack extends NestedStack {
       {
         api: billingApi,
         userPool: props.userPool,
+        userPoolClient: props.userPoolClient,
         idPool: props.idPool,
         tenantManager: props.tenantManager,
         environment: props.environment,
