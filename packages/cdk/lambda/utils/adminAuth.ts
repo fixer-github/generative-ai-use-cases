@@ -81,7 +81,9 @@ export async function verifyAdminAccess(
       });
     } else {
       // No admin privileges - return 403
-      return forbidden403Response({ message: 'Access denied. Admin privileges required.' });
+      return forbidden403Response({
+        message: 'Access denied. Admin privileges required.',
+      });
     }
   }
 
@@ -118,7 +120,9 @@ export async function verifyTenantMembership(
     )?.Value;
 
     if (userTenantId !== adminTenantId) {
-      return forbidden403Response({ message: 'Cannot access user from different tenant' });
+      return forbidden403Response({
+        message: 'Cannot access user from different tenant',
+      });
     }
 
     return {
@@ -136,7 +140,9 @@ export async function verifyTenantMembership(
       return notFound404Response({ message: 'User not found' });
     }
 
-    return internalServerError500Response({ message: 'Failed to verify user access' });
+    return internalServerError500Response({
+      message: 'Failed to verify user access',
+    });
   }
 }
 

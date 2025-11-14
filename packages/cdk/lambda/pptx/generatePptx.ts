@@ -57,7 +57,9 @@ export const handler = async (
     }
 
     if (!validateSlideCount(generationInput.slide_count)) {
-      return badRequest400Response({ message: 'Slide count must be between 1 and 50' });
+      return badRequest400Response({
+        message: 'Slide count must be between 1 and 50',
+      });
     }
 
     // Validate template exists if provided
@@ -74,7 +76,9 @@ export const handler = async (
         template.userId !== userId &&
         template.tenantId !== tenantId
       ) {
-        return forbidden403Response({ message: 'Not authorized to use this template' });
+        return forbidden403Response({
+          message: 'Not authorized to use this template',
+        });
       }
     }
 

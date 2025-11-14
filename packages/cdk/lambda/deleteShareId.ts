@@ -29,7 +29,9 @@ export const handler = async (
 
     // Ownership check
     if (ownerUserId !== currentUserId) {
-      return forbidden403Response({ message: 'Forbidden: You do not own this resource' });
+      return forbidden403Response({
+        message: 'Forbidden: You do not own this resource',
+      });
     }
 
     // If ownership is verified, proceed with deletion

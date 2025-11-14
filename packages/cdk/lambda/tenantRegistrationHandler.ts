@@ -177,6 +177,8 @@ export const handler = async (
       });
     }
 
-    return internalServerError500Response({ message: 'Failed to register tenant' });
+    return internalServerError500Response({
+      message: 'Failed to register tenant',
+    });
   }
 };

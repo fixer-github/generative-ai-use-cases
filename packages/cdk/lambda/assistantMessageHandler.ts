@@ -101,7 +101,7 @@ async function handleCreateMessage(
   if (!canAccessAssistant(assistant, userId, event)) {
     return forbidden403Response({
       message: 'Access denied to this assistant',
-      code: 'ASSISTANT_ACCESS_DENIED'
+      code: 'ASSISTANT_ACCESS_DENIED',
     });
   }
 
@@ -138,7 +138,9 @@ async function handleCreateMessage(
     console.error(
       `Assistant ${assistantId} has no instruction/system prompt configured`
     );
-    return badRequest400Response({ message: 'Assistant has no system prompt configured' });
+    return badRequest400Response({
+      message: 'Assistant has no system prompt configured',
+    });
   }
 
   console.log(
@@ -290,7 +292,7 @@ async function handleListMessages(
   if (!canAccessAssistant(assistant, userId, event)) {
     return forbidden403Response({
       message: 'Access denied to this assistant',
-      code: 'ASSISTANT_ACCESS_DENIED'
+      code: 'ASSISTANT_ACCESS_DENIED',
     });
   }
 

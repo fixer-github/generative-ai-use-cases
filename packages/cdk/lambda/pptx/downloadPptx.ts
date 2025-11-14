@@ -39,7 +39,9 @@ export const handler = async (
 
     // Check permission - only owner can download
     if (generation.userId !== userId) {
-      return forbidden403Response({ message: 'Not authorized to download this generation' });
+      return forbidden403Response({
+        message: 'Not authorized to download this generation',
+      });
     }
 
     // Check if generation is completed and has output

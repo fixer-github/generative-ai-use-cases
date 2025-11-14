@@ -25,7 +25,9 @@ export const handler = async (
     const tenantId = getUserTenantId(event);
     if (!tenantId) {
       console.log('[getTenantAwareUseCaseConfig] No tenant ID found');
-      return badRequest400Response({ message: 'No tenant ID found in user claims' });
+      return badRequest400Response({
+        message: 'No tenant ID found in user claims',
+      });
     }
 
     console.log(

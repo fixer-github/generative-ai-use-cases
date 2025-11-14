@@ -35,12 +35,16 @@ export const handler = async (
       'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
     if (!filename) {
-      return badRequest400Response({ message: 'Filename parameter is required' });
+      return badRequest400Response({
+        message: 'Filename parameter is required',
+      });
     }
 
     // Validate file extension
     if (!validateFileExtension(filename)) {
-      return badRequest400Response({ message: 'Only PPTX and POTX files are allowed' });
+      return badRequest400Response({
+        message: 'Only PPTX and POTX files are allowed',
+      });
     }
 
     // Generate presigned URL (pass event for tenant role assumption)

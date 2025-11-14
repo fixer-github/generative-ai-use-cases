@@ -44,7 +44,9 @@ export const handler = async (
   try {
     // Check bucket configuration
     if (!MANAGED_BUCKET_NAME) {
-      return internalServerError500Response({ message: 'File upload not configured' });
+      return internalServerError500Response({
+        message: 'File upload not configured',
+      });
     }
 
     // Parse request

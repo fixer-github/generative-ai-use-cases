@@ -309,7 +309,7 @@ async function handleGet(
   if (!canAccessAssistant(assistant, userId, event)) {
     return forbidden403Response({
       message: 'Access denied to this assistant',
-      code: 'ASSISTANT_ACCESS_DENIED'
+      code: 'ASSISTANT_ACCESS_DENIED',
     });
   }
 
@@ -448,7 +448,7 @@ async function handleUpdate(
     if (error.message === 'Unauthorized') {
       return forbidden403Response({
         message: 'Access denied to this assistant',
-        code: 'ASSISTANT_ACCESS_DENIED'
+        code: 'ASSISTANT_ACCESS_DENIED',
       });
     }
     throw error;
@@ -487,7 +487,7 @@ async function handleDelete(
     if (error.message === 'Unauthorized') {
       return forbidden403Response({
         message: 'Access denied to this assistant',
-        code: 'ASSISTANT_ACCESS_DENIED'
+        code: 'ASSISTANT_ACCESS_DENIED',
       });
     }
     throw error;

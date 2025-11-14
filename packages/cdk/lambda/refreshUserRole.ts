@@ -24,7 +24,9 @@ export const handler = async (
     // Extract token
     const token = event.headers.Authorization || event.headers.authorization;
     if (!token) {
-      return unauthorized401Response({ message: 'Missing authorization token' });
+      return unauthorized401Response({
+        message: 'Missing authorization token',
+      });
     }
 
     // Verify token with real-time role checking
@@ -66,6 +68,8 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error refreshing user role:', error);
-    return internalServerError500Response({ message: 'Failed to refresh role status' });
+    return internalServerError500Response({
+      message: 'Failed to refresh role status',
+    });
   }
 };

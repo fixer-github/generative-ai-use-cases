@@ -98,7 +98,9 @@ export const handler = async (
     }
 
     if (emails.length > 100) {
-      return badRequest400Response({ message: 'Maximum 100 users can be invited at once' });
+      return badRequest400Response({
+        message: 'Maximum 100 users can be invited at once',
+      });
     }
 
     // Validate all emails
@@ -113,7 +115,9 @@ export const handler = async (
     // Check for duplicate emails
     const uniqueEmails = Array.from(new Set(emails));
     if (uniqueEmails.length !== emails.length) {
-      return badRequest400Response({ message: 'Duplicate emails found in request' });
+      return badRequest400Response({
+        message: 'Duplicate emails found in request',
+      });
     }
 
     // Invite users
@@ -231,6 +235,8 @@ export const handler = async (
     });
   } catch (error) {
     console.error('Error inviting users:', error);
-    return internalServerError500Response({ message: 'Failed to invite users' });
+    return internalServerError500Response({
+      message: 'Failed to invite users',
+    });
   }
 };

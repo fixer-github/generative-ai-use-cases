@@ -111,6 +111,8 @@ export const handler = async (
     return ok200Response(response);
   } catch (error) {
     console.error('Error validating domains:', error);
-    return internalServerError500Response({ message: 'Failed to validate domains' });
+    return internalServerError500Response({
+      message: 'Failed to validate domains',
+    });
   }
 };

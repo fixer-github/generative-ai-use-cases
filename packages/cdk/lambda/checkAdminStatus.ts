@@ -23,7 +23,9 @@ export const handler = async (
     // Extract token
     const token = event.headers.Authorization || event.headers.authorization;
     if (!token) {
-      return unauthorized401Response({ message: 'Missing authorization token' });
+      return unauthorized401Response({
+        message: 'Missing authorization token',
+      });
     }
 
     // Use real-time role checking to ensure consistency with other endpoints

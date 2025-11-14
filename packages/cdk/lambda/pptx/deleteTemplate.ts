@@ -41,7 +41,9 @@ export const handler = async (
 
     // Check permission - only owner or admin can delete
     if (template.userId !== userId && !isAdmin) {
-      return forbidden403Response({ message: 'Not authorized to delete this template' });
+      return forbidden403Response({
+        message: 'Not authorized to delete this template',
+      });
     }
 
     // Delete the template

@@ -160,6 +160,8 @@ export const handler = async (
     }
   } catch (error) {
     console.error('Error updating user role:', error);
-    return internalServerError500Response({ message: 'Failed to update user role' });
+    return internalServerError500Response({
+      message: 'Failed to update user role',
+    });
   }
 };
