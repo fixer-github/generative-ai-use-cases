@@ -11,6 +11,7 @@ import {
   DeleteCommand,
   PutCommand,
   QueryCommand,
+  QueryCommandInput,
   ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
@@ -290,7 +291,7 @@ export const listAssistantMessages = async (
     ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
     : undefined;
 
-  const queryParams: any = {
+  const queryParams: QueryCommandInput = {
     TableName: tableName,
     KeyConditionExpression: '#id = :id',
     FilterExpression: '#userId = :userId',
@@ -325,8 +326,8 @@ export const deleteAssistantMessagesForChat = async (
   const dynamoDbDocument = await getTenantDynamoDBDocument(event);
   const tableName = getTableName(event);
 
-  let allItems: any[] = [];
-  let exclusiveStartKey: Record<string, any> | undefined = undefined;
+  let allItems: AssistantMessage[] = [];
+  let exclusiveStartKey: Record<string, string> | undefined = undefined;
 
   // Paginate through all messages
   do {
@@ -345,7 +346,7 @@ export const deleteAssistantMessagesForChat = async (
     );
 
     if (res.Items && res.Items.length > 0) {
-      allItems = allItems.concat(res.Items);
+      allItems = allItems.concat(res.Items as AssistantMessage[]);
     }
 
     exclusiveStartKey = res.LastEvaluatedKey;
@@ -393,7 +394,7 @@ export const deleteAllMessagesForAssistant = async (
   // Since we're querying by userId (id), we need to find all users who have chats with this assistant
   // This is a limitation of the single-table design - we'll need to scan with filter
   let chats: Chat[] = [];
-  let lastEvaluatedKey: any = undefined;
+  let lastEvaluatedKey: Record<string, string> | undefined = undefined;
 
   do {
     const scanResult = await dynamoDbDocument.send(

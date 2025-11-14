@@ -154,8 +154,8 @@ export const listMessages = async (
 
   const chatId = `chat#${_chatId}`;
 
-  let allItems: any[] = [];
-  let exclusiveStartKey: Record<string, any> | undefined = undefined;
+  let allItems: RecordedMessage[] = [];
+  let exclusiveStartKey: Record<string, string> | undefined = undefined;
 
   // Paginate through all messages
   do {
@@ -174,7 +174,7 @@ export const listMessages = async (
     );
 
     if (res.Items && res.Items.length > 0) {
-      allItems = allItems.concat(res.Items);
+      allItems = allItems.concat(res.Items as RecordedMessage[]);
     }
 
     exclusiveStartKey = res.LastEvaluatedKey;
