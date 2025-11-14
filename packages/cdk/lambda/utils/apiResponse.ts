@@ -11,24 +11,7 @@ import { CORS_HEADERS, HttpStatus } from '@generative-ai-use-cases/common';
  * @param body Response body
  * @returns Lambda response
  */
-function createSuccessResponse<TBody>(
-  statusCode: number,
-  body: TBody
-): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: CORS_HEADERS,
-    body: JSON.stringify(body),
-  };
-}
-
-/**
- * Create Lambda error response
- * @param statusCode HTTP status code
- * @param body Error body
- * @returns Lambda response
- */
-function createErrorResponse<TBody>(
+function createLambdaResponse<TBody>(
   statusCode: number,
   body: TBody
 ): APIGatewayProxyResult {
@@ -49,7 +32,7 @@ function createErrorResponse<TBody>(
  * @returns Lambda response with 200 status code
  */
 export function ok200Response<TBody>(body: TBody): APIGatewayProxyResult {
-  return createSuccessResponse(HttpStatus.Success.OK, body);
+  return createLambdaResponse(HttpStatus.Success.OK, body);
 }
 
 /**
@@ -58,7 +41,7 @@ export function ok200Response<TBody>(body: TBody): APIGatewayProxyResult {
  * @returns Lambda response with 201 status code
  */
 export function created201Response<TBody>(body: TBody): APIGatewayProxyResult {
-  return createSuccessResponse(HttpStatus.Success.CREATED, body);
+  return createLambdaResponse(HttpStatus.Success.CREATED, body);
 }
 
 /**
@@ -67,7 +50,7 @@ export function created201Response<TBody>(body: TBody): APIGatewayProxyResult {
  * @returns Lambda response with 202 status code
  */
 export function accepted202Response<TBody>(body: TBody): APIGatewayProxyResult {
-  return createSuccessResponse(HttpStatus.Success.ACCEPTED, body);
+  return createLambdaResponse(HttpStatus.Success.ACCEPTED, body);
 }
 
 /**
@@ -75,7 +58,7 @@ export function accepted202Response<TBody>(body: TBody): APIGatewayProxyResult {
  * @returns Lambda response with 204 status code
  */
 export function noContent204Response(): APIGatewayProxyResult {
-  return createSuccessResponse(HttpStatus.Success.NO_CONTENT, null);
+  return createLambdaResponse(HttpStatus.Success.NO_CONTENT, null);
 }
 
 // ============================================================================
@@ -90,7 +73,7 @@ export function noContent204Response(): APIGatewayProxyResult {
 export function badRequest400Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.BAD_REQUEST, body);
+  return createLambdaResponse(HttpStatus.ClientError.BAD_REQUEST, body);
 }
 
 /**
@@ -101,7 +84,7 @@ export function badRequest400Response<TBody>(
 export function unauthorized401Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.UNAUTHORIZED, body);
+  return createLambdaResponse(HttpStatus.ClientError.UNAUTHORIZED, body);
 }
 
 /**
@@ -112,7 +95,7 @@ export function unauthorized401Response<TBody>(
 export function forbidden403Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.FORBIDDEN, body);
+  return createLambdaResponse(HttpStatus.ClientError.FORBIDDEN, body);
 }
 
 /**
@@ -120,10 +103,8 @@ export function forbidden403Response<TBody>(
  * @param body Error body
  * @returns Lambda response with 404 status code
  */
-export function notFound404Response<TBody>(
-  body: TBody
-): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.NOT_FOUND, body);
+export function notFound404Response<TBody>(body: TBody): APIGatewayProxyResult {
+  return createLambdaResponse(HttpStatus.ClientError.NOT_FOUND, body);
 }
 
 /**
@@ -134,7 +115,7 @@ export function notFound404Response<TBody>(
 export function methodNotAllowed405Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.METHOD_NOT_ALLOWED, body);
+  return createLambdaResponse(HttpStatus.ClientError.METHOD_NOT_ALLOWED, body);
 }
 
 /**
@@ -143,7 +124,7 @@ export function methodNotAllowed405Response<TBody>(
  * @returns Lambda response with 409 status code
  */
 export function conflict409Response<TBody>(body: TBody): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.CONFLICT, body);
+  return createLambdaResponse(HttpStatus.ClientError.CONFLICT, body);
 }
 
 /**
@@ -154,7 +135,7 @@ export function conflict409Response<TBody>(body: TBody): APIGatewayProxyResult {
 export function unprocessableEntity422Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(
+  return createLambdaResponse(
     HttpStatus.ClientError.UNPROCESSABLE_ENTITY,
     body
   );
@@ -168,7 +149,7 @@ export function unprocessableEntity422Response<TBody>(
 export function tooManyRequests429Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ClientError.TOO_MANY_REQUESTS, body);
+  return createLambdaResponse(HttpStatus.ClientError.TOO_MANY_REQUESTS, body);
 }
 
 // ============================================================================
@@ -183,7 +164,7 @@ export function tooManyRequests429Response<TBody>(
 export function internalServerError500Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(
+  return createLambdaResponse(
     HttpStatus.ServerError.INTERNAL_SERVER_ERROR,
     body
   );
@@ -197,7 +178,7 @@ export function internalServerError500Response<TBody>(
 export function notImplemented501Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.NOT_IMPLEMENTED, body);
+  return createLambdaResponse(HttpStatus.ServerError.NOT_IMPLEMENTED, body);
 }
 
 /**
@@ -208,7 +189,7 @@ export function notImplemented501Response<TBody>(
 export function badGateway502Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.BAD_GATEWAY, body);
+  return createLambdaResponse(HttpStatus.ServerError.BAD_GATEWAY, body);
 }
 
 /**
@@ -219,10 +200,7 @@ export function badGateway502Response<TBody>(
 export function serviceUnavailable503Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(
-    HttpStatus.ServerError.SERVICE_UNAVAILABLE,
-    body
-  );
+  return createLambdaResponse(HttpStatus.ServerError.SERVICE_UNAVAILABLE, body);
 }
 
 /**
@@ -233,5 +211,5 @@ export function serviceUnavailable503Response<TBody>(
 export function gatewayTimeout504Response<TBody>(
   body: TBody
 ): APIGatewayProxyResult {
-  return createErrorResponse(HttpStatus.ServerError.GATEWAY_TIMEOUT, body);
+  return createLambdaResponse(HttpStatus.ServerError.GATEWAY_TIMEOUT, body);
 }
