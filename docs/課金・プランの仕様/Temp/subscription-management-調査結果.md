@@ -1,585 +1,344 @@
-# Subscription Management実装調査結果
+# Subscription Management責務 Internal関数 調査結果
 
 ## 調査概要
-- **調査日時**: 2025-11-13
-- **調査対象**: Subscription Management責務の実装状況
-- **調査箇所**:
-  - `/packages/cdk/lib/construct/api/subscription-management.ts` (CDK構成)
-  - `/packages/cdk/lambda/billing/admin/subscription-management/` (Lambda関数実装)
-  - `/packages/cdk/lambda/repositories/subscriptionRepository.ts` (リポジトリ層)
-  - `/packages/cdk/lambda/repositories/userPlanApplicationRepository.ts` (リポジトリ層)
 
----
+**調査日時**: 2025-11-14
+**調査対象ディレクトリ**: `packages/cdk/lambda/billing/subscription-management/internal/`
+**調査したファイル数**: 4ファイル（TypeScript実装ファイル）
+**期待されるInternal関数数**: 4関数
 
-## 1. サブスクリプションCRUD API
+## createSubscription関数
 
-### 1.1 実装状況
+### 実装状況: **実装済み**
 
-#### ✅ 実装済み機能
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/subscription-management/internal/createSubscription.ts`
 
-**SubscriptionRepository (リポジトリ層)**
-- ✅ `create()` - サブスクリプション作成
-- ✅ `findById()` - サブスクリプションID検索
-- ✅ `findByPlatformSubscriptionId()` - プラットフォームサブスクリプションID検索
-- ✅ `findByUserId()` - ユーザID検索
-- ✅ `findByUserIdAndStatus()` - ユーザID+ステータス検索
-- ✅ `findActiveByUserId()` - ユーザの有効サブスクリプション取得
-- ✅ `findPendingVerification()` - 検証保留中サブスクリプション一覧
-- ✅ `findExpiringSoon()` - 期限切れ間近のサブスクリプション一覧
-- ✅ `update()` - サブスクリプション更新（汎用）
-- ✅ `cancel()` - サブスクリプションキャンセル
-- ✅ `scheduleCancel()` - 期限終了時キャンセル予約
-- ✅ `extendPeriod()` - 期限延長
+### シグネチャの一致度: **部分一致（軽微な差異あり）**
 
-**管理者向けAPI (Lambda関数)**
-- ✅ `getStatistics` - サブスクリプション統計取得
-- ✅ `listSubscriptions` - サブスクリプション一覧取得（検索・絞り込み・ソート・ページネーション対応）
-- ✅ `getSubscription` - サブスクリプション詳細取得
-- ✅ `approveSubscription` - 検証保留サブスクリプション承認
-- ✅ `rejectSubscription` - 検証保留サブスクリプション却下
+### 実装内容の詳細
 
-**サポートしているステータス一覧**
+**期待される入力パラメータ（技術実装詳細.md）**:
+- tenantId
+- userId
+- planId
+- platform
+- platformSubscriptionId
+- receiptData
+
+**実際の実装の入力パラメータ**:
 ```typescript
-subscription_status:
-  | 'active'              // 有効
-  | 'pending_verification' // 検証保留中
-  | 'past_due'            // 支払い遅延（猶予期間中）
-  | 'canceled'            // キャンセル済み
-  | 'expired'             // 期限切れ
-  | 'rejected'            // 却下済み（管理者による手動却下）
-```
-
-#### ❌ 未実装機能（統括責務で必要）
-
-**Lambda-to-Lambda呼び出し対応**
-- ❌ 現在の実装は管理者向けAPIのみ（API Gateway経由）
-- ❌ 他のLambda関数から直接呼び出すためのインターフェースが存在しない
-- ❌ 統括責務から呼び出す際のエラーハンドリング・リトライ機構が未実装
-
-**サブスクリプションCRUD操作のLambda関数化**
-- ❌ `createSubscription` Lambda関数が存在しない
-- ❌ `updateSubscriptionStatus` Lambda関数が存在しない
-- ❌ `recordPaymentHistory` Lambda関数が存在しない
-- ❌ リポジトリ層のメソッドは存在するが、Lambda関数として公開されていない
-
-### 1.2 必須修正事項
-
-#### 🔴 高優先度: Lambda関数の追加実装
-
-**1. createSubscription Lambda関数**
-- **目的**: 統括責務の購入フローから呼び出し可能にする
-- **入力**:
-  ```typescript
-  {
-    userId: string;
-    planId: string;
-    platformType: 'stripe' | 'apple' | 'google';
-    platformSubscriptionId: string;
-    subscriptionStatus: 'active' | 'pending_verification';
-    currentPeriodStart: string; // ISO 8601
-    currentPeriodEnd: string;   // ISO 8601
-  }
-  ```
-- **出力**:
-  ```typescript
-  {
-    subscriptionId: string;
-    status: string;
-  }
-  ```
-- **実装場所**: `/packages/cdk/lambda/billing/subscription-management/createSubscription.ts`（新規作成）
-
-**2. updateSubscriptionStatus Lambda関数**
-- **目的**: 統括責務のWebhookイベントハンドラーから状態更新を呼び出し可能にする
-- **入力**:
-  ```typescript
-  {
-    subscriptionId: string;
-    newStatus: 'active' | 'past_due' | 'canceled' | 'expired';
-  }
-  ```
-- **出力**:
-  ```typescript
-  {
-    subscriptionId: string;
-    previousStatus: string;
-    newStatus: string;
-    updatedAt: string;
-  }
-  ```
-- **実装場所**: `/packages/cdk/lambda/billing/subscription-management/updateSubscriptionStatus.ts`（新規作成）
-
-**3. extendSubscriptionPeriod Lambda関数**
-- **目的**: 統括責務のWebhookイベントハンドラーから期限延長を呼び出し可能にする
-- **入力**:
-  ```typescript
-  {
-    subscriptionId: string;
-    newPeriodStart: string; // ISO 8601
-    newPeriodEnd: string;   // ISO 8601
-  }
-  ```
-- **出力**:
-  ```typescript
-  {
-    subscriptionId: string;
-    currentPeriodEnd: string;
-  }
-  ```
-- **実装場所**: `/packages/cdk/lambda/billing/subscription-management/extendSubscriptionPeriod.ts`（新規作成）
-
-**4. recordPaymentHistory Lambda関数**
-- **目的**: 支払い履歴を記録する（将来的な監査・レポート用）
-- **注**: 支払い履歴テーブル自体が未実装の可能性あり。将来対応として記載。
-- **実装場所**: `/packages/cdk/lambda/billing/subscription-management/recordPaymentHistory.ts`（新規作成、低優先度）
-
-#### 🟡 中優先度: CDK構成の修正
-
-**CDK構成ファイル修正**
-- **ファイル**: `/packages/cdk/lib/construct/api/subscription-management.ts`
-- **修正内容**:
-  1. 新規Lambda関数の追加（createSubscription, updateSubscriptionStatus, extendSubscriptionPeriod）
-  2. Lambda関数名の環境変数エクスポート（統括責務から参照可能にする）
-  3. Lambda呼び出し権限の付与（統括責務のLambda関数に対して）
-
-**例: 環境変数エクスポート**
-```typescript
-// billing-management-stack.tsで以下を追加
-this.subscriptionMgmtFunctionNames = {
-  create: createSubscriptionFunction.functionName,
-  updateStatus: updateSubscriptionStatusFunction.functionName,
-  extendPeriod: extendSubscriptionPeriodFunction.functionName,
-};
-```
-
----
-
-## 2. 検証保留機能
-
-### 2.1 実装状況
-
-#### ✅ 実装済み機能
-
-**pending_verification状態の管理**
-- ✅ SubscriptionRepository.create()で`subscription_status: 'pending_verification'`を指定可能
-- ✅ SubscriptionRepository.findPendingVerification()で検証保留中サブスクリプション一覧取得
-
-**手動承認・却下API**
-- ✅ `POST /admin/billing/subscriptions/{subscription_id}/approve` - 承認API実装済み
-- ✅ `POST /admin/billing/subscriptions/{subscription_id}/reject` - 却下API実装済み
-
-**承認処理の内容 (approveSubscription.ts)**
-1. ✅ サブスクリプションのステータスを`pending_verification` → `active`に更新
-2. ✅ UserPlanApplication（プラン適用）レコードを作成
-3. ⚠️ TODO: OpenFGAに権限登録（未実装、コメントで記載）
-4. ⚠️ TODO: 利用回数カウンター初期化（未実装、コメントで記載）
-5. ⚠️ TODO: ユーザ通知送信（未実装、コメントで記載）
-6. ⚠️ TODO: 監査ログ記録（未実装、コメントで記載）
-
-**却下処理の内容 (rejectSubscription.ts)**
-1. ✅ サブスクリプションのステータスを`pending_verification` → `rejected`に更新
-2. ⚠️ TODO: 却下理由・却下管理者の記録（履歴テーブルへ、未実装）
-3. ⚠️ TODO: ユーザ通知送信（未実装、コメントで記載）
-4. ⚠️ TODO: 監査ログ記録（未実装、コメントで記載）
-
-**保留中サブスクリプション一覧取得**
-- ✅ `GET /admin/billing/subscriptions?status=pending_verification`で取得可能
-- ✅ listSubscriptions APIのフィルタ機能で実装済み
-
-### 2.2 必須修正事項
-
-#### 🔴 高優先度: 承認・却下後の連携処理
-
-**1. 権限管理サービス連携（OpenFGA/カウント機構）**
-- **現状**: TODOコメントのみ、実装なし
-- **必要な処理**:
-  - 承認時: プランの`permissions.features`に基づいてOpenFGAに権限登録
-  - 承認時: プランの`permissions.limits`に基づいてカウンター初期化
-  - 却下時: 権限付与なし（何もしない）
-- **対応**: 統括責務実装時に`authorizationService`を作成し、承認・却下処理から呼び出す
-
-**2. 履歴テーブルへの記録**
-- **現状**: ステータス変更履歴を記録する機構が存在しない
-- **必要なテーブル**: `subscription_status_history`（新規作成必要）
-  ```sql
-  CREATE TABLE subscription_status_history (
-    history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    subscription_id UUID NOT NULL,
-    previous_status VARCHAR(50) NOT NULL,
-    new_status VARCHAR(50) NOT NULL,
-    changed_by VARCHAR(255),  -- 管理者のユーザ名
-    rejection_reason VARCHAR(50),
-    rejection_details TEXT,
-    changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (subscription_id) REFERENCES subscriptions(subscription_id)
-  );
-  ```
-- **対応**: リポジトリ層に`SubscriptionStatusHistoryRepository`を追加
-
-#### 🟡 中優先度: 通知機能
-
-**3. ユーザ通知の実装**
-- **現状**: TODOコメントのみ、通知サービス自体が未実装
-- **必要な処理**:
-  - 承認時: 「プランが有効になりました」通知
-  - 却下時: 「検証に失敗しました。サポートにお問い合わせください」通知
-- **対応**: 将来的に通知サービスが実装されたら連携
-
----
-
-## 3. 状態管理
-
-### 3.1 実装状況
-
-#### ✅ サポートしているステータス一覧
-
-**Subscription.subscription_status型定義** (`/packages/cdk/lambda/repositories/types.ts`)
-```typescript
-subscription_status:
-  | 'active'              // 有効
-  | 'pending_verification' // 検証保留中
-  | 'past_due'            // 支払い遅延
-  | 'canceled'            // キャンセル済み
-  | 'expired'             // 期限切れ
-  | 'rejected'            // 却下済み
-```
-
-**UserPlanApplication.application_status型定義**
-```typescript
-application_status:
-  | 'active'              // 有効
-  | 'scheduled_termination' // 解約予定（期限終了時まで有効）
-  | 'expired'             // 期限切れ
-```
-
-#### ✅ 実装済み状態遷移
-
-**SubscriptionRepository**
-- ✅ `cancel()` - active → canceled
-- ✅ `scheduleCancel()` - active → cancel_at_period_end=true（scheduled_cancellationに相当）
-- ✅ `extendPeriod()` - 期限延長（activeのまま期限更新）
-- ✅ `update()` - 任意のステータスへの更新
-
-**UserPlanApplicationRepository**
-- ✅ `scheduleTermination()` - active → scheduled_termination
-- ✅ `expire()` - scheduled_termination → expired
-- ✅ `extendValidity()` - 期限延長（activeのままvalid_until更新）
-
-### 3.2 scheduled_cancellation状態のサポート
-
-#### ⚠️ 部分実装
-
-**現状の実装**
-- Subscription型に`cancel_at_period_end: boolean`フィールドが存在
-- SubscriptionRepository.scheduleCancel()で`cancel_at_period_end: true`に設定可能
-- **ただし**、`subscription_status`は`active`のまま維持
-
-**技術実装詳細.mdの期待仕様**
-```typescript
-// 期待: scheduled_cancellation という明示的なステータス
-subscription_status: 'scheduled_cancellation'
-```
-
-**現在の実装方式**
-```typescript
-// 実装: フラグで表現
-subscription_status: 'active'
-cancel_at_period_end: true
-```
-
-#### 差異の分析
-
-**判断**:
-- 現在の実装方式（`cancel_at_period_end`フラグ）はStripe標準の実装方式と一致
-- Apple/Googleのサブスクリプションでも同様のパターンが一般的
-- **結論**: 明示的な`scheduled_cancellation`ステータスを追加せず、現在の実装方式を維持することを推奨
-- ただし、統括責務のドキュメントで「scheduled_cancellationは`status: active && cancel_at_period_end: true`で表現する」と明記する必要あり
-
-### 3.3 必須修正事項
-
-#### 🟢 低優先度: ドキュメント修正のみ
-
-**1. scheduled_cancellation表現方法の明確化**
-- **対応**: 技術実装詳細.mdに以下を追記
-  ```markdown
-  ## scheduled_cancellation状態の表現方法
-
-  scheduled_cancellation状態は、subscription_statusフィールドに独立したステータスとして
-  持たず、以下の組み合わせで表現します:
-
-  - subscription_status: 'active'
-  - cancel_at_period_end: true
-
-  この実装方式はStripe標準のサブスクリプション管理方式と一致します。
-  ```
-
----
-
-## 4. Lambda関数の呼び出しインターフェース
-
-### 4.1 実装状況
-
-#### ❌ 現状: Lambda-to-Lambda呼び出し未対応
-
-**管理者向けAPIのみ実装**
-- 現在の実装は`API Gateway → Lambda`の構成のみ
-- 入力: APIGatewayProxyEvent（HTTP リクエスト）
-- 出力: APIGatewayProxyResult（HTTP レスポンス）
-
-**問題点**
-- 統括責務のLambda関数から直接呼び出すことができない
-- AWS SDK Lambda.invoke()で呼び出す際、API Gateway用のイベント構造を手動構築する必要がある
-- エラーハンドリングがHTTPステータスコードに依存しており、Lambda間呼び出しに不向き
-
-### 4.2 必須修正事項
-
-#### 🔴 高優先度: Lambda-to-Lambda呼び出し用の関数追加
-
-**アプローチ1: 既存関数を汎用化（非推奨）**
-- 既存の管理者向けAPI関数を、API Gateway経由と直接呼び出しの両方に対応させる
-- **デメリット**: 認証機構の複雑化、入力バリデーションの二重化
-
-**アプローチ2: 内部用Lambda関数の追加（推奨）**
-- `/packages/cdk/lambda/billing/subscription-management/internal/`配下に内部用関数を作成
-- API Gateway非公開、Lambda-to-Lambda呼び出し専用
-- エラーハンドリングは例外スローベース（HTTPステータスコード非依存）
-
-**必要な内部用Lambda関数**
-
-**1. createSubscription（内部用）**
-- **ファイル**: `/packages/cdk/lambda/billing/subscription-management/internal/createSubscription.ts`
-- **入力形式**:
-  ```typescript
-  interface CreateSubscriptionInput {
-    userId: string;
-    planId: string;
-    platformType: 'stripe' | 'apple' | 'google';
-    platformSubscriptionId: string;
-    subscriptionStatus: 'active' | 'pending_verification';
-    currentPeriodStart: string;
-    currentPeriodEnd: string;
-  }
-  ```
-- **出力形式**:
-  ```typescript
-  interface CreateSubscriptionOutput {
-    subscriptionId: string;
-    status: 'active' | 'pending_verification';
-  }
-  ```
-- **エラーハンドリング**: 例外をスロー（エラーメッセージとエラーコードを含む）
-
-**2. updateSubscriptionStatus（内部用）**
-- **ファイル**: `/packages/cdk/lambda/billing/subscription-management/internal/updateSubscriptionStatus.ts`
-- **入力形式**:
-  ```typescript
-  interface UpdateSubscriptionStatusInput {
-    subscriptionId: string;
-    newStatus: 'active' | 'past_due' | 'canceled' | 'expired';
-  }
-  ```
-- **出力形式**:
-  ```typescript
-  interface UpdateSubscriptionStatusOutput {
-    subscriptionId: string;
-    previousStatus: string;
-    newStatus: string;
-    updatedAt: string;
-  }
-  ```
-
-**3. getSubscription（内部用）**
-- **ファイル**: `/packages/cdk/lambda/billing/subscription-management/internal/getSubscription.ts`
-- **入力形式**:
-  ```typescript
-  interface GetSubscriptionInput {
-    subscriptionId: string;
-  }
-  ```
-- **出力形式**:
-  ```typescript
-  interface GetSubscriptionOutput {
-    subscription: Subscription;
-  }
-  ```
-
-**4. extendSubscriptionPeriod（内部用）**
-- **ファイル**: `/packages/cdk/lambda/billing/subscription-management/internal/extendSubscriptionPeriod.ts`
-- **入力形式**:
-  ```typescript
-  interface ExtendSubscriptionPeriodInput {
-    subscriptionId: string;
-    newPeriodStart: string;
-    newPeriodEnd: string;
-  }
-  ```
-- **出力形式**:
-  ```typescript
-  interface ExtendSubscriptionPeriodOutput {
-    subscriptionId: string;
-    currentPeriodEnd: string;
-  }
-  ```
-
-#### 🟡 中優先度: CDK構成の追加
-
-**CDK構成ファイル修正**
-- **ファイル**: `/packages/cdk/lib/construct/api/subscription-management.ts`
-- **修正内容**:
-  1. 内部用Lambda関数を追加（API Gatewayには紐付けない）
-  2. Lambda関数名をエクスポート（統括責務から参照可能にする）
-  3. Lambda呼び出し権限の付与
-
-**例: Lambda関数名のエクスポート**
-```typescript
-export class SubscriptionManagementApi extends Construct {
-  public readonly internalFunctions = {
-    createSubscription: NodejsFunction;
-    updateSubscriptionStatus: NodejsFunction;
-    getSubscription: NodejsFunction;
-    extendSubscriptionPeriod: NodejsFunction;
-  };
-
-  constructor(...) {
-    // ... 内部用Lambda関数の作成
-    this.internalFunctions.createSubscription = createSubscriptionFunction;
-    this.internalFunctions.updateSubscriptionStatus = updateSubscriptionStatusFunction;
-    // ...
-  }
+export interface CreateSubscriptionInput {
+  userId: string;
+  planId: string;
+  platformType: 'stripe' | 'apple' | 'google';
+  platformSubscriptionId: string;
+  subscriptionStatus: 'active' | 'pending_verification';
+  currentPeriodStart: string; // ISO 8601
+  currentPeriodEnd: string;   // ISO 8601
+  tenantId: string;
 }
 ```
 
----
+**期待される出力パラメータ（技術実装詳細.md）**:
+- subscriptionId
 
-## 5. 統括責務実装のための必須修正事項まとめ
+**実際の実装の出力パラメータ**:
+```typescript
+export interface CreateSubscriptionOutput {
+  subscriptionId: string;
+  status: 'active' | 'pending_verification';
+}
+```
 
-### 5.1 実装が必須の項目
+### 問題点
 
-#### 🔴 Pハイ: Lambda-to-Lambda呼び出し対応（統括責務実装前に必須）
+1. **パラメータ名の不一致**:
+   - 期待: `platform` → 実装: `platformType`
+   - これは許容範囲の違いだが、統括責務からの呼び出し時にパラメータ名を正確に合わせる必要がある
 
-- [ ] **修正1**: 内部用createSubscription Lambda関数の実装
-  - 場所: `/packages/cdk/lambda/billing/subscription-management/internal/createSubscription.ts`
-  - 理由: 統括責務の購入フローから呼び出すため
-  - 実装工数: 0.5日
+2. **receiptDataパラメータの欠落**:
+   - 技術実装詳細.mdでは`receiptData`が期待されているが、実装には存在しない
+   - 代わりに`subscriptionStatus`、`currentPeriodStart`、`currentPeriodEnd`が追加されている
+   - これは設計変更と思われる（レシート検証は統括責務側で実施し、検証済みの情報をこの関数に渡す方式）
 
-- [ ] **修正2**: 内部用updateSubscriptionStatus Lambda関数の実装
-  - 場所: `/packages/cdk/lambda/billing/subscription-management/internal/updateSubscriptionStatus.ts`
-  - 理由: 統括責務のWebhookイベントハンドラーから状態更新を呼び出すため
-  - 実装工数: 0.5日
+3. **Lambda関数としての定義**: ✅ 正しく実装されている
+   - CDKでLambda関数として定義されている（`subscription-management.ts`で確認済み）
+   - 関数名: `${environment}-billing-subscription-internal-create`
 
-- [ ] **修正3**: 内部用getSubscription Lambda関数の実装
-  - 場所: `/packages/cdk/lambda/billing/subscription-management/internal/getSubscription.ts`
-  - 理由: 統括責務のプラン変更フロー・解約フローから現在の状態を取得するため
-  - 実装工数: 0.3日
-
-- [ ] **修正4**: 内部用extendSubscriptionPeriod Lambda関数の実装
-  - 場所: `/packages/cdk/lambda/billing/subscription-management/internal/extendSubscriptionPeriod.ts`
-  - 理由: 統括責務のWebhookイベントハンドラー（payment.succeeded）から期限延長を呼び出すため
-  - 実装工数: 0.3日
-
-- [ ] **修正5**: CDK構成の修正（内部用Lambda関数の追加）
-  - 場所: `/packages/cdk/lib/construct/api/subscription-management.ts`
-  - 内容:
-    - 内部用Lambda関数の作成
-    - Lambda関数名のエクスポート
-    - Lambda呼び出し権限の付与
-  - 実装工数: 0.5日
-
-#### 🟡 中優先度: 権限管理・履歴記録（統括責務実装と並行可能）
-
-- [ ] **修正6**: SubscriptionStatusHistoryRepository の実装
-  - 場所: `/packages/cdk/lambda/repositories/subscriptionStatusHistoryRepository.ts`
-  - 理由: 承認・却下の履歴を記録するため
-  - 実装工数: 0.5日
-  - 備考: RDBにsubscription_status_historyテーブルの追加が必要
-
-- [ ] **修正7**: approveSubscription/rejectSubscriptionでの履歴記録処理追加
-  - 場所:
-    - `/packages/cdk/lambda/billing/admin/subscription-management/approveSubscription.ts`
-    - `/packages/cdk/lambda/billing/admin/subscription-management/rejectSubscription.ts`
-  - 実装工数: 0.3日
-
-- [ ] **修正8**: 権限管理サービス連携（OpenFGA/カウント機構）
-  - 場所: approveSubscription.ts内のTODO箇所
-  - 理由: プラン承認時に権限を付与する
-  - 実装工数: 1.0日（権限管理サービスの実装状況に依存）
-  - 備考: 権限管理サービスが未実装の場合、モック実装で代替
-
-### 5.2 ドキュメント修正のみで対応可能な項目
-
-- [ ] **修正9**: scheduled_cancellation状態の表現方法を技術実装詳細.mdに明記
-  - 理由: 現在の実装（`cancel_at_period_end`フラグ）と期待仕様の差異を明確化
-  - 実装工数: 0.1日
-
-### 5.3 将来対応（統括責務実装には不要）
-
-- [ ] 修正10: recordPaymentHistory Lambda関数の実装（低優先度）
-- [ ] 修正11: ユーザ通知機能の連携（通知サービス実装後）
+### Lambda関数定義状況
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lib/construct/api/subscription-management.ts` の143-152行目で定義済み:
+```typescript
+const createSubscriptionFunction = new NodejsFunction(
+  this,
+  'InternalCreateSubscription',
+  {
+    ...commonLambdaConfig,
+    entry: './lambda/billing/subscription-management/internal/createSubscription.ts',
+    functionName: `${environment}-billing-subscription-internal-create`,
+  }
+);
+```
 
 ---
 
-## 6. 実装優先度と推奨スケジュール
+## updateSubscriptionStatus関数
 
-### フェーズ1: 統括責務実装前の準備（必須、推定2.5日）
-1. 内部用createSubscription Lambda関数実装（0.5日）
-2. 内部用updateSubscriptionStatus Lambda関数実装（0.5日）
-3. 内部用getSubscription Lambda関数実装（0.3日）
-4. 内部用extendSubscriptionPeriod Lambda関数実装（0.3日）
-5. CDK構成の修正（0.5日）
-6. scheduled_cancellationドキュメント修正（0.1日）
-7. 単体テスト作成（0.7日）
+### 実装状況: **実装済み**
 
-### フェーズ2: 統括責務実装と並行（並行可能、推定1.8日）
-8. SubscriptionStatusHistoryRepository実装（0.5日）
-9. 履歴記録処理の追加（0.3日）
-10. 権限管理サービス連携（1.0日、または権限管理サービス実装完了まで保留）
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/subscription-management/internal/updateSubscriptionStatus.ts`
 
-### フェーズ3: 将来対応（統括責務実装後）
-11. recordPaymentHistory実装
-12. ユーザ通知連携
+### シグネチャの一致度: **部分一致（軽微な差異あり）**
+
+### 実装内容の詳細
+
+**期待される入力パラメータ（技術実装詳細.md）**:
+- tenantId
+- subscriptionId
+- status
+- statusReason
+
+**実際の実装の入力パラメータ**:
+```typescript
+export interface UpdateSubscriptionStatusInput {
+  subscriptionId: string;
+  newStatus: 'active' | 'past_due' | 'canceled' | 'expired';
+  tenantId: string;
+}
+```
+
+**期待される出力パラメータ（技術実装詳細.md）**: （明示的な記載なし）
+
+**実際の実装の出力パラメータ**:
+```typescript
+export interface UpdateSubscriptionStatusOutput {
+  subscriptionId: string;
+  previousStatus: string;
+  newStatus: string;
+  updatedAt: string;
+}
+```
+
+### 問題点
+
+1. **パラメータ名の不一致**:
+   - 期待: `status` → 実装: `newStatus`
+   - これは許容範囲の違いだが、統括責務からの呼び出し時にパラメータ名を正確に合わせる必要がある
+
+2. **statusReasonパラメータの欠落**:
+   - 技術実装詳細.mdでは`statusReason`が期待されているが、実装には存在しない
+   - ステータス変更理由を記録できない
+
+3. **Lambda関数としての定義**: ✅ 正しく実装されている
+   - CDKでLambda関数として定義されている
+   - 関数名: `${environment}-billing-subscription-internal-update-status`
+
+### Lambda関数定義状況
+`subscription-management.ts` の155-164行目で定義済み。
 
 ---
 
-## 7. リスクと対策
+## getSubscription関数
 
-### リスク1: 権限管理サービス未実装
-- **影響**: 承認処理で権限付与ができない
-- **対策**:
-  - 短期: モック実装で代替（ログ出力のみ）
-  - 長期: 権限管理サービス実装完了後に連携
+### 実装状況: **実装済み**
 
-### リスク2: Lambda-to-Lambda呼び出しのレイテンシー
-- **影響**: 統括責務のフロー実行時間が増加
-- **対策**:
-  - 各Lambda関数の処理時間を最適化
-  - 必要に応じて並列実行を検討
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/subscription-management/internal/getSubscription.ts`
 
-### リスク3: RDB接続プール枯渇
-- **影響**: 同時実行数が多い場合にDB接続エラー
-- **対策**:
-  - RDS Proxyの接続プール設定を調整
-  - Lambda関数内での適切な接続管理（接続リークの防止）
+### シグネチャの一致度: **完全一致**
+
+### 実装内容の詳細
+
+**期待される入力パラメータ（技術実装詳細.md）**:
+- tenantId
+- subscriptionId
+
+**実際の実装の入力パラメータ**:
+```typescript
+export interface GetSubscriptionInput {
+  subscriptionId: string;
+  tenantId: string;
+}
+```
+
+**期待される出力パラメータ（技術実装詳細.md）**:
+- サブスクリプション情報
+
+**実際の実装の出力パラメータ**:
+```typescript
+export interface GetSubscriptionOutput {
+  subscription: {
+    subscriptionId: string;
+    userId: string;
+    planId: string;
+    platformType: 'stripe' | 'apple' | 'google';
+    platformSubscriptionId: string;
+    subscriptionStatus: Subscription['subscription_status'];
+    currentPeriodStart: string;
+    currentPeriodEnd: string;
+    cancelAtPeriodEnd: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+```
+
+### 問題点
+
+**問題なし** - 期待通りに実装されている
+
+### Lambda関数としての定義
+✅ 正しく実装されている
+- CDKでLambda関数として定義されている
+- 関数名: `${environment}-billing-subscription-internal-get`
+
+### Lambda関数定義状況
+`subscription-management.ts` の167-176行目で定義済み。
 
 ---
 
-## 8. 結論
+## extendSubscriptionPeriod関数
 
-### 現状評価
-- **良好な点**:
-  - リポジトリ層のCRUD操作は充実している
-  - 管理者向けAPIは完成度が高い
-  - 検証保留機能の基本実装は完了している
-- **課題**:
-  - Lambda-to-Lambda呼び出し対応が未実装
-  - 権限管理サービス連携が未完成
-  - 履歴記録機構が存在しない
+### 実装状況: **実装済み**
 
-### 統括責務実装への影響
-- **必須修正事項**: 5項目（フェーズ1）を完了すれば統括責務実装に進める
-- **推定工数**: 2.5日（テスト込み）
-- **並行実装可能**: 権限管理・履歴記録はフェーズ2として並行実装可能
+### ファイルパス
+`/Users/hosoya.naoki/Documents/genu-gaixer/generative-ai-use-cases/packages/cdk/lambda/billing/subscription-management/internal/extendSubscriptionPeriod.ts`
 
-### 推奨アクション
-1. フェーズ1の修正（内部用Lambda関数追加）を最優先で実施
-2. 統括責務実装と並行してフェーズ2（権限管理・履歴）を進める
-3. scheduled_cancellation表現方法をドキュメントに明記
+### シグネチャの一致度: **部分一致（パラメータ名の違い）**
+
+### 実装内容の詳細
+
+**期待される入力パラメータ（技術実装詳細.md）**:
+- tenantId
+- subscriptionId
+- newExpiresAt
+
+**実際の実装の入力パラメータ**:
+```typescript
+export interface ExtendSubscriptionPeriodInput {
+  subscriptionId: string;
+  newPeriodStart: string; // ISO 8601
+  newPeriodEnd: string;   // ISO 8601
+  tenantId: string;
+}
+```
+
+**期待される出力パラメータ（技術実装詳細.md）**: （明示的な記載なし）
+
+**実際の実装の出力パラメータ**:
+```typescript
+export interface ExtendSubscriptionPeriodOutput {
+  subscriptionId: string;
+  currentPeriodEnd: string;
+}
+```
+
+### 問題点
+
+1. **パラメータの違い**:
+   - 期待: `newExpiresAt`（1つの日時）
+   - 実装: `newPeriodStart` + `newPeriodEnd`（2つの日時）
+   - これは実装が技術実装詳細.mdより詳細になっている（開始日時と終了日時の両方を指定）
+   - 統括責務から呼び出す際は、この2つのパラメータを渡す必要がある
+
+2. **scheduled_cancellation対応**: ✅ 実装されている
+   - `cancel_at_period_end: true`の場合は期限延長をスキップする処理が実装されている
+   - これは技術実装詳細.mdの期待と一致している（213行目の記載を参照）
+
+3. **Lambda関数としての定義**: ✅ 正しく実装されている
+   - CDKでLambda関数として定義されている
+   - 関数名: `${environment}-billing-subscription-internal-extend-period`
+
+### Lambda関数定義状況
+`subscription-management.ts` の179-188行目で定義済み。
+
+---
+
+## 統括責務が動作する上で必須の修正事項
+
+### 1. **パラメータマッピングの調整が必要**
+
+統括責務（Orchestration）のClientモジュール（`subscriptionManagementClient.ts`）を実装する際、以下のパラメータ名の違いに注意する必要があります:
+
+| 技術実装詳細.mdの記載 | 実際の実装 | 関数名 |
+|---------------------|-----------|--------|
+| `platform` | `platformType` | createSubscription |
+| `receiptData` | （存在しない） | createSubscription |
+| `status` | `newStatus` | updateSubscriptionStatus |
+| `statusReason` | （存在しない） | updateSubscriptionStatus |
+| `newExpiresAt` | `newPeriodStart` + `newPeriodEnd` | extendSubscriptionPeriod |
+
+### 2. **createSubscription関数の入力パラメータ追加が必要**
+
+統括責務から`createSubscription`を呼び出す際、以下のパラメータを追加で渡す必要があります:
+- `subscriptionStatus`: 'active' または 'pending_verification'
+- `currentPeriodStart`: サブスクリプション開始日時（ISO 8601形式）
+- `currentPeriodEnd`: サブスクリプション終了日時（ISO 8601形式）
+
+これらの情報は、統括責務側でレシート検証時に取得し、この関数に渡す必要があります。
+
+### 3. **extendSubscriptionPeriod関数の呼び出し方法調整**
+
+技術実装詳細.mdでは`newExpiresAt`（1つの日時）を渡すことを想定していますが、実装では`newPeriodStart`と`newPeriodEnd`（2つの日時）を渡す必要があります。
+
+統括責務のWebhookイベント処理フロー（webhookEventFlow.ts）では、Webhookイベントから取得した期間情報を2つのパラメータに分けて渡す実装が必要です。
+
+### 4. **statusReason の設計判断が必要**
+
+`updateSubscriptionStatus`関数に`statusReason`パラメータが存在しないため、ステータス変更理由を記録できません。
+
+**選択肢**:
+1. **現状のまま受け入れる**: ステータス変更理由は記録しない（シンプルな実装）
+2. **パラメータを追加する**: `UpdateSubscriptionStatusInput`に`statusReason`（optional）を追加し、Repositoryレベルで対応する
+
+技術実装詳細.mdでは`statusReason`が期待されているため、追加を推奨しますが、統括責務が動作する上での必須事項ではありません（オプショナルな機能）。
+
+---
+
+## 補足事項
+
+### 1. CDK Construct での公開
+
+`subscription-management.ts`の83-88行目および191-196行目で、4つのInternal関数が正しくエクスポートされています:
+
+```typescript
+public readonly internalFunctions: {
+  createSubscription: NodejsFunction;
+  updateSubscriptionStatus: NodejsFunction;
+  getSubscription: NodejsFunction;
+  extendSubscriptionPeriod: NodejsFunction;
+};
+```
+
+これにより、統括責務（OrchestrationConstruct）から参照可能になっています。
+
+### 2. IAM権限の設定
+
+`subscription-management.ts`の318-361行目で、各Lambda関数に必要なIAM権限が適切に設定されています:
+- テナントテーブル読み取り権限
+- Cognito権限
+- RDS IAM認証権限
+
+統括責務のLambda関数には、これらのInternal関数を呼び出すための`lambda:InvokeFunction`権限を付与する必要があります。
+
+### 3. エラーハンドリング
+
+すべてのInternal関数で、適切なエラークラスとエラーハンドリングが実装されています:
+- `CreateSubscriptionError`
+- `UpdateSubscriptionStatusError`
+- `GetSubscriptionError`
+- `ExtendSubscriptionPeriodError`
+
+統括責務から呼び出す際は、これらのエラーをキャッチして適切に処理する必要があります。
+
+### 4. RDS接続の実装
+
+すべてのInternal関数で、`tenantId`を使用したマルチテナント対応のRDS接続が実装されています。統括責務から呼び出す際は、必ず`tenantId`を渡す必要があります。
+
+### 5. 冪等性の考慮
+
+- `updateSubscriptionStatus`関数: 同じステータスへの更新は許可（119-132行目）
+- `extendSubscriptionPeriod`関数: `cancel_at_period_end: true`の場合はスキップ（119-130行目）
+
+これらの実装により、統括責務からのリトライ時に冪等性が保証されます。
