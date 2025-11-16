@@ -5,6 +5,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration, Stack } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export type PredictApiProps = GenericApiProps;
 
@@ -171,6 +172,21 @@ class PredictApi extends Construct {
     if (tenantManager) {
       tenantManager.tenantsTable.grantReadData(predictStreamFunction);
       tenantManager.tenantsTable.grantReadData(predictFunction);
+
+      // Grant SSM Parameter Store read permissions for OpenFGA configuration
+      // This allows Lambda functions to retrieve OpenFGA configuration from SSM after assuming tenant role
+      const ssmParameterReadPolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiEndpoint`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiRegion`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaStoreId`,
+        ],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
+      predictFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
     }
     if (sagemakerPolicy) {
       predictFunction.role?.addToPrincipalPolicy(sagemakerPolicy);

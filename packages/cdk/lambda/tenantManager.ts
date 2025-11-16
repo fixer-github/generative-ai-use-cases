@@ -41,9 +41,6 @@ export interface Tenant {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
-  openFgaApiEndpoint: string;
-  openFgaApiRegion: string;
-  openFgaStoreId: string;
 }
 
 // Request interfaces
@@ -55,9 +52,6 @@ interface RegisterTenantRequest {
   accountId: string;
   roleArn: string;
   ipAccessControl?: IpAccessControl;
-  openFgaApiEndpoint: string;
-  openFgaApiRegion: string;
-  openFgaStoreId: string;
 }
 
 interface UpdateTenantRequest {
@@ -71,9 +65,6 @@ interface UpdateTenantRequest {
   openSearchDomainArn?: string | null;
   openSearchEndpoint?: string | null;
   openSearchIndexName?: string | null;
-  openFgaApiEndpoint?: string;
-  openFgaApiRegion?: string;
-  openFgaStoreId?: string;
 }
 
 /**
@@ -116,9 +107,6 @@ export async function registerTenant(
     metadata: request.metadata || {},
     accountId: request.accountId,
     roleArn: request.roleArn,
-    openFgaApiEndpoint: request.openFgaApiEndpoint,
-    openFgaApiRegion: request.openFgaApiRegion,
-    openFgaStoreId: request.openFgaStoreId,
   };
 
   // Add IP access control if provided
@@ -282,26 +270,6 @@ export async function updateTenant(
           'openSearchIndexName';
       }
     }
-
-    if (request.openFgaApiEndpoint !== undefined) {
-      updateExpression.push('#openFgaApiEndpoint = :openFgaApiEndpoint');
-      expressionAttributeNames['#openFgaApiEndpoint'] = 'openFgaApiEndpoint';
-      expressionAttributeValues[':openFgaApiEndpoint'] =
-        request.openFgaApiEndpoint;
-    }
-
-    if (request.openFgaApiRegion !== undefined) {
-      updateExpression.push('#openFgaApiRegion = :openFgaApiRegion');
-      expressionAttributeNames['#openFgaApiRegion'] = 'openFgaApiRegion';
-      expressionAttributeValues[':openFgaApiRegion'] = request.openFgaApiRegion;
-    }
-
-    if (request.openFgaStoreId !== undefined) {
-      updateExpression.push('#openFgaStoreId = :openFgaStoreId');
-      expressionAttributeNames['#openFgaStoreId'] = 'openFgaStoreId';
-      expressionAttributeValues[':openFgaStoreId'] = request.openFgaStoreId;
-    }
-
     // Always update updatedAt
     updateExpression.push('#updatedAt = :updatedAt');
     expressionAttributeNames['#updatedAt'] = 'updatedAt';

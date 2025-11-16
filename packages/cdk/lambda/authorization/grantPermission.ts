@@ -18,6 +18,7 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import { getOpenFgaConfig } from '../utils/tenantSsmParameters';
 
 const stsClient = new STSClient();
 
@@ -176,7 +177,14 @@ export const handler = async (
       SessionToken: assumeRoleResponse.Credentials.SessionToken,
     };
 
-    // 4. OpenFGAに権限を登録
+    // 4. OpenFGA設定をSSM Parameter Storeから取得
+    const openFgaConfig = await getOpenFgaConfig(
+      tenantId,
+      assumeRoleResponse.Credentials,
+      tenant.region
+    );
+
+    // 5. OpenFGAに権限を登録
     const tupleKeys = features.map((feature) => ({
       user: `user:${userId}`,
       relation: 'can_access',
@@ -197,9 +205,9 @@ export const handler = async (
     try {
       await makeSignedOpenFgaRequest(
         'POST',
-        `/stores/${tenant.openFgaStoreId}/write`,
-        tenant.openFgaApiEndpoint,
-        tenant.openFgaApiRegion || tenant.region,
+        `/stores/${openFgaConfig.storeId}/write`,
+        openFgaConfig.apiEndpoint,
+        openFgaConfig.apiRegion,
         credentials,
         JSON.stringify(writeTuplesBody)
       );
@@ -208,7 +216,7 @@ export const handler = async (
       throw new Error(`Failed to write to OpenFGA: ${openFgaError}`);
     }
 
-    // 5. DynamoDBにカウンター情報を作成
+    // 6. DynamoDBにカウンター情報を作成
     const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
       tenantId
     );
@@ -261,7 +269,7 @@ export const handler = async (
         }
       }
 
-      // 6. 権限付与履歴をDynamoDBに記録
+      // 7. 権限付与履歴をDynamoDBに記録
       await permissionGrantRepository.create({
         grantId,
         userId,
@@ -289,9 +297,9 @@ export const handler = async (
       try {
         await makeSignedOpenFgaRequest(
           'POST',
-          `/stores/${tenant.openFgaStoreId}/write`,
-          tenant.openFgaApiEndpoint,
-          tenant.openFgaApiRegion || tenant.region,
+          `/stores/${openFgaConfig.storeId}/write`,
+          openFgaConfig.apiEndpoint,
+          openFgaConfig.apiRegion,
           credentials,
           JSON.stringify(deleteTuplesBody)
         );
@@ -303,7 +311,7 @@ export const handler = async (
       throw new Error(`Failed to write to DynamoDB: ${dynamoError}`);
     }
 
-    // 7. 成功レスポンスを返す
+    // 8. 成功レスポンスを返す
     const response: GrantPermissionResponse = {
       success: true,
       grantId,

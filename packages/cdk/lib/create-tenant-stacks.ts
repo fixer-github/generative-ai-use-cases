@@ -230,10 +230,12 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
-      vpcId: tenantVpcStack.vpc.vpcId,
+      vpc: tenantVpcStack.vpc,
       removalPolicy: params.removalPolicy
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.SNAPSHOT,
+      // deletionProtection is the inverse of enableAutoDelete (removalPolicy)
+      deletionProtection: !params.removalPolicy,
     }
   );
   tenantRdsStack.addDependency(tenantVpcStack);
