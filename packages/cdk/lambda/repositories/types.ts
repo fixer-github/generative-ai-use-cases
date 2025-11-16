@@ -69,7 +69,7 @@ export interface UserPlanApplication {
  * RDS接続設定（IAM認証方式）
  */
 export interface RdsConfig {
-  proxyEndpoint: string; // RDS Proxyのエンドポイント
+  endpoint: string; // RDSのエンドポイント（直接接続）
   port: number;
   database: string;
   region: string;

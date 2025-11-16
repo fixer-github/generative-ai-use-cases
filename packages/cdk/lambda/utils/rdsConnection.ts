@@ -31,27 +31,24 @@ export interface RdsConnectionConfig {
 export async function getRdsConnection(
   event: APIGatewayProxyEvent
 ): Promise<RdsConnectionConfig> {
-  // 1. テナントIDを取得
-  const tenantId = extractTenantId(event);
+  // 1. SSM Parameter StoreからテナントのRDS接続情報を取得
+  const rdsConfig = await getRdsConfig(event);
 
-  // 2. TenantsテーブルからテナントのRDS接続情報を取得
-  const rdsConfig = await getRdsConfig(tenantId);
-
-  // 3. テナント専用のIAMクレデンシャルを取得
+  // 2. テナント専用のIAMクレデンシャルを取得
   const { credentials } = await getTenantCredentials(event);
 
-  // 4. IAM認証トークンを生成
+  // 3. IAM認証トークンを生成
   const authToken = await generateRdsAuthToken({
-    hostname: rdsConfig.proxyEndpoint,
+    hostname: rdsConfig.endpoint,
     port: rdsConfig.port,
     username: rdsConfig.username,
     region: rdsConfig.region,
     credentials: credentials,
   });
 
-  // 5. RDS接続設定を返す
+  // 4. RDS接続設定を返す
   return {
-    host: rdsConfig.proxyEndpoint,
+    host: rdsConfig.endpoint,
     port: rdsConfig.port,
     database: rdsConfig.database,
     user: rdsConfig.username,

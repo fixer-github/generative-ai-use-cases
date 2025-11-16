@@ -27,21 +27,6 @@ export interface AuthorizationSystemProps {
   readonly environment: string;
 
   /**
-   * OpenFGA API Gateway endpoint
-   */
-  readonly openFgaApiEndpoint: string;
-
-  /**
-   * OpenFGA Store ID
-   */
-  readonly openFgaStoreId: string;
-
-  /**
-   * OpenFGA API Region
-   */
-  readonly openFgaApiRegion: string;
-
-  /**
    * Tenant role ARN for cross-account access
    */
   readonly tenantRoleArn: string;
@@ -355,6 +340,26 @@ export class AuthorizationSystem extends Construct {
       this.checkPermissionFunction,
     ].forEach((fn) => {
       fn.addToRolePolicy(openFgaInvokePolicy);
+    });
+
+    // Grant SSM Parameter Store read permissions to all functions that need OpenFGA config
+    // This allows Lambda functions to retrieve OpenFGA configuration from SSM after assuming tenant role
+    const ssmParameterReadPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['ssm:GetParameter'],
+      resources: [
+        `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiEndpoint`,
+        `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiRegion`,
+        `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaStoreId`,
+      ],
+    });
+
+    [
+      this.grantPermissionFunction,
+      this.revokePermissionFunction,
+      this.checkPermissionFunction,
+    ].forEach((fn) => {
+      fn.addToRolePolicy(ssmParameterReadPolicy);
     });
 
     // Grant tenant manager table read permissions for reset function

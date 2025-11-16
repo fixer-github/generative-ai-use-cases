@@ -9,6 +9,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as customResources from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { TenantRds } from '../../construct/tenant-rds';
 import * as path from 'path';
@@ -25,10 +26,9 @@ export interface TenantRdsStackProps extends cdk.StackProps {
   readonly environment: string;
 
   /**
-   * VPC ID to deploy the RDS instance into
-   * If not provided, will look up VPC by tenant ID
+   * VPC to deploy the RDS instance into
    */
-  readonly vpcId?: string;
+  readonly vpc: ec2.IVpc;
 
   /**
    * Database name
@@ -53,6 +53,12 @@ export interface TenantRdsStackProps extends cdk.StackProps {
    * @default RemovalPolicy.SNAPSHOT for prod, RemovalPolicy.DESTROY for dev
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
+
+  /**
+   * Enable deletion protection for RDS instance
+   * @default Based on removalPolicy: false if DESTROY, true otherwise
+   */
+  readonly deletionProtection?: boolean;
 }
 
 /**
@@ -86,15 +92,8 @@ export class TenantRdsStack extends cdk.Stack {
     // Get environment (required parameter)
     const environment = props.environment!;
 
-    // Look up VPC
-    const vpc = props.vpcId
-      ? ec2.Vpc.fromLookup(this, 'Vpc', { vpcId: props.vpcId })
-      : ec2.Vpc.fromLookup(this, 'Vpc', {
-          tags: {
-            TenantId: tenantId.toString(),
-            Environment: environment,
-          },
-        });
+    // Get VPC from props
+    const vpc = props.vpc;
 
     // Create the tenant RDS construct
     this.tenantRds = new TenantRds(this, 'TenantRds', {
@@ -104,28 +103,26 @@ export class TenantRdsStack extends cdk.Stack {
       databaseName: props.databaseName,
       instanceType: props.instanceType,
       removalPolicy: props.removalPolicy,
+      deletionProtection: props.deletionProtection,
     });
 
     // Create security group for migration Lambda
-    const migrationLambdaSg = new ec2.SecurityGroup(
-      this,
-      'MigrationLambdaSg',
-      {
-        vpc,
-        description: 'Security group for database migration Lambda',
-        securityGroupName: `${environment}-${tenantId}-migration-lambda-sg`,
-      }
-    );
+    const migrationLambdaSg = new ec2.SecurityGroup(this, 'MigrationLambdaSg', {
+      vpc,
+      description: 'Security group for database migration Lambda',
+      securityGroupName: `${environment}-${tenantId}-migration-lambda-sg`,
+    });
 
     // Allow migration Lambda to access RDS
     this.tenantRds.grantAccess(migrationLambdaSg);
 
     // Create Lambda function for database migration
-    this.migrationFunction = new lambda.Function(this, 'MigrationFunction', {
+    this.migrationFunction = new NodejsFunction(this, 'MigrationFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'applyMigrations.handler',
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, '../../../lambda/database-migration')
+      handler: 'handler',
+      entry: path.join(
+        __dirname,
+        '../../../lambda/database-migration/applyMigrations.ts'
       ),
       timeout: cdk.Duration.minutes(15),
       memorySize: 512,
@@ -139,6 +136,22 @@ export class TenantRdsStack extends cdk.Stack {
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
       description: `Database migration function for tenant ${tenantId}`,
+      bundling: {
+        commandHooks: {
+          beforeBundling: () => [],
+          afterBundling: (_inputDir: string, outputDir: string): string[] => {
+            const certsSourcePath = path.join(__dirname, '../../../lambda/database-migration/certs/rds-ca-bundle.pem');
+            const migrationsSourcePath = path.join(__dirname, '../../../database/migrations');
+            return [
+              `mkdir -p ${outputDir}/certs`,
+              `cp ${certsSourcePath} ${outputDir}/certs/`,
+              `mkdir -p ${outputDir}/database/migrations`,
+              `cp ${migrationsSourcePath}/*.sql ${outputDir}/database/migrations/`,
+            ];
+          },
+          beforeInstall: () => [],
+        },
+      },
     });
 
     // Grant Lambda permission to read RDS credentials secret

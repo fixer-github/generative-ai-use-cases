@@ -18,6 +18,7 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import { getOpenFgaConfig } from '../utils/tenantSsmParameters';
 
 const stsClient = new STSClient();
 
@@ -173,7 +174,14 @@ export const handler = async (
       SessionToken: assumeRoleResponse.Credentials.SessionToken,
     };
 
-    // 5. OpenFGAから関係性を削除
+    // 5. OpenFGA設定をSSM Parameter Storeから取得
+    const openFgaConfig = await getOpenFgaConfig(
+      tenantId,
+      assumeRoleResponse.Credentials,
+      tenant.region
+    );
+
+    // 6. OpenFGAから関係性を削除
     const tupleKeys = features.map((feature) => ({
       user: `user:${userId}`,
       relation: 'can_access',
@@ -194,9 +202,9 @@ export const handler = async (
     try {
       await makeSignedOpenFgaRequest(
         'POST',
-        `/stores/${tenant.openFgaStoreId}/write`,
-        tenant.openFgaApiEndpoint,
-        tenant.openFgaApiRegion || tenant.region,
+        `/stores/${openFgaConfig.storeId}/write`,
+        openFgaConfig.apiEndpoint,
+        openFgaConfig.apiRegion,
         credentials,
         JSON.stringify(deleteTuplesBody)
       );
@@ -205,7 +213,7 @@ export const handler = async (
       throw new Error(`Failed to delete from OpenFGA: ${openFgaError}`);
     }
 
-    // 6. DynamoDBからカウンター情報を削除
+    // 7. DynamoDBからカウンター情報を削除
     const counters = await usageCountRepository.findByGrantId(grantId);
 
     if (counters.length > 0) {
@@ -221,13 +229,13 @@ export const handler = async (
       );
     }
 
-    // 7. 権限付与履歴の状態を更新
+    // 8. 権限付与履歴の状態を更新
     const now = Math.floor(Date.now() / 1000);
     await permissionGrantRepository.updateStatus(grantId, 'revoked', now);
 
     console.log(`Permission grant ${grantId} revoked successfully`);
 
-    // 8. 成功レスポンスを返す
+    // 9. 成功レスポンスを返す
     const response: RevokePermissionResponse = {
       success: true,
       grantId,
