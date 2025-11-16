@@ -1,81 +1,69 @@
 /**
  * RDS接続設定を取得するユーティリティ関数（IAM認証方式）
+ * SSM Parameter Storeから取得する方式に変更
  */
 
-import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
-import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 import { RdsConfig } from '../repositories/types';
-
-const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
+import { getTenantCredentials } from './tenantCredentials';
+import { extractTenantId } from './assumeRoleWithWebIdentity';
+import { getRdsConfig as getSsmRdsConfig } from './tenantSsmParameters';
 
 // キャッシュ（同一テナントへの連続アクセスを最適化）
-let cachedRdsConfig: RdsConfig | null = null;
-let cachedTenantId: string | null = null;
+// Structure: Map<tenantId, { config: RdsConfig, timestamp: number }>
+const rdsConfigCache = new Map<
+  string,
+  { config: RdsConfig; timestamp: number }
+>();
+
+// Cache TTL: 5 minutes (same as SSM parameter cache)
+const CACHE_TTL = 300000;
 
 /**
- * TenantsテーブルからテナントのRDS接続情報を取得
+ * SSM Parameter StoreからテナントのRDS接続情報を取得
  *
- * @param tenantId テナントID
+ * @param event API Gateway イベント
  * @returns RDS接続設定
  */
-export async function getRdsConfig(tenantId: string): Promise<RdsConfig> {
-  // キャッシュチェック
-  if (cachedRdsConfig && cachedTenantId === tenantId) {
+export async function getRdsConfig(
+  event: APIGatewayProxyEvent
+): Promise<RdsConfig> {
+  // 1. テナントIDを取得
+  const tenantId = extractTenantId(event);
+
+  // 2. キャッシュチェック
+  const cached = rdsConfigCache.get(tenantId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     console.log(`Using cached RDS config for tenant ${tenantId}`);
-    return cachedRdsConfig;
-  }
-
-  const tenantsTableName = process.env.TENANTS_TABLE_NAME;
-
-  if (!tenantsTableName) {
-    throw new Error(
-      'TENANTS_TABLE_NAME environment variable is required for multi-tenant RDS access'
-    );
+    return cached.config;
   }
 
   try {
-    console.log(`Retrieving RDS config for tenant ${tenantId} from table ${tenantsTableName}`);
-
-    const response = await dynamoClient.send(
-      new GetItemCommand({
-        TableName: tenantsTableName,
-        Key: {
-          tenantId: { S: tenantId },
-        },
-      })
+    console.log(
+      `Retrieving RDS config for tenant ${tenantId} from SSM Parameter Store`
     );
 
-    if (!response.Item) {
-      throw new Error(
-        `Tenant ${tenantId} not found in tenants table. Ensure tenant is registered with RDS configuration.`
-      );
-    }
+    // 3. テナント専用のIAMクレデンシャルを取得
+    const { credentials, region } = await getTenantCredentials(event);
 
-    const tenant = unmarshall(response.Item);
+    // 4. SSM Parameter StoreからRDS設定を取得
+    const rdsConfig = await getSsmRdsConfig(tenantId, credentials, region);
 
-    // RDS接続情報の検証
-    if (!tenant.rdsProxyEndpoint) {
-      throw new Error(
-        `RDS Proxy endpoint not configured for tenant ${tenantId}. Please run tenant RDS setup.`
-      );
-    }
+    // 5. キャッシュ更新
+    rdsConfigCache.set(tenantId, {
+      config: rdsConfig,
+      timestamp: Date.now(),
+    });
 
-    const rdsConfig: RdsConfig = {
-      proxyEndpoint: tenant.rdsProxyEndpoint,
-      database: tenant.rdsDatabase || 'billing',
-      region: tenant.rdsRegion || process.env.AWS_REGION!,
-      port: tenant.rdsPort || 5432,
-      username: tenant.rdsUsername || 'db_iam_user',
-    };
-
-    // キャッシュ更新
-    cachedRdsConfig = rdsConfig;
-    cachedTenantId = tenantId;
-
-    console.log(`Successfully retrieved RDS config for tenant ${tenantId}`);
+    console.log(
+      `Successfully retrieved RDS config for tenant ${tenantId} from SSM`
+    );
     return rdsConfig;
   } catch (error) {
-    console.error(`Failed to retrieve RDS config for tenant ${tenantId}:`, error);
+    console.error(
+      `Failed to retrieve RDS config for tenant ${tenantId}:`,
+      error
+    );
     throw error;
   }
 }

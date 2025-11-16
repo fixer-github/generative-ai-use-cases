@@ -9,6 +9,7 @@ import {
   getTenantCredentialsFromToken,
 } from './tenantCredentials';
 import { verifyToken } from './auth';
+import { getOpenFgaConfig } from './tenantSsmParameters';
 
 // Cache for authorization results (short TTL)
 const authCache = new Map<
@@ -186,12 +187,19 @@ export async function createOpenFgaClient(
   // Get tenant credentials and tenant info in one call
   const { credentials, tenant } = await getTenantCredentials(event);
 
+  // Get OpenFGA configuration from SSM Parameter Store
+  const openFgaConfig = await getOpenFgaConfig(
+    tenantId,
+    credentials,
+    tenant.region
+  );
+
   return new OpenFgaClient(
     tenantId,
-    tenant.openFgaApiEndpoint,
-    tenant.openFgaApiRegion || tenant.region,
+    openFgaConfig.apiEndpoint,
+    openFgaConfig.apiRegion,
     credentials,
-    tenant.openFgaStoreId
+    openFgaConfig.storeId
   );
 }
 
@@ -219,12 +227,19 @@ export async function createOpenFgaClientFromToken(
   // Get tenant credentials and tenant info in one call
   const { credentials, tenant } = await getTenantCredentialsFromToken(idToken);
 
+  // Get OpenFGA configuration from SSM Parameter Store
+  const openFgaConfig = await getOpenFgaConfig(
+    tenantId,
+    credentials,
+    tenant.region
+  );
+
   return new OpenFgaClient(
     tenantId,
-    tenant.openFgaApiEndpoint,
-    tenant.openFgaApiRegion || tenant.region,
+    openFgaConfig.apiEndpoint,
+    openFgaConfig.apiRegion,
     credentials,
-    tenant.openFgaStoreId
+    openFgaConfig.storeId
   );
 }
 

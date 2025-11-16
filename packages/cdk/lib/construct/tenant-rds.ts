@@ -7,6 +7,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 export interface TenantRdsProps {
@@ -132,11 +133,13 @@ export class TenantRds extends Construct {
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.SNAPSHOT);
 
-    // Determine deletion protection based on environment
+    // Determine deletion protection based on removalPolicy, not environment
+    // If removalPolicy is DESTROY, disable deletion protection by default
+    // Otherwise, enable deletion protection by default
     const deletionProtection =
       props.deletionProtection !== undefined
         ? props.deletionProtection
-        : environment !== 'dev';
+        : removalPolicy !== cdk.RemovalPolicy.DESTROY;
 
     // Determine Multi-AZ based on environment
     const multiAz =
@@ -222,6 +225,81 @@ export class TenantRds extends Construct {
     cdk.Tags.of(this.instance).add('TenantId', this.tenantId);
     cdk.Tags.of(this.instance).add('Environment', environment);
     cdk.Tags.of(this.instance).add('Purpose', 'TenantRDS');
+
+    // ====================================================
+    // SSM Parameter Store for Tenant-specific RDS Configuration
+    // ====================================================
+    // Store RDS configuration in SSM Parameter Store
+    // This allows tenant-isolated configuration management
+    const rdsEndpointParameter = new ssm.StringParameter(
+      this,
+      'RdsEndpointParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsEndpoint`,
+        description: `RDS endpoint for tenant ${this.tenantId}`,
+        stringValue: this.instance.dbInstanceEndpointAddress,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    const rdsPortParameter = new ssm.StringParameter(
+      this,
+      'RdsPortParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsPort`,
+        description: `RDS port for tenant ${this.tenantId}`,
+        stringValue: this.instance.dbInstanceEndpointPort,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    const rdsDatabaseParameter = new ssm.StringParameter(
+      this,
+      'RdsDatabaseParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsDatabase`,
+        description: `RDS database name for tenant ${this.tenantId}`,
+        stringValue: this.databaseName,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    const rdsRegionParameter = new ssm.StringParameter(
+      this,
+      'RdsRegionParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsRegion`,
+        description: `RDS region for tenant ${this.tenantId}`,
+        stringValue: cdk.Stack.of(this).region,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    const rdsSecretArnParameter = new ssm.StringParameter(
+      this,
+      'RdsSecretArnParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsSecretArn`,
+        description: `RDS credentials secret ARN for tenant ${this.tenantId}`,
+        stringValue: this.secret.secretArn,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    const rdsUsernameParameter = new ssm.StringParameter(
+      this,
+      'RdsUsernameParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${this.tenantId}/rdsUsername`,
+        description: `RDS username for tenant ${this.tenantId}`,
+        stringValue: 'postgres',
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    // Ensure parameters are created after RDS instance is available
+    rdsEndpointParameter.node.addDependency(this.instance);
+    rdsPortParameter.node.addDependency(this.instance);
 
     // Outputs
     new cdk.CfnOutput(this, 'RdsEndpoint', {

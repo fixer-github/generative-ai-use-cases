@@ -12,6 +12,7 @@ import { verifyToken } from './auth';
 export interface TenantCredentialsWithInfo {
   credentials: Credentials;
   tenant: Tenant;
+  region: string;
 }
 
 // Environment validation helper
@@ -83,6 +84,7 @@ export async function getTenantCredentials(
     return {
       credentials,
       tenant,
+      region,
     };
   } catch (error) {
     console.error(
@@ -164,6 +166,7 @@ export async function getTenantCredentialsFromToken(
     return {
       credentials,
       tenant,
+      region,
     };
   } catch (error) {
     console.error(

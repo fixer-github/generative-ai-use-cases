@@ -24,21 +24,6 @@ export interface TenantAuthorizationStackProps extends cdk.StackProps {
   readonly environment: string;
 
   /**
-   * OpenFGA API Gateway endpoint
-   */
-  readonly openFgaApiEndpoint: string;
-
-  /**
-   * OpenFGA Store ID
-   */
-  readonly openFgaStoreId: string;
-
-  /**
-   * OpenFGA API Region
-   */
-  readonly openFgaApiRegion: string;
-
-  /**
    * Tenant role ARN for cross-account access
    */
   readonly tenantRoleArn: string;
@@ -94,9 +79,6 @@ export class TenantAuthorizationStack extends cdk.Stack {
       {
         tenantId,
         environment,
-        openFgaApiEndpoint: props.openFgaApiEndpoint,
-        openFgaStoreId: props.openFgaStoreId,
-        openFgaApiRegion: props.openFgaApiRegion,
         tenantRoleArn: props.tenantRoleArn,
         removalPolicy: props.removalPolicy,
       }

@@ -12,6 +12,7 @@ import { Pool } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { runMigrations } from './migrationRunner';
 import * as path from 'path';
+import * as fs from 'fs';
 
 interface ResourceProperties {
   RdsSecretArn: string;
@@ -116,6 +117,10 @@ async function executeMigrations(props: ResourceProperties): Promise<void> {
     database: credentials.database,
     user: credentials.username,
     password: credentials.password,
+    ssl: {
+      rejectUnauthorized: true,
+      ca: fs.readFileSync(path.join(__dirname, 'certs/rds-ca-bundle.pem')).toString(),
+    },
     max: 5,
     connectionTimeoutMillis: 10000,
   });
@@ -128,7 +133,7 @@ async function executeMigrations(props: ResourceProperties): Promise<void> {
 
     // マイグレーションディレクトリのパスを決定
     // Lambda環境では、マイグレーションファイルはLambda関数と一緒にパッケージ化されている
-    const migrationsDir = props.MigrationsPath || path.join(__dirname, '../../database/migrations');
+    const migrationsDir = props.MigrationsPath || path.join(__dirname, 'database/migrations');
 
     console.log('Migrations directory:', migrationsDir);
 
