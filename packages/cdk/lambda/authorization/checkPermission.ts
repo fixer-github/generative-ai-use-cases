@@ -17,6 +17,7 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import { getOpenFgaConfig } from '../utils/tenantSsmParameters';
 
 const stsClient = new STSClient();
 
@@ -130,7 +131,14 @@ export const handler = async (
       SessionToken: assumeRoleResponse.Credentials.SessionToken,
     };
 
-    // 4. OpenFGAに権限の有無を問い合わせ
+    // 4. OpenFGA設定をSSM Parameter Storeから取得
+    const openFgaConfig = await getOpenFgaConfig(
+      tenantId,
+      assumeRoleResponse.Credentials,
+      tenant.region
+    );
+
+    // 5. OpenFGAに権限の有無を問い合わせ
     const checkBody = {
       tuple_key: {
         user: `user:${userId}`,
@@ -146,9 +154,9 @@ export const handler = async (
     try {
       const checkResponse = await makeSignedOpenFgaRequest(
         'POST',
-        `/stores/${tenant.openFgaStoreId}/check`,
-        tenant.openFgaApiEndpoint,
-        tenant.openFgaApiRegion || tenant.region,
+        `/stores/${openFgaConfig.storeId}/check`,
+        openFgaConfig.apiEndpoint,
+        openFgaConfig.apiRegion,
         credentials,
         JSON.stringify(checkBody)
       );
@@ -173,7 +181,7 @@ export const handler = async (
       };
     }
 
-    // 5. DynamoDBに利用回数の残数を問い合わせ
+    // 6. DynamoDBに利用回数の残数を問い合わせ
     const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
       tenantId
     );
@@ -243,7 +251,7 @@ export const handler = async (
       }
     }
 
-    // 6. 両方の結果が OK なら許可
+    // 7. 両方の結果が OK なら許可
     console.log(`User ${userId} is allowed to access feature ${featureId}`);
 
     const response: CheckPermissionResponse = {

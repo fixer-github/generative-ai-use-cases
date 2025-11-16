@@ -9,6 +9,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
@@ -677,6 +678,50 @@ export class TenantOpenFgaStack extends cdk.Stack {
 
     // Get the StoreId from the Custom Resource
     this.storeId = schemaInitializer.getAttString('StoreId');
+
+    // ====================================================
+    // SSM Parameter Store for Tenant-specific Configuration
+    // ====================================================
+    // Store OpenFGA API endpoint in SSM Parameter Store
+    // This allows tenant-isolated configuration management
+    const openFgaApiEndpointParameter = new ssm.StringParameter(
+      this,
+      'OpenFgaApiEndpointParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${props.tenantId}/openFgaApiEndpoint`,
+        description: `OpenFGA API Gateway endpoint for tenant ${props.tenantId}`,
+        stringValue: this.apiEndpoint,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    // Store OpenFGA API region in SSM Parameter Store
+    const openFgaApiRegionParameter = new ssm.StringParameter(
+      this,
+      'OpenFgaApiRegionParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${props.tenantId}/openFgaApiRegion`,
+        description: `OpenFGA API Gateway region for tenant ${props.tenantId}`,
+        stringValue: this.region,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    // Store OpenFGA Store ID in SSM Parameter Store
+    const openFgaStoreIdParameter = new ssm.StringParameter(
+      this,
+      'OpenFgaStoreIdParameter',
+      {
+        parameterName: `/genu-gaixer/tenants/${props.tenantId}/openFgaStoreId`,
+        description: `OpenFGA Store ID for tenant ${props.tenantId}`,
+        stringValue: this.storeId,
+        tier: ssm.ParameterTier.STANDARD,
+      }
+    );
+
+    // Ensure parameters are created after required resources are available
+    openFgaApiEndpointParameter.node.addDependency(stage);
+    openFgaStoreIdParameter.node.addDependency(schemaInitializer);
 
     // Outputs
     // new cdk.CfnOutput(this, 'OpenFgaApiEndpoint', {

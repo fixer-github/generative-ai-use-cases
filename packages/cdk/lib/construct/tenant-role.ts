@@ -192,6 +192,28 @@ export class TenantRole extends Construct {
                 `arn:aws:execute-api:${props.region}:${props.account}:*`,
               ],
             }),
+
+            // SSM Parameter Store access for tenant configuration (RDS, OpenFGA, etc.)
+            new PolicyStatement({
+              sid: 'SSMParameterAccess',
+              effect: Effect.ALLOW,
+              actions: ['ssm:GetParameter'],
+              resources: [
+                // Allow reading tenant-specific configuration parameters
+                `arn:aws:ssm:${props.region}:${props.account}:parameter/genu-gaixer/tenants/${props.tenantId}/*`,
+              ],
+            }),
+
+            // RDS IAM authentication for tenant-specific databases
+            new PolicyStatement({
+              sid: 'RDSIAMAuth',
+              effect: Effect.ALLOW,
+              actions: ['rds-db:connect'],
+              resources: [
+                // Allow RDS IAM authentication for tenant-specific database users
+                `arn:aws:rds-db:${props.region}:${props.account}:dbuser:*/*`,
+              ],
+            }),
           ],
         }),
       },
