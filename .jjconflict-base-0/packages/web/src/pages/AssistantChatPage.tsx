@@ -20,7 +20,6 @@ import {
 } from 'generative-ai-use-cases';
 import Button from '../components/Button';
 import LoadingWave from '../components/LoadingWave';
-import ChatLayout from '../components/ChatLayout';
 import ChatMessage from '../components/ChatMessage';
 import InputChatContent from '../components/InputChatContent';
 import SyncStatusBanner from '../components/assistants/SyncStatusBanner';
@@ -302,9 +301,10 @@ const AssistantChatPage: React.FC = () => {
   }
 
   return (
-    <ChatLayout
-      statusBanner={
-        assistant?.ragEnabled && assistant.syncStatus !== 'SUCCEEDED' ? (
+    <div className="flex h-screen flex-col px-4 md:px-6 lg:px-8">
+      {/* Status Banner */}
+      {assistant?.ragEnabled && assistant.syncStatus !== 'SUCCEEDED' && (
+        <div className="sticky top-0 z-30 bg-white">
           <SyncStatusBanner
             syncStatus={assistant.syncStatus}
             syncStatusReason={assistant.syncStatusReason}
@@ -314,10 +314,10 @@ const AssistantChatPage: React.FC = () => {
               ).length
             }
           />
-        ) : undefined
-      }>
-      <div className="flex h-screen flex-col px-4 md:px-6 lg:px-8">
-        {/* Header */}
+        </div>
+      )}
+
+      {/* Header */}
         <div className="flex items-center gap-4 border-b bg-white py-3">
           <Button
             outlined
@@ -433,7 +433,6 @@ const AssistantChatPage: React.FC = () => {
           />
         </div>
       </div>
-    </ChatLayout>
   );
 };
 
