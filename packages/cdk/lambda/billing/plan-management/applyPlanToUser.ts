@@ -5,12 +5,11 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
+import { invokeDataAccessFunctionByTenantId } from '../utils/dataAccessClient';
 import {
-  PlanRepository,
-  UserPlanApplicationRepository,
-} from '../../repositories';
-import { getRdsConnection } from '../../utils/rdsConnection';
-import { UserPlanApplication } from '../../repositories/types';
+  Plan,
+  UserPlanApplication,
+} from '../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -106,28 +105,21 @@ export const handler = async (
       });
     }
 
-    // RDS接続設定の取得（テナント専用のRDS接続）
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const planRepository = new PlanRepository(rdsConnection);
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
+    // 1. プランの存在確認（データアクセス層Lambda関数を呼び出し）
+    const plan = await invokeDataAccessFunctionByTenantId<Plan | null>(
+      input.tenantId,
+      'plan',
+      'findById',
+      { id: input.planId }
     );
-
-    // 1. プランの存在確認
-    const plan = await planRepository.findById(input.planId);
     if (!plan) {
-      throw new ApplyPlanToUserError('PLAN_NOT_FOUND', 'プランが見つかりません', {
-        planId: input.planId,
-      });
+      throw new ApplyPlanToUserError(
+        'PLAN_NOT_FOUND',
+        'プランが見つかりません',
+        {
+          planId: input.planId,
+        }
+      );
     }
 
     // プランが購入可能な状態かチェック
@@ -142,17 +134,23 @@ export const handler = async (
       );
     }
 
-    // 2. 既存の有効なプラン適用を終了
-    const activeApplications = await userPlanApplicationRepository.findActiveByUserId(
-      input.userId
-    );
+    // 2. 既存の有効なプラン適用を終了（データアクセス層Lambda関数を呼び出し）
+    const activeApplications = await invokeDataAccessFunctionByTenantId<
+      UserPlanApplication[]
+    >(input.tenantId, 'user-plan-application', 'findActiveByUserId', {
+      userId: input.userId,
+    });
 
     const terminatedApplicationIds: string[] = [];
     for (const activeApplication of activeApplications) {
       // 既存のプラン適用を期限切れに変更
-      const expired = await userPlanApplicationRepository.expire(
-        activeApplication.application_id
-      );
+      const expired =
+        await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+          input.tenantId,
+          'user-plan-application',
+          'expire',
+          { applicationId: activeApplication.application_id }
+        );
       if (expired) {
         terminatedApplicationIds.push(expired.application_id);
         console.log('Expired existing application:', {
@@ -162,7 +160,7 @@ export const handler = async (
       }
     }
 
-    // 3. 新しいプラン適用を作成
+    // 3. 新しいプラン適用を作成（データアクセス層Lambda関数を呼び出し）
     const newApplication: Omit<
       UserPlanApplication,
       'application_id' | 'created_at' | 'updated_at'
@@ -176,9 +174,13 @@ export const handler = async (
       valid_until: validUntil,
     };
 
-    const createdApplication = await userPlanApplicationRepository.create(
-      newApplication
-    );
+    const createdApplication =
+      await invokeDataAccessFunctionByTenantId<UserPlanApplication>(
+        input.tenantId,
+        'user-plan-application',
+        'create',
+        newApplication
+      );
 
     console.log('Plan application created successfully:', {
       applicationId: createdApplication.application_id,
