@@ -74,10 +74,13 @@ const AssistantChatPage: React.FC = () => {
   // Fetch messages when conversationId changes
   useEffect(() => {
     if (!assistantId) return;
+
+    // Always clear messages immediately when conversationId changes
+    setMessages([]);
     setCurrentChatId(conversationId);
+
     if (conversationId) {
-      // Clear old conversation messages immediately and show loading
-      setMessages([]);
+      // Show loading and fetch messages for the new conversation
       setLoadingMessages(true);
       fetchMessages(conversationId);
     } else {
@@ -85,7 +88,6 @@ const AssistantChatPage: React.FC = () => {
       latestFetchToken.current += 1;
       lastLoadedChatId.current = undefined;
       setLoadingMessages(false);
-      setMessages([]);
     }
   }, [assistantId, conversationId]);
 
