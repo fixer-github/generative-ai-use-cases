@@ -5,8 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { UserPlanApplicationRepository } from '../../repositories';
-import { getRdsConnection } from '../../utils/rdsConnection';
+import { invokeDataAccessFunctionByTenantId } from '../utils/dataAccessClient';
+import { UserPlanApplication } from '../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -65,25 +65,12 @@ export const handler = async (
       );
     }
 
-    // RDS接続設定の取得（テナント専用のRDS接続）
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
-    );
-
-    // 1. applicationSourceIdでプラン適用を検索
-    const applications = await userPlanApplicationRepository.findByApplicationSourceId(
-      input.applicationSourceId
-    );
+    // 1. applicationSourceIdでプラン適用を検索（データアクセス層Lambda関数を呼び出し）
+    const applications = await invokeDataAccessFunctionByTenantId<
+      UserPlanApplication[]
+    >(input.tenantId, 'user-plan-application', 'findByApplicationSourceId', {
+      sourceId: input.applicationSourceId,
+    });
 
     if (applications.length === 0) {
       throw new TerminatePlanApplicationError(
@@ -122,10 +109,16 @@ export const handler = async (
 
     const previousStatus = targetApplication.application_status;
 
-    // 2. application_statusをexpiredに変更
-    const expiredApplication = await userPlanApplicationRepository.expire(
-      targetApplication.application_id
-    );
+    // 2. application_statusをexpiredに変更（データアクセス層Lambda関数を呼び出し）
+    const expiredApplication =
+      await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+        input.tenantId,
+        'user-plan-application',
+        'expire',
+        {
+          applicationId: targetApplication.application_id,
+        }
+      );
 
     if (!expiredApplication) {
       throw new TerminatePlanApplicationError(

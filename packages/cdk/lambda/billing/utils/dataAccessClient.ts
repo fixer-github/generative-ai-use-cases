@@ -137,6 +137,94 @@ export async function invokeDataAccessFunction<TResponse>(
 }
 
 /**
+ * 内部Lambda関数から、tenantIdを直接指定してデータアクセス層Lambda関数を呼び出す
+ *
+ * Lambda-to-Lambda呼び出しで使用します。API Gateway経由ではないため、
+ * テナント専用のIAMクレデンシャルは不要で、Lambda実行ロールで呼び出します。
+ *
+ * @param tenantId テナントID
+ * @param dataAccessType データアクセス層の種類
+ * @param operation 実行する操作名
+ * @param params 操作に渡すパラメータ
+ * @returns データアクセス層からの戻り値
+ * @throws DataAccessError データアクセス層でエラーが発生した場合
+ */
+export async function invokeDataAccessFunctionByTenantId<TResponse>(
+  tenantId: string,
+  dataAccessType: DataAccessType,
+  operation: string,
+  params: any
+): Promise<TResponse> {
+  // 1. Lambda クライアントを作成（共通リソースのLambda実行ロールを使用）
+  const lambdaClient = new LambdaClient({
+    region: process.env.AWS_REGION || 'ap-northeast-1',
+  });
+
+  // 2. データアクセス層Lambda関数名を決定
+  const functionName = getDataAccessFunctionName(tenantId, dataAccessType);
+
+  // 3. ペイロードを作成
+  const payload = {
+    operation,
+    params,
+    tenantId,
+  };
+
+  console.log(`Invoking data access function: ${functionName}`, {
+    operation,
+    tenantId,
+  });
+
+  // 4. Lambda関数を同期呼び出し
+  const invokeCommand = new InvokeCommand({
+    FunctionName: functionName,
+    InvocationType: 'RequestResponse', // 同期呼び出し
+    Payload: Buffer.from(JSON.stringify(payload)),
+  });
+
+  try {
+    const response = await lambdaClient.send(invokeCommand);
+
+    // 5. レスポンスをパース
+    if (!response.Payload) {
+      throw new Error('No payload returned from data access function');
+    }
+
+    const payloadString = new TextDecoder().decode(response.Payload);
+    const result = JSON.parse(payloadString);
+
+    // 6. エラーチェック
+    if (!result.success) {
+      const error = new DataAccessError(
+        result.error?.code || 'UNKNOWN_ERROR',
+        result.error?.message || 'Unknown error occurred in data access layer',
+        result.error?.details
+      );
+      throw error;
+    }
+
+    // 7. データを返却
+    return result.data as TResponse;
+  } catch (error) {
+    console.error('Error invoking data access function:', error);
+
+    if (error instanceof DataAccessError) {
+      throw error;
+    }
+
+    throw new DataAccessError(
+      'INVOKE_ERROR',
+      'Failed to invoke data access function',
+      {
+        functionName,
+        operation,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    );
+  }
+}
+
+/**
  * データアクセス層のエラー
  *
  * データアクセス層で発生したエラーをビジネスロジック層で扱うためのエラークラス
