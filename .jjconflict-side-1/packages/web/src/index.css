@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind's settings override this, so we set important */
+.amplify-button--primary {
+  background-color: var(
+    --amplify-components-button-primary-background-color
+  ) !important;
+}
+
+/* Remove the spinner for <input type="number"> */
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+  }
+}

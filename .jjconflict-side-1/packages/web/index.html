@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <!-- Cache control to prevent browser caching -->
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link
+      rel="apple-touch-icon"
+      href="/images/aws_icon_180.png"
+      sizes="180x180" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Noto+Sans+JP&family=Sarabun"
+      rel="stylesheet" />
+    <title>GaiXer</title>
+  </head>
+  <body class="font-body">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- Vite＋AmplifyUI requires following setting -->
+    <script>
+      if (global === undefined) {
+        var global = window;
+      }
+    </script>
+  </body>
+</html>
