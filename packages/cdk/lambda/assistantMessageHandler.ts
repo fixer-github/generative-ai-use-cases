@@ -34,11 +34,6 @@ const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
 });
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
-
 /**
  * Helper function to add assistantId to messages for API response
  * Messages are stored without assistantId, but API expects it
