@@ -5,7 +5,7 @@ import {
   RetrieveCommand,
 } from '@aws-sdk/client-kendra';
 import { RetrieveKendraRequest } from 'generative-ai-use-cases';
-import { notFound404Response, ok200Response } from './utils/apiResponse';
+import { badRequest400Response, ok200Response } from './utils/apiResponse';
 
 const INDEX_ID = process.env.INDEX_ID;
 const LANGUAGE = process.env.LANGUAGE;
@@ -18,7 +18,7 @@ exports.handler = async (
 
   if (!query) {
     // TODO: パラメータが他と違うのでとりあえず両方セットしておく
-    return notFound404Response({
+    return badRequest400Response({
       message: 'query is not specified',
       error: 'query is not specified',
     });

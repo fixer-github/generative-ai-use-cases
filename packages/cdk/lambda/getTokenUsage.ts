@@ -2,8 +2,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { aggregateTokenUsage } from './repository';
 import { getUsername } from './utils/tenantUtils';
 import {
+  badRequest400Response,
   internalServerError500Response,
-  notFound404Response,
   ok200Response,
 } from './utils/apiResponse';
 
@@ -18,7 +18,7 @@ export const handler = async (
     const { startDate, endDate } = event.queryStringParameters || {};
 
     if (!startDate || !endDate) {
-      return notFound404Response({
+      return badRequest400Response({
         message: 'startDate and endDate parameters are required',
       });
     }

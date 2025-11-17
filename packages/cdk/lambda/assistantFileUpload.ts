@@ -14,6 +14,7 @@ import {
   badRequest400Response,
   internalServerError500Response,
   ok200Response,
+  unauthorized401Response,
 } from './utils/apiResponse';
 
 const MANAGED_BUCKET_NAME = process.env.ASSISTANT_FILES_BUCKET_NAME;
@@ -86,7 +87,7 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
     if (!userId) {
-      return badRequest400Response({ message: 'Unauthorized' });
+      return unauthorized401Response({ message: 'Unauthorized' });
     }
 
     // Get tenant-aware S3 bucket and client

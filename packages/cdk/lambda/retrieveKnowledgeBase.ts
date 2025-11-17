@@ -2,7 +2,7 @@ import * as lambda from 'aws-lambda';
 import { RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
 import { RetrieveKnowledgeBaseRequest } from 'generative-ai-use-cases';
 import { initBedrockAgentRuntimeClient } from './utils/bedrockClient';
-import { notFound404Response, ok200Response } from './utils/apiResponse';
+import { badRequest400Response, ok200Response } from './utils/apiResponse';
 
 const KNOWLEDGE_BASE_ID = process.env.KNOWLEDGE_BASE_ID;
 const MODEL_REGION = process.env.MODEL_REGION as string;
@@ -15,7 +15,7 @@ exports.handler = async (
 
   if (!query) {
     // TODO: パラメータが他と違うのでとりあえず両方セットしておく
-    return notFound404Response({
+    return badRequest400Response({
       message: 'query is not specified',
       error: 'query is not specified',
     });
