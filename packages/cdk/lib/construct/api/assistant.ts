@@ -34,7 +34,8 @@ class AssistantApi extends Construct {
     // Consolidated handler for all assistant CRUD operations
     const assistantHandler = new NodejsFunction(this, 'AssistantHandler', {
       runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/assistantHandler.ts',
+      // entry: './lambda/assistantHandler.ts',
+      entry: './lambda/assistantHandler/index.ts',
       timeout: Duration.minutes(15),
       environment: getBaseEnvironment(this, props, {
         ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,

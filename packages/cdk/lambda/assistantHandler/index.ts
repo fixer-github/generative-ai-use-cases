@@ -7,25 +7,25 @@ import {
   deleteAssistant,
   updateKnowledgeSourceStatus,
   updateAssistantSyncStatus,
-} from './repository/assistant';
-import { deleteAllMessagesForAssistant } from './repository/chat';
+} from '../repository/assistant';
+import { deleteAllMessagesForAssistant } from '../repository/chat';
 import {
   loadDocuments,
   chunkDocuments,
   addMetadata,
-} from './utils/documentLoader';
+} from '../utils/documentLoader';
 import {
   indexDocuments,
   deleteAssistantDocuments,
-} from './repository/assistantSearch';
+} from '../repository/assistantSearch';
 import {
   Assistant,
   CreateAssistantRequest,
   UpdateAssistantRequest,
   ListAssistantsResponse,
 } from 'generative-ai-use-cases';
-import { getTenantId } from './utils/tenantUtils';
-import { canAccessAssistant } from './utils/assistantAccessControl';
+import { getTenantId } from '../utils/tenantUtils';
+import { canAccessAssistant } from '../utils/assistantAccessControl';
 import {
   badRequest400Response,
   created201Response,
@@ -35,7 +35,7 @@ import {
   noContent204Response,
   notFound404Response,
   ok200Response,
-} from './utils/apiResponse';
+} from '../utils/apiResponse';
 
 /**
  * Helper function to normalize assistant data for API responses
