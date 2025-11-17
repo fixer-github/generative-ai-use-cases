@@ -11,8 +11,8 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { PlanRepository, Plan } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 interface CreatePlanRequest {
   internal_name: string;
@@ -286,13 +286,12 @@ export const handler = async (
       }
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const planRepository = new PlanRepository(rdsConnection);
-
-    // 内部名称の重複チェック
-    const existingPlan = await planRepository.findByInternalName(
-      requestBody.internal_name
+    // 内部名称の重複チェック（データアクセス層Lambda関数を呼び出し）
+    const existingPlan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findByInternalName',
+      { internalName: requestBody.internal_name }
     );
     if (existingPlan) {
       return {
@@ -311,16 +310,21 @@ export const handler = async (
       };
     }
 
-    // プランを作成
-    const newPlan = await planRepository.create({
-      internal_name: requestBody.internal_name,
-      display_name: requestBody.display_name,
-      description: requestBody.description,
-      platform_type: requestBody.platform_type,
-      platform_product_id: requestBody.platform_product_id,
-      permissions: requestBody.permissions,
-      status: 'active', // 新規作成時は自動的にactive
-    });
+    // プランを作成（データアクセス層Lambda関数を呼び出し）
+    const newPlan = await invokeDataAccessFunction<Plan>(
+      event,
+      'plan',
+      'create',
+      {
+        internal_name: requestBody.internal_name,
+        display_name: requestBody.display_name,
+        description: requestBody.description,
+        platform_type: requestBody.platform_type,
+        platform_product_id: requestBody.platform_product_id,
+        permissions: requestBody.permissions,
+        status: 'active', // 新規作成時は自動的にactive
+      }
+    );
 
     // TODO: 監査ログの記録
     console.log(
@@ -337,8 +341,8 @@ export const handler = async (
       platform_product_id: newPlan.platform_product_id || null,
       permissions: newPlan.permissions,
       status: newPlan.status,
-      created_at: newPlan.created_at.toISOString(),
-      updated_at: newPlan.updated_at.toISOString(),
+      created_at: new Date(newPlan.created_at).toISOString(),
+      updated_at: new Date(newPlan.updated_at).toISOString(),
     };
 
     return {

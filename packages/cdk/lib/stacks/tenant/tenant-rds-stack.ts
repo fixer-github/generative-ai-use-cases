@@ -75,6 +75,18 @@ export class TenantRdsStack extends cdk.Stack {
    */
   private readonly migrationFunction: lambda.Function;
 
+  /**
+   * Data access Lambda functions (VPC内配置)
+   */
+  public readonly planDataAccessFunction: lambda.Function;
+  public readonly subscriptionDataAccessFunction: lambda.Function;
+  public readonly userPlanApplicationDataAccessFunction: lambda.Function;
+
+  /**
+   * Security group for data access Lambda functions
+   */
+  public readonly dataAccessLambdaSg: ec2.SecurityGroup;
+
   constructor(scope: Construct, id: string, props: TenantRdsStackProps) {
     super(scope, id, props);
 
@@ -140,8 +152,14 @@ export class TenantRdsStack extends cdk.Stack {
         commandHooks: {
           beforeBundling: () => [],
           afterBundling: (_inputDir: string, outputDir: string): string[] => {
-            const certsSourcePath = path.join(__dirname, '../../../lambda/database-migration/certs/rds-ca-bundle.pem');
-            const migrationsSourcePath = path.join(__dirname, '../../../database/migrations');
+            const certsSourcePath = path.join(
+              __dirname,
+              '../../../lambda/database-migration/certs/rds-ca-bundle.pem'
+            );
+            const migrationsSourcePath = path.join(
+              __dirname,
+              '../../../database/migrations'
+            );
             return [
               `mkdir -p ${outputDir}/certs`,
               `cp ${certsSourcePath} ${outputDir}/certs/`,
@@ -192,6 +210,212 @@ export class TenantRdsStack extends cdk.Stack {
     // Ensure migration runs after RDS instance is ready
     migrationResource.node.addDependency(this.tenantRds.instance);
 
+    // ====================================================
+    // Data Access Lambda Functions (VPC内配置)
+    // ====================================================
+    // Create security group for data access Lambda functions
+    this.dataAccessLambdaSg = new ec2.SecurityGroup(
+      this,
+      'DataAccessLambdaSg',
+      {
+        vpc,
+        description: 'Security group for data access Lambda functions',
+        securityGroupName: `${environment}-${tenantId}-data-access-lambda-sg`,
+      }
+    );
+
+    // Allow data access Lambda functions to access RDS
+    this.tenantRds.grantAccess(this.dataAccessLambdaSg);
+
+    // RDS接続情報を環境変数として設定
+    const rdsEnvironment = {
+      NODE_OPTIONS: '--enable-source-maps',
+      RDS_SECRET_ARN: this.tenantRds.secret.secretArn,
+    };
+
+    // Plan Data Access Lambda Function
+    this.planDataAccessFunction = new NodejsFunction(
+      this,
+      'PlanDataAccessFunction',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        handler: 'handler',
+        entry: path.join(
+          __dirname,
+          '../../../lambda/billing/data-access/plan-data-access.ts'
+        ),
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        securityGroups: [this.dataAccessLambdaSg],
+        environment: rdsEnvironment,
+        logRetention: logs.RetentionDays.ONE_WEEK,
+        description: `Plan data access function for tenant ${tenantId}`,
+        functionName: `${environment}-${tenantId}-plan-data-access`,
+        bundling: {
+          commandHooks: {
+            beforeBundling: () => [],
+            afterBundling: (_inputDir: string, outputDir: string): string[] => {
+              const certsSourcePath = path.join(
+                __dirname,
+                '../../../lambda/database-migration/certs/rds-ca-bundle.pem'
+              );
+              return [
+                `mkdir -p ${outputDir}/certs`,
+                `cp ${certsSourcePath} ${outputDir}/certs/`,
+              ];
+            },
+            beforeInstall: () => [],
+          },
+        },
+      }
+    );
+
+    // Grant Secrets Manager read permission
+    this.planDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [this.tenantRds.secret.secretArn],
+      })
+    );
+
+    // Grant SSM Parameter Store read access (for tenant configuration)
+    this.planDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${cdk.Stack.of(this).region}:${
+            cdk.Stack.of(this).account
+          }:parameter/genu-gaixer/tenants/${tenantId}/*`,
+        ],
+      })
+    );
+
+    // Subscription Data Access Lambda Function
+    this.subscriptionDataAccessFunction = new NodejsFunction(
+      this,
+      'SubscriptionDataAccessFunction',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        handler: 'handler',
+        entry: path.join(
+          __dirname,
+          '../../../lambda/billing/data-access/subscription-data-access.ts'
+        ),
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        securityGroups: [this.dataAccessLambdaSg],
+        environment: rdsEnvironment,
+        logRetention: logs.RetentionDays.ONE_WEEK,
+        description: `Subscription data access function for tenant ${tenantId}`,
+        functionName: `${environment}-${tenantId}-subscription-data-access`,
+        bundling: {
+          commandHooks: {
+            beforeBundling: () => [],
+            afterBundling: (_inputDir: string, outputDir: string): string[] => {
+              const certsSourcePath = path.join(
+                __dirname,
+                '../../../lambda/database-migration/certs/rds-ca-bundle.pem'
+              );
+              return [
+                `mkdir -p ${outputDir}/certs`,
+                `cp ${certsSourcePath} ${outputDir}/certs/`,
+              ];
+            },
+            beforeInstall: () => [],
+          },
+        },
+      }
+    );
+
+    // Grant Secrets Manager read permission
+    this.subscriptionDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [this.tenantRds.secret.secretArn],
+      })
+    );
+
+    // Grant SSM Parameter Store read access
+    this.subscriptionDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${cdk.Stack.of(this).region}:${
+            cdk.Stack.of(this).account
+          }:parameter/genu-gaixer/tenants/${tenantId}/*`,
+        ],
+      })
+    );
+
+    // User Plan Application Data Access Lambda Function
+    this.userPlanApplicationDataAccessFunction = new NodejsFunction(
+      this,
+      'UserPlanApplicationDataAccessFunction',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        handler: 'handler',
+        entry: path.join(
+          __dirname,
+          '../../../lambda/billing/data-access/user-plan-application-data-access.ts'
+        ),
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        securityGroups: [this.dataAccessLambdaSg],
+        environment: rdsEnvironment,
+        logRetention: logs.RetentionDays.ONE_WEEK,
+        description: `User plan application data access function for tenant ${tenantId}`,
+        functionName: `${environment}-${tenantId}-user-plan-application-data-access`,
+        bundling: {
+          commandHooks: {
+            beforeBundling: () => [],
+            afterBundling: (_inputDir: string, outputDir: string): string[] => {
+              const certsSourcePath = path.join(
+                __dirname,
+                '../../../lambda/database-migration/certs/rds-ca-bundle.pem'
+              );
+              return [
+                `mkdir -p ${outputDir}/certs`,
+                `cp ${certsSourcePath} ${outputDir}/certs/`,
+              ];
+            },
+            beforeInstall: () => [],
+          },
+        },
+      }
+    );
+
+    // Grant Secrets Manager read permission
+    this.userPlanApplicationDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [this.tenantRds.secret.secretArn],
+      })
+    );
+
+    // Grant SSM Parameter Store read access
+    this.userPlanApplicationDataAccessFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${cdk.Stack.of(this).region}:${
+            cdk.Stack.of(this).account
+          }:parameter/genu-gaixer/tenants/${tenantId}/*`,
+        ],
+      })
+    );
+
     // Add stack-level outputs with export names
     new cdk.CfnOutput(this, 'StackRdsEndpoint', {
       value: this.tenantRds.instance.dbInstanceEndpointAddress,
@@ -215,6 +439,25 @@ export class TenantRdsStack extends cdk.Stack {
       value: this.tenantRds.databaseName,
       description: `Database name for tenant ${tenantId}`,
       exportName: `${this.stackName}-DatabaseName`,
+    });
+
+    // Data access Lambda function ARNs
+    new cdk.CfnOutput(this, 'PlanDataAccessFunctionArn', {
+      value: this.planDataAccessFunction.functionArn,
+      description: `Plan data access function ARN for tenant ${tenantId}`,
+      exportName: `${this.stackName}-PlanDataAccessFunctionArn`,
+    });
+
+    new cdk.CfnOutput(this, 'SubscriptionDataAccessFunctionArn', {
+      value: this.subscriptionDataAccessFunction.functionArn,
+      description: `Subscription data access function ARN for tenant ${tenantId}`,
+      exportName: `${this.stackName}-SubscriptionDataAccessFunctionArn`,
+    });
+
+    new cdk.CfnOutput(this, 'UserPlanApplicationDataAccessFunctionArn', {
+      value: this.userPlanApplicationDataAccessFunction.functionArn,
+      description: `User plan application data access function ARN for tenant ${tenantId}`,
+      exportName: `${this.stackName}-UserPlanApplicationDataAccessFunctionArn`,
     });
 
     // Add tags
@@ -247,5 +490,33 @@ export class TenantRdsStack extends cdk.Stack {
    */
   public getRdsSecurityGroup() {
     return this.tenantRds.securityGroup;
+  }
+
+  /**
+   * Get the Plan data access Lambda function
+   */
+  public getPlanDataAccessFunction() {
+    return this.planDataAccessFunction;
+  }
+
+  /**
+   * Get the Subscription data access Lambda function
+   */
+  public getSubscriptionDataAccessFunction() {
+    return this.subscriptionDataAccessFunction;
+  }
+
+  /**
+   * Get the User Plan Application data access Lambda function
+   */
+  public getUserPlanApplicationDataAccessFunction() {
+    return this.userPlanApplicationDataAccessFunction;
+  }
+
+  /**
+   * Get the data access Lambda security group
+   */
+  public getDataAccessLambdaSecurityGroup() {
+    return this.dataAccessLambdaSg;
   }
 }

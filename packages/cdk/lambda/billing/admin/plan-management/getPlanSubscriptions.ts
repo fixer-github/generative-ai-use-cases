@@ -11,12 +11,12 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
-  PlanRepository,
-  UserPlanApplicationRepository,
-  SubscriptionRepository,
-} from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+  Plan,
+  UserPlanApplication,
+  Subscription,
+} from '../../data-access/repositories/types';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -49,16 +49,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const planRepository = new PlanRepository(rdsConnection);
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
+    // プランの存在確認（データアクセス層Lambda関数を呼び出し）
+    const plan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
     );
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // プランの存在確認
-    const plan = await planRepository.findById(planId);
     if (!plan) {
       return {
         statusCode: 404,
@@ -75,11 +72,16 @@ export const handler = async (
       };
     }
 
-    // ユーザプラン適用を取得（active と scheduled_termination）
-    const applications = await userPlanApplicationRepository.findAll({
-      planId,
-      status: ['active', 'scheduled_termination'],
-    });
+    // ユーザプラン適用を取得（active と scheduled_termination）（データアクセス層Lambda関数を呼び出し）
+    const applications = await invokeDataAccessFunction<UserPlanApplication[]>(
+      event,
+      'user-plan-application',
+      'findAll',
+      {
+        planId,
+        status: ['active', 'scheduled_termination'],
+      }
+    );
 
     // 契約種別ごとの内訳を計算
     const breakdownBySource = {
@@ -106,11 +108,14 @@ export const handler = async (
       internal: 0,
     };
 
-    // サブスクリプション情報から プラットフォーム別の内訳を取得
+    // サブスクリプション情報から プラットフォーム別の内訳を取得（データアクセス層Lambda関数を呼び出し）
     for (const app of subscriptionApplications) {
       if (app.application_source_id) {
-        const subscription = await subscriptionRepository.findById(
-          app.application_source_id
+        const subscription = await invokeDataAccessFunction<Subscription | null>(
+          event,
+          'subscription',
+          'findById',
+          { subscriptionId: app.application_source_id }
         );
         if (subscription) {
           breakdownByPlatform[subscription.platform_type]++;

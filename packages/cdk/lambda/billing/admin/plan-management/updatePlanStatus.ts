@@ -11,11 +11,8 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import {
-  PlanRepository,
-  UserPlanApplicationRepository,
-} from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
 
 interface UpdateStatusRequest {
   new_status: 'active' | 'closed_to_new' | 'deprecated';
@@ -130,15 +127,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const planRepository = new PlanRepository(rdsConnection);
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
+    // プランの存在確認（データアクセス層Lambda関数を呼び出し）
+    const plan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
     );
-
-    // プランの存在確認
-    const plan = await planRepository.findById(planId);
     if (!plan) {
       return {
         statusCode: 404,
@@ -166,7 +161,7 @@ export const handler = async (
           display_name: plan.display_name,
           status: plan.status,
           previous_status: plan.status,
-          updated_at: plan.updated_at.toISOString(),
+          updated_at: new Date(plan.updated_at).toISOString(),
           updated_by: adminResult.username,
         }),
       };
@@ -195,11 +190,16 @@ export const handler = async (
 
     // deprecatedへの遷移の場合、契約者数をチェック
     if (requestBody.new_status === 'deprecated') {
-      // プランIDに紐づく有効なユーザプラン適用を取得
-      const allApplications = await userPlanApplicationRepository.findAll({
-        planId,
-        status: ['active', 'scheduled_termination'],
-      });
+      // プランIDに紐づく有効なユーザプラン適用を取得（データアクセス層Lambda関数を呼び出し）
+      const allApplications = await invokeDataAccessFunction<UserPlanApplication[]>(
+        event,
+        'user-plan-application',
+        'findAll',
+        {
+          planId,
+          status: ['active', 'scheduled_termination'],
+        }
+      );
 
       if (allApplications.length > 0) {
         return {
@@ -219,11 +219,19 @@ export const handler = async (
       }
     }
 
-    // ステータスを更新
+    // ステータスを更新（データアクセス層Lambda関数を呼び出し）
     const previousStatus = plan.status;
-    const updatedPlan = await planRepository.update(planId, {
-      status: requestBody.new_status,
-    });
+    const updatedPlan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'update',
+      {
+        planId,
+        updates: {
+          status: requestBody.new_status,
+        },
+      }
+    );
 
     if (!updatedPlan) {
       return {
@@ -251,7 +259,7 @@ export const handler = async (
       display_name: updatedPlan.display_name,
       status: updatedPlan.status,
       previous_status: previousStatus,
-      updated_at: updatedPlan.updated_at.toISOString(),
+      updated_at: new Date(updatedPlan.updated_at).toISOString(),
       updated_by: adminResult.username,
     };
 

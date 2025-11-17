@@ -200,6 +200,8 @@ export class TenantRds extends Construct {
       deletionProtection,
       removalPolicy,
       instanceIdentifier: `${environment}-${sanitizedTenantId}-db`,
+      // Enable IAM database authentication
+      iamAuthentication: true,
       // Enable encryption at rest
       storageEncrypted: true,
       // Enable automated backups
