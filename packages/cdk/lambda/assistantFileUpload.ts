@@ -10,6 +10,11 @@ import {
   isDefaultTenant,
   extractAccountIdFromRoleArn,
 } from './utils/tenantS3Utils';
+import {
+  badRequest400Response,
+  internalServerError500Response,
+  ok200Response,
+} from './utils/apiResponse';
 
 const MANAGED_BUCKET_NAME = process.env.ASSISTANT_FILES_BUCKET_NAME;
 const UPLOAD_EXPIRATION_SECONDS = 300; // 5 minutes
@@ -38,13 +43,9 @@ export const handler = async (
   try {
     // Check bucket configuration
     if (!MANAGED_BUCKET_NAME) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          message: 'File upload not configured',
-        }),
-      };
+      return internalServerError500Response({
+        message: 'File upload not configured',
+      });
     }
 
     // Parse request
@@ -52,25 +53,17 @@ export const handler = async (
 
     // Validate request
     if (!body.fileName || !body.fileSize || !body.contentType) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          message: 'Missing required fields: fileName, fileSize, contentType',
-        }),
-      };
+      return badRequest400Response({
+        message: 'Missing required fields: fileName, fileSize, contentType',
+      });
     }
 
     // Validate file size (10 MB limit)
     const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (body.fileSize > MAX_FILE_SIZE) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          message: `File size exceeds limit of ${MAX_FILE_SIZE} bytes`,
-        }),
-      };
+      return badRequest400Response({
+        message: `File size exceeds limit of ${MAX_FILE_SIZE} bytes`,
+      });
     }
 
     // Validate content type
@@ -84,24 +77,16 @@ export const handler = async (
     ];
 
     if (!allowedTypes.some((type) => body.contentType.includes(type))) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          message: `Unsupported file type: ${body.contentType}. Allowed types: ${allowedTypes.join(', ')}`,
-        }),
-      };
+      return badRequest400Response({
+        message: `Unsupported file type: ${body.contentType}. Allowed types: ${allowedTypes.join(', ')}`,
+      });
     }
 
     // Get user ID from authorizer (use cognito:username to match assistantHandler)
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
     if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+      return badRequest400Response({ message: 'Unauthorized' });
     }
 
     // Get tenant-aware S3 bucket and client
@@ -114,13 +99,9 @@ export const handler = async (
     if (isDefault) {
       // Default tenant uses the fallback bucket
       if (!MANAGED_BUCKET_NAME) {
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({
-            message: 'File upload not configured for default tenant',
-          }),
-        };
+        return internalServerError500Response({
+          message: 'File upload not configured for default tenant',
+        });
       }
       bucketName = MANAGED_BUCKET_NAME;
       s3Client = new S3Client({});
@@ -129,24 +110,16 @@ export const handler = async (
       const tenant = await getTenant(tenantId);
 
       if (!tenant || !tenant.roleArn || !tenant.region || !tenant.environment) {
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({
-            message: 'Tenant configuration incomplete',
-          }),
-        };
+        return internalServerError500Response({
+          message: 'Tenant configuration incomplete',
+        });
       }
 
       const tenantAccountId = extractAccountIdFromRoleArn(tenant.roleArn);
       if (!tenantAccountId) {
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({
-            message: `Cannot extract account ID from role ARN: ${tenant.roleArn}`,
-          }),
-        };
+        return internalServerError500Response({
+          message: `Cannot extract account ID from role ARN: ${tenant.roleArn}`,
+        });
       }
 
       const tenantRegion = tenant.region;
@@ -191,19 +164,12 @@ export const handler = async (
       expiresIn: UPLOAD_EXPIRATION_SECONDS,
     };
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error generating pre-signed URL:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        message: 'Internal server error',
-      }),
-    };
+
+    return internalServerError500Response({
+      message: 'Internal server error',
+    });
   }
 };
