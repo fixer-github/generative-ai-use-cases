@@ -81,7 +81,7 @@ class AssistantApi extends Construct {
       'AssistantMessageHandler',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/assistantMessageHandler.ts',
+        entry: './lambda/assistantMessageHandler/index.ts',
         timeout: Duration.minutes(15),
         environment: getBaseEnvironment(this, props, {
           ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,

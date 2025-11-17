@@ -1,97 +1,39 @@
+import { ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import * as crypto from 'crypto';
-import { getAssistant } from './repository/assistant';
-import {
-  createAssistantChat,
-  createAssistantMessage,
-  findChatById,
-  listAssistantMessages,
-  updateChatUpdatedDate,
-} from './repository/chat';
 import {
   CreateAssistantMessageRequest,
-  AssistantMessage,
   AssistantMessageSource,
-  ListAssistantMessagesResponse,
 } from 'generative-ai-use-cases';
 import {
-  BedrockRuntimeClient,
-  ConverseCommand,
-} from '@aws-sdk/client-bedrock-runtime';
-import { similaritySearch } from './repository/assistantSearch';
-import { canAccessAssistant } from './utils/assistantAccessControl';
+  createAssistantMessage,
+  createAssistantChat,
+  findChatById,
+  updateChatUpdatedDate,
+} from '../repository';
+import { getAssistant } from '../repository/assistant';
+import { similaritySearch } from '../repository/assistantSearch';
 import {
   badRequest400Response,
-  conflict409Response,
-  forbidden403Response,
-  internalServerError500Response,
-  methodNotAllowed405Response,
   notFound404Response,
+  forbidden403Response,
+  conflict409Response,
   ok200Response,
-} from './utils/apiResponse';
-
-const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.MODEL_REGION || process.env.AWS_REGION,
-});
-
-/**
- * Helper function to add assistantId to messages for API response
- * Messages are stored without assistantId, but API expects it
- */
-function addAssistantIdToMessage(
-  message: AssistantMessage,
-  assistantId: string
-): AssistantMessage {
-  return {
-    ...message,
-    assistantId,
-  };
-}
-
-/**
- * Consolidated handler for assistant message operations
- * Routes based on HTTP method:
- * - POST /{assistantId}/messages → create message (with RAG)
- * - GET /{assistantId}/messages → list messages
- */
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    const userId: string =
-      event.requestContext.authorizer!.claims['cognito:username'];
-    const assistantId = event.pathParameters?.assistantId;
-    const method = event.httpMethod;
-
-    if (!assistantId) {
-      return badRequest400Response({ message: 'Missing assistantId' });
-    }
-
-    // Route based on HTTP method
-    switch (method) {
-      case 'POST':
-        return await handleCreateMessage(userId, assistantId, event);
-
-      case 'GET':
-        return await handleListMessages(userId, assistantId, event);
-
-      default:
-        return methodNotAllowed405Response({ message: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Error in assistant message handler:', error);
-    return internalServerError500Response({ message: 'Internal Server Error' });
-  }
-};
+} from '../utils/apiResponse';
+import { canAccessAssistant } from '../utils/assistantAccessControl';
+import { addAssistantIdToMessage, createBedrockClient } from './util';
+import * as console from 'node:console';
+import * as crypto from 'node:crypto';
 
 /**
  * Handle POST /{assistantId}/messages - Create message with RAG
  */
-async function handleCreateMessage(
+export async function handleCreateMessage(
   userId: string,
   assistantId: string,
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
+  const bedrockClient = createBedrockClient();
+
   const body: CreateAssistantMessageRequest = JSON.parse(event.body || '{}');
 
   if (!body.content) {
@@ -315,58 +257,4 @@ async function handleCreateMessage(
     ...addAssistantIdToMessage(assistantMessage, assistantId),
     chatId: cleanChatId, // Return chatId to frontend for routing
   });
-}
-
-/**
- * Handle GET /{assistantId}/messages - List messages
- */
-async function handleListMessages(
-  userId: string,
-  assistantId: string,
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  // Get assistant and verify access
-  const assistant = await getAssistant(assistantId, event);
-
-  if (!assistant) {
-    return notFound404Response({ message: 'Assistant not found' });
-  }
-
-  // Check access: owner OR (public AND same tenant)
-  if (!canAccessAssistant(assistant, userId, event)) {
-    return forbidden403Response({
-      message: 'Access denied to this assistant',
-      code: 'ASSISTANT_ACCESS_DENIED',
-    });
-  }
-
-  const chatId = event.queryStringParameters?.chatId;
-
-  // TODO: 将来的には統合チャット履歴のメッセージ取得に置き換える予定
-  if (!chatId) {
-    return badRequest400Response({ message: 'Missing chatId parameter' });
-  }
-
-  const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;
-  const limit = event.queryStringParameters?.limit
-    ? parseInt(event.queryStringParameters.limit)
-    : undefined;
-
-  const result = await listAssistantMessages(
-    userId,
-    chatId,
-    event,
-    exclusiveStartKey,
-    limit
-  );
-
-  // Add assistantId to all messages for API response
-  const sanitizedResult: ListAssistantMessagesResponse = {
-    ...result,
-    messages: result.messages.map((msg) =>
-      addAssistantIdToMessage(msg, assistantId)
-    ),
-  };
-
-  return ok200Response(sanitizedResult);
 }
