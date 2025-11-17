@@ -572,61 +572,108 @@ const useChatState = create<{
 
     // Update the assistant's message
     let tmpChunk = '';
+    let errorType: string | undefined = undefined;
 
-    for await (const chunk of stream) {
-      if (get().chats[id].forcedStop) {
-        updateStopReason(id, 'forcedStop');
-        setForcedStop(id, false);
-        break;
-      }
+    try {
+      // Add timeout wrapper (30 seconds)
+      const STREAM_TIMEOUT = 30000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Stream timeout')), STREAM_TIMEOUT)
+      );
 
-      if (!get().writing[id]) {
-        setWriting(id, true);
-      }
+      const streamIterator = (async function* () {
+        for await (const chunk of stream) {
+          yield chunk;
+        }
+      })();
 
-      const chunks = chunk.split('\n');
+      const racedStream = async function* () {
+        while (true) {
+          const { value, done } = await Promise.race([
+            streamIterator.next(),
+            timeoutPromise.then(() => ({ value: undefined, done: true })),
+          ]);
 
-      for (const c of chunks) {
-        if (c && c.length > 0) {
-          const payload = JSON.parse(c) as StreamingChunk;
+          if (done) break;
+          yield value;
+        }
+      };
 
-          if (payload.text.length > 0) {
-            tmpChunk += payload.text;
-          }
+      for await (const chunk of racedStream()) {
+        if (get().chats[id].forcedStop) {
+          updateStopReason(id, 'forcedStop');
+          setForcedStop(id, false);
+          break;
+        }
 
-          if (payload.stopReason && payload.stopReason.length > 0) {
-            updateStopReason(id, payload.stopReason);
-          }
+        if (!get().writing[id]) {
+          setWriting(id, true);
+        }
 
-          // Trace
-          if (payload.trace) {
-            addChunkToAssistantMessage(id, '', payload.trace, model);
-          }
+        const chunks = chunk.split('\n');
 
-          // Metadata
-          if (payload.metadata) {
-            addChunkToAssistantMessage(
-              id,
-              '',
-              undefined,
-              model,
-              payload.metadata
-            );
-          }
+        for (const c of chunks) {
+          if (c && c.length > 0) {
+            const payload = JSON.parse(c) as StreamingChunk;
 
-          // SessionId
-          if (payload.sessionId) {
-            setSessionId(payload.sessionId);
+            if (payload.text.length > 0) {
+              tmpChunk += payload.text;
+            }
+
+            if (payload.stopReason && payload.stopReason.length > 0) {
+              updateStopReason(id, payload.stopReason);
+            }
+
+            // Track error type for retry functionality
+            if (payload.errorType) {
+              errorType = payload.errorType;
+            }
+
+            // Trace
+            if (payload.trace) {
+              addChunkToAssistantMessage(id, '', payload.trace, model);
+            }
+
+            // Metadata
+            if (payload.metadata) {
+              addChunkToAssistantMessage(
+                id,
+                '',
+                undefined,
+                model,
+                payload.metadata
+              );
+            }
+
+            // SessionId
+            if (payload.sessionId) {
+              setSessionId(payload.sessionId);
+            }
           }
         }
-      }
 
-      // Process chunks of 10 characters or more
-      // If not buffered, the following error occurs
-      // Maximum update depth exceeded
-      if (tmpChunk.length >= 10) {
-        addChunkToAssistantMessage(id, tmpChunk, undefined, model);
-        tmpChunk = '';
+        // Process chunks of 10 characters or more
+        // If not buffered, the following error occurs
+        // Maximum update depth exceeded
+        if (tmpChunk.length >= 10) {
+          addChunkToAssistantMessage(id, tmpChunk, undefined, model);
+          tmpChunk = '';
+        }
+      }
+    } catch (error) {
+      // Handle timeout error
+      if (error instanceof Error && error.message === 'Stream timeout') {
+        updateStopReason(id, 'error');
+        errorType = 'timeout';
+        addChunkToAssistantMessage(
+          id,
+          '\n\nThe request timed out. Please try again.',
+          undefined,
+          model
+        );
+      } else {
+        // Re-throw unexpected errors
+        throw error;
       }
     }
 

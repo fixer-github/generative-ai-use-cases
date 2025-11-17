@@ -258,6 +258,17 @@ const bedrockKbApi: ApiInterface = {
         yield streamingChunk({ text: buffer.slice(currentPosition) });
         currentPosition = buffer.length;
       }
+
+      // Check for empty results (no content generated)
+      if (buffer.trim().length === 0 && Object.keys(sources).length === 0) {
+        yield streamingChunk({
+          text: 'No relevant information was found in the knowledge base for your query.',
+          stopReason: 'error',
+          errorType: 'emptyResults',
+        });
+        return;
+      }
+
       // Add Reference at the end
       for (const [url, { refId, ref, fileName, pageNumber }] of Object.entries(
         sources
@@ -269,6 +280,9 @@ const bedrockKbApi: ApiInterface = {
         yield streamingChunk({ text: referenceText });
       }
     } catch (e) {
+      // Log detailed error for debugging (server-side only)
+      console.error('[Knowledge Base Error]', e);
+
       if (
         e instanceof ThrottlingException ||
         e instanceof ServiceQuotaExceededException
@@ -276,20 +290,21 @@ const bedrockKbApi: ApiInterface = {
         yield streamingChunk({
           text: 'The server is currently experiencing high access. Please try again later.',
           stopReason: 'error',
+          errorType: 'throttling',
         });
       } else if (e instanceof DependencyFailedException) {
         const modelAccessURL = `https://${process.env.MODEL_REGION}.console.aws.amazon.com/bedrock/home?region=${process.env.MODEL_REGION}#/modelaccess`;
         yield streamingChunk({
           text: `The selected model is not enabled. Please enable the model in the [Bedrock console Model Access screen](${modelAccessURL}).`,
           stopReason: 'error',
+          errorType: 'modelNotEnabled',
         });
       } else {
-        console.error(e);
+        // User-friendly error message (no stack trace exposure)
         yield streamingChunk({
-          text:
-            'An error occurred. Please report the following error to the administrator.\n' +
-            e,
+          text: 'An error occurred while processing your request. Please try again or contact support if the issue persists.',
           stopReason: 'error',
+          errorType: 'generic',
         });
       }
     }

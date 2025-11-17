@@ -84,6 +84,7 @@ chat:
   advanced_options: Tùy chọn nâng cao
   button:
     newChat: Chat mới
+    retryError: Thử lại yêu cầu đã thất bại
   create_link: Tạo liên kết
   create_link_message: Bằng cách tạo liên kết, bạn sẽ công khai lịch sử cuộc trò chuyện cho tất cả người dùng có thể đăng nhập vào ứng dụng này.
   create_system_prompt: Tạo system prompt

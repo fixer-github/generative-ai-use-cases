@@ -76,6 +76,7 @@ const RagKnowledgeBasePage: React.FC = () => {
     updateSystemContextByModel,
     retryGeneration,
     forceToStop,
+    getStopReason,
   } = useChat(pathname);
   const { scrollableContainer, setFollowing } = useFollow();
   const { modelIdsInModelRegion: availableModels, modelDisplayName } = MODELS;
@@ -274,6 +275,7 @@ const RagKnowledgeBasePage: React.FC = () => {
                 onCommitEdit={
                   idx === messages.length - 2 && !loading ? onEdit : undefined
                 }
+                stopReason={idx === messages.length - 1 ? getStopReason() : undefined}
               />
               <div className="w-full border-b border-gray-300"></div>
             </div>

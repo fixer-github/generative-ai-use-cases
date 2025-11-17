@@ -84,6 +84,7 @@ chat:
   advanced_options: ตัวเลือกขั้นสูง
   button:
     newChat: แชทใหม่
+    retryError: ลองคำขอที่ล้มเหลวอีกครั้ง
   create_link: สร้างลิงก์
   create_link_message: การสร้างลิงก์จะแชร์ประวัติการสนทนากับผู้ใช้ทุกคนที่สามารถเข้าสู่ระบบแอปพลิเคชันนี้ได้
   create_system_prompt: สร้าง System Prompt

@@ -42,6 +42,7 @@ type Props = BaseProps & {
   editable?: boolean;
   retryGeneration?: () => void;
   onCommitEdit?: (modifiedPrompt: string) => void;
+  stopReason?: string;
 };
 
 const ChatMessage: React.FC<Props> = (props) => {
@@ -49,6 +50,11 @@ const ChatMessage: React.FC<Props> = (props) => {
   const chatContent = useMemo(() => {
     return props.chatContent;
   }, [props]);
+
+  // Detect error state
+  const isError = useMemo(() => {
+    return props.stopReason === 'error' && chatContent?.role === 'assistant';
+  }, [props.stopReason, chatContent?.role]);
 
   const { pathname } = useLocation();
   const { sendFeedback } = useChat(pathname);
@@ -233,7 +239,9 @@ const ChatMessage: React.FC<Props> = (props) => {
                 className={`overflow-x-auto rounded-2xl px-4 py-3 ${
                   chatContent?.role === 'user'
                     ? 'bg-aws-sky text-white'
-                    : 'bg-gray-100'
+                    : isError
+                      ? 'border-2 border-red-300 bg-red-50'
+                      : 'bg-gray-100'
                 }`}>
                 {chatContent?.trace && (
                   <div className="mb-2 rounded border p-2">
@@ -416,10 +424,11 @@ const ChatMessage: React.FC<Props> = (props) => {
                 !props.loading &&
                 !props.hideFeedback && (
                   <>
-                    {props.allowRetry && (
+                    {(props.allowRetry || isError) && (
                       <ButtonIcon
-                        className="mr-0.5 text-gray-400"
-                        onClick={() => props.retryGeneration?.()}>
+                        className={`mr-0.5 ${isError ? 'text-red-500' : 'text-gray-400'}`}
+                        onClick={() => props.retryGeneration?.()}
+                        title={isError ? t('button.retryError') : undefined}>
                         <PiArrowClockwise />
                       </ButtonIcon>
                     )}
