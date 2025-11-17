@@ -48,6 +48,7 @@ const AssistantChatPage: React.FC = () => {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | undefined>(
@@ -55,17 +56,36 @@ const AssistantChatPage: React.FC = () => {
   );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastLoadedChatId = useRef<string | undefined>();
+  const latestFetchToken = useRef(0);
+  const latestAssistantFetchToken = useRef(0);
+  const latestAssistantPollToken = useRef(0);
 
   const isBlocked = useMemo(() => {
     return assistant?.ragEnabled && isSyncBlocking(assistant.syncStatus);
   }, [assistant]);
 
+  // Fetch assistant info when assistantId changes
   useEffect(() => {
-    if (assistantId) {
-      fetchAssistant();
-      fetchMessages();
-      // Update currentChatId when conversationId changes
-      setCurrentChatId(conversationId);
+    if (!assistantId) return;
+    fetchAssistant();
+  }, [assistantId]);
+
+  // Fetch messages when conversationId changes
+  useEffect(() => {
+    if (!assistantId) return;
+    setCurrentChatId(conversationId);
+    if (conversationId) {
+      // Clear old conversation messages immediately and show loading
+      setMessages([]);
+      setLoadingMessages(true);
+      fetchMessages(conversationId);
+    } else {
+      // Invalidate in-flight fetches and reset to empty state for new conversation
+      latestFetchToken.current += 1;
+      lastLoadedChatId.current = undefined;
+      setLoadingMessages(false);
+      setMessages([]);
     }
   }, [assistantId, conversationId]);
 
@@ -75,7 +95,12 @@ const AssistantChatPage: React.FC = () => {
 
   // Polling for assistant with non-final sync status
   useEffect(() => {
-    if (!assistantId || !assistant?.ragEnabled) {
+    if (
+      !assistantId ||
+      !assistant ||
+      assistant.assistantId !== assistantId ||
+      !assistant.ragEnabled
+    ) {
       return;
     }
 
@@ -83,9 +108,16 @@ const AssistantChatPage: React.FC = () => {
       return;
     }
 
-    const pollInterval = setInterval(async () => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      const requestToken = ++latestAssistantPollToken.current;
       try {
         const result = await getAssistant(assistantId);
+        if (cancelled || requestToken !== latestAssistantPollToken.current) {
+          return;
+        }
         setAssistant((prev) => {
           // Show success toast when transitioning to SUCCEEDED
           if (
@@ -98,14 +130,25 @@ const AssistantChatPage: React.FC = () => {
           return result;
         });
       } catch (error) {
-        console.error('Failed to poll assistant status:', error);
+        if (!cancelled) {
+          console.error('Failed to poll assistant status:', error);
+        }
       }
-    }, 5000); // Poll every 5 seconds
+    };
+
+    const loop = async () => {
+      await poll();
+      if (!cancelled) {
+        timer = setTimeout(loop, 5000);
+      }
+    };
+    loop();
 
     return () => {
-      clearInterval(pollInterval);
+      cancelled = true;
+      clearTimeout(timer);
     };
-  }, [assistantId, assistant, getAssistant, t]);
+  }, [assistantId, assistant?.ragEnabled, assistant?.syncStatus, getAssistant, t]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,10 +157,14 @@ const AssistantChatPage: React.FC = () => {
   const fetchAssistant = async () => {
     if (!assistantId) return;
 
+    const requestToken = ++latestAssistantFetchToken.current;
     setLoading(true);
     try {
       const result = await getAssistant(assistantId);
-      setAssistant(result);
+      // Only update state if this is still the latest fetch
+      if (latestAssistantFetchToken.current === requestToken) {
+        setAssistant(result);
+      }
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
       // Redirect to assistants page if access is forbidden (403)
@@ -129,17 +176,32 @@ const AssistantChatPage: React.FC = () => {
         }
       }
     } finally {
-      setLoading(false);
+      if (latestAssistantFetchToken.current === requestToken) {
+        setLoading(false);
+      }
     }
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (chatIdOverride?: string) => {
     if (!assistantId) return;
 
+    const requestToken = ++latestFetchToken.current;
+    setLoadingMessages(true);
+
     try {
+      const chatIdToLoad =
+        chatIdOverride === undefined ? currentChatId : chatIdOverride;
+      if (!chatIdToLoad) {
+        if (latestFetchToken.current === requestToken) {
+          setLoadingMessages(false);
+        }
+        return;
+      }
+      lastLoadedChatId.current = chatIdToLoad;
+
       const response = await listMessages(assistantId, {
         limit: 100,
-        chatId: currentChatId,
+        chatId: chatIdToLoad,
       });
       // Sort messages chronologically (oldest first)
       // Backend returns newest first (ScanIndexForward: false), so we reverse
@@ -156,9 +218,19 @@ const AssistantChatPage: React.FC = () => {
       const sortedMessages = [...(response.messages || [])].sort(
         (a, b) => extractTimestamp(a) - extractTimestamp(b)
       );
-      setMessages(sortedMessages);
+      // Only update messages if this is still the latest fetch for the current chat
+      if (
+        latestFetchToken.current === requestToken &&
+        lastLoadedChatId.current === chatIdToLoad
+      ) {
+        setMessages(sortedMessages);
+      }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
+    } finally {
+      if (latestFetchToken.current === requestToken) {
+        setLoadingMessages(false);
+      }
     }
   };
 
@@ -190,8 +262,22 @@ const AssistantChatPage: React.FC = () => {
         return;
       }
 
+      // Sort messages chronologically for correct context
+      const extractTimestamp = (message: AssistantMessage): number => {
+        const numericCreated = Number(message.createdDate);
+        if (Number.isFinite(numericCreated)) return numericCreated;
+        const idTimestamp = Number(message.messageId?.split('#')[0]);
+        if (Number.isFinite(idTimestamp)) return idTimestamp;
+        const parsed = Date.parse(message.createdDate ?? '');
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+
+      const sortedForTitle = [...response.messages].sort(
+        (a, b) => extractTimestamp(a) - extractTimestamp(b)
+      );
+
       // Convert assistant messages to the format needed for title generation
-      const messagesForTitle: UnrecordedMessage[] = response.messages.map(
+      const messagesForTitle: UnrecordedMessage[] = sortedForTitle.map(
         (msg) => ({
           role: msg.role,
           content: msg.content,
@@ -235,10 +321,12 @@ const AssistantChatPage: React.FC = () => {
 
     const userMessageContent = inputMessage;
     const isFirstMessage = !currentChatId;
-    setInputMessage('');
     setSending(true);
 
     try {
+      // Clear input only after successful send
+      setInputMessage('');
+
       // Send message and get response
       const response = await createMessage(assistantId, {
         content: userMessageContent,
@@ -256,18 +344,21 @@ const AssistantChatPage: React.FC = () => {
       }
 
       // Refresh messages to get both user and assistant messages
-      await fetchMessages();
+      await fetchMessages(response.chatId ?? currentChatId);
 
-      // Generate title for the first message
+      // Generate title for the first message (fire-and-forget, don't block UI)
       if (isFirstMessage && response.chatId) {
-        await generateChatTitle(response.chatId);
+        generateChatTitle(response.chatId).catch((err) =>
+          console.error('Failed to generate chat title:', err)
+        );
       }
-
-      setSending(false);
     } catch (error) {
       console.error('Failed to send message:', error);
-      setSending(false);
+      // Restore input text on failure so user can retry
+      setInputMessage(userMessageContent);
       toast.error(t('assistant.chatPage.sendError'));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -301,7 +392,7 @@ const AssistantChatPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen flex-col px-4 md:px-6 lg:px-8">
+    <div className="flex h-screen flex-col md:px-6 lg:px-8">
       {/* Status Banner */}
       {assistant?.ragEnabled && assistant.syncStatus !== 'SUCCEEDED' && (
         <div className="sticky top-0 z-30 bg-white">
@@ -318,121 +409,145 @@ const AssistantChatPage: React.FC = () => {
       )}
 
       {/* Header */}
-        <div className="flex items-center gap-4 border-b bg-white py-3">
-          <Button
-            outlined
-            onClick={() => navigate('/chat/assistants')}
-            className="flex items-center gap-1">
-            <PiArrowLeft />
-          </Button>
+      <div className="flex items-center gap-4 border-b bg-white py-3">
+        <Button
+          outlined
+          onClick={() => navigate('/chat/assistants')}
+          className="flex items-center gap-1">
+          <PiArrowLeft />
+        </Button>
 
-          <div className="flex-1">
-            {assistant ? (
-              <AssistantModelDisplay
-                assistantName={assistant.name}
-                modelId={assistant.modelId}
-              />
-            ) : (
-              <h1 className="flex items-center gap-2 text-lg font-semibold">
-                <PiRobot />
-                {t('assistant.chatPage.title')}
-              </h1>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              outlined
-              onClick={() => setShowAssistantInfo(!showAssistantInfo)}
-              className="flex items-center gap-1">
-              <PiInfo />
-            </Button>
-            <Button
-              outlined
-              onClick={handleDownloadConversation}
-              disabled={messages.length === 0}
-              className="flex items-center gap-1">
-              <PiDownloadSimple />
-            </Button>
-            <Button
-              outlined
-              onClick={handleClearConversation}
-              disabled={messages.length === 0}
-              className="flex items-center gap-1">
-              <PiTrash />
-            </Button>
-          </div>
-        </div>
-
-        {/* Assistant Info Panel */}
-        {showAssistantInfo && assistant && (
-          <AssistantInfoPanel assistant={assistant} className="m-4" />
-        )}
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto">
-          {messages.length === 0 ? (
-            <div className="py-12 text-center">
-              <PiRobot className="mx-auto mb-4 text-6xl text-gray-300" />
-              <p className="text-gray-500">
-                {t('assistant.chatPage.noMessages')}
-              </p>
-            </div>
+        <div className="flex-1">
+          {assistant ? (
+            <AssistantModelDisplay
+              assistantName={assistant.name}
+              modelId={assistant.modelId}
+            />
           ) : (
-            <div>
-              {messages.map((message) => (
-                <ChatMessage
-                  key={message.messageId}
-                  chatContent={{
-                    role: message.role,
-                    content: message.content,
-                    createdDate: message.messageId,
-                  }}
-                  sources={message.sources}
-                  hideFeedback={true}
-                  allowRetry={false}
-                  editable={false}
-                />
-              ))}
-              {sending && (
-                <div className="flex justify-center py-4">
-                  <div className="flex w-11/12 gap-3 md:w-11/12 lg:w-5/6 xl:w-4/6">
-                    <div className="bg-aws-ml h-min shrink-0 rounded-full p-1">
-                      <div className="size-7 fill-white">
-                        <PiRobot className="size-7 text-white" />
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl bg-gray-100 px-4 py-3">
-                      <LoadingWave />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
+            <h1 className="flex items-center gap-2 text-lg font-semibold">
+              <PiRobot />
+              {t('assistant.chatPage.title')}
+            </h1>
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="flex justify-center border-t bg-white py-4">
-          <InputChatContent
-            content={inputMessage}
-            onChangeContent={setInputMessage}
-            onSend={handleSendMessage}
-            disabled={isBlocked}
-            placeholder={
-              isBlocked
-                ? t('assistant.chatPage.syncingPlaceholder')
-                : t('assistant.chatPage.inputPlaceholder')
-            }
-            loading={sending}
-            disableFileUpload={true}
-            hideReset={true}
-            fullWidth={true}
-            disableMarginBottom={true}
-          />
+        <div className="flex gap-2">
+          <Button
+            outlined
+            onClick={() => setShowAssistantInfo(!showAssistantInfo)}
+            className="flex items-center gap-1">
+            <PiInfo />
+          </Button>
+          <Button
+            outlined
+            onClick={handleDownloadConversation}
+            disabled={messages.length === 0}
+            className="flex items-center gap-1">
+            <PiDownloadSimple />
+          </Button>
+          <Button
+            outlined
+            onClick={handleClearConversation}
+            disabled={messages.length === 0}
+            className="flex items-center gap-1">
+            <PiTrash />
+          </Button>
         </div>
       </div>
+
+      {/* Assistant Info Panel */}
+      {showAssistantInfo && assistant && (
+        <AssistantInfoPanel assistant={assistant} className="m-4" />
+      )}
+
+      {/* Wrapper for messages and input to enable vertical centering when empty */}
+      {loadingMessages && messages.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center">
+          <LoadingWave />
+        </div>
+      ) : messages.length === 0 ? (
+        sending ? (
+          <div className="flex flex-1 items-center justify-center">
+            <LoadingWave />
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col justify-center">
+            <InputChatContent
+              className="mx-auto print:hidden"
+              content={inputMessage}
+              onChangeContent={setInputMessage}
+              onSend={handleSendMessage}
+              disabled={isBlocked}
+              placeholder={
+                isBlocked
+                  ? t('assistant.chatPage.syncingPlaceholder')
+                  : t('assistant.chatPage.inputPlaceholder')
+              }
+              loading={sending}
+              hideReset={true}
+              disableFileUpload={true}
+            />
+          </div>
+        )
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto">
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.messageId}
+                chatContent={{
+                  role: message.role,
+                  content: message.content,
+                  createdDate: message.messageId,
+                }}
+                sources={message.sources}
+                hideFeedback={true}
+                allowRetry={false}
+                editable={false}
+              />
+            ))}
+            {sending && (
+              <div className="flex justify-center py-4">
+                <div className="flex w-11/12 gap-3 md:w-11/12 lg:w-5/6 xl:w-4/6">
+                  <div className="bg-aws-ml h-min shrink-0 rounded-full p-1">
+                    <div className="size-7 fill-white">
+                      <PiRobot className="size-7 text-white" />
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto rounded-2xl bg-gray-100 px-4 py-3">
+                    <LoadingWave />
+                  </div>
+                </div>
+              </div>
+            )}
+            {loadingMessages && (
+              <div className="flex justify-center py-2">
+                <LoadingWave />
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="sticky bottom-0 print:hidden">
+            <InputChatContent
+              className="mx-auto my-4"
+              content={inputMessage}
+              onChangeContent={setInputMessage}
+              onSend={handleSendMessage}
+              disabled={isBlocked}
+              placeholder={
+                isBlocked
+                  ? t('assistant.chatPage.syncingPlaceholder')
+                  : t('assistant.chatPage.inputPlaceholder')
+              }
+              loading={sending}
+              hideReset={true}
+              disableFileUpload={true}
+            />
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
