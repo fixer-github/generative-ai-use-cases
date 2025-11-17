@@ -5,8 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Subscription } from '../../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -14,7 +14,7 @@ import { getRdsConnection } from '../../../utils/rdsConnection';
 export interface ExtendSubscriptionPeriodInput {
   subscriptionId: string;
   newPeriodStart: string; // ISO 8601
-  newPeriodEnd: string;   // ISO 8601
+  newPeriodEnd: string; // ISO 8601
   tenantId: string; // テナントID（RDS接続に必要）
 }
 
@@ -46,7 +46,10 @@ export class ExtendSubscriptionPeriodError extends Error {
 export const handler = async (
   input: ExtendSubscriptionPeriodInput
 ): Promise<ExtendSubscriptionPeriodOutput> => {
-  console.log('extendSubscriptionPeriod input:', JSON.stringify(input, null, 2));
+  console.log(
+    'extendSubscriptionPeriod input:',
+    JSON.stringify(input, null, 2)
+  );
 
   try {
     // 入力バリデーション
@@ -88,23 +91,16 @@ export const handler = async (
       );
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // サブスクリプションの存在確認
-    const existingSubscription = await subscriptionRepository.findById(
-      input.subscriptionId
-    );
+    // サブスクリプションの存在確認（データアクセス層Lambda関数を呼び出し）
+    const existingSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'findById',
+        {
+          subscriptionId: input.subscriptionId,
+        }
+      );
 
     if (!existingSubscription) {
       throw new ExtendSubscriptionPeriodError(
@@ -118,10 +114,13 @@ export const handler = async (
 
     // scheduled_cancellation（cancel_at_period_end: true）の場合は延長しない
     if (existingSubscription.cancel_at_period_end) {
-      console.log('Subscription is scheduled for cancellation, skipping period extension:', {
-        subscriptionId: input.subscriptionId,
-        cancelAtPeriodEnd: existingSubscription.cancel_at_period_end,
-      });
+      console.log(
+        'Subscription is scheduled for cancellation, skipping period extension:',
+        {
+          subscriptionId: input.subscriptionId,
+          cancelAtPeriodEnd: existingSubscription.cancel_at_period_end,
+        }
+      );
 
       return {
         subscriptionId: existingSubscription.subscription_id,
@@ -129,12 +128,18 @@ export const handler = async (
       };
     }
 
-    // 期限を延長
-    const updatedSubscription = await subscriptionRepository.extendPeriod(
-      input.subscriptionId,
-      periodStart,
-      periodEnd
-    );
+    // 期限を延長（データアクセス層Lambda関数を呼び出し）
+    const updatedSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'extendPeriod',
+        {
+          subscriptionId: input.subscriptionId,
+          newPeriodStart: periodStart.toISOString(),
+          newPeriodEnd: periodEnd.toISOString(),
+        }
+      );
 
     if (!updatedSubscription) {
       throw new ExtendSubscriptionPeriodError(

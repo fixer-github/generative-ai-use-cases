@@ -5,9 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
-import { Subscription } from '../../../repositories/types';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Subscription } from '../../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -19,7 +18,7 @@ export interface CreateSubscriptionInput {
   platformSubscriptionId: string;
   subscriptionStatus: 'active' | 'pending_verification';
   currentPeriodStart: string; // ISO 8601
-  currentPeriodEnd: string;   // ISO 8601
+  currentPeriodEnd: string; // ISO 8601
   tenantId: string; // テナントID（RDS接続に必要）
 }
 
@@ -82,35 +81,23 @@ export const handler = async (
         throw new Error('Period end must be after period start');
       }
     } catch (error) {
-      throw new CreateSubscriptionError(
-        'INVALID_DATE',
-        '無効な日付形式です',
-        {
-          currentPeriodStart: input.currentPeriodStart,
-          currentPeriodEnd: input.currentPeriodEnd,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        }
-      );
+      throw new CreateSubscriptionError('INVALID_DATE', '無効な日付形式です', {
+        currentPeriodStart: input.currentPeriodStart,
+        currentPeriodEnd: input.currentPeriodEnd,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
-    // RDS接続設定の取得（テナント専用のRDS接続）
-    // Note: 統括責務から呼び出される際は、tenantIdが必須
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // 重複チェック: 同じplatform_subscription_idのサブスクリプションが既に存在しないか確認
-    const existingSubscription = await subscriptionRepository.findByPlatformSubscriptionId(
-      input.platformSubscriptionId
-    );
+    // 重複チェック: 同じplatform_subscription_idのサブスクリプションが既に存在しないか確認（データアクセス層Lambda関数を呼び出し）
+    const existingSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'findByPlatformSubscriptionId',
+        {
+          platformSubscriptionId: input.platformSubscriptionId,
+        }
+      );
 
     if (existingSubscription) {
       throw new CreateSubscriptionError(
@@ -123,8 +110,11 @@ export const handler = async (
       );
     }
 
-    // サブスクリプションを作成
-    const newSubscription: Omit<Subscription, 'subscription_id' | 'created_at' | 'updated_at'> = {
+    // サブスクリプションを作成（データアクセス層Lambda関数を呼び出し）
+    const newSubscription: Omit<
+      Subscription,
+      'subscription_id' | 'created_at' | 'updated_at'
+    > = {
       user_id: input.userId,
       plan_id: input.planId,
       platform_type: input.platformType,
@@ -135,7 +125,13 @@ export const handler = async (
       cancel_at_period_end: false,
     };
 
-    const createdSubscription = await subscriptionRepository.create(newSubscription);
+    const createdSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription>(
+        input.tenantId,
+        'subscription',
+        'create',
+        newSubscription
+      );
 
     console.log('Subscription created successfully:', {
       subscriptionId: createdSubscription.subscription_id,
@@ -144,7 +140,9 @@ export const handler = async (
 
     return {
       subscriptionId: createdSubscription.subscription_id,
-      status: createdSubscription.subscription_status as 'active' | 'pending_verification',
+      status: createdSubscription.subscription_status as
+        | 'active'
+        | 'pending_verification',
     };
   } catch (error) {
     console.error('Error creating subscription:', error);
