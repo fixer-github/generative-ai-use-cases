@@ -574,13 +574,32 @@ const useChatState = create<{
     let tmpChunk = '';
     let errorType: string | undefined = undefined;
 
-    // Timeout handling with proper cleanup
-    const STREAM_TIMEOUT = 30000;
-    let timeoutId: NodeJS.Timeout | undefined;
-
     try {
-      for await (const chunk of stream) {
-        // Check for forced stop
+      // Add timeout wrapper (30 seconds)
+      const STREAM_TIMEOUT = 30000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Stream timeout')), STREAM_TIMEOUT)
+      );
+
+      const streamIterator = (async function* () {
+        for await (const chunk of stream) {
+          yield chunk;
+        }
+      })();
+
+      const racedStream = async function* () {
+        while (true) {
+          const { value, done } = await Promise.race([
+            streamIterator.next(),
+            timeoutPromise.then(() => ({ value: undefined, done: true })),
+          ]);
+
+          if (done) break;
+          yield value;
+        }
+      };
+
+      for await (const chunk of racedStream()) {
         if (get().chats[id].forcedStop) {
           updateStopReason(id, 'forcedStop');
           setForcedStop(id, false);
@@ -652,24 +671,9 @@ const useChatState = create<{
           undefined,
           model
         );
-      } else if (error instanceof Error) {
-        // Handle other errors gracefully
-        updateStopReason(id, 'error');
-        errorType = 'generic';
-        addChunkToAssistantMessage(
-          id,
-          '\n\nAn error occurred while processing your request. Please try again.',
-          undefined,
-          model
-        );
       } else {
         // Re-throw unexpected errors
         throw error;
-      }
-    } finally {
-      // Always clean up timeout
-      if (timeoutId) {
-        clearTimeout(timeoutId);
       }
     }
 

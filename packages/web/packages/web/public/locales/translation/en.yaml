@@ -221,10 +221,6 @@ chat:
   button:
     newChat: New Chat
     retryError: Retry failed request
-  error:
-    emptyResults: No relevant information was found in the knowledge base for your query.
-    timeout: The request timed out. Please try again.
-    generic: An error occurred while processing your request. Please try again or contact support if the issue persists.
   create_link: Create Link
   create_link_message: >-
     By creating a link, you will share the conversation history with all users

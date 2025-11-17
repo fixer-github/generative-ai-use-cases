@@ -85,10 +85,6 @@ chat:
   button:
     newChat: Chat mới
     retryError: Thử lại yêu cầu đã thất bại
-  error:
-    emptyResults: Không tìm thấy thông tin liên quan trong cơ sở kiến thức cho truy vấn của bạn.
-    timeout: Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.
-    generic: Đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại hoặc liên hệ hỗ trợ nếu sự cố vẫn tiếp tục.
   create_link: Tạo liên kết
   create_link_message: Bằng cách tạo liên kết, bạn sẽ công khai lịch sử cuộc trò chuyện cho tất cả người dùng có thể đăng nhập vào ứng dụng này.
   create_system_prompt: Tạo system prompt

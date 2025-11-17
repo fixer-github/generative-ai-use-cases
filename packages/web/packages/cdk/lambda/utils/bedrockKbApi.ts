@@ -253,21 +253,20 @@ const bedrockKbApi: ApiInterface = {
           }
         }
       }
-
-      // Check for empty results BEFORE outputting (no content generated)
-      if (buffer.trim().length === 0 && Object.keys(sources).length === 0) {
-        yield streamingChunk({
-          text: '', // Empty text - will be filled by frontend translation
-          stopReason: 'error',
-          errorType: 'emptyResults',
-        });
-        return;
-      }
-
       // Output to the end
       if (buffer.length > currentPosition) {
         yield streamingChunk({ text: buffer.slice(currentPosition) });
         currentPosition = buffer.length;
+      }
+
+      // Check for empty results (no content generated)
+      if (buffer.trim().length === 0 && Object.keys(sources).length === 0) {
+        yield streamingChunk({
+          text: 'No relevant information was found in the knowledge base for your query.',
+          stopReason: 'error',
+          errorType: 'emptyResults',
+        });
+        return;
       }
 
       // Add Reference at the end

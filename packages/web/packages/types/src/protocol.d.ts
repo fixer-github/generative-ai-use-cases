@@ -20,20 +20,13 @@ import { GenerateImageParams } from './image';
 import { GenerateVideoParams, VideoJob } from './video';
 import { ShareId, UserIdAndChatId } from './share';
 
-export type ErrorType =
-  | 'throttling'
-  | 'modelNotEnabled'
-  | 'generic'
-  | 'timeout'
-  | 'emptyResults';
-
 export type StreamingChunk = {
   text: string;
   trace?: string;
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
   sessionId?: string;
-  errorType?: ErrorType;
+  errorType?: 'throttling' | 'modelNotEnabled' | 'generic' | 'timeout' | 'emptyResults';
 };
 
 export type Pagination<T> = {
