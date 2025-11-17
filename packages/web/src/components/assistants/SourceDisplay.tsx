@@ -9,14 +9,25 @@ type Props = {
 
 const SourceDisplay: React.FC<Props> = ({ sources }) => {
   const { t } = useTranslation();
-  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
 
   if (!sources || sources.length === 0) {
     return null;
   }
 
-  const toggleSource = (sourceId: string) => {
-    setExpandedSourceId(expandedSourceId === sourceId ? null : sourceId);
+  const toggleSource = (uniqueKey: string) => {
+    setExpandedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(uniqueKey)) {
+        console.log(`Collapsing source: ${uniqueKey}`);
+        next.delete(uniqueKey);
+      } else {
+        console.log(`Expanding source: ${uniqueKey}`);
+        next.add(uniqueKey);
+      }
+      console.log('Expanded sources after toggle:', Array.from(next));
+      return next;
+    });
   };
 
   return (
@@ -26,7 +37,9 @@ const SourceDisplay: React.FC<Props> = ({ sources }) => {
       </div>
       <div className="flex flex-wrap gap-2">
         {sources.map((source, idx) => {
-          const isExpanded = expandedSourceId === source.sourceId;
+          // Use combination of sourceId and index to ensure uniqueness
+          const uniqueKey = `${source.sourceId || 'source'}-${idx}`;
+          const isExpanded = expandedSources.has(uniqueKey);
           const icon =
             source.sourceType === 'web' || source.contentType === 'url' ? (
               <PiGlobe className="shrink-0" />
@@ -37,7 +50,7 @@ const SourceDisplay: React.FC<Props> = ({ sources }) => {
           return (
             <div key={idx} className="w-full">
               <button
-                onClick={() => toggleSource(source.sourceId)}
+                onClick={() => toggleSource(uniqueKey)}
                 className="flex w-full items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50">
                 {icon}
                 <span className="flex-1 truncate font-medium text-gray-700">
