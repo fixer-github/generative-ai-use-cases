@@ -1,6 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { verifyAdminAccess, CORS_HEADERS, JWTClaims } from './utils/adminAuth';
-import { verifyToken, verifyTokenWithRoleCheck } from './utils/auth';
+import { verifyTokenWithRoleCheck } from './utils/auth';
 import {
   badRequest400Response,
   internalServerError500Response,

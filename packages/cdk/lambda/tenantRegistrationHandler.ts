@@ -42,7 +42,10 @@ export const handler = async (
   try {
     // Parse and validate request
     if (!event.body) {
-      return badRequest400Response({ error: 'Request body is required' });
+      return badRequest400Response({
+        message: 'Request body is required',
+        error: 'Request body is required',
+      });
     }
 
     const request: TenantRegistrationRequest = JSON.parse(event.body);
@@ -73,6 +76,8 @@ export const handler = async (
     // Validate required fields
     if (!tenantId || !accountId || !region || !environment) {
       return badRequest400Response({
+        message:
+          'Missing required fields: tenantId, accountId, region, environment',
         error:
           'Missing required fields: tenantId, accountId, region, environment',
       });
@@ -176,11 +181,13 @@ export const handler = async (
       error.name === 'ConditionalCheckFailedException'
     ) {
       return conflict409Response({
+        message: 'Tenant already exists',
         error: 'Tenant already exists',
       });
     }
 
     return internalServerError500Response({
+      message: error instanceof Error ? error.message : 'Unknown error',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

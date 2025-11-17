@@ -7,11 +7,7 @@ import {
   DeliveryMediumType,
   AttributeType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import {
-  verifyAdminAccess,
-  isAdminContext,
-  CORS_HEADERS,
-} from './utils/adminAuth';
+import { verifyAdminAccess, isAdminContext } from './utils/adminAuth';
 import {
   badRequest400Response,
   internalServerError500Response,
