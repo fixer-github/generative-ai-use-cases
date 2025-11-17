@@ -63,7 +63,10 @@ const InputContent: React.FC<Props> = (props) => {
     if (isEmptyMessages && promptSetting.useForm) {
       let content_ = '';
       promptSetting.formDefinitions?.forEach((def, idx) => {
-        content_ += `<${def.tag}>${formValues[idx]}</${def.tag}>`;
+        content_ += `<${def.tag}>
+${formValues[idx]}
+</${def.tag}>
+`;
       });
       sendMessage(promptSetting, content_);
       setFormValues(new Array(formValues.length).fill(''));
@@ -99,8 +102,8 @@ const InputContent: React.FC<Props> = (props) => {
         )}
       </div>
       {isEmptyMessages &&
-        promptSetting.useForm &&
-        (promptSetting.formDefinitions?.length ?? 0) > 0 ? (
+      promptSetting.useForm &&
+      (promptSetting.formDefinitions?.length ?? 0) > 0 ? (
         <div>
           {promptSetting.formDefinitions?.map((def, idx) => (
             <div key={idx}>
