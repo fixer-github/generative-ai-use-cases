@@ -148,7 +148,13 @@ const AssistantChatPage: React.FC = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [assistantId, assistant?.ragEnabled, assistant?.syncStatus, getAssistant, t]);
+  }, [
+    assistantId,
+    assistant?.ragEnabled,
+    assistant?.syncStatus,
+    getAssistant,
+    t,
+  ]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

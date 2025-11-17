@@ -428,7 +428,10 @@ async function handleCreateMessage(
 
   // Add current user message only if it's not already in history (avoid duplicates)
   const lastBedrockMessage = bedrockMessages[bedrockMessages.length - 1];
-  if (!lastBedrockMessage || lastBedrockMessage.content[0]?.text !== body.content) {
+  if (
+    !lastBedrockMessage ||
+    lastBedrockMessage.content[0]?.text !== body.content
+  ) {
     bedrockMessages.push({
       role: 'user',
       content: [{ text: body.content }] as [{ text: string }],

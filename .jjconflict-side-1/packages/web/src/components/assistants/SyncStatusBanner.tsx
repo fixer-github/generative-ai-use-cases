@@ -1,10 +1,6 @@
 import React from 'react';
 import { SyncStatus, getStatusInfo } from './statusMetadata';
-import {
-  PiSpinnerGap,
-  PiWarning,
-  PiXCircle,
-} from 'react-icons/pi';
+import { PiSpinnerGap, PiWarning, PiXCircle } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
 import Alert from '../Alert';
 
