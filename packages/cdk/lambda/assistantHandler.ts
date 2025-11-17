@@ -31,6 +31,7 @@ import {
   created201Response,
   forbidden403Response,
   internalServerError500Response,
+  methodNotAllowed405Response,
   noContent204Response,
   notFound404Response,
   ok200Response,
@@ -94,7 +95,7 @@ export const handler = async (
         return await handleDelete(userId, assistantId, event);
 
       default:
-        return badRequest400Response({ message: 'Method not allowed' });
+        return methodNotAllowed405Response({ message: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Error in assistant handler:', error);
