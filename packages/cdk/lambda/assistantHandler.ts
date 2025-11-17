@@ -27,11 +27,6 @@ import {
 import { getTenantId } from './utils/tenantUtils';
 import { canAccessAssistant } from './utils/assistantAccessControl';
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
-
 /**
  * Helper function to normalize assistant data for API responses
  * - Strips "assistant#" prefix from assistantId

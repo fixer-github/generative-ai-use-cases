@@ -7,7 +7,6 @@ import {
 import {
   verifyAdminAccessWithUser,
   isAdminUserResult,
-  CORS_HEADERS,
 } from './utils/adminAuth';
 
 const cognitoClient = new CognitoIdentityProviderClient({

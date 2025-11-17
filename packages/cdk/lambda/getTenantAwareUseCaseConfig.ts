@@ -3,23 +3,6 @@ import { getTenant } from './tenantManager';
 import { getUserTenantId } from './utils/tenantUtils';
 
 /**
- * Helper function to create standardized API Gateway responses
- */
-const createResponse = (
-  statusCode: number,
-  body: any
-): APIGatewayProxyResult => {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-    body: JSON.stringify(body),
-  };
-};
-
-/**
  * This endpoint provides tenant-specific use case configuration for the frontend.
  * It only returns configuration stored in the tenant's database record.
  * Unlike the admin endpoint, this doesn't require admin privileges - any authenticated user can access their tenant's configuration.

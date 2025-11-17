@@ -1,6 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { verifyTokenWithRoleCheck } from './utils/auth';
-import { CORS_HEADERS } from './utils/adminAuth';
 
 export interface RefreshUserRoleResponse {
   isAdmin: boolean;

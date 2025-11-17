@@ -32,12 +32,6 @@ export interface TenantUser {
   attributes?: AttributeType[];
 }
 
-export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
-
 /**
  * Verify JWT token and admin status with real-time role checking
  * Handles cases where token claims might be outdated after role changes

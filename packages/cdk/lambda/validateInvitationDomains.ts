@@ -1,9 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  verifyAdminAccess,
-  isAdminContext,
-  CORS_HEADERS,
-} from './utils/adminAuth';
+import { verifyAdminAccess, isAdminContext } from './utils/adminAuth';
 import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 
 // Load tenant map for domain validation
