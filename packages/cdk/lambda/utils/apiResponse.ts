@@ -162,15 +162,15 @@ export function forbidden403Response<TError extends BaseError>(
 export function notFound404Response<TError extends BaseError>(
   body?: TError
 ): APIGatewayProxyResult {
-  if (body) {
-    return createLambdaResponse(HttpStatus.ClientError.NOT_FOUND, body);
-  } else {
+  if (body === undefined) {
     // TODO: remove later
     return {
       statusCode: HttpStatus.ClientError.NOT_FOUND,
       headers: CORS_HEADERS_JSON,
       body: '',
     };
+  } else {
+    return createLambdaResponse(HttpStatus.ClientError.NOT_FOUND, body);
   }
 }
 
