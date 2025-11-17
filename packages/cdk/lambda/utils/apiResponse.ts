@@ -44,15 +44,15 @@ function createLambdaResponse<TBody>(
  * @returns Lambda response with 200 status code
  */
 export function ok200Response<TBody>(body?: TBody): APIGatewayProxyResult {
-  if (body) {
-    return createLambdaResponse(HttpStatus.Success.OK, body);
-  } else {
+  if (body === undefined) {
     // TODO: Remove later
     return {
       statusCode: HttpStatus.Success.OK,
       headers: CORS_HEADERS_JSON,
       body: '',
     };
+  } else {
+    return createLambdaResponse(HttpStatus.Success.OK, body);
   }
 }
 
