@@ -100,7 +100,7 @@ async function handleCreateMessage(
   const body: CreateAssistantMessageRequest = JSON.parse(event.body || '{}');
 
   if (!body.content) {
-    return notFound404Response({ message: 'Missing content' });
+    return badRequest400Response({ message: 'Missing content' });
   }
 
   // Get or create chatId for this conversation
@@ -349,7 +349,7 @@ async function handleListMessages(
 
   // TODO: 将来的には統合チャット履歴のメッセージ取得に置き換える予定
   if (!chatId) {
-    return notFound404Response({ message: 'Missing chatId parameter' });
+    return badRequest400Response({ message: 'Missing chatId parameter' });
   }
 
   const exclusiveStartKey = event.queryStringParameters?.exclusiveStartKey;
