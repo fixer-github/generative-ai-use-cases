@@ -5,9 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
-import { Subscription } from '../../../repositories/types';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Subscription } from '../../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -70,23 +69,14 @@ export const handler = async (
       );
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // サブスクリプションを取得
-    const subscription = await subscriptionRepository.findById(
-      input.subscriptionId
-    );
+    // サブスクリプションを取得（データアクセス層Lambda関数を呼び出し）
+    const subscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'findById',
+        { subscriptionId: input.subscriptionId }
+      );
 
     if (!subscription) {
       throw new GetSubscriptionError(

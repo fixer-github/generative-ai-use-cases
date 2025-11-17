@@ -5,9 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
-import { Subscription } from '../../../repositories/types';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Subscription } from '../../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -85,23 +84,16 @@ export const handler = async (
       );
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // サブスクリプションの存在確認
-    const existingSubscription = await subscriptionRepository.findById(
-      input.subscriptionId
-    );
+    // サブスクリプションの存在確認（データアクセス層Lambda関数を呼び出し）
+    const existingSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'findById',
+        {
+          subscriptionId: input.subscriptionId,
+        }
+      );
 
     if (!existingSubscription) {
       throw new UpdateSubscriptionStatusError(
@@ -131,14 +123,20 @@ export const handler = async (
       };
     }
 
-    // ステータスを更新
-    const updatedSubscription = await subscriptionRepository.update(
-      input.subscriptionId,
-      {
-        subscription_status:
-          input.newStatus as Subscription['subscription_status'],
-      }
-    );
+    // ステータスを更新（データアクセス層Lambda関数を呼び出し）
+    const updatedSubscription =
+      await invokeDataAccessFunctionByTenantId<Subscription | null>(
+        input.tenantId,
+        'subscription',
+        'update',
+        {
+          subscriptionId: input.subscriptionId,
+          updates: {
+            subscription_status:
+              input.newStatus as Subscription['subscription_status'],
+          },
+        }
+      );
 
     if (!updatedSubscription) {
       throw new UpdateSubscriptionStatusError(

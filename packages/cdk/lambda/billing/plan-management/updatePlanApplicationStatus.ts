@@ -5,8 +5,8 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
-import { UserPlanApplicationRepository } from '../../repositories';
-import { getRdsConnection } from '../../utils/rdsConnection';
+import { invokeDataAccessFunctionByTenantId } from '../utils/dataAccessClient';
+import { UserPlanApplication } from '../../billing/data-access/repositories/types';
 
 /**
  * 入力パラメータ
@@ -98,25 +98,16 @@ export const handler = async (
       }
     }
 
-    // RDS接続設定の取得（テナント専用のRDS接続）
-    const rdsConnection = await getRdsConnection({
-      requestContext: {
-        authorizer: {
-          claims: {
-            'custom:tenant_id': input.tenantId,
-          },
-        },
-      },
-    } as any);
-
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
-    );
-
-    // 1. applicationIdでプラン適用を検索
-    const application = await userPlanApplicationRepository.findById(
-      input.applicationId
-    );
+    // 1. applicationIdでプラン適用を検索（データアクセス層Lambda関数を呼び出し）
+    const application =
+      await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+        input.tenantId,
+        'user-plan-application',
+        'findById',
+        {
+          applicationId: input.applicationId,
+        }
+      );
 
     if (!application) {
       throw new UpdatePlanApplicationStatusError(
@@ -144,10 +135,16 @@ export const handler = async (
       updates.valid_until = validUntil;
     }
 
-    const updatedApplication = await userPlanApplicationRepository.update(
-      input.applicationId,
-      updates
-    );
+    const updatedApplication =
+      await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+        input.tenantId,
+        'user-plan-application',
+        'update',
+        {
+          applicationId: input.applicationId,
+          updates,
+        }
+      );
 
     if (!updatedApplication) {
       throw new UpdatePlanApplicationStatusError(
