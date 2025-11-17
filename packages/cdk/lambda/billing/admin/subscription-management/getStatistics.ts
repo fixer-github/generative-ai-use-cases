@@ -11,8 +11,7 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 
 interface QueryParams {
   period?: 'last_7_days' | 'last_30_days' | 'last_90_days' | 'last_1_year';
@@ -53,12 +52,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // 統計情報を取得
-    const statistics = await subscriptionRepository.getStatistics();
+    // 統計情報を取得（データアクセス層Lambda関数を呼び出し）
+    const statistics = await invokeDataAccessFunction<any>(
+      event,
+      'subscription',
+      'getStatistics',
+      {}
+    );
 
     // 今月の新規契約数とキャンセル数を計算
     const now = new Date();

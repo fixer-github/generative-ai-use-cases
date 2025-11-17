@@ -11,8 +11,8 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { PlanRepository, Plan } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 interface ListPlansQueryParams {
   page?: string;
@@ -117,12 +117,8 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const planRepository = new PlanRepository(rdsConnection);
-
-    // プラン一覧を取得
-    const allPlans = await planRepository.findAll({
+    // データアクセス層Lambda関数を呼び出してプラン一覧を取得
+    const allPlans = await invokeDataAccessFunction<Plan[]>(event, 'plan', 'findAll', {
       platformType,
       status,
       search,
@@ -131,7 +127,12 @@ export const handler = async (
     });
 
     // 統計情報を計算（フィルタ前の全プランを対象）
-    const allPlansForStats = await planRepository.findAll({});
+    const allPlansForStats = await invokeDataAccessFunction<Plan[]>(
+      event,
+      'plan',
+      'findAll',
+      {}
+    );
     const statistics: Statistics = {
       total_plans: allPlansForStats.length,
       active_plans: allPlansForStats.filter((p) => p.status === 'active')
@@ -158,7 +159,7 @@ export const handler = async (
         display_name: plan.display_name,
         platform_type: plan.platform_type,
         status: plan.status,
-        created_at: plan.created_at.toISOString(),
+        created_at: new Date(plan.created_at).toISOString(),
       })),
       pagination: {
         current_page: page,

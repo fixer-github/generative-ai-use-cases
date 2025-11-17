@@ -11,8 +11,8 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Subscription } from '../../data-access/repositories/types';
 
 interface RejectRequest {
   rejection_reason:
@@ -110,12 +110,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // サブスクリプション情報を取得
-    const subscription = await subscriptionRepository.findById(subscriptionId);
+    // サブスクリプション情報を取得（データアクセス層Lambda関数を呼び出し）
+    const subscription = await invokeDataAccessFunction<Subscription | null>(
+      event,
+      'subscription',
+      'findById',
+      { subscriptionId }
+    );
     if (!subscription) {
       return {
         statusCode: 404,
@@ -154,11 +155,16 @@ export const handler = async (
 
     const now = new Date();
 
-    // サブスクリプションのステータスを更新
-    const updatedSubscription = await subscriptionRepository.update(
-      subscriptionId,
+    // サブスクリプションのステータスを更新（データアクセス層Lambda関数を呼び出し）
+    const updatedSubscription = await invokeDataAccessFunction<Subscription | null>(
+      event,
+      'subscription',
+      'update',
       {
-        subscription_status: 'rejected',
+        subscriptionId,
+        updates: {
+          subscription_status: 'rejected',
+        },
       }
     );
 

@@ -11,11 +11,11 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
-  SubscriptionRepository,
-  UserPlanApplicationRepository,
-} from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+  Subscription,
+  UserPlanApplication,
+} from '../../data-access/repositories/types';
 
 interface ApproveRequest {
   note?: string;
@@ -56,15 +56,13 @@ export const handler = async (
       ? JSON.parse(event.body)
       : {};
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-    const userPlanApplicationRepository = new UserPlanApplicationRepository(
-      rdsConnection
+    // サブスクリプション情報を取得（データアクセス層Lambda関数を呼び出し）
+    const subscription = await invokeDataAccessFunction<Subscription | null>(
+      event,
+      'subscription',
+      'findById',
+      { subscriptionId }
     );
-
-    // サブスクリプション情報を取得
-    const subscription = await subscriptionRepository.findById(subscriptionId);
     if (!subscription) {
       return {
         statusCode: 404,
@@ -122,11 +120,16 @@ export const handler = async (
 
     const now = new Date();
 
-    // 1. サブスクリプションのステータスを更新
-    const updatedSubscription = await subscriptionRepository.update(
-      subscriptionId,
+    // 1. サブスクリプションのステータスを更新（データアクセス層Lambda関数を呼び出し）
+    const updatedSubscription = await invokeDataAccessFunction<Subscription | null>(
+      event,
+      'subscription',
+      'update',
       {
-        subscription_status: 'active',
+        subscriptionId,
+        updates: {
+          subscription_status: 'active',
+        },
       }
     );
 
@@ -134,16 +137,21 @@ export const handler = async (
       throw new Error('Failed to update subscription status');
     }
 
-    // 2. ユーザプラン適用レコードを作成
-    const userPlanApplication = await userPlanApplicationRepository.create({
-      user_id: subscription.user_id,
-      plan_id: subscription.plan_id,
-      application_source: 'subscription',
-      application_source_id: subscription.subscription_id,
-      application_status: 'active',
-      valid_from: subscription.current_period_start,
-      valid_until: subscription.current_period_end,
-    });
+    // 2. ユーザプラン適用レコードを作成（データアクセス層Lambda関数を呼び出し）
+    const userPlanApplication = await invokeDataAccessFunction<UserPlanApplication>(
+      event,
+      'user-plan-application',
+      'create',
+      {
+        user_id: subscription.user_id,
+        plan_id: subscription.plan_id,
+        application_source: 'subscription',
+        application_source_id: subscription.subscription_id,
+        application_status: 'active',
+        valid_from: new Date(subscription.current_period_start).toISOString(),
+        valid_until: new Date(subscription.current_period_end).toISOString(),
+      }
+    );
 
     // TODO: 以下の処理を実装
     // 3. OpenFGAに権限を登録

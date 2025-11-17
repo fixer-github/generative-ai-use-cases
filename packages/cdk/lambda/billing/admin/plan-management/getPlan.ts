@@ -11,8 +11,8 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { PlanRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -45,12 +45,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const planRepository = new PlanRepository(rdsConnection);
-
-    // プランを取得
-    const plan = await planRepository.findById(planId);
+    // データアクセス層Lambda関数を呼び出してプランを取得
+    const plan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
+    );
 
     if (!plan) {
       return {
@@ -78,8 +79,8 @@ export const handler = async (
       platform_product_id: plan.platform_product_id || null,
       permissions: plan.permissions,
       status: plan.status,
-      created_at: plan.created_at.toISOString(),
-      updated_at: plan.updated_at.toISOString(),
+      created_at: new Date(plan.created_at).toISOString(),
+      updated_at: new Date(plan.updated_at).toISOString(),
     };
 
     return {

@@ -11,8 +11,7 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -44,12 +43,13 @@ export const handler = async (
       };
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // サブスクリプション詳細情報を取得
-    const result = await subscriptionRepository.findByIdWithDetails(subscriptionId);
+    // サブスクリプション詳細情報を取得（データアクセス層Lambda関数を呼び出し）
+    const result = await invokeDataAccessFunction<any>(
+      event,
+      'subscription',
+      'findByIdWithDetails',
+      { subscriptionId }
+    );
 
     if (!result) {
       return {
@@ -75,7 +75,7 @@ export const handler = async (
       user_id: subscription.user_id,
       user_name: subscription.user_id, // TODO: ユーザ情報テーブルから取得
       email: `${subscription.user_id}@example.com`, // TODO: ユーザ情報テーブルから取得
-      registered_at: subscription.created_at.toISOString(),
+      registered_at: new Date(subscription.created_at).toISOString(),
       total_subscriptions_count: 1, // TODO: ユーザの全サブスクリプション数を取得
     };
 
@@ -87,8 +87,8 @@ export const handler = async (
       subscription_id: subscription.subscription_id,
       platform_subscription_id: subscription.platform_subscription_id,
       status: subscription.subscription_status,
-      created_at: subscription.created_at.toISOString(),
-      updated_at: subscription.updated_at.toISOString(),
+      created_at: new Date(subscription.created_at).toISOString(),
+      updated_at: new Date(subscription.updated_at).toISOString(),
       user: userInfo,
       plan: {
         plan_id: plan.plan_id,
@@ -100,11 +100,11 @@ export const handler = async (
         permissions: plan.permissions,
       },
       period: {
-        current_period_start: subscription.current_period_start.toISOString(),
-        current_period_end: subscription.current_period_end.toISOString(),
+        current_period_start: new Date(subscription.current_period_start).toISOString(),
+        current_period_end: new Date(subscription.current_period_end).toISOString(),
         next_billing_date: subscription.cancel_at_period_end
           ? null
-          : subscription.current_period_end.toISOString(),
+          : new Date(subscription.current_period_end).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
         renewal_count: renewalCount,
         next_billing_amount: subscription.cancel_at_period_end

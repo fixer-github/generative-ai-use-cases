@@ -156,14 +156,30 @@ export class TenantRole extends Construct {
               resources: ['*'], // Polly doesn't have tenant-specific resources
             }),
 
-            // Lambda invoke access for tenant-specific Bedrock Chat functions
+            // Lambda invoke access for tenant-specific functions
             new PolicyStatement({
               sid: 'LambdaInvokeTenantFunctions',
               effect: Effect.ALLOW,
               actions: ['lambda:InvokeFunction', 'lambda:InvokeAsync'],
               resources: [
-                // Allow invoking only Lambda functions for this specific tenant
+                // Allow invoking tenant-specific Lambda functions
                 `arn:aws:lambda:${props.region}:${props.account}:function:*`,
+              ],
+            }),
+
+            // Lambda invoke access for VPC-internal data access functions
+            // These functions provide data access to tenant-specific RDS databases
+            new PolicyStatement({
+              sid: 'LambdaInvokeDataAccessFunctions',
+              effect: Effect.ALLOW,
+              actions: ['lambda:InvokeFunction'],
+              resources: [
+                // Plan data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-plan-data-access`,
+                // Subscription data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-subscription-data-access`,
+                // User plan application data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-user-plan-application-data-access`,
               ],
             }),
 

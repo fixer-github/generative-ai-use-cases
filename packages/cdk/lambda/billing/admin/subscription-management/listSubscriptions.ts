@@ -11,8 +11,7 @@ import {
   isAdminContext,
   CORS_HEADERS,
 } from '../../../utils/adminAuth';
-import { SubscriptionRepository } from '../../../repositories';
-import { getRdsConnection } from '../../../utils/rdsConnection';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 
 interface QueryParams {
   page?: string;
@@ -111,34 +110,29 @@ export const handler = async (
       }
     }
 
-    // RDS接続設定の取得
-    const rdsConnection = await getRdsConnection(event);
-    const subscriptionRepository = new SubscriptionRepository(rdsConnection);
-
-    // 日付パラメータのパース
-    const periodStartFrom = params.period_start_from ? new Date(params.period_start_from) : undefined;
-    const periodStartTo = params.period_start_to ? new Date(params.period_start_to) : undefined;
-    const createdAtFrom = params.created_at_from ? new Date(params.created_at_from) : undefined;
-    const createdAtTo = params.created_at_to ? new Date(params.created_at_to) : undefined;
-
-    // サブスクリプション一覧を取得
-    const result = await subscriptionRepository.findAllForAdmin({
-      page,
-      limit,
-      sortBy: sortBy === 'period_start' ? 'current_period_start' : sortBy === 'period_end' ? 'current_period_end' : sortBy,
-      sortOrder,
-      subscriptionId: params.subscription_id,
-      userId: params.user_id,
-      userName: params.user_name,
-      platformType: params.platform_type,
-      platformSubscriptionId: params.platform_subscription_id,
-      status: params.status,
-      planId: params.plan_id,
-      periodStartFrom,
-      periodStartTo,
-      createdAtFrom,
-      createdAtTo,
-    });
+    // サブスクリプション一覧を取得（データアクセス層Lambda関数を呼び出し）
+    const result = await invokeDataAccessFunction<any>(
+      event,
+      'subscription',
+      'findAllForAdmin',
+      {
+        page,
+        limit,
+        sortBy: sortBy === 'period_start' ? 'current_period_start' : sortBy === 'period_end' ? 'current_period_end' : sortBy,
+        sortOrder,
+        subscriptionId: params.subscription_id,
+        userId: params.user_id,
+        userName: params.user_name,
+        platformType: params.platform_type,
+        platformSubscriptionId: params.platform_subscription_id,
+        status: params.status,
+        planId: params.plan_id,
+        periodStartFrom: params.period_start_from,
+        periodStartTo: params.period_start_to,
+        createdAtFrom: params.created_at_from,
+        createdAtTo: params.created_at_to,
+      }
+    );
 
     const totalPages = Math.ceil(result.totalCount / limit);
 
@@ -153,9 +147,9 @@ export const handler = async (
         platform_type: sub.platform_type,
         platform_subscription_id: sub.platform_subscription_id,
         status: sub.subscription_status,
-        period_start: sub.current_period_start.toISOString(),
-        period_end: sub.current_period_end.toISOString(),
-        created_at: sub.created_at.toISOString(),
+        period_start: new Date(sub.current_period_start).toISOString(),
+        period_end: new Date(sub.current_period_end).toISOString(),
+        created_at: new Date(sub.created_at).toISOString(),
       })),
       pagination: {
         current_page: page,
