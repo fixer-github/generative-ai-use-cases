@@ -19,7 +19,7 @@ export const handler = async (
   } catch (error) {
     console.log(error);
     return internalServerError500Response({
-      message: (error as error).message,
+      message: (error as Error).message,
     });
   }
 };
