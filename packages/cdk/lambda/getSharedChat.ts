@@ -14,8 +14,7 @@ export const handler = async (
     const res = await findUserIdAndChatId(shareId, event);
 
     if (res === null) {
-      // NOTE: 下からbodyが空文字列だった
-      return notFound404Response({ message: '' });
+      return notFound404Response();
     }
 
     const userId = res.userId;
