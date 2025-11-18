@@ -25,6 +25,7 @@ interface TenantConfig {
   environment?: string;
   tenantRegion?: string;
   enableAutoDelete?: boolean;
+  paymentGatewayEnabled?: boolean;
   openSearchCapacity?: any; // Will be parsed as JSON string or object
   networkConfig?: {
     vpcCidr?: string;
@@ -182,6 +183,7 @@ const params = {
   identityPoolId: context.controlPlane?.identityPoolId!,
   userPoolClientId: context.controlPlane?.userPoolClientId!,
   pptxEnabled: context.pptxEnabled ?? false,
+  paymentGatewayEnabled: context.paymentGatewayEnabled ?? true, // Default to true to include in tenant deployment
   bedrockRegion:
     context.bedrockRegion ||
     context.tenantRegion ||

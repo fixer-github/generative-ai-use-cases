@@ -277,19 +277,28 @@ class PaymentGatewayApi extends Construct {
     const stripeWebhookResource = tenantResource.addResource('stripe');
     stripeWebhookResource.addMethod(
       'POST',
-      new LambdaIntegration(receiveStripeWebhookFunction)
+      new LambdaIntegration(receiveStripeWebhookFunction),
+      {
+        authorizationType: AuthorizationType.NONE,
+      }
     );
 
     const appleWebhookResource = tenantResource.addResource('apple');
     appleWebhookResource.addMethod(
       'POST',
-      new LambdaIntegration(receiveAppleNotificationFunction)
+      new LambdaIntegration(receiveAppleNotificationFunction),
+      {
+        authorizationType: AuthorizationType.NONE,
+      }
     );
 
     const googleWebhookResource = tenantResource.addResource('google');
     googleWebhookResource.addMethod(
       'POST',
-      new LambdaIntegration(receiveGoogleNotificationFunction)
+      new LambdaIntegration(receiveGoogleNotificationFunction),
+      {
+        authorizationType: AuthorizationType.NONE,
+      }
     );
 
     // 決済操作エンドポイント（Cognitoオーソライザー必須）
