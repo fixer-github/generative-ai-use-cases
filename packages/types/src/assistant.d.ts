@@ -98,13 +98,21 @@ export type UpdateAssistantRequest = {
 };
 
 /**
+ * Message format for assistant message requests
+ */
+export type CreateAssistantMessageRequestMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+/**
  * Request to create a new assistant message
  * @property content - Message content from the user
  * @property messages - Optional conversation history for backward compatibility (not commonly used)
  */
 export type CreateAssistantMessageRequest = {
   content: string;
-  messages?: { role: 'user' | 'assistant'; content: string }[];
+  messages?: CreateAssistantMessageRequestMessage[];
 };
 
 export type ListAssistantsQueryParams = {

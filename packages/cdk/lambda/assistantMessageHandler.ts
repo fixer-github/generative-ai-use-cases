@@ -91,13 +91,21 @@ function isEmptyConversationStart(
 }
 
 /**
+ * Bedrock message format for Converse API
+ */
+type BedrockMessage = {
+  role: 'user' | 'assistant';
+  content: [{ text: string }];
+};
+
+/**
  * Convert AssistantMessage array to Bedrock message format
  * Filters out messages with invalid roles or empty content
  * Ensures last message is user role for Bedrock API compatibility
  */
 function convertToBedrockMessages(
   messages: AssistantMessage[]
-): { role: 'user' | 'assistant'; content: [{ text: string }] }[] {
+): BedrockMessage[] {
   const bedrockMessages = messages
     .filter((msg) => {
       // Only include user and assistant messages
