@@ -1,0 +1,930 @@
+/**
+ * Webhook Event Flow Orchestration Lambda Handler
+ *
+ * Webhookイベント処理フローを統括するLambda関数。
+ * 決済システム（Stripe/Apple/Google）から送られてくるWebhookイベントを処理する一連の流れを制御します。
+ *
+ * 起動トリガー: EventBridge経由で起動（署名検証済みWebhookイベントを受信）
+ *
+ * 処理イベントタイプ:
+ * 1. payment.succeeded（更新成功）
+ *    - サブスクリプション有効期限延長
+ *    - プラン適用有効期限延長（scheduled_terminationの場合はスキップ）
+ *    - 支払い履歴記録（サブスク管理内で実施）
+ *
+ * 2. payment.failed（支払い失敗）
+ *    - サブスクリプション状態更新（status: 'past_due'）
+ *    - 支払い失敗履歴記録
+ *
+ * 3. subscription.canceled（キャンセル）
+ *    - サブスクリプション状態更新（status: 'canceled'）
+ *    - キャンセル日時記録
+ *
+ * 4. refund.created（返金）
+ *    - 返金記録（サブスク管理内で実施）
+ *    - プラン適用即座終了
+ *    - デフォルトプランへの遷移
+ *
+ * エラーハンドリング:
+ * - イベント処理失敗時はEventBridgeのDLQへ（Lambda関数からエラーをthrow）
+ * - 最大リトライ回数3回、指数バックオフ（EventBridge側で制御される）
+ */
+
+import { FlowOrchestrator } from '../services/flowOrchestrator';
+import {
+  WebhookEventFlowInput,
+  WebhookEventType,
+  StripeEventData,
+  AppleEventData,
+  GoogleEventData,
+} from '../types/eventTypes';
+import { StepConfig } from '../types/stepTypes';
+import { PlanManagementClient } from '../clients/planManagementClient';
+import {
+  SubscriptionManagementClient,
+  UpdateSubscriptionStatusParams,
+  ExtendSubscriptionPeriodParams,
+} from '../clients/subscriptionManagementClient';
+import { PlatformType } from '../types/flowTypes';
+
+/**
+ * デフォルトプランID
+ * 返金時にユーザを遷移させる無料プラン
+ */
+const DEFAULT_PLAN_ID = 'free';
+
+/**
+ * Webhookイベント処理フローの出力結果
+ */
+interface WebhookEventFlowOutput {
+  /** 成功フラグ */
+  success: boolean;
+  /** フロー実行ID */
+  flowExecutionId: string;
+  /** 処理されたイベントID */
+  eventId: string;
+  /** エラー詳細（失敗時） */
+  errorDetails?: {
+    errorCode?: string;
+    errorMessage: string;
+  };
+}
+
+/**
+ * EventBridgeイベント構造
+ * EventBridgeから渡されるイベント全体を表す型
+ */
+interface EventBridgeEvent {
+  /** イベントソース（例: "billing.payment-gateway"） */
+  source: string;
+  /** イベント詳細タイプ（例: "Stripe Webhook Event"） */
+  'detail-type': string;
+  /** イベントペイロード */
+  detail: WebhookEventFlowInput;
+}
+
+/**
+ * Webhook Event Flow Lambda Handler
+ *
+ * EventBridgeから呼び出されます。イベントタイプに応じて異なる処理フローを実行します。
+ *
+ * @param event EventBridgeイベント
+ * @returns Webhookイベント処理フロー実行結果
+ */
+export const handler = async (
+  event: EventBridgeEvent
+): Promise<WebhookEventFlowOutput> => {
+  // EventBridgeイベントからdetailを抽出
+  const input: WebhookEventFlowInput = event.detail;
+  const { eventId, tenantId, platform, eventType, eventData } = input;
+
+  console.log('Webhook event flow started', {
+    eventId,
+    tenantId,
+    platform,
+    eventType,
+  });
+
+  // クライアントのインスタンス化
+  const orchestrator = new FlowOrchestrator(tenantId);
+  const planClient = new PlanManagementClient();
+  const subscriptionClient = new SubscriptionManagementClient();
+
+  // イベントタイプごとに処理を分岐
+  try {
+    // イベントタイプの正規化（プラットフォーム固有のイベント名を共通イベント名にマッピング）
+    const normalizedEventType = normalizeEventType(platform, eventType);
+
+    console.log('Normalized event type', {
+      originalEventType: eventType,
+      normalizedEventType,
+      platform,
+    });
+
+    // 正規化されたイベントタイプに応じて処理
+    switch (normalizedEventType) {
+      case 'payment.succeeded':
+        return await handlePaymentSucceeded(
+          input,
+          orchestrator,
+          planClient,
+          subscriptionClient
+        );
+
+      case 'payment.failed':
+        return await handlePaymentFailed(
+          input,
+          orchestrator,
+          subscriptionClient
+        );
+
+      case 'subscription.canceled':
+        return await handleSubscriptionCanceled(
+          input,
+          orchestrator,
+          subscriptionClient
+        );
+
+      case 'refund.created':
+        return await handleRefundCreated(
+          input,
+          orchestrator,
+          planClient,
+          subscriptionClient
+        );
+
+      default:
+        console.warn('Unknown event type, skipping processing', {
+          eventType,
+          normalizedEventType,
+          platform,
+        });
+
+        // 不明なイベントタイプはログ出力してスキップ（エラーにしない）
+        return {
+          success: true,
+          flowExecutionId: '',
+          eventId,
+          errorDetails: {
+            errorCode: 'UNKNOWN_EVENT_TYPE',
+            errorMessage: `Unknown event type: ${eventType}`,
+          },
+        };
+    }
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+
+    console.error('Webhook event flow execution failed', {
+      eventId,
+      tenantId,
+      platform,
+      eventType,
+      error: err.message,
+      stack: err.stack,
+    });
+
+    // EventBridgeのDLQに送信するため、エラーをスロー
+    throw new Error(
+      `Webhook event processing failed: ${err.message}`,
+      { cause: err }
+    );
+  }
+};
+
+/**
+ * イベントタイプを正規化
+ *
+ * プラットフォーム固有のイベント名を共通イベント名にマッピングします。
+ *
+ * @param platform 決済プラットフォーム
+ * @param eventType イベントタイプ
+ * @returns 正規化されたイベントタイプ
+ */
+function normalizeEventType(
+  platform: PlatformType,
+  eventType: WebhookEventType
+): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'unknown' {
+  // Stripeのイベントはそのまま使用
+  if (platform === 'stripe') {
+    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created';
+  }
+
+  // Appleのイベントをマッピング
+  if (platform === 'apple') {
+    switch (eventType) {
+      case 'RENEWAL':
+        return 'payment.succeeded';
+      case 'DID_FAIL_TO_RENEW':
+        return 'payment.failed';
+      case 'DID_CHANGE_RENEWAL_STATUS':
+        return 'subscription.canceled';
+      case 'REFUND':
+        return 'refund.created';
+      default:
+        return 'unknown';
+    }
+  }
+
+  // Googleのイベントをマッピング
+  if (platform === 'google') {
+    switch (eventType) {
+      case 'SUBSCRIPTION_RENEWED':
+        return 'payment.succeeded';
+      case 'SUBSCRIPTION_EXPIRED':
+        return 'payment.failed';
+      case 'SUBSCRIPTION_CANCELED':
+        return 'subscription.canceled';
+      case 'SUBSCRIPTION_REFUNDED':
+        return 'refund.created';
+      default:
+        return 'unknown';
+    }
+  }
+
+  return 'unknown';
+}
+
+/**
+ * payment.succeeded（更新成功）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. サブスクリプション有効期限延長
+ * 2. プラン適用有効期限延長（scheduled_terminationの場合はスキップ）
+ * 3. 支払い履歴記録（サブスク管理内で実施）
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param planClient プラン管理クライアント
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @returns 処理結果
+ */
+async function handlePaymentSucceeded(
+  input: WebhookEventFlowInput,
+  orchestrator: FlowOrchestrator,
+  planClient: PlanManagementClient,
+  subscriptionClient: SubscriptionManagementClient
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, tenantId, platform, eventData } = input;
+
+  console.log('Processing payment.succeeded event', { eventId, tenantId, platform });
+
+  // イベントデータから必要な情報を抽出
+  const subscriptionId = extractSubscriptionId(platform, eventData);
+  const newExpiresAt = extractExpirationDate(platform, eventData);
+  const userId = extractUserId(platform, eventData);
+
+  // 前のステップの結果を保持する変数
+  const previousStepResults: Record<string, unknown> = {};
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    // ステップ1: サブスクリプション有効期限延長
+    {
+      stepName: 'extend_subscription_period',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Extending subscription period', {
+          tenantId,
+          subscriptionId,
+          newExpiresAt,
+        });
+
+        const params: ExtendSubscriptionPeriodParams = {
+          tenantId,
+          subscriptionId,
+          newExpiresAt,
+        };
+
+        const result = await subscriptionClient.extendSubscriptionPeriod(params);
+
+        console.log('Subscription period extended successfully', {
+          subscriptionId,
+          success: result.success,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: プラン適用有効期限延長（scheduled_terminationの場合はスキップ）
+    {
+      stepName: 'extend_plan_application_period',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Checking plan application status', {
+          tenantId,
+          userId,
+        });
+
+        // TODO: プラン適用情報を取得して、statusがscheduled_terminationかどうかを確認する処理を実装
+        // 現時点では簡易的に、scheduled_terminationではないと仮定して期限延長を実施
+        // 将来的には、planManagementClient.getPlanApplication()で取得して判定する
+
+        // 仮実装: プラン適用IDを取得（実際にはサブスクリプションから取得）
+        const planApplicationId = `app-${userId}-${subscriptionId}`;
+
+        // ステータスがscheduled_terminationの場合はスキップ
+        // TODO: 実際のステータスチェックを実装
+        const isScheduledTermination = false; // 仮値
+
+        if (isScheduledTermination) {
+          console.log('Skipping plan application period extension (scheduled_termination)', {
+            planApplicationId,
+          });
+          return {
+            skipped: true,
+            reason: 'scheduled_termination',
+          };
+        }
+
+        // プラン適用の有効期限を延長（activeステータスを維持）
+        const result = await planClient.updatePlanApplicationStatus({
+          tenantId,
+          planApplicationId,
+          status: 'active',
+        });
+
+        console.log('Plan application period extended successfully', {
+          planApplicationId,
+          success: result.success,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ3: 支払い履歴記録（サブスク管理内で実施）
+    // 支払い履歴の記録はSubscriptionManagementClient.extendSubscriptionPeriod()内で
+    // 自動的に実施される想定のため、統括責務では明示的なステップとしては実装しない
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * payment.failed（支払い失敗）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. サブスクリプション状態更新（status: 'past_due'）
+ * 2. 支払い失敗履歴記録
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @returns 処理結果
+ */
+async function handlePaymentFailed(
+  input: WebhookEventFlowInput,
+  orchestrator: FlowOrchestrator,
+  subscriptionClient: SubscriptionManagementClient
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, tenantId, platform, eventData } = input;
+
+  console.log('Processing payment.failed event', { eventId, tenantId, platform });
+
+  // イベントデータから必要な情報を抽出
+  const subscriptionId = extractSubscriptionId(platform, eventData);
+  const userId = extractUserId(platform, eventData);
+
+  // 前のステップの結果を保持する変数
+  const previousStepResults: Record<string, unknown> = {};
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    // ステップ1: サブスクリプション状態更新（status: 'past_due'）
+    {
+      stepName: 'update_subscription_to_past_due',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Updating subscription status to past_due', {
+          tenantId,
+          subscriptionId,
+        });
+
+        const params: UpdateSubscriptionStatusParams = {
+          tenantId,
+          subscriptionId,
+          newStatus: 'past_due',
+        };
+
+        const result = await subscriptionClient.updateSubscriptionStatus(params);
+
+        console.log('Subscription status updated to past_due', {
+          subscriptionId,
+          previousStatus: result.previousStatus,
+          newStatus: result.newStatus,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: 支払い失敗履歴記録
+    // 支払い失敗の履歴記録はSubscriptionManagementClient.updateSubscriptionStatus()内で
+    // 自動的に実施される想定のため、統括責務では明示的なステップとしては実装しない
+
+    // ステップ3: 通知送信（将来実装）
+    // {
+    //   stepName: 'send_payment_failed_notification',
+    //   stepType: 'api_call',
+    //   targetService: 'NotificationService',
+    //   targetFunction: process.env.NOTIFICATION_SERVICE_SEND_FUNCTION_NAME,
+    //   executeFunction: async () => {
+    //     console.log('Sending payment failed notification', { tenantId, userId });
+    //
+    //     // TODO: NotificationServiceClientを実装後、通知送信処理を追加
+    //     return { notificationId: 'notification-placeholder' };
+    //   },
+    //   retryable: true,
+    //   maxRetries: 3,
+    // },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * subscription.canceled（キャンセル）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. サブスクリプション状態更新（status: 'canceled'）
+ * 2. キャンセル日時記録
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @returns 処理結果
+ */
+async function handleSubscriptionCanceled(
+  input: WebhookEventFlowInput,
+  orchestrator: FlowOrchestrator,
+  subscriptionClient: SubscriptionManagementClient
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, tenantId, platform, eventData } = input;
+
+  console.log('Processing subscription.canceled event', { eventId, tenantId, platform });
+
+  // イベントデータから必要な情報を抽出
+  const subscriptionId = extractSubscriptionId(platform, eventData);
+  const userId = extractUserId(platform, eventData);
+
+  // 前のステップの結果を保持する変数
+  const previousStepResults: Record<string, unknown> = {};
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    // ステップ1: サブスクリプション状態更新（status: 'canceled'）
+    {
+      stepName: 'update_subscription_to_canceled',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Updating subscription status to canceled', {
+          tenantId,
+          subscriptionId,
+        });
+
+        const params: UpdateSubscriptionStatusParams = {
+          tenantId,
+          subscriptionId,
+          newStatus: 'canceled',
+        };
+
+        const result = await subscriptionClient.updateSubscriptionStatus(params);
+
+        console.log('Subscription status updated to canceled', {
+          subscriptionId,
+          previousStatus: result.previousStatus,
+          newStatus: result.newStatus,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: キャンセル日時記録
+    // キャンセル日時の記録はSubscriptionManagementClient.updateSubscriptionStatus()内で
+    // canceledAt属性に記録される想定のため、統括責務では明示的なステップとしては実装しない
+
+    // ステップ3: 通知送信（将来実装）
+    // {
+    //   stepName: 'send_subscription_canceled_notification',
+    //   stepType: 'api_call',
+    //   targetService: 'NotificationService',
+    //   targetFunction: process.env.NOTIFICATION_SERVICE_SEND_FUNCTION_NAME,
+    //   executeFunction: async () => {
+    //     console.log('Sending subscription canceled notification', { tenantId, userId });
+    //
+    //     // TODO: NotificationServiceClientを実装後、通知送信処理を追加
+    //     return { notificationId: 'notification-placeholder' };
+    //   },
+    //   retryable: true,
+    //   maxRetries: 3,
+    // },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * refund.created（返金）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. 返金記録（サブスク管理内で実施）
+ * 2. プラン適用即座終了
+ * 3. デフォルトプランへの遷移
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param planClient プラン管理クライアント
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @returns 処理結果
+ */
+async function handleRefundCreated(
+  input: WebhookEventFlowInput,
+  orchestrator: FlowOrchestrator,
+  planClient: PlanManagementClient,
+  subscriptionClient: SubscriptionManagementClient
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, tenantId, platform, eventData } = input;
+
+  console.log('Processing refund.created event', { eventId, tenantId, platform });
+
+  // イベントデータから必要な情報を抽出
+  const subscriptionId = extractSubscriptionId(platform, eventData);
+  const userId = extractUserId(platform, eventData);
+
+  // 前のステップの結果を保持する変数
+  const previousStepResults: Record<string, unknown> = {};
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    // ステップ1: 返金記録（サブスク管理内で実施）
+    // 返金の記録はSubscriptionManagement側で別のInternal関数として実装される想定
+    // ここでは、サブスクリプションステータスを更新して返金を記録する
+    {
+      stepName: 'record_refund',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Recording refund', {
+          tenantId,
+          subscriptionId,
+        });
+
+        // 返金時はサブスクリプションをcanceledステータスに更新
+        const params: UpdateSubscriptionStatusParams = {
+          tenantId,
+          subscriptionId,
+          newStatus: 'canceled',
+        };
+
+        const result = await subscriptionClient.updateSubscriptionStatus(params);
+
+        console.log('Refund recorded successfully', {
+          subscriptionId,
+          previousStatus: result.previousStatus,
+          newStatus: result.newStatus,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: プラン適用即座終了
+    {
+      stepName: 'terminate_plan_application_immediately',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Terminating plan application immediately (refund)', {
+          tenantId,
+          userId,
+        });
+
+        // 現在のプラン適用IDを取得（実際にはサブスクリプションから取得）
+        const planApplicationId = `app-${userId}-${subscriptionId}`;
+
+        const result = await planClient.terminatePlanApplication({
+          tenantId,
+          userId,
+          planApplicationId,
+          immediate: true, // 返金時は即座に終了
+        });
+
+        console.log('Plan application terminated immediately', {
+          planApplicationId,
+          success: result.success,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ3: デフォルトプランへの遷移
+    {
+      stepName: 'apply_default_plan',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Applying default plan to user (refund)', {
+          tenantId,
+          userId,
+          planId: DEFAULT_PLAN_ID,
+        });
+
+        const result = await planClient.applyPlanToUser({
+          tenantId,
+          userId,
+          planId: DEFAULT_PLAN_ID,
+          applicationSource: 'default',
+          applicationSourceId: undefined,
+          validFrom: new Date().toISOString(),
+          // validUntilは指定しない（無期限の無料プラン）
+        });
+
+        console.log('Default plan applied successfully', {
+          applicationId: result.applicationId,
+          applicationStatus: result.applicationStatus,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ4: 通知送信（将来実装）
+    // {
+    //   stepName: 'send_refund_notification',
+    //   stepType: 'api_call',
+    //   targetService: 'NotificationService',
+    //   targetFunction: process.env.NOTIFICATION_SERVICE_SEND_FUNCTION_NAME,
+    //   executeFunction: async () => {
+    //     console.log('Sending refund notification', { tenantId, userId });
+    //
+    //     // TODO: NotificationServiceClientを実装後、通知送信処理を追加
+    //     return { notificationId: 'notification-placeholder' };
+    //   },
+    //   retryable: true,
+    //   maxRetries: 3,
+    // },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * Webhookイベントフローを実行
+ *
+ * @param orchestrator フローオーケストレーター
+ * @param flowType フロータイプ
+ * @param userId ユーザID
+ * @param initiatedBy 開始者
+ * @param inputParameters 入力パラメータ
+ * @param steps ステップ設定
+ * @param eventId イベントID
+ * @returns フロー実行結果
+ */
+async function executeWebhookEventFlow(
+  orchestrator: FlowOrchestrator,
+  flowType: 'webhook_event',
+  userId: string,
+  initiatedBy: string,
+  inputParameters: Record<string, unknown>,
+  steps: StepConfig[],
+  eventId: string
+): Promise<WebhookEventFlowOutput> {
+  let flowExecutionId = '';
+  const previousStepResults: Record<string, unknown> = {};
+
+  try {
+    flowExecutionId = await orchestrator.startFlow(
+      flowType,
+      userId,
+      initiatedBy,
+      inputParameters,
+      steps.length
+    );
+
+    console.log('Webhook event flow execution started', { flowExecutionId, eventId });
+
+    // 各ステップを順次実行
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+
+      console.log(`Executing step ${i + 1}/${steps.length}: ${step.stepName}`);
+
+      const result = await orchestrator.executeStep(
+        flowExecutionId,
+        i,
+        step,
+        { previousStepResults }
+      );
+
+      if (!result.success) {
+        console.error(`Step ${step.stepName} failed`);
+        throw new Error(`Step ${step.stepName} failed`);
+      }
+
+      // 次のステップ用に結果を保存
+      previousStepResults[step.stepName] = result.outputData;
+
+      console.log(`Step ${step.stepName} completed successfully`);
+    }
+
+    // フロー完了
+    const output: WebhookEventFlowOutput = {
+      success: true,
+      flowExecutionId,
+      eventId,
+    };
+
+    await orchestrator.completeFlow(flowExecutionId, output as unknown as Record<string, unknown>);
+
+    console.log('Webhook event flow completed successfully', {
+      flowExecutionId,
+      eventId,
+    });
+
+    return output;
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+
+    console.error('Webhook event flow execution failed', {
+      flowExecutionId,
+      eventId,
+      error: err.message,
+      stack: err.stack,
+    });
+
+    // フロー失敗を記録
+    if (flowExecutionId) {
+      await orchestrator.failFlow(flowExecutionId, {
+        errorCode: 'WEBHOOK_EVENT_FLOW_ERROR',
+        errorMessage: err.message,
+        stackTrace: err.stack,
+      });
+    }
+
+    // エラーレスポンスを返す（EventBridgeのDLQに送信するため、エラーをスロー）
+    throw new Error(
+      `Webhook event flow failed: ${err.message}`,
+      { cause: err }
+    );
+  }
+}
+
+/**
+ * イベントデータからサブスクリプションIDを抽出
+ *
+ * @param platform 決済プラットフォーム
+ * @param eventData イベントデータ
+ * @returns サブスクリプションID
+ */
+function extractSubscriptionId(
+  platform: PlatformType,
+  eventData: Record<string, unknown>
+): string {
+  if (platform === 'stripe') {
+    const stripeData = eventData as StripeEventData;
+    return stripeData.subscriptionId || '';
+  }
+
+  if (platform === 'apple') {
+    const appleData = eventData as AppleEventData;
+    return appleData.originalTransactionId || '';
+  }
+
+  if (platform === 'google') {
+    const googleData = eventData as GoogleEventData;
+    return googleData.subscriptionId || '';
+  }
+
+  return '';
+}
+
+/**
+ * イベントデータから有効期限を抽出
+ *
+ * @param platform 決済プラットフォーム
+ * @param eventData イベントデータ
+ * @returns 有効期限（ISO 8601形式）
+ */
+function extractExpirationDate(
+  platform: PlatformType,
+  eventData: Record<string, unknown>
+): string {
+  if (platform === 'stripe') {
+    const stripeData = eventData as StripeEventData;
+    if (stripeData.periodEnd) {
+      // StripeはUnixタイムスタンプ（秒）なので、ミリ秒に変換してISO 8601形式にする
+      return new Date(stripeData.periodEnd * 1000).toISOString();
+    }
+  }
+
+  if (platform === 'apple') {
+    const appleData = eventData as AppleEventData;
+    if (appleData.expiresDate) {
+      // AppleはUnixタイムスタンプ（ミリ秒）なので、そのままISO 8601形式にする
+      return new Date(appleData.expiresDate).toISOString();
+    }
+  }
+
+  if (platform === 'google') {
+    const googleData = eventData as GoogleEventData;
+    if (googleData.expiryTimeMillis) {
+      // GoogleはUnixタイムスタンプ（ミリ秒）なので、そのままISO 8601形式にする
+      return new Date(googleData.expiryTimeMillis).toISOString();
+    }
+  }
+
+  // デフォルト: 30日後
+  const defaultDate = new Date();
+  defaultDate.setDate(defaultDate.getDate() + 30);
+  return defaultDate.toISOString();
+}
+
+/**
+ * イベントデータからユーザIDを抽出
+ *
+ * @param platform 決済プラットフォーム
+ * @param eventData イベントデータ
+ * @returns ユーザID（取得できない場合はundefined）
+ */
+function extractUserId(
+  platform: PlatformType,
+  eventData: Record<string, unknown>
+): string | undefined {
+  // TODO: 実際の実装では、サブスクリプションIDからユーザIDを取得する処理を実装
+  // 現時点では、イベントデータに含まれるユーザIDを返す（将来的にはSubscriptionManagementClientで取得）
+
+  if (platform === 'stripe') {
+    const stripeData = eventData as StripeEventData;
+    // StripeのcustomerIdはユーザIDではないため、実際にはマッピングが必要
+    // 仮実装としてcustomerIdを返す
+    return stripeData.customerId;
+  }
+
+  // Apple/Googleの場合は、イベントデータからユーザIDを直接取得できない
+  // サブスクリプション情報から取得する必要がある
+  return undefined;
+}

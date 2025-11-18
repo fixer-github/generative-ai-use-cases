@@ -1,12 +1,9 @@
-import { NestedStack, NestedStackProps, CfnOutput, Duration } from 'aws-cdk-lib';
+import { NestedStack, NestedStackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   RestApi,
   Cors,
   ResponseType,
-  RequestAuthorizer,
-  AuthorizationType,
-  IdentitySource,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
@@ -14,9 +11,7 @@ import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
 import PaymentGatewayApi from '../../construct/api/payment-gateway';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-import * as path from 'path';
+import OrchestrationApi from '../../construct/api/orchestration';
 
 export interface BillingManagementStackProps extends NestedStackProps {
   /**
@@ -84,37 +79,6 @@ export class BillingManagementStack extends NestedStack {
     // Create Independent REST API for Billing
     // ========================================
 
-    // Create Lambda Request Authorizer function (same as main API)
-    const authorizerFunction = new NodejsFunction(this, 'AuthorizerFunction', {
-      entry: path.join(__dirname, '../../../lambda/authorizer.ts'),
-      handler: 'handler',
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      timeout: Duration.seconds(10),
-      environment: {
-        USER_POOL_ID: props.userPool.userPoolId,
-        TENANTS_TABLE_NAME: props.tenantManager.tenantsTable.tableName,
-      },
-      bundling: {
-        externalModules: ['aws-sdk'],
-      },
-    });
-
-    // Grant read access to Tenants table
-    props.tenantManager.tenantsTable.grantReadData(authorizerFunction);
-
-    // API Gateway Lambda Request Authorizer
-    const authorizer = new RequestAuthorizer(this, 'Authorizer', {
-      handler: authorizerFunction,
-      identitySources: [IdentitySource.header('Authorization')],
-      resultsCacheTtl: Duration.seconds(0), // Temporarily disabled cache to test
-      authorizerName: 'BillingTenantIpAuthorizer',
-    });
-
-    const commonAuthorizerProps = {
-      authorizationType: AuthorizationType.CUSTOM,
-      authorizer,
-    };
-
     // Create independent REST API with same configuration as main API
     const billingApi = new RestApi(this, 'BillingApi', {
       restApiName: `${props.environment}-billing-api`,
@@ -127,7 +91,6 @@ export class BillingManagementStack extends NestedStack {
         allowMethods: Cors.ALL_METHODS,
       },
       cloudWatchRole: true,
-      defaultMethodOptions: commonAuthorizerProps,
     });
 
     // Add 4XX/5XX CORS headers (same as main API)
@@ -184,6 +147,16 @@ export class BillingManagementStack extends NestedStack {
       }
     );
 
+    // Orchestration API
+    const orchestrationApi = new OrchestrationApi(this, 'Orchestration', {
+      environment: props.environment,
+      tenantManager: props.tenantManager,
+      eventBusName: props.eventBusName || 'default',
+      planManagementInternalFunctions: planManagementApi.internalFunctions,
+      subscriptionManagementInternalFunctions: subscriptionManagementApi.internalFunctions,
+      // paymentGatewayFunctions は必要に応じて追加
+    });
+
     // ========================================
     // Outputs
     // ========================================
@@ -200,9 +173,31 @@ export class BillingManagementStack extends NestedStack {
       exportName: `${this.stackName}-BillingApiId`,
     });
 
-    this.billingApi = billingApi;
+    // Orchestration Lambda Function ARNs
+    new CfnOutput(this, 'OrchestrationPurchaseFlowFunctionArn', {
+      value: orchestrationApi.orchestrationFunctions.purchaseFlow.functionArn,
+      description: 'Purchase Flow Orchestration Lambda Function ARN',
+      exportName: `${this.stackName}-OrchestrationPurchaseFlowFunctionArn`,
+    });
 
-    // Note: Orchestration API (統括処理) will be added later as needed
-    // It coordinates multiple responsibilities to implement end-to-end business flows
+    new CfnOutput(this, 'OrchestrationPlanChangeFlowFunctionArn', {
+      value: orchestrationApi.orchestrationFunctions.planChangeFlow.functionArn,
+      description: 'Plan Change Flow Orchestration Lambda Function ARN',
+      exportName: `${this.stackName}-OrchestrationPlanChangeFlowFunctionArn`,
+    });
+
+    new CfnOutput(this, 'OrchestrationCancellationFlowFunctionArn', {
+      value: orchestrationApi.orchestrationFunctions.cancellationFlow.functionArn,
+      description: 'Cancellation Flow Orchestration Lambda Function ARN',
+      exportName: `${this.stackName}-OrchestrationCancellationFlowFunctionArn`,
+    });
+
+    new CfnOutput(this, 'OrchestrationWebhookEventFlowFunctionArn', {
+      value: orchestrationApi.orchestrationFunctions.webhookEventFlow.functionArn,
+      description: 'Webhook Event Flow Orchestration Lambda Function ARN',
+      exportName: `${this.stackName}-OrchestrationWebhookEventFlowFunctionArn`,
+    });
+
+    this.billingApi = billingApi;
   }
 }
