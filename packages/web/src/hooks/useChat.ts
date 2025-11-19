@@ -76,7 +76,6 @@ const useChatState = create<{
   edit: (
     id: string,
     content: string,
-    mutateListChat: SWRInfiniteKeyedMutator<ListChatsResponse[]>,
     ignoreHistory: boolean,
     preProcessInput: ((message: ShownMessage[]) => ShownMessage[]) | undefined,
     postProcessOutput: ((message: string) => string) | undefined,
@@ -943,7 +942,6 @@ const useChatState = create<{
     edit: async (
       id: string,
       content: string,
-      mutateListChat: SWRInfiniteKeyedMutator<ListChatsResponse[]>,
       ignoreHistory: boolean,
       preProcessInput:
         | ((message: ShownMessage[]) => ShownMessage[])
@@ -1254,7 +1252,6 @@ const useChat = (id: string, chatId?: string) => {
       edit(
         id,
         content,
-        mutateChatList,
         ignoreHistory,
         preProcessInput,
         postProcessOutput,
