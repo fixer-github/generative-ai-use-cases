@@ -660,15 +660,24 @@ const useChatState = create<{
 
     setLoading(id, false);
 
-    const chatId = await createChatIfNotExist(id);
+    // チャットは既に作成済み（post関数またはChatPage.tsxで作成済み）
+    const chat = get().chats[id].chat;
+    if (!chat) {
+      console.error('Chat not found');
+      return;
+    }
+    const chatId = chat.chatId;
 
-    setPredictedTitle(id).then(() => {
-      mutateListChat();
-    });
+    // メッセージにIDを付与
+    const toBeRecordedMessages: ToBeRecordedMessage[] = [];
 
-    const toBeRecordedMessages = addMessageIdsToUnrecordedMessages(id);
+    // 'normal'モード以外の場合、全メッセージにIDを付与
+    if (generationMode !== 'normal') {
+      const messagesWithIds = addMessageIdsToUnrecordedMessages(id);
+      toBeRecordedMessages.push(...messagesWithIds);
+    }
 
-    // In the case of editting, update the last user's message
+    // 'edit'モードの場合、ユーザーメッセージを更新
     if (generationMode === 'edit') {
       const lastUserMessage: ShownMessage =
         get().chats[id].messages[get().chats[id].messages.length - 2];
@@ -681,14 +690,31 @@ const useChatState = create<{
       toBeRecordedMessages.push(updatedUserMessage);
     }
 
-    // In the case of continuing to output, retrying, or editing, update the last assistant's message
-    if (
-      generationMode === 'continue' ||
-      generationMode === 'retry' ||
-      generationMode == 'edit'
-    ) {
-      const lastAssistantMessage: ShownMessage =
-        get().chats[id].messages[get().chats[id].messages.length - 1];
+    // アシスタントメッセージを保存（全モード共通）
+    const lastAssistantMessage: ShownMessage =
+      get().chats[id].messages[get().chats[id].messages.length - 1];
+
+    // アシスタントメッセージにIDがない場合は付与
+    if (!lastAssistantMessage.messageId) {
+      const assistantMessageWithId: ToBeRecordedMessage = {
+        ...lastAssistantMessage,
+        messageId: uuid(),
+        createdDate: `${Date.now()}#0`,
+        usecase: id.match(/([^/]+)/) ? '/' + id.match(/([^/]+)/)![1] : id,
+      };
+
+      // ローカル状態に反映
+      set((state) => {
+        const newChats = produce(state.chats, (draft) => {
+          draft[id].messages[draft[id].messages.length - 1] =
+            assistantMessageWithId;
+        });
+        return { chats: newChats };
+      });
+
+      toBeRecordedMessages.push(assistantMessageWithId);
+    } else {
+      // 既にIDがある場合（retry, continue, edit）
       const updatedAssistantMessage: ToBeRecordedMessage = {
         createdDate: lastAssistantMessage.createdDate!,
         messageId: lastAssistantMessage.messageId!,
@@ -698,6 +724,7 @@ const useChatState = create<{
       toBeRecordedMessages.push(updatedAssistantMessage);
     }
 
+    // メッセージをDBに保存
     const { messages } = await createMessages(chatId, {
       messages: toBeRecordedMessages,
     });
@@ -834,15 +861,58 @@ const useChatState = create<{
         ],
       };
 
+      // ユーザーメッセージをローカル状態に追加
+      set((state) => {
+        const newChats = produce(state.chats, (draft) => {
+          draft[id].messages.push(unrecordedUserMessage);
+        });
+
+        return {
+          chats: newChats,
+        };
+      });
+
+      // チャットが存在することを確認（ChatPage.tsxで既に作成済みの前提）
+      const chatId = await createChatIfNotExist(id);
+
+      // ユーザーメッセージにIDを付与
+      const userMessageWithId: ToBeRecordedMessage = {
+        ...unrecordedUserMessage,
+        messageId: uuid(),
+        createdDate: `${Date.now()}#0`,
+        usecase: id.match(/([^/]+)/) ? '/' + id.match(/([^/]+)/)![1] : id,
+      };
+
+      // ユーザーメッセージをローカル状態に反映
+      set((state) => {
+        const newChats = produce(state.chats, (draft) => {
+          const lastMessage = draft[id].messages[draft[id].messages.length - 1];
+          if (lastMessage.role === 'user') {
+            draft[id].messages[draft[id].messages.length - 1] = userMessageWithId;
+          }
+        });
+
+        return {
+          chats: newChats,
+        };
+      });
+
+      // ユーザーメッセージをDBに保存
+      const { messages: savedUserMessages } = await createMessages(chatId, {
+        messages: [userMessageWithId],
+      });
+
+      // 保存されたメッセージで状態を更新
+      replaceMessages(id, savedUserMessages);
+
+      // アシスタントメッセージをローカル状態に追加
       const unrecordedAssistantMessage: UnrecordedMessage = {
         role: 'assistant',
         content: '',
       };
 
-      // Reflect the User/Assistant message
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
-          draft[id].messages.push(unrecordedUserMessage);
           draft[id].messages.push(unrecordedAssistantMessage);
         });
 
@@ -851,6 +921,12 @@ const useChatState = create<{
         };
       });
 
+      // タイトルを予測
+      setPredictedTitle(id).then(() => {
+        mutateListChat();
+      });
+
+      // アシスタントメッセージの生成（保存はgenerateMessage内で実施）
       await generateMessage(
         'normal',
         id,
