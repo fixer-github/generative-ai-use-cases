@@ -65,7 +65,10 @@ export const isAuthorizationError = (error: any): boolean => {
     ).toLowerCase();
 
     // Skip resource-level permission denials that have specific error codes
-    if (errorCode === 'ASSISTANT_ACCESS_DENIED') {
+    if (
+      errorCode === 'ASSISTANT_ACCESS_DENIED' ||
+      errorCode === 'CHAT_NOT_FOUND'
+    ) {
       return false;
     }
 

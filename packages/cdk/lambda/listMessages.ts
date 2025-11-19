@@ -6,6 +6,7 @@ import {
   internalServerError500Response,
   ok200Response,
 } from './utils/apiResponse';
+import { logger } from './utils/logger';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -16,7 +17,11 @@ export const handler = async (
     const chat = await findChatById(userId, chatId, event);
 
     if (chat === null) {
-      return forbidden403Response({ message: 'Forbidden' });
+      logger.warn('Chat not found', { userId, chatId });
+      return forbidden403Response({
+        message: 'Chat not found or access denied',
+        code: 'CHAT_NOT_FOUND',
+      });
     }
 
     const messages = await listMessages(chatId, event);
@@ -25,7 +30,11 @@ export const handler = async (
       messages,
     });
   } catch (error) {
-    console.log(error);
+    logger.error(
+      'Error listing messages',
+      { userId, chatId },
+      error instanceof Error ? error : undefined
+    );
     return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };

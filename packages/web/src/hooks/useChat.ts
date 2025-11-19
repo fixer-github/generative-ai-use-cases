@@ -1050,8 +1050,11 @@ const useChat = (id: string, chatId?: string) => {
     replaceMessages,
     setPredictedTitle,
   } = useChatState();
-  const { data: messagesData, isLoading: isLoadingMessage } =
-    useChatApi().listMessages(chatId);
+  const {
+    data: messagesData,
+    isLoading: isLoadingMessage,
+    error: messagesError,
+  } = useChatApi().listMessages(chatId);
   const { data: chatData, isLoading: isLoadingChat } =
     useChatApi().findChatById(chatId);
   const { mutate: mutateChatList } = useChatList();
@@ -1097,12 +1100,37 @@ const useChat = (id: string, chatId?: string) => {
   ]);
 
   useEffect(() => {
+    // Check if chat was not found (from findChatById)
+    if (!isLoadingChat && chatId && chatData && !chatData.chat) {
+      logger.warn('Chat not found (findChatById)', { chatId });
+      toast.error(
+        'チャットが見つかりませんでした。削除されたか、アクセス権限がない可能性があります。'
+      );
+      return;
+    }
+
+    // Check if chat was not found (from listMessages)
+    if (
+      !isLoadingMessage &&
+      chatId &&
+      messagesError?.response?.data?.code === 'CHAT_NOT_FOUND'
+    ) {
+      logger.warn('Chat not found (listMessages)', {
+        chatId,
+        error: messagesError.response.data,
+      });
+      toast.error(
+        'チャットが見つかりませんでした。削除されたか、アクセス権限がない可能性があります。'
+      );
+      return;
+    }
+
     // In the case of a registered chat
-    if (!isLoadingMessage && messagesData && !isLoadingChat && chatData) {
+    if (!isLoadingMessage && messagesData && !isLoadingChat && chatData?.chat) {
       restore(id, messagesData.messages, chatData.chat);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingMessage, isLoadingChat]);
+  }, [isLoadingMessage, isLoadingChat, chatId, chatData, messagesError]);
 
   const filteredMessages = useMemo(() => {
     return chats[id]?.messages.filter((chat) => chat.role !== 'system') ?? [];

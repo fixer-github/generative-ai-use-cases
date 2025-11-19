@@ -5,6 +5,7 @@ import {
   internalServerError500Response,
   ok200Response,
 } from './utils/apiResponse';
+import { logger } from './utils/logger';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -14,11 +15,19 @@ export const handler = async (
     const chatId = event.pathParameters!.chatId!;
     const chat = await findChatById(userId, chatId, event);
 
+    if (chat === null) {
+      logger.info('Chat not found', { userId, chatId });
+    }
+
     return ok200Response({
       chat,
     });
   } catch (error) {
-    console.log(error);
+    logger.error(
+      'Error finding chat by id',
+      { userId: getUsername(event), chatId: event.pathParameters?.chatId },
+      error instanceof Error ? error : undefined
+    );
     return internalServerError500Response({ message: 'Internal Server Error' });
   }
 };
