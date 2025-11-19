@@ -1338,8 +1338,8 @@ const useChat = (id: string, chatId?: string) => {
     forceToStop: () => {
       return setForcedStop(id, true);
     },
-    createChatIfNotExist: async () => {
-      return createChatIfNotExist(id);
+    createChatIfNotExist: async (chatId?: string) => {
+      return createChatIfNotExist(id, chatId);
     },
     addChunkToAssistantMessage: (
       chunk: string,

@@ -25,7 +25,6 @@ import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
-import { decomposeId } from '../utils/ChatUtils';
 import { v4 as uuidv4 } from 'uuid';
 
 const fileLimit: FileLimit = {
