@@ -79,3 +79,32 @@
 
 ## 詳細な変更履歴
 
+### 2025-11-19: ChatPage.tsxの修正
+
+**ファイル**: `packages/web/src/pages/ChatPage.tsx`
+
+**変更内容**:
+
+1. **useNavigateフックの追加**
+   - `react-router-dom` から `useNavigate` をインポート
+   - ナビゲーション用のインスタンスを取得
+
+2. **useChatフックから `createChatIfNotExist` を取得**
+   - チャット作成処理を外部から呼び出せるようにするため
+
+3. **onSend関数の修正**
+   - 新規チャット（`!chatId`）の場合：
+     1. `createChatIfNotExist()` でチャットを作成
+     2. `/chat/{newChatId}` に遷移（stateで入力内容を渡す）
+     3. 入力フィールドをクリア
+   - 既存チャットの場合：従来通りの動作
+
+4. **ナビゲート後の自動メッセージ送信処理を追加**
+   - useEffectで `window.history.state` から `pendingMessage` を取得
+   - `pendingMessage` があれば自動的に `postChat` を呼び出し
+   - 送信後、stateをクリアして重複送信を防止
+
+**効果**:
+- 新規チャットでも画面遷移後は常にchatIdが確定
+- リロード耐性が向上（遷移後はいつでも復元可能）
+

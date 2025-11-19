@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import InputChatContent from '../components/InputChatContent';
 import useChat from '../hooks/useChat';
 import useChatApi from '../hooks/useChatApi';
@@ -58,6 +58,7 @@ const useChatPageState = create<StateType>((set) => {
 const ChatPage: React.FC = () => {
   const { content, setContent } = useChatPageState();
   const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const {
     clear: clearFiles,
     uploadedFiles,
@@ -80,6 +81,7 @@ const ChatPage: React.FC = () => {
     retryGeneration,
     forceToStop,
     loadingMessages,
+    createChatIfNotExist,
   } = useChat(pathname, chatId);
   const { createShareId, findShareId, deleteShareId } = useChatApi();
   const { scrollableContainer, setFollowing } = useFollow();
@@ -158,25 +160,78 @@ const ChatPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, setContent, availableModels, pathname, chatId]);
 
-  const onSend = useCallback(() => {
-    setFollowing(true);
-    postChat(
-      prompter.chatPrompt({ content }),
-      false,
-      undefined,
-      undefined,
-      undefined,
-      fileUpload ? uploadedFiles : undefined,
-      undefined,
-      undefined,
-      undefined,
-      base64Cache,
-      overrideModelParameters
-    );
-    setContent('');
-    clearFiles();
+  // ナビゲート後に自動的にメッセージを送信
+  useEffect(() => {
+    const state = (window.history.state as { state?: { pendingMessage?: any } })
+      ?.state;
+    if (state?.pendingMessage && chatId && !loading) {
+      const { content, uploadedFiles, base64Cache, overrideModelParameters } =
+        state.pendingMessage;
+
+      postChat(
+        content,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        uploadedFiles,
+        undefined,
+        undefined,
+        undefined,
+        base64Cache,
+        overrideModelParameters
+      );
+
+      // pendingMessageを消費したので、stateをクリア
+      window.history.replaceState(
+        { ...window.history.state, state: { pendingMessage: undefined } },
+        ''
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, base64Cache, fileUpload, setFollowing, overrideModelParameters]);
+  }, [chatId, loading]);
+
+  const onSend = useCallback(async () => {
+    setFollowing(true);
+
+    // 新規チャットの場合、チャットを作成してナビゲート
+    if (!chatId) {
+      const newChatId = await createChatIfNotExist();
+
+      // ナビゲート後に自動的にメッセージを送信するため、stateで入力内容を渡す
+      navigate(`/chat/${newChatId}`, {
+        state: {
+          pendingMessage: {
+            content: prompter.chatPrompt({ content }),
+            uploadedFiles: fileUpload ? uploadedFiles : undefined,
+            base64Cache,
+            overrideModelParameters,
+          },
+        },
+      });
+
+      setContent('');
+      clearFiles();
+    } else {
+      // 既存チャットの場合は通常通り
+      postChat(
+        prompter.chatPrompt({ content }),
+        false,
+        undefined,
+        undefined,
+        undefined,
+        fileUpload ? uploadedFiles : undefined,
+        undefined,
+        undefined,
+        undefined,
+        base64Cache,
+        overrideModelParameters
+      );
+      setContent('');
+      clearFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, chatId, base64Cache, fileUpload, setFollowing, overrideModelParameters, createChatIfNotExist, navigate]);
 
   const onRetry = useCallback(() => {
     retryGeneration(
