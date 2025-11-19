@@ -91,7 +91,6 @@ const useChatState = create<{
   continueGeneration: (
     generationMode: GenerationMode,
     id: string,
-    mutateListChat: SWRInfiniteKeyedMutator<ListChatsResponse[]>,
     ignoreHistory: boolean,
     preProcessInput: ((message: ShownMessage[]) => ShownMessage[]) | undefined,
     postProcessOutput: ((message: string) => string) | undefined,
@@ -106,7 +105,6 @@ const useChatState = create<{
   retryGeneration: (
     generationMode: GenerationMode,
     id: string,
-    mutateListChat: SWRInfiniteKeyedMutator<ListChatsResponse[]>,
     ignoreHistory: boolean,
     preProcessInput: ((message: ShownMessage[]) => ShownMessage[]) | undefined,
     postProcessOutput: ((message: string) => string) | undefined,
@@ -455,7 +453,6 @@ const useChatState = create<{
   const generateMessage = async (
     generationMode: GenerationMode,
     id: string,
-    mutateListChat: SWRInfiniteKeyedMutator<ListChatsResponse[]>,
     ignoreHistory: boolean,
     preProcessInput:
       | ((message: ShownMessage[]) => ShownMessage[])
@@ -930,7 +927,6 @@ const useChatState = create<{
       await generateMessage(
         'normal',
         id,
-        mutateListChat,
         ignoreHistory,
         preProcessInput,
         postProcessOutput,
@@ -1021,7 +1017,6 @@ const useChatState = create<{
       await generateMessage(
         'edit',
         id,
-        mutateListChat,
         ignoreHistory,
         preProcessInput,
         postProcessOutput,
@@ -1291,7 +1286,6 @@ const useChat = (id: string, chatId?: string) => {
       continueGeneration(
         'continue',
         id,
-        mutateChatList,
         ignoreHistory,
         preProcessInput,
         postProcessOutput,
@@ -1323,7 +1317,6 @@ const useChat = (id: string, chatId?: string) => {
       retryGeneration(
         'retry',
         id,
-        mutateChatList,
         ignoreHistory,
         preProcessInput,
         postProcessOutput,
