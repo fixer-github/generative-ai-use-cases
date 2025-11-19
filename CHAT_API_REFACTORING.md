@@ -232,9 +232,59 @@
 - [ ] ファイルアップロード機能
 - [ ] システムコンテキストのカスタマイズ
 
+### 2025-11-19: フロントエンドでチャットID生成（UX改善）
+
+**ファイル**:
+- `packages/cdk/lambda/repository/chat.ts`
+- `packages/cdk/lambda/createChat.ts`
+- `packages/web/src/hooks/useChatApi.ts`
+- `packages/web/src/hooks/useChat.ts`
+- `packages/web/src/pages/ChatPage.tsx`
+
+**変更内容**:
+
+#### バックエンドの変更
+
+1. **createChat関数の修正**
+   - オプショナルで `chatId` パラメータを受け取る
+   - 指定されたchatIdを使用してチャットを作成
+   - 指定がない場合は従来通りUUIDを生成
+
+2. **Lambda ハンドラーの修正**
+   - リクエストボディから `chatId` を取得
+   - `createChat` に渡す
+
+#### フロントエンドの変更
+
+1. **ChatPage.tsx の修正**
+   - `uuidv4` をインポート
+   - `onSend` 関数でフロントエンドでUUIDを生成
+   - **チャット作成を待たずに即座にナビゲート**
+   - ナビゲート後の `useEffect` で：
+     - 生成したchatIdでチャットを作成
+     - メッセージを送信
+
+2. **useChatApi.ts の修正**
+   - `createChat` 関数でオプショナルで `chatId` を受け取る
+   - リクエストボディに含めて送信
+
+3. **useChat.ts の修正**
+   - `createChatIfNotExist` 関数でオプショナルで `chatId` を受け取る
+
+**効果**:
+- **画面遷移が即座に行われる**（チャット作成を待たない）
+- **ユーザー体験が大幅に向上**
+- チャット作成とメッセージ送信を並行して処理
+- チャットの続行が可能
+
 ### コミット履歴
 
 ```
+e3bf1f3f ✨ フロントエンドでチャットIDを生成して即座にナビゲート
+669f287a 🐛 チャットIDからchat#プレフィックスを削除
+90afa569 🐛 edit関数からmutateListChatパラメータを削除
+c0780552 🐛 未使用のmutateListChatパラメータを削除
+22cbca5d :memo: 改修完了サマリーとテスト項目を追加
 1f07124d ♻️ edit関数を修正してユーザーメッセージを先に保存
 c036fc4d ♻️ post関数とgenerateMessage関数を修正
 f0f3154c ✨ チャット作成とナビゲーション処理を実装
