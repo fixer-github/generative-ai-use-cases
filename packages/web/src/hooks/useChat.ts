@@ -121,7 +121,6 @@ const useChatState = create<{
   ) => Promise<void>;
   getStopReason: (id: string) => string;
   setForcedStop: (id: string, flag: boolean) => void;
-  createChatIfNotExist: (chatId?: string) => Promise<string>;
   addChunkToAssistantMessage: (
     id: string,
     chunk: string,
