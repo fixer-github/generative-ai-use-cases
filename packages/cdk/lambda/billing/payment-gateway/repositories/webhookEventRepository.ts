@@ -32,18 +32,22 @@ export class WebhookEventRepository {
    * イベントIDでWebhookイベントを取得する（重複チェック用）
    */
   async findByEventId(eventId: string): Promise<WebhookEvent | null> {
-    const command = new GetItemCommand({
+    const command = new QueryCommand({
       TableName: this.tableName,
-      Key: marshall({ event_id: eventId }),
+      KeyConditionExpression: 'event_id = :event_id',
+      ExpressionAttributeValues: marshall({
+        ':event_id': eventId,
+      }),
+      Limit: 1,
     });
 
     const result = await this.client.send(command);
 
-    if (!result.Item) {
+    if (!result.Items || result.Items.length === 0) {
       return null;
     }
 
-    return unmarshall(result.Item) as WebhookEvent;
+    return unmarshall(result.Items[0]) as WebhookEvent;
   }
 
   /**
