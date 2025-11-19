@@ -43,9 +43,11 @@ function extractFromInvoicePaymentSucceeded(
 ): Partial<EventDetail> {
   const invoice = stripeEvent.data.object as any;
 
-  // subscriptionIdの抽出
+  // subscriptionIdの抽出（Cloverバージョン対応）
   const subscriptionId =
     (typeof invoice.subscription === 'string' ? invoice.subscription : '') ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription ||
     invoice.lines?.data?.[0]?.subscription ||
     '';
 
@@ -116,8 +118,12 @@ function extractFromInvoicePaymentFailed(
 ): Partial<EventDetail> {
   const invoice = stripeEvent.data.object as any;
 
+  // subscriptionIdの抽出（Cloverバージョン対応）
   const subscriptionId =
     (typeof invoice.subscription === 'string' ? invoice.subscription : '') ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription ||
+    invoice.lines?.data?.[0]?.subscription ||
     '';
 
   if (!subscriptionId) {
