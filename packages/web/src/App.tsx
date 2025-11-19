@@ -34,6 +34,7 @@ import GlobalLayout from './components/GlobalLayout';
 import { SidebarItemProps } from './components/Sidebar';
 import { useSettings } from './hooks/useSettings';
 import i18n from './i18n/config';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -59,6 +60,9 @@ const App: React.FC = () => {
     useScreen();
   const { enabled } = useUseCases();
   const { settings } = useSettings();
+
+  // Monitor network status
+  useNetworkStatus();
 
   const sidebarItems: SidebarItemProps[] = [
     {

@@ -25,6 +25,8 @@ import { getPrompter } from '../prompts';
 import { findModelByModelId } from './useModel';
 import useFileApi from './useFileApi';
 import { useSettings } from './useSettings';
+import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 type GenerationMode = 'normal' | 'continue' | 'retry' | 'edit';
 
@@ -474,14 +476,18 @@ const useChatState = create<{
     const modelId = get().modelIds[id];
 
     if (!modelId) {
-      console.error('modelId is not set');
+      logger.error('modelId is not set', { chatId: id });
+      toast.error('モデルが設定されていません');
+      setLoading(id, false);
       return;
     }
 
     const model = findModelByModelId(modelId);
 
     if (!model) {
-      console.error(`model not found for ${modelId}`);
+      logger.error('model not found', { chatId: id, modelId });
+      toast.error(`モデル ${modelId} が見つかりません`);
+      setLoading(id, false);
       return;
     }
 
@@ -573,69 +579,124 @@ const useChatState = create<{
     // Update the assistant's message
     let tmpChunk = '';
 
-    for await (const chunk of stream) {
-      if (get().chats[id].forcedStop) {
-        updateStopReason(id, 'forcedStop');
-        setForcedStop(id, false);
-        break;
-      }
+    // Set timeout for streaming (5 minutes)
+    const STREAM_TIMEOUT = 300000;
+    const timeoutId = setTimeout(() => {
+      logger.warn('Streaming timeout reached', {
+        chatId: id,
+        modelId: model.modelId,
+      });
+      toast.error(
+        'リクエストがタイムアウトしました。もう一度お試しください。'
+      );
+      setForcedStop(id, true);
+      updateStopReason(id, 'timeout');
+    }, STREAM_TIMEOUT);
 
-      if (!get().writing[id]) {
-        setWriting(id, true);
-      }
+    try {
+      for await (const chunk of stream) {
+        if (get().chats[id].forcedStop) {
+          updateStopReason(id, 'forcedStop');
+          setForcedStop(id, false);
+          break;
+        }
 
-      const chunks = chunk.split('\n');
+        if (!get().writing[id]) {
+          setWriting(id, true);
+        }
 
-      for (const c of chunks) {
-        if (c && c.length > 0) {
-          const payload = JSON.parse(c) as StreamingChunk;
+        const chunks = chunk.split('\n');
 
-          if (payload.text.length > 0) {
-            tmpChunk += payload.text;
+        for (const c of chunks) {
+          if (c && c.length > 0) {
+            try {
+              const payload = JSON.parse(c) as StreamingChunk;
+
+              // Check for error stopReason
+              if (payload.stopReason === 'error') {
+                logger.error('Streaming error received from backend', {
+                  chatId: id,
+                  modelId: model.modelId,
+                  errorText: payload.text,
+                });
+                toast.error(
+                  payload.text || 'ストリーミング中にエラーが発生しました'
+                );
+                updateStopReason(id, 'error');
+                break;
+              }
+
+              if (payload.text.length > 0) {
+                tmpChunk += payload.text;
+              }
+
+              if (payload.stopReason && payload.stopReason.length > 0) {
+                updateStopReason(id, payload.stopReason);
+              }
+
+              // Trace
+              if (payload.trace) {
+                addChunkToAssistantMessage(id, '', payload.trace, model);
+              }
+
+              // Metadata
+              if (payload.metadata) {
+                addChunkToAssistantMessage(
+                  id,
+                  '',
+                  undefined,
+                  model,
+                  payload.metadata
+                );
+              }
+
+              // SessionId
+              if (payload.sessionId) {
+                setSessionId(payload.sessionId);
+              }
+            } catch (parseError) {
+              logger.error(
+                'Failed to parse streaming chunk',
+                {
+                  chatId: id,
+                  modelId: model.modelId,
+                  chunk: c,
+                },
+                parseError instanceof Error ? parseError : undefined
+              );
+              // Continue processing other chunks
+            }
           }
+        }
 
-          if (payload.stopReason && payload.stopReason.length > 0) {
-            updateStopReason(id, payload.stopReason);
-          }
-
-          // Trace
-          if (payload.trace) {
-            addChunkToAssistantMessage(id, '', payload.trace, model);
-          }
-
-          // Metadata
-          if (payload.metadata) {
-            addChunkToAssistantMessage(
-              id,
-              '',
-              undefined,
-              model,
-              payload.metadata
-            );
-          }
-
-          // SessionId
-          if (payload.sessionId) {
-            setSessionId(payload.sessionId);
-          }
+        // Process chunks of 10 characters or more
+        // If not buffered, the following error occurs
+        // Maximum update depth exceeded
+        if (tmpChunk.length >= 10) {
+          addChunkToAssistantMessage(id, tmpChunk, undefined, model);
+          tmpChunk = '';
         }
       }
 
-      // Process chunks of 10 characters or more
-      // If not buffered, the following error occurs
-      // Maximum update depth exceeded
-      if (tmpChunk.length >= 10) {
+      // If there is a string left in tmpChunk, process it
+      if (tmpChunk.length > 0) {
         addChunkToAssistantMessage(id, tmpChunk, undefined, model);
-        tmpChunk = '';
       }
+    } catch (error) {
+      logger.error(
+        'Streaming error',
+        {
+          chatId: id,
+          modelId: model.modelId,
+        },
+        error instanceof Error ? error : undefined
+      );
+      toast.error('ストリーミング中にエラーが発生しました。もう一度お試しください。');
+      updateStopReason(id, 'error');
+    } finally {
+      clearTimeout(timeoutId);
+      setWriting(id, false);
     }
-
-    // If there is a string left in tmpChunk, process it
-    if (tmpChunk.length > 0) {
-      addChunkToAssistantMessage(id, tmpChunk, undefined, model);
-    }
-
-    setWriting(id, false);
 
     // Postprocessing of messages (example: addition of footnote)
     if (postProcessOutput) {

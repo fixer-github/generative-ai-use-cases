@@ -25,6 +25,8 @@ import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
+import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -228,7 +230,12 @@ const ChatPage: React.FC = () => {
       await createShareId(chatId!);
       reloadShare();
     } catch (e) {
-      console.error(e);
+      logger.error(
+        'Failed to create share ID',
+        { chatId },
+        e instanceof Error ? e : undefined
+      );
+      toast.error('共有リンクの作成に失敗しました');
     } finally {
       setCreatingShareId(false);
     }
@@ -240,7 +247,12 @@ const ChatPage: React.FC = () => {
       await deleteShareId(share!.shareId.split('#')[1]);
       reloadShare();
     } catch (e) {
-      console.error(e);
+      logger.error(
+        'Failed to delete share ID',
+        { shareId: share!.shareId },
+        e instanceof Error ? e : undefined
+      );
+      toast.error('共有リンクの削除に失敗しました');
     } finally {
       setDeletingShareId(false);
     }
