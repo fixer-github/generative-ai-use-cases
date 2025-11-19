@@ -25,6 +25,7 @@ import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
+import { decomposeId } from '../utils/ChatUtils';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -198,8 +199,11 @@ const ChatPage: React.FC = () => {
     if (!chatId) {
       const newChatId = await createChatIfNotExist();
 
+      // chat#プレフィックスを削除（DynamoDBではchat#uuid形式だが、URLではuuidのみ）
+      const pureId = decomposeId(newChatId) || newChatId;
+
       // ナビゲート後に自動的にメッセージを送信するため、stateで入力内容を渡す
-      navigate(`/chat/${newChatId}`, {
+      navigate(`/chat/${pureId}`, {
         state: {
           pendingMessage: {
             content: prompter.chatPrompt({ content }),
