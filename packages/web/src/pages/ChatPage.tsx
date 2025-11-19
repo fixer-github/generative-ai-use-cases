@@ -26,6 +26,7 @@ import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
 import { decomposeId } from '../utils/ChatUtils';
+import { v4 as uuidv4 } from 'uuid';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -161,51 +162,62 @@ const ChatPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, setContent, availableModels, pathname, chatId]);
 
-  // ナビゲート後に自動的にメッセージを送信
+  // ナビゲート後に自動的にチャットを作成してメッセージを送信
   useEffect(() => {
     const state = (window.history.state as { state?: { pendingMessage?: any } })
       ?.state;
     if (state?.pendingMessage && chatId && !loading) {
-      const { content, uploadedFiles, base64Cache, overrideModelParameters } =
-        state.pendingMessage;
-
-      postChat(
+      const {
+        chatId: newChatId,
         content,
-        false,
-        undefined,
-        undefined,
-        undefined,
         uploadedFiles,
-        undefined,
-        undefined,
-        undefined,
         base64Cache,
-        overrideModelParameters
-      );
+        overrideModelParameters,
+      } = state.pendingMessage;
 
-      // pendingMessageを消費したので、stateをクリア
-      window.history.replaceState(
-        { ...window.history.state, state: { pendingMessage: undefined } },
-        ''
-      );
+      // チャットを作成してからメッセージを送信
+      (async () => {
+        if (newChatId) {
+          // フロントエンドで生成したchatIdを使ってチャットを作成
+          await createChatIfNotExist(newChatId);
+        }
+
+        postChat(
+          content,
+          false,
+          undefined,
+          undefined,
+          undefined,
+          uploadedFiles,
+          undefined,
+          undefined,
+          undefined,
+          base64Cache,
+          overrideModelParameters
+        );
+
+        // pendingMessageを消費したので、stateをクリア
+        window.history.replaceState(
+          { ...window.history.state, state: { pendingMessage: undefined } },
+          ''
+        );
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, loading]);
 
-  const onSend = useCallback(async () => {
+  const onSend = useCallback(() => {
     setFollowing(true);
 
-    // 新規チャットの場合、チャットを作成してナビゲート
+    // 新規チャットの場合、UUIDを生成して即座にナビゲート
     if (!chatId) {
-      const newChatId = await createChatIfNotExist();
+      const newChatId = uuidv4();
 
-      // chat#プレフィックスを削除（DynamoDBではchat#uuid形式だが、URLではuuidのみ）
-      const pureId = decomposeId(newChatId) || newChatId;
-
-      // ナビゲート後に自動的にメッセージを送信するため、stateで入力内容を渡す
-      navigate(`/chat/${pureId}`, {
+      // ナビゲート後に自動的にチャットを作成してメッセージを送信するため、stateで情報を渡す
+      navigate(`/chat/${newChatId}`, {
         state: {
           pendingMessage: {
+            chatId: newChatId,
             content: prompter.chatPrompt({ content }),
             uploadedFiles: fileUpload ? uploadedFiles : undefined,
             base64Cache,
@@ -235,7 +247,7 @@ const ChatPage: React.FC = () => {
       clearFiles();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, chatId, base64Cache, fileUpload, setFollowing, overrideModelParameters, createChatIfNotExist, navigate]);
+  }, [content, chatId, base64Cache, fileUpload, setFollowing, overrideModelParameters, navigate]);
 
   const onRetry = useCallback(() => {
     retryGeneration(

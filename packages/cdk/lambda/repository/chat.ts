@@ -27,10 +27,14 @@ import { listMessages, deleteMessagesForChat } from './message';
 
 export const createChat = async (
   _userId: string,
-  event: APIGatewayProxyEvent
+  event: APIGatewayProxyEvent,
+  _chatId?: string
 ): Promise<Chat> => {
   const userId = `user#${_userId}`;
-  const chatId = `chat#${crypto.randomUUID()}`;
+  // chatIdが指定されている場合はそれを使用、なければ新規生成
+  const chatId = _chatId
+    ? (_chatId.startsWith('chat#') ? _chatId : `chat#${_chatId}`)
+    : `chat#${crypto.randomUUID()}`;
   const item = {
     id: userId,
     createdDate: `${Date.now()}`,

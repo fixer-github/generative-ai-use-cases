@@ -232,14 +232,17 @@ const useChatState = create<{
     setTitle(id, title);
   };
 
-  const createChatIfNotExist = async (id: string): Promise<string> => {
+  const createChatIfNotExist = async (
+    id: string,
+    chatId?: string
+  ): Promise<string> => {
     const chat = get().chats[id].chat;
 
     if (chat) {
       return chat.chatId;
     }
 
-    const { chat: newChat } = await createChat();
+    const { chat: newChat } = await createChat(chatId);
 
     set((state) => {
       const newChats = produce(state.chats, (draft) => {

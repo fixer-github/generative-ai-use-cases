@@ -34,8 +34,8 @@ const useChatApi = () => {
   const http = useHttp();
 
   return {
-    createChat: async (): Promise<CreateChatResponse> => {
-      const res = await http.post('chats', {});
+    createChat: async (chatId?: string): Promise<CreateChatResponse> => {
+      const res = await http.post('chats', chatId ? { chatId } : {});
       return res.data;
     },
     createMessages: async (

@@ -11,7 +11,12 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const userId = getUsername(event);
-    const chat = await createChat(userId, event);
+
+    // リクエストボディからchatIdを取得（オプショナル）
+    const body = event.body ? JSON.parse(event.body) : {};
+    const chatId = body.chatId;
+
+    const chat = await createChat(userId, event, chatId);
 
     return ok200Response({
       chat,
