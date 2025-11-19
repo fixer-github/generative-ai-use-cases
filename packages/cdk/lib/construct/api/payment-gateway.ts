@@ -191,7 +191,7 @@ class PaymentGatewayApi extends Construct {
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
+          actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query'],
           resources: [
             'arn:aws:dynamodb:*:*:table/*-payment-gateway-webhook-events',
           ],
