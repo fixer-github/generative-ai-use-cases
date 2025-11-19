@@ -963,34 +963,61 @@ const useChatState = create<{
         | AdditionalModelRequestFields
         | undefined = undefined
     ) => {
+      const chat = get().chats[id].chat;
+      if (!chat) {
+        console.error('Chat not found');
+        return;
+      }
+      const chatId = chat.chatId;
+
+      // 最後のメッセージを取得
+      const lastAssistantMessage =
+        get().chats[id].messages[get().chats[id].messages.length - 1];
+      const lastUserMessage =
+        get().chats[id].messages[get().chats[id].messages.length - 2];
+
+      // ユーザーメッセージを編集してローカル状態に反映
+      const edittedUserMessage: ShownMessage = {
+        ...lastUserMessage,
+        content,
+      };
+
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
-          const lastAssistantMessage = draft[id].messages.pop()!;
-          const lastUserMessage = draft[id].messages.pop()!;
-
-          // Clear the assistant message
-          const clearedAssistantMessage: UnrecordedMessage = {
-            ...lastAssistantMessage,
-            content: '',
-            trace: '',
-            extraData: [],
-          };
-
-          // Edit the user message
-          const edittedUserMessage: UnrecordedMessage = {
-            ...lastUserMessage,
-            content,
-          };
-
-          draft[id].messages.push(edittedUserMessage);
-          draft[id].messages.push(clearedAssistantMessage);
+          draft[id].messages[draft[id].messages.length - 2] = edittedUserMessage;
         });
-
-        return {
-          chats: newChats,
-        };
+        return { chats: newChats };
       });
 
+      // 編集されたユーザーメッセージをDBに保存
+      const updatedUserMessage: ToBeRecordedMessage = {
+        createdDate: lastUserMessage.createdDate!,
+        messageId: lastUserMessage.messageId!,
+        usecase: lastUserMessage.usecase!,
+        ...edittedUserMessage,
+      };
+
+      await createMessages(chatId, {
+        messages: [updatedUserMessage],
+      });
+
+      // アシスタントメッセージをクリア
+      const clearedAssistantMessage: UnrecordedMessage = {
+        ...lastAssistantMessage,
+        content: '',
+        trace: '',
+        extraData: [],
+      };
+
+      set((state) => {
+        const newChats = produce(state.chats, (draft) => {
+          draft[id].messages[draft[id].messages.length - 1] =
+            clearedAssistantMessage;
+        });
+        return { chats: newChats };
+      });
+
+      // アシスタントメッセージの再生成（保存はgenerateMessage内で実施）
       await generateMessage(
         'edit',
         id,
