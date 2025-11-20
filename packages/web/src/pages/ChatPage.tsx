@@ -13,6 +13,7 @@ import ModelSelector from '../components/ModelSelector';
 import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
+import type { ChatLocationState } from '../@types/chat';
 import { MODELS } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
@@ -23,6 +24,10 @@ import {
 } from 'generative-ai-use-cases';
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
+import {
+  extractPlainChatId,
+  createChatNavigationState,
+} from '../utils/ChatUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
 
@@ -57,7 +62,8 @@ const useChatPageState = create<StateType>((set) => {
 
 const ChatPage: React.FC = () => {
   const { content, setContent } = useChatPageState();
-  const { pathname, search, state } = useLocation();
+  const { pathname, search } = useLocation();
+  const { state } = useLocation() as { state: ChatLocationState | null };
   const navigate = useNavigate();
   const {
     clear: clearFiles,
@@ -114,35 +120,31 @@ const ChatPage: React.FC = () => {
   // URL遷移後に保存されたメッセージを自動送信
   useEffect(() => {
     // チャット状態の初期化が完了してから実行
-    if (
-      chatId &&
-      state &&
-      (state as any).pendingMessage &&
-      !loadingMessages
-    ) {
-      const pendingMessage = (state as any).pendingMessage;
+    if (chatId && state?.pendingMessage && !loadingMessages) {
+      const { content, modelId, uploadedFiles, base64Cache, overrideModelParameters } =
+        state.pendingMessage;
 
       // location.stateをクリアするため、replaceで同じURLに遷移
       navigate(`/chat/${chatId}`, { replace: true, state: null });
 
       // モデルIDを設定
-      if (pendingMessage.modelId) {
-        setModelId(pendingMessage.modelId);
+      if (modelId) {
+        setModelId(modelId);
       }
 
       // メッセージを送信
       postChat(
-        prompter.chatPrompt({ content: pendingMessage.content }),
+        prompter.chatPrompt({ content }),
         false,
         undefined,
         undefined,
         undefined,
-        pendingMessage.uploadedFiles,
+        uploadedFiles,
         undefined,
         undefined,
         undefined,
-        pendingMessage.base64Cache,
-        pendingMessage.overrideModelParameters
+        base64Cache,
+        overrideModelParameters
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,20 +205,22 @@ const ChatPage: React.FC = () => {
     // 新規チャットの場合はチャット作成とURL遷移
     if (!chatId) {
       const newChatId = await createChatIfNotExist();
-      const plainChatId = newChatId.replace('chat#', '');
+      const plainChatId = extractPlainChatId(newChatId);
 
       // メッセージ内容をlocation.stateに保存してURL遷移
+      const navigationState = createChatNavigationState(
+        {
+          content,
+          uploadedFiles: fileUpload ? uploadedFiles : undefined,
+          base64Cache,
+          overrideModelParameters,
+        },
+        modelId
+      );
+
       navigate(`/chat/${plainChatId}`, {
         replace: true,
-        state: {
-          pendingMessage: {
-            content,
-            uploadedFiles: fileUpload ? uploadedFiles : undefined,
-            base64Cache,
-            overrideModelParameters,
-            modelId,
-          },
-        },
+        state: navigationState,
       });
       setContent('');
       clearFiles();
