@@ -277,9 +277,132 @@
 - チャット作成とメッセージ送信を並行して処理
 - チャットの続行が可能
 
+### 2025-11-20: 新規チャットのルート変更とUI調整
+
+**ファイル**:
+- `packages/web/src/components/DynamicRouter.tsx`
+- `packages/web/src/components/ChatSidebar.tsx`
+- `packages/web/src/components/ButtonSendToUseCase.tsx`
+- `packages/web/src/pages/ChatPage.tsx`
+
+**変更内容**:
+
+#### ルーティング構造の変更
+
+1. **DynamicRouter.tsx**
+   - 新規チャットのルートを `/chat` から `/chat/new` に変更
+   - `/chat` へのアクセスは `/chat/new` へリダイレクト
+   - ルーティング構造：
+     ```typescript
+     {
+       path: '/chat',
+       element: <ChatLayout />,
+       children: [
+         { index: true, element: <Navigate to="/chat/new" replace /> },
+         { path: 'new', element: <ChatPage /> },
+         { path: ':chatId', element: <ChatPage /> },
+       ]
+     }
+     ```
+
+2. **ChatSidebar.tsx**
+   - 新規チャットボタンのナビゲート先を `/chat/new` に変更
+   - `/chat/new` で既にある場合は `onNewChat` を呼び出してリセット
+
+3. **ButtonSendToUseCase.tsx**
+   - チャットへの送信先を `/chat/new` に変更
+
+#### UI調整
+
+4. **ChatPage.tsx**
+   - 空のチャットで入力ボックスを画面中央に配置する実装を削除
+   - `isEmpty` の使用を削除
+   - 一貫したUIレイアウトを維持
+
+#### パラメータ処理の改善
+
+5. **ChatPage.tsx**
+   - `rawChatId === 'new'` の場合、`chatId` を `undefined` として扱う
+   - 新規チャットと既存チャットの判定を明確化
+
+**効果**:
+- 新規チャットと既存チャットのURLが明確に区別される
+- `/chat/new` で一貫した新規チャット体験を提供
+- UIの一貫性が向上
+
+### 2025-11-20: pendingMessage処理の修正
+
+**ファイル**:
+- `packages/web/src/pages/ChatPage.tsx`
+
+**問題**:
+新規チャット作成後、画面遷移は行われるが、メッセージが送信されず空のチャットが表示される。
+
+**原因**:
+- `pendingMessageProcessedRef` が一度 `true` に設定されると、同じコンポーネントインスタンスが再利用される場合にリセットされない
+- React Routerが同じコンポーネントインスタンスを再利用するため、異なるchatIdに遷移してもrefがリセットされず、pendingMessageが処理されない
+- useEffectの依存配列に必要な関数（`createChatIfNotExist`, `postChat`）が含まれていなかった
+
+**変更内容**:
+
+1. **prevChatIdRefの追加**
+   - 前回のchatIdを追跡する新しいrefを追加
+   - chatIdが変更されたかを検出するために使用
+
+2. **refのリセットロジック**
+   - useEffectの最初で、`prevChatIdRef.current !== chatId` をチェック
+   - chatIdが変更された場合、`pendingMessageProcessedRef` を `false` にリセット
+   - `prevChatIdRef.current` を現在のchatIdに更新
+
+3. **依存配列の修正**
+   - `createChatIfNotExist` と `postChat` を依存配列に追加
+   - ESLintの警告を解消
+   - 関数が変更された場合に正しく再実行される
+
+4. **未使用変数の削除**
+   - `isEmpty` を削除（前回のUI調整で使用されなくなったため）
+
+**コード**:
+```typescript
+const pendingMessageProcessedRef = useRef(false);
+const prevChatIdRef = useRef<string | undefined>();
+
+useEffect(() => {
+  // chatIdが変更されたらrefをリセット
+  if (prevChatIdRef.current !== chatId) {
+    pendingMessageProcessedRef.current = false;
+    prevChatIdRef.current = chatId;
+  }
+
+  // 既に処理済みの場合はスキップ
+  if (pendingMessageProcessedRef.current || !chatId) {
+    return;
+  }
+
+  const state = (window.history.state as { state?: { pendingMessage?: any } })?.state;
+
+  if (state?.pendingMessage) {
+    // ... メッセージ処理
+    pendingMessageProcessedRef.current = true;
+    // ...
+  }
+}, [chatId, createChatIfNotExist, postChat]);
+```
+
+**効果**:
+- 同じコンポーネントインスタンスが再利用される場合でも、chatIdが変更されるたびにpendingMessageが正しく処理される
+- 新規チャット作成後のメッセージ送信が正常に動作する
+- ESLintの警告が解消される
+
 ### コミット履歴
 
 ```
+052b2f03 🐛 pendingMessage処理の修正
+30efa5b5 :memo: フロントエンドでチャットID生成の変更をドキュメント化
+d1446312 🐛 コンパイルエラーを修正
+506a72ae 🐛 createChatIfNotExistの型定義を修正
+49b7b5ad 🐛 useChatState型からcreateChatIfNotExistを削除
+92e7eb06 🐛 useChatState型にcreateChatIfNotExistを再追加
 e3bf1f3f ✨ フロントエンドでチャットIDを生成して即座にナビゲート
 669f287a 🐛 チャットIDからchat#プレフィックスを削除
 90afa569 🐛 edit関数からmutateListChatパラメータを削除
