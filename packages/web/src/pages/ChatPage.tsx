@@ -66,7 +66,9 @@ const ChatPage: React.FC = () => {
     uploadFiles,
     base64Cache,
   } = useFiles(pathname);
-  const { chatId } = useParams();
+  const { chatId: rawChatId } = useParams();
+  // "new" は新規チャットを意味するので、undefined として扱う
+  const chatId = rawChatId === 'new' ? undefined : rawChatId;
 
   const {
     getModelId,
