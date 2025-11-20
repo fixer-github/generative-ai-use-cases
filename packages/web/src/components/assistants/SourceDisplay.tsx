@@ -9,7 +9,9 @@ type Props = {
 
 const SourceDisplay: React.FC<Props> = ({ sources }) => {
   const { t } = useTranslation();
-  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(
+    new Set()
+  );
 
   if (!sources || sources.length === 0) {
     return null;
