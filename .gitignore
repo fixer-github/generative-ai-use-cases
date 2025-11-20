@@ -11,3 +11,7 @@ site*/
 
 # Deployment Configuration
 packages/cdk/cdk.json
+
+# AI Development
+.serena
+openspec/changes/**
