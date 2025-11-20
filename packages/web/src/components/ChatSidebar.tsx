@@ -22,12 +22,12 @@ const ChatSidebar: React.FC<Props> = ({ onNewChat }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleNewChat = () => {
-    // If already on /chat page, just reset the chat
-    if (location.pathname === '/chat' && onNewChat) {
+    // If already on /chat/new page, just reset the chat
+    if (location.pathname === '/chat/new' && onNewChat) {
       onNewChat();
     } else {
-      // Otherwise, navigate to /chat
-      navigate('/chat');
+      // Otherwise, navigate to /chat/new
+      navigate('/chat/new');
     }
   };
 

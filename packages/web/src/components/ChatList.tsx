@@ -19,7 +19,7 @@ const ChatList: React.FC<Props> = (props) => {
 
   const onDelete = useCallback(
     async (_chatId: string) => {
-      navigate('/chat');
+      navigate('/chat/new');
       return await deleteChat(_chatId).catch(() => {
         navigate(`/chat/${_chatId}`);
       });

@@ -64,7 +64,7 @@ const ButtonSendToUseCase: React.FC<Props> = (props) => {
             }}>
             <ul>
               <UseCaseItem
-                path="/chat"
+                path="/chat/new"
                 queryKey="content"
                 text={props.text}
                 title={t('navigation.chat')}

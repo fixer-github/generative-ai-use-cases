@@ -85,7 +85,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
   const routes: RouteObject[] = [
     {
       path: '/',
-      element: <Navigate to="/chat" replace />,
+      element: <Navigate to="/chat/new" replace />,
     },
     {
       path: '/stats',
@@ -96,7 +96,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
       element: <ChatLayout />,
       children: [
         {
-          index: true,
+          path: 'new',
           element: <ChatPage />,
         },
         {

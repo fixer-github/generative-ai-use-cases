@@ -63,7 +63,7 @@ const App: React.FC = () => {
   const sidebarItems: SidebarItemProps[] = [
     {
       label: t('navigation.chat'),
-      to: '/chat',
+      to: '/chat/new',
       icon: <PiChatsCircle />,
       display: 'usecase' as const,
     },
