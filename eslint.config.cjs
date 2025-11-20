@@ -34,6 +34,7 @@ module.exports = defineConfig([
       '@typescript-eslint/no-namespace': 'off',
       'i18nhelper/no-jp-string': 'warn',
       'i18nhelper/no-jp-comment': 'warn',
+      'no-undef': 'off',
     },
   },
   // For web
@@ -80,6 +81,7 @@ module.exports = defineConfig([
       'i18nhelper/no-jp-string': 'warn',
       'i18nhelper/no-jp-comment': 'warn',
       '@shopify/jsx-no-hardcoded-content': 'warn',
+      'no-undef': 'off',
     },
   },
   // For yaml files
