@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import InputChatContent from '../components/InputChatContent';
 import useChat from '../hooks/useChat';
 import useChatApi from '../hooks/useChatApi';
@@ -13,7 +13,6 @@ import ModelSelector from '../components/ModelSelector';
 import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
-import type { ChatLocationState } from '../@types/chat';
 import { MODELS } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
@@ -24,10 +23,8 @@ import {
 } from 'generative-ai-use-cases';
 import ModelParameters from '../components/ModelParameters';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
-import {
-  extractPlainChatId,
-  createChatNavigationState,
-} from '../utils/ChatUtils';
+import { useNewChatNavigation } from '../hooks/useNewChatNavigation';
+import { usePendingMessageHandler } from '../hooks/usePendingMessageHandler';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
 
@@ -63,8 +60,6 @@ const useChatPageState = create<StateType>((set) => {
 const ChatPage: React.FC = () => {
   const { content, setContent } = useChatPageState();
   const { pathname, search } = useLocation();
-  const { state } = useLocation() as { state: ChatLocationState | null };
-  const navigate = useNavigate();
   const {
     clear: clearFiles,
     uploadedFiles,
@@ -89,6 +84,9 @@ const ChatPage: React.FC = () => {
     loadingMessages,
     createChatIfNotExist,
   } = useChat(pathname, chatId);
+
+  // 新規チャット作成とナビゲーション
+  const { createAndNavigate } = useNewChatNavigation();
   const { createShareId, findShareId, deleteShareId } = useChatApi();
   const { scrollableContainer, setFollowing } = useFollow();
   const { getChatTitle } = useChatList();
@@ -118,42 +116,35 @@ const ChatPage: React.FC = () => {
   }, [chatId]);
 
   // URL遷移後に保存されたメッセージを自動送信
-  useEffect(() => {
-    // チャット状態の初期化が完了してから実行
-    if (chatId && state?.pendingMessage && !loadingMessages) {
-      const {
-        content,
-        modelId,
-        uploadedFiles,
-        base64Cache,
-        overrideModelParameters,
-      } = state.pendingMessage;
+  usePendingMessageHandler(chatId, loadingMessages, (pendingMessage) => {
+    const {
+      content,
+      modelId,
+      uploadedFiles,
+      base64Cache,
+      overrideModelParameters,
+    } = pendingMessage;
 
-      // location.stateをクリアするため、replaceで同じURLに遷移
-      navigate(`/chat/${chatId}`, { replace: true, state: null });
-
-      // モデルIDを設定
-      if (modelId) {
-        setModelId(modelId);
-      }
-
-      // メッセージを送信
-      postChat(
-        prompter.chatPrompt({ content }),
-        false,
-        undefined,
-        undefined,
-        undefined,
-        uploadedFiles,
-        undefined,
-        undefined,
-        undefined,
-        base64Cache,
-        overrideModelParameters
-      );
+    // モデルIDを設定
+    if (modelId) {
+      setModelId(modelId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, state, loadingMessages]);
+
+    // メッセージを送信
+    postChat(
+      prompter.chatPrompt({ content }),
+      false,
+      undefined,
+      undefined,
+      undefined,
+      uploadedFiles,
+      undefined,
+      undefined,
+      undefined,
+      base64Cache,
+      overrideModelParameters
+    );
+  });
 
   const title = useMemo(() => {
     if (chatId) {
@@ -209,11 +200,8 @@ const ChatPage: React.FC = () => {
 
     // 新規チャットの場合はチャット作成とURL遷移
     if (!chatId) {
-      const newChatId = await createChatIfNotExist();
-      const plainChatId = extractPlainChatId(newChatId);
-
-      // メッセージ内容をlocation.stateに保存してURL遷移
-      const navigationState = createChatNavigationState(
+      await createAndNavigate(
+        createChatIfNotExist,
         {
           content,
           uploadedFiles: fileUpload ? uploadedFiles : undefined,
@@ -222,11 +210,6 @@ const ChatPage: React.FC = () => {
         },
         modelId
       );
-
-      navigate(`/chat/${plainChatId}`, {
-        replace: true,
-        state: navigationState,
-      });
       setContent('');
       clearFiles();
       return;
@@ -252,7 +235,7 @@ const ChatPage: React.FC = () => {
   }, [
     content,
     chatId,
-    navigate,
+    createAndNavigate,
     createChatIfNotExist,
     base64Cache,
     fileUpload,
