@@ -105,6 +105,7 @@ const ChatPage: React.FC = () => {
     AdditionalModelRequestFields | undefined
   >(undefined);
   const [showSetting, setShowSetting] = useState(false);
+  const [sending, setSending] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -112,6 +113,8 @@ const ChatPage: React.FC = () => {
     if (!chatId) {
       updateSystemContext(FIXED_SYSTEM_CONTEXT);
     }
+    // URL遷移後はsendingステートをリセット
+    setSending(false);
     // eslint-disable-next-line  react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -200,6 +203,7 @@ const ChatPage: React.FC = () => {
 
     // 新規チャットの場合はチャット作成とURL遷移
     if (!chatId) {
+      setSending(true);
       await createAndNavigate(
         createChatIfNotExist,
         {
@@ -212,6 +216,7 @@ const ChatPage: React.FC = () => {
       );
       setContent('');
       clearFiles();
+      // 画面遷移するのでsendingをfalseに戻す必要はない
       return;
     }
 
@@ -246,6 +251,7 @@ const ChatPage: React.FC = () => {
     postChat,
     setContent,
     clearFiles,
+    setSending,
   ]);
 
   const onRetry = useCallback(() => {
@@ -401,13 +407,14 @@ const ChatPage: React.FC = () => {
             <InputChatContent
               className="mx-auto print:hidden"
               content={content}
-              disabled={loading && !writing}
+              disabled={(loading && !writing) || sending}
+              loading={loading || sending}
               onChangeContent={setContent}
               hideReset={true}
               onSend={() => {
-                if (!loading) {
+                if (!loading && !sending) {
                   onSend();
-                } else {
+                } else if (writing) {
                   onStop();
                 }
               }}
@@ -445,13 +452,14 @@ const ChatPage: React.FC = () => {
               <InputChatContent
                 className="mx-auto my-4"
                 content={content}
-                disabled={loading && !writing}
+                disabled={(loading && !writing) || sending}
+                loading={loading || sending}
                 onChangeContent={setContent}
                 hideReset={true}
                 onSend={() => {
-                  if (!loading) {
+                  if (!loading && !sending) {
                     onSend();
-                  } else {
+                  } else if (writing) {
                     onStop();
                   }
                 }}

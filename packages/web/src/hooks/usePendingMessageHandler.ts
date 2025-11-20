@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { ChatLocationState, PendingMessage } from '../@types/chat';
 
 /**
@@ -17,20 +17,59 @@ export const usePendingMessageHandler = (
   loadingMessages: boolean,
   onMessage: (message: PendingMessage) => void
 ) => {
-  const navigate = useNavigate();
   const { state } = useLocation() as { state: ChatLocationState | null };
+  const pendingMessageRef = useRef<PendingMessage | null>(null);
+  const processedRef = useRef(false);
+  const onMessageRef = useRef(onMessage);
 
+  // onMessageの最新の参照を保持
   useEffect(() => {
-    // チャット状態の初期化が完了してから実行
-    if (chatId && state?.pendingMessage && !loadingMessages) {
-      const pendingMessage = state.pendingMessage;
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
-      // location.stateをクリアするため、replaceで同じURLに遷移
-      navigate(`/chat/${chatId}`, { replace: true, state: null });
+  // location.stateからpendingMessageを取得して保存
+  useEffect(() => {
+    if (chatId && state?.pendingMessage && !processedRef.current) {
+      // useRefに保存（stateクリア後も参照可能にする）
+      pendingMessageRef.current = state.pendingMessage;
 
-      // メッセージハンドラを呼び出す
-      onMessage(pendingMessage);
+      // window.history.replaceStateでstateをクリア（画面遷移なし）
+      window.history.replaceState(null, '', window.location.pathname);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, state, loadingMessages]);
+  }, [chatId, state]);
+
+  // メッセージ送信の副作用
+  useEffect(() => {
+    if (chatId && pendingMessageRef.current && !processedRef.current) {
+      // loadingMessagesが完了するのを待つ、または最大1秒後に強制実行
+      const sendMessage = () => {
+        if (!processedRef.current && pendingMessageRef.current) {
+          processedRef.current = true;
+          const pendingMessage = pendingMessageRef.current;
+          onMessageRef.current(pendingMessage);
+          pendingMessageRef.current = null;
+        }
+      };
+
+      if (!loadingMessages) {
+        // loadingが完了している場合は200ms後に実行
+        const timer = setTimeout(sendMessage, 200);
+        return () => clearTimeout(timer);
+      } else {
+        // loadingが完了していない場合は最大1秒待つ
+        const timer = setTimeout(sendMessage, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [chatId, loadingMessages]);
+
+  // chatIdが変わったら処理済みフラグをリセット（pendingMessageがない場合のみ）
+  useEffect(() => {
+    // location.stateにpendingMessageがない場合のみリセット
+    // （別のチャットへの移動時）
+    if (!state?.pendingMessage) {
+      processedRef.current = false;
+      pendingMessageRef.current = null;
+    }
+  }, [chatId, state]);
 };
