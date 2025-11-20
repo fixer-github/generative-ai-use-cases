@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import InputChatContent from '../components/InputChatContent';
 import useChat from '../hooks/useChat';
@@ -75,7 +75,6 @@ const ChatPage: React.FC = () => {
     setModelId,
     loading,
     writing,
-    isEmpty,
     messages,
     clear,
     postChat,
@@ -164,10 +163,25 @@ const ChatPage: React.FC = () => {
   }, [search, setContent, availableModels, pathname, chatId]);
 
   // ナビゲート後に自動的にチャットを作成してメッセージを送信
+  const pendingMessageProcessedRef = useRef(false);
+  const prevChatIdRef = useRef<string | undefined>();
+
   useEffect(() => {
+    // chatIdが変更されたらrefをリセット
+    if (prevChatIdRef.current !== chatId) {
+      pendingMessageProcessedRef.current = false;
+      prevChatIdRef.current = chatId;
+    }
+
+    // 既に処理済みの場合はスキップ
+    if (pendingMessageProcessedRef.current || !chatId) {
+      return;
+    }
+
     const state = (window.history.state as { state?: { pendingMessage?: any } })
       ?.state;
-    if (state?.pendingMessage && chatId && !loading) {
+
+    if (state?.pendingMessage) {
       const {
         chatId: newChatId,
         content,
@@ -175,6 +189,9 @@ const ChatPage: React.FC = () => {
         base64Cache,
         overrideModelParameters,
       } = state.pendingMessage;
+
+      // 処理済みフラグを立てる
+      pendingMessageProcessedRef.current = true;
 
       // チャットを作成してからメッセージを送信
       (async () => {
@@ -204,8 +221,7 @@ const ChatPage: React.FC = () => {
         );
       })();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, loading]);
+  }, [chatId, createChatIfNotExist, postChat]);
 
   const onSend = useCallback(() => {
     setFollowing(true);
