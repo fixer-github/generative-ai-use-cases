@@ -1,4 +1,7 @@
-import { UploadedFileType, AdditionalModelRequestFields } from 'generative-ai-use-cases';
+import {
+  UploadedFileType,
+  AdditionalModelRequestFields,
+} from 'generative-ai-use-cases';
 
 /**
  * 新規チャット作成時にlocation.stateで渡されるメッセージデータ

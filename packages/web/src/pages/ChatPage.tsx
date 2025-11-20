@@ -121,8 +121,13 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     // チャット状態の初期化が完了してから実行
     if (chatId && state?.pendingMessage && !loadingMessages) {
-      const { content, modelId, uploadedFiles, base64Cache, overrideModelParameters } =
-        state.pendingMessage;
+      const {
+        content,
+        modelId,
+        uploadedFiles,
+        base64Cache,
+        overrideModelParameters,
+      } = state.pendingMessage;
 
       // location.stateをクリアするため、replaceで同じURLに遷移
       navigate(`/chat/${chatId}`, { replace: true, state: null });
