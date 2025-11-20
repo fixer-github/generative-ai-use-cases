@@ -393,35 +393,10 @@ const ChatPage: React.FC = () => {
           {title}
         </h1>
 
-        {/* Wrapper for messages and input to enable vertical centering when empty */}
+        {/* Wrapper for messages and input */}
         {loadingMessages ? (
           <div className="flex flex-1 flex-col items-center justify-center">
             <LoadingWave />
-          </div>
-        ) : isEmpty ? (
-          <div className="flex flex-1 flex-col justify-center">
-            <InputChatContent
-              className="mx-auto print:hidden"
-              content={content}
-              disabled={loading && !writing}
-              onChangeContent={setContent}
-              hideReset={true}
-              onSend={() => {
-                if (!loading) {
-                  onSend();
-                } else {
-                  onStop();
-                }
-              }}
-              fileUpload={fileUpload}
-              fileLimit={fileLimit}
-              accept={accept}
-              setting={setting}
-              onSetting={() => {
-                setShowSetting(true);
-              }}
-              canStop={writing}
-            />
           </div>
         ) : (
           <>
