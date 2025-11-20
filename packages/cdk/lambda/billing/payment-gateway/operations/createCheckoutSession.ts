@@ -9,12 +9,15 @@ import {
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getTenantId } from '../../../utils/tenantUtils';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 /**
  * リクエストボディの型
  */
 interface CreateCheckoutSessionRequest {
   userId: string;
+  planId: string; // プランID
   priceId: string; // Stripeの価格ID
   successUrl: string;
   cancelUrl: string;
@@ -101,22 +104,96 @@ export async function handler(
     }
 
     const requestBody: CreateCheckoutSessionRequest = JSON.parse(event.body);
-    const { userId, priceId, successUrl, cancelUrl } = requestBody;
+    const { userId, planId, priceId, successUrl, cancelUrl } = requestBody;
 
     console.log('Create Checkout Session request:', {
       userId,
+      planId,
       priceId,
       tenantId,
     });
 
-    // 3. Stripe APIキーを取得（テナント専用）
+    // 3. プランの存在確認とpriceIdの対応チェック
+    const plan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
+    );
+
+    if (!plan) {
+      console.error('Plan not found:', planId);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          error: 'Plan not found',
+          message: `指定されたプランが見つかりません: ${planId}`,
+        }),
+      };
+    }
+
+    // プランのplatform_typeがstripeであることを確認
+    if (plan.platform_type !== 'stripe') {
+      console.error('Invalid platform type:', {
+        planId,
+        platformType: plan.platform_type,
+      });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Invalid platform type',
+          message: `このプランはStripe決済に対応していません: ${plan.platform_type}`,
+        }),
+      };
+    }
+
+    // platform_product_idとpriceIdが一致するかチェック
+    if (plan.platform_product_id !== priceId) {
+      console.error('PriceId mismatch:', {
+        planId,
+        expectedPriceId: plan.platform_product_id,
+        providedPriceId: priceId,
+      });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'PriceId mismatch',
+          message: 'プランIDと価格IDが対応していません',
+          details: {
+            planId,
+            expectedPriceId: plan.platform_product_id,
+            providedPriceId: priceId,
+          },
+        }),
+      };
+    }
+
+    // プランが購入可能な状態かチェック
+    if (plan.status === 'deprecated') {
+      console.error('Plan is deprecated:', planId);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Plan deprecated',
+          message: 'このプランは廃止されており、購入できません',
+        }),
+      };
+    }
+
+    console.log('Plan validation successful:', {
+      planId: plan.plan_id,
+      priceId: plan.platform_product_id,
+      status: plan.status,
+    });
+
+    // 4. Stripe APIキーを取得（テナント専用）
     const apiKey = await getStripeApiKey(tenantId);
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // 4. ユーザー情報を取得
+    // 5. ユーザー情報を取得
     const userInfo = await getUserInfo(userId);
 
-    // 5. Checkout Sessionを作成
+    // 6. Checkout Sessionを作成
     const session = await stripe.checkout.sessions.create({
       customer_email: userInfo.email,
       mode: 'subscription',
@@ -131,6 +208,7 @@ export async function handler(
       metadata: {
         userId,
         tenantId,
+        planId,
       },
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
