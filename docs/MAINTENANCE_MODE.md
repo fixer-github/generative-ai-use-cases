@@ -18,6 +18,8 @@ This document provides a complete guide to using the maintenance mode feature fo
 ./scripts/validate-maintenance.sh tmp
 ```
 
+> **Note:** The first time you run any maintenance mode command after deployment, the KeyValueStore will be automatically initialized with default values (`maintenance: false`, `ipWhitelist: ""`). This happens transparently - no manual initialization is required.
+
 ## 📋 Table of Contents
 
 1. [Overview](#overview)

@@ -18,6 +18,8 @@
 ./scripts/validate-maintenance.sh tmp
 ```
 
+> **注意:** デプロイ後に初めてメンテナンスモードコマンドを実行すると、KeyValueStoreがデフォルト値（`maintenance: false`, `ipWhitelist: ""`）で自動的に初期化されます。この処理は透過的に行われるため、手動での初期化は不要です。
+
 ## 📋 目次
 
 1. [概要](#概要)
