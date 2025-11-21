@@ -90,17 +90,11 @@ export class MaintenanceMode extends Construct {
       'utf-8'
     );
 
-    // Replace KVS_ID placeholder with actual KeyValueStore ID
-    const viewerRequestCodeWithKVS = viewerRequestCode.replace(
-      /kvsId = ['"]KVS_ID['"]/g,
-      `kvsId = cloudfront.kvsId('${this.keyValueStore.attrId}')`
-    );
-
     this.viewerRequestFunction = new cloudfront.Function(
       this,
       'ViewerRequestFunction',
       {
-        code: cloudfront.FunctionCode.fromInline(viewerRequestCodeWithKVS),
+        code: cloudfront.FunctionCode.fromInline(viewerRequestCode),
         comment: 'Maintenance mode ViewerRequest function',
         runtime: cloudfront.FunctionRuntime.JS_2_0,
         keyValueStore: this.keyValueStore,
@@ -120,6 +114,7 @@ export class MaintenanceMode extends Construct {
         code: cloudfront.FunctionCode.fromInline(viewerResponseCode),
         comment: 'Maintenance mode ViewerResponse function',
         runtime: cloudfront.FunctionRuntime.JS_2_0,
+        keyValueStore: this.keyValueStore,
       }
     );
 
@@ -148,72 +143,70 @@ export class MaintenanceMode extends Construct {
     this.maintenanceBucket.grantRead(oai);
 
     // Task 3.2 & 3.3: Attach functions to distribution and configure behaviors
-    // Use addPropertyOverride to properly handle CDK Tokens and ensure correct CloudFront configuration
+    // Access the L1 construct and modify its properties directly to ensure proper array handling
     const cfnDistribution = props.distribution.node
       .defaultChild as CfnDistribution;
 
     const maintenanceOriginId = 'MaintenanceS3Origin';
 
-    // Add maintenance bucket as an additional origin using addPropertyOverride
-    // The .- suffix appends to the array
-    cfnDistribution.addPropertyOverride('DistributionConfig.Origins.-', {
-      id: maintenanceOriginId,
-      domainName: this.maintenanceBucket.bucketRegionalDomainName,
-      s3OriginConfig: {
-        originAccessIdentity: `origin-access-identity/cloudfront/${oai.originAccessIdentityId}`,
+    // Add maintenance bucket as an additional origin using array index
+    // First, we need to find the next available index
+    // The CloudFrontToS3 construct creates one origin at index 0
+    cfnDistribution.addPropertyOverride('DistributionConfig.Origins.1', {
+      Id: maintenanceOriginId,
+      DomainName: this.maintenanceBucket.bucketRegionalDomainName,
+      S3OriginConfig: {
+        OriginAccessIdentity: `origin-access-identity/cloudfront/${oai.originAccessIdentityId}`,
       },
     });
 
-    // Attach ViewerRequest function to default behavior
+    // Initialize FunctionAssociations array if it doesn't exist, then append
     cfnDistribution.addPropertyOverride(
-      'DistributionConfig.DefaultCacheBehavior.FunctionAssociations.-',
-      {
-        eventType: 'viewer-request',
-        functionArn: this.viewerRequestFunction.functionArn,
-      }
+      'DistributionConfig.DefaultCacheBehavior.FunctionAssociations',
+      [
+        {
+          EventType: 'viewer-request',
+          FunctionARN: this.viewerRequestFunction.functionArn,
+        },
+        {
+          EventType: 'viewer-response',
+          FunctionARN: this.viewerResponseFunction.functionArn,
+        },
+      ]
     );
 
-    // Attach ViewerResponse function to default behavior
-    cfnDistribution.addPropertyOverride(
-      'DistributionConfig.DefaultCacheBehavior.FunctionAssociations.-',
+    // Initialize CacheBehaviors array if it doesn't exist, then add behaviors
+    cfnDistribution.addPropertyOverride('DistributionConfig.CacheBehaviors', [
       {
-        eventType: 'viewer-response',
-        functionArn: this.viewerResponseFunction.functionArn,
-      }
-    );
-
-    // Add cache behavior for maintenance.html
-    cfnDistribution.addPropertyOverride('DistributionConfig.CacheBehaviors.-', {
-      pathPattern: '/maintenance.html',
-      targetOriginId: maintenanceOriginId,
-      viewerProtocolPolicy: 'redirect-to-https',
-      allowedMethods: ['GET', 'HEAD'],
-      cachedMethods: ['GET', 'HEAD'],
-      compress: true,
-      cachePolicyId: cloudfront.CachePolicy.CACHING_DISABLED.cachePolicyId,
-      functionAssociations: [
-        {
-          eventType: 'viewer-response',
-          functionArn: this.viewerResponseFunction.functionArn,
-        },
-      ],
-    });
-
-    // Add cache behavior for maintenance.css
-    cfnDistribution.addPropertyOverride('DistributionConfig.CacheBehaviors.-', {
-      pathPattern: '/maintenance.css',
-      targetOriginId: maintenanceOriginId,
-      viewerProtocolPolicy: 'redirect-to-https',
-      allowedMethods: ['GET', 'HEAD'],
-      cachedMethods: ['GET', 'HEAD'],
-      compress: true,
-      cachePolicyId: cloudfront.CachePolicy.CACHING_OPTIMIZED.cachePolicyId,
-      functionAssociations: [
-        {
-          eventType: 'viewer-response',
-          functionArn: this.viewerResponseFunction.functionArn,
-        },
-      ],
-    });
+        PathPattern: '/maintenance.html',
+        TargetOriginId: maintenanceOriginId,
+        ViewerProtocolPolicy: 'redirect-to-https',
+        AllowedMethods: ['GET', 'HEAD'],
+        CachedMethods: ['GET', 'HEAD'],
+        Compress: true,
+        CachePolicyId: cloudfront.CachePolicy.CACHING_DISABLED.cachePolicyId,
+        FunctionAssociations: [
+          {
+            EventType: 'viewer-response',
+            FunctionARN: this.viewerResponseFunction.functionArn,
+          },
+        ],
+      },
+      {
+        PathPattern: '/maintenance.css',
+        TargetOriginId: maintenanceOriginId,
+        ViewerProtocolPolicy: 'redirect-to-https',
+        AllowedMethods: ['GET', 'HEAD'],
+        CachedMethods: ['GET', 'HEAD'],
+        Compress: true,
+        CachePolicyId: cloudfront.CachePolicy.CACHING_OPTIMIZED.cachePolicyId,
+        FunctionAssociations: [
+          {
+            EventType: 'viewer-response',
+            FunctionARN: this.viewerResponseFunction.functionArn,
+          },
+        ],
+      },
+    ]);
   }
 }

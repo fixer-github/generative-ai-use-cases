@@ -1,298 +1,505 @@
-# Maintenance Mode Operations Guide
+# Maintenance Mode - Complete Guide
 
-This guide explains how to activate, deactivate, and manage the maintenance mode system for GenU.
+This document provides a complete guide to using the maintenance mode feature for your GenU (Generative AI Use Cases) deployment.
+
+## 🚀 Quick Start
+
+```bash
+# Enable maintenance mode
+./scripts/maintenance.sh tmp on
+
+# Disable maintenance mode
+./scripts/maintenance.sh tmp off
+
+# Check status
+./scripts/maintenance.sh tmp status
+
+# Validate it's working
+./scripts/validate-maintenance.sh tmp
+```
+
+## 📋 Table of Contents
+
+1. [Overview](#overview)
+2. [Scripts](#scripts)
+3. [Common Tasks](#common-tasks)
+4. [Troubleshooting](#troubleshooting)
+5. [Architecture](#architecture)
+6. [Best Practices](#best-practices)
 
 ## Overview
 
-The maintenance mode system allows you to display a maintenance page to users during system maintenance while allowing IP-whitelisted administrators to continue accessing the application. This system activates in under 60 seconds compared to the 10+ minute deployment process.
+The maintenance mode feature allows you to temporarily display a maintenance page to users while keeping the site accessible to whitelisted IP addresses (e.g., admin team).
 
-## First-Time Setup (Post-Deployment)
+### Key Features
 
-After deploying the stack with maintenance mode, you must initialize the KeyValueStore manually:
+- ✅ **One-command toggle** - Enable/disable with single command
+- ✅ **Automatic cache invalidation** - No manual steps needed
+- ✅ **IP whitelisting** - Allow specific IPs to bypass maintenance
+- ✅ **Multi-environment** - Support for tmp, devel, produ, hosoy
+- ✅ **Validation tools** - Verify maintenance mode is working
+- ✅ **Color-coded output** - Easy to read status information
 
-### Step 1: Get the KVS ARN
+### How It Works
 
-Find the KeyValueStore ARN from CloudFormation stack outputs:
-```bash
-aws cloudformation describe-stacks --stack-name <YOUR_STACK_NAME> \
-  --query "Stacks[0].Outputs[?OutputKey=='MaintenanceKVSArn'].OutputValue" \
-  --output text
+```
+User Request → CloudFront → Viewer Request Function
+                                ↓
+                        Check KeyValueStore
+                                ↓
+                    ┌───────────┴───────────┐
+                    ↓                       ↓
+            Maintenance = true      Maintenance = false
+                    ↓                       ↓
+            Check IP Whitelist          Allow Request
+                    ↓
+        ┌───────────┴───────────┐
+        ↓                       ↓
+    IP Whitelisted          Not Whitelisted
+        ↓                       ↓
+    Allow Request       Redirect to /maintenance.html
 ```
 
-Or check the AWS CloudFormation console under the stack outputs.
+## Scripts
 
-### Step 2: Get the Current ETag
+### `maintenance.sh` - Quick Wrapper
 
-```bash
-aws cloudfront-keyvaluestore describe-key-value-store \
-  --kvs-arn <KVS_ARN_FROM_STEP_1>
-```
-
-Note the `ETag` value from the response.
-
-### Step 3: Initialize the Keys
-
-Initialize the `maintenance` key (use the ETag from Step 2):
-```bash
-aws cloudfront-keyvaluestore put-key \
-  --kvs-arn <KVS_ARN> \
-  --key maintenance \
-  --value false \
-  --if-match <ETAG>
-```
-
-Get the new ETag:
-```bash
-aws cloudfront-keyvaluestore describe-key-value-store \
-  --kvs-arn <KVS_ARN>
-```
-
-Initialize the `ipWhitelist` key (use the new ETag):
-```bash
-aws cloudfront-keyvaluestore put-key \
-  --kvs-arn <KVS_ARN> \
-  --key ipWhitelist \
-  --value "" \
-  --if-match <NEW_ETAG>
-```
-
-**Note**: The ETag changes with each update, so you must get the latest ETag before each `put-key` operation.
-
-### Step 4: Verify Initialization
+**Simple interface for common operations.**
 
 ```bash
-aws cloudfront-keyvaluestore list-keys --kvs-arn <KVS_ARN>
+./scripts/maintenance.sh <env> <on|off|status>
 ```
 
-You should see both `maintenance` and `ipWhitelist` keys listed.
+**Examples:**
+```bash
+./scripts/maintenance.sh tmp on      # Enable for tmp environment
+./scripts/maintenance.sh tmp off     # Disable for tmp environment
+./scripts/maintenance.sh tmp status  # Check current status
+```
 
----
+### `maintenance-mode.sh` - Full-Featured Script
 
-## Architecture
+**Complete maintenance mode management with all features.**
 
-The system uses:
-- **CloudFront Functions**: Intercept requests and redirect to maintenance page
-- **KeyValueStore (KVS)**: Stores maintenance state and IP whitelist
-- **S3 Bucket**: Hosts maintenance page assets (HTML and CSS)
-- **CloudFront Distribution**: Serves maintenance page with 503 status code
+```bash
+./scripts/maintenance-mode.sh <env> <command> [options]
+```
 
-## Activating Maintenance Mode
+**Commands:**
+- `on` - Enable maintenance mode
+- `off` - Disable maintenance mode
+- `status` - Show current status
+- `whitelist-add <ips>` - Add IPs to whitelist
+- `whitelist-rm <ips>` - Remove IPs from whitelist
+- `whitelist-show` - Show whitelisted IPs
+- `whitelist-clear` - Clear all whitelisted IPs
 
-### Step 1: Locate the KeyValueStore
+**Options:**
+- `--profile <name>` - AWS profile (default: genu)
+- `--no-invalidate` - Skip cache invalidation
+- `--help` - Show help
 
-1. Log in to the AWS Console
-2. Navigate to **CloudFront** service
-3. In the left sidebar, click **Key value stores**
-4. Find the store named **MaintenanceModeStore**
-   - You can also use the KVS ARN from the CloudFormation stack outputs (look for `MaintenanceModeKVSArn`)
+**Examples:**
+```bash
+# Enable with custom profile
+./scripts/maintenance-mode.sh produ on --profile production
 
-### Step 2: Enable Maintenance Mode
+# Add multiple IPs to whitelist
+./scripts/maintenance-mode.sh tmp whitelist-add 203.0.113.1,198.51.100.50
 
-1. Click on the **MaintenanceModeStore** name
-2. Click the **Keys** tab
-3. Find the key named **maintenance**
-4. Click **Edit** next to the maintenance key
-5. Change the value from `false` to `true`
-6. Click **Save changes**
+# Show current whitelist
+./scripts/maintenance-mode.sh tmp whitelist-show
 
-### Step 3: Verify Activation
+# Remove IP from whitelist
+./scripts/maintenance-mode.sh tmp whitelist-rm 203.0.113.1
+```
 
-1. Wait approximately 30-60 seconds for the change to propagate to all CloudFront edge locations
-2. Open a new browser window (or incognito/private window to avoid cache)
-3. Navigate to your application URL
-4. You should see the maintenance page with a 503 status code
-   - You can verify the status code using browser developer tools (Network tab)
+### `validate-maintenance.sh` - Validation Tool
 
-## Deactivating Maintenance Mode
+**Verify that maintenance mode is working correctly.**
 
-### Step 1: Access KeyValueStore
+```bash
+./scripts/validate-maintenance.sh <env> [--profile <profile>]
+```
 
-Follow the same steps as activation to locate and open the **MaintenanceModeStore**.
+**What it checks:**
+1. ✅ KeyValueStore configuration
+2. ✅ CloudFront function attachments
+3. ✅ Actual HTTP behavior
+4. ✅ Recent cache invalidations
 
-### Step 2: Disable Maintenance Mode
+**Example:**
+```bash
+./scripts/validate-maintenance.sh tmp
+```
 
-1. Click the **Keys** tab
-2. Find the key named **maintenance**
-3. Click **Edit**
-4. Change the value from `true` to `false`
-5. Click **Save changes**
+## Common Tasks
 
-### Step 3: Verify Deactivation
+### Enable Maintenance Mode
 
-1. Wait approximately 30-60 seconds for propagation
-2. Refresh your browser (or open a new window)
-3. You should now see the normal application
-4. Verify users can access and use the application normally
+```bash
+# 1. Enable maintenance mode
+./scripts/maintenance.sh tmp on
 
-## Managing IP Whitelist
+# 2. Verify it's working (optional)
+./scripts/validate-maintenance.sh tmp
 
-The IP whitelist allows specific IP addresses to bypass maintenance mode and access the application normally.
+# 3. Test in browser
+# Open: https://<cloudfront-domain>
+# Should see maintenance page
+```
 
-### Step 1: Update Whitelist
+### Disable Maintenance Mode
 
-1. Navigate to **CloudFront** → **Key value stores** → **MaintenanceModeStore**
-2. Click the **Keys** tab
-3. Find the key named **ipWhitelist**
-4. Click **Edit**
-5. Enter comma-separated IP addresses (no spaces):
-   ```
-   203.0.113.1,198.51.100.42,192.0.2.10
-   ```
-6. Supports both IPv4 and IPv6 addresses
-7. Click **Save changes**
+```bash
+# 1. Disable maintenance mode
+./scripts/maintenance.sh tmp off
 
-### Step 2: Test Whitelist Access
+# 2. Wait 60 seconds for propagation
 
-1. Activate maintenance mode (if not already active)
-2. From a whitelisted IP address, navigate to the application
-3. You should see the normal application (not the maintenance page)
-4. From a non-whitelisted IP, you should see the maintenance page
+# 3. Hard refresh browser (IMPORTANT!)
+# Windows/Linux: Ctrl + Shift + R
+# Mac: Cmd + Shift + R
 
-### Finding Your IP Address
+# 4. Verify (optional)
+./scripts/validate-maintenance.sh tmp
+```
 
-To find your current IP address:
-- Visit https://api.ipify.org or https://checkip.amazonaws.com
-- Or use command line: `curl https://checkip.amazonaws.com`
+### Whitelist Your Team's IPs
 
-## Propagation Time
+```bash
+# 1. Add your team's IPs
+./scripts/maintenance-mode.sh tmp whitelist-add 203.0.113.1,198.51.100.50
 
-- **KeyValueStore updates**: 30-60 seconds to all edge locations
-- **During this time**: Some users may see maintenance page while others see the application
-- **Recommendation**: Plan for up to 2 minutes for complete global propagation
+# 2. Enable maintenance mode
+./scripts/maintenance.sh tmp on
+
+# 3. Verify whitelisted IPs can still access
+# Your team should see the normal site, not maintenance page
+```
+
+### Check Current Status
+
+```bash
+./scripts/maintenance.sh tmp status
+```
+
+**Output example:**
+```
+=== Maintenance Mode Status ===
+✓ Maintenance mode: DISABLED
+
+=== IP Whitelist ===
+  - 203.0.113.1
+  - 198.51.100.50
+
+=== CloudFront Distribution ===
+  Distribution ID: <distribution-id>
+  URL: https://<cloudfront-domain>
+```
+
+### Scheduled Maintenance Example
+
+```bash
+#!/bin/bash
+# scheduled-maintenance.sh
+
+echo "Starting scheduled maintenance at $(date)"
+
+# 1. Enable maintenance mode
+./scripts/maintenance.sh produ on
+
+# 2. Wait for propagation
+sleep 60
+
+# 3. Run your deployment/updates
+echo "Running deployments..."
+# ... your deployment commands here ...
+
+# 4. Wait for deployment to complete
+sleep 300
+
+# 5. Disable maintenance mode
+./scripts/maintenance.sh produ off
+
+echo "Maintenance completed at $(date)"
+```
 
 ## Troubleshooting
 
-### Maintenance Mode Not Activating
+### Issue: Maintenance Page Still Showing After Disabling
 
-**Problem**: Changed `maintenance` to `true` but users still see the application
+**Symptoms:** Set maintenance to `false` but still see maintenance page
 
-**Solutions**:
-1. Verify the value is exactly `true` (lowercase, no quotes in the value field)
-2. Wait the full 60 seconds for propagation
-3. Clear browser cache or use incognito/private window
-4. Check CloudWatch Logs for CloudFront Function errors:
-   - Navigate to CloudWatch → Log groups
-   - Look for logs related to CloudFront Functions
-   - Check for any errors in function execution
+**Causes:**
+1. Browser cached the 302 redirect
+2. CloudFront edge cache not invalidated
+3. Haven't waited long enough for propagation
 
-### Cannot Access Application from Whitelisted IP
-
-**Problem**: IP is in whitelist but still seeing maintenance page
-
-**Solutions**:
-1. Verify IP address is correct (use https://checkip.amazonaws.com)
-2. Ensure no spaces in the IP whitelist value
-3. Check the format: `ip1,ip2,ip3` (comma-separated, no spaces)
-4. Verify maintenance mode is actually enabled (`maintenance=true`)
-5. Wait 60 seconds after updating the whitelist
-
-### Accidentally Locked Out
-
-**Problem**: Enabled maintenance mode but cannot access to disable it
-
-**Solutions**:
-1. **Access from different network**: Use VPN or mobile hotspot to get a different IP address
-2. **Add your current IP**: Update `ipWhitelist` from AWS Console using a different network
-3. **Emergency rollback**: Contact AWS administrator to:
-   - Update KeyValueStore via AWS CLI:
-     ```bash
-     aws cloudfront-keyvaluestore update-keys \
-       --kvs-arn <KVS_ARN> \
-       --puts Key=maintenance,Value=false
-     ```
-   - Or remove CloudFront Function associations via CloudFormation rollback
-
-### Maintenance Page Not Loading Properly
-
-**Problem**: Page shows but CSS is missing or page looks broken
-
-**Solutions**:
-1. Check S3 bucket for maintenance assets:
-   - Navigate to S3 → Find maintenance bucket (name in CloudFormation outputs: `MaintenanceModeBucketName`)
-   - Verify `maintenance.html` and `maintenance.css` exist
-2. Check CloudFront cache:
-   - Navigate to CloudFront → Distributions
-   - Create invalidation for `/maintenance.html` and `/maintenance.css`
-3. Verify CloudFront behaviors are configured:
-   - Check distribution has behaviors for `/maintenance.html` and `/maintenance.css`
-
-## Emergency Rollback
-
-If the maintenance mode system causes critical issues:
-
-### Option 1: Disable via KeyValueStore (Fastest)
-
+**Solutions:**
 ```bash
-aws cloudfront-keyvaluestore update-keys \
-  --kvs-arn <KVS_ARN_FROM_OUTPUTS> \
-  --puts Key=maintenance,Value=false
+# 1. Verify KVS is set correctly
+./scripts/maintenance.sh tmp status
+
+# 2. Ensure cache was invalidated (script does this automatically)
+./scripts/maintenance.sh tmp off
+
+# 3. Wait 60 seconds
+sleep 60
+
+# 4. Hard refresh browser (CRITICAL!)
+# Windows/Linux: Ctrl + Shift + R
+# Mac: Cmd + Shift + R
+
+# 5. Or use incognito/private mode
 ```
 
-### Option 2: Remove Function Associations (5-10 minutes)
+### Issue: Maintenance Mode Not Activating
 
-1. Navigate to CloudFront → Distributions
-2. Select your distribution
-3. Go to **Behaviors** tab
-4. Edit default behavior
-5. Remove function associations for maintenance mode functions
-6. Save changes (takes 5-10 minutes to deploy)
+**Symptoms:** Set to `true` but site still accessible
 
-### Option 3: CloudFormation Rollback (Slowest but Complete)
+**Solutions:**
+```bash
+# 1. Check status
+./scripts/maintenance.sh tmp status
 
-1. Navigate to CloudFormation → Stacks
-2. Find the Web stack
-3. Select **Stack actions** → **Roll back**
-4. This will remove all maintenance mode resources
+# 2. Verify KVS has maintenance=true
+aws --profile <profile> cloudfront-keyvaluestore list-keys \
+  --kvs-arn <kvs-arn>
+
+# 3. Check if your IP is whitelisted
+./scripts/maintenance-mode.sh tmp whitelist-show
+
+# 4. Validate configuration
+./scripts/validate-maintenance.sh tmp
+
+# 5. Try toggling off then on again
+./scripts/maintenance.sh tmp off
+sleep 10
+./scripts/maintenance.sh tmp on
+```
+
+### Issue: Script Can't Find Stack
+
+**Symptoms:** "Could not find Web stack for environment: tmp"
+
+**Solutions:**
+```bash
+# 1. Verify environment name
+# Valid: tmp, devel, produ, hosoy
+
+# 2. Check AWS profile
+aws --profile <profile> sts get-caller-identity
+
+# 3. List available stacks
+aws --profile <profile> cloudformation list-stacks \
+  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE
+```
+
+### Issue: IP Whitelist Not Working
+
+**Symptoms:** IP whitelisted but still seeing maintenance page
+
+**Causes:**
+1. IP doesn't match exactly (no CIDR ranges supported)
+2. Behind proxy/NAT (public IP different from expected)
+3. IPv4 vs IPv6 mismatch
+
+**Solutions:**
+```bash
+# 1. Check your public IP
+curl ifconfig.me
+
+# 2. Add your actual public IP
+./scripts/maintenance-mode.sh tmp whitelist-add $(curl -s ifconfig.me)
+
+# 3. Verify whitelist
+./scripts/maintenance-mode.sh tmp whitelist-show
+
+# 4. Test with browser
+# Should see normal site, not maintenance page
+```
+
+### Issue: Cache Invalidation Taking Too Long
+
+**Symptoms:** Changes not visible after 5+ minutes
+
+**Note:** CloudFront cache invalidation typically completes in 30-60 seconds but can take up to 15 minutes.
+
+**Solutions:**
+```bash
+# 1. Check invalidation status
+aws --profile <profile> cloudfront list-invalidations \
+  --distribution-id <distribution-id> --max-items 1
+
+# 2. Wait for status: Completed
+
+# 3. Hard refresh browser
+# Ctrl + Shift + R (or Cmd + Shift + R)
+
+# 4. Test with curl to bypass browser cache
+curl -I "https://<cloudfront-domain>/test-$(date +%s).html"
+```
+
+## Architecture
+
+### Components
+
+```
+┌────────────────────────────────────────────────────┐
+│ CloudFront Distribution                            │
+│                                                    │
+│  ┌──────────────────────────────────────────┐    │
+│  │ Viewer Request Function                  │    │
+│  │ - Reads maintenance & ipWhitelist keys   │    │
+│  │ - Returns 302 redirect if maintenance ON │    │
+│  │ - Allows whitelisted IPs through         │    │
+│  └──────────────────────────────────────────┘    │
+│                  ↓                                 │
+│  ┌──────────────────────────────────────────┐    │
+│  │ KeyValueStore (KVS)                      │    │
+│  │ - maintenance: "true" | "false"          │    │
+│  │ - ipWhitelist: "ip1,ip2,..."             │    │
+│  │ ARN: <kvs-arn>                           │    │
+│  └──────────────────────────────────────────┘    │
+│                                                    │
+│  ┌──────────────────────────────────────────┐    │
+│  │ S3 Bucket (Maintenance Assets)           │    │
+│  │ - maintenance.html                        │    │
+│  │ - maintenance.css                         │    │
+│  └──────────────────────────────────────────┘    │
+└────────────────────────────────────────────────────┘
+```
+
+### CloudFront Function Logic
+
+Located in `packages/cdk/cloudfront-functions/viewer-request.js`:
+
+```javascript
+// 1. Get values from KVS
+const maintenance = await kvsHandle.get('maintenance');
+const ipWhitelist = await kvsHandle.get('ipWhitelist');
+
+// 2. If maintenance OFF, allow all requests
+if (maintenance !== 'true' && maintenance !== true) {
+  return request;
+}
+
+// 3. Check if client IP is whitelisted
+const whitelistedIps = ipWhitelist ? ipWhitelist.split(',') : [];
+if (whitelistedIps.includes(clientIp)) {
+  return request;
+}
+
+// 4. Prevent redirect loop for maintenance assets
+if (uri === '/maintenance.html' || uri === '/maintenance.css') {
+  return request;
+}
+
+// 5. Redirect to maintenance page
+return {
+  statusCode: 302,
+  statusDescription: 'Found',
+  headers: { location: { value: '/maintenance.html' } }
+};
+```
+
+### Error Handling
+
+The function uses **fail-open** error handling:
+
+```javascript
+try {
+  // ... maintenance logic ...
+} catch (error) {
+  // If ANY error occurs (KVS access failure, etc.),
+  // allow request through to prevent breaking entire site
+  console.log('Error: ' + error.message);
+  return request;
+}
+```
+
+This ensures that CloudFront Function errors don't break the site.
 
 ## Best Practices
 
-1. **Test Before Production**:
-   - Test activation/deactivation in a staging environment first
-   - Verify propagation times in your specific setup
+### 1. Always Use Scripts, Not Manual Commands
 
-2. **Communicate Maintenance Windows**:
-   - Notify users in advance of planned maintenance
-   - Provide estimated downtime duration
+```bash
+# ❌ BAD - Manual commands without cache invalidation
+aws cloudfront-keyvaluestore put-key ...
 
-3. **Keep IP Whitelist Updated**:
-   - Maintain a list of administrator IPs
-   - Update before maintenance windows if IPs change
+# ✅ GOOD - Use the script (includes automatic cache invalidation)
+./scripts/maintenance.sh tmp on
+```
 
-4. **Monitor During Activation**:
-   - Watch CloudWatch metrics for 503 status codes
-   - Monitor CloudFront Function execution logs for errors
+### 2. Test in Lower Environments First
 
-5. **Document Rollback Plan**:
-   - Keep this guide accessible during maintenance
-   - Ensure multiple team members can execute rollback
+```bash
+# 1. Test in tmp environment
+./scripts/maintenance.sh tmp on
+# Verify maintenance page works
+./scripts/validate-maintenance.sh tmp
 
-## FAQ
+# 2. Disable and verify
+./scripts/maintenance.sh tmp off
+# Verify site is accessible
 
-### Q: How long does it take to activate maintenance mode?
-**A**: Typically 30-60 seconds for global propagation. Plan for up to 2 minutes to be safe.
+# 3. Then apply to production
+./scripts/maintenance.sh produ on
+```
 
-### Q: Can I schedule automatic maintenance mode activation?
-**A**: Not in the current version. Manual activation via KeyValueStore is required. Future enhancements may add scheduling.
+### 3. Whitelist Admin/Ops Team IPs
 
-### Q: What HTTP status code do users see during maintenance?
-**A**: 503 Service Unavailable with a `Retry-After: 3600` header (1 hour).
+```bash
+# Add your operations team IPs before enabling maintenance
+./scripts/maintenance-mode.sh tmp whitelist-add 203.0.113.1,198.51.100.50
 
-### Q: Can I customize the maintenance page?
-**A**: Yes. Update the HTML and CSS files in the maintenance S3 bucket. See the developer documentation for details.
+# Then enable maintenance mode
+./scripts/maintenance.sh tmp on
 
-### Q: Does maintenance mode affect API endpoints?
-**A**: No. Maintenance mode only affects web frontend requests through CloudFront. Backend API endpoints continue functioning normally.
+# Your team can still access the site
+```
 
-### Q: How many IPs can I whitelist?
-**A**: There's no hard limit, but keep the whitelist string under 1000 characters for optimal performance. This allows dozens of IPs.
+### 4. Communicate Maintenance Windows
 
-### Q: Can I use CIDR notation for IP ranges?
-**A**: Not in the current version. Only individual IPv4 and IPv6 addresses are supported. CIDR support may be added in future versions.
+- Post advance notice to users (email, in-app notification)
+- Specify exact start/end times
+- Enable maintenance mode at scheduled time
+- Monitor for errors during maintenance
+- Notify when service is restored
+
+### 5. Monitor During Maintenance
+
+```bash
+# Check CloudWatch for errors
+aws logs tail /aws/cloudfront/distribution/<distribution-id> --follow
+
+# Verify maintenance page is loading
+curl -I https://<cloudfront-domain>
+
+# Check cache invalidation status
+./scripts/maintenance-mode.sh <env> status
+```
+
+### 6. Always Validate After Changes
+
+```bash
+# After any maintenance mode change
+./scripts/validate-maintenance.sh tmp
+```
+
+## Additional Resources
+
+- **Quick Reference**: [`scripts/QUICKREF.md`](./scripts/QUICKREF.md)
+- **Detailed Documentation**: [`scripts/README.md`](./scripts/README.md)
+- **CloudFront Function**: `packages/cdk/cloudfront-functions/viewer-request.js`
+- **CDK Construct**: `packages/cdk/lib/construct/maintenance-mode.ts`
 
 ## Support
 
-For issues not covered in this guide:
-1. Check CloudWatch Logs for CloudFront Function errors
-2. Review CloudFormation stack outputs for resource ARNs
-3. Contact your AWS administrator or DevOps team
-4. Consult the developer documentation for architecture details
+For issues or questions:
+1. Check this guide and troubleshooting section
+2. Run validation: `./scripts/validate-maintenance.sh tmp`
+3. Check AWS CloudFormation console for stack status
+4. Review CloudFront function logs (if available)
