@@ -13,6 +13,7 @@ import {
   AssistantMessage,
   AssistantMessageSource,
   ListAssistantMessagesResponse,
+  Model,
 } from 'generative-ai-use-cases';
 import {
   BedrockRuntimeClient,
@@ -29,6 +30,8 @@ import {
   notFound404Response,
   ok200Response,
 } from './utils/apiResponse';
+import api from './utils/api';
+import { modelMetadata } from '@generative-ai-use-cases/common';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -263,36 +266,87 @@ async function handleCreateMessage(
     ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
     : assistant.instruction;
 
-  // Call Bedrock with assistant configuration
-  const response = await bedrockClient.send(
-    new ConverseCommand({
-      modelId: assistant.modelId,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              text: body.content,
-            },
-          ],
-        },
-      ],
-      system: [
-        {
-          text: systemMessage,
-        },
-      ],
-    })
+  // Determine model type: if modelId exists in modelMetadata → bedrock, else → liteLlm
+  const modelType = modelMetadata[assistant.modelId] ? 'bedrock' : 'liteLlm';
+
+  const model: Model = {
+    modelId: assistant.modelId,
+    type: modelType,
+    ...(modelType === 'bedrock' && {
+      region: process.env.MODEL_REGION || 'us-east-1',
+    }),
+  };
+
+  console.log(
+    `Using ${modelType} model: ${assistant.modelId} for assistant chat`
   );
 
-  const assistantResponse =
-    response.output?.message?.content?.[0]?.text || 'No response';
-
-  const usage = {
-    inputTokens: response.usage?.inputTokens || 0,
-    outputTokens: response.usage?.outputTokens || 0,
-    totalTokens: response.usage?.totalTokens || 0,
+  // Call LLM with assistant configuration
+  let assistantResponse = '';
+  let usage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
   };
+
+  if (modelType === 'bedrock') {
+    // Use Bedrock API
+    const response = await bedrockClient.send(
+      new ConverseCommand({
+        modelId: assistant.modelId,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                text: body.content,
+              },
+            ],
+          },
+        ],
+        system: [
+          {
+            text: systemMessage,
+          },
+        ],
+      })
+    );
+
+    assistantResponse =
+      response.output?.message?.content?.[0]?.text || 'No response';
+
+    usage = {
+      inputTokens: response.usage?.inputTokens || 0,
+      outputTokens: response.usage?.outputTokens || 0,
+      totalTokens: response.usage?.totalTokens || 0,
+    };
+  } else {
+    // Use LiteLLM API
+    const messages = [
+      {
+        role: 'system' as const,
+        content: systemMessage,
+      },
+      {
+        role: 'user' as const,
+        content: body.content,
+      },
+    ];
+
+    assistantResponse = await api.liteLlm.invoke(
+      model,
+      messages,
+      cleanChatId
+    );
+
+    // LiteLLM doesn't provide detailed usage stats in non-streaming mode
+    // Set basic usage info
+    usage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    };
+  }
 
   // Store assistant response with sources
   const assistantMessage = await createAssistantMessage(
