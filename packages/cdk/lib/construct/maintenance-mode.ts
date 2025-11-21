@@ -12,6 +12,10 @@ export interface MaintenanceModeProps {
    * The CloudFront distribution to attach maintenance mode functions to
    */
   distribution: Distribution;
+  /**
+   * Environment suffix to make KeyValueStore name unique (e.g., 'tmp', 'devel', 'produ')
+   */
+  environmentSuffix: string;
 }
 
 /**
@@ -68,7 +72,7 @@ export class MaintenanceMode extends Construct {
       this,
       'MaintenanceKVS',
       {
-        name: 'MaintenanceModeStore',
+        name: `MaintenanceModeStore${props.environmentSuffix}`,
         comment: 'KeyValueStore for maintenance mode state and IP whitelist',
       }
     );

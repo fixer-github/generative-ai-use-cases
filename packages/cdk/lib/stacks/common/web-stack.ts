@@ -73,6 +73,7 @@ class WebStack extends NestedStack {
     // Task 5.1: Integrate MaintenanceMode construct
     const maintenanceMode = new MaintenanceMode(this, 'MaintenanceMode', {
       distribution: web.distribution,
+      environmentSuffix: params.env,
     });
 
     // Task 5.1: Add CloudFormation outputs for maintenance mode resources
