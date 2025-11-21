@@ -200,6 +200,68 @@ get_etag() {
         --output text 2>/dev/null
 }
 
+# Initialize KeyValueStore if keys don't exist
+initialize_kvs() {
+    print_info "Checking if KeyValueStore is initialized..."
+
+    # Try to get maintenance key
+    local maintenance_value=$(get_key "maintenance" 2>/dev/null)
+    local ipwhitelist_value=$(get_key "ipWhitelist" 2>/dev/null)
+
+    # If either key doesn't exist, initialize both
+    if [ -z "$maintenance_value" ] || [ -z "$ipwhitelist_value" ]; then
+        print_warning "KeyValueStore not initialized. Initializing with default values..."
+
+        local etag=$(get_etag)
+
+        # Set maintenance key if it doesn't exist
+        if [ -z "$maintenance_value" ]; then
+            print_info "Setting 'maintenance' key to 'false'"
+            etag=$(aws cloudfront-keyvaluestore put-key \
+                --kvs-arn "$KVS_ARN" \
+                --key "maintenance" \
+                --value "false" \
+                --if-match "$etag" \
+                --query 'ETag' \
+                --output text 2>/dev/null)
+
+            if [ -z "$etag" ]; then
+                print_error "Failed to initialize 'maintenance' key"
+                exit 1
+            fi
+        fi
+
+        # Set ipWhitelist key if it doesn't exist
+        if [ -z "$ipwhitelist_value" ]; then
+            # Get fresh ETag if we just set maintenance key
+            if [ -n "$maintenance_value" ]; then
+                etag=$(get_etag)
+            fi
+
+            print_info "Setting 'ipWhitelist' key to empty string"
+            etag=$(aws cloudfront-keyvaluestore put-key \
+                --kvs-arn "$KVS_ARN" \
+                --key "ipWhitelist" \
+                --value "" \
+                --if-match "$etag" \
+                --query 'ETag' \
+                --output text 2>/dev/null)
+
+            if [ -z "$etag" ]; then
+                print_error "Failed to initialize 'ipWhitelist' key"
+                exit 1
+            fi
+        fi
+
+        print_success "KeyValueStore initialized successfully"
+    else
+        print_success "KeyValueStore already initialized"
+    fi
+}
+
+# Initialize KVS before any operations
+initialize_kvs
+
 # Get current key value
 get_key() {
     local key="$1"

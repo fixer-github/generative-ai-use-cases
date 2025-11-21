@@ -3,11 +3,9 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { CfnDistribution, Distribution } from 'aws-cdk-lib/aws-cloudfront';
-import { RemovalPolicy, CustomResource, Duration } from 'aws-cdk-lib';
+import { RemovalPolicy } from 'aws-cdk-lib';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as iam from 'aws-cdk-lib/aws-iam';
 
 export interface MaintenanceModeProps {
   /**
@@ -81,39 +79,10 @@ export class MaintenanceMode extends Construct {
 
     this.kvsArn = this.keyValueStore.attrArn;
 
-    // Initialize KeyValueStore with default values using Lambda-backed Custom Resource
-    const kvsInitializerFunction = new lambda.SingletonFunction(
-      this,
-      'KvsInitializerFunction',
-      {
-        uuid: 'kvs-initializer-singleton',
-        code: lambda.Code.fromAsset('custom-resources'),
-        handler: 'kvs-initializer.handler',
-        runtime: lambda.Runtime.NODEJS_20_X,
-        timeout: Duration.minutes(5),
-        lambdaPurpose: 'KvsInitializer',
-      }
-    );
-
-    // Grant permissions to access KeyValueStore
-    kvsInitializerFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'cloudfront-keyvaluestore:DescribeKeyValueStore',
-          'cloudfront-keyvaluestore:PutKey',
-        ],
-        resources: [this.kvsArn],
-      })
-    );
-
-    const kvsInitializer = new CustomResource(this, 'KvsInitializer', {
-      serviceToken: kvsInitializerFunction.functionArn,
-      resourceType: 'Custom::KvsInitializer',
-      properties: {
-        KvsARN: this.kvsArn,
-      },
-    });
-    kvsInitializer.node.addDependency(this.keyValueStore);
+    // Note: KeyValueStore must be initialized after deployment using the maintenance-mode.sh script
+    // The script will automatically initialize the KVS with default values on first run:
+    //   maintenance: false (maintenance mode disabled)
+    //   ipWhitelist: "" (no IPs whitelisted)
 
     // Task 2.1 & 2.3: Create ViewerRequest CloudFront Function
     const viewerRequestCode = fs.readFileSync(
