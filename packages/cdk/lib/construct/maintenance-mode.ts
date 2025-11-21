@@ -6,6 +6,8 @@ import { CfnDistribution, Distribution } from 'aws-cdk-lib/aws-cloudfront';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export interface MaintenanceModeProps {
   /**
@@ -79,14 +81,102 @@ export class MaintenanceMode extends Construct {
 
     this.kvsArn = this.keyValueStore.attrArn;
 
-    // Note: KeyValueStore must be initialized manually after deployment
-    // Run the following AWS CLI commands to initialize:
-    //
-    // aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn <KVS_ARN>
-    // aws cloudfront-keyvaluestore put-key --kvs-arn <KVS_ARN> --key maintenance --value false --if-match <ETAG>
-    // aws cloudfront-keyvaluestore put-key --kvs-arn <KVS_ARN> --key ipWhitelist --value "" --if-match <ETAG>
-    //
-    // The KVS ARN will be output in CloudFormation outputs
+    // Initialize KeyValueStore with default values using Custom Resource
+    // First, describe the KVS to get the ETag
+    const describeKvs = new cr.AwsCustomResource(this, 'DescribeKVS', {
+      onCreate: {
+        service: 'CloudFrontKeyValueStore',
+        action: 'describeKeyValueStore',
+        parameters: {
+          KvsARN: this.kvsArn,
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('DescribeKVS'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: ['cloudfront-keyvaluestore:DescribeKeyValueStore'],
+          resources: [this.kvsArn],
+        }),
+      ]),
+    });
+    describeKvs.node.addDependency(this.keyValueStore);
+
+    // Initialize 'maintenance' key with value 'false'
+    const initMaintenanceKey = new cr.AwsCustomResource(
+      this,
+      'InitMaintenanceKey',
+      {
+        onCreate: {
+          service: 'CloudFrontKeyValueStore',
+          action: 'putKey',
+          parameters: {
+            KvsARN: this.kvsArn,
+            Key: 'maintenance',
+            Value: 'false',
+            IfMatch: describeKvs.getResponseField('ETag'),
+          },
+          physicalResourceId: cr.PhysicalResourceId.of('MaintenanceKey'),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ['cloudfront-keyvaluestore:PutKey'],
+            resources: [this.kvsArn],
+          }),
+        ]),
+      }
+    );
+    initMaintenanceKey.node.addDependency(describeKvs);
+
+    // Get ETag after first key is set
+    const describeKvsAfterMaintenance = new cr.AwsCustomResource(
+      this,
+      'DescribeKVSAfterMaintenance',
+      {
+        onCreate: {
+          service: 'CloudFrontKeyValueStore',
+          action: 'describeKeyValueStore',
+          parameters: {
+            KvsARN: this.kvsArn,
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(
+            'DescribeKVSAfterMaintenance'
+          ),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ['cloudfront-keyvaluestore:DescribeKeyValueStore'],
+            resources: [this.kvsArn],
+          }),
+        ]),
+      }
+    );
+    describeKvsAfterMaintenance.node.addDependency(initMaintenanceKey);
+
+    // Initialize 'ipWhitelist' key with empty string
+    const initIpWhitelistKey = new cr.AwsCustomResource(
+      this,
+      'InitIpWhitelistKey',
+      {
+        onCreate: {
+          service: 'CloudFrontKeyValueStore',
+          action: 'putKey',
+          parameters: {
+            KvsARN: this.kvsArn,
+            Key: 'ipWhitelist',
+            Value: '',
+            IfMatch: describeKvsAfterMaintenance.getResponseField('ETag'),
+          },
+          physicalResourceId: cr.PhysicalResourceId.of('IpWhitelistKey'),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ['cloudfront-keyvaluestore:PutKey'],
+            resources: [this.kvsArn],
+          }),
+        ]),
+      }
+    );
+    initIpWhitelistKey.node.addDependency(describeKvsAfterMaintenance);
 
     // Task 2.1 & 2.3: Create ViewerRequest CloudFront Function
     const viewerRequestCode = fs.readFileSync(
