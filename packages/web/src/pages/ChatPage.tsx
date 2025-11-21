@@ -66,7 +66,21 @@ const ChatPage: React.FC = () => {
     uploadFiles,
     base64Cache,
   } = useFiles(pathname);
-  const { chatId } = useParams();
+  const { chatId: routeChatId } = useParams();
+
+  // ローカルchatIdステート（新規チャット作成後に設定）
+  const [localChatId, setLocalChatId] = useState<string | undefined>(undefined);
+  // 実際に使用するchatId（localChatIdが優先）
+  const effectiveChatId = localChatId || routeChatId;
+
+  // pending message用のステート
+  const [pendingMessageData, setPendingMessageData] = useState<{
+    content: string;
+    uploadedFiles?: any[];
+    base64Cache?: Record<string, string>;
+    overrideModelParameters?: AdditionalModelRequestFields;
+    modelId: string;
+  } | null>(null);
 
   const {
     getModelId,
@@ -84,7 +98,7 @@ const ChatPage: React.FC = () => {
     forceToStop,
     loadingMessages,
     createChatAndInitialize,
-  } = useChat(pathname, chatId);
+  } = useChat(pathname, effectiveChatId);
   const { createShareId, findShareId, deleteShareId } = useChatApi();
   const { scrollableContainer, setFollowing } = useFollow();
   const { getChatTitle } = useChatList();
@@ -94,7 +108,7 @@ const ChatPage: React.FC = () => {
     modelMetadata,
     featuredModelIds,
   } = MODELS;
-  const { data: share, mutate: reloadShare } = findShareId(chatId);
+  const { data: share, mutate: reloadShare } = findShareId(effectiveChatId);
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -106,23 +120,59 @@ const ChatPage: React.FC = () => {
   const [sending, setSending] = useState(false);
   const { t } = useTranslation();
 
+  // /chat/new に戻る時のみローカルステートをリセット
+  useEffect(() => {
+    if (!routeChatId) {
+      setLocalChatId(undefined);
+      setPendingMessageData(null);
+      setSending(false);
+    }
+  }, [routeChatId]);
+
   useEffect(() => {
     // Set fixed system context
-    if (!chatId) {
+    if (!effectiveChatId) {
       updateSystemContext(FIXED_SYSTEM_CONTEXT);
     }
-    // URL遷移後はsendingステートをリセット
-    setSending(false);
     // eslint-disable-next-line  react-hooks/exhaustive-deps
-  }, [chatId]);
+  }, [effectiveChatId]);
+
+  // localChatIdとpendingMessageDataが設定されたらメッセージ送信とURL遷移
+  useEffect(() => {
+    if (localChatId && pendingMessageData && !loadingMessages) {
+      // メッセージ送信
+      const freshPrompter = getPrompter(pendingMessageData.modelId);
+      postChat(
+        freshPrompter.chatPrompt({ content: pendingMessageData.content }),
+        false,
+        undefined,
+        undefined,
+        undefined,
+        pendingMessageData.uploadedFiles,
+        undefined,
+        undefined,
+        undefined,
+        pendingMessageData.base64Cache,
+        pendingMessageData.overrideModelParameters
+      );
+
+      // URL遷移
+      navigate(`/chat/${localChatId}`, { replace: true });
+
+      // pendingMessageDataをクリア
+      setPendingMessageData(null);
+      setSending(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localChatId, pendingMessageData, loadingMessages]);
 
   const title = useMemo(() => {
-    if (chatId) {
-      return getChatTitle(chatId) || t('chat.title');
+    if (effectiveChatId) {
+      return getChatTitle(effectiveChatId) || t('chat.title');
     } else {
       return t('chat.title');
     }
-  }, [chatId, getChatTitle, t]);
+  }, [effectiveChatId, getChatTitle, t]);
 
   const accept = useMemo(() => {
     if (!modelId) return [];
@@ -157,49 +207,41 @@ const ChatPage: React.FC = () => {
           ? params.modelId!
           : _modelId
       );
-    } else if (!chatId) {
+    } else if (!effectiveChatId) {
       // Only set default model for new chats (when chatId doesn't exist)
       // For existing chats, the model will be restored from messages
       setModelId(_modelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, setContent, availableModels, pathname, chatId]);
+  }, [search, setContent, availableModels, pathname, effectiveChatId]);
 
   const onSend = useCallback(async () => {
     setFollowing(true);
 
-    // 新規チャットの場合はチャット作成とメッセージ送信
-    if (!chatId) {
+    // 新規チャットの場合はチャット作成とpendingMessage設定
+    if (!effectiveChatId) {
       setSending(true);
 
       try {
         // 1. チャット作成とステート初期化
         const systemContext = getCurrentSystemContext();
         const newChatId = await createChatAndInitialize(systemContext, modelId);
+        const plainChatId = extractPlainChatId(newChatId);
 
-        // 2. postChatを実行（/chat/new のステートで）
-        postChat(
-          prompter.chatPrompt({ content }),
-          false,
-          undefined,
-          undefined,
-          undefined,
-          fileUpload ? uploadedFiles : undefined,
-          undefined,
-          undefined,
-          undefined,
+        // 2. pendingMessageDataを設定（useEffectでメッセージ送信がトリガーされる）
+        setPendingMessageData({
+          content,
+          uploadedFiles: fileUpload ? uploadedFiles : undefined,
           base64Cache,
-          overrideModelParameters
-        );
+          overrideModelParameters,
+          modelId,
+        });
+
+        // 3. localChatIdを設定（これによりuseChatが再実行される）
+        setLocalChatId(plainChatId);
 
         setContent('');
         clearFiles();
-
-        // 3. URL遷移（メッセージ送信は裏で継続）
-        const plainChatId = extractPlainChatId(newChatId);
-        navigate(`/chat/${plainChatId}`, { replace: true });
-
-        setSending(false);
       } catch (error) {
         console.error('Failed to create chat:', error);
         setSending(false);
@@ -226,7 +268,7 @@ const ChatPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     content,
-    chatId,
+    effectiveChatId,
     createChatAndInitialize,
     getCurrentSystemContext,
     modelId,
@@ -239,7 +281,6 @@ const ChatPage: React.FC = () => {
     postChat,
     setContent,
     clearFiles,
-    navigate,
     extractPlainChatId,
     setSending,
   ]);
@@ -291,14 +332,14 @@ const ChatPage: React.FC = () => {
   const onCreateShareId = useCallback(async () => {
     try {
       setCreatingShareId(true);
-      await createShareId(chatId!);
+      await createShareId(effectiveChatId!);
       reloadShare();
     } catch (e) {
       console.error(e);
     } finally {
       setCreatingShareId(false);
     }
-  }, [chatId, createShareId, reloadShare]);
+  }, [effectiveChatId, createShareId, reloadShare]);
 
   const onDeleteShareId = useCallback(async () => {
     try {
