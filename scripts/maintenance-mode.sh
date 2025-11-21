@@ -174,7 +174,7 @@ if [ -z "$DISTRIBUTION_ID" ]; then
         DOMAIN=$(echo "$WEB_URL" | sed 's|https://||' | sed 's|/.*||')
         # Search by both DomainName (default CloudFront domain) and Aliases (custom domains)
         DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?DomainName=='$DOMAIN' || contains(Aliases.Items, '$DOMAIN')].Id" \
+            --query "DistributionList.Items[?DomainName=='$DOMAIN' || contains(Aliases.Items || \`[]\`, '$DOMAIN')].Id" \
             --output text 2>/dev/null)
     fi
 fi
@@ -198,6 +198,16 @@ get_etag() {
         --kvs-arn "$KVS_ARN" \
         --query 'ETag' \
         --output text 2>/dev/null
+}
+
+# Get current key value
+get_key() {
+    local key="$1"
+    aws cloudfront-keyvaluestore get-key \
+        --kvs-arn "$KVS_ARN" \
+        --key "$key" \
+        --query 'Value' \
+        --output text 2>/dev/null || echo ""
 }
 
 # Initialize KeyValueStore if keys don't exist
@@ -261,16 +271,6 @@ initialize_kvs() {
 
 # Initialize KVS before any operations
 initialize_kvs
-
-# Get current key value
-get_key() {
-    local key="$1"
-    aws cloudfront-keyvaluestore get-key \
-        --kvs-arn "$KVS_ARN" \
-        --key "$key" \
-        --query 'Value' \
-        --output text 2>/dev/null || echo ""
-}
 
 # Set key value
 set_key() {
