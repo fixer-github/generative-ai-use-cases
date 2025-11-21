@@ -1,5 +1,4 @@
 import { CHAT_ID_PREFIX } from '../constants/chat';
-import type { PendingMessage, ChatLocationState } from '../@types/chat';
 
 /**
  * Extract the xxxx part from usecase#xxxx format
@@ -23,19 +22,3 @@ export const decomposeId = (_usecaseId: string): string | null => {
 export const extractPlainChatId = (chatId: string): string => {
   return chatId.replace(CHAT_ID_PREFIX, '');
 };
-
-/**
- * チャットナビゲーション用のlocation.stateを作成
- * @param messageData メッセージデータ（modelIdを除く）
- * @param modelId モデルID
- * @returns ChatLocationState オブジェクト
- */
-export const createChatNavigationState = (
-  messageData: Omit<PendingMessage, 'modelId'>,
-  modelId: string
-): ChatLocationState => ({
-  pendingMessage: {
-    ...messageData,
-    modelId,
-  },
-});

@@ -134,6 +134,13 @@ const useChatState = create<{
   addMessageIdsToUnrecordedMessages: (id: string) => ToBeRecordedMessage[];
   replaceMessages: (id: string, messages: RecordedMessage[]) => void;
   setPredictedTitle: (id: string) => Promise<void>;
+  initializeWithChatId: (
+    id: string,
+    chat: Chat,
+    systemContext: string,
+    modelId: string
+  ) => void;
+  createChatAndGetObject: (id: string) => Promise<Chat>;
 }>((set, get) => {
   const {
     createChat,
@@ -950,6 +957,43 @@ const useChatState = create<{
     addMessageIdsToUnrecordedMessages,
     replaceMessages,
     setPredictedTitle,
+    initializeWithChatId: (
+      id: string,
+      chat: Chat,
+      systemContext: string,
+      modelId: string
+    ) => {
+      initChat(id, [{ role: 'system', content: systemContext }], chat);
+      setModelId(id, modelId);
+    },
+    createChatAndGetObject: async (id: string): Promise<Chat> => {
+      const chat = get().chats[id]?.chat;
+
+      if (chat) {
+        return chat;
+      }
+
+      const { chat: newChat } = await createChat();
+
+      set((state) => {
+        const newChats = produce(state.chats, (draft) => {
+          if (!draft[id]) {
+            draft[id] = {
+              messages: [],
+              stopReason: '',
+              forcedStop: false,
+            };
+          }
+          draft[id].chat = newChat;
+        });
+
+        return {
+          chats: newChats,
+        };
+      });
+
+      return newChat;
+    },
   };
 });
 
@@ -988,6 +1032,8 @@ const useChat = (id: string, chatId?: string) => {
     addMessageIdsToUnrecordedMessages,
     replaceMessages,
     setPredictedTitle,
+    initializeWithChatId,
+    createChatAndGetObject,
   } = useChatState();
   const { data: messagesData, isLoading: isLoadingMessage } =
     useChatApi().listMessages(chatId);
@@ -1260,6 +1306,17 @@ const useChat = (id: string, chatId?: string) => {
     },
     setPredictedTitle: async () => {
       await setPredictedTitle(id);
+    },
+    initializeWithChatId: (chat: Chat, systemContext: string, modelId: string) => {
+      initializeWithChatId(id, chat, systemContext, modelId);
+    },
+    createChatAndInitialize: async (
+      systemContext: string,
+      modelId: string
+    ): Promise<string> => {
+      const chat = await createChatAndGetObject(id);
+      initializeWithChatId(id, chat, systemContext, modelId);
+      return chat.chatId;
     },
   };
 };
