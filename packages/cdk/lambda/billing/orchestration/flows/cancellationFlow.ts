@@ -37,12 +37,43 @@ import {
   UpdateSubscriptionStatusParams,
 } from '../clients/subscriptionManagementClient';
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 /**
- * デフォルトプランID
- * 解約時にユーザを遷移させる無料プラン
+ * デフォルトプランを取得
+ * データベースからis_default=trueのプランを取得する
+ *
+ * @param tenantId テナントID
+ * @returns デフォルトプランのID
+ * @throws エラー（デフォルトプランが設定されていない場合）
  */
-const DEFAULT_PLAN_ID = 'free';
+async function getDefaultPlanId(tenantId: string): Promise<string> {
+  console.log('Getting default plan from database', { tenantId });
+
+  try {
+    const defaultPlan = await invokeDataAccessFunctionByTenantId<Plan | null>(
+      tenantId,
+      'plan',
+      'getDefaultPlan',
+      {}
+    );
+
+    if (!defaultPlan) {
+      throw new Error('Default plan is not configured. Please configure a default plan in the system.');
+    }
+
+    console.log('Default plan found', {
+      planId: defaultPlan.plan_id,
+      internalName: defaultPlan.internal_name
+    });
+
+    return defaultPlan.plan_id;
+  } catch (error) {
+    console.error('Failed to get default plan', { tenantId, error });
+    throw error;
+  }
+}
 
 /**
  * サブスクリプション情報から決済プラットフォームを取得
@@ -481,16 +512,19 @@ function buildImmediateCancellationSteps(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
+        // データベースからデフォルトプランを取得
+        const defaultPlanId = await getDefaultPlanId(tenantId);
+
         console.log('Applying default plan to user', {
           tenantId,
           userId,
-          planId: DEFAULT_PLAN_ID,
+          planId: defaultPlanId,
         });
 
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId,
-          planId: DEFAULT_PLAN_ID,
+          planId: defaultPlanId,
           applicationSource: 'default',
           applicationSourceId: undefined,
           validFrom: new Date().toISOString(),
