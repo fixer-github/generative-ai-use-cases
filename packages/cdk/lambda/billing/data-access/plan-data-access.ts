@@ -21,7 +21,9 @@ export type PlanDataAccessOperation =
   | 'findByPlatformAndStatus'
   | 'findActiveByPlatform'
   | 'update'
-  | 'deprecate';
+  | 'deprecate'
+  | 'getDefaultPlan'
+  | 'setDefaultPlan';
 
 /**
  * Lambda関数の入力イベント
@@ -163,6 +165,17 @@ export const handler = async (
           throw new PlanDataAccessError('INVALID_PARAMS', 'planId is required');
         }
         result = await planRepository.deprecate(event.params.planId);
+        break;
+
+      case 'getDefaultPlan':
+        result = await planRepository.getDefaultPlan();
+        break;
+
+      case 'setDefaultPlan':
+        if (!event.params?.planId) {
+          throw new PlanDataAccessError('INVALID_PARAMS', 'planId is required');
+        }
+        result = await planRepository.setDefaultPlan(event.params.planId);
         break;
 
       default:
