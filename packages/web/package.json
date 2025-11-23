@@ -30,6 +30,8 @@
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.0.2",
     "@react-icons/all-files": "^4.1.0",
+    "@stripe/react-stripe-js": "^5.4.0",
+    "@stripe/stripe-js": "^8.5.2",
     "@tiptap/extension-placeholder": "2.4.0",
     "@tiptap/react": "^2.11.2",
     "@types/uuid": "^9.0.8",

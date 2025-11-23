@@ -12,6 +12,7 @@ import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
 import PaymentGatewayApi from '../../construct/api/payment-gateway';
 import OrchestrationApi from '../../construct/api/orchestration';
+import UserBillingApi from '../../construct/api/user-billing-api';
 
 export interface BillingManagementStackProps extends NestedStackProps {
   /**
@@ -155,6 +156,18 @@ export class BillingManagementStack extends NestedStack {
       planManagementInternalFunctions: planManagementApi.internalFunctions,
       subscriptionManagementInternalFunctions: subscriptionManagementApi.internalFunctions,
       // paymentGatewayFunctions は必要に応じて追加
+    });
+
+    // User Billing API (ユーザ向けエンドポイント)
+    const userBillingApi = new UserBillingApi(this, 'UserBillingApi', {
+      api: billingApi,
+      userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
+      idPool: props.idPool,
+      tenantManager: props.tenantManager,
+      environment: props.environment,
+      orchestrationFunctions: orchestrationApi.orchestrationFunctions,
+      paymentGatewayApi: paymentGatewayApi,
     });
 
     // ========================================
