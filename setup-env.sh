@@ -23,6 +23,7 @@ function extract_value {
 stack_output=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --output json)
 
 export VITE_APP_API_ENDPOINT=$(extract_value "$stack_output" 'ApiEndpoint')
+export VITE_APP_BILLING_API_ENDPOINT=$(extract_value "$stack_output" 'BillingApiEndpoint')
 export VITE_APP_REGION=$(extract_value "$stack_output" 'Region')
 export VITE_APP_USER_POOL_ID=$(extract_value "$stack_output" 'UserPoolId')
 export VITE_APP_USER_POOL_CLIENT_ID=$(extract_value "$stack_output" 'UserPoolClientId')

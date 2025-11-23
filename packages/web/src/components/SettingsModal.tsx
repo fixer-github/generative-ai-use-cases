@@ -7,6 +7,7 @@ import {
   PiX,
   PiCaretDown,
   PiCheck,
+  PiCreditCard,
 } from 'react-icons/pi';
 import {
   useSettings,
@@ -14,6 +15,7 @@ import {
   Language,
   SendMessageMethod,
 } from '../hooks/useSettings';
+import PlanManagementTab from './PlanManagementTab';
 
 interface SettingsModalProps {
   open: boolean;
@@ -83,9 +85,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenChange,
 }) => {
   const { settings, updateSettings } = useSettings();
-  const [activeTab, setActiveTab] = useState<'general' | 'ai-customize'>(
-    'general'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'ai-customize' | 'plan-management'
+  >('general');
 
   const themeOptions: { value: Theme; label: string }[] = [
     { value: 'light', label: 'ライト' },
@@ -145,6 +147,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <PiPencilSimple className="h-5 w-5 shrink-0 text-gray-500" />
                 <span>AIのカスタマイズ</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('plan-management')}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'plan-management'
+                    ? 'bg-white text-gray-900'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}>
+                <PiCreditCard className="h-5 w-5 shrink-0 text-gray-500" />
+                <span>プランの管理</span>
+              </button>
             </div>
           </div>
 
@@ -153,7 +166,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Content Header */}
             <div className="flex h-14 items-center border-b border-gray-200 px-6">
               <Dialog.Title className="text-lg font-medium text-gray-900">
-                {activeTab === 'general' ? '一般' : 'AIのカスタマイズ'}
+                {activeTab === 'general'
+                  ? '一般'
+                  : activeTab === 'ai-customize'
+                    ? 'AIのカスタマイズ'
+                    : 'プランの管理'}
               </Dialog.Title>
             </div>
 
@@ -257,6 +274,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div> */}
                 </div>
               )}
+
+              {activeTab === 'plan-management' && <PlanManagementTab />}
             </div>
           </div>
         </Dialog.Content>
