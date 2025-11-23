@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiCreditCard, PiPlus, PiMagnifyingGlass } from 'react-icons/pi';
+import { PiCreditCard, PiPlus, PiMagnifyingGlass, PiCheckCircle } from 'react-icons/pi';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -272,6 +272,9 @@ const PlanManagementPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     プラットフォーム
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                    デフォルト
+                  </th>
                   <th
                     className="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
                     onClick={() => handleSort('status')}>
@@ -312,6 +315,11 @@ const PlanManagementPage: React.FC = () => {
                           {plan.platform_type}
                         </span>
                       </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-center">
+                        {plan.is_default && (
+                          <PiCheckCircle className="inline text-green-600" size={20} title="デフォルトプラン" />
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <span
                           className={`inline-flex rounded-full px-2 text-xs font-semibold ${getStatusBadgeColor(plan.status)}`}>
@@ -332,7 +340,7 @@ const PlanManagementPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       プランが見つかりません
                     </td>
                   </tr>

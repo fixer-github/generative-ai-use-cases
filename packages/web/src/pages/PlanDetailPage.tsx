@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PiArrowLeft, PiCopy, PiWarning } from 'react-icons/pi';
+import { PiArrowLeft, PiCopy, PiWarning, PiCheckCircle } from 'react-icons/pi';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -8,6 +8,7 @@ import usePlanApi, {
   Plan,
   PlanHistoryResponse,
   PlanSubscriptionsResponse,
+  SetDefaultPlanResponse,
 } from '../hooks/usePlanApi';
 
 type TabType = 'basic' | 'permissions' | 'subscriptions' | 'history';
@@ -20,6 +21,8 @@ const PlanDetailPage: React.FC = () => {
     getPlanHistory,
     getPlanSubscriptions,
     updatePlanStatus,
+    setDefaultPlan,
+    listPlans,
   } = usePlanApi();
 
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -34,6 +37,9 @@ const PlanDetailPage: React.FC = () => {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
+  const [showDefaultPlanDialog, setShowDefaultPlanDialog] = useState(false);
+  const [currentDefaultPlan, setCurrentDefaultPlan] = useState<Plan | null>(null);
+  const [defaultPlanLoading, setDefaultPlanLoading] = useState(false);
 
   const loadPlanData = useCallback(async () => {
     if (!planId) return;
@@ -120,6 +126,63 @@ const PlanDetailPage: React.FC = () => {
     }
   };
 
+  const handleOpenDefaultPlanDialog = async () => {
+    try {
+      setDefaultPlanLoading(true);
+      setError(null);
+
+      // Get current default plan
+      const plansData = await listPlans({
+        limit: 100,
+        platform_type: 'internal',
+        status: 'active',
+      });
+
+      const defaultPlan = plansData.plans.find(p => p.is_default);
+      if (defaultPlan) {
+        const defaultPlanDetails = await getPlanDetails(defaultPlan.plan_id);
+        setCurrentDefaultPlan(defaultPlanDetails);
+      }
+
+      setShowDefaultPlanDialog(true);
+    } catch (err) {
+      console.error('Failed to load current default plan:', err);
+      setError('現在のデフォルトプランの取得に失敗しました');
+    } finally {
+      setDefaultPlanLoading(false);
+    }
+  };
+
+  const handleSetDefaultPlan = async () => {
+    if (!planId || !plan) return;
+
+    try {
+      setDefaultPlanLoading(true);
+      setError(null);
+
+      const response: SetDefaultPlanResponse = await setDefaultPlan(planId);
+
+      if (response.previous_default_plan) {
+        setSuccess(
+          `デフォルトプランを「${response.previous_default_plan.display_name}」から「${response.display_name}」に変更しました`
+        );
+      } else {
+        setSuccess(`「${response.display_name}」をデフォルトプランに設定しました`);
+      }
+      setTimeout(() => setSuccess(null), 5000);
+
+      // Reload plan data
+      await loadPlanData();
+      setShowDefaultPlanDialog(false);
+      setCurrentDefaultPlan(null);
+    } catch (err: any) {
+      console.error('Failed to set default plan:', err);
+      setError('デフォルトプランの設定に失敗しました');
+    } finally {
+      setDefaultPlanLoading(false);
+    }
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -188,10 +251,27 @@ const PlanDetailPage: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{plan.internal_name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {plan.internal_name}
+                {plan.is_default && (
+                  <span className="ml-3 inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm text-green-800">
+                    <PiCheckCircle className="mr-1" size={16} />
+                    デフォルトプラン
+                  </span>
+                )}
+              </h1>
               <p className="mt-1 text-sm text-gray-600">{plan.display_name}</p>
             </div>
-            <div>
+            <div className="flex space-x-3">
+              {plan.platform_type === 'internal' &&
+               plan.status === 'active' &&
+               !plan.is_default && (
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleOpenDefaultPlanDialog}>
+                  デフォルトプランに設定
+                </Button>
+              )}
               {getAvailableStatuses(plan.status).length > 0 && (
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
@@ -584,6 +664,81 @@ const PlanDetailPage: React.FC = () => {
                   onClick={handleStatusUpdate}
                   disabled={!selectedStatus || statusUpdateLoading || (selectedStatus === 'deprecated' && (subscriptions?.total_subscribers ?? 0) > 0)}>
                   {statusUpdateLoading ? '更新中...' : '変更を実行'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Default Plan Setting Dialog */}
+        {showDefaultPlanDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <h2 className="mb-4 text-xl font-bold text-gray-900">デフォルトプランに設定</h2>
+
+              <div className="mb-6">
+                <p className="mb-4 text-sm text-gray-600">
+                  このプランをデフォルトプランに設定します。
+                  新規ユーザー登録時に自動的にこのプランが適用されるようになります。
+                </p>
+
+                <div className="rounded-lg bg-blue-50 p-4">
+                  <div className="mb-2">
+                    <span className="text-sm font-medium text-blue-900">設定するプラン:</span>
+                  </div>
+                  <div className="text-sm text-blue-800">
+                    <div className="font-semibold">{plan.display_name}</div>
+                    <div className="text-xs text-blue-600">({plan.internal_name})</div>
+                  </div>
+                </div>
+              </div>
+
+              {currentDefaultPlan && (
+                <div className="mb-6">
+                  <div className="rounded-lg bg-yellow-50 p-4">
+                    <div className="flex">
+                      <PiWarning className="mr-2 h-5 w-5 flex-shrink-0 text-yellow-600" />
+                      <div>
+                        <div className="text-sm font-medium text-yellow-900">
+                          現在のデフォルトプランが変更されます
+                        </div>
+                        <div className="mt-1 text-sm text-yellow-800">
+                          現在のデフォルトプラン:
+                          <span className="font-semibold"> {currentDefaultPlan.display_name}</span>
+                          <span className="text-xs"> ({currentDefaultPlan.internal_name})</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!currentDefaultPlan && (
+                <div className="mb-6">
+                  <div className="rounded-lg bg-green-50 p-4">
+                    <div className="text-sm text-green-800">
+                      現在デフォルトプランは設定されていません。
+                      このプランが初めてのデフォルトプランとなります。
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  outlined
+                  onClick={() => {
+                    setShowDefaultPlanDialog(false);
+                    setCurrentDefaultPlan(null);
+                  }}
+                  disabled={defaultPlanLoading}>
+                  キャンセル
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleSetDefaultPlan}
+                  disabled={defaultPlanLoading}>
+                  {defaultPlanLoading ? '設定中...' : '設定を実行'}
                 </Button>
               </div>
             </div>

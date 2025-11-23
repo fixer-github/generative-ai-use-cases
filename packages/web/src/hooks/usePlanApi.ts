@@ -19,6 +19,7 @@ export interface Plan {
     };
   };
   status: 'active' | 'closed_to_new' | 'deprecated';
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +30,7 @@ export interface PlanListItem {
   display_name: string;
   platform_type: 'stripe' | 'apple' | 'google' | 'internal';
   status: 'active' | 'closed_to_new' | 'deprecated';
+  is_default: boolean;
   created_at: string;
 }
 
@@ -143,6 +145,20 @@ export interface UpdatePlanStatusResponse {
   updated_by: string;
 }
 
+export interface SetDefaultPlanResponse {
+  plan_id: string;
+  internal_name: string;
+  display_name: string;
+  is_default: boolean;
+  previous_default_plan: {
+    plan_id: string;
+    internal_name: string;
+    display_name: string;
+  } | null;
+  updated_at: string;
+  updated_by: string;
+}
+
 const usePlanApi = () => {
   const { api } = useBillingHttp();
 
@@ -244,6 +260,16 @@ const usePlanApi = () => {
     checkPlanName: async (internalName: string): Promise<CheckNameResponse> => {
       const response = await api.get<CheckNameResponse>(
         `/admin/billing/plans/check-name?internal_name=${encodeURIComponent(internalName)}`
+      );
+      return response.data;
+    },
+
+    /**
+     * Set a plan as the default plan
+     */
+    setDefaultPlan: async (planId: string): Promise<SetDefaultPlanResponse> => {
+      const response = await api.put<SetDefaultPlanResponse>(
+        `/admin/billing/plans/${planId}/default`
       );
       return response.data;
     },

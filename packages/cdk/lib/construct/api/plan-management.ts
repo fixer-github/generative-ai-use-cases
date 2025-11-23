@@ -213,6 +213,19 @@ class PlanManagementApi extends Construct {
     );
 
     // ========================================
+    // 4.1 Set Default Plan
+    // ========================================
+    const setDefaultPlanFunction = new NodejsFunction(
+      this,
+      'SetDefaultPlan',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/admin/plan-management/setDefaultPlan.ts',
+        functionName: `${environment}-billing-admin-set-default-plan`,
+      }
+    );
+
+    // ========================================
     // 5. Get Plan Change History
     // ========================================
     const getPlanHistoryFunction = new NodejsFunction(this, 'GetPlanHistory', {
@@ -252,6 +265,7 @@ class PlanManagementApi extends Construct {
       getPlanFunction,
       createPlanFunction,
       updatePlanStatusFunction,
+      setDefaultPlanFunction,
       getPlanHistoryFunction,
       getPlanSubscriptionsFunction,
       checkPlanNameFunction,
@@ -348,6 +362,17 @@ class PlanManagementApi extends Construct {
     statusResource.addMethod(
       'PATCH',
       new LambdaIntegration(updatePlanStatusFunction),
+      {
+        authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // PUT /admin/billing/plans/{plan_id}/default - Set default plan
+    const defaultResource = planIdResource.addResource('default');
+    defaultResource.addMethod(
+      'PUT',
+      new LambdaIntegration(setDefaultPlanFunction),
       {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
