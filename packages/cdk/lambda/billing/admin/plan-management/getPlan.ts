@@ -79,6 +79,7 @@ export const handler = async (
       platform_product_id: plan.platform_product_id || null,
       permissions: plan.permissions,
       status: plan.status,
+      is_default: plan.is_default,
       created_at: new Date(plan.created_at).toISOString(),
       updated_at: new Date(plan.updated_at).toISOString(),
     };
