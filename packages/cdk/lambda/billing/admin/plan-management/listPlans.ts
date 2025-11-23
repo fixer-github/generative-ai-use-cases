@@ -47,6 +47,7 @@ interface ListPlansResponse {
     display_name: string;
     platform_type: string;
     status: string;
+    is_default: boolean;
     created_at: string;
   }>;
   pagination: PaginationInfo;
@@ -118,13 +119,18 @@ export const handler = async (
     }
 
     // データアクセス層Lambda関数を呼び出してプラン一覧を取得
-    const allPlans = await invokeDataAccessFunction<Plan[]>(event, 'plan', 'findAll', {
-      platformType,
-      status,
-      search,
-      sortBy,
-      sortOrder,
-    });
+    const allPlans = await invokeDataAccessFunction<Plan[]>(
+      event,
+      'plan',
+      'findAll',
+      {
+        platformType,
+        status,
+        search,
+        sortBy,
+        sortOrder,
+      }
+    );
 
     // 統計情報を計算（フィルタ前の全プランを対象）
     const allPlansForStats = await invokeDataAccessFunction<Plan[]>(
@@ -159,6 +165,7 @@ export const handler = async (
         display_name: plan.display_name,
         platform_type: plan.platform_type,
         status: plan.status,
+        is_default: plan.is_default,
         created_at: new Date(plan.created_at).toISOString(),
       })),
       pagination: {
