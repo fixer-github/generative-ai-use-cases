@@ -19,8 +19,9 @@ export class PlanRepository extends BaseRepository {
         platform_type,
         platform_product_id,
         permissions,
-        status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        status,
+        is_default
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
 
@@ -32,6 +33,7 @@ export class PlanRepository extends BaseRepository {
       plan.platform_product_id || null,
       JSON.stringify(plan.permissions),
       plan.status,
+      plan.is_default || false,
     ];
 
     const result = await this.query<Plan>(query, params);
@@ -197,6 +199,11 @@ export class PlanRepository extends BaseRepository {
       params.push(updates.status);
     }
 
+    if (updates.is_default !== undefined) {
+      fields.push(`is_default = $${paramIndex++}`);
+      params.push(updates.is_default);
+    }
+
     if (fields.length === 0) {
       // 更新フィールドがない場合は現在の状態を返す
       return this.findById(planId);
@@ -218,6 +225,61 @@ export class PlanRepository extends BaseRepository {
     }
 
     return this.mapRowToPlan(result.rows[0]);
+  }
+
+  /**
+   * デフォルトプランを取得する
+   */
+  async getDefaultPlan(): Promise<Plan | null> {
+    const query = 'SELECT * FROM plans WHERE is_default = TRUE';
+    const result = await this.query<Plan>(query);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return this.mapRowToPlan(result.rows[0]);
+  }
+
+  /**
+   * プランをデフォルトプランに設定する
+   * 既存のデフォルトプランがある場合は解除してから新しいプランをデフォルトに設定する
+   */
+  async setDefaultPlan(planId: string): Promise<Plan | null> {
+    // トランザクション開始
+    await this.query('BEGIN');
+
+    try {
+      // 既存のデフォルトプランを解除
+      await this.query(
+        'UPDATE plans SET is_default = FALSE WHERE is_default = TRUE'
+      );
+
+      // 新しいプランをデフォルトに設定
+      const query = `
+        UPDATE plans
+        SET is_default = TRUE
+        WHERE plan_id = $1
+        RETURNING *
+      `;
+
+      const result = await this.query<Plan>(query, [planId]);
+
+      if (result.rows.length === 0) {
+        // プランが見つからない場合はロールバック
+        await this.query('ROLLBACK');
+        return null;
+      }
+
+      // コミット
+      await this.query('COMMIT');
+
+      return this.mapRowToPlan(result.rows[0]);
+    } catch (error) {
+      // エラーが発生した場合はロールバック
+      await this.query('ROLLBACK');
+      throw error;
+    }
   }
 
   /**
@@ -243,6 +305,7 @@ export class PlanRepository extends BaseRepository {
           ? JSON.parse(row.permissions)
           : row.permissions,
       status: row.status,
+      is_default: row.is_default || false,
       created_at: new Date(row.created_at),
       updated_at: new Date(row.updated_at),
     };

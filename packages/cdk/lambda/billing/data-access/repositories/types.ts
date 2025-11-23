@@ -22,6 +22,7 @@ export interface Plan {
     >;
   };
   status: 'active' | 'closed_to_new' | 'deprecated';
+  is_default: boolean;
   created_at: Date;
   updated_at: Date;
 }
