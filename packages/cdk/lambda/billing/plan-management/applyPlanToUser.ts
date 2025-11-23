@@ -5,11 +5,19 @@
  * Lambda-to-Lambda呼び出し専用（API Gateway非公開）
  */
 
+import { randomUUID } from 'crypto';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { invokeDataAccessFunctionByTenantId } from '../utils/dataAccessClient';
 import {
   Plan,
   UserPlanApplication,
 } from '../../billing/data-access/repositories/types';
+import {
+  GrantPermissionRequest,
+  GrantPermissionResponse,
+} from '../../authorization/repositories/types';
+
+const lambdaClient = new LambdaClient({});
 
 /**
  * 入力パラメータ
@@ -40,6 +48,7 @@ export interface ApplyPlanToUserOutput {
   validFrom: string; // ISO 8601
   validUntil?: string; // ISO 8601
   previousApplicationIds: string[]; // 終了させた既存のプラン適用ID一覧
+  grantId?: string; // 権限付与ID（権限付与が実行された場合）
 }
 
 /**
@@ -189,15 +198,120 @@ export const handler = async (
       terminatedApplicationIds,
     });
 
-    // 4. 結果を返却
+    // 4. プランの権限をユーザーに付与（grantPermission Lambda関数を呼び出し）
+    let grantId: string | undefined;
+
+    const grantPermissionFunctionPattern = process.env.GRANT_PERMISSION_FUNCTION_NAME;
+    // ワイルドカードパターンをテナントIDで解決
+    const grantPermissionFunctionName = grantPermissionFunctionPattern
+      ? grantPermissionFunctionPattern.replace('*', input.tenantId)
+      : undefined;
+    if (grantPermissionFunctionName && plan.permissions) {
+      try {
+        // プランのpermissionsからGrantPermissionRequest.features形式に変換
+        const features: GrantPermissionRequest['features'] = [];
+
+        // permissions.featuresをfeatures配列に追加
+        if (plan.permissions.features && Array.isArray(plan.permissions.features)) {
+          for (const featureId of plan.permissions.features) {
+            // limitsに設定があればそれを使用、なければunlimited
+            const limit = plan.permissions.limits?.[featureId];
+            if (limit) {
+              if (limit.type === 'unlimited') {
+                features.push({
+                  featureId,
+                  limitType: 'unlimited',
+                });
+              } else if (limit.type === 'daily') {
+                features.push({
+                  featureId,
+                  limitType: 'daily',
+                  limitCount: limit.count,
+                });
+              } else if (limit.type === 'monthly') {
+                features.push({
+                  featureId,
+                  limitType: 'monthly',
+                  limitCount: limit.count,
+                });
+              }
+            } else {
+              // limitsに設定がない場合はunlimitedとして扱う
+              features.push({
+                featureId,
+                limitType: 'unlimited',
+              });
+            }
+          }
+        }
+
+        if (features.length > 0) {
+          grantId = randomUUID();
+
+          const grantPermissionRequest: GrantPermissionRequest = {
+            tenantId: input.tenantId,
+            userId: input.userId,
+            grantId,
+            features,
+            sourceType: input.applicationSource,
+            sourceId: createdApplication.application_id,
+          };
+
+          console.log('Invoking grantPermission:', {
+            functionName: grantPermissionFunctionName,
+            grantId,
+            featuresCount: features.length,
+          });
+
+          const grantResponse = await lambdaClient.send(
+            new InvokeCommand({
+              FunctionName: grantPermissionFunctionName,
+              Payload: JSON.stringify(grantPermissionRequest),
+            })
+          );
+
+          const grantResult = JSON.parse(
+            new TextDecoder().decode(grantResponse.Payload)
+          ) as GrantPermissionResponse;
+
+          if (!grantResult.success) {
+            console.error('grantPermission failed:', grantResult);
+            // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
+            // 管理者が後から手動で権限付与を行う運用を想定
+            grantId = undefined;
+          } else {
+            console.log('Permission granted successfully:', {
+              grantId: grantResult.grantId,
+              grantedAt: grantResult.grantedAt,
+            });
+          }
+        } else {
+          console.log('No features to grant for this plan');
+        }
+      } catch (grantError) {
+        console.error('Error invoking grantPermission:', grantError);
+        // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
+        grantId = undefined;
+      }
+    } else {
+      if (!grantPermissionFunctionName) {
+        console.log('GRANT_PERMISSION_FUNCTION_NAME not configured, skipping permission grant');
+      }
+      if (!plan.permissions) {
+        console.log('Plan has no permissions defined, skipping permission grant');
+      }
+    }
+
+    // 5. 結果を返却
     return {
       applicationId: createdApplication.application_id,
       userId: createdApplication.user_id,
       planId: createdApplication.plan_id,
       applicationStatus: createdApplication.application_status,
-      validFrom: createdApplication.valid_from.toISOString(),
-      validUntil: createdApplication.valid_until?.toISOString(),
+      validFrom: new Date(createdApplication.valid_from).toISOString(),
+      validUntil: createdApplication.valid_until ? new Date(createdApplication.valid_until).toISOString() : undefined,
       previousApplicationIds: terminatedApplicationIds,
+      grantId,
     };
   } catch (error) {
     console.error('Error applying plan to user:', error);

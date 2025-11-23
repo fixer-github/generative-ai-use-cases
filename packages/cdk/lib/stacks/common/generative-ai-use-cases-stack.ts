@@ -76,6 +76,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       selfSignUpTenantMap: params.selfSignUpTenantMap,
       samlAuthEnabled: params.samlAuthEnabled,
       samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
+      environment: params.env, // 環境名を渡してLambda関数名の動的構築を可能にする
     });
 
     // Database
