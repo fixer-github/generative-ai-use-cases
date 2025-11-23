@@ -306,15 +306,8 @@ class PaymentGatewayApi extends Construct {
     // API Gatewayエンドポイントとしても公開する場合は、Cognitoオーソライザーを設定
     const operationsResource = billingResource.addResource('operations');
 
-    const checkoutResource = operationsResource.addResource('checkout');
-    checkoutResource.addMethod(
-      'POST',
-      new LambdaIntegration(createCheckoutSessionFunction),
-      {
-        authorizer: authorizer,
-        authorizationType: AuthorizationType.COGNITO,
-      }
-    );
+    // 注: checkoutエンドポイントは /api/subscriptions/checkout-session に移動しました
+    // 旧エンドポイント /billing/operations/checkout は削除されました
 
     const updateResource = operationsResource.addResource('update');
     updateResource.addMethod(
