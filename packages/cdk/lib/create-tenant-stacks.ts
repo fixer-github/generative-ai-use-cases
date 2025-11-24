@@ -8,7 +8,8 @@ import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
 import { TenantOpenFgaStack } from './stacks/tenant/tenant-openfga-stack';
 import { TenantPaymentGatewayStack } from './stacks/tenant/tenant-payment-gateway-stack';
 import { TenantRdsStack } from './stacks/tenant/tenant-rds-stack';
-import { TenantAuthorizationStack } from './stacks/tenant/tenant-authorization-stack';
+import { TenantAuthorizationDbStack } from './stacks/tenant/tenant-authorization-db-stack';
+import { TenantOrchestrationDbStack } from './stacks/tenant/tenant-orchestration-db-stack';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
@@ -241,10 +242,11 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
   );
   tenantRdsStack.addDependency(tenantVpcStack);
 
-  // Tenant Authorization Stack (for permission management with OpenFGA)
-  const tenantAuthorizationStack = new TenantAuthorizationStack(
+  // Tenant Authorization DB Stack (DynamoDB tables only)
+  // Lambda functions and EventBridge are managed in the common AuthorizationFunctionsStack
+  const tenantAuthorizationDbStack = new TenantAuthorizationDbStack(
     app,
-    `TenantAuthorizationStack${params.environment}-${params.tenantId}`,
+    `TenantAuthorizationDbStack${params.environment}-${params.tenantId}`,
     {
       env: {
         account: params.account,
@@ -252,14 +254,31 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
-      tenantRoleArn: tenantIAMStack.getRoleArn(),
-      tenantsTableName: `Tenants-${params.environment}`,
       removalPolicy: params.removalPolicy
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
     }
   );
-  tenantAuthorizationStack.addDependency(tenantIAMStack);
+  tenantAuthorizationDbStack.addDependency(tenantIAMStack);
+
+  // Tenant Orchestration DB Stack (DynamoDB tables for idempotency and flow execution history)
+  // Lambda functions are managed in the common OrchestrationApi construct
+  const tenantOrchestrationDbStack = new TenantOrchestrationDbStack(
+    app,
+    `TenantOrchestrationDbStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    }
+  );
+  tenantOrchestrationDbStack.addDependency(tenantIAMStack);
 
   // Tenant Payment Gateway Stack (optional)
   let tenantPaymentGatewayStack;
@@ -290,7 +309,8 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantPptxStack,
     tenantOpenFgaStack,
     tenantRdsStack,
-    tenantAuthorizationStack,
+    tenantAuthorizationDbStack,
+    tenantOrchestrationDbStack,
     tenantPaymentGatewayStack,
   };
 };
