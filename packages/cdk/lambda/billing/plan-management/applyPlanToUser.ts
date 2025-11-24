@@ -201,11 +201,8 @@ export const handler = async (
     // 4. プランの権限をユーザーに付与（grantPermission Lambda関数を呼び出し）
     let grantId: string | undefined;
 
-    const grantPermissionFunctionPattern = process.env.GRANT_PERMISSION_FUNCTION_NAME;
-    // ワイルドカードパターンをテナントIDで解決
-    const grantPermissionFunctionName = grantPermissionFunctionPattern
-      ? grantPermissionFunctionPattern.replace('*', input.tenantId)
-      : undefined;
+    // grantPermission関数は共通スタックで定義されているため、テナントIDなしの固定名
+    const grantPermissionFunctionName = process.env.GRANT_PERMISSION_FUNCTION_NAME;
     if (grantPermissionFunctionName && plan.permissions) {
       try {
         // プランのpermissionsからGrantPermissionRequest.features形式に変換

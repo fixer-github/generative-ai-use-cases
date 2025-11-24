@@ -27,8 +27,8 @@ interface CreateCheckoutSessionRequest {
  * レスポンスボディの型
  */
 interface CreateCheckoutSessionResponse {
-  clientSecret: string;
-  sessionId: string;
+  client_secret: string;
+  session_id: string;
 }
 
 /**
@@ -259,22 +259,21 @@ export const handler = async (
     const apiKey = await getStripeApiKey(tenantId);
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // 8. 成功/キャンセルURLを設定
+    // 8. return URLを設定（Embedded Checkout用）
     const baseUrl = process.env.FRONTEND_BASE_URL || 'https://app.example.com';
-    const successUrl = `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl}/subscription/plans`;
+    const returnUrl = `${baseUrl}/billing/complete?session_id={CHECKOUT_SESSION_ID}`;
 
-    // 9. Checkout Sessionを作成
+    // 9. Checkout Sessionを作成（Embedded Checkout用）
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
+      ui_mode: 'embedded', // Embedded Checkoutを使用
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      return_url: returnUrl, // Embedded Checkout用のreturn URL
       metadata: {
         userId,
         tenantId,
@@ -290,8 +289,8 @@ export const handler = async (
 
     // 10. レスポンスを返す
     const response: CreateCheckoutSessionResponse = {
-      clientSecret: session.client_secret || '', // Embedded Checkoutで使用
-      sessionId: session.id,
+      client_secret: session.client_secret || '', // Embedded Checkoutで使用
+      session_id: session.id,
     };
 
     return {

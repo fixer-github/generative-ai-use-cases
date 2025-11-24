@@ -116,8 +116,8 @@ class PlanManagementApi extends Construct {
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
         AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
-        // grantPermission関数名のワイルドカードパターン（テナントIDで解決）
-        GRANT_PERMISSION_FUNCTION_NAME: `${environment}-*-authorization-grant-permission`,
+        // grantPermission関数名（共通スタックで定義）
+        GRANT_PERMISSION_FUNCTION_NAME: `${environment}-authorization-grant-permission`,
       },
       ...(vpc && securityGroup
         ? {
@@ -335,8 +335,8 @@ class PlanManagementApi extends Construct {
             // 複数テナントのdata-access関数を呼び出す可能性があるため、ワイルドカードを使用
             `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
             `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
-            // 権限付与関数（プラン適用時に権限を付与するため）
-            `arn:aws:lambda:*:*:function:${environment}-*-authorization-grant-permission`,
+            // 権限付与関数（共通スタックで定義、プラン適用時に権限を付与するため）
+            `arn:aws:lambda:*:*:function:${environment}-authorization-grant-permission`,
           ],
         })
       );

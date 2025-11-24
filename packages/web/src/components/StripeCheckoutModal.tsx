@@ -1,17 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
 } from '@stripe/react-stripe-js';
 import { PiX, PiSpinnerGap } from 'react-icons/pi';
 import useSubscriptionApi from '../hooks/useSubscriptionApi';
-
-// Get Stripe publishable key from environment variables
-const stripePromise = loadStripe(
-  import.meta.env.VITE_APP_STRIPE_PUBLISHABLE_KEY || ''
-);
 
 interface StripeCheckoutModalProps {
   clientSecret: string;
@@ -26,6 +21,29 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 }) => {
   const subscriptionApi = useSubscriptionApi();
   const [loading, setLoading] = useState(false);
+  const [stripePromise, setStripePromise] =
+    useState<Promise<Stripe | null> | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+
+  // Fetch Stripe publishable key from API
+  useEffect(() => {
+    const fetchStripeKey = async () => {
+      try {
+        const storeInfo = await subscriptionApi.getStoreInfo();
+        if (storeInfo.stripePublishableKey) {
+          setStripePromise(loadStripe(storeInfo.stripePublishableKey));
+        } else {
+          setStripeError(
+            'Stripeの設定が完了していません。管理者にお問い合わせください。'
+          );
+        }
+      } catch (error) {
+        console.error('Failed to fetch store info:', error);
+        setStripeError('ストア情報の取得に失敗しました。');
+      }
+    };
+    fetchStripeKey();
+  }, [subscriptionApi]);
 
   // Handle return from Stripe Checkout
   const handleCheckoutReturn = useCallback(async () => {
@@ -94,11 +112,19 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {loading ? (
+            {loading || !stripePromise ? (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                   <PiSpinnerGap className="mx-auto h-8 w-8 animate-spin text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-600">処理中...</p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {loading ? '処理中...' : '読み込み中...'}
+                  </p>
+                </div>
+              </div>
+            ) : stripeError ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <p className="text-sm text-red-600">{stripeError}</p>
                 </div>
               </div>
             ) : (
