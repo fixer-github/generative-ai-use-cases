@@ -102,6 +102,8 @@ class OrchestrationApi extends Construct {
     // ========================================
     // Common Lambda Configuration
     // ========================================
+    // Note: Idempotency table is now managed per-tenant in TenantOrchestrationDbStack
+    // Lambda functions access tenant-specific tables via AssumeRole
     const commonLambdaConfig = {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.seconds(60),
@@ -214,7 +216,18 @@ class OrchestrationApi extends Construct {
       // Grant Tenants table read access
       tenantManager.tenantsTable.grantReadData(func);
 
-      // Grant DynamoDB access for flow execution history tables (multi-tenant)
+      // Grant STS AssumeRole permission for cross-account tenant access
+      // This is used by createTenantDynamoDBClientForBackgroundJob
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/*-tenant-role'],
+        })
+      );
+
+      // Grant DynamoDB access for orchestration tables (multi-tenant)
+      // These tables are managed per-tenant in TenantOrchestrationDbStack
       func.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
@@ -225,8 +238,12 @@ class OrchestrationApi extends Construct {
             'dynamodb:Query',
           ],
           resources: [
+            // Idempotency tables
+            'arn:aws:dynamodb:*:*:table/*-orchestration-idempotency',
+            // Flow execution history tables
             'arn:aws:dynamodb:*:*:table/*-flow-execution-history',
             'arn:aws:dynamodb:*:*:table/*-flow-execution-history/index/*',
+            // Flow step execution history tables
             'arn:aws:dynamodb:*:*:table/*-flow-step-execution-history',
           ],
         })

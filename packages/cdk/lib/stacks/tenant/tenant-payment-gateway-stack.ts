@@ -136,6 +136,7 @@ export class TenantPaymentGatewayStack extends cdk.Stack {
           generateSecretString: {
             secretStringTemplate: JSON.stringify({
               apiKey: 'REPLACE_WITH_ACTUAL_STRIPE_API_KEY',
+              publishableKey: 'REPLACE_WITH_ACTUAL_STRIPE_PUBLISHABLE_KEY',
               webhookSecret: 'REPLACE_WITH_ACTUAL_WEBHOOK_SECRET',
             }),
             generateStringKey: 'placeholder',

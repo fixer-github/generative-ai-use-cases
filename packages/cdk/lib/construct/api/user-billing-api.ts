@@ -56,7 +56,7 @@ export interface UserBillingApiProps {
 
   /**
    * Orchestration Functions from OrchestrationApi
-   * (purchaseFlow呼び出しのため)
+   * (purchaseFlow, cancellationFlow呼び出しのため)
    */
   readonly orchestrationFunctions?: OrchestrationApi['orchestrationFunctions'];
 
@@ -74,6 +74,8 @@ class UserBillingApi extends Construct {
   public readonly getCheckoutSessionStatusFunction?: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
+  public readonly cancelSubscriptionFunction?: NodejsFunction;
+  public readonly getStoreInfoFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: UserBillingApiProps) {
     super(scope, id);
@@ -428,6 +430,88 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 6: サブスクリプション解約API
+    // POST /api/subscriptions/cancel
+    // ========================================
+
+    if (props.orchestrationFunctions) {
+      this.cancelSubscriptionFunction = new NodejsFunction(
+        this,
+        'CancelSubscription',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/billing/user-api/subscriptions/cancelSubscription.ts',
+          timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
+          memorySize: 512,
+          environment: {
+            ...commonEnvironment,
+            CANCELLATION_FLOW_FUNCTION_NAME:
+              props.orchestrationFunctions.cancellationFlow.functionName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(this.cancelSubscriptionFunction);
+
+      // Lambda呼び出し権限（Orchestration cancellationFlow用）
+      this.cancelSubscriptionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [props.orchestrationFunctions.cancellationFlow.functionArn],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const cancelResource = subscriptionsResource.addResource('cancel');
+      cancelResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.cancelSubscriptionFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+    }
+
+    // ========================================
+    // API 7: ストア情報取得API
+    // GET /api/store-info
+    // ========================================
+
+    this.getStoreInfoFunction = new NodejsFunction(this, 'GetStoreInfo', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/billing/user-api/store-info/getStoreInfo.ts',
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+      environment: commonEnvironment,
+    });
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(this.getStoreInfoFunction);
+
+    // Secrets Manager読み取り権限（Stripe publishable key取得用）
+    this.getStoreInfoFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const storeInfoResource = apiResource.addResource('store-info');
+    storeInfoResource.addMethod(
+      'GET',
+      new LambdaIntegration(this.getStoreInfoFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
     // ログ出力
     // ========================================
 
@@ -435,7 +519,10 @@ class UserBillingApi extends Construct {
     console.log('  - GET /api/plans');
     console.log('  - POST /api/subscriptions/checkout-session');
     console.log('  - GET /api/subscriptions/current');
-    // 他のエンドポイントは実装後にログ追加
+    if (props.orchestrationFunctions) {
+      console.log('  - POST /api/subscriptions/cancel');
+    }
+    console.log('  - GET /api/store-info');
   }
 }
 

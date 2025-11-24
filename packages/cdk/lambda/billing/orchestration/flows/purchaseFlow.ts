@@ -33,6 +33,54 @@ import {
   PaymentGatewayClient,
   VerifyReceiptResponse,
 } from '../clients/paymentGatewayClient';
+import { IdempotencyRepository } from '../repositories/idempotencyRepository';
+
+/**
+ * receiptDataからセッションIDを抽出
+ *
+ * Stripeの場合: { sessionId: "cs_xxx" } または sessionId文字列
+ * Apple/Googleの場合: receiptData自体をハッシュ化してキーとする（将来対応）
+ *
+ * @param receiptData - レシートデータ
+ * @param platformType - プラットフォーム種別
+ * @returns セッションID（冪等性キーの一部として使用）
+ */
+function extractSessionId(receiptData: unknown, platformType: PlatformType): string {
+  if (platformType === 'stripe') {
+    // Stripeの場合
+    if (typeof receiptData === 'string') {
+      // JSON文字列の場合はパース
+      try {
+        const parsed = JSON.parse(receiptData);
+        if (parsed.sessionId) {
+          return parsed.sessionId;
+        }
+      } catch {
+        // パース失敗時はそのまま使用
+        return receiptData;
+      }
+    } else if (typeof receiptData === 'object' && receiptData !== null) {
+      const data = receiptData as Record<string, unknown>;
+      if (data.sessionId && typeof data.sessionId === 'string') {
+        return data.sessionId;
+      }
+      if (data.subscriptionId && typeof data.subscriptionId === 'string') {
+        return data.subscriptionId;
+      }
+    }
+  }
+
+  // Apple/Googleの場合、またはStripeでsessionIdが見つからない場合
+  // receiptData全体をJSON文字列化してハッシュ的に使用
+  const receiptString = typeof receiptData === 'string'
+    ? receiptData
+    : JSON.stringify(receiptData);
+
+  // 長すぎる場合は先頭64文字を使用（実運用ではハッシュ関数を使うべき）
+  return receiptString.length > 64
+    ? receiptString.substring(0, 64)
+    : receiptString;
+}
 
 /**
  * Purchase Flow Lambda Handler
@@ -52,7 +100,45 @@ export const handler = async (
     paymentPlatform,
   });
 
-  // クライアントのインスタンス化
+  // ========================================
+  // 1. 冪等性チェック（フロー開始前に実行）
+  // ========================================
+  // IdempotencyRepositoryはtenantIdを使用してテナント固有のテーブルにアクセス
+  const idempotencyRepo = new IdempotencyRepository(tenantId);
+  const sessionId = extractSessionId(receiptData, paymentPlatform as PlatformType);
+  const idempotencyKey = IdempotencyRepository.generateKey(tenantId, sessionId);
+
+  console.log('Checking idempotency', { idempotencyKey, sessionId });
+
+  const idempotencyResult = await idempotencyRepo.reserveOrGetExisting(idempotencyKey);
+
+  // 既に処理済みの場合は既存の結果を返す
+  if (idempotencyResult.alreadyProcessed && idempotencyResult.existingRecord?.result) {
+    console.log('Request already processed, returning existing result', {
+      idempotencyKey,
+      existingStatus: idempotencyResult.existingRecord.status,
+    });
+    return idempotencyResult.existingRecord.result;
+  }
+
+  // 他のリクエストが処理中の場合はエラーを返す
+  if (idempotencyResult.inProgress) {
+    console.warn('Another request is currently processing this session', {
+      idempotencyKey,
+    });
+    return {
+      success: false,
+      flowExecutionId: '',
+      errorDetails: {
+        errorCode: 'CONCURRENT_REQUEST',
+        errorMessage: 'Another request is currently processing this session. Please wait and retry.',
+      },
+    };
+  }
+
+  // ========================================
+  // 2. クライアントのインスタンス化
+  // ========================================
   const orchestrator = new FlowOrchestrator(tenantId);
   const planClient = new PlanManagementClient();
   const subscriptionClient = new SubscriptionManagementClient();
@@ -64,15 +150,16 @@ export const handler = async (
   // ステップ設定
   const steps: StepConfig[] = [
     // ステップ1: ユーザ認証検証
+    // 注: 認証はAPI Gateway + Cognito Authorizer経由で既に完了している前提
+    // このフローはUser API層から呼び出され、userIdはCognitoクレームから抽出済み
     {
       stepName: 'verify_user_auth',
       stepType: 'validation',
       executeFunction: async () => {
         console.log('Verifying user authentication', { userId });
 
-        // TODO: Cognitoトークンの検証を実装
-        // 現時点ではLambda関数の呼び出し元で認証済みと仮定
-        // 将来的にはCognitoトークンを検証する処理を追加
+        // 認証は呼び出し元（API Gateway + Cognito Authorizer）で完了済み
+        // ここでは認証済みであることを前提として処理を継続
 
         return {
           authenticated: true,
@@ -264,26 +351,6 @@ export const handler = async (
       retryable: true,
       maxRetries: 3,
     },
-
-    // ステップ6: 権限付与（将来実装）
-    // {
-    //   stepName: 'grant_permission',
-    //   stepType: 'api_call',
-    //   targetService: 'AuthorizationService',
-    //   targetFunction: process.env.AUTHORIZATION_SERVICE_GRANT_FUNCTION_NAME,
-    //   executeFunction: async () => {
-    //     console.log('Granting permissions', { tenantId, userId, planId });
-    //
-    //     // TODO: AuthorizationServiceClientを実装後、権限付与処理を追加
-    //     return { grantId: 'grant-placeholder' };
-    //   },
-    //   rollbackFunction: async (outputData: unknown) => {
-    //     console.log('Rolling back grant_permission step', { outputData });
-    //     // TODO: AuthorizationServiceClient.revokePermission() を実装
-    //   },
-    //   retryable: true,
-    //   maxRetries: 3,
-    // },
   ];
 
   // フロー実行開始
@@ -311,12 +378,9 @@ export const handler = async (
 
       console.log(`Executing step ${i + 1}/${steps.length}: ${step.stepName}`);
 
-      const result = await orchestrator.executeStep(
-        flowExecutionId,
-        i,
-        step,
-        { previousStepResults }
-      );
+      const result = await orchestrator.executeStep(flowExecutionId, i, step, {
+        previousStepResults,
+      });
 
       if (!result.success) {
         console.error(`Step ${step.stepName} failed`);
@@ -352,6 +416,9 @@ export const handler = async (
     };
 
     await orchestrator.completeFlow(flowExecutionId, output);
+
+    // 冪等性レコードを成功として記録
+    await idempotencyRepo.markCompleted(idempotencyKey, flowExecutionId, output);
 
     console.log('Purchase flow completed successfully', {
       flowExecutionId,
@@ -392,17 +459,15 @@ export const handler = async (
                 ? rollbackError.message
                 : 'Unknown error',
             stack:
-              rollbackError instanceof Error
-                ? rollbackError.stack
-                : undefined,
+              rollbackError instanceof Error ? rollbackError.stack : undefined,
           });
           // ロールバック失敗はログ出力のみ（フロー失敗は既に記録済み）
         }
       }
     }
 
-    // エラーレスポンスを返す
-    return {
+    // エラーレスポンスを作成
+    const errorOutput: PurchaseFlowOutput = {
       success: false,
       flowExecutionId,
       errorDetails: {
@@ -410,6 +475,12 @@ export const handler = async (
         errorMessage: err.message,
       },
     };
+
+    // 冪等性レコードを失敗として記録
+    // 同じsessionIdで再度リクエストされた場合、同じエラーを返す（案B）
+    await idempotencyRepo.markFailed(idempotencyKey, flowExecutionId, errorOutput);
+
+    return errorOutput;
   }
 };
 

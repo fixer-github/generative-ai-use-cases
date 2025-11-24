@@ -15,3 +15,9 @@
 
 export { FlowExecutionRepository } from './flowExecutionRepository';
 export { FlowStepExecutionRepository } from './flowStepExecutionRepository';
+export {
+  IdempotencyRepository,
+  IdempotencyRecord,
+  IdempotencyStatus,
+  IdempotencyCheckResult,
+} from './idempotencyRepository';

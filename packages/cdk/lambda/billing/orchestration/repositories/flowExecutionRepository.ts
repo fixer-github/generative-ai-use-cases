@@ -4,6 +4,9 @@
  * Manages CRUD operations for flow execution history in DynamoDB.
  * This repository handles the persistence of flow execution records including
  * creation, updates, and queries using various indexes.
+ *
+ * Database Per Tenantsパターンに従い、テナント専用のDynamoDBテーブルにアクセスします。
+ * テーブル名: {tenantId}-flow-execution-history
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -15,6 +18,7 @@ import {
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { FlowExecution, FlowExecutionStatus } from '../types';
+import { createTenantDynamoDBClientForBackgroundJob } from '../../../utils/tenantDynamoDBClient';
 
 /**
  * FlowExecutionRepository
@@ -28,13 +32,27 @@ import { FlowExecution, FlowExecutionStatus } from '../types';
  * - tenantId-flowType-index: Query by tenantId and flowType
  */
 export class FlowExecutionRepository {
-  private readonly docClient: DynamoDBDocumentClient;
+  private docClient: DynamoDBDocumentClient | null = null;
   private readonly tenantId: string;
 
   constructor(tenantId: string, client?: DynamoDBClient) {
-    const dynamoClient = client || new DynamoDBClient({});
-    this.docClient = DynamoDBDocumentClient.from(dynamoClient);
     this.tenantId = tenantId;
+    // クライアントが指定された場合は同期的に使用（テスト用）
+    if (client) {
+      this.docClient = DynamoDBDocumentClient.from(client);
+    }
+  }
+
+  /**
+   * DynamoDB Document Clientを取得（遅延初期化）
+   * createTenantDynamoDBClientForBackgroundJobを使用してテナント固有のクライアントを作成
+   */
+  private async getDocClient(): Promise<DynamoDBDocumentClient> {
+    if (!this.docClient) {
+      const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(this.tenantId);
+      this.docClient = DynamoDBDocumentClient.from(dynamoClient);
+    }
+    return this.docClient;
   }
 
   /**
@@ -51,6 +69,8 @@ export class FlowExecutionRepository {
    * @throws {Error} If the DynamoDB operation fails
    */
   async create(flowExecution: FlowExecution): Promise<void> {
+    const docClient = await this.getDocClient();
+
     try {
       // Set TTL to 1 year from now (Unix timestamp in seconds)
       const ttl = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
@@ -65,7 +85,7 @@ export class FlowExecutionRepository {
         Item: item,
       });
 
-      await this.docClient.send(command);
+      await docClient.send(command);
       console.log(
         `Created flow execution: ${flowExecution.flowExecutionId} for tenant: ${this.tenantId}`
       );
@@ -99,6 +119,8 @@ export class FlowExecutionRepository {
       duration?: number;
     }
   ): Promise<void> {
+    const docClient = await this.getDocClient();
+
     try {
       // Build update expression dynamically
       const updateExpressions: string[] = [];
@@ -159,7 +181,7 @@ export class FlowExecutionRepository {
         ExpressionAttributeValues: expressionAttributeValues,
       });
 
-      await this.docClient.send(command);
+      await docClient.send(command);
       console.log(
         `Updated flow execution: ${flowExecutionId} for tenant: ${this.tenantId}`
       );
@@ -179,6 +201,8 @@ export class FlowExecutionRepository {
    * @throws {Error} If the DynamoDB operation fails
    */
   async getById(flowExecutionId: string): Promise<FlowExecution | null> {
+    const docClient = await this.getDocClient();
+
     try {
       const command = new GetCommand({
         TableName: this.getTableName(),
@@ -187,7 +211,7 @@ export class FlowExecutionRepository {
         },
       });
 
-      const response = await this.docClient.send(command);
+      const response = await docClient.send(command);
 
       if (!response.Item) {
         return null;
@@ -221,6 +245,8 @@ export class FlowExecutionRepository {
     items: FlowExecution[];
     lastEvaluatedKey?: Record<string, unknown>;
   }> {
+    const docClient = await this.getDocClient();
+
     try {
       const command = new QueryCommand({
         TableName: this.getTableName(),
@@ -234,7 +260,7 @@ export class FlowExecutionRepository {
         ExclusiveStartKey: lastEvaluatedKey,
       });
 
-      const response = await this.docClient.send(command);
+      const response = await docClient.send(command);
 
       return {
         items: (response.Items || []) as FlowExecution[],
@@ -267,6 +293,8 @@ export class FlowExecutionRepository {
     items: FlowExecution[];
     lastEvaluatedKey?: Record<string, unknown>;
   }> {
+    const docClient = await this.getDocClient();
+
     try {
       const command = new QueryCommand({
         TableName: this.getTableName(),
@@ -283,7 +311,7 @@ export class FlowExecutionRepository {
         ExclusiveStartKey: lastEvaluatedKey,
       });
 
-      const response = await this.docClient.send(command);
+      const response = await docClient.send(command);
 
       return {
         items: (response.Items || []) as FlowExecution[],
@@ -311,6 +339,8 @@ export class FlowExecutionRepository {
     flowType: string,
     limit: number = 20
   ): Promise<FlowExecution[]> {
+    const docClient = await this.getDocClient();
+
     try {
       const command = new QueryCommand({
         TableName: this.getTableName(),
@@ -324,7 +354,7 @@ export class FlowExecutionRepository {
         Limit: limit,
       });
 
-      const response = await this.docClient.send(command);
+      const response = await docClient.send(command);
 
       return (response.Items || []) as FlowExecution[];
     } catch (error) {

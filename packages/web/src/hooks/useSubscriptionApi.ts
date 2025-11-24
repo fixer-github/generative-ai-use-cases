@@ -30,6 +30,7 @@ export interface PlanListResponse {
 
 export interface CheckoutSessionResponse {
   client_secret: string;
+  session_id: string;
 }
 
 export interface CheckoutSessionRequest {
@@ -65,6 +66,11 @@ export interface CurrentSubscription {
   status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'none';
   nextBillingDate?: string;
   cancelAtPeriodEnd?: boolean;
+}
+
+export interface StoreInfo {
+  stripePublishableKey: string | null;
+  tenantId: string;
 }
 
 const useSubscriptionApi = () => {
@@ -126,6 +132,12 @@ const useSubscriptionApi = () => {
           '/api/subscriptions/cancel',
           {}
         );
+        return response.data;
+      },
+
+      // Get store info (Stripe publishable key, etc.)
+      getStoreInfo: async (): Promise<StoreInfo> => {
+        const response = await api.get<StoreInfo>('/api/store-info');
         return response.data;
       },
     }),

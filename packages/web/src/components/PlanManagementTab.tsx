@@ -48,12 +48,8 @@ const PlanManagementTab: React.FC = () => {
     setError(null);
 
     try {
-      // Get the current URL origin for return URL
-      const returnUrl = `${window.location.origin}/billing/complete?session_id={CHECKOUT_SESSION_ID}`;
-
       const sessionResponse = await subscriptionApi.createCheckoutSession({
         planId: plan.planId,
-        returnUrl: returnUrl,
       });
       setCheckoutClientSecret(sessionResponse.client_secret);
     } catch (err) {
