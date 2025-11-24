@@ -86,6 +86,34 @@ const CORS_HEADERS = {
 };
 
 /**
+ * リクエストヘッダーからフロントエンドのベースURLを取得する
+ * Origin > Referer の優先順位で取得し、取得できない場合はエラーをスローする
+ */
+function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
+  const headers = event.headers;
+
+  // Originヘッダーから取得（CORS リクエストの場合）
+  const origin = headers['origin'] || headers['Origin'];
+  if (origin) {
+    return origin;
+  }
+
+  // Refererヘッダーから取得（フォールバック）
+  const referer = headers['referer'] || headers['Referer'];
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      // Refererのパースに失敗した場合は続行
+    }
+  }
+
+  // どちらも取得できない場合はエラー
+  throw new Error('Unable to determine frontend base URL from request headers');
+}
+
+/**
  * Lambda関数のメインハンドラー
  */
 export const handler = async (
@@ -260,8 +288,10 @@ export const handler = async (
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
     // 8. return URLを設定（Embedded Checkout用）
-    const baseUrl = process.env.FRONTEND_BASE_URL || 'https://app.example.com';
+    const baseUrl = getBaseUrlFromRequest(event);
     const returnUrl = `${baseUrl}/billing/complete?session_id={CHECKOUT_SESSION_ID}`;
+
+    console.log('Return URL configured:', { baseUrl, returnUrl });
 
     // 9. Checkout Sessionを作成（Embedded Checkout用）
     const session = await stripe.checkout.sessions.create({
