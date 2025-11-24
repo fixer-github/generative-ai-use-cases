@@ -487,6 +487,7 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
+    this.tenantManager = tenantManager;
 
     this.exportValue(this.userPool.userPoolId);
     this.exportValue(this.userPoolClient.userPoolClientId);

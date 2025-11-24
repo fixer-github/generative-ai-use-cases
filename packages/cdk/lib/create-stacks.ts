@@ -6,6 +6,7 @@ import { DashboardStack } from './stacks/common/dashboard-stack';
 import { AgentStack } from './stacks/common/agent-stack';
 import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack';
 import { GuardrailStack } from './stacks/common/guardrail-stack';
+import { AuthorizationFunctionsStack } from './stacks/common/authorization-functions-stack';
 import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './stacks/common/video-tmp-bucket-stack';
 import * as process from 'process';
@@ -145,6 +146,21 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
   );
 
+  // Authorization Functions Stack (shared Lambda functions and EventBridge for all tenants)
+  const authorizationFunctionsStack = new AuthorizationFunctionsStack(
+    app,
+    `AuthorizationFunctionsStack${params.env}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      environment: params.env,
+      tenantsTableName: generativeAiUseCasesStack.tenantManager.tenantsTable.tableName,
+    }
+  );
+  authorizationFunctionsStack.addDependency(generativeAiUseCasesStack);
+
   const dashboardStack = params.dashboard
     ? new DashboardStack(
         app,
@@ -169,6 +185,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     agentStack,
     guardrail,
     generativeAiUseCasesStack,
+    authorizationFunctionsStack,
     dashboardStack,
   };
 };

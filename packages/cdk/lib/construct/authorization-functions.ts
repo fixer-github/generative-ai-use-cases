@@ -1,12 +1,12 @@
 /**
- * Authorization System Construct
- * 権限判定システムのConstruct
+ * Authorization Functions Construct
+ * 権限判定システムのLambda関数・EventBridge定義
  *
- * テナント専用のDynamoDBテーブル、Lambda関数、EventBridge Schedulerを作成します
+ * 共通スタックで使用されるLambda関数とEventBridgeスケジューラを作成します
+ * Lambda関数は動的テナント解決とAssumeRoleパターンを使用して各テナントDBにアクセスします
  */
 
 import * as cdk from 'aws-cdk-lib';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -18,45 +18,19 @@ import {
 } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
-export interface AuthorizationSystemProps {
-  /**
-   * The tenant identifier
-   */
-  readonly tenantId: string;
-
+export interface AuthorizationFunctionsProps {
   /**
    * The environment (e.g., dev, staging, prod)
    */
   readonly environment: string;
 
   /**
-   * Tenant role ARN for cross-account access
-   */
-  readonly tenantRoleArn: string;
-
-  /**
    * Tenants table name (for getTenant function)
    */
   readonly tenantsTableName: string;
-
-  /**
-   * Removal policy for stateful resources
-   * @default RemovalPolicy.RETAIN for production, DESTROY for dev
-   */
-  readonly removalPolicy?: cdk.RemovalPolicy;
 }
 
-export class AuthorizationSystem extends Construct {
-  /**
-   * The usage counter table
-   */
-  public readonly usageCounterTable: dynamodb.Table;
-
-  /**
-   * The permission grant table
-   */
-  public readonly permissionGrantTable: dynamodb.Table;
-
+export class AuthorizationFunctions extends Construct {
   /**
    * Grant permission Lambda function
    */
@@ -82,120 +56,17 @@ export class AuthorizationSystem extends Construct {
    */
   public readonly resetUsageCountFunction: lambda.Function;
 
-  /**
-   * Usage counter table name
-   */
-  public readonly usageCounterTableName: string;
-
-  /**
-   * Permission grant table name
-   */
-  public readonly permissionGrantTableName: string;
-
-  constructor(scope: Construct, id: string, props: AuthorizationSystemProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AuthorizationFunctionsProps
+  ) {
     super(scope, id);
 
-    // Validate props
-    if (!props.tenantId || props.tenantId.trim() === '') {
-      throw new Error('Tenant ID is required');
-    }
-
     const environment = props.environment || 'dev';
-    const sanitizedTenantId = props.tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
-
-    // Determine removal policy
-    const removalPolicy =
-      props.removalPolicy ||
-      (environment === 'dev'
-        ? cdk.RemovalPolicy.DESTROY
-        : cdk.RemovalPolicy.RETAIN);
-
-    // Set table names
-    this.usageCounterTableName = `UsageCounter-${environment}-tenant-${sanitizedTenantId}`;
-    this.permissionGrantTableName = `PermissionGrant-${environment}-tenant-${sanitizedTenantId}`;
 
     // ========================================
-    // 1. DynamoDB Tables
-    // ========================================
-
-    // Usage Counter Table
-    this.usageCounterTable = new dynamodb.Table(this, 'UsageCounterTable', {
-      tableName: this.usageCounterTableName,
-      partitionKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'featureIdPeriod',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: removalPolicy,
-    });
-
-    // Add tags
-    cdk.Tags.of(this.usageCounterTable).add('TenantId', props.tenantId);
-    cdk.Tags.of(this.usageCounterTable).add('Environment', environment);
-
-    // Add GSI for grantId
-    this.usageCounterTable.addGlobalSecondaryIndex({
-      indexName: 'grantId-index',
-      partitionKey: {
-        name: 'grantId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // Add GSI for periodType and nextResetTime
-    this.usageCounterTable.addGlobalSecondaryIndex({
-      indexName: 'periodType-nextResetTime-index',
-      partitionKey: {
-        name: 'periodType',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'nextResetTime',
-        type: dynamodb.AttributeType.NUMBER,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // Permission Grant Table
-    this.permissionGrantTable = new dynamodb.Table(
-      this,
-      'PermissionGrantTable',
-      {
-        tableName: this.permissionGrantTableName,
-        partitionKey: {
-          name: 'grantId',
-          type: dynamodb.AttributeType.STRING,
-        },
-        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-        removalPolicy: removalPolicy,
-      }
-    );
-
-    // Add tags
-    cdk.Tags.of(this.permissionGrantTable).add('TenantId', props.tenantId);
-    cdk.Tags.of(this.permissionGrantTable).add('Environment', environment);
-
-    // Add GSI for userId and status
-    this.permissionGrantTable.addGlobalSecondaryIndex({
-      indexName: 'userId-status-index',
-      partitionKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'status',
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // ========================================
-    // 2. Lambda Functions
+    // 1. Lambda Functions
     // ========================================
 
     const commonEnvironment = {
@@ -218,14 +89,14 @@ export class AuthorizationSystem extends Construct {
       'GrantPermissionFunction',
       {
         ...commonLambdaProps,
-        functionName: `${environment}-${sanitizedTenantId}-authorization-grant-permission`,
+        functionName: `${environment}-authorization-grant-permission`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/grantPermission.ts'
         ),
         handler: 'handler',
         environment: commonEnvironment,
-        description: 'Grant permissions to users',
+        description: 'Grant permissions to users (shared across all tenants)',
       }
     );
 
@@ -235,13 +106,15 @@ export class AuthorizationSystem extends Construct {
       'RevokePermissionFunction',
       {
         ...commonLambdaProps,
+        functionName: `${environment}-authorization-revoke-permission`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/revokePermission.ts'
         ),
         handler: 'handler',
         environment: commonEnvironment,
-        description: 'Revoke permissions from users',
+        description:
+          'Revoke permissions from users (shared across all tenants)',
       }
     );
 
@@ -252,15 +125,17 @@ export class AuthorizationSystem extends Construct {
       {
         ...commonLambdaProps,
         runtime: lambda.Runtime.NODEJS_20_X,
-        timeout: cdk.Duration.seconds(10), // Faster timeout for check operations
-        memorySize: 256, // Lower memory for check operations
+        timeout: cdk.Duration.seconds(10),
+        memorySize: 256,
+        functionName: `${environment}-authorization-check-permission`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/checkPermission.ts'
         ),
         handler: 'handler',
         environment: commonEnvironment,
-        description: 'Check if user has permission to access a feature',
+        description:
+          'Check if user has permission to access a feature (shared across all tenants)',
       }
     );
 
@@ -273,13 +148,15 @@ export class AuthorizationSystem extends Construct {
         runtime: lambda.Runtime.NODEJS_20_X,
         timeout: cdk.Duration.seconds(5),
         memorySize: 256,
+        functionName: `${environment}-authorization-increment-usage`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/incrementUsageCount.ts'
         ),
         handler: 'handler',
         environment: commonEnvironment,
-        description: 'Increment usage count for a feature',
+        description:
+          'Increment usage count for a feature (shared across all tenants)',
       }
     );
 
@@ -288,39 +165,28 @@ export class AuthorizationSystem extends Construct {
       this,
       'ResetUsageCountFunction',
       {
+        ...commonLambdaProps,
         runtime: lambda.Runtime.NODEJS_20_X,
-        timeout: cdk.Duration.minutes(15), // Long timeout for batch processing
+        timeout: cdk.Duration.minutes(15),
         memorySize: 1024,
+        functionName: `${environment}-authorization-reset-usage`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/resetUsageCount.ts'
         ),
         handler: 'handler',
         environment: commonEnvironment,
-        description: 'Reset usage counts for all tenants (scheduled)',
-        bundling: {
-          externalModules: ['@aws-sdk/*'],
-        },
+        description:
+          'Reset usage counts for all tenants (scheduled, shared across all tenants)',
       }
     );
 
     // ========================================
-    // 3. IAM Permissions
+    // 2. IAM Permissions (AssumeRole pattern)
     // ========================================
 
-    // Grant DynamoDB permissions to all functions
-    [
-      this.grantPermissionFunction,
-      this.revokePermissionFunction,
-      this.checkPermissionFunction,
-      this.incrementUsageCountFunction,
-      this.resetUsageCountFunction,
-    ].forEach((fn) => {
-      this.usageCounterTable.grantReadWriteData(fn);
-      this.permissionGrantTable.grantReadWriteData(fn);
-    });
-
     // Grant AssumeRole permissions to all functions
+    // Lambda functions will assume TenantRole to access tenant-specific DynamoDB tables
     const assumeRolePolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['sts:AssumeRole'],
@@ -353,7 +219,6 @@ export class AuthorizationSystem extends Construct {
     });
 
     // Grant SSM Parameter Store read permissions to all functions that need OpenFGA config
-    // This allows Lambda functions to retrieve OpenFGA configuration from SSM after assuming tenant role
     const ssmParameterReadPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['ssm:GetParameter'],
@@ -372,7 +237,7 @@ export class AuthorizationSystem extends Construct {
       fn.addToRolePolicy(ssmParameterReadPolicy);
     });
 
-    // Grant tenant manager table read permissions for reset function
+    // Grant tenant manager table read permissions for all functions
     const tenantTableReadPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['dynamodb:Scan', 'dynamodb:GetItem'],
@@ -387,13 +252,14 @@ export class AuthorizationSystem extends Construct {
       this.grantPermissionFunction,
       this.revokePermissionFunction,
       this.checkPermissionFunction,
+      this.incrementUsageCountFunction,
       this.resetUsageCountFunction,
     ].forEach((fn) => {
       fn.addToRolePolicy(tenantTableReadPolicy);
     });
 
     // ========================================
-    // 4. EventBridge Scheduler Rules
+    // 3. EventBridge Scheduler Rules
     // ========================================
 
     // Daily reset rule (every day at 00:00 UTC)
@@ -445,18 +311,8 @@ export class AuthorizationSystem extends Construct {
     );
 
     // ========================================
-    // 5. Outputs
+    // 4. Outputs
     // ========================================
-
-    new cdk.CfnOutput(this, 'UsageCounterTableName', {
-      value: this.usageCounterTable.tableName,
-      description: 'Usage counter table name',
-    });
-
-    new cdk.CfnOutput(this, 'PermissionGrantTableName', {
-      value: this.permissionGrantTable.tableName,
-      description: 'Permission grant table name',
-    });
 
     new cdk.CfnOutput(this, 'GrantPermissionFunctionArn', {
       value: this.grantPermissionFunction.functionArn,
