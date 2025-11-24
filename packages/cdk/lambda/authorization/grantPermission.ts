@@ -23,6 +23,15 @@ import { getOpenFgaConfig } from '../utils/tenantSsmParameters';
 const stsClient = new STSClient();
 
 /**
+ * Entitlement IDを生成する
+ * @param planId プランID
+ * @returns Entitlement ID (plan-{planId} 形式)
+ */
+function generateEntitlementId(planId: string): string {
+  return `plan-${planId}`;
+}
+
+/**
  * テーブル名を生成するヘルパー関数
  */
 function getTableName(
@@ -124,18 +133,14 @@ export const handler = async (
 ): Promise<GrantPermissionResponse> => {
   console.log('Grant Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, userId, grantId, features, sourceType, sourceId } = event;
+  const { tenantId, userId, grantId, planId, features, sourceType, sourceId } = event;
 
   try {
     // 1. バリデーション
-    if (!tenantId || !userId || !grantId || !features || !sourceType || !sourceId) {
+    if (!tenantId || !userId || !grantId || !planId || !features || !sourceType || !sourceId) {
       throw new Error(
-        'Missing required parameters: tenantId, userId, grantId, features, sourceType, sourceId'
+        'Missing required parameters: tenantId, userId, grantId, planId, features, sourceType, sourceId'
       );
-    }
-
-    if (features.length === 0) {
-      throw new Error('features array must not be empty');
     }
 
     // 各featureのバリデーション
@@ -184,12 +189,16 @@ export const handler = async (
       tenant.region
     );
 
-    // 5. OpenFGAに権限を登録
-    const tupleKeys = features.map((feature) => ({
-      user: `user:${userId}`,
-      relation: 'can_access',
-      object: `feature:${feature.featureId}`,
-    }));
+    // 5. OpenFGAにユーザーとEntitlementの関係を登録
+    // user:{userId} → holder → entitlement:plan-{planId}
+    const entitlementId = generateEntitlementId(planId);
+    const tupleKeys = [
+      {
+        user: `user:${userId}`,
+        relation: 'holder',
+        object: `entitlement:${entitlementId}`,
+      },
+    ];
 
     const writeTuplesBody = {
       writes: {
@@ -210,6 +219,9 @@ export const handler = async (
         openFgaConfig.apiRegion,
         credentials,
         JSON.stringify(writeTuplesBody)
+      );
+      console.log(
+        `User ${userId} granted holder relation to entitlement:${entitlementId}`
       );
     } catch (openFgaError) {
       console.error('OpenFGA write failed:', openFgaError);
