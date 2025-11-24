@@ -29,6 +29,11 @@ export interface TenantAuthorizationStackProps extends cdk.StackProps {
   readonly tenantRoleArn: string;
 
   /**
+   * Tenants table name (for getTenant function)
+   */
+  readonly tenantsTableName: string;
+
+  /**
    * Removal policy for stateful resources
    * @default RemovalPolicy.RETAIN for production, DESTROY for dev
    */
@@ -80,6 +85,7 @@ export class TenantAuthorizationStack extends cdk.Stack {
         tenantId,
         environment,
         tenantRoleArn: props.tenantRoleArn,
+        tenantsTableName: props.tenantsTableName,
         removalPolicy: props.removalPolicy,
       }
     );

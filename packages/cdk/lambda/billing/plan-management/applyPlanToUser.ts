@@ -245,48 +245,47 @@ export const handler = async (
           }
         }
 
-        if (features.length > 0) {
-          grantId = randomUUID();
+        // featuresが空でもEntitlement付与は実行する（OpenFGAへのuser→holder→entitlement登録）
+        grantId = randomUUID();
 
-          const grantPermissionRequest: GrantPermissionRequest = {
-            tenantId: input.tenantId,
-            userId: input.userId,
-            grantId,
-            features,
-            sourceType: input.applicationSource,
-            sourceId: createdApplication.application_id,
-          };
+        const grantPermissionRequest: GrantPermissionRequest = {
+          tenantId: input.tenantId,
+          userId: input.userId,
+          grantId,
+          planId: input.planId,
+          features, // DynamoDBの回数制限カウンター作成に使用
+          sourceType: input.applicationSource,
+          sourceId: createdApplication.application_id,
+        };
 
-          console.log('Invoking grantPermission:', {
-            functionName: grantPermissionFunctionName,
-            grantId,
-            featuresCount: features.length,
-          });
+        console.log('Invoking grantPermission:', {
+          functionName: grantPermissionFunctionName,
+          grantId,
+          planId: input.planId,
+          featuresCount: features.length,
+        });
 
-          const grantResponse = await lambdaClient.send(
-            new InvokeCommand({
-              FunctionName: grantPermissionFunctionName,
-              Payload: JSON.stringify(grantPermissionRequest),
-            })
-          );
+        const grantResponse = await lambdaClient.send(
+          new InvokeCommand({
+            FunctionName: grantPermissionFunctionName,
+            Payload: JSON.stringify(grantPermissionRequest),
+          })
+        );
 
-          const grantResult = JSON.parse(
-            new TextDecoder().decode(grantResponse.Payload)
-          ) as GrantPermissionResponse;
+        const grantResult = JSON.parse(
+          new TextDecoder().decode(grantResponse.Payload)
+        ) as GrantPermissionResponse;
 
-          if (!grantResult.success) {
-            console.error('grantPermission failed:', grantResult);
-            // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
-            // 管理者が後から手動で権限付与を行う運用を想定
-            grantId = undefined;
-          } else {
-            console.log('Permission granted successfully:', {
-              grantId: grantResult.grantId,
-              grantedAt: grantResult.grantedAt,
-            });
-          }
+        if (!grantResult.success) {
+          console.error('grantPermission failed:', grantResult);
+          // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
+          // 管理者が後から手動で権限付与を行う運用を想定
+          grantId = undefined;
         } else {
-          console.log('No features to grant for this plan');
+          console.log('Permission granted successfully:', {
+            grantId: grantResult.grantId,
+            grantedAt: grantResult.grantedAt,
+          });
         }
       } catch (grantError) {
         console.error('Error invoking grantPermission:', grantError);
