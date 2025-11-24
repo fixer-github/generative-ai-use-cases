@@ -191,8 +191,6 @@ class UserBillingApi extends Construct {
         memorySize: 256,
         environment: {
           ...commonEnvironment,
-          FRONTEND_BASE_URL:
-            process.env.FRONTEND_BASE_URL || 'https://app.example.com',
         },
       }
     );
