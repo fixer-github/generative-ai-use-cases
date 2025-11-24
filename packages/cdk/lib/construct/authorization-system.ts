@@ -12,7 +12,10 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import {
+  NodejsFunction,
+  NodejsFunctionProps,
+} from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
 export interface AuthorizationSystemProps {
@@ -30,6 +33,11 @@ export interface AuthorizationSystemProps {
    * Tenant role ARN for cross-account access
    */
   readonly tenantRoleArn: string;
+
+  /**
+   * Tenants table name (for getTenant function)
+   */
+  readonly tenantsTableName: string;
 
   /**
    * Removal policy for stateful resources
@@ -192,9 +200,10 @@ export class AuthorizationSystem extends Construct {
 
     const commonEnvironment = {
       ENVIRONMENT: environment,
+      TENANTS_TABLE_NAME: props.tenantsTableName,
     };
 
-    const commonLambdaProps: Partial<NodejsFunction> = {
+    const commonLambdaProps: Partial<NodejsFunctionProps> = {
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
@@ -370,11 +379,18 @@ export class AuthorizationSystem extends Construct {
       resources: [
         `arn:aws:dynamodb:${cdk.Stack.of(this).region}:${
           cdk.Stack.of(this).account
-        }:table/TenantManager-${environment}`,
+        }:table/${props.tenantsTableName}`,
       ],
     });
 
-    this.resetUsageCountFunction.addToRolePolicy(tenantTableReadPolicy);
+    [
+      this.grantPermissionFunction,
+      this.revokePermissionFunction,
+      this.checkPermissionFunction,
+      this.resetUsageCountFunction,
+    ].forEach((fn) => {
+      fn.addToRolePolicy(tenantTableReadPolicy);
+    });
 
     // ========================================
     // 4. EventBridge Scheduler Rules

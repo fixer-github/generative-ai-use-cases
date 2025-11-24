@@ -45,11 +45,12 @@ export interface GrantPermissionRequest {
   tenantId: string; // テナントID
   userId: string; // ユーザID
   grantId: string; // 権限付与ID（呼び出し元が生成するUUID）
+  planId: string; // プランID（Entitlement IDの生成に使用）
   features: Array<{
-    featureId: string; // 機能ID（例: "feature-model-a"）
+    featureId: string; // 機能ID（例: "llm:gemini-2.5-flash"）
     limitType: 'unlimited' | 'daily' | 'monthly';
     limitCount?: number; // limitTypeが'unlimited'以外の場合に必須
-  }>;
+  }>; // DynamoDBへの回数制限カウンター作成に使用
   sourceType: string; // 付与元のタイプ（例: "subscription", "trial", "campaign", "manual"）
   sourceId: string; // 付与元のID（サブスクリプションID、キャンペーンIDなど）
 }

@@ -8,6 +8,7 @@ import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
 import { TenantOpenFgaStack } from './stacks/tenant/tenant-openfga-stack';
 import { TenantPaymentGatewayStack } from './stacks/tenant/tenant-payment-gateway-stack';
 import { TenantRdsStack } from './stacks/tenant/tenant-rds-stack';
+import { TenantAuthorizationStack } from './stacks/tenant/tenant-authorization-stack';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
@@ -240,6 +241,26 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
   );
   tenantRdsStack.addDependency(tenantVpcStack);
 
+  // Tenant Authorization Stack (for permission management with OpenFGA)
+  const tenantAuthorizationStack = new TenantAuthorizationStack(
+    app,
+    `TenantAuthorizationStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      tenantRoleArn: tenantIAMStack.getRoleArn(),
+      tenantsTableName: `Tenants-${params.environment}`,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    }
+  );
+  tenantAuthorizationStack.addDependency(tenantIAMStack);
+
   // Tenant Payment Gateway Stack (optional)
   let tenantPaymentGatewayStack;
   if (params.paymentGatewayEnabled) {
@@ -269,6 +290,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantPptxStack,
     tenantOpenFgaStack,
     tenantRdsStack,
+    tenantAuthorizationStack,
     tenantPaymentGatewayStack,
   };
 };
