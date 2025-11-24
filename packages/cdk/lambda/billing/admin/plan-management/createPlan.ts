@@ -13,6 +13,183 @@ import {
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import { getTenant } from '../../../tenantManager';
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import { getOpenFgaConfig } from '../../../utils/tenantSsmParameters';
+import { HttpRequest } from '@smithy/protocol-http';
+import { SignatureV4 } from '@smithy/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-js';
+
+const stsClient = new STSClient();
+
+/**
+ * Entitlement IDを生成する
+ * @param planId プランID
+ * @returns Entitlement ID (plan-{planId} 形式)
+ */
+function generateEntitlementId(planId: string): string {
+  return `plan-${planId}`;
+}
+
+/**
+ * featureIdからリソースタイプとIDを抽出する
+ * @param featureId 機能ID (例: "llm:gemini-2.5-flash" or "chat")
+ * @returns { type: 'llm' | 'feature', id: string }
+ */
+function parseFeatureId(featureId: string): { type: 'llm' | 'feature'; id: string } {
+  if (featureId.startsWith('llm:')) {
+    return { type: 'llm', id: featureId.substring(4) };
+  }
+  return { type: 'feature', id: featureId };
+}
+
+/**
+ * OpenFGA API Gatewayに署名付きリクエストを送信する
+ */
+async function makeSignedOpenFgaRequest(
+  method: string,
+  path: string,
+  apiEndpoint: string,
+  apiRegion: string,
+  credentials: {
+    AccessKeyId: string;
+    SecretAccessKey: string;
+    SessionToken?: string;
+  },
+  body?: string
+): Promise<string> {
+  const url = new URL(apiEndpoint);
+  const hostname = url.hostname;
+  const protocol = url.protocol.replace(':', '');
+
+  const request = new HttpRequest({
+    method,
+    protocol,
+    hostname,
+    path: `${url.pathname}${path}`.replace(/\/\//g, '/'),
+    headers: {
+      'Content-Type': 'application/json',
+      host: hostname,
+    },
+    body,
+  });
+
+  const signer = new SignatureV4({
+    credentials,
+    region: apiRegion,
+    service: 'execute-api',
+    sha256: Sha256,
+  });
+
+  const signedRequest = await signer.sign(request);
+
+  const response = await fetch(
+    `${protocol}://${hostname}${signedRequest.path}`,
+    {
+      method: signedRequest.method,
+      headers: signedRequest.headers as HeadersInit,
+      body: signedRequest.body,
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `OpenFGA API request failed: ${response.status} ${response.statusText} - ${errorText}`
+    );
+  }
+
+  return await response.text();
+}
+
+/**
+ * OpenFGAにプランのEntitlementとリソース関係を登録する
+ */
+async function registerEntitlementToOpenFga(
+  tenantId: string,
+  planId: string,
+  features: string[]
+): Promise<void> {
+  // テナント情報の取得
+  const tenant = await getTenant(tenantId);
+  if (!tenant) {
+    throw new Error(`Tenant ${tenantId} not found`);
+  }
+
+  // テナントロールを AssumeRole してクレデンシャルを取得
+  const assumeRoleCommand = new AssumeRoleCommand({
+    RoleArn: tenant.roleArn,
+    RoleSessionName: `CreatePlan-Entitlement-${planId}`,
+  });
+
+  const assumeRoleResponse = await stsClient.send(assumeRoleCommand);
+  if (!assumeRoleResponse.Credentials) {
+    throw new Error(`Failed to assume role for tenant: ${tenantId}`);
+  }
+
+  const credentials = {
+    AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
+    SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
+    SessionToken: assumeRoleResponse.Credentials.SessionToken,
+  };
+
+  // OpenFGA設定をSSM Parameter Storeから取得
+  const openFgaConfig = await getOpenFgaConfig(
+    tenantId,
+    assumeRoleResponse.Credentials,
+    tenant.region
+  );
+
+  // Entitlement IDを生成
+  const entitlementId = generateEntitlementId(planId);
+
+  // Tuplesを構築
+  // entitlement:plan-xxx → via_access → llm:xxx (LLMの場合)
+  // entitlement:plan-xxx → via_enable → feature:xxx (Featureの場合)
+  const tupleKeys = features.map((featureId) => {
+    const { type, id } = parseFeatureId(featureId);
+    if (type === 'llm') {
+      return {
+        user: `entitlement:${entitlementId}`,
+        relation: 'via_access',
+        object: `llm:${id}`,
+      };
+    } else {
+      return {
+        user: `entitlement:${entitlementId}`,
+        relation: 'via_enable',
+        object: `feature:${id}`,
+      };
+    }
+  });
+
+  if (tupleKeys.length === 0) {
+    console.log('No features to register for entitlement');
+    return;
+  }
+
+  const writeTuplesBody = {
+    writes: {
+      tuple_keys: tupleKeys,
+    },
+  };
+
+  console.log(
+    'Registering entitlement tuples to OpenFGA:',
+    JSON.stringify(writeTuplesBody, null, 2)
+  );
+
+  await makeSignedOpenFgaRequest(
+    'POST',
+    `/stores/${openFgaConfig.storeId}/write`,
+    openFgaConfig.apiEndpoint,
+    openFgaConfig.apiRegion,
+    credentials,
+    JSON.stringify(writeTuplesBody)
+  );
+
+  console.log(`Entitlement ${entitlementId} registered successfully with ${tupleKeys.length} tuples`);
+}
 
 interface CreatePlanRequest {
   internal_name: string;
@@ -326,10 +503,32 @@ export const handler = async (
       }
     );
 
-    // TODO: 監査ログの記録
     console.log(
       `Plan created: ${newPlan.plan_id} by user ${adminResult.username}`
     );
+
+    // OpenFGAにEntitlementとリソース関係を登録
+    try {
+      await registerEntitlementToOpenFga(
+        adminResult.tenantId,
+        newPlan.plan_id,
+        requestBody.permissions.features
+      );
+      console.log(
+        `Entitlement registered to OpenFGA for plan: ${newPlan.plan_id}`
+      );
+    } catch (openFgaError) {
+      // OpenFGAへの登録に失敗してもプラン作成は成功とする
+      // 管理者が後から手動で権限付与を行う運用を想定
+      console.error(
+        `Failed to register entitlement to OpenFGA for plan ${newPlan.plan_id}:`,
+        openFgaError
+      );
+      // 警告をレスポンスに含める（エラーにはしない）
+      console.warn(
+        'Plan created but entitlement registration failed. Manual registration may be required.'
+      );
+    }
 
     // レスポンスの構築
     const response = {
