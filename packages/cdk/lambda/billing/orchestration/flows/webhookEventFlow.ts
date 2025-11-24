@@ -47,7 +47,7 @@ import {
 } from '../clients/subscriptionManagementClient';
 import { PlatformType } from '../types/flowTypes';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan } from '../../data-access/repositories/types';
+import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
 
 /**
  * デフォルトプランを取得
@@ -351,22 +351,35 @@ async function handlePaymentSucceeded(
         console.log('Checking plan application status', {
           tenantId,
           userId,
+          subscriptionId,
         });
 
-        // TODO: プラン適用情報を取得して、statusがscheduled_terminationかどうかを確認する処理を実装
-        // 現時点では簡易的に、scheduled_terminationではないと仮定して期限延長を実施
-        // 将来的には、planManagementClient.getPlanApplication()で取得して判定する
+        // サブスクリプションIDをapplication_source_idとして、プラン適用を検索
+        const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+          tenantId,
+          'user-plan-application',
+          'findByApplicationSourceId',
+          { sourceId: subscriptionId }
+        );
 
-        // 仮実装: プラン適用IDを取得（実際にはサブスクリプションから取得）
-        const planApplicationId = `app-${userId}-${subscriptionId}`;
+        if (!planApplication) {
+          console.warn('No plan application found for subscription, skipping', {
+            subscriptionId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_plan_application_found',
+          };
+        }
 
-        // ステータスがscheduled_terminationの場合はスキップ
-        // TODO: 実際のステータスチェックを実装
-        const isScheduledTermination = false; // 仮値
+        const planApplicationId = planApplication.application_id;
+        const isScheduledTermination = planApplication.application_status === 'scheduled_termination';
 
+        // ステータスがscheduled_terminationの場合はスキップ（解約予約済みなので延長しない）
         if (isScheduledTermination) {
           console.log('Skipping plan application period extension (scheduled_termination)', {
             planApplicationId,
+            currentStatus: planApplication.application_status,
           });
           return {
             skipped: true,

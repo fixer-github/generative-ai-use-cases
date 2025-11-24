@@ -38,7 +38,7 @@ import {
 } from '../clients/subscriptionManagementClient';
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan } from '../../data-access/repositories/types';
+import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
 
 /**
  * デフォルトプランを取得
@@ -116,22 +116,51 @@ function calculateEffectiveDate(cancellationType: CancellationType): string {
 /**
  * 現在のプラン適用IDを取得
  *
- * TODO: 実際の実装では planManagementClient から取得する処理を実装
- * 現時点では仮のIDを返す
+ * データアクセス層を通じて、サブスクリプションIDに紐づく有効なプラン適用を取得します。
  *
+ * @param tenantId テナントID
  * @param userId ユーザID
  * @param subscriptionId サブスクリプションID
  * @returns プラン適用ID
+ * @throws エラー（プラン適用が見つからない場合）
  */
 async function getCurrentPlanApplicationId(
+  tenantId: string,
   userId: string,
   subscriptionId: string
 ): Promise<string> {
-  console.log('Getting current plan application ID', { userId, subscriptionId });
+  console.log('Getting current plan application ID', { tenantId, userId, subscriptionId });
 
-  // TODO: planManagementClientで現在のプラン適用IDを取得する処理を実装
-  // 現時点では仮のIDを返す
-  return `app-${userId}-${subscriptionId}`;
+  try {
+    // サブスクリプションIDをapplication_source_idとして、プラン適用を検索
+    const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+      tenantId,
+      'user-plan-application',
+      'findByApplicationSourceId',
+      { sourceId: subscriptionId }
+    );
+
+    if (!planApplication) {
+      // プラン適用が見つからない場合はエラー
+      throw new Error(`No plan application found for subscription: ${subscriptionId}`);
+    }
+
+    console.log('Plan application found', {
+      applicationId: planApplication.application_id,
+      status: planApplication.application_status,
+      subscriptionId,
+    });
+
+    return planApplication.application_id;
+  } catch (error) {
+    console.error('Failed to get current plan application ID', {
+      tenantId,
+      userId,
+      subscriptionId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    throw error;
+  }
 }
 
 /**
@@ -443,6 +472,7 @@ function buildImmediateCancellationSteps(
 
         // 現在のプラン適用IDを取得
         const planApplicationId = await getCurrentPlanApplicationId(
+          tenantId,
           userId,
           subscriptionId
         );
@@ -710,6 +740,7 @@ function buildAtPeriodEndCancellationSteps(
 
         // 現在のプラン適用IDを取得
         const planApplicationId = await getCurrentPlanApplicationId(
+          tenantId,
           userId,
           subscriptionId
         );
