@@ -158,7 +158,7 @@ export class TenantBedrockChatStack extends cdk.Stack {
     // 必須パラメータの取得
     const environment = props.environment; // 環境名（dev, staging, prod など）
     const bedrockRegion = props.bedrockRegion; // Bedrockを使用するリージョン
-    const envPrefix = props.environment ?? ''; // リソース名で使用する環境プレフィックス
+    const envPrefix = `${props.environment}-${props.tenantId}`;
 
     // ==============================================
     // 1. ドキュメントバケットの作成

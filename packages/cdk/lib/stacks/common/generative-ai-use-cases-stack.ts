@@ -276,6 +276,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       idPool: auth.idPool,
       restApi: api.restApi,
       tenantManager: tenantManager,
+      commonAuthorizerProps: api.commonAuthorizerProps,
     });
 
     // Cfn Outputs

@@ -107,6 +107,10 @@ export class Api extends Construct {
   readonly fileBucket: Bucket;
   readonly getFileDownloadSignedUrlFunction: IFunction;
   readonly centralPptxApi?: CentralPptxApi;
+  readonly commonAuthorizerProps: {
+    authorizationType: AuthorizationType;
+    authorizer: RequestAuthorizer;
+  };
 
   constructor(scope: Construct, id: string, props: BackendApiProps) {
     super(scope, id);
@@ -414,5 +418,6 @@ export class Api extends Construct {
     this.fileBucket = fileBucket.fileBucket;
     this.getFileDownloadSignedUrlFunction =
       fileApi.getFileDownloadSignedUrlFunction;
+    this.commonAuthorizerProps = commonAuthorizerProps;
   }
 }

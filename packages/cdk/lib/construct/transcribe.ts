@@ -1,8 +1,8 @@
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import {
   AuthorizationType,
-  CognitoUserPoolsAuthorizer,
   LambdaIntegration,
+  MethodOptions,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
@@ -28,6 +28,7 @@ export interface TranscribeProps {
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly tenantManager?: TenantManager;
   readonly environment: string;
+  readonly commonAuthorizerProps: MethodOptions;
 }
 
 export class Transcribe extends Construct {
@@ -166,15 +167,7 @@ export class Transcribe extends Construct {
       props.tenantManager.tenantsTable.grantReadData(getTranscriptionFunction);
     }
 
-    // API Gateway
-    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
-      cognitoUserPools: [props.userPool],
-    });
-
-    const commonAuthorizerProps = {
-      authorizationType: AuthorizationType.COGNITO,
-      authorizer,
-    };
+    // API Gateway - use the common Lambda Request Authorizer
     const transcribeResource = props.api.root.addResource('transcribe');
 
     // POST: /transcribe/start
@@ -183,7 +176,7 @@ export class Transcribe extends Construct {
       .addMethod(
         'POST',
         new LambdaIntegration(startTranscriptionFunction),
-        commonAuthorizerProps
+        props.commonAuthorizerProps
       );
 
     // POST: /transcribe/url
@@ -192,7 +185,7 @@ export class Transcribe extends Construct {
       .addMethod(
         'POST',
         new LambdaIntegration(getSignedUrlFunction),
-        commonAuthorizerProps
+        props.commonAuthorizerProps
       );
 
     // GET: /transcribe/result/{jobName}
@@ -202,7 +195,7 @@ export class Transcribe extends Construct {
       .addMethod(
         'GET',
         new LambdaIntegration(getTranscriptionFunction),
-        commonAuthorizerProps
+        props.commonAuthorizerProps
       );
 
     // add Policy for Amplify User

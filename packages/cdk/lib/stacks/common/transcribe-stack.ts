@@ -3,7 +3,7 @@ import { ProcessedStackInput } from '../../stack-input';
 import { Construct } from 'constructs';
 import { TenantManager, Transcribe } from '../../construct';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { MethodOptions, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 interface TranscribeStackProps extends StackProps {
@@ -12,6 +12,7 @@ interface TranscribeStackProps extends StackProps {
   readonly idPool: IdentityPool;
   readonly restApi: RestApi;
   readonly tenantManager: TenantManager;
+  readonly commonAuthorizerProps: MethodOptions;
 }
 
 class TranscribeStack extends NestedStack {
@@ -20,7 +21,7 @@ class TranscribeStack extends NestedStack {
   constructor(scope: Construct, id: string, props: TranscribeStackProps) {
     super(scope, id, props);
 
-    const { params, userPool, idPool, restApi, tenantManager } = props;
+    const { params, userPool, idPool, restApi, tenantManager, commonAuthorizerProps } = props;
 
     // Transcribe
     const transcribe = new Transcribe(this, 'Transcribe', {
@@ -31,6 +32,7 @@ class TranscribeStack extends NestedStack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       tenantManager: tenantManager,
       environment: params.env,
+      commonAuthorizerProps: commonAuthorizerProps,
     });
 
     this.transcribe = transcribe;
