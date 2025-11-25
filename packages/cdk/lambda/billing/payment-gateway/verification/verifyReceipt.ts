@@ -1,8 +1,4 @@
 import {
-  APIGatewayProxyEvent,
-  APIGatewayProxyResult,
-} from 'aws-lambda';
-import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
@@ -12,16 +8,35 @@ import { AppleVerifier } from './appleVerifier';
 import { GoogleVerifier } from './googleVerifier';
 import { ReceiptCacheRepository } from '../repositories/receiptCacheRepository';
 import { detectPlatformFromReceipt } from '../utils/platformDetector';
-import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
- * リクエストボディの型
+ * リクエストの型（Lambda直接呼び出し形式）
  */
 interface VerifyReceiptRequest {
+  /** テナントID（必須） */
+  tenantId: string;
+  /** プラットフォームタイプ（stripe、apple、google、オプション） */
   platformType?: PlatformType;
+  /** レシートデータ */
   receipt: string;
-  // Google固有のパラメータ
-  subscriptionId?: string; // Google Play Billingのプロダクト（サブスクリプション）ID
+  /** サブスクリプションID（Google固有、オプション） */
+  subscriptionId?: string;
+}
+
+/**
+ * レスポンスの型
+ */
+interface VerifyReceiptResponse {
+  /** レシートが有効かどうか */
+  isValid: boolean;
+  /** プラットフォーム側のサブスクリプションID */
+  platformSubscriptionId?: string;
+  /** プランID */
+  planId?: string;
+  /** 有効期限（ISO 8601形式） */
+  expiresAt?: string;
+  /** エラーメッセージ */
+  error?: string;
 }
 
 /**
@@ -53,27 +68,35 @@ async function getSecret(secretName: string): Promise<any> {
 }
 
 /**
- * Lambda関数のメインハンドラー
+ * Lambda関数のメインハンドラー（Lambda直接呼び出し形式）
+ *
+ * このLambdaはオーケストレーション層から直接呼び出されます。
+ * API Gateway経由ではないため、eventオブジェクト自体がリクエストボディです。
  */
 export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+  event: VerifyReceiptRequest
+): Promise<VerifyReceiptResponse> {
   console.log('Verify receipt request received');
 
   try {
-    // 1. Cognitoの認証情報からテナントIDを取得
-    const tenantId = getTenantId(event);
+    const { tenantId, receipt, platformType, subscriptionId } = event;
 
-    // 2. リクエストボディを取得
-    if (!event.body) {
+    // 1. 必須パラメータのバリデーション
+    if (!tenantId) {
+      console.error('Missing tenantId');
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Request body is required' }),
+        isValid: false,
+        error: 'tenantId is required',
       };
     }
 
-    const requestBody: VerifyReceiptRequest = JSON.parse(event.body);
-    const { receipt, platformType, subscriptionId } = requestBody;
+    if (!receipt) {
+      console.error('Missing receipt');
+      return {
+        isValid: false,
+        error: 'Receipt is required',
+      };
+    }
 
     console.log('Verify receipt request:', {
       platformType,
@@ -81,37 +104,25 @@ export async function handler(
       receiptLength: receipt?.length,
     });
 
-    if (!receipt) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          success: false,
-          error: 'Receipt is required',
-        }),
-      };
-    }
-
-    // 3. プラットフォーム種別を判定（指定がない場合は自動判定）
+    // 2. プラットフォーム種別を判定（指定がない場合は自動判定）
     const detectedPlatformType =
       platformType || detectPlatformFromReceipt(receipt);
 
     if (!detectedPlatformType) {
+      console.error('Could not detect platform type');
       return {
-        statusCode: 400,
-        body: JSON.stringify({
-          success: false,
-          error: 'Could not detect platform type from receipt',
-        }),
+        isValid: false,
+        error: 'Could not detect platform type from receipt',
       };
     }
 
     console.log('Detected platform:', detectedPlatformType);
 
-    // 4. テーブル名を動的に構築
+    // 3. テーブル名を動的に構築
     const cacheTableName = `${tenantId}-payment-gateway-receipt-cache`;
     const cacheRepository = new ReceiptCacheRepository(cacheTableName);
 
-    // 5. レシート検証を実行
+    // 4. レシート検証を実行
     const result = await verifyReceiptWithFallback(
       detectedPlatformType,
       receipt,
@@ -120,21 +131,35 @@ export async function handler(
       subscriptionId
     );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result),
-    };
+    // 5. VerificationResultをVerifyReceiptResponseに変換
+    return convertToResponse(result);
   } catch (error) {
     console.error('Receipt verification error:', error);
 
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
+}
+
+/**
+ * VerificationResultをVerifyReceiptResponseに変換する
+ */
+function convertToResponse(result: VerificationResult): VerifyReceiptResponse {
+  if (!result.success) {
+    return {
+      isValid: false,
+      error: result.data?.error || 'Verification failed',
+    };
+  }
+
+  return {
+    isValid: true,
+    platformSubscriptionId: result.data?.subscriptionId,
+    planId: result.data?.planId,
+    expiresAt: result.data?.expiresAt,
+  };
 }
 
 /**
@@ -241,9 +266,13 @@ async function verifyReceiptByPlatform(
 
 /**
  * Stripeのレシート検証
+ *
+ * receiptはJSON文字列またはサブスクリプションID/セッションIDの形式で渡される可能性がある:
+ * - JSON: '{"sessionId":"cs_xxx","subscriptionId":"sub_xxx"}'
+ * - 直接ID: "cs_xxx" または "sub_xxx"
  */
 async function verifyStripeReceipt(
-  subscriptionId: string,
+  receipt: string,
   tenantId: string
 ): Promise<VerificationResult> {
   const secretName = `${tenantId}/billing/stripe`;
@@ -251,11 +280,32 @@ async function verifyStripeReceipt(
 
   const verifier = new StripeVerifier(secret.apiKey);
 
+  // JSON文字列の場合はパースして適切な値を抽出
+  let targetId: string;
+
+  try {
+    const parsed = JSON.parse(receipt);
+    // sessionIdがあればCheckout Session検証を優先
+    // subscriptionIdがあればサブスクリプション検証
+    targetId = parsed.sessionId || parsed.subscriptionId || receipt;
+    console.log('Parsed receipt JSON', {
+      hasSessionId: !!parsed.sessionId,
+      hasSubscriptionId: !!parsed.subscriptionId,
+      targetId,
+    });
+  } catch {
+    // パース失敗時はそのまま使用（直接IDが渡された場合）
+    targetId = receipt;
+    console.log('Receipt is not JSON, using as-is', { targetId });
+  }
+
   // サブスクリプションIDまたはCheckout Session IDで検証
-  if (subscriptionId.startsWith('cs_')) {
-    return verifier.verifyCheckoutSession(subscriptionId);
+  if (targetId.startsWith('cs_')) {
+    console.log('Verifying as Checkout Session', { sessionId: targetId });
+    return verifier.verifyCheckoutSession(targetId);
   } else {
-    return verifier.verify(subscriptionId);
+    console.log('Verifying as Subscription', { subscriptionId: targetId });
+    return verifier.verify(targetId);
   }
 }
 

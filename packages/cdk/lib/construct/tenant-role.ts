@@ -119,6 +119,14 @@ export class TenantRole extends Construct {
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-templates-${props.env}-${props.tenantId}/index/*`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}/index/*`,
+                // Orchestration tables pattern ({tenantId}-orchestration-*, {tenantId}-flow-*)
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-orchestration-idempotency`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-execution-history`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-execution-history/index/*`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-step-execution-history`,
+                // UserStripeMapping table pattern (UserStripeMapping-{env}-tenant-{tenantId})
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}/index/*`,
               ],
             }),
 

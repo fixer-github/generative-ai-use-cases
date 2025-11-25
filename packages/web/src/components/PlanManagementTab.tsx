@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PiCheck, PiSpinnerGap, PiWarningCircle, PiCrown, PiLightning, PiRocket } from 'react-icons/pi';
 import useSubscriptionApi, { Plan, CurrentSubscription } from '../hooks/useSubscriptionApi';
 import StripeCheckoutModal from './StripeCheckoutModal';
+import CancelSubscriptionModal from './CancelSubscriptionModal';
+import ChangePlanModal from './ChangePlanModal';
 
 const PlanManagementTab: React.FC = () => {
   const subscriptionApi = useSubscriptionApi();
@@ -12,6 +14,10 @@ const PlanManagementTab: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+  const [planToChangeTo, setPlanToChangeTo] = useState<Plan | null>(null);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
 
   // Fetch plans and current subscription
   const fetchData = useCallback(async () => {
@@ -38,26 +44,61 @@ const PlanManagementTab: React.FC = () => {
 
   // Handle plan selection
   const handleSelectPlan = async (plan: Plan) => {
+    console.log('handleSelectPlan called', {
+      plan,
+      currentSubscription,
+      isDefaultPlan: plan.pricing?.amount === 0 || !plan.platformProductId
+    });
+
     if (currentSubscription?.planId === plan.planId && currentSubscription?.status === 'active') {
       // Already subscribed to this plan
+      console.log('Already subscribed to this plan');
       return;
     }
 
-    setSelectedPlan(plan);
-    setIsCreatingSession(true);
-    setError(null);
-
-    try {
-      const sessionResponse = await subscriptionApi.createCheckoutSession({
-        planId: plan.planId,
+    // デフォルトプランへの変更は実質的に解約
+    if (plan.pricing?.amount === 0 || !plan.platformProductId) {
+      console.log('Default plan selected, checking subscription', {
+        hasSubscriptionId: !!currentSubscription?.subscriptionId
       });
-      setCheckoutClientSecret(sessionResponse.client_secret);
-    } catch (err) {
-      console.error('Failed to create checkout session:', err);
-      setError('チェックアウトセッションの作成に失敗しました。');
-      setSelectedPlan(null);
-    } finally {
-      setIsCreatingSession(false);
+      // デフォルトプランの場合は解約モーダルを表示
+      // ただし、有効なサブスクリプションが存在する場合のみ
+      if (currentSubscription?.subscriptionId) {
+        setShowCancelModal(true);
+      } else {
+        // サブスクリプションが存在しない場合はエラーメッセージを表示
+        setError('有効なサブスクリプションが存在しません。');
+      }
+      return;
+    }
+
+    // Check if user has active subscription - if yes, show change plan modal
+    if (
+      currentSubscription?.status === 'active' &&
+      currentSubscription?.subscriptionId &&
+      !currentSubscription?.cancelAtPeriodEnd
+    ) {
+      // User has active subscription - show change plan modal
+      setPlanToChangeTo(plan);
+      setShowChangePlanModal(true);
+    } else {
+      // No active subscription - proceed with new subscription checkout
+      setSelectedPlan(plan);
+      setIsCreatingSession(true);
+      setError(null);
+
+      try {
+        const sessionResponse = await subscriptionApi.createCheckoutSession({
+          planId: plan.planId,
+        });
+        setCheckoutClientSecret(sessionResponse.client_secret);
+      } catch (err) {
+        console.error('Failed to create checkout session:', err);
+        setError('チェックアウトセッションの作成に失敗しました。');
+        setSelectedPlan(null);
+      } finally {
+        setIsCreatingSession(false);
+      }
     }
   };
 
@@ -71,6 +112,57 @@ const PlanManagementTab: React.FC = () => {
   const handleCheckoutSuccess = () => {
     setCheckoutClientSecret(null);
     setSelectedPlan(null);
+    // Refresh subscription data
+    fetchData();
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = () => {
+    setShowCancelModal(true);
+  };
+
+  // Handle opening Customer Portal
+  const handleOpenCustomerPortal = async () => {
+    setIsOpeningPortal(true);
+    setError(null);
+
+    try {
+      const response = await subscriptionApi.createCustomerPortalSession({
+        returnUrl: window.location.href,
+      });
+
+      // Customer PortalのURLを新しいタブで開く
+      window.open(response.url, '_blank');
+    } catch (err) {
+      console.error('Failed to create Customer Portal session:', err);
+      setError('お支払い管理画面の表示に失敗しました。後でもう一度お試しください。');
+    } finally {
+      setIsOpeningPortal(false);
+    }
+  };
+
+  // Handle cancel modal close
+  const handleCancelModalClose = () => {
+    setShowCancelModal(false);
+  };
+
+  // Handle cancel success
+  const handleCancelSuccess = () => {
+    setShowCancelModal(false);
+    // Refresh subscription data
+    fetchData();
+  };
+
+  // Handle change plan modal close
+  const handleChangePlanModalClose = () => {
+    setShowChangePlanModal(false);
+    setPlanToChangeTo(null);
+  };
+
+  // Handle change plan success
+  const handleChangePlanSuccess = () => {
+    setShowChangePlanModal(false);
+    setPlanToChangeTo(null);
     // Refresh subscription data
     fetchData();
   };
@@ -161,28 +253,6 @@ const PlanManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Current Subscription Status */}
-      {currentSubscription && currentSubscription.status !== 'none' && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-start">
-            <PiCheck className="mr-2 h-5 w-5 text-green-600" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-green-900">現在のプラン</p>
-              <p className="mt-1 text-sm text-green-700">
-                {currentSubscription.planName || 'プラン名不明'}
-                {currentSubscription.status === 'active' && ' (アクティブ)'}
-                {currentSubscription.cancelAtPeriodEnd && ' - 期間終了時にキャンセル予定'}
-              </p>
-              {currentSubscription.nextBillingDate && (
-                <p className="mt-1 text-xs text-green-600">
-                  次回請求日: {new Date(currentSubscription.nextBillingDate).toLocaleDateString('ja-JP')}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Error Message */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
@@ -193,11 +263,68 @@ const PlanManagementTab: React.FC = () => {
         </div>
       )}
 
+      {/* Current Subscription Info */}
+      {currentSubscription &&
+       currentSubscription.status === 'active' &&
+       currentSubscription.subscriptionId && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">現在のサブスクリプション</h3>
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-gray-700">
+                  プラン: <span className="font-medium">{currentSubscription.planName || '未設定'}</span>
+                </p>
+                {currentSubscription.nextBillingDate && (
+                  <p className="text-sm text-gray-700">
+                    次回請求日: <span className="font-medium">
+                      {new Date(currentSubscription.nextBillingDate).toLocaleDateString('ja-JP')}
+                    </span>
+                  </p>
+                )}
+                {currentSubscription.cancelAtPeriodEnd && (
+                  <p className="text-sm text-orange-700">
+                    ※ このサブスクリプションは
+                    {currentSubscription.nextBillingDate &&
+                      new Date(currentSubscription.nextBillingDate).toLocaleDateString('ja-JP')
+                    }
+                    に解約されます。それまでは現在のプランをご利用いただけます。
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleOpenCustomerPortal}
+                disabled={isOpeningPortal}
+                className="rounded-md border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                {isOpeningPortal ? (
+                  <span className="flex items-center gap-2">
+                    <PiSpinnerGap className="animate-spin" />
+                    読み込み中...
+                  </span>
+                ) : (
+                  'お支払い管理'
+                )}
+              </button>
+              {!currentSubscription.cancelAtPeriodEnd && (
+                <button
+                  onClick={handleCancelSubscription}
+                  className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                  解約する
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Plans Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const isCurrentPlan = currentSubscription?.planId === plan.planId && currentSubscription?.status === 'active';
           const colorScheme = getPlanColorScheme(plan.displayName);
+          const currentPlan = plans.find(p => p.planId === currentSubscription?.planId);
 
           return (
             <div
@@ -270,6 +397,10 @@ const PlanManagementTab: React.FC = () => {
                   ? '利用不可'
                   : isCreatingSession && selectedPlan?.planId === plan.planId
                   ? '処理中...'
+                  : currentSubscription?.status === 'active' && !currentSubscription?.cancelAtPeriodEnd
+                  ? (plan.pricing?.amount || 0) > (currentPlan?.pricing?.amount || 0)
+                    ? 'アップグレード'
+                    : 'ダウングレード'
                   : '選択する'}
               </button>
             </div>
@@ -290,6 +421,32 @@ const PlanManagementTab: React.FC = () => {
           clientSecret={checkoutClientSecret}
           onClose={handleCheckoutClose}
           onSuccess={handleCheckoutSuccess}
+        />
+      )}
+
+      {/* Cancel Subscription Modal */}
+      {showCancelModal && currentSubscription?.subscriptionId && (
+        <CancelSubscriptionModal
+          subscriptionId={currentSubscription.subscriptionId}
+          planName={currentSubscription.planName || 'プラン'}
+          nextBillingDate={currentSubscription.nextBillingDate || undefined}
+          onClose={handleCancelModalClose}
+          onSuccess={handleCancelSuccess}
+        />
+      )}
+
+      {/* Change Plan Modal */}
+      {showChangePlanModal &&
+       planToChangeTo &&
+       currentSubscription?.subscriptionId &&
+       currentSubscription?.planId && (
+        <ChangePlanModal
+          currentPlan={plans.find(p => p.planId === currentSubscription.planId) || planToChangeTo}
+          newPlan={planToChangeTo}
+          subscriptionId={currentSubscription.subscriptionId}
+          nextBillingDate={currentSubscription.nextBillingDate || undefined}
+          onClose={handleChangePlanModalClose}
+          onSuccess={handleChangePlanSuccess}
         />
       )}
     </div>

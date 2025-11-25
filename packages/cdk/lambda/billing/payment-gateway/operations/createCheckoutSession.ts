@@ -11,6 +11,7 @@ import {
 import { getTenantId } from '../../../utils/tenantUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import { getOrCreateStripeCustomerId } from '../utils/stripeCustomerManager';
 
 /**
  * リクエストボディの型
@@ -193,9 +194,17 @@ export async function handler(
     // 5. ユーザー情報を取得
     const userInfo = await getUserInfo(userId);
 
-    // 6. Checkout Sessionを作成
+    // 6. Stripe Customer IDを取得または作成
+    const customerId = await getOrCreateStripeCustomerId(
+      event,
+      userId,
+      userInfo.email,
+      tenantId
+    );
+
+    // 7. Checkout Sessionを作成
     const session = await stripe.checkout.sessions.create({
-      customer_email: userInfo.email,
+      customer: customerId,  // customer_emailではなくcustomer_idを使用
       mode: 'subscription',
       line_items: [
         {

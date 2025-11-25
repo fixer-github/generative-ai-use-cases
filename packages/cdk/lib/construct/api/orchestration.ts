@@ -2,9 +2,9 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
-import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Effect, PolicyStatement, IRole } from 'aws-cdk-lib/aws-iam';
 import { TenantManager } from '../../construct/tenant-manager';
-import { Rule, EventPattern, EventBus } from 'aws-cdk-lib/aws-events';
+import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 
@@ -20,10 +20,16 @@ export interface OrchestrationApiProps {
   readonly tenantManager: TenantManager;
 
   /**
-   * EventBridge event bus name for webhook event distribution
-   * @default 'default'
+   * Shared IAM role for background job Lambda functions
+   * This role is used by Lambda functions that need to AssumeRole to TenantRole-*
+   * for cross-account/cross-tenant access via createTenantDynamoDBClientForBackgroundJob
    */
-  readonly eventBusName?: string;
+  readonly backgroundJobRole: IRole;
+
+  /**
+   * EventBridge event bus for webhook event distribution
+   */
+  readonly eventBus: IEventBus;
 
   /**
    * Plan Management Internal Functions
@@ -84,7 +90,8 @@ class OrchestrationApi extends Construct {
     const {
       environment,
       tenantManager,
-      eventBusName = 'default',
+      backgroundJobRole,
+      eventBus,
       planManagementInternalFunctions,
       subscriptionManagementInternalFunctions,
       paymentGatewayFunctions,
@@ -104,10 +111,12 @@ class OrchestrationApi extends Construct {
     // ========================================
     // Note: Idempotency table is now managed per-tenant in TenantOrchestrationDbStack
     // Lambda functions access tenant-specific tables via AssumeRole
+    // All Lambda functions use the shared backgroundJobRole for cross-tenant access
     const commonLambdaConfig = {
       runtime: LAMBDA_RUNTIME_NODEJS,
       timeout: Duration.seconds(60),
       memorySize: 1024,
+      role: backgroundJobRole,
       environment: {
         TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
         ENVIRONMENT: environment,
@@ -197,141 +206,55 @@ class OrchestrationApi extends Construct {
         functionName: `${environment}-billing-orchestration-webhook-event-flow`,
         environment: {
           ...commonLambdaConfig.environment,
-          EVENT_BUS_NAME: eventBusName,
+          EVENT_BUS_NAME: eventBus.eventBusName,
         },
       }
     );
 
     // ========================================
-    // IAM Permissions
+    // IAM Permissions (added to backgroundJobRole)
     // ========================================
-    const functions = [
-      purchaseFlowFunction,
-      planChangeFlowFunction,
-      cancellationFlowFunction,
-      webhookEventFlowFunction,
-    ];
+    // Note: Base permissions (Tenants table read, sts:AssumeRole, orchestration DynamoDB)
+    // are already added to backgroundJobRole in BillingManagementStack.
+    // Here we add additional permissions specific to orchestration functions.
+    //
+    // IMPORTANT: We use static ARN patterns instead of specific function ARNs to avoid
+    // circular dependencies between BackgroundJobRoleDefaultPolicy, BillingManagementStack,
+    // and WebStack. The pattern-based approach is sufficient for security as all billing
+    // Lambda functions follow the naming convention: ${environment}-billing-*
 
-    functions.forEach((func) => {
-      // Grant Tenants table read access
-      tenantManager.tenantsTable.grantReadData(func);
+    // Grant Lambda invoke permission for Plan Management and Subscription Management internal functions
+    // Using static ARN patterns to avoid circular dependency with NestedStack resources
+    backgroundJobRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          // Plan Management internal functions: ${environment}-billing-plan-internal-*
+          `arn:aws:lambda:*:*:function:${environment}-billing-plan-internal-*`,
+          // Subscription Management internal functions: ${environment}-billing-subscription-internal-*
+          `arn:aws:lambda:*:*:function:${environment}-billing-subscription-internal-*`,
+          // Payment Gateway functions: ${environment}-billing-payment-*
+          `arn:aws:lambda:*:*:function:${environment}-billing-payment-*`,
+        ],
+      })
+    );
 
-      // Grant STS AssumeRole permission for cross-account tenant access
-      // This is used by createTenantDynamoDBClientForBackgroundJob
-      func.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['sts:AssumeRole'],
-          resources: ['arn:aws:iam::*:role/*-tenant-role'],
-        })
-      );
-
-      // Grant DynamoDB access for orchestration tables (multi-tenant)
-      // These tables are managed per-tenant in TenantOrchestrationDbStack
-      func.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: [
-            'dynamodb:PutItem',
-            'dynamodb:UpdateItem',
-            'dynamodb:GetItem',
-            'dynamodb:Query',
-          ],
-          resources: [
-            // Idempotency tables
-            'arn:aws:dynamodb:*:*:table/*-orchestration-idempotency',
-            // Flow execution history tables
-            'arn:aws:dynamodb:*:*:table/*-flow-execution-history',
-            'arn:aws:dynamodb:*:*:table/*-flow-execution-history/index/*',
-            // Flow step execution history tables
-            'arn:aws:dynamodb:*:*:table/*-flow-step-execution-history',
-          ],
-        })
-      );
-
-      // Grant Lambda invoke permission for Plan Management internal functions
-      func.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['lambda:InvokeFunction'],
-          resources: [
-            planManagementInternalFunctions.applyPlanToUser.functionArn,
-            planManagementInternalFunctions.terminatePlanApplication.functionArn,
-            planManagementInternalFunctions.updatePlanApplicationStatus
-              .functionArn,
-          ],
-        })
-      );
-
-      // Grant Lambda invoke permission for Subscription Management internal functions
-      func.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['lambda:InvokeFunction'],
-          resources: [
-            subscriptionManagementInternalFunctions.createSubscription
-              .functionArn,
-            subscriptionManagementInternalFunctions.updateSubscriptionStatus
-              .functionArn,
-            subscriptionManagementInternalFunctions.getSubscription.functionArn,
-            subscriptionManagementInternalFunctions.extendSubscriptionPeriod
-              .functionArn,
-          ],
-        })
-      );
-
-      // Grant Lambda invoke permission for Payment Gateway functions (if provided)
-      if (paymentGatewayFunctions?.verifyReceipt) {
-        func.addToRolePolicy(
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['lambda:InvokeFunction'],
-            resources: [paymentGatewayFunctions.verifyReceipt.functionArn],
-          })
-        );
-      }
-
-      if (paymentGatewayFunctions?.updateSubscription) {
-        func.addToRolePolicy(
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['lambda:InvokeFunction'],
-            resources: [paymentGatewayFunctions.updateSubscription.functionArn],
-          })
-        );
-      }
-
-      if (paymentGatewayFunctions?.cancelSubscription) {
-        func.addToRolePolicy(
-          new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['lambda:InvokeFunction'],
-            resources: [paymentGatewayFunctions.cancelSubscription.functionArn],
-          })
-        );
-      }
-    });
-
-    // Additional permission for Webhook Event Flow to publish events to EventBridge
-    webhookEventFlowFunction.addToRolePolicy(
+    // Permission for Webhook Event Flow to publish events to EventBridge
+    // Note: Using static ARN pattern instead of eventBus.eventBusArn to avoid
+    // circular dependency between BackgroundJobRoleDefaultPolicy (parent stack),
+    // BillingManagementStack (nested), and WebStack (nested).
+    backgroundJobRole.addToPrincipalPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['events:PutEvents'],
-        resources: [
-          `arn:aws:events:${this.node.addr}:${this.node.addr}:event-bus/${eventBusName}`,
-        ],
+        resources: [`arn:aws:events:*:*:event-bus/${environment}-billing-events`],
       })
     );
 
     // ========================================
     // EventBridge Rules for Webhook Event Flow
     // ========================================
-
-    // Get or create EventBus
-    const eventBus =
-      eventBusName === 'default'
-        ? EventBus.fromEventBusName(this, 'EventBus', 'default')
-        : EventBus.fromEventBusName(this, 'EventBus', eventBusName);
 
     // Stripe Webhook Event Rule
     const stripeWebhookRule = new Rule(this, 'StripeWebhookRule', {

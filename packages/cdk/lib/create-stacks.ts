@@ -158,6 +158,9 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       },
       environment: params.env,
       tenantsTableName: generativeAiUseCasesStack.tenantManager.tenantsTable.tableName,
+      // Pass backgroundJobRole for grantPermission Lambda to use shared role
+      // This allows grantPermission to AssumeRole to TenantRole-* for cross-tenant access
+      backgroundJobRole: generativeAiUseCasesStack.backgroundJobRole,
     }
   );
   authorizationFunctionsStack.addDependency(generativeAiUseCasesStack);
