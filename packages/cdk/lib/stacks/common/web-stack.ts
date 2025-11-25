@@ -80,13 +80,13 @@ class WebStack extends NestedStack {
     new CfnOutput(this, 'MaintenanceKVSArn', {
       value: maintenanceMode.kvsArn,
       description: 'ARN of the KeyValueStore for maintenance mode',
-      exportName: 'MaintenanceModeKVSArn',
+      exportName: `MaintenanceModeKVSArn-${params.env}`,
     });
 
     new CfnOutput(this, 'MaintenanceBucketName', {
       value: maintenanceMode.maintenanceBucketName,
       description: 'Name of the S3 bucket for maintenance page assets',
-      exportName: 'MaintenanceModeBucketName',
+      exportName: `MaintenanceModeBucketName-${params.env}`,
     });
 
     if (params.hostName && params.domainName) {

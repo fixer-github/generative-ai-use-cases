@@ -77,8 +77,9 @@ if [ -z "$KVS_ARN" ] || [ -z "$WEB_URL" ]; then
 fi
 
 DOMAIN=$(echo "$WEB_URL" | sed 's|https://||' | sed 's|/.*||')
+# Search by both DomainName (default CloudFront domain) and Aliases (custom domains)
 DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-    --query "DistributionList.Items[?DomainName=='$DOMAIN'].Id" \
+    --query "DistributionList.Items[?DomainName=='$DOMAIN' || contains(Aliases.Items || \`[]\`, '$DOMAIN')].Id" \
     --output text 2>/dev/null)
 
 echo "=== Configuration ==="
