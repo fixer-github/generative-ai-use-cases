@@ -36,7 +36,11 @@ async function getTenantDynamoDBClient(
   event: APIGatewayProxyEvent
 ): Promise<DynamoDBDocumentClient> {
   const client = await createTenantDynamoDBClient(event);
-  return DynamoDBDocumentClient.from(client);
+  return DynamoDBDocumentClient.from(client, {
+    marshallOptions: {
+      removeUndefinedValues: true,
+    },
+  });
 }
 
 /**

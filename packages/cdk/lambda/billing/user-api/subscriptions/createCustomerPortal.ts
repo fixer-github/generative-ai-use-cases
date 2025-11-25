@@ -6,6 +6,15 @@ import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
 const lambdaClient = new LambdaClient({});
 
 /**
+ * CORSヘッダー
+ */
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+};
+
+/**
  * Lambda関数のメインハンドラー
  * Stripe Customer Portalセッションを作成するラッパー
  */
@@ -23,6 +32,7 @@ export async function handler(
     if (!event.body) {
       return {
         statusCode: 400,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ error: 'Request body is required' }),
       };
     }
@@ -33,6 +43,7 @@ export async function handler(
     if (!returnUrl) {
       return {
         statusCode: 400,
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           error: 'Missing required field',
           message: 'returnUrl is required',
@@ -72,12 +83,14 @@ export async function handler(
     if (responsePayload.statusCode === 200) {
       return {
         statusCode: 200,
+        headers: CORS_HEADERS,
         body: responsePayload.body,
       };
     } else {
       // エラーレスポンスもそのまま返す
       return {
         statusCode: responsePayload.statusCode || 500,
+        headers: CORS_HEADERS,
         body:
           responsePayload.body ||
           JSON.stringify({
@@ -90,6 +103,7 @@ export async function handler(
 
     return {
       statusCode: 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: error instanceof Error ? error.message : 'Unknown error',
         message: 'Customer Portalセッションの作成に失敗しました',

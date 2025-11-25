@@ -29,7 +29,11 @@ export class FlowStepExecutionRepository {
 
   constructor(tenantId: string, client?: DynamoDBClient) {
     const dynamoClient = client || new DynamoDBClient({});
-    this.docClient = DynamoDBDocumentClient.from(dynamoClient);
+    this.docClient = DynamoDBDocumentClient.from(dynamoClient, {
+      marshallOptions: {
+        removeUndefinedValues: true,
+      },
+    });
     this.tenantId = tenantId;
   }
 
