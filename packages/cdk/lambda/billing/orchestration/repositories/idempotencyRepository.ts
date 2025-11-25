@@ -98,7 +98,11 @@ export class IdempotencyRepository {
   private async getDocClient(): Promise<DynamoDBDocumentClient> {
     if (!this.docClient) {
       const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(this.tenantId);
-      this.docClient = DynamoDBDocumentClient.from(dynamoClient);
+      this.docClient = DynamoDBDocumentClient.from(dynamoClient, {
+        marshallOptions: {
+          removeUndefinedValues: true,
+        },
+      });
     }
     return this.docClient;
   }
