@@ -71,10 +71,12 @@ class UserBillingApi extends Construct {
   // Public プロパティとして関数を公開（必要に応じて）
   public readonly listPlansFunction: NodejsFunction;
   public readonly createCheckoutSessionFunction: NodejsFunction;
-  public readonly getCheckoutSessionStatusFunction?: NodejsFunction;
+  public readonly getCheckoutSessionStatusFunction: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
+  public readonly changeSubscriptionPlanFunction?: NodejsFunction;
+  public readonly createCustomerPortalFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: UserBillingApiProps) {
@@ -256,112 +258,103 @@ class UserBillingApi extends Construct {
     // GET /api/subscriptions/checkout-session/{sessionId}/status
     // ========================================
 
-    // NOTE: 今回はプラン一覧取得APIとCheckout Session作成APIのみ実装するため、
-    // この部分の実装は後回しにします。
-    // 実装時には以下のようなLambda関数を作成します：
+    this.getCheckoutSessionStatusFunction = new NodejsFunction(
+      this,
+      'GetCheckoutSessionStatus',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/user-api/subscriptions/getCheckoutSessionStatus.ts',
+        timeout: Duration.seconds(10),
+        memorySize: 256,
+        environment: commonEnvironment,
+      }
+    );
 
-    // this.getCheckoutSessionStatusFunction = new NodejsFunction(
-    //   this,
-    //   'GetCheckoutSessionStatus',
-    //   {
-    //     runtime: LAMBDA_RUNTIME_NODEJS,
-    //     entry:
-    //       './lambda/billing/user-api/subscriptions/getCheckoutSessionStatus.ts',
-    //     timeout: Duration.seconds(10),
-    //     memorySize: 256,
-    //     environment: commonEnvironment,
-    //   }
-    // );
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(
+      this.getCheckoutSessionStatusFunction
+    );
 
-    // // Secrets Manager読み取り権限
-    // this.getCheckoutSessionStatusFunction.addToRolePolicy(
-    //   new PolicyStatement({
-    //     effect: Effect.ALLOW,
-    //     actions: ['secretsmanager:GetSecretValue'],
-    //     resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
-    //   })
-    // );
+    // Secrets Manager読み取り権限
+    this.getCheckoutSessionStatusFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
 
-    // const sessionIdResource = checkoutSessionResource.addResource('{sessionId}');
-    // const statusResource = sessionIdResource.addResource('status');
-    // statusResource.addMethod(
-    //   'GET',
-    //   new LambdaIntegration(this.getCheckoutSessionStatusFunction),
-    //   {
-    //     authorizer: authorizer,
-    //     authorizationType: AuthorizationType.COGNITO,
-    //   }
-    // );
+    const sessionIdResource = checkoutSessionResource.addResource('{sessionId}');
+    const statusResource = sessionIdResource.addResource('status');
+    statusResource.addMethod(
+      'GET',
+      new LambdaIntegration(this.getCheckoutSessionStatusFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
 
     // ========================================
     // API 4: プランアクティベーションAPI
     // POST /api/subscriptions/activate-from-session
     // ========================================
 
-    // NOTE: この実装も後回しにします。
     // orchestrationFunctionsが渡された場合のみ実装可能
-
     if (props.orchestrationFunctions) {
-      // this.activateFromSessionFunction = new NodejsFunction(
-      //   this,
-      //   'ActivateFromSession',
-      //   {
-      //     runtime: LAMBDA_RUNTIME_NODEJS,
-      //     entry: './lambda/billing/user-api/subscriptions/activateFromSession.ts',
-      //     timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
-      //     memorySize: 512,
-      //     environment: {
-      //       ...commonEnvironment,
-      //       PURCHASE_FLOW_FUNCTION_ARN:
-      //         props.orchestrationFunctions.purchaseFlow.functionArn,
-      //     },
-      //   }
-      // );
-      // // Secrets Manager読み取り権限
-      // this.activateFromSessionFunction.addToRolePolicy(
-      //   new PolicyStatement({
-      //     effect: Effect.ALLOW,
-      //     actions: ['secretsmanager:GetSecretValue'],
-      //     resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
-      //   })
-      // );
-      // // Lambda呼び出し権限（データアクセス層用）
-      // this.activateFromSessionFunction.addToRolePolicy(
-      //   new PolicyStatement({
-      //     effect: Effect.ALLOW,
-      //     actions: ['lambda:InvokeFunction'],
-      //     resources: [
-      //       `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
-      //     ],
-      //   })
-      // );
-      // // Lambda呼び出し権限（Orchestrationフロー用）
-      // this.activateFromSessionFunction.addToRolePolicy(
-      //   new PolicyStatement({
-      //     effect: Effect.ALLOW,
-      //     actions: ['lambda:InvokeFunction'],
-      //     resources: [props.orchestrationFunctions.purchaseFlow.functionArn],
-      //   })
-      // );
-      // // IAM Role Assume権限（テナント専用クレデンシャル取得用）
-      // this.activateFromSessionFunction.addToRolePolicy(
-      //   new PolicyStatement({
-      //     effect: Effect.ALLOW,
-      //     actions: ['sts:AssumeRole'],
-      //     resources: ['arn:aws:iam::*:role/TenantRole-*'],
-      //   })
-      // );
-      // const activateResource = subscriptionsResource.addResource(
-      //   'activate-from-session'
-      // );
-      // activateResource.addMethod(
-      //   'POST',
-      //   new LambdaIntegration(this.activateFromSessionFunction),
-      //   {
-      //     authorizer: authorizer,
-      //     authorizationType: AuthorizationType.COGNITO,
-      //   }
-      // );
+      this.activateFromSessionFunction = new NodejsFunction(
+        this,
+        'ActivateFromSession',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/activateFromSession.ts',
+          timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
+          memorySize: 512,
+          environment: {
+            ...commonEnvironment,
+            PURCHASE_FLOW_FUNCTION_NAME:
+              props.orchestrationFunctions.purchaseFlow.functionName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.activateFromSessionFunction
+      );
+
+      // Secrets Manager読み取り権限
+      this.activateFromSessionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+        })
+      );
+
+      // Lambda呼び出し権限（Orchestrationフロー用）
+      this.activateFromSessionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [props.orchestrationFunctions.purchaseFlow.functionArn],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const activateResource = subscriptionsResource.addResource(
+        'activate-from-session'
+      );
+      activateResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.activateFromSessionFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
     }
 
     // ========================================
@@ -474,7 +467,124 @@ class UserBillingApi extends Construct {
     }
 
     // ========================================
-    // API 7: ストア情報取得API
+    // API 7: プラン変更API
+    // POST /api/subscriptions/change-plan
+    // ========================================
+
+    if (props.orchestrationFunctions?.planChangeFlow) {
+      this.changeSubscriptionPlanFunction = new NodejsFunction(
+        this,
+        'ChangeSubscriptionPlan',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/billing/user-api/subscriptions/changeSubscriptionPlan.ts',
+          timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
+          memorySize: 512,
+          environment: {
+            ...commonEnvironment,
+            PLAN_CHANGE_FLOW_FUNCTION_NAME:
+              props.orchestrationFunctions.planChangeFlow.functionName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(this.changeSubscriptionPlanFunction);
+
+      // Lambda呼び出し権限（データアクセス層用）
+      this.changeSubscriptionPlanFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          ],
+        })
+      );
+
+      // Lambda呼び出し権限（Orchestration planChangeFlow用）
+      this.changeSubscriptionPlanFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [props.orchestrationFunctions.planChangeFlow.functionArn],
+        })
+      );
+
+      // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+      this.changeSubscriptionPlanFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
+        })
+      );
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      this.changeSubscriptionPlanFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRoleWithWebIdentity'],
+          resources: ['*'],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const changePlanResource = subscriptionsResource.addResource('change-plan');
+      changePlanResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.changeSubscriptionPlanFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+    }
+
+    // ========================================
+    // API 8: Customer Portalセッション作成API
+    // POST /api/subscriptions/customer-portal
+    // ========================================
+
+    this.createCustomerPortalFunction = new NodejsFunction(
+      this,
+      'CreateCustomerPortal',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/billing/user-api/subscriptions/createCustomerPortal.ts',
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: commonEnvironment,
+      }
+    );
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(this.createCustomerPortalFunction);
+
+    // Lambda invoke権限（Payment Gatewayの関数を呼び出すため）
+    this.createCustomerPortalFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:*:*:function:${environment}-billing-payment-customer-portal`,
+        ],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const customerPortalResource = subscriptionsResource.addResource('customer-portal');
+    customerPortalResource.addMethod(
+      'POST',
+      new LambdaIntegration(this.createCustomerPortalFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
+    // API 9: ストア情報取得API
     // GET /api/store-info
     // ========================================
 
@@ -516,10 +626,14 @@ class UserBillingApi extends Construct {
     console.log('User Billing API endpoints created:');
     console.log('  - GET /api/plans');
     console.log('  - POST /api/subscriptions/checkout-session');
+    console.log('  - GET /api/subscriptions/checkout-session/{sessionId}/status');
     console.log('  - GET /api/subscriptions/current');
     if (props.orchestrationFunctions) {
+      console.log('  - POST /api/subscriptions/activate-from-session');
       console.log('  - POST /api/subscriptions/cancel');
+      console.log('  - POST /api/subscriptions/change-plan');
     }
+    console.log('  - POST /api/subscriptions/customer-portal');
     console.log('  - GET /api/store-info');
   }
 }

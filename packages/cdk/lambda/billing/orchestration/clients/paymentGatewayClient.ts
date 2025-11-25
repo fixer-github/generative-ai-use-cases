@@ -13,9 +13,11 @@ import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
  * レシート検証リクエストパラメータ
  */
 export interface VerifyReceiptParams {
+  /** テナントID（必須） */
+  tenantId: string;
   /** プラットフォームタイプ（stripe、apple、google、オプション） */
   platformType?: 'stripe' | 'apple' | 'google';
-  /** レシートデータ（Base64エンコードされた文字列） */
+  /** レシートデータ */
   receipt: string;
   /** サブスクリプションID（オプション） */
   subscriptionId?: string;
@@ -127,6 +129,7 @@ export class PaymentGatewayClient {
 
     console.log('Verifying receipt', {
       functionName,
+      tenantId: params.tenantId,
       platformType: params.platformType,
       subscriptionId: params.subscriptionId,
     });

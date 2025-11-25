@@ -101,9 +101,14 @@ export const handler = async (
 
       case 'findByInternalName':
         if (!event.params?.internalName) {
-          throw new PlanDataAccessError('INVALID_PARAMS', 'internalName is required');
+          throw new PlanDataAccessError(
+            'INVALID_PARAMS',
+            'internalName is required'
+          );
         }
-        result = await planRepository.findByInternalName(event.params.internalName);
+        result = await planRepository.findByInternalName(
+          event.params.internalName
+        );
         break;
 
       case 'findByPlatformProductId':

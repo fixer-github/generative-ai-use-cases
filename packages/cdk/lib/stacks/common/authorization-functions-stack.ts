@@ -11,6 +11,7 @@
  */
 
 import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { AuthorizationFunctions } from '../../construct/authorization-functions';
 
@@ -24,6 +25,13 @@ export interface AuthorizationFunctionsStackProps extends cdk.StackProps {
    * Tenants table name (for getTenant function)
    */
   readonly tenantsTableName: string;
+
+  /**
+   * Shared IAM role for background job Lambda functions
+   * This role is used by grantPermission Lambda that needs to AssumeRole to TenantRole-*
+   * for cross-account/cross-tenant access
+   */
+  readonly backgroundJobRole?: iam.IRole;
 
   /**
    * Description for the stack
@@ -57,6 +65,7 @@ export class AuthorizationFunctionsStack extends cdk.Stack {
       {
         environment,
         tenantsTableName: props.tenantsTableName,
+        backgroundJobRole: props.backgroundJobRole,
       }
     );
 

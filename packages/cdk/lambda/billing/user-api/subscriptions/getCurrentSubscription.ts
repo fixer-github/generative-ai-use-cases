@@ -201,6 +201,10 @@ export const handler = async (
       applicationId: selectedApplication.application_id,
       planId: selectedApplication.plan_id,
       source: selectedApplication.application_source,
+      sourceId: selectedApplication.application_source_id,
+      status: selectedApplication.application_status,
+      validFrom: selectedApplication.valid_from,
+      validUntil: selectedApplication.valid_until,
     });
 
     // 6. プランの詳細情報を取得
@@ -240,36 +244,77 @@ export const handler = async (
     let cancelAtPeriodEnd = false;
     let serviceEndDate: string | null = null;
 
+    console.log('Checking subscription info:', {
+      applicationSource: selectedApplication.application_source,
+      applicationSourceId: selectedApplication.application_source_id,
+      shouldFetchSubscription:
+        selectedApplication.application_source === 'subscription' &&
+        !!selectedApplication.application_source_id,
+    });
+
     if (
       selectedApplication.application_source === 'subscription' &&
       selectedApplication.application_source_id
     ) {
       try {
-        const subscriptions = await invokeDataAccessFunction<Subscription[]>(
+        console.log('Fetching subscription by ID:', {
+          subscriptionId: selectedApplication.application_source_id,
+        });
+
+        const fetchedSubscription = await invokeDataAccessFunction<Subscription | null>(
           event,
           'subscription',
           'findById',
           { subscriptionId: selectedApplication.application_source_id }
         );
 
-        if (subscriptions && subscriptions.length > 0) {
-          subscription = subscriptions[0];
+        console.log('Subscription fetch result:', {
+          found: !!fetchedSubscription,
+          subscriptionId: fetchedSubscription?.subscription_id,
+        });
+
+        if (fetchedSubscription) {
+          subscription = fetchedSubscription;
+
+          console.log('Subscription details:', {
+            subscriptionId: subscription.subscription_id,
+            status: subscription.subscription_status,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            currentPeriodEnd: subscription.current_period_end,
+          });
 
           // 次回請求日の設定
           if (subscription.cancel_at_period_end) {
             // 解約予定の場合、次回請求はない
             nextBillingDate = null;
             cancelAtPeriodEnd = true;
-            serviceEndDate = subscription.current_period_end.toISOString();
+            // Lambda間のJSONシリアライゼーションで既に文字列になっている可能性があるため、
+            // 文字列として扱うか、必要に応じてDate型に変換
+            serviceEndDate = typeof subscription.current_period_end === 'string'
+              ? subscription.current_period_end
+              : new Date(subscription.current_period_end).toISOString();
           } else {
             // 通常のサブスクリプションの場合
-            nextBillingDate = subscription.current_period_end.toISOString();
+            nextBillingDate = typeof subscription.current_period_end === 'string'
+              ? subscription.current_period_end
+              : new Date(subscription.current_period_end).toISOString();
           }
+        } else {
+          console.warn('No subscription found for application_source_id:', {
+            applicationSourceId: selectedApplication.application_source_id,
+          });
         }
       } catch (error) {
-        console.warn('Error fetching subscription details:', error);
+        console.error('Error fetching subscription details:', error);
         // サブスクリプション情報の取得失敗は警告ログのみで続行
       }
+    } else {
+      console.log('Skipping subscription fetch:', {
+        reason:
+          selectedApplication.application_source !== 'subscription'
+            ? 'application_source is not subscription'
+            : 'application_source_id is null',
+      });
     }
 
     // 8. レスポンスの構築
@@ -280,9 +325,16 @@ export const handler = async (
       status: selectedApplication.application_status,
       subscriptionId: subscription?.subscription_id || null,
       platformType: subscription?.platform_type || null,
-      currentPeriodStart:
-        subscription?.current_period_start?.toISOString() || null,
-      currentPeriodEnd: subscription?.current_period_end?.toISOString() || null,
+      currentPeriodStart: subscription?.current_period_start
+        ? (typeof subscription.current_period_start === 'string'
+            ? subscription.current_period_start
+            : new Date(subscription.current_period_start).toISOString())
+        : null,
+      currentPeriodEnd: subscription?.current_period_end
+        ? (typeof subscription.current_period_end === 'string'
+            ? subscription.current_period_end
+            : new Date(subscription.current_period_end).toISOString())
+        : null,
       nextBillingDate,
       cancelAtPeriodEnd,
       serviceEndDate,

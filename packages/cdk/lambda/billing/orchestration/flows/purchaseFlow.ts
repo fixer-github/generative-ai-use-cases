@@ -203,6 +203,7 @@ export const handler = async (
 
         try {
           const result = await paymentClient.verifyReceipt({
+            tenantId,
             platformType: paymentPlatform as PlatformType,
             receipt: JSON.stringify(receiptData),
           });
@@ -272,12 +273,32 @@ export const handler = async (
         return result;
       },
       rollbackFunction: async (outputData: unknown) => {
-        // サブスクリプション削除のロールバック処理（将来実装）
-        // 現時点ではログ出力のみ
         console.log('Rolling back create_subscription step', { outputData });
 
-        // TODO: subscriptionManagementClient.deleteSubscription() を呼び出す
-        // 現時点では削除機能が未実装のため、ログのみ出力
+        const subscriptionData = outputData as { subscriptionId?: string };
+
+        if (!subscriptionData?.subscriptionId) {
+          console.warn('No subscription ID found for rollback');
+          return;
+        }
+
+        try {
+          await subscriptionClient.updateSubscriptionStatus({
+            tenantId,
+            subscriptionId: subscriptionData.subscriptionId,
+            newStatus: 'rolled_back',
+          });
+
+          console.log('Subscription rolled back successfully', {
+            subscriptionId: subscriptionData.subscriptionId,
+          });
+        } catch (error) {
+          console.error('Failed to rollback subscription', {
+            subscriptionId: subscriptionData.subscriptionId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+          // ロールバック失敗はベストエフォート（エラーをスローしない）
+        }
       },
       retryable: true,
       maxRetries: 3,
@@ -412,7 +433,7 @@ export const handler = async (
       success: true,
       flowExecutionId,
       subscriptionId: subscriptionData?.subscriptionId,
-      grantId: undefined, // 将来実装: previousStepResults.grant_permission?.grantId
+      // grantId: 将来実装時に previousStepResults.grant_permission?.grantId を設定
     };
 
     await orchestrator.completeFlow(flowExecutionId, output);
