@@ -44,7 +44,7 @@ const AssistantChatPage: React.FC = () => {
     conversationId?: string;
   }>();
 
-  const { getAssistant, listMessages, createMessage } = useAssistantApi();
+  const { getAssistant, listMessages, streamMessage } = useAssistantApi();
   const { predictTitle, updateTitle } = useChatApi();
   const http = useHttp();
 
@@ -53,6 +53,8 @@ const AssistantChatPage: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | undefined>(
@@ -61,6 +63,8 @@ const AssistantChatPage: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const streamChatIdRef = useRef<string | undefined>(undefined);
+  const accumulatedContentRef = useRef('');
 
   // Derive status info
   const statusInfo = useMemo(() => {
@@ -83,7 +87,7 @@ const AssistantChatPage: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   // Polling for assistant with non-final sync status
   useEffect(() => {
@@ -248,38 +252,88 @@ const AssistantChatPage: React.FC = () => {
     const isFirstMessage = !currentChatId;
     setInputMessage('');
     setSending(true);
+    setWriting(true);
+    setStreamingContent('');
+
+    // Add user message to local state immediately
+    const tempMessageId = `temp-user-${Date.now()}`;
+    const tempUserMessage: AssistantMessage = {
+      id: tempMessageId,
+      messageId: tempMessageId,
+      assistantId: assistantId,
+      chatId: currentChatId || 'temp-chat',
+      userId: 'temp-user',
+      role: 'user',
+      content: userMessageContent,
+      createdDate: Date.now().toString(),
+    };
+    setMessages((prev) => [...prev, tempUserMessage]);
+
+    // Reset refs for new stream
+    streamChatIdRef.current = undefined;
+    accumulatedContentRef.current = '';
 
     try {
-      // Send message and get response
-      const response = await createMessage(assistantId, {
+      // Use streaming API
+      const stream = streamMessage(assistantId, {
         content: userMessageContent,
         chatId: currentChatId,
       });
 
-      // If this was a new conversation (no currentChatId), update state and navigate
-      if (!currentChatId && response.chatId) {
-        const newChatId = response.chatId;
-        setCurrentChatId(newChatId);
-        // Navigate to the conversation URL
-        navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, {
-          replace: true,
-        });
+      for await (const chunk of stream) {
+        // Parse JSONL chunks - each line is a JSON object
+        chunk
+          .split('\n')
+          .filter((line) => line.trim())
+          .forEach((line) => {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.text && parsed.text.length > 0) {
+                accumulatedContentRef.current += parsed.text;
+                setStreamingContent(accumulatedContentRef.current);
+              }
+              // Capture chatId (sessionId) from the stream
+              if (parsed.sessionId && !streamChatIdRef.current) {
+                streamChatIdRef.current = parsed.sessionId;
+              }
+            } catch {
+              // Ignore parse errors for partial chunks
+            }
+          });
       }
 
-      // Refresh messages to get both user and assistant messages
+      setWriting(false);
+      setSending(false);
+
+      // If this was a new conversation, update state and navigate
+      if (!currentChatId && streamChatIdRef.current) {
+        setCurrentChatId(streamChatIdRef.current);
+        navigate(
+          `/chat/assistants/chat/${assistantId}/${streamChatIdRef.current}`,
+          {
+            replace: true,
+          }
+        );
+      }
+
+      // Refresh messages to get the persisted messages from server
       await fetchMessages();
 
       // Generate title for the first message
-      if (isFirstMessage && response.chatId) {
-        await generateChatTitle(response.chatId);
+      if (isFirstMessage && streamChatIdRef.current) {
+        await generateChatTitle(streamChatIdRef.current);
       }
-
-      setSending(false);
     } catch (error) {
       console.error('Failed to send message:', error);
+      setWriting(false);
       setSending(false);
       toast.error(t('assistant.chatPage.sendError'));
+      // Remove the temporary user message on error
+      setMessages((prev) =>
+        prev.filter((m) => m.messageId !== tempUserMessage.messageId)
+      );
     } finally {
+      setStreamingContent('');
       inputRef.current?.focus();
     }
   };
@@ -562,13 +616,21 @@ const AssistantChatPage: React.FC = () => {
                 {renderMessage(message)}
               </React.Fragment>
             ))}
-            {sending && (
+            {writing && (
               <div className="mb-4 flex gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                  <PiRobot className="text-blue-600" />
+                <div className="shrink-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                    <PiRobot className="text-blue-600" />
+                  </div>
                 </div>
-                <div className="rounded-r-lg rounded-bl-lg bg-gray-100 p-3">
-                  <LoadingWave />
+                <div className="flex max-w-[70%] flex-col gap-2">
+                  <div className="rounded-r-lg rounded-bl-lg bg-gray-100 p-3 text-gray-900">
+                    {streamingContent ? (
+                      <Markdown>{streamingContent}</Markdown>
+                    ) : (
+                      <LoadingWave />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -592,13 +654,17 @@ const AssistantChatPage: React.FC = () => {
                 ? t('assistant.chatPage.syncingPlaceholder')
                 : t('assistant.chatPage.inputPlaceholder')
             }
-            disabled={sending || !assistantId || isBlocked}
+            disabled={sending || writing || !assistantId || isBlocked}
             className="flex-1 rounded border border-black/30 p-1.5 outline-none disabled:bg-gray-100 disabled:text-gray-500"
           />
           <Button
             onClick={handleSendMessage}
             disabled={
-              !inputMessage.trim() || sending || !assistantId || isBlocked
+              !inputMessage.trim() ||
+              sending ||
+              writing ||
+              !assistantId ||
+              isBlocked
             }
             className="flex items-center gap-1">
             <PiPaperPlaneTilt />
