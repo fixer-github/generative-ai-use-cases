@@ -266,11 +266,22 @@ async function handleCreateMessage(
     ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
     : assistant.instruction;
 
-  // Determine model type: if modelId exists in modelMetadata → bedrock, else → liteLlm
-  const modelType = modelMetadata[assistant.modelId] ? 'bedrock' : 'liteLlm';
+  // Determine model type:
+  // - If modelId exists in modelMetadata → bedrock
+  // - If modelId starts with 'openai:' → liteLlm (strip prefix, use LiteLLM proxy which has API keys)
+  // - Otherwise → liteLlm
+  const isOpenAiPrefixed = assistant.modelId.startsWith('openai:');
+  const modelType: 'bedrock' | 'liteLlm' = modelMetadata[assistant.modelId]
+    ? 'bedrock'
+    : 'liteLlm';
+
+  // For openai: prefixed models, strip the prefix since LiteLLM config uses bare model names
+  const effectiveModelId = isOpenAiPrefixed
+    ? assistant.modelId.replace('openai:', '')
+    : assistant.modelId;
 
   const model: Model = {
-    modelId: assistant.modelId,
+    modelId: effectiveModelId,
     type: modelType,
     ...(modelType === 'bedrock' && {
       region: process.env.MODEL_REGION || 'us-east-1',
@@ -278,7 +289,7 @@ async function handleCreateMessage(
   };
 
   console.log(
-    `Using ${modelType} model: ${assistant.modelId} for assistant chat`
+    `Using ${modelType} model: ${effectiveModelId} (original: ${assistant.modelId}) for assistant chat`
   );
 
   // Call LLM with assistant configuration
@@ -321,7 +332,7 @@ async function handleCreateMessage(
       totalTokens: response.usage?.totalTokens || 0,
     };
   } else {
-    // Use LiteLLM API
+    // Use LiteLLM or LangChain API
     const messages = [
       {
         role: 'system' as const,
@@ -333,13 +344,10 @@ async function handleCreateMessage(
       },
     ];
 
-    assistantResponse = await api.liteLlm.invoke(
-      model,
-      messages,
-      cleanChatId
-    );
+    // Route to LiteLLM API (handles both native LiteLLM models and openai: prefixed models)
+    assistantResponse = await api.liteLlm.invoke(model, messages, cleanChatId);
 
-    // LiteLLM doesn't provide detailed usage stats in non-streaming mode
+    // LiteLLM/LangChain don't provide detailed usage stats in non-streaming mode
     // Set basic usage info
     usage = {
       inputTokens: 0,
