@@ -39,7 +39,11 @@ export class FlowExecutionRepository {
     this.tenantId = tenantId;
     // クライアントが指定された場合は同期的に使用（テスト用）
     if (client) {
-      this.docClient = DynamoDBDocumentClient.from(client);
+      this.docClient = DynamoDBDocumentClient.from(client, {
+        marshallOptions: {
+          removeUndefinedValues: true,
+        },
+      });
     }
   }
 
@@ -50,7 +54,11 @@ export class FlowExecutionRepository {
   private async getDocClient(): Promise<DynamoDBDocumentClient> {
     if (!this.docClient) {
       const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(this.tenantId);
-      this.docClient = DynamoDBDocumentClient.from(dynamoClient);
+      this.docClient = DynamoDBDocumentClient.from(dynamoClient, {
+        marshallOptions: {
+          removeUndefinedValues: true,
+        },
+      });
     }
     return this.docClient;
   }
