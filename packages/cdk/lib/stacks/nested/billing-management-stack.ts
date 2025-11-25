@@ -5,8 +5,14 @@ import {
   Cors,
   ResponseType,
 } from 'aws-cdk-lib/aws-apigateway';
+import {
+  IRole,
+  PolicyStatement,
+  Effect,
+} from 'aws-cdk-lib/aws-iam';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { EventBus } from 'aws-cdk-lib/aws-events';
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
@@ -40,11 +46,6 @@ export interface BillingManagementStackProps extends NestedStackProps {
    */
   readonly tenantManager: TenantManager;
 
-  /**
-   * EventBridge event bus name for webhook event distribution
-   * @default 'default'
-   */
-  readonly eventBusName?: string;
 
   /**
    * Allowed IPv4 address ranges for IP-based access control
@@ -55,6 +56,12 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * Allowed IPv6 address ranges for IP-based access control
    */
   readonly allowedIpV6AddressRanges?: string[] | null;
+
+  /**
+   * Shared IAM role for background job Lambda functions
+   * This role is created in the parent stack and passed here for additional permissions
+   */
+  readonly backgroundJobRole: IRole;
 }
 
 /**
@@ -75,6 +82,45 @@ export class BillingManagementStack extends NestedStack {
 
   constructor(scope: Construct, id: string, props: BillingManagementStackProps) {
     super(scope, id, props);
+
+    const { backgroundJobRole } = props;
+
+    // ========================================
+    // Add Additional Permissions to Background Job Role
+    // ========================================
+    // Base permissions (sts:AssumeRole, Tenants table read) are added in parent stack
+    // Here we add permissions specific to billing/orchestration
+
+    // DynamoDB access for orchestration tables (multi-tenant)
+    // These tables are managed per-tenant in TenantOrchestrationDbStack
+    backgroundJobRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:GetItem',
+          'dynamodb:Query',
+        ],
+        resources: [
+          // Idempotency tables
+          'arn:aws:dynamodb:*:*:table/*-orchestration-idempotency',
+          // Flow execution history tables
+          'arn:aws:dynamodb:*:*:table/*-flow-execution-history',
+          'arn:aws:dynamodb:*:*:table/*-flow-execution-history/index/*',
+          // Flow step execution history tables
+          'arn:aws:dynamodb:*:*:table/*-flow-step-execution-history',
+        ],
+      })
+    );
+
+    // ========================================
+    // Create Billing EventBus
+    // ========================================
+    // 環境ごとに専用のEventBusを定義し、イベントの分離と権限の明確化を実現
+    const billingEventBus = new EventBus(this, 'BillingEventBus', {
+      eventBusName: `${props.environment}-billing-events`,
+    });
 
     // ========================================
     // Create Independent REST API for Billing
@@ -144,7 +190,11 @@ export class BillingManagementStack extends NestedStack {
       {
         api: billingApi,
         userPool: props.userPool,
-        eventBusName: props.eventBusName,
+        userPoolClient: props.userPoolClient,
+        idPool: props.idPool,
+        tenantManager: props.tenantManager,
+        eventBus: billingEventBus,
+        environment: props.environment,
       }
     );
 
@@ -152,10 +202,15 @@ export class BillingManagementStack extends NestedStack {
     const orchestrationApi = new OrchestrationApi(this, 'Orchestration', {
       environment: props.environment,
       tenantManager: props.tenantManager,
-      eventBusName: props.eventBusName || 'default',
+      backgroundJobRole: backgroundJobRole,
+      eventBus: billingEventBus,
       planManagementInternalFunctions: planManagementApi.internalFunctions,
       subscriptionManagementInternalFunctions: subscriptionManagementApi.internalFunctions,
-      // paymentGatewayFunctions は必要に応じて追加
+      paymentGatewayFunctions: {
+        verifyReceipt: paymentGatewayApi.verifyReceiptFunction,
+        updateSubscription: paymentGatewayApi.updateSubscriptionFunction,
+        cancelSubscription: paymentGatewayApi.cancelSubscriptionFunction,
+      },
     });
 
     // User Billing API (ユーザ向けエンドポイント)

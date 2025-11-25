@@ -32,6 +32,12 @@ export interface TenantDynamoDBProps {
   readonly useCaseBuilderTableBaseName?: string;
 
   /**
+   * Base name for the user-stripe mapping table
+   * @default 'UserStripeMapping'
+   */
+  readonly userStripeMappingTableBaseName?: string;
+
+  /**
    * Billing mode for the tables
    * @default BillingMode.PAY_PER_REQUEST
    */
@@ -66,6 +72,11 @@ export class TenantDynamoDB extends Construct {
   public readonly assistantTable: dynamodb.Table;
 
   /**
+   * The user-stripe mapping table for the tenant
+   */
+  public readonly userStripeMappingTable: dynamodb.Table;
+
+  /**
    * The tenant ID
    */
   public readonly tenantId: string;
@@ -90,6 +101,11 @@ export class TenantDynamoDB extends Construct {
    */
   public readonly assistantTableName: string;
 
+  /**
+   * User-Stripe mapping table name
+   */
+  public readonly userStripeMappingTableName: string;
+
   constructor(scope: Construct, id: string, props: TenantDynamoDBProps) {
     super(scope, id);
 
@@ -112,11 +128,14 @@ export class TenantDynamoDB extends Construct {
       props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
     const useCaseBuilderBaseName =
       props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
+    const userStripeMappingBaseName =
+      props.userStripeMappingTableBaseName || 'UserStripeMapping';
 
     this.chatHistoryTableName = `${chatHistoryBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.assistantTableName = `Assistant-${environment}-tenant-${sanitizedTenantId}`;
+    this.userStripeMappingTableName = `${userStripeMappingBaseName}-${environment}-tenant-${sanitizedTenantId}`;
 
     // Determine removal policy based on environment
     const removalPolicy =
@@ -270,6 +289,25 @@ export class TenantDynamoDB extends Construct {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // User-Stripe Mapping Table
+    this.userStripeMappingTable = new dynamodb.Table(
+      this,
+      'UserStripeMappingTable',
+      {
+        tableName: this.userStripeMappingTableName,
+        partitionKey: {
+          name: 'user_id',
+          type: dynamodb.AttributeType.STRING,
+        },
+        billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: removalPolicy,
+      }
+    );
+
+    // Add tags to User-Stripe Mapping table
+    cdk.Tags.of(this.userStripeMappingTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.userStripeMappingTable).add('Environment', environment);
+
     // Output table ARNs
     new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
       value: this.chatHistoryTable.tableArn,
@@ -312,6 +350,17 @@ export class TenantDynamoDB extends Construct {
     new cdk.CfnOutput(this, 'AssistantTableName', {
       value: this.assistantTable.tableName,
       description: `Name of the assistant table for tenant ${this.tenantId}`,
+    });
+
+    // Output user-stripe mapping table ARNs and names
+    new cdk.CfnOutput(this, 'UserStripeMappingTableArn', {
+      value: this.userStripeMappingTable.tableArn,
+      description: `ARN of the user-stripe mapping table for tenant ${this.tenantId}`,
+    });
+
+    new cdk.CfnOutput(this, 'UserStripeMappingTableName', {
+      value: this.userStripeMappingTable.tableName,
+      description: `Name of the user-stripe mapping table for tenant ${this.tenantId}`,
     });
   }
 

@@ -28,6 +28,13 @@ export interface AuthorizationFunctionsProps {
    * Tenants table name (for getTenant function)
    */
   readonly tenantsTableName: string;
+
+  /**
+   * Shared IAM role for background job Lambda functions
+   * This role is used by grantPermission Lambda that needs to AssumeRole to TenantRole-*
+   * for cross-account/cross-tenant access
+   */
+  readonly backgroundJobRole?: iam.IRole;
 }
 
 export class AuthorizationFunctions extends Construct {
@@ -84,6 +91,7 @@ export class AuthorizationFunctions extends Construct {
     };
 
     // Grant Permission Function
+    // Use backgroundJobRole if provided (for cross-tenant access via AssumeRole)
     this.grantPermissionFunction = new NodejsFunction(
       this,
       'GrantPermissionFunction',
@@ -97,6 +105,7 @@ export class AuthorizationFunctions extends Construct {
         handler: 'handler',
         environment: commonEnvironment,
         description: 'Grant permissions to users (shared across all tenants)',
+        ...(props.backgroundJobRole ? { role: props.backgroundJobRole } : {}),
       }
     );
 
@@ -184,6 +193,35 @@ export class AuthorizationFunctions extends Construct {
     // ========================================
     // 2. IAM Permissions (AssumeRole pattern)
     // ========================================
+    // Note: If backgroundJobRole is provided, grantPermissionFunction uses that role
+    // and its permissions are managed in the parent stack (GenerativeAiUseCasesStack).
+    // We only add policies to functions with their own roles.
+
+    const useBackgroundJobRole = !!props.backgroundJobRole;
+
+    // Functions that need their own policies (excludes grantPermissionFunction if using backgroundJobRole)
+    const functionsNeedingAssumeRole = useBackgroundJobRole
+      ? [
+          this.revokePermissionFunction,
+          this.checkPermissionFunction,
+          this.incrementUsageCountFunction,
+          this.resetUsageCountFunction,
+        ]
+      : [
+          this.grantPermissionFunction,
+          this.revokePermissionFunction,
+          this.checkPermissionFunction,
+          this.incrementUsageCountFunction,
+          this.resetUsageCountFunction,
+        ];
+
+    const functionsNeedingOpenFga = useBackgroundJobRole
+      ? [this.revokePermissionFunction, this.checkPermissionFunction]
+      : [
+          this.grantPermissionFunction,
+          this.revokePermissionFunction,
+          this.checkPermissionFunction,
+        ];
 
     // Grant AssumeRole permissions to all functions
     // Lambda functions will assume TenantRole to access tenant-specific DynamoDB tables
@@ -193,13 +231,7 @@ export class AuthorizationFunctions extends Construct {
       resources: ['arn:aws:iam::*:role/TenantRole-*'],
     });
 
-    [
-      this.grantPermissionFunction,
-      this.revokePermissionFunction,
-      this.checkPermissionFunction,
-      this.incrementUsageCountFunction,
-      this.resetUsageCountFunction,
-    ].forEach((fn) => {
+    functionsNeedingAssumeRole.forEach((fn) => {
       fn.addToRolePolicy(assumeRolePolicy);
     });
 
@@ -210,11 +242,7 @@ export class AuthorizationFunctions extends Construct {
       resources: ['arn:aws:execute-api:*:*:*/prod/*'],
     });
 
-    [
-      this.grantPermissionFunction,
-      this.revokePermissionFunction,
-      this.checkPermissionFunction,
-    ].forEach((fn) => {
+    functionsNeedingOpenFga.forEach((fn) => {
       fn.addToRolePolicy(openFgaInvokePolicy);
     });
 
@@ -229,11 +257,7 @@ export class AuthorizationFunctions extends Construct {
       ],
     });
 
-    [
-      this.grantPermissionFunction,
-      this.revokePermissionFunction,
-      this.checkPermissionFunction,
-    ].forEach((fn) => {
+    functionsNeedingOpenFga.forEach((fn) => {
       fn.addToRolePolicy(ssmParameterReadPolicy);
     });
 
@@ -248,13 +272,7 @@ export class AuthorizationFunctions extends Construct {
       ],
     });
 
-    [
-      this.grantPermissionFunction,
-      this.revokePermissionFunction,
-      this.checkPermissionFunction,
-      this.incrementUsageCountFunction,
-      this.resetUsageCountFunction,
-    ].forEach((fn) => {
+    functionsNeedingAssumeRole.forEach((fn) => {
       fn.addToRolePolicy(tenantTableReadPolicy);
     });
 

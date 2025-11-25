@@ -9,7 +9,10 @@ import {
   AuthorizationType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { IEventBus } from 'aws-cdk-lib/aws-events';
+import { TenantManager } from '../../construct/tenant-manager';
 
 export interface PaymentGatewayApiProps {
   /**
@@ -23,10 +26,29 @@ export interface PaymentGatewayApiProps {
   readonly userPool: UserPool;
 
   /**
-   * EventBridge event bus name for webhook event distribution
-   * @default 'default'
+   * User Pool Client for authentication
    */
-  readonly eventBusName?: string;
+  readonly userPoolClient: UserPoolClient;
+
+  /**
+   * Identity Pool for authorization
+   */
+  readonly idPool: IdentityPool;
+
+  /**
+   * Tenant Manager for multi-tenant support
+   */
+  readonly tenantManager: TenantManager;
+
+  /**
+   * EventBridge event bus for webhook event distribution
+   */
+  readonly eventBus: IEventBus;
+
+  /**
+   * Environment name (e.g., dev, staging, prod)
+   */
+  readonly environment: string;
 }
 
 class PaymentGatewayApi extends Construct {
@@ -35,11 +57,12 @@ class PaymentGatewayApi extends Construct {
   public readonly createCheckoutSessionFunction: NodejsFunction;
   public readonly updateSubscriptionFunction: NodejsFunction;
   public readonly cancelSubscriptionFunction: NodejsFunction;
+  public readonly createCustomerPortalSessionFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: PaymentGatewayApiProps) {
     super(scope, id);
 
-    const { api, userPool, eventBusName = 'default' } = props;
+    const { api, userPool, userPoolClient, idPool, tenantManager, eventBus, environment } = props;
 
     // Create Cognito authorizer for protected endpoints
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
@@ -62,7 +85,7 @@ class PaymentGatewayApi extends Construct {
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
-          EVENT_BUS_NAME: eventBusName,
+          EVENT_BUS_NAME: eventBus.eventBusName,
         },
       }
     );
@@ -78,7 +101,7 @@ class PaymentGatewayApi extends Construct {
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
-          EVENT_BUS_NAME: eventBusName,
+          EVENT_BUS_NAME: eventBus.eventBusName,
           APPLE_BUNDLE_ID: process.env.APPLE_BUNDLE_ID || '',
         },
       }
@@ -95,7 +118,7 @@ class PaymentGatewayApi extends Construct {
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
-          EVENT_BUS_NAME: eventBusName,
+          EVENT_BUS_NAME: eventBus.eventBusName,
           GOOGLE_PACKAGE_NAME: process.env.GOOGLE_PACKAGE_NAME || '',
         },
       }
@@ -108,6 +131,7 @@ class PaymentGatewayApi extends Construct {
     const verifyReceiptFunction = new NodejsFunction(this, 'VerifyReceipt', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/billing/payment-gateway/verification/verifyReceipt.ts',
+      functionName: `${environment}-billing-payment-verify-receipt`,
       timeout: Duration.seconds(120), // フォールバック処理（2秒待機 + 再試行）を考慮して120秒に延長
       memorySize: 512,
       environment: {
@@ -127,10 +151,16 @@ class PaymentGatewayApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry:
           './lambda/billing/payment-gateway/operations/createCheckoutSession.ts',
+        functionName: `${environment}-billing-payment-checkout-session`,
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
-          USER_POOL_ID: process.env.USER_POOL_ID || '',
+          TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
+          IDENTITY_POOL_ID: idPool.identityPoolId,
+          USER_POOL_ID: userPool.userPoolId,
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
+          ENVIRONMENT: environment,
         },
       }
     );
@@ -143,6 +173,7 @@ class PaymentGatewayApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry:
           './lambda/billing/payment-gateway/operations/updateSubscription.ts',
+        functionName: `${environment}-billing-payment-update-subscription`,
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
@@ -159,6 +190,7 @@ class PaymentGatewayApi extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry:
           './lambda/billing/payment-gateway/operations/cancelSubscription.ts',
+        functionName: `${environment}-billing-payment-cancel-subscription`,
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: {
@@ -177,6 +209,28 @@ class PaymentGatewayApi extends Construct {
         // テナント専用リソースへのアクセスは実行時に動的に決定
       },
     });
+
+    // Customer Portal Session作成
+    const createCustomerPortalSessionFunction = new NodejsFunction(
+      this,
+      'CreateCustomerPortalSession',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/payment-gateway/operations/createCustomerPortalSession.ts',
+        functionName: `${environment}-billing-payment-customer-portal`,
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: {
+          TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
+          IDENTITY_POOL_ID: idPool.identityPoolId,
+          USER_POOL_ID: userPool.userPoolId,
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
+          ENVIRONMENT: environment,
+        },
+      }
+    );
 
     // ========================================
     // IAMポリシー
@@ -202,9 +256,7 @@ class PaymentGatewayApi extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['events:PutEvents'],
-          resources: [
-            `arn:aws:events:${this.node.addr}:${this.node.addr}:event-bus/${eventBusName}`,
-          ],
+          resources: [eventBus.eventBusArn],
         })
       );
     });
@@ -243,6 +295,7 @@ class PaymentGatewayApi extends Construct {
       updateSubscriptionFunction,
       cancelSubscriptionFunction,
       getInvoiceFunction,
+      createCustomerPortalSessionFunction,
     ].forEach((func) => {
       func.addToRolePolicy(
         new PolicyStatement({
@@ -253,14 +306,42 @@ class PaymentGatewayApi extends Construct {
       );
     });
 
-    // Checkout Session作成の追加権限（Cognito）
-    createCheckoutSessionFunction.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ['cognito-idp:AdminGetUser'],
-        resources: [`arn:aws:cognito-idp:*:*:userpool/*`],
-      })
-    );
+    // Checkout Session作成とCustomer Portal作成の追加権限
+    [createCheckoutSessionFunction, createCustomerPortalSessionFunction].forEach((func) => {
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(func);
+
+      // Grant Cognito User Pool AdminGetUser permission
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['cognito-idp:AdminGetUser'],
+          resources: [userPool.userPoolArn],
+        })
+      );
+
+      // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'cognito-identity:GetId',
+            'cognito-identity:GetOpenIdToken',
+            'cognito-identity:GetCredentialsForIdentity',
+          ],
+          resources: ['*'],
+        })
+      );
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRoleWithWebIdentity'],
+          resources: ['*'],
+        })
+      );
+    });
 
     // ========================================
     // API Gateway エンドポイント
@@ -339,6 +420,17 @@ class PaymentGatewayApi extends Construct {
       }
     );
 
+    // Customer Portalエンドポイント
+    const customerPortalResource = operationsResource.addResource('customer-portal');
+    customerPortalResource.addMethod(
+      'POST',
+      new LambdaIntegration(createCustomerPortalSessionFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
     // ========================================
     // Lambda関数をプロパティに割り当て（統括責務から直接呼び出すため）
     // ========================================
@@ -346,6 +438,7 @@ class PaymentGatewayApi extends Construct {
     this.createCheckoutSessionFunction = createCheckoutSessionFunction;
     this.updateSubscriptionFunction = updateSubscriptionFunction;
     this.cancelSubscriptionFunction = cancelSubscriptionFunction;
+    this.createCustomerPortalSessionFunction = createCustomerPortalSessionFunction;
   }
 }
 

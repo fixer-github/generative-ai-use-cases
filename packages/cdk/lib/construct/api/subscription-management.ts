@@ -360,6 +360,24 @@ class SubscriptionManagementApi extends Construct {
       );
     });
 
+    // Internal functions need Lambda invoke permissions for data access layer
+    [
+      createSubscriptionFunction,
+      updateSubscriptionStatusFunction,
+      getSubscriptionInternalFunction,
+      extendSubscriptionPeriodFunction,
+    ].forEach((func) => {
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+          ],
+        })
+      );
+    });
+
     // Additional permissions for functions that interact with payment platforms
     /* [retryVerificationFunction, syncPlatformFunction].forEach((func) => {
       func.addToRolePolicy(

@@ -46,9 +46,7 @@ function getTableName(
 /**
  * 次回リセット日時を計算する
  */
-function calculateNextResetTime(
-  periodType: 'daily' | 'monthly'
-): number {
+function calculateNextResetTime(periodType: 'daily' | 'monthly'): number {
   const now = new Date();
   let nextReset: Date;
 
@@ -77,9 +75,9 @@ async function makeSignedOpenFgaRequest(
   apiEndpoint: string,
   apiRegion: string,
   credentials: {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    SessionToken?: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
   },
   body?: string
 ): Promise<string> {
@@ -133,11 +131,20 @@ export const handler = async (
 ): Promise<GrantPermissionResponse> => {
   console.log('Grant Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, userId, grantId, planId, features, sourceType, sourceId } = event;
+  const { tenantId, userId, grantId, planId, features, sourceType, sourceId } =
+    event;
 
   try {
     // 1. バリデーション
-    if (!tenantId || !userId || !grantId || !planId || !features || !sourceType || !sourceId) {
+    if (
+      !tenantId ||
+      !userId ||
+      !grantId ||
+      !planId ||
+      !features ||
+      !sourceType ||
+      !sourceId
+    ) {
       throw new Error(
         'Missing required parameters: tenantId, userId, grantId, planId, features, sourceType, sourceId'
       );
@@ -177,9 +184,9 @@ export const handler = async (
     }
 
     const credentials = {
-      AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
-      SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
-      SessionToken: assumeRoleResponse.Credentials.SessionToken,
+      accessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
+      secretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
+      sessionToken: assumeRoleResponse.Credentials.SessionToken,
     };
 
     // 4. OpenFGA設定をSSM Parameter Storeから取得
@@ -229,9 +236,8 @@ export const handler = async (
     }
 
     // 6. DynamoDBにカウンター情報を作成
-    const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
-      tenantId
-    );
+    const dynamoDBClient =
+      await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
       'UsageCounter',
@@ -330,7 +336,10 @@ export const handler = async (
       grantedAt: new Date(now * 1000).toISOString(),
     };
 
-    console.log('Grant Permission Response:', JSON.stringify(response, null, 2));
+    console.log(
+      'Grant Permission Response:',
+      JSON.stringify(response, null, 2)
+    );
 
     return response;
   } catch (error) {

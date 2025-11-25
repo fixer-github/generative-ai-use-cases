@@ -73,6 +73,14 @@ export interface StoreInfo {
   tenantId: string;
 }
 
+export interface CustomerPortalRequest {
+  returnUrl: string;
+}
+
+export interface CustomerPortalResponse {
+  url: string;
+}
+
 const useSubscriptionApi = () => {
   const { api } = useBillingHttp();
 
@@ -127,17 +135,68 @@ const useSubscriptionApi = () => {
       },
 
       // Cancel subscription
-      cancelSubscription: async (): Promise<{ success: boolean }> => {
-        const response = await api.post<{ success: boolean }>(
-          '/api/subscriptions/cancel',
-          {}
-        );
+      cancelSubscription: async (
+        subscriptionId: string
+      ): Promise<{
+        success: boolean;
+        flowExecutionId: string;
+        cancellationType: string;
+        effectiveDate: string;
+        message: string;
+      }> => {
+        const response = await api.post<{
+          success: boolean;
+          flowExecutionId: string;
+          cancellationType: string;
+          effectiveDate: string;
+          message: string;
+        }>('/api/subscriptions/cancel', {
+          subscriptionId,
+          cancellationType: 'at_period_end', // 実装方針に従って期限終了時解約を採用
+        });
+        return response.data;
+      },
+
+      // Change subscription plan
+      changeSubscriptionPlan: async (
+        subscriptionId: string,
+        newPlanId: string
+      ): Promise<{
+        success: boolean;
+        flowExecutionId: string;
+        changeType: 'upgrade' | 'downgrade';
+        newPlanId: string;
+        effectiveDate: string;
+        message: string;
+      }> => {
+        const response = await api.post<{
+          success: boolean;
+          flowExecutionId: string;
+          changeType: 'upgrade' | 'downgrade';
+          newPlanId: string;
+          effectiveDate: string;
+          message: string;
+        }>('/api/subscriptions/change-plan', {
+          subscriptionId,
+          newPlanId,
+        });
         return response.data;
       },
 
       // Get store info (Stripe publishable key, etc.)
       getStoreInfo: async (): Promise<StoreInfo> => {
         const response = await api.get<StoreInfo>('/api/store-info');
+        return response.data;
+      },
+
+      // Create Customer Portal session
+      createCustomerPortalSession: async (
+        request: CustomerPortalRequest
+      ): Promise<CustomerPortalResponse> => {
+        const response = await api.post<CustomerPortalResponse>(
+          '/api/subscriptions/customer-portal',
+          request
+        );
         return response.data;
       },
     }),

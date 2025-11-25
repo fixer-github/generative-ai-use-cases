@@ -159,7 +159,8 @@ export class FlowExecutionRepository {
       }
 
       if (updates.duration !== undefined) {
-        updateExpressions.push('duration = :duration');
+        updateExpressions.push('#duration = :duration');
+        expressionAttributeNames['#duration'] = 'duration';
         expressionAttributeValues[':duration'] = updates.duration;
       }
 

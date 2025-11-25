@@ -51,7 +51,7 @@ export interface UpdateSubscriptionStatusParams {
   /** サブスクリプションID */
   subscriptionId: string;
   /** 新しいステータス */
-  newStatus: 'active' | 'past_due' | 'canceled' | 'expired';
+  newStatus: 'active' | 'past_due' | 'canceled' | 'scheduled_cancellation' | 'expired' | 'rolled_back';
 }
 
 /**

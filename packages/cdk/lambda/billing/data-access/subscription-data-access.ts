@@ -71,7 +71,10 @@ export class SubscriptionDataAccessError extends Error {
 export const handler = async (
   event: SubscriptionDataAccessEvent
 ): Promise<SubscriptionDataAccessResponse> => {
-  console.log('subscription-data-access event:', JSON.stringify(event, null, 2));
+  console.log(
+    'subscription-data-access event:',
+    JSON.stringify(event, null, 2)
+  );
 
   try {
     // 入力バリデーション
@@ -93,7 +96,13 @@ export const handler = async (
     switch (event.operation) {
       case 'create':
         validateCreateParams(event.params);
-        result = await subscriptionRepository.create(event.params);
+        // 日付フィールドをDate型に変換
+        const subscriptionData = {
+          ...event.params,
+          current_period_start: new Date(event.params.current_period_start),
+          current_period_end: new Date(event.params.current_period_end)
+        };
+        result = await subscriptionRepository.create(subscriptionData);
         break;
 
       case 'findById':
@@ -103,7 +112,9 @@ export const handler = async (
             'subscriptionId is required'
           );
         }
-        result = await subscriptionRepository.findById(event.params.subscriptionId);
+        result = await subscriptionRepository.findById(
+          event.params.subscriptionId
+        );
         break;
 
       case 'findByPlatformSubscriptionId':
@@ -148,7 +159,9 @@ export const handler = async (
             'userId is required'
           );
         }
-        result = await subscriptionRepository.findActiveByUserId(event.params.userId);
+        result = await subscriptionRepository.findActiveByUserId(
+          event.params.userId
+        );
         break;
 
       case 'findPendingVerification':
@@ -200,7 +213,9 @@ export const handler = async (
             'subscriptionId is required'
           );
         }
-        result = await subscriptionRepository.cancel(event.params.subscriptionId);
+        result = await subscriptionRepository.cancel(
+          event.params.subscriptionId
+        );
         break;
 
       case 'scheduleCancel':
@@ -260,7 +275,9 @@ export const handler = async (
         if (adminOptions.createdAtTo) {
           adminOptions.createdAtTo = new Date(adminOptions.createdAtTo);
         }
-        result = await subscriptionRepository.findAllForAdmin(adminOptions || {});
+        result = await subscriptionRepository.findAllForAdmin(
+          adminOptions || {}
+        );
         break;
 
       case 'findByIdWithDetails':
@@ -316,7 +333,10 @@ export const handler = async (
  */
 function validateCreateParams(params: any): void {
   if (!params) {
-    throw new SubscriptionDataAccessError('INVALID_PARAMS', 'params is required');
+    throw new SubscriptionDataAccessError(
+      'INVALID_PARAMS',
+      'params is required'
+    );
   }
 
   const requiredFields = [
