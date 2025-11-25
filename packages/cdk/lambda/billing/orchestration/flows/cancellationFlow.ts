@@ -704,12 +704,10 @@ function buildAtPeriodEndCancellationSteps(
           subscriptionId,
         });
 
-        // TODO: scheduled_cancellationステータスをSubscriptionManagementに追加する必要がある
-        // 現時点では仮でactiveを使用（将来的にstatusの型定義を拡張）
         const params: UpdateSubscriptionStatusParams = {
           tenantId,
           subscriptionId,
-          newStatus: 'active', // TODO: 'scheduled_cancellation' に変更
+          newStatus: 'scheduled_cancellation',
         };
 
         const result = await subscriptionClient.updateSubscriptionStatus(params);

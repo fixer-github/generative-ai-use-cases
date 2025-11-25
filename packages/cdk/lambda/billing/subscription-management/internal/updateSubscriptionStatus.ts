@@ -13,7 +13,7 @@ import { Subscription } from '../../../billing/data-access/repositories/types';
  */
 export interface UpdateSubscriptionStatusInput {
   subscriptionId: string;
-  newStatus: 'active' | 'past_due' | 'canceled' | 'expired';
+  newStatus: 'active' | 'past_due' | 'canceled' | 'scheduled_cancellation' | 'expired' | 'rolled_back';
   tenantId: string; // テナントID（RDS接続に必要）
 }
 
@@ -70,7 +70,9 @@ export const handler = async (
       'active',
       'past_due',
       'canceled',
+      'scheduled_cancellation',
       'expired',
+      'rolled_back',
     ];
 
     if (!validStatuses.includes(input.newStatus as any)) {
@@ -119,7 +121,9 @@ export const handler = async (
         subscriptionId: existingSubscription.subscription_id,
         previousStatus,
         newStatus: input.newStatus,
-        updatedAt: existingSubscription.updated_at.toISOString(),
+        updatedAt: typeof existingSubscription.updated_at === 'string'
+          ? existingSubscription.updated_at
+          : existingSubscription.updated_at.toISOString(),
       };
     }
 
@@ -158,7 +162,9 @@ export const handler = async (
       subscriptionId: updatedSubscription.subscription_id,
       previousStatus,
       newStatus: updatedSubscription.subscription_status,
-      updatedAt: updatedSubscription.updated_at.toISOString(),
+      updatedAt: typeof updatedSubscription.updated_at === 'string'
+        ? updatedSubscription.updated_at
+        : updatedSubscription.updated_at.toISOString(),
     };
   } catch (error) {
     console.error('Error updating subscription status:', error);

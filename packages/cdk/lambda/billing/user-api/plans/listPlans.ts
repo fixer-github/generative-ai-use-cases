@@ -175,7 +175,7 @@ export const handler = async (
     console.log(`Platform mapping: ${platformParam} -> ${platformType}`);
 
     // 4. プラットフォーム別のプラン取得
-    const plans = await invokeDataAccessFunction<Plan[]>(
+    const platformPlans = await invokeDataAccessFunction<Plan[]>(
       event,
       'plan',
       'findActiveByPlatform',
@@ -183,10 +183,28 @@ export const handler = async (
     );
 
     console.log(
-      `Found ${plans?.length || 0} active plans for platform ${platformType}`
+      `Found ${platformPlans?.length || 0} active plans for platform ${platformType}`
     );
 
-    // 5. レスポンスの構築
+    // 5. デフォルトプラン（internal）も取得して含める
+    const defaultPlan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'getDefaultPlan',
+      {}
+    );
+
+    // プランのマージ（重複を避ける）
+    const plans: Plan[] = [...(platformPlans || [])];
+    if (defaultPlan && !plans.some((p) => p.plan_id === defaultPlan.plan_id)) {
+      plans.push(defaultPlan);
+    }
+
+    console.log(
+      `Total plans including default: ${plans.length}`
+    );
+
+    // 6. レスポンスの構築
     // プランが存在しない場合でも空配列を返す（エラーではない）
     const formattedPlansPromises = (plans || []).map(async (plan) => {
       try {
@@ -226,6 +244,13 @@ export const handler = async (
     });
 
     const formattedPlans = await Promise.all(formattedPlansPromises);
+
+    // 価格順（安い順）にソート
+    formattedPlans.sort((a, b) => {
+      const amountA = a.pricing?.amount || 0;
+      const amountB = b.pricing?.amount || 0;
+      return amountA - amountB;
+    });
 
     const response = {
       platform: platformParam,
