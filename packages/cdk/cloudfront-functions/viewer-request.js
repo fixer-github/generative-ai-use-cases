@@ -20,7 +20,9 @@ async function handler(event) {
     const ipWhitelist = await kvsHandle.get('ipWhitelist');
 
     // Debug logging
-    console.log('Maintenance mode: ' + maintenance + ' (type: ' + typeof maintenance + ')');
+    console.log(
+      'Maintenance mode: ' + maintenance + ' (type: ' + typeof maintenance + ')'
+    );
     console.log('Client IP: ' + clientIp);
     console.log('Request URI: ' + request.uri);
 
@@ -34,9 +36,11 @@ async function handler(event) {
     console.log('Maintenance mode is ON - checking whitelist');
 
     // Parse IP whitelist (comma-separated IPs)
-    const whitelistedIps = ipWhitelist ? ipWhitelist.split(',').map(function(ip) {
-      return ip.trim();
-    }) : [];
+    const whitelistedIps = ipWhitelist
+      ? ipWhitelist.split(',').map(function (ip) {
+          return ip.trim();
+        })
+      : [];
 
     // Check if client IP is whitelisted (exact string match for IPv4/IPv6)
     let isWhitelisted = false;
@@ -47,7 +51,9 @@ async function handler(event) {
       }
     }
 
-    console.log('Is whitelisted: ' + isWhitelisted + ' (whitelist: ' + ipWhitelist + ')');
+    console.log(
+      'Is whitelisted: ' + isWhitelisted + ' (whitelist: ' + ipWhitelist + ')'
+    );
 
     // Allow whitelisted IPs to proceed normally
     if (isWhitelisted) {
@@ -68,14 +74,15 @@ async function handler(event) {
       statusCode: 302,
       statusDescription: 'Found',
       headers: {
-        location: { value: '/maintenance.html' }
-      }
+        location: { value: '/maintenance.html' },
+      },
     };
-
   } catch (error) {
     // Fail open: if any error occurs (e.g., KVS access failure), allow request through
     // This prevents CloudFront Function errors from breaking the entire site
-    console.log('Error in maintenance mode function:' + (error.message || error));
+    console.log(
+      'Error in maintenance mode function:' + (error.message || error)
+    );
     return request;
   }
 }

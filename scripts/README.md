@@ -22,6 +22,7 @@ Comprehensive scripts for managing CloudFront maintenance mode with automatic ca
 Unified script for all maintenance mode operations with automatic CloudFront cache invalidation.
 
 #### Features
+
 - ✅ Enable/disable maintenance mode
 - ✅ Automatic CloudFront cache invalidation
 - ✅ IP whitelist management
@@ -38,6 +39,7 @@ Unified script for all maintenance mode operations with automatic CloudFront cac
 ```
 
 **Commands**:
+
 - `on` - Enable maintenance mode
 - `off` - Disable maintenance mode
 - `status` - Check current status
@@ -47,6 +49,7 @@ Unified script for all maintenance mode operations with automatic CloudFront cac
 - `whitelist-clear` - Clear all whitelisted IPs
 
 **Options**:
+
 - `--profile <name>` - AWS profile
 - `--no-invalidate` - Skip cache invalidation
 - `--help` - Show help
@@ -77,6 +80,7 @@ Unified script for all maintenance mode operations with automatic CloudFront cac
 ```
 
 Output example:
+
 ```
 === Maintenance Mode Status ===
 ✓ Maintenance mode: DISABLED
@@ -121,6 +125,7 @@ Output example:
 ### CloudFront Function Logic
 
 The viewer-request CloudFront Function checks:
+
 1. **Maintenance Key** - If `maintenance = "true"`, proceed to check whitelist
 2. **IP Whitelist** - If client IP is whitelisted, allow through
 3. **Redirect** - Otherwise, redirect to `/maintenance.html` with HTTP 302
@@ -128,6 +133,7 @@ The viewer-request CloudFront Function checks:
 ### Cache Invalidation
 
 Cache invalidation is **critical** because:
+
 - CloudFront caches responses at edge locations globally
 - Without invalidation, users see old cached redirects
 - Browser caching also affects visibility
@@ -159,9 +165,9 @@ The script automatically invalidates cache after every change.
 
 ### KVS Keys
 
-| Key | Type | Description | Example |
-|-----|------|-------------|---------|
-| `maintenance` | string | Enable/disable maintenance mode | `"true"` or `"false"` |
+| Key           | Type   | Description                           | Example                       |
+| ------------- | ------ | ------------------------------------- | ----------------------------- |
+| `maintenance` | string | Enable/disable maintenance mode       | `"true"` or `"false"`         |
 | `ipWhitelist` | string | Comma-separated IPs allowed to bypass | `"203.0.113.1,198.51.100.50"` |
 
 ## Troubleshooting
@@ -171,6 +177,7 @@ The script automatically invalidates cache after every change.
 **Problem**: Set to `"true"` but site still accessible
 
 **Solutions**:
+
 1. **Check KVS value**: `./maintenance-mode.sh <env> status`
 2. **Wait for propagation**: 30-60 seconds after invalidation
 3. **Clear browser cache**: Hard refresh (Ctrl+Shift+R)
@@ -181,6 +188,7 @@ The script automatically invalidates cache after every change.
 **Problem**: Set to `"false"` but still showing maintenance page
 
 **Solutions**:
+
 1. **Run invalidation**: Script does this automatically
 2. **Wait for propagation**: 30-60 seconds
 3. **Clear browser cache**: Hard refresh (Ctrl+Shift+R) or incognito mode
@@ -191,6 +199,7 @@ The script automatically invalidates cache after every change.
 **Problem**: "Could not find Web stack"
 
 **Solution**: Verify environment name and AWS profile
+
 ```bash
 aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE
 ```
@@ -202,7 +211,9 @@ aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMP
 ## Best Practices
 
 ### 1. Always Use the Script
+
 Don't manually update KVS without cache invalidation:
+
 ```bash
 # ❌ BAD - Manual update without invalidation
 aws cloudfront-keyvaluestore put-key ...
@@ -212,6 +223,7 @@ aws cloudfront-keyvaluestore put-key ...
 ```
 
 ### 2. Test Before Production
+
 ```bash
 # Test in dev environment first
 ./maintenance-mode.sh dev on
@@ -223,19 +235,23 @@ aws cloudfront-keyvaluestore put-key ...
 ```
 
 ### 3. Whitelist Admin IPs
+
 ```bash
 # Add your admin/operations team IPs
 ./maintenance-mode.sh <env> whitelist-add 203.0.113.1,198.51.100.50
 ```
 
 ### 4. Communicate with Users
+
 When enabling maintenance mode:
+
 1. Post advance notice to users
 2. Enable maintenance mode
 3. Monitor CloudWatch for errors
 4. Notify when service is restored
 
 ### 5. Monitor Cache Invalidation
+
 ```bash
 # Check invalidation status
 aws cloudfront get-invalidation \
@@ -321,6 +337,7 @@ The maintenance page is served from the S3 bucket and cached by CloudFront.
 ### Update Maintenance Page
 
 1. **Modify HTML/CSS**:
+
    ```bash
    # Edit maintenance page
    vim packages/cdk/assets/maintenance/maintenance.html
@@ -328,6 +345,7 @@ The maintenance page is served from the S3 bucket and cached by CloudFront.
    ```
 
 2. **Deploy via CDK**:
+
    ```bash
    cd packages/cdk
    npm run cdk:deploy
@@ -396,6 +414,7 @@ aws cloudfront list-invalidations --distribution-id <distribution-id>
 ## Support
 
 For issues or questions:
+
 1. Check the troubleshooting section above
 2. Review CloudFront function logs (if available)
 3. Check CloudFormation stack outputs

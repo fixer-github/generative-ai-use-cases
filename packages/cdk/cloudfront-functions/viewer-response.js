@@ -16,7 +16,9 @@ async function handler(event) {
   try {
     // Check if this is a response for maintenance page
     const uri = request.uri;
-    console.log('viewer-response URI: ' + uri + ' Status: ' + response.statusCode);
+    console.log(
+      'viewer-response URI: ' + uri + ' Status: ' + response.statusCode
+    );
 
     if (uri === '/maintenance.html') {
       // Only set 503 if maintenance mode is actually active
@@ -36,12 +38,16 @@ async function handler(event) {
         }
         response.headers['retry-after'] = { value: '3600' };
       } else {
-        console.log('viewer-response: Maintenance OFF, keeping original status');
+        console.log(
+          'viewer-response: Maintenance OFF, keeping original status'
+        );
       }
     }
   } catch (error) {
     // Fail open: if any error occurs, return response as-is
-    console.log('Error in maintenance mode response function:' + (error.message || error));
+    console.log(
+      'Error in maintenance mode response function:' + (error.message || error)
+    );
   }
 
   return response;

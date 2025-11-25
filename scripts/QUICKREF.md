@@ -39,6 +39,7 @@
 ## Important Notes
 
 ⚠️ **After toggling maintenance mode**:
+
 1. Wait 30-60 seconds for cache invalidation
 2. Users should **hard refresh** browser:
    - Windows/Linux: `Ctrl + Shift + R`
@@ -66,12 +67,12 @@ curl -I "https://<cloudfront-domain>/test-$(date +%s).html"
 
 ## Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| Still showing maintenance after `off` | Hard refresh browser (Ctrl+Shift+R) |
-| Maintenance not activating | Wait 60s, check status, verify KVS |
-| Script can't find stack | Check environment name and AWS profile |
-| IP whitelist not working | Verify exact IP match (no CIDR ranges) |
+| Problem                               | Solution                               |
+| ------------------------------------- | -------------------------------------- |
+| Still showing maintenance after `off` | Hard refresh browser (Ctrl+Shift+R)    |
+| Maintenance not activating            | Wait 60s, check status, verify KVS     |
+| Script can't find stack               | Check environment name and AWS profile |
+| IP whitelist not working              | Verify exact IP match (no CIDR ranges) |
 
 ## Manual KVS Update (Emergency Only)
 

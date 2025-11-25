@@ -22,6 +22,7 @@ CloudFrontメンテナンスモードを自動キャッシュ無効化付きで�
 自動CloudFrontキャッシュ無効化付きの、すべてのメンテナンスモード操作のための統合スクリプトです。
 
 #### 機能
+
 - ✅ メンテナンスモードの有効化/無効化
 - ✅ 自動CloudFrontキャッシュ無効化
 - ✅ IPホワイトリスト管理
@@ -38,6 +39,7 @@ CloudFrontメンテナンスモードを自動キャッシュ無効化付きで�
 ```
 
 **コマンド**:
+
 - `on` - メンテナンスモードを有効化
 - `off` - メンテナンスモードを無効化
 - `status` - 現在のステータスを確認
@@ -47,6 +49,7 @@ CloudFrontメンテナンスモードを自動キャッシュ無効化付きで�
 - `whitelist-clear` - すべてのIPをクリア
 
 **オプション**:
+
 - `--profile <name>` - AWSプロファイル（デフォルト: genu）
 - `--no-invalidate` - キャッシュ無効化をスキップ
 - `--help` - ヘルプを表示
@@ -77,6 +80,7 @@ CloudFrontメンテナンスモードを自動キャッシュ無効化付きで�
 ```
 
 出力例:
+
 ```
 === メンテナンスモードステータス ===
 ✓ メンテナンスモード: 無効
@@ -121,6 +125,7 @@ CloudFrontメンテナンスモードを自動キャッシュ無効化付きで�
 ### CloudFront Function ロジック
 
 viewer-request CloudFront Functionは以下をチェック:
+
 1. **メンテナンスキー** - `maintenance = "true"`の場合、ホワイトリストチェックに進む
 2. **IPホワイトリスト** - クライアントIPがホワイトリストにあれば通過許可
 3. **リダイレクト** - それ以外の場合、HTTP 302で`/maintenance.html`にリダイレクト
@@ -128,6 +133,7 @@ viewer-request CloudFront Functionは以下をチェック:
 ### キャッシュ無効化
 
 キャッシュ無効化は**重要**です。理由:
+
 - CloudFrontはエッジロケーションで応答をグローバルにキャッシュ
 - 無効化がないと、ユーザーは古いキャッシュされたリダイレクトを見る
 - ブラウザキャッシュも表示に影響
@@ -159,9 +165,9 @@ viewer-request CloudFront Functionは以下をチェック:
 
 ### KVSキー
 
-| キー | 型 | 説明 | 例 |
-|-----|------|-------------|---------|
-| `maintenance` | string | メンテナンスモードの有効化/無効化 | `"true"` または `"false"` |
+| キー          | 型     | 説明                                     | 例                            |
+| ------------- | ------ | ---------------------------------------- | ----------------------------- |
+| `maintenance` | string | メンテナンスモードの有効化/無効化        | `"true"` または `"false"`     |
 | `ipWhitelist` | string | バイパスを許可するIPのカンマ区切りリスト | `"203.0.113.1,198.51.100.50"` |
 
 ## トラブルシューティング
@@ -171,6 +177,7 @@ viewer-request CloudFront Functionは以下をチェック:
 **問題**: `"true"`に設定したのにサイトにアクセスできる
 
 **解決策**:
+
 1. **KVS値を確認**: `./maintenance-mode.sh <env> status`
 2. **伝播を待つ**: 無効化後30〜60秒
 3. **ブラウザキャッシュをクリア**: 強制リロード（Ctrl+Shift+R）
@@ -181,6 +188,7 @@ viewer-request CloudFront Functionは以下をチェック:
 **問題**: `"false"`に設定したのにメンテナンスページが表示される
 
 **解決策**:
+
 1. **無効化を実行**: スクリプトが自動実行
 2. **伝播を待つ**: 30〜60秒
 3. **ブラウザキャッシュをクリア**: 強制リロード（Ctrl+Shift+R）またはシークレットモード
@@ -191,6 +199,7 @@ viewer-request CloudFront Functionは以下をチェック:
 **問題**: "Could not find Web stack"
 
 **解決策**: 環境名とAWSプロファイルを確認
+
 ```bash
 aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE
 ```
@@ -204,6 +213,7 @@ aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMP
 ### 1. 常にスクリプトを使用
 
 キャッシュ無効化なしでKVSを手動更新しない:
+
 ```bash
 # ❌ 悪い例 - 無効化なしの手動更新
 aws cloudfront-keyvaluestore put-key ...
@@ -234,6 +244,7 @@ aws cloudfront-keyvaluestore put-key ...
 ### 4. ユーザーとコミュニケーション
 
 メンテナンスモード有効化時:
+
 1. ユーザーに事前通知
 2. メンテナンスモードを有効化
 3. CloudWatchでエラーを監視
@@ -327,6 +338,7 @@ aws cloudfront list-invalidations --distribution-id <id>
 ## サポート
 
 問題や質問がある場合:
+
 1. 上記のトラブルシューティングセクションを確認
 2. CloudFront Functionログを確認（利用可能な場合）
 3. CloudFormationスタック出力を確認
