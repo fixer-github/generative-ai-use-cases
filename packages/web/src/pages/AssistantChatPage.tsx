@@ -65,6 +65,7 @@ const AssistantChatPage: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const streamChatIdRef = useRef<string | undefined>(undefined);
   const accumulatedContentRef = useRef('');
+  const streamBufferRef = useRef('');
 
   // Derive status info
   const statusInfo = useMemo(() => {
@@ -273,6 +274,7 @@ const AssistantChatPage: React.FC = () => {
     // Reset refs for new stream
     streamChatIdRef.current = undefined;
     accumulatedContentRef.current = '';
+    streamBufferRef.current = '';
 
     try {
       // Use streaming API
@@ -282,25 +284,51 @@ const AssistantChatPage: React.FC = () => {
       });
 
       for await (const chunk of stream) {
-        // Parse JSONL chunks - each line is a JSON object
-        chunk
-          .split('\n')
-          .filter((line) => line.trim())
-          .forEach((line) => {
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed.text && parsed.text.length > 0) {
-                accumulatedContentRef.current += parsed.text;
-                setStreamingContent(accumulatedContentRef.current);
-              }
-              // Capture chatId (sessionId) from the stream
-              if (parsed.sessionId && !streamChatIdRef.current) {
-                streamChatIdRef.current = parsed.sessionId;
-              }
-            } catch {
-              // Ignore parse errors for partial chunks
+        // Buffer chunks to handle partial JSON lines at chunk boundaries
+        // Chunks may split JSON lines arbitrarily, so we buffer incomplete lines
+        streamBufferRef.current += chunk;
+
+        // Process complete lines (those ending with newline)
+        const lines = streamBufferRef.current.split('\n');
+        // Keep the last part in buffer (may be incomplete if no trailing newline)
+        streamBufferRef.current = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          try {
+            const parsed = JSON.parse(trimmedLine);
+            if (parsed.text && parsed.text.length > 0) {
+              accumulatedContentRef.current += parsed.text;
+              setStreamingContent(accumulatedContentRef.current);
             }
-          });
+            // Capture chatId (sessionId) from the stream
+            if (parsed.sessionId && !streamChatIdRef.current) {
+              streamChatIdRef.current = parsed.sessionId;
+            }
+          } catch {
+            // Log parse errors for debugging - complete lines should always be valid JSON
+            console.warn('Failed to parse JSONL line:', trimmedLine);
+          }
+        }
+      }
+
+      // Process any remaining content in buffer after stream ends
+      const remainingLine = streamBufferRef.current.trim();
+      if (remainingLine) {
+        try {
+          const parsed = JSON.parse(remainingLine);
+          if (parsed.text && parsed.text.length > 0) {
+            accumulatedContentRef.current += parsed.text;
+            setStreamingContent(accumulatedContentRef.current);
+          }
+          if (parsed.sessionId && !streamChatIdRef.current) {
+            streamChatIdRef.current = parsed.sessionId;
+          }
+        } catch {
+          console.warn('Failed to parse final JSONL line:', remainingLine);
+        }
       }
 
       setWriting(false);
