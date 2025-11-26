@@ -31,9 +31,7 @@ function getTableName(
 /**
  * 次回リセット日時を計算する
  */
-function calculateNextResetTime(
-  periodType: 'daily' | 'monthly'
-): number {
+function calculateNextResetTime(periodType: 'daily' | 'monthly'): number {
   const now = new Date();
   let nextReset: Date;
 
@@ -63,12 +61,11 @@ async function resetTenantCounters(
 ): Promise<number> {
   try {
     // テナント用のDynamoDBクライアントを作成
-    const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
-      tenantId
-    );
+    const dynamoDBClient =
+      await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       environment
     );
@@ -82,10 +79,8 @@ async function resetTenantCounters(
     const now = Math.floor(Date.now() / 1000);
 
     // リセット期限が来たカウンターを取得
-    const countersToReset = await usageCountRepository.findByPeriodTypeAndResetTime(
-      periodType,
-      now
-    );
+    const countersToReset =
+      await usageCountRepository.findByPeriodTypeAndResetTime(periodType, now);
 
     console.log(
       `Found ${countersToReset.length} counters to reset for tenant ${tenantId}, period ${periodType}`
@@ -163,7 +158,8 @@ export const handler = async (
           `Successfully reset ${updatedCount} counters for tenant ${tenant.tenantId}`
         );
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
         errors.push({
           tenantId: tenant.tenantId,
           error: errorMessage,
