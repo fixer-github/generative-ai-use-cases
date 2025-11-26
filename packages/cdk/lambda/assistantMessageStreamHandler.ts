@@ -5,6 +5,7 @@ import {
   createAssistantChat,
   createAssistantMessage,
   findChatById,
+  listAssistantMessages,
   updateChatUpdatedDate,
 } from './repository/chat';
 import {
@@ -291,9 +292,39 @@ export const handler = awslambda.streamifyResponse(
         }),
       };
 
-      // Prepare messages for LLM
+      // Fetch conversation history for existing chats
+      const conversationHistory: UnrecordedMessage[] = await (async () => {
+        if (isNewConversation) {
+          return [];
+        }
+        try {
+          const historyResponse = await listAssistantMessages(
+            userId,
+            cleanChatId,
+            requestContext,
+            undefined,
+            50 // Limit history to last 50 messages
+          );
+          // Convert to UnrecordedMessage format, excluding the just-added user message
+          // Messages are sorted chronologically (oldest first)
+          return (historyResponse.messages || [])
+            .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+            .slice(0, -1) // Exclude the last message (the one we just added)
+            .map((msg) => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            }));
+        } catch (historyError) {
+          console.error('Failed to fetch conversation history:', historyError);
+          // Continue without history if fetch fails
+          return [];
+        }
+      })();
+
+      // Prepare messages for LLM with conversation history
       const messages: UnrecordedMessage[] = [
         { role: 'system', content: systemMessage },
+        ...conversationHistory,
         { role: 'user', content: content },
       ];
 
