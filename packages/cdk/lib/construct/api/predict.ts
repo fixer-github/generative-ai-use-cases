@@ -187,6 +187,25 @@ class PredictApi extends Construct {
 
       predictStreamFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
       predictFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
+
+      // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
+      // This allows predictStreamFunction to exchange Cognito tokens for tenant credentials
+      const cognitoIdentityPolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['cognito-identity:GetId', 'cognito-identity:GetOpenIdToken'],
+        resources: ['*'],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      const stsAssumeRolePolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(stsAssumeRolePolicy);
     }
     if (sagemakerPolicy) {
       predictFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
