@@ -57,6 +57,9 @@ export type GenericApiProps = {
     readonly apiKey: string; // OPENAI_API_KEY
   };
 
+  // Assistant configuration
+  readonly assistantFileMaxSizeMB?: number;
+
   api: RestApi;
   fileBucket: Bucket;
 

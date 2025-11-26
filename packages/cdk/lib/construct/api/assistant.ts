@@ -265,6 +265,9 @@ class AssistantApi extends Construct {
             ASSISTANT_FILES_BUCKET_NAME: fileBucket.bucketName,
             OPENSEARCH_INDEX: 'assistant-docs',
             TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+            ASSISTANT_FILE_MAX_SIZE_MB: String(
+              props.assistantFileMaxSizeMB ?? 10
+            ),
           }),
         }
       );

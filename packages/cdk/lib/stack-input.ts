@@ -145,6 +145,8 @@ const baseStackInputSchema = z.object({
   mcpEnabled: z.boolean().default(false),
   // PPTX
   pptxEnabled: z.boolean().default(false),
+  // Assistant
+  assistantFileMaxSizeMB: z.number().min(1).max(100).default(10),
   // LiteLLM Proxy Server
   litellmProxyEnabled: z.boolean().default(false),
   // Guardrail

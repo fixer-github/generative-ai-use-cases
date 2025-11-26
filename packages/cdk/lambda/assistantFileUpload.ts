@@ -19,6 +19,10 @@ import {
 
 const MANAGED_BUCKET_NAME = process.env.ASSISTANT_FILES_BUCKET_NAME;
 const UPLOAD_EXPIRATION_SECONDS = 300; // 5 minutes
+const MAX_FILE_SIZE_MB = parseInt(
+  process.env.ASSISTANT_FILE_MAX_SIZE_MB || '10',
+  10
+);
 
 interface RequestPresignedUrlRequest {
   fileName: string;
@@ -59,11 +63,11 @@ export const handler = async (
       });
     }
 
-    // Validate file size (10 MB limit)
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-    if (body.fileSize > MAX_FILE_SIZE) {
+    // Validate file size (configurable, default 10 MB)
+    const maxFileSizeBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
+    if (body.fileSize > maxFileSizeBytes) {
       return badRequest400Response({
-        message: `File size exceeds limit of ${MAX_FILE_SIZE} bytes`,
+        message: `File size exceeds limit of ${MAX_FILE_SIZE_MB} MB`,
       });
     }
 

@@ -69,6 +69,7 @@
     "inlineAgents": false,
     "mcpEnabled": false,
     "pptxEnabled": false,
+    "assistantFileMaxSizeMB": 10,
     "flows": [],
     "allowedIpV4AddressRanges": null,
     "allowedIpV6AddressRanges": null,

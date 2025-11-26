@@ -112,6 +112,9 @@ class AssistantApiStack extends NestedStack {
 
       // OpenAI
       openai: params.openai,
+
+      // Assistant configuration
+      assistantFileMaxSizeMB: params.assistantFileMaxSizeMB,
     });
 
     this.assistantApi = assistantApi;
