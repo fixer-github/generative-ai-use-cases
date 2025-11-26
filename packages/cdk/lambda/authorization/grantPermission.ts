@@ -240,12 +240,12 @@ export const handler = async (
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
     const permissionGrantTableName = getTableName(
-      'PermissionGrant',
+      'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
