@@ -43,6 +43,10 @@ export class UsageCountRepository {
     userId: string,
     featureIdPeriod: string
   ): Promise<UsageCounterItem | null> {
+    console.log(
+      `[UsageCountRepository.get] Fetching counter - tableName: ${this.tableName}, userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+    );
+
     const command = new GetItemCommand({
       TableName: this.tableName,
       Key: marshall({
@@ -54,10 +58,18 @@ export class UsageCountRepository {
     const result = await this.client.send(command);
 
     if (!result.Item) {
+      console.log(
+        `[UsageCountRepository.get] Counter not found - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+      );
       return null;
     }
 
-    return unmarshall(result.Item) as UsageCounterItem;
+    const item = unmarshall(result.Item) as UsageCounterItem;
+    console.log(
+      `[UsageCountRepository.get] Counter found - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}, currentCount: ${item.currentCount}, limitCount: ${item.limitCount}`
+    );
+
+    return item;
   }
 
   /**
@@ -67,6 +79,10 @@ export class UsageCountRepository {
     userId: string,
     featureIdPeriod: string
   ): Promise<number> {
+    console.log(
+      `[UsageCountRepository.increment] Starting increment - tableName: ${this.tableName}, userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+    );
+
     const now = Math.floor(Date.now() / 1000);
 
     const command = new UpdateItemCommand({
@@ -87,12 +103,19 @@ export class UsageCountRepository {
     const result = await this.client.send(command);
 
     if (!result.Attributes) {
+      console.error(
+        `[UsageCountRepository.increment] Failed to increment counter - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+      );
       throw new Error(
         `Failed to increment counter for userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
       );
     }
 
     const item = unmarshall(result.Attributes) as UsageCounterItem;
+    console.log(
+      `[UsageCountRepository.increment] Successfully incremented - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}, newCount: ${item.currentCount}, limitCount: ${item.limitCount}`
+    );
+
     return item.currentCount;
   }
 

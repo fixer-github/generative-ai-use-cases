@@ -1,7 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getTenantCredentials } from './tenantCredentials';
+import {
+  getTenantCredentials,
+  getTenantCredentialsFromToken,
+} from './tenantCredentials';
 import { isDefaultTenant } from './tenantS3Utils';
 import { getTenant } from '../tenantManager';
 
@@ -107,5 +110,54 @@ export async function createTenantDynamoDBClientForBackgroundJob(
       error
     );
     throw new Error(`Cannot access tenant resources: ${error}`);
+  }
+}
+
+/**
+ * Create a DynamoDB client with tenant-isolated credentials from ID token
+ * Uses AssumeRoleWithWebIdentity to access tenant resources via Cognito Identity Pool
+ * For use in lambdas that receive ID token but not API Gateway events (e.g., PredictStream)
+ * NOTE: No caching to ensure proper user isolation within tenants
+ * @param idToken - Cognito User Pool ID token (JWT)
+ */
+export async function createTenantDynamoDBClientFromToken(
+  idToken: string
+): Promise<DynamoDBClient> {
+  try {
+    // Get fresh credentials and tenant info for each request to ensure proper user isolation
+    const { credentials, tenant } = await getTenantCredentialsFromToken(
+      idToken
+    );
+
+    if (!credentials.AccessKeyId || !credentials.SecretAccessKey) {
+      throw new Error(
+        'Invalid credentials received from AssumeRoleWithWebIdentity'
+      );
+    }
+
+    if (!tenant.region) {
+      throw new Error(
+        `Tenant ${tenant.tenantId} is missing region information`
+      );
+    }
+
+    console.log(
+      `Creating DynamoDB client for tenant ${tenant.tenantId} in region ${tenant.region} (from token)`
+    );
+
+    // Create DynamoDB client with tenant role credentials and tenant's region
+    return new DynamoDBClient({
+      credentials: {
+        accessKeyId: credentials.AccessKeyId,
+        secretAccessKey: credentials.SecretAccessKey,
+        sessionToken: credentials.SessionToken,
+      },
+      region: tenant.region,
+    });
+  } catch (error) {
+    console.error('Failed to create tenant DynamoDB client from token:', error);
+    throw new Error(
+      `Failed to create tenant-isolated DynamoDB client: ${error}`
+    );
   }
 }
