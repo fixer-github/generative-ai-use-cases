@@ -263,10 +263,18 @@ export const handler = async (
 
     try {
       // 回数制限がある機能についてDynamoDBにカウンター情報を作成
+      console.log(
+        `[GrantPermission] Creating usage counters for ${features.length} features - tableName: ${usageCounterTableName}`
+      );
+
       for (const feature of features) {
         if (feature.limitType !== 'unlimited') {
           const featureIdPeriod = `${feature.featureId}#${feature.limitType}`;
           const nextResetTime = calculateNextResetTime(feature.limitType);
+
+          console.log(
+            `[GrantPermission] Creating counter - userId: ${userId}, featureId: ${feature.featureId}, limitType: ${feature.limitType}, limitCount: ${feature.limitCount}`
+          );
 
           await usageCountRepository.create({
             userId,
@@ -282,7 +290,11 @@ export const handler = async (
           });
 
           console.log(
-            `Created usage counter for user ${userId}, feature ${feature.featureId}, period ${feature.limitType}`
+            `[GrantPermission] Successfully created counter - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}, limitCount: ${feature.limitCount}, nextResetTime: ${nextResetTime}`
+          );
+        } else {
+          console.log(
+            `[GrantPermission] Skipping counter creation for unlimited feature: ${feature.featureId}`
           );
         }
       }

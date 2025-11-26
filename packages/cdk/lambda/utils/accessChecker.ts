@@ -8,7 +8,7 @@
 
 import { verifyToken } from './auth';
 import { createOpenFgaClientFromToken } from './openFgaClient';
-import { createTenantDynamoDBClientForBackgroundJob } from './tenantDynamoDBClient';
+import { createTenantDynamoDBClientFromToken } from './tenantDynamoDBClient';
 import { UsageCountRepository } from '../authorization/repositories/usageCountRepository';
 
 /**
@@ -105,8 +105,15 @@ export async function checkAccessWithQuota(
 
   const featureId = buildFeatureId(resourceType, resourceId);
 
+  console.log(
+    `[AccessCheck] Starting access check - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}`
+  );
+
   // 2. OpenFGAで権限チェック
   try {
+    console.log(
+      `[AccessCheck] Checking OpenFGA permission - userId: ${userId}, resourceType: ${resourceType}, resourceId: ${resourceId}`
+    );
     const openFgaClient = await createOpenFgaClientFromToken(idToken);
     const hasPermission = await openFgaClient.check(
       userId,
@@ -115,9 +122,13 @@ export async function checkAccessWithQuota(
       resourceId
     );
 
+    console.log(
+      `[AccessCheck] OpenFGA check result - hasPermission: ${hasPermission}`
+    );
+
     if (!hasPermission) {
       console.log(
-        `User ${userId} does not have permission to access ${featureId}`
+        `[AccessCheck] Permission denied - User ${userId} does not have permission to access ${featureId}`
       );
       return {
         allowed: false,
@@ -126,7 +137,7 @@ export async function checkAccessWithQuota(
       };
     }
   } catch (error) {
-    console.error('OpenFGA check failed:', error);
+    console.error('[AccessCheck] OpenFGA check failed:', error);
     return {
       allowed: false,
       reason: 'no_permission',
@@ -136,8 +147,7 @@ export async function checkAccessWithQuota(
 
   // 3. DynamoDBで回数制限チェック
   try {
-    const dynamoDBClient =
-      await createTenantDynamoDBClientForBackgroundJob(tenantId);
+    const dynamoDBClient = await createTenantDynamoDBClientFromToken(idToken);
 
     const usageCounterTableName = getTableName(
       'AuthUsageCounter',
@@ -150,17 +160,28 @@ export async function checkAccessWithQuota(
       usageCounterTableName
     );
 
+    console.log(
+      `[AccessCheck] Fetching usage counters - tableName: ${usageCounterTableName}, userId: ${userId}, featureId: ${featureId}`
+    );
+
     // 日次制限と月次制限の両方を取得
     const [dailyCounter, monthlyCounter] = await Promise.all([
       usageCountRepository.get(userId, `${featureId}#daily`),
       usageCountRepository.get(userId, `${featureId}#monthly`),
     ]);
 
+    console.log(
+      `[AccessCheck] Counter fetch results - dailyCounter: ${dailyCounter ? JSON.stringify(dailyCounter) : 'null'}, monthlyCounter: ${monthlyCounter ? JSON.stringify(monthlyCounter) : 'null'}`
+    );
+
     const usage: AccessCheckResult['usage'] = {};
     let limitType: AccessCheckResult['limitType'] = 'unlimited';
 
     // 日次制限のチェック
     if (dailyCounter) {
+      console.log(
+        `[AccessCheck] Daily limit found - currentCount: ${dailyCounter.currentCount}, limitCount: ${dailyCounter.limitCount}`
+      );
       limitType = 'daily';
       const remaining = dailyCounter.limitCount - dailyCounter.currentCount;
       usage.daily = {
@@ -170,7 +191,9 @@ export async function checkAccessWithQuota(
       };
 
       if (dailyCounter.currentCount >= dailyCounter.limitCount) {
-        console.log(`User ${userId} has exceeded daily quota for ${featureId}`);
+        console.log(
+          `[AccessCheck] Daily quota exceeded - User ${userId}, featureId: ${featureId}, current: ${dailyCounter.currentCount}, limit: ${dailyCounter.limitCount}`
+        );
         return {
           allowed: false,
           reason: 'quota_exceeded',
@@ -179,10 +202,18 @@ export async function checkAccessWithQuota(
           userContext: { tenantId, userId },
         };
       }
+      console.log(
+        `[AccessCheck] Daily quota check passed - remaining: ${remaining}`
+      );
+    } else {
+      console.log(`[AccessCheck] No daily limit configured for ${featureId}`);
     }
 
     // 月次制限のチェック
     if (monthlyCounter) {
+      console.log(
+        `[AccessCheck] Monthly limit found - currentCount: ${monthlyCounter.currentCount}, limitCount: ${monthlyCounter.limitCount}`
+      );
       // 日次制限がなければ月次制限を優先
       if (!dailyCounter) {
         limitType = 'monthly';
@@ -196,7 +227,7 @@ export async function checkAccessWithQuota(
 
       if (monthlyCounter.currentCount >= monthlyCounter.limitCount) {
         console.log(
-          `User ${userId} has exceeded monthly quota for ${featureId}`
+          `[AccessCheck] Monthly quota exceeded - User ${userId}, featureId: ${featureId}, current: ${monthlyCounter.currentCount}, limit: ${monthlyCounter.limitCount}`
         );
         return {
           allowed: false,
@@ -206,10 +237,17 @@ export async function checkAccessWithQuota(
           userContext: { tenantId, userId },
         };
       }
+      console.log(
+        `[AccessCheck] Monthly quota check passed - remaining: ${remaining}`
+      );
+    } else {
+      console.log(`[AccessCheck] No monthly limit configured for ${featureId}`);
     }
 
     // 回数制限がない（unlimitedまたは制限なしプラン）
-    console.log(`User ${userId} is allowed to access ${featureId}`);
+    console.log(
+      `[AccessCheck] Access granted - User ${userId}, featureId: ${featureId}, limitType: ${limitType}`
+    );
     return {
       allowed: true,
       usage: Object.keys(usage).length > 0 ? usage : undefined,
@@ -217,10 +255,10 @@ export async function checkAccessWithQuota(
       userContext: { tenantId, userId },
     };
   } catch (error) {
-    console.error('DynamoDB quota check failed:', error);
+    console.error('[AccessCheck] DynamoDB quota check failed:', error);
     // DynamoDBアクセスエラーの場合は、OpenFGAで許可されていれば通す（回数制限なしとして扱う）
     console.warn(
-      'Proceeding without quota check due to DynamoDB error (treating as unlimited)'
+      '[AccessCheck] Proceeding without quota check due to DynamoDB error (treating as unlimited)'
     );
     return {
       allowed: true,
@@ -244,14 +282,23 @@ export async function incrementUsage(
   resourceId: string,
   limitType: 'unlimited' | 'daily' | 'monthly'
 ): Promise<void> {
+  const featureId = buildFeatureId(resourceType, resourceId);
+
+  console.log(
+    `[IncrementUsage] Start - featureId: ${featureId}, limitType: ${limitType}`
+  );
+
   // unlimitedの場合はカウントアップ不要
   if (limitType === 'unlimited') {
+    console.log(
+      `[IncrementUsage] Skipping increment for unlimited feature: ${featureId}`
+    );
     return;
   }
 
   const payload = await verifyToken(idToken);
   if (!payload) {
-    console.error('Invalid token for incrementUsage');
+    console.error('[IncrementUsage] Invalid token for incrementUsage');
     return;
   }
 
@@ -259,15 +306,18 @@ export async function incrementUsage(
   const userId = payload['cognito:username'];
 
   if (!tenantId || !userId) {
-    console.error('Missing tenantId or userId for incrementUsage');
+    console.error(
+      '[IncrementUsage] Missing tenantId or userId for incrementUsage'
+    );
     return;
   }
 
-  const featureId = buildFeatureId(resourceType, resourceId);
+  console.log(
+    `[IncrementUsage] Parameters - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}, limitType: ${limitType}`
+  );
 
   try {
-    const dynamoDBClient =
-      await createTenantDynamoDBClientForBackgroundJob(tenantId);
+    const dynamoDBClient = await createTenantDynamoDBClientFromToken(idToken);
 
     const usageCounterTableName = getTableName(
       'AuthUsageCounter',
@@ -281,16 +331,21 @@ export async function incrementUsage(
     );
 
     const featureIdPeriod = `${featureId}#${limitType}`;
+
+    console.log(
+      `[IncrementUsage] Incrementing counter - tableName: ${usageCounterTableName}, userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+    );
+
     const newCount = await usageCountRepository.increment(
       userId,
       featureIdPeriod
     );
 
     console.log(
-      `Incremented usage count for user ${userId}, feature ${featureId}, period ${limitType}. New count: ${newCount}`
+      `[IncrementUsage] Success - user: ${userId}, feature: ${featureId}, period: ${limitType}, newCount: ${newCount}`
     );
   } catch (error) {
     // カウントアップに失敗しても処理を止めない（ログのみ）
-    console.error('Failed to increment usage count:', error);
+    console.error('[IncrementUsage] Failed to increment usage count:', error);
   }
 }
