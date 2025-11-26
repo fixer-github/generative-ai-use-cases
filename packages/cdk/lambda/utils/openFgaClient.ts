@@ -118,6 +118,36 @@ export class OpenFgaClient {
   }
 
   /**
+   * Write tuples to OpenFGA (for creating relationships)
+   */
+  async writeTuples(tupleKeys: Array<{
+    user: string;
+    relation: string;
+    object: string;
+  }>): Promise<void> {
+    try {
+      const requestBody = {
+        writes: {
+          tuple_keys: tupleKeys,
+        },
+      };
+
+      const response = await this.makeSignedRequest(
+        'POST',
+        `/stores/${this.storeId}/write`,
+        JSON.stringify(requestBody)
+      );
+
+      console.log(
+        `Successfully wrote ${tupleKeys.length} tuples to OpenFGA`
+      );
+    } catch (error) {
+      console.error('Failed to write tuples to OpenFGA:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Make a signed request to OpenFGA API Gateway
    */
   private async makeSignedRequest(

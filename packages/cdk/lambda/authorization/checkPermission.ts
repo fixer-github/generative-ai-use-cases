@@ -147,7 +147,10 @@ export const handler = async (
       },
     };
 
-    console.log('Checking permission in OpenFGA:', JSON.stringify(checkBody, null, 2));
+    console.log(
+      'Checking permission in OpenFGA:',
+      JSON.stringify(checkBody, null, 2)
+    );
 
     let hasPermission = false;
 
@@ -164,7 +167,9 @@ export const handler = async (
       const checkResult = JSON.parse(checkResponse);
       hasPermission = checkResult.allowed === true;
 
-      console.log(`OpenFGA check result for user ${userId}, feature ${featureId}: ${hasPermission}`);
+      console.log(
+        `OpenFGA check result for user ${userId}, feature ${featureId}: ${hasPermission}`
+      );
     } catch (openFgaError) {
       console.error('OpenFGA check failed:', openFgaError);
       // OpenFGAへのアクセスに失敗した場合は拒否する
@@ -182,12 +187,11 @@ export const handler = async (
     }
 
     // 6. DynamoDBに利用回数の残数を問い合わせ
-    const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
-      tenantId
-    );
+    const dynamoDBClient =
+      await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
@@ -259,7 +263,10 @@ export const handler = async (
       usage: Object.keys(usage).length > 0 ? usage : undefined,
     };
 
-    console.log('Check Permission Response:', JSON.stringify(response, null, 2));
+    console.log(
+      'Check Permission Response:',
+      JSON.stringify(response, null, 2)
+    );
 
     return response;
   } catch (error) {

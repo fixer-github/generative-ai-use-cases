@@ -13,14 +13,7 @@ import {
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
-import { getTenant } from '../../../tenantManager';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
-import { getOpenFgaConfig } from '../../../utils/tenantSsmParameters';
-import { HttpRequest } from '@smithy/protocol-http';
-import { SignatureV4 } from '@smithy/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
-
-const stsClient = new STSClient();
+import { createOpenFgaClient } from '../../../utils/openFgaClient';
 
 /**
  * Entitlement IDを生成する
@@ -36,7 +29,10 @@ function generateEntitlementId(planId: string): string {
  * @param featureId 機能ID (例: "llm:gemini-2.5-flash" or "chat")
  * @returns { type: 'llm' | 'feature', id: string }
  */
-function parseFeatureId(featureId: string): { type: 'llm' | 'feature'; id: string } {
+function parseFeatureId(featureId: string): {
+  type: 'llm' | 'feature';
+  id: string;
+} {
   if (featureId.startsWith('llm:')) {
     return { type: 'llm', id: featureId.substring(4) };
   }
@@ -44,102 +40,13 @@ function parseFeatureId(featureId: string): { type: 'llm' | 'feature'; id: strin
 }
 
 /**
- * OpenFGA API Gatewayに署名付きリクエストを送信する
- */
-async function makeSignedOpenFgaRequest(
-  method: string,
-  path: string,
-  apiEndpoint: string,
-  apiRegion: string,
-  credentials: {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    SessionToken?: string;
-  },
-  body?: string
-): Promise<string> {
-  const url = new URL(apiEndpoint);
-  const hostname = url.hostname;
-  const protocol = url.protocol.replace(':', '');
-
-  const request = new HttpRequest({
-    method,
-    protocol,
-    hostname,
-    path: `${url.pathname}${path}`.replace(/\/\//g, '/'),
-    headers: {
-      'Content-Type': 'application/json',
-      host: hostname,
-    },
-    body,
-  });
-
-  const signer = new SignatureV4({
-    credentials,
-    region: apiRegion,
-    service: 'execute-api',
-    sha256: Sha256,
-  });
-
-  const signedRequest = await signer.sign(request);
-
-  const response = await fetch(
-    `${protocol}://${hostname}${signedRequest.path}`,
-    {
-      method: signedRequest.method,
-      headers: signedRequest.headers as HeadersInit,
-      body: signedRequest.body,
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `OpenFGA API request failed: ${response.status} ${response.statusText} - ${errorText}`
-    );
-  }
-
-  return await response.text();
-}
-
-/**
  * OpenFGAにプランのEntitlementとリソース関係を登録する
  */
 async function registerEntitlementToOpenFga(
-  tenantId: string,
+  event: APIGatewayProxyEvent,
   planId: string,
   features: string[]
 ): Promise<void> {
-  // テナント情報の取得
-  const tenant = await getTenant(tenantId);
-  if (!tenant) {
-    throw new Error(`Tenant ${tenantId} not found`);
-  }
-
-  // テナントロールを AssumeRole してクレデンシャルを取得
-  const assumeRoleCommand = new AssumeRoleCommand({
-    RoleArn: tenant.roleArn,
-    RoleSessionName: `CreatePlan-Entitlement-${planId}`,
-  });
-
-  const assumeRoleResponse = await stsClient.send(assumeRoleCommand);
-  if (!assumeRoleResponse.Credentials) {
-    throw new Error(`Failed to assume role for tenant: ${tenantId}`);
-  }
-
-  const credentials = {
-    AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
-    SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
-    SessionToken: assumeRoleResponse.Credentials.SessionToken,
-  };
-
-  // OpenFGA設定をSSM Parameter Storeから取得
-  const openFgaConfig = await getOpenFgaConfig(
-    tenantId,
-    assumeRoleResponse.Credentials,
-    tenant.region
-  );
-
   // Entitlement IDを生成
   const entitlementId = generateEntitlementId(planId);
 
@@ -168,27 +75,20 @@ async function registerEntitlementToOpenFga(
     return;
   }
 
-  const writeTuplesBody = {
-    writes: {
-      tuple_keys: tupleKeys,
-    },
-  };
-
   console.log(
     'Registering entitlement tuples to OpenFGA:',
-    JSON.stringify(writeTuplesBody, null, 2)
+    JSON.stringify(tupleKeys, null, 2)
   );
 
-  await makeSignedOpenFgaRequest(
-    'POST',
-    `/stores/${openFgaConfig.storeId}/write`,
-    openFgaConfig.apiEndpoint,
-    openFgaConfig.apiRegion,
-    credentials,
-    JSON.stringify(writeTuplesBody)
-  );
+  // OpenFGAクライアントを作成（APIGatewayのeventから認証情報を使用）
+  const openFgaClient = await createOpenFgaClient(event);
 
-  console.log(`Entitlement ${entitlementId} registered successfully with ${tupleKeys.length} tuples`);
+  // Tuplesを書き込み
+  await openFgaClient.writeTuples(tupleKeys);
+
+  console.log(
+    `Entitlement ${entitlementId} registered successfully with ${tupleKeys.length} tuples`
+  );
 }
 
 interface CreatePlanRequest {
@@ -356,7 +256,8 @@ export const handler = async (
             message: '必須フィールドが不足しています',
             details: {
               field: 'platform_product_id',
-              reason: 'platform_typeがinternal以外の場合、platform_product_idは必須です',
+              reason:
+                'platform_typeがinternal以外の場合、platform_product_idは必須です',
             },
           },
         }),
@@ -389,7 +290,10 @@ export const handler = async (
     }
 
     // permissionsの構造チェック
-    if (!requestBody.permissions.features || !Array.isArray(requestBody.permissions.features)) {
+    if (
+      !requestBody.permissions.features ||
+      !Array.isArray(requestBody.permissions.features)
+    ) {
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
@@ -406,7 +310,10 @@ export const handler = async (
       };
     }
 
-    if (!requestBody.permissions.limits || typeof requestBody.permissions.limits !== 'object') {
+    if (
+      !requestBody.permissions.limits ||
+      typeof requestBody.permissions.limits !== 'object'
+    ) {
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
@@ -425,7 +332,10 @@ export const handler = async (
 
     // limitsの各エントリの構造チェック
     for (const [key, limit] of Object.entries(requestBody.permissions.limits)) {
-      if (!limit.type || !['unlimited', 'daily', 'monthly'].includes(limit.type)) {
+      if (
+        !limit.type ||
+        !['unlimited', 'daily', 'monthly'].includes(limit.type)
+      ) {
         return {
           statusCode: 400,
           headers: CORS_HEADERS,
@@ -435,7 +345,8 @@ export const handler = async (
               message: 'permissions フィールドのJSON形式が不正です',
               details: {
                 field: `permissions.limits.${key}`,
-                reason: "typeには 'unlimited', 'daily', 'monthly' のいずれかを指定してください",
+                reason:
+                  "typeには 'unlimited', 'daily', 'monthly' のいずれかを指定してください",
               },
             },
           }),
@@ -443,8 +354,14 @@ export const handler = async (
       }
 
       if (limit.type !== 'unlimited') {
-        const limitWithCount = limit as { type: 'daily' | 'monthly'; count: number };
-        if (typeof limitWithCount.count !== 'number' || limitWithCount.count <= 0) {
+        const limitWithCount = limit as {
+          type: 'daily' | 'monthly';
+          count: number;
+        };
+        if (
+          typeof limitWithCount.count !== 'number' ||
+          limitWithCount.count <= 0
+        ) {
           return {
             statusCode: 400,
             headers: CORS_HEADERS,
@@ -454,7 +371,8 @@ export const handler = async (
                 message: 'permissions フィールドのJSON形式が不正です',
                 details: {
                   field: `permissions.limits.${key}`,
-                  reason: 'typeがunlimited以外の場合、countは正の整数である必要があります',
+                  reason:
+                    'typeがunlimited以外の場合、countは正の整数である必要があります',
                 },
               },
             }),
@@ -510,7 +428,7 @@ export const handler = async (
     // OpenFGAにEntitlementとリソース関係を登録
     try {
       await registerEntitlementToOpenFga(
-        adminResult.tenantId,
+        event,
         newPlan.plan_id,
         requestBody.permissions.features
       );

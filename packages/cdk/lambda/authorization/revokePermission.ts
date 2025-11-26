@@ -43,9 +43,9 @@ async function makeSignedOpenFgaRequest(
   apiEndpoint: string,
   apiRegion: string,
   credentials: {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    SessionToken?: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
   },
   body?: string
 ): Promise<string> {
@@ -114,17 +114,16 @@ export const handler = async (
     }
 
     // 3. DynamoDBから権限付与情報を取得
-    const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
-      tenantId
-    );
+    const dynamoDBClient =
+      await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
     const permissionGrantTableName = getTableName(
-      'PermissionGrant',
+      'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
@@ -169,9 +168,9 @@ export const handler = async (
     }
 
     const credentials = {
-      AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
-      SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
-      SessionToken: assumeRoleResponse.Credentials.SessionToken,
+      accessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
+      secretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
+      sessionToken: assumeRoleResponse.Credentials.SessionToken,
     };
 
     // 5. OpenFGA設定をSSM Parameter Storeから取得

@@ -46,12 +46,11 @@ export const handler = async (
     }
 
     // 2. DynamoDBのカウンターをアトミックに更新
-    const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(
-      tenantId
-    );
+    const dynamoDBClient =
+      await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
