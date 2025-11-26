@@ -140,7 +140,7 @@ export async function checkAccessWithQuota(
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
@@ -170,9 +170,7 @@ export async function checkAccessWithQuota(
       };
 
       if (dailyCounter.currentCount >= dailyCounter.limitCount) {
-        console.log(
-          `User ${userId} has exceeded daily quota for ${featureId}`
-        );
+        console.log(`User ${userId} has exceeded daily quota for ${featureId}`);
         return {
           allowed: false,
           reason: 'quota_exceeded',
@@ -272,7 +270,7 @@ export async function incrementUsage(
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
     const usageCounterTableName = getTableName(
-      'UsageCounter',
+      'AuthUsageCounter',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
