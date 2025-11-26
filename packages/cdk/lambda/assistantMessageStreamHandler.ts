@@ -163,7 +163,8 @@ export const handler = awslambda.streamifyResponse(
       // Check sync status for RAG-enabled assistants
       if (
         assistant.ragEnabled &&
-        (assistant.syncStatus === 'QUEUED' || assistant.syncStatus === 'SYNCING')
+        (assistant.syncStatus === 'QUEUED' ||
+          assistant.syncStatus === 'SYNCING')
       ) {
         responseStream.write(
           streamingChunk({
@@ -303,10 +304,10 @@ export const handler = awslambda.streamifyResponse(
             cleanChatId,
             requestContext,
             undefined,
-            50 // Limit history to last 50 messages
+            100 // Limit history to latest 100 messages
           );
           // Convert to UnrecordedMessage format, excluding the just-added user message
-          // Messages are sorted chronologically (oldest first)
+          // Messages are returned in chronological order (oldest first) - latest 100
           return (historyResponse.messages || [])
             .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
             .slice(0, -1) // Exclude the last message (the one we just added)
@@ -363,7 +364,11 @@ export const handler = awslambda.streamifyResponse(
       );
 
       // Update chat updatedDate
-      const chatRecord = await findChatById(userId, cleanChatId, requestContext);
+      const chatRecord = await findChatById(
+        userId,
+        cleanChatId,
+        requestContext
+      );
       if (chatRecord) {
         await updateChatUpdatedDate(
           chatRecord.id,
