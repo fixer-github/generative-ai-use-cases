@@ -14,6 +14,7 @@ import {
 } from 'generative-ai-use-cases';
 import { similaritySearch } from './repository/assistantSearch';
 import { streamingChunk } from './utils/streamingChunk';
+import { canAccessAssistant } from './utils/assistantAccessControl';
 import api from './utils/api';
 import { modelMetadata } from '@generative-ai-use-cases/common';
 
@@ -128,6 +129,18 @@ export const handler = awslambda.streamifyResponse(
         responseStream.write(
           streamingChunk({
             text: 'Assistant not found',
+            stopReason: 'error',
+          })
+        );
+        responseStream.end();
+        return;
+      }
+
+      // Check access: owner OR (public AND same tenant)
+      if (!canAccessAssistant(assistant, userId, requestContext)) {
+        responseStream.write(
+          streamingChunk({
+            text: 'Access denied to this assistant',
             stopReason: 'error',
           })
         );

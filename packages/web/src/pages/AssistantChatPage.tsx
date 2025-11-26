@@ -149,13 +149,14 @@ const AssistantChatPage: React.FC = () => {
     }
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (chatIdOverride?: string) => {
     if (!assistantId) return;
 
+    const targetChatId = chatIdOverride ?? currentChatId;
     try {
       const response = await listMessages(assistantId, {
         limit: 100,
-        chatId: currentChatId,
+        chatId: targetChatId,
       });
       // Sort messages chronologically (oldest first)
       // Backend returns newest first (ScanIndexForward: false), so we reverse
@@ -317,7 +318,8 @@ const AssistantChatPage: React.FC = () => {
       }
 
       // Refresh messages to get the persisted messages from server
-      await fetchMessages();
+      // Use streamChatIdRef.current for new conversations since state update is async
+      await fetchMessages(streamChatIdRef.current ?? currentChatId);
 
       // Generate title for the first message
       if (isFirstMessage && streamChatIdRef.current) {
