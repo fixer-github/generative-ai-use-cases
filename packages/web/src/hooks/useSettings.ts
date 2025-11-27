@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { create } from 'zustand';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type Language = 'auto' | 'ja' | 'en';
@@ -24,36 +24,51 @@ const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = 'app-settings';
 
+// localStorageから初期値を読み込む
+const loadSettings = (): Settings => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+  return DEFAULT_SETTINGS;
+};
+
+// localStorageに保存する
+const saveSettings = (settings: Settings) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+  }
+};
+
+interface SettingsStore {
+  settings: Settings;
+  updateSettings: (updates: Partial<Settings>) => void;
+  resetSettings: () => void;
+}
+
+const useSettingsStore = create<SettingsStore>((set) => ({
+  settings: loadSettings(),
+  updateSettings: (updates) =>
+    set((state) => {
+      const newSettings = { ...state.settings, ...updates };
+      saveSettings(newSettings);
+      return { settings: newSettings };
+    }),
+  resetSettings: () => {
+    saveSettings(DEFAULT_SETTINGS);
+    set({ settings: DEFAULT_SETTINGS });
+  },
+}));
+
 export const useSettings = () => {
-  const [settings, setSettings] = useState<Settings>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { ...DEFAULT_SETTINGS, ...parsed };
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
-    return DEFAULT_SETTINGS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    }
-  }, [settings]);
-
-  const updateSettings = useCallback((updates: Partial<Settings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
-  }, []);
-
-  const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
-  }, []);
-
+  const { settings, updateSettings, resetSettings } = useSettingsStore();
   return {
     settings,
     updateSettings,
