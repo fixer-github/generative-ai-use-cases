@@ -42,6 +42,7 @@ class PredictApi extends Construct {
       logsPolicy,
       assumeRolePolicy,
       litellmProxy,
+      environment,
     } = props;
 
     const predictFunction = new NodejsFunction(this, 'Predict', {
@@ -107,6 +108,9 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // Environment
+        ENVIRONMENT: environment,
 
         // Tenant Management Environment Variables
         ...(tenantManager
