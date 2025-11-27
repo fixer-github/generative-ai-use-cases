@@ -10,6 +10,7 @@ import ButtonCopy from '../components/ButtonCopy';
 import ModalDialog from '../components/ModalDialog';
 import ExpandableField from '../components/ExpandableField';
 import ModelSelector from '../components/ModelSelector';
+import SystemPromptDisplay from '../components/SystemPromptDisplay';
 import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
@@ -77,6 +78,7 @@ const ChatPage: React.FC = () => {
     postChat,
     editChat,
     updateSystemContext,
+    getCurrentSystemContext,
     retryGeneration,
     forceToStop,
     loadingMessages,
@@ -315,6 +317,12 @@ const ChatPage: React.FC = () => {
           {/* Spacer */}
           <div className="flex-1" />
         </div>
+
+        {/* System Prompt Display */}
+        <SystemPromptDisplay
+          systemPrompt={getCurrentSystemContext() || FIXED_SYSTEM_CONTEXT}
+          className="mb-4 print:hidden"
+        />
 
         {/* Print-only Title */}
         <h1 className="my-5 hidden text-xl font-semibold print:block">

@@ -33,6 +33,7 @@ import {
   isSyncBlocking,
   isStatusFinal,
 } from '../components/assistants/statusMetadata';
+import SystemPromptDisplay from '../components/SystemPromptDisplay';
 import { findModelByModelId } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import { useSettings } from '../hooks/useSettings';
@@ -540,6 +541,12 @@ const AssistantChatPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* System Prompt Display */}
+      <SystemPromptDisplay
+        systemPrompt={assistant?.instruction}
+        className="mx-4 mt-4"
+      />
 
       {showAssistantInfo && assistant && (
         <Card className="m-4 p-4">
