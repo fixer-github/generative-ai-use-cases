@@ -10,10 +10,15 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -30,20 +35,14 @@ export const handler = async (
     // パスパラメータからplan_idを取得
     const planId = event.pathParameters?.plan_id;
     if (!planId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'プランIDが指定されていません',
-            details: {
-              field: 'plan_id',
-              reason: 'パスパラメータにplan_idを指定してください',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'プランIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'plan_id',
+          reason: 'パスパラメータにplan_idを指定してください',
+        },
+      });
     }
 
     // プランの存在確認とバリデーション
@@ -55,74 +54,52 @@ export const handler = async (
     );
 
     if (!plan) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_NOT_FOUND',
-            message: '指定されたプランが見つかりません',
-            details: {
-              plan_id: planId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたプランが見つかりません',
+        code: 'PLAN_NOT_FOUND',
+        details: {
+          plan_id: planId,
+        },
+      });
     }
 
     // internalプラットフォームタイプであることの確認
     if (plan.platform_type !== 'internal') {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PLATFORM_TYPE',
-            message: 'デフォルトプランに設定できるのは、internal タイプのプランのみです',
-            details: {
-              plan_id: planId,
-              platform_type: plan.platform_type,
-              reason: 'platform_type が internal ではありません',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'デフォルトプランに設定できるのは、internal タイプのプランのみです',
+        code: 'INVALID_PLATFORM_TYPE',
+        details: {
+          plan_id: planId,
+          platform_type: plan.platform_type,
+          reason: 'platform_type が internal ではありません',
+        },
+      });
     }
 
     // ステータスがactiveであることの確認
     if (plan.status !== 'active') {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PLAN_STATUS',
-            message: 'デフォルトプランに設定できるのは、active ステータスのプランのみです',
-            details: {
-              plan_id: planId,
-              status: plan.status,
-              reason: 'プランのステータスが active ではありません',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'デフォルトプランに設定できるのは、active ステータスのプランのみです',
+        code: 'INVALID_PLAN_STATUS',
+        details: {
+          plan_id: planId,
+          status: plan.status,
+          reason: 'プランのステータスが active ではありません',
+        },
+      });
     }
 
     // 既にデフォルトプランの場合は成功レスポンスを返す（冪等性）
     if (plan.is_default) {
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          plan_id: plan.plan_id,
-          internal_name: plan.internal_name,
-          display_name: plan.display_name,
-          is_default: true,
-          previous_default_plan: null,
-          updated_at: new Date(plan.updated_at).toISOString(),
-          updated_by: adminResult.username,
-        }),
-      };
+      return ok200Response({
+        plan_id: plan.plan_id,
+        internal_name: plan.internal_name,
+        display_name: plan.display_name,
+        is_default: true,
+        previous_default_plan: null,
+        updated_at: new Date(plan.updated_at).toISOString(),
+        updated_by: adminResult.username,
+      });
     }
 
     // 現在のデフォルトプランを取得
@@ -142,16 +119,11 @@ export const handler = async (
     );
 
     if (!updatedPlan) {
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UPDATE_FAILED',
-            message: 'デフォルトプランの設定に失敗しました',
-          },
-        }),
-      };
+      return internalServerError500Response({
+        message: 'デフォルトプランの設定に失敗しました',
+        code: 'UPDATE_FAILED',
+        details: {},
+      });
     }
 
     // TODO: 監査ログの記録
@@ -160,7 +132,7 @@ export const handler = async (
     );
 
     // レスポンスの構築
-    const response = {
+    return ok200Response({
       plan_id: updatedPlan.plan_id,
       internal_name: updatedPlan.internal_name,
       display_name: updatedPlan.display_name,
@@ -172,27 +144,15 @@ export const handler = async (
       } : null,
       updated_at: new Date(updatedPlan.updated_at).toISOString(),
       updated_by: adminResult.username,
-    };
-
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    });
   } catch (error) {
     console.error('Error setting default plan:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

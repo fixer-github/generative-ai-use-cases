@@ -9,7 +9,6 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
@@ -17,6 +16,12 @@ import {
   UserPlanApplication,
   Subscription,
 } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -33,20 +38,14 @@ export const handler = async (
     // パスパラメータからplan_idを取得
     const planId = event.pathParameters?.plan_id;
     if (!planId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'プランIDが指定されていません',
-            details: {
-              field: 'plan_id',
-              reason: 'パスパラメータにplan_idを指定してください',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'プランIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'plan_id',
+          reason: 'パスパラメータにplan_idを指定してください',
+        },
+      });
     }
 
     // プランの存在確認（データアクセス層Lambda関数を呼び出し）
@@ -57,19 +56,13 @@ export const handler = async (
       { id: planId }
     );
     if (!plan) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_NOT_FOUND',
-            message: '指定されたプランが見つかりません',
-            details: {
-              plan_id: planId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたプランが見つかりません',
+        code: 'PLAN_NOT_FOUND',
+        details: {
+          plan_id: planId,
+        },
+      });
     }
 
     // ユーザプラン適用を取得（active と scheduled_termination）（データアクセス層Lambda関数を呼び出し）
@@ -149,25 +142,15 @@ export const handler = async (
       updated_at: new Date().toISOString(),
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error getting plan subscriptions:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

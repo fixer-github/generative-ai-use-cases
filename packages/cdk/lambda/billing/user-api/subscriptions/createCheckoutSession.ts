@@ -15,6 +15,13 @@ import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 /**
  * リクエストボディの型
@@ -77,15 +84,6 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
 }
 
 /**
- * CORSヘッダー
- */
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-};
-
-/**
  * リクエストヘッダーからフロントエンドのベースURLを取得する
  * Origin > Referer の優先順位で取得し、取得できない場合はエラーをスローする
  */
@@ -128,67 +126,46 @@ export const handler = async (
 
     if (!userId || !tenantId) {
       console.error('Missing authentication information');
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        } as ErrorResponse),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+        details: undefined,
+      });
     }
 
     console.log('Request context:', { userId, tenantId });
 
     // 2. リクエストボディを取得
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_BODY',
+        details: undefined,
+      });
     }
 
     let requestBody: CreateCheckoutSessionRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch (error) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディが不正なJSON形式です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが不正なJSON形式です',
+        code: 'INVALID_JSON',
+        details: undefined,
+      });
     }
 
     const { planId } = requestBody;
 
     if (!planId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'planId',
-              reason: 'planIdは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'planId',
+          reason: 'planIdは必須です',
+        },
+      });
     }
 
     console.log('Creating checkout session for plan:', planId);
@@ -203,19 +180,13 @@ export const handler = async (
 
     if (!plan) {
       console.error('Plan not found:', planId);
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_NOT_FOUND',
-            message: '指定されたプランが見つかりません',
-            details: {
-              planId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return notFound404Response({
+        message: '指定されたプランが見つかりません',
+        code: 'PLAN_NOT_FOUND',
+        details: {
+          planId,
+        },
+      });
     }
 
     // 4. プランのプラットフォームタイプを確認
@@ -224,57 +195,39 @@ export const handler = async (
         planId,
         platformType: plan.platform_type,
       });
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PLATFORM',
-            message: 'このプランはWeb版での購入に対応していません',
-            details: {
-              planId,
-              platformType: plan.platform_type,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'このプランはWeb版での購入に対応していません',
+        code: 'INVALID_PLATFORM',
+        details: {
+          planId,
+          platformType: plan.platform_type,
+        },
+      });
     }
 
     // 5. Stripe Price IDを取得
     const priceId = plan.platform_product_id;
     if (!priceId) {
       console.error('Price ID not configured for plan:', planId);
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'CONFIGURATION_ERROR',
-            message: 'プランの価格設定が正しく構成されていません',
-            details: {
-              planId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プランの価格設定が正しく構成されていません',
+        code: 'CONFIGURATION_ERROR',
+        details: {
+          planId,
+        },
+      });
     }
 
     // 6. プランのステータスを確認
     if (plan.status === 'deprecated') {
       console.error('Plan is deprecated:', planId);
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_DEPRECATED',
-            message: 'このプランは廃止されており、購入できません',
-            details: {
-              planId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'このプランは廃止されており、購入できません',
+        code: 'PLAN_DEPRECATED',
+        details: {
+          planId,
+        },
+      });
     }
 
     console.log('Plan validation successful:', {
@@ -323,41 +276,26 @@ export const handler = async (
       session_id: session.id,
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error creating checkout session:', error);
 
     // Stripeのエラーを適切に処理
     if (error instanceof Stripe.errors.StripeError) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'STRIPE_ERROR',
-            message: error.message,
-            details: {
-              type: error.type,
-              code: error.code,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: error.message,
+        code: 'STRIPE_ERROR',
+        details: {
+          type: error.type,
+          code: error.code,
+        },
+      });
     }
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-        },
-      } as ErrorResponse),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: undefined,
+    });
   }
 };

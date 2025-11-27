@@ -9,10 +9,14 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -29,20 +33,14 @@ export const handler = async (
     // クエリパラメータからinternal_nameを取得
     const internalName = event.queryStringParameters?.internal_name;
     if (!internalName) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_PARAMETER',
-            message: '必須パラメータが不足しています',
-            details: {
-              parameter: 'internal_name',
-              reason: 'internal_name パラメータは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが不足しています',
+        code: 'MISSING_REQUIRED_PARAMETER',
+        details: {
+          parameter: 'internal_name',
+          reason: 'internal_name パラメータは必須です',
+        },
+      });
     }
 
     // データアクセス層Lambda関数を呼び出して内部名称の重複チェック
@@ -55,44 +53,30 @@ export const handler = async (
 
     if (existingPlan) {
       // 既に使用されている場合
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          internal_name: internalName,
-          available: false,
-          conflicting_plan: {
-            plan_id: existingPlan.plan_id,
-            display_name: existingPlan.display_name,
-            status: existingPlan.status,
-          },
-        }),
-      };
+      return ok200Response({
+        internal_name: internalName,
+        available: false,
+        conflicting_plan: {
+          plan_id: existingPlan.plan_id,
+          display_name: existingPlan.display_name,
+          status: existingPlan.status,
+        },
+      });
     } else {
       // 使用可能な場合
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          internal_name: internalName,
-          available: true,
-        }),
-      };
+      return ok200Response({
+        internal_name: internalName,
+        available: true,
+      });
     }
   } catch (error) {
     console.error('Error checking plan name:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

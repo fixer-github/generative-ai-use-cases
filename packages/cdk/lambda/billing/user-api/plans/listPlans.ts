@@ -8,7 +8,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
-import { CORS_HEADERS } from '../../../utils/apiResponse';
+import {
+  ok200Response,
+  badRequest400Response,
+  unauthorized401Response,
+  internalServerError500Response,
+  notImplemented501Response,
+  serviceUnavailable503Response,
+} from '../../../utils/apiResponse';
 import { getTenantId } from '../../../utils/tenantUtils';
 import {
   getPricing,
@@ -133,41 +140,29 @@ export const handler = async (
 
     // パラメータが指定されていない場合
     if (!platformParam) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'platform',
-              reason:
-                "platformパラメータは必須です。'web', 'ios', 'android' のいずれかを指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'platform',
+          reason:
+            "platformパラメータは必須です。'web', 'ios', 'android' のいずれかを指定してください",
+        },
+      });
     }
 
     // パラメータが不正な場合
     if (!['web', 'ios', 'android'].includes(platformParam)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'platform',
-              value: platformParam,
-              reason:
-                "platformには 'web', 'ios', 'android' のいずれかを指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'platform',
+          value: platformParam,
+          reason:
+            "platformには 'web', 'ios', 'android' のいずれかを指定してください",
+        },
+      });
     }
 
     // 3. プラットフォームマッピング
@@ -257,26 +252,17 @@ export const handler = async (
       plans: formattedPlans,
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error fetching plans:', error);
 
     // 認証エラーの場合
     if (error instanceof Error && error.message.includes('Unauthorized')) {
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        }),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+        details: undefined,
+      });
     }
 
     // NOT_IMPLEMENTED エラーの場合
@@ -284,17 +270,11 @@ export const handler = async (
       error instanceof Error &&
       error.message.includes('not yet implemented')
     ) {
-      return {
-        statusCode: 501,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'NOT_IMPLEMENTED',
-            message: 'このプラットフォームの価格取得機能は未実装です',
-            details: error.message,
-          },
-        }),
-      };
+      return notImplemented501Response({
+        message: 'このプラットフォームの価格取得機能は未実装です',
+        code: 'NOT_IMPLEMENTED',
+        details: error.message,
+      });
     }
 
     // 価格取得エラーの場合
@@ -302,30 +282,18 @@ export const handler = async (
       error instanceof Error &&
       error.message.includes('Failed to fetch pricing')
     ) {
-      return {
-        statusCode: 503,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PRICING_SERVICE_ERROR',
-            message: '価格情報の取得に失敗しました',
-            details: error.message,
-          },
-        }),
-      };
+      return serviceUnavailable503Response({
+        message: '価格情報の取得に失敗しました',
+        code: 'PRICING_SERVICE_ERROR',
+        details: error.message,
+      });
     }
 
     // その他のエラー
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };

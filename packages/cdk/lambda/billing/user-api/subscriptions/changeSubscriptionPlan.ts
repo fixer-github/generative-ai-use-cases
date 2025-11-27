@@ -8,7 +8,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { CORS_HEADERS } from '../../../utils/apiResponse';
+import {
+  ok200Response,
+  unauthorized401Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
@@ -49,11 +54,9 @@ interface ChangeSubscriptionPlanResponse {
  * エラーレスポンスの型
  */
 interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
+  message: string;
+  code: string;
+  details?: unknown;
 }
 
 // Lambda client instance
@@ -110,85 +113,55 @@ export const handler = async (
 
     if (!userId || userId === 'unknown') {
       console.error('Missing authentication information');
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        } as ErrorResponse),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+      });
     }
 
     console.log('Request context:', { userId, tenantId });
 
     // 2. リクエストボディを取得
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_BODY',
+      });
     }
 
     let requestBody: ChangeSubscriptionPlanRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディが不正なJSON形式です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが不正なJSON形式です',
+        code: 'INVALID_JSON',
+      });
     }
 
     const { newPlanId, subscriptionId } = requestBody;
 
     // 3. 必須パラメータのバリデーション
     if (!newPlanId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'newPlanId',
-              reason: 'newPlanIdは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'newPlanId',
+          reason: 'newPlanIdは必須です',
+        },
+      });
     }
 
     if (!subscriptionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'subscriptionId',
-              reason: 'subscriptionIdは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'subscriptionId',
+          reason: 'subscriptionIdは必須です',
+        },
+      });
     }
 
     // 4. 現在のプランIDを取得
@@ -202,17 +175,11 @@ export const handler = async (
       );
     } catch (error) {
       console.error('Error fetching user plan applications:', error);
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'DATA_ACCESS_ERROR',
-            message: 'プラン情報の取得に失敗しました',
-            details: error instanceof Error ? error.message : 'Unknown error',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プラン情報の取得に失敗しました',
+        code: 'DATA_ACCESS_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     // 有効なプラン適用をフィルタリング
@@ -234,36 +201,24 @@ export const handler = async (
     const highestPriorityApplication = selectHighestPriorityApplication(activeApplications);
 
     if (!highestPriorityApplication) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'NO_ACTIVE_PLAN',
-            message: '現在有効なプランがありません',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '現在有効なプランがありません',
+        code: 'NO_ACTIVE_PLAN',
+      });
     }
 
     const currentPlanId = highestPriorityApplication.plan_id;
 
     // 5. 同じプランへの変更をチェック
     if (currentPlanId === newPlanId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SAME_PLAN',
-            message: '同じプランへの変更はできません',
-            details: {
-              currentPlanId,
-              newPlanId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '同じプランへの変更はできません',
+        code: 'SAME_PLAN',
+        details: {
+          currentPlanId,
+          newPlanId,
+        },
+      });
     }
 
     console.log('Plan change request validated:', {
@@ -277,16 +232,10 @@ export const handler = async (
 
     if (!planChangeFlowFunctionName) {
       console.error('PLAN_CHANGE_FLOW_FUNCTION_NAME is not configured');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'CONFIGURATION_ERROR',
-            message: 'サーバー設定エラーが発生しました',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'サーバー設定エラーが発生しました',
+        code: 'CONFIGURATION_ERROR',
+      });
     }
 
     const flowInput: PlanChangeFlowInput = {
@@ -319,33 +268,21 @@ export const handler = async (
           : null,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_CHANGE_FLOW_ERROR',
-            message: 'プラン変更処理中にエラーが発生しました',
-            details: {
-              functionError: invokeResult.FunctionError,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プラン変更処理中にエラーが発生しました',
+        code: 'PLAN_CHANGE_FLOW_ERROR',
+        details: {
+          functionError: invokeResult.FunctionError,
+        },
+      });
     }
 
     if (!invokeResult.Payload) {
       console.error('Plan change flow returned no payload');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_FLOW_RESPONSE',
-            message: 'プラン変更処理からのレスポンスが不正です',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プラン変更処理からのレスポンスが不正です',
+        code: 'INVALID_FLOW_RESPONSE',
+      });
     }
 
     const flowOutput: PlanChangeFlowOutput = JSON.parse(
@@ -364,20 +301,14 @@ export const handler = async (
         errorDetails: flowOutput.errorDetails,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: flowOutput.errorDetails?.errorCode || 'PLAN_CHANGE_FAILED',
-            message:
-              flowOutput.errorDetails?.errorMessage || 'プラン変更処理に失敗しました',
-            details: {
-              flowExecutionId: flowOutput.flowExecutionId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message:
+          flowOutput.errorDetails?.errorMessage || 'プラン変更処理に失敗しました',
+        code: flowOutput.errorDetails?.errorCode || 'PLAN_CHANGE_FAILED',
+        details: {
+          flowExecutionId: flowOutput.flowExecutionId,
+        },
+      });
     }
 
     // 9. 成功レスポンスを返す
@@ -402,24 +333,14 @@ export const handler = async (
       effectiveDate: flowOutput.effectiveDate,
     });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Unexpected error in changeSubscriptionPlan:', error);
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      } as ErrorResponse),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };

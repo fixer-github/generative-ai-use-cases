@@ -44,26 +44,35 @@ function getTableName(
 }
 
 /**
- * 次回リセット日時を計算する
+ * 次回リセット日時を計算する（日本時間基準）
+ * 日本時間の0時 = UTC 15:00（前日）
  */
 function calculateNextResetTime(periodType: 'daily' | 'monthly'): number {
+  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
   const now = new Date();
-  let nextReset: Date;
+
+  // 現在時刻をJSTに変換
+  const nowJST = new Date(now.getTime() + JST_OFFSET);
+
+  let nextResetJST: Date;
 
   if (periodType === 'daily') {
-    // 翌日の午前0時（UTC）
-    nextReset = new Date(now);
-    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-    nextReset.setUTCHours(0, 0, 0, 0);
+    // 翌日の午前0時（JST）
+    nextResetJST = new Date(nowJST);
+    nextResetJST.setUTCDate(nextResetJST.getUTCDate() + 1);
+    nextResetJST.setUTCHours(0, 0, 0, 0);
   } else {
-    // 翌月1日の午前0時（UTC）
-    nextReset = new Date(now);
-    nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
-    nextReset.setUTCDate(1);
-    nextReset.setUTCHours(0, 0, 0, 0);
+    // 翌月1日の午前0時（JST）
+    nextResetJST = new Date(nowJST);
+    nextResetJST.setUTCMonth(nextResetJST.getUTCMonth() + 1);
+    nextResetJST.setUTCDate(1);
+    nextResetJST.setUTCHours(0, 0, 0, 0);
   }
 
-  return Math.floor(nextReset.getTime() / 1000);
+  // JSTからUTCに戻す
+  const nextResetUTC = new Date(nextResetJST.getTime() - JST_OFFSET);
+
+  return Math.floor(nextResetUTC.getTime() / 1000);
 }
 
 /**
