@@ -80,6 +80,22 @@ const AssistantChatPage: React.FC = () => {
     return assistant?.ragEnabled && isSyncBlocking(assistant.syncStatus);
   }, [assistant]);
 
+  // カスタム指示を含めたシステムプロンプトを構築
+  const displaySystemPrompt = useMemo(() => {
+    if (!assistant?.instruction) return undefined;
+    if (settings.customizeEnabled && settings.customInstructions.trim()) {
+      return `<instructions>
+${assistant.instruction}
+</instructions>
+<user_custom_instructions>
+${settings.customInstructions}
+</user_custom_instructions>`;
+    }
+    return `<instructions>
+${assistant.instruction}
+</instructions>`;
+  }, [assistant?.instruction, settings.customizeEnabled, settings.customInstructions]);
+
   useEffect(() => {
     if (assistantId) {
       fetchAssistant();
@@ -544,7 +560,7 @@ const AssistantChatPage: React.FC = () => {
 
       {/* System Prompt Display */}
       <SystemPromptDisplay
-        systemPrompt={assistant?.instruction}
+        systemPrompt={displaySystemPrompt}
         className="mx-4 mt-4"
       />
 
