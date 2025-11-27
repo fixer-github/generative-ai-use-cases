@@ -15,7 +15,12 @@ import {
   Subscription,
   UserPlanApplication,
 } from '../../data-access/repositories/types';
-import { CORS_HEADERS } from '../../../utils/apiResponse';
+import {
+  ok200Response,
+  unauthorized401Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
 
 /**
@@ -93,16 +98,11 @@ export const handler = async (
     const userId = getUsername(event);
 
     if (!userId || userId === 'unknown') {
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        }),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+        details: undefined,
+      });
     }
 
     console.log('Request from user:', { tenantId, userId });
@@ -120,17 +120,11 @@ export const handler = async (
       console.error('Error fetching user plan applications:', error);
 
       // データアクセスエラーの場合
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'DATA_ACCESS_ERROR',
-            message: 'プラン適用情報の取得に失敗しました',
-            details: error instanceof Error ? error.message : 'Unknown error',
-          },
-        }),
-      };
+      return internalServerError500Response({
+        message: 'プラン適用情報の取得に失敗しました',
+        code: 'DATA_ACCESS_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     // 3. 有効なプラン適用をフィルタリング
@@ -164,20 +158,14 @@ export const handler = async (
 
     // 4. プラン適用が存在しない場合はエラーを返す（デフォルトプランへのフォールバックなし）
     if (activeApplications.length === 0) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'NO_PLAN_FOUND',
-            message: '有効なプランが見つかりません',
-            details: {
-              userId,
-              message: 'ユーザに適用されているプランが存在しません',
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '有効なプランが見つかりません',
+        code: 'NO_PLAN_FOUND',
+        details: {
+          userId,
+          message: 'ユーザに適用されているプランが存在しません',
+        },
+      });
     }
 
     // 5. 最も優先度の高いプラン適用を選択
@@ -185,16 +173,11 @@ export const handler = async (
       selectHighestPriorityApplication(activeApplications);
 
     if (!selectedApplication) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'NO_PLAN_FOUND',
-            message: '有効なプランが見つかりません',
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '有効なプランが見つかりません',
+        code: 'NO_PLAN_FOUND',
+        details: undefined,
+      });
     }
 
     console.log('Selected plan application:', {
@@ -225,17 +208,11 @@ export const handler = async (
     } catch (error) {
       console.error('Error fetching plan details:', error);
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_FETCH_ERROR',
-            message: 'プラン情報の取得に失敗しました',
-            details: error instanceof Error ? error.message : 'Unknown error',
-          },
-        }),
-      };
+      return internalServerError500Response({
+        message: 'プラン情報の取得に失敗しました',
+        code: 'PLAN_FETCH_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     // 7. サブスクリプション情報を取得（ソースがsubscriptionの場合）
@@ -350,39 +327,24 @@ export const handler = async (
       status: response.status,
     });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Unexpected error in getCurrentSubscription:', error);
 
     // 認証エラーの場合
     if (error instanceof Error && error.message.includes('Unauthorized')) {
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        }),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+        details: undefined,
+      });
     }
 
     // その他の予期しないエラー
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };

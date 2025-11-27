@@ -2,17 +2,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 const lambdaClient = new LambdaClient({});
-
-/**
- * CORSヘッダー
- */
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-};
 
 /**
  * Lambda関数のメインハンドラー
@@ -30,25 +26,22 @@ export async function handler(
 
     // リクエストボディを取得
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ error: 'Request body is required' }),
-      };
+      return badRequest400Response({
+        message: 'Request body is required',
+        code: 'MISSING_BODY',
+        details: {},
+      });
     }
 
     const requestBody = JSON.parse(event.body);
     const { returnUrl } = requestBody;
 
     if (!returnUrl) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: 'Missing required field',
-          message: 'returnUrl is required',
-        }),
-      };
+      return badRequest400Response({
+        message: 'returnUrl is required',
+        code: 'MISSING_FIELD',
+        details: { field: 'returnUrl' },
+      });
     }
 
     console.log('Creating Customer Portal session:', {
@@ -81,33 +74,28 @@ export async function handler(
 
     // Payment Gateway関数からのレスポンスをそのまま返す
     if (responsePayload.statusCode === 200) {
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: responsePayload.body,
-      };
+      const responseBody = JSON.parse(responsePayload.body);
+      return ok200Response(responseBody);
     } else {
       // エラーレスポンスもそのまま返す
-      return {
-        statusCode: responsePayload.statusCode || 500,
-        headers: CORS_HEADERS,
-        body:
-          responsePayload.body ||
-          JSON.stringify({
-            error: 'Failed to create Customer Portal session',
-          }),
-      };
+      const errorBody = responsePayload.body
+        ? JSON.parse(responsePayload.body)
+        : {
+            message: 'Failed to create Customer Portal session',
+            code: 'PORTAL_SESSION_ERROR',
+            details: {},
+          };
+      return internalServerError500Response(errorBody);
     }
   } catch (error) {
     console.error('Error creating Customer Portal session:', error);
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
+    return internalServerError500Response({
+      message: 'Customer Portalセッションの作成に失敗しました',
+      code: 'INTERNAL_ERROR',
+      details: {
         error: error instanceof Error ? error.message : 'Unknown error',
-        message: 'Customer Portalセッションの作成に失敗しました',
-      }),
-    };
+      },
+    });
   }
 }

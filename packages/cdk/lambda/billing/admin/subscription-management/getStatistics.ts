@@ -9,9 +9,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 interface QueryParams {
   period?: 'last_7_days' | 'last_30_days' | 'last_90_days' | 'last_1_year';
@@ -36,20 +40,14 @@ export const handler = async (
     // パラメータのバリデーション
     const validPeriods = ['last_7_days', 'last_30_days', 'last_90_days', 'last_1_year'];
     if (!validPeriods.includes(period)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'period',
-              reason: `periodには '${validPeriods.join("', '")}' のいずれかを指定してください`,
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'period',
+          reason: `periodには '${validPeriods.join("', '")}' のいずれかを指定してください`,
+        },
+      });
     }
 
     // 統計情報を取得（データアクセス層Lambda関数を呼び出し）
@@ -139,25 +137,15 @@ export const handler = async (
       updated_at: new Date().toISOString(),
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error getting subscription statistics:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

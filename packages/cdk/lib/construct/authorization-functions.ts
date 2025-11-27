@@ -280,13 +280,13 @@ export class AuthorizationFunctions extends Construct {
     // 3. EventBridge Scheduler Rules
     // ========================================
 
-    // Daily reset rule (every day at 00:00 UTC)
+    // Daily reset rule (every day at 15:00 UTC = 00:00 JST)
     const dailyResetRule = new events.Rule(this, 'DailyUsageCountResetRule', {
       ruleName: `DailyUsageCountReset-${environment}`,
-      description: 'Reset daily usage counts at midnight UTC',
+      description: 'Reset daily usage counts at midnight JST (15:00 UTC)',
       schedule: events.Schedule.cron({
         minute: '0',
-        hour: '0',
+        hour: '15',
         day: '*',
         month: '*',
         year: '*',
@@ -302,16 +302,16 @@ export class AuthorizationFunctions extends Construct {
       })
     );
 
-    // Monthly reset rule (first day of every month at 00:00 UTC)
+    // Monthly reset rule (first day of every month at 15:00 UTC = 00:00 JST)
     const monthlyResetRule = new events.Rule(
       this,
       'MonthlyUsageCountResetRule',
       {
         ruleName: `MonthlyUsageCountReset-${environment}`,
-        description: 'Reset monthly usage counts on the 1st of each month UTC',
+        description: 'Reset monthly usage counts on the 1st of each month JST (15:00 UTC)',
         schedule: events.Schedule.cron({
           minute: '0',
-          hour: '0',
+          hour: '15',
           day: '1',
           month: '*',
           year: '*',

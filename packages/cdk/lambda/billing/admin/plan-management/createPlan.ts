@@ -9,8 +9,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
+import {
+  badRequest400Response,
+  conflict409Response,
+  created201Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
 import { createOpenFgaClient } from '../../../utils/openFgaClient';
@@ -122,101 +127,65 @@ export const handler = async (
 
     // リクエストボディのパース
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUEST_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_REQUEST_BODY',
+      });
     }
 
     let requestBody: CreatePlanRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch (error) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディのJSON形式が不正です',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディのJSON形式が不正です',
+        code: 'INVALID_JSON',
+      });
     }
 
     // 必須フィールドのバリデーション
     if (!requestBody.internal_name) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'internal_name',
-              reason: 'internal_nameは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'internal_name',
+          reason: 'internal_nameは必須です',
+        },
+      });
     }
 
     if (!requestBody.display_name) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'display_name',
-              reason: 'display_nameは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'display_name',
+          reason: 'display_nameは必須です',
+        },
+      });
     }
 
     if (!requestBody.platform_type) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'platform_type',
-              reason: 'platform_typeは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'platform_type',
+          reason: 'platform_typeは必須です',
+        },
+      });
     }
 
     if (!requestBody.permissions) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'permissions',
-              reason: 'permissionsは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'permissions',
+          reason: 'permissionsは必須です',
+        },
+      });
     }
 
     // platform_typeのバリデーション
@@ -225,21 +194,15 @@ export const handler = async (
         requestBody.platform_type
       )
     ) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_FIELD_VALUE',
-            message: 'フィールドの値が不正です',
-            details: {
-              field: 'platform_type',
-              reason:
-                "platform_typeには 'stripe', 'apple', 'google', 'internal' のいずれかを指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'フィールドの値が不正です',
+        code: 'INVALID_FIELD_VALUE',
+        details: {
+          field: 'platform_type',
+          reason:
+            "platform_typeには 'stripe', 'apple', 'google', 'internal' のいずれかを指定してください",
+        },
+      });
     }
 
     // platform_product_idのバリデーション
@@ -247,21 +210,15 @@ export const handler = async (
       requestBody.platform_type !== 'internal' &&
       !requestBody.platform_product_id
     ) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'platform_product_id',
-              reason:
-                'platform_typeがinternal以外の場合、platform_product_idは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'platform_product_id',
+          reason:
+            'platform_typeがinternal以外の場合、platform_product_idは必須です',
+        },
+      });
     }
 
     // platform_product_idの形式チェック
@@ -270,20 +227,14 @@ export const handler = async (
         requestBody.platform_type === 'stripe' &&
         !requestBody.platform_product_id.startsWith('price_')
       ) {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'INVALID_PLATFORM_PRODUCT_ID',
-              message: 'プラットフォーム商品IDの形式が正しくありません',
-              details: {
-                field: 'platform_product_id',
-                reason: "Stripeの場合は 'price_' で始まるIDを入力してください",
-              },
-            },
-          }),
-        };
+        return badRequest400Response({
+          message: 'プラットフォーム商品IDの形式が正しくありません',
+          code: 'INVALID_PLATFORM_PRODUCT_ID',
+          details: {
+            field: 'platform_product_id',
+            reason: "Stripeの場合は 'price_' で始まるIDを入力してください",
+          },
+        });
       }
 
       // TODO: Apple、Googleの形式チェックも追加
@@ -294,40 +245,28 @@ export const handler = async (
       !requestBody.permissions.features ||
       !Array.isArray(requestBody.permissions.features)
     ) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON_FORMAT',
-            message: 'permissions フィールドのJSON形式が不正です',
-            details: {
-              field: 'permissions',
-              reason: 'features フィールドが必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'permissions フィールドのJSON形式が不正です',
+        code: 'INVALID_JSON_FORMAT',
+        details: {
+          field: 'permissions',
+          reason: 'features フィールドが必須です',
+        },
+      });
     }
 
     if (
       !requestBody.permissions.limits ||
       typeof requestBody.permissions.limits !== 'object'
     ) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON_FORMAT',
-            message: 'permissions フィールドのJSON形式が不正です',
-            details: {
-              field: 'permissions',
-              reason: 'limits フィールドが必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'permissions フィールドのJSON形式が不正です',
+        code: 'INVALID_JSON_FORMAT',
+        details: {
+          field: 'permissions',
+          reason: 'limits フィールドが必須です',
+        },
+      });
     }
 
     // limitsの各エントリの構造チェック
@@ -336,21 +275,15 @@ export const handler = async (
         !limit.type ||
         !['unlimited', 'daily', 'monthly'].includes(limit.type)
       ) {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'INVALID_JSON_FORMAT',
-              message: 'permissions フィールドのJSON形式が不正です',
-              details: {
-                field: `permissions.limits.${key}`,
-                reason:
-                  "typeには 'unlimited', 'daily', 'monthly' のいずれかを指定してください",
-              },
-            },
-          }),
-        };
+        return badRequest400Response({
+          message: 'permissions フィールドのJSON形式が不正です',
+          code: 'INVALID_JSON_FORMAT',
+          details: {
+            field: `permissions.limits.${key}`,
+            reason:
+              "typeには 'unlimited', 'daily', 'monthly' のいずれかを指定してください",
+          },
+        });
       }
 
       if (limit.type !== 'unlimited') {
@@ -362,21 +295,15 @@ export const handler = async (
           typeof limitWithCount.count !== 'number' ||
           limitWithCount.count <= 0
         ) {
-          return {
-            statusCode: 400,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({
-              error: {
-                code: 'INVALID_JSON_FORMAT',
-                message: 'permissions フィールドのJSON形式が不正です',
-                details: {
-                  field: `permissions.limits.${key}`,
-                  reason:
-                    'typeがunlimited以外の場合、countは正の整数である必要があります',
-                },
-              },
-            }),
-          };
+          return badRequest400Response({
+            message: 'permissions フィールドのJSON形式が不正です',
+            code: 'INVALID_JSON_FORMAT',
+            details: {
+              field: `permissions.limits.${key}`,
+              reason:
+                'typeがunlimited以外の場合、countは正の整数である必要があります',
+            },
+          });
         }
       }
     }
@@ -389,20 +316,14 @@ export const handler = async (
       { internalName: requestBody.internal_name }
     );
     if (existingPlan) {
-      return {
-        statusCode: 409,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'DUPLICATE_INTERNAL_NAME',
-            message: 'この内部名称は既に使われています',
-            details: {
-              field: 'internal_name',
-              value: requestBody.internal_name,
-            },
-          },
-        }),
-      };
+      return conflict409Response({
+        message: 'この内部名称は既に使われています',
+        code: 'DUPLICATE_INTERNAL_NAME',
+        details: {
+          field: 'internal_name',
+          value: requestBody.internal_name,
+        },
+      });
     }
 
     // プランを作成（データアクセス層Lambda関数を呼び出し）
@@ -462,25 +383,15 @@ export const handler = async (
       updated_at: new Date(newPlan.updated_at).toISOString(),
     };
 
-    return {
-      statusCode: 201,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return created201Response(response);
   } catch (error) {
     console.error('Error creating plan:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };
