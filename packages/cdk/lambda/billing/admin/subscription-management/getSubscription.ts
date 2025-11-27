@@ -9,9 +9,14 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -28,19 +33,13 @@ export const handler = async (
     // パスパラメータからサブスクリプションIDを取得
     const subscriptionId = event.pathParameters?.subscription_id;
     if (!subscriptionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'サブスクリプションIDが指定されていません',
-            details: {
-              field: 'subscription_id',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'サブスクリプションIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'subscription_id',
+        },
+      });
     }
 
     // サブスクリプション詳細情報を取得（データアクセス層Lambda関数を呼び出し）
@@ -52,19 +51,13 @@ export const handler = async (
     );
 
     if (!result) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SUBSCRIPTION_NOT_FOUND',
-            message: '指定されたサブスクリプションが見つかりません',
-            details: {
-              subscription_id: subscriptionId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたサブスクリプションが見つかりません',
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        details: {
+          subscription_id: subscriptionId,
+        },
+      });
     }
 
     const { subscription, plan } = result;
@@ -116,25 +109,15 @@ export const handler = async (
       },
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error getting subscription details:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

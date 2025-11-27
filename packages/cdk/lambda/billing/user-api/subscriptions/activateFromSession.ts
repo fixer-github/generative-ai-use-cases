@@ -15,7 +15,14 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { CORS_HEADERS } from '../../../utils/apiResponse';
+import {
+  ok200Response,
+  unauthorized401Response,
+  badRequest400Response,
+  forbidden403Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
 import {
   PurchaseFlowInput,
@@ -50,17 +57,6 @@ interface ActivateFromSessionResponse {
   message?: string;
   /** エラー情報（失敗時） */
   error?: string;
-}
-
-/**
- * エラーレスポンスの型
- */
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
 }
 
 // Lambda client instance
@@ -115,68 +111,47 @@ export const handler = async (
 
     if (!userId || userId === 'unknown') {
       console.error('Missing authentication information');
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        } as ErrorResponse),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+        details: undefined,
+      });
     }
 
     console.log('Request context:', { userId, tenantId });
 
     // 2. リクエストボディを取得
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_BODY',
+        details: undefined,
+      });
     }
 
     let requestBody: ActivateFromSessionRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディが不正なJSON形式です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが不正なJSON形式です',
+        code: 'INVALID_JSON',
+        details: undefined,
+      });
     }
 
     const { sessionId } = requestBody;
 
     // 3. 必須パラメータのバリデーション
     if (!sessionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'sessionId',
-              reason: 'sessionIdは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'sessionId',
+          reason: 'sessionIdは必須です',
+        },
+      });
     }
 
     console.log('Validating checkout session:', sessionId);
@@ -195,29 +170,19 @@ export const handler = async (
 
       if (error instanceof Stripe.errors.StripeError) {
         if (error.code === 'resource_missing') {
-          return {
-            statusCode: 404,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({
-              error: {
-                code: 'SESSION_NOT_FOUND',
-                message: '指定されたセッションが見つかりません',
-              },
-            } as ErrorResponse),
-          };
+          return notFound404Response({
+            message: '指定されたセッションが見つかりません',
+            code: 'SESSION_NOT_FOUND',
+            details: undefined,
+          });
         }
       }
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'STRIPE_ERROR',
-            message: 'Stripeとの通信中にエラーが発生しました',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'Stripeとの通信中にエラーが発生しました',
+        code: 'STRIPE_ERROR',
+        details: undefined,
+      });
     }
 
     // 5. セッションの状態を確認
@@ -226,19 +191,13 @@ export const handler = async (
         sessionId,
         status: session.status,
       });
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SESSION_NOT_COMPLETE',
-            message: 'チェックアウトセッションがまだ完了していません',
-            details: {
-              status: session.status,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'チェックアウトセッションがまだ完了していません',
+        code: 'SESSION_NOT_COMPLETE',
+        details: {
+          status: session.status,
+        },
+      });
     }
 
     if (session.payment_status !== 'paid') {
@@ -246,19 +205,13 @@ export const handler = async (
         sessionId,
         paymentStatus: session.payment_status,
       });
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PAYMENT_INCOMPLETE',
-            message: '支払いがまだ完了していません',
-            details: {
-              paymentStatus: session.payment_status,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '支払いがまだ完了していません',
+        code: 'PAYMENT_INCOMPLETE',
+        details: {
+          paymentStatus: session.payment_status,
+        },
+      });
     }
 
     // 6. 権限チェック: セッションのuserIdとリクエスト送信者が一致するか確認
@@ -268,16 +221,11 @@ export const handler = async (
         sessionUserId,
         requestUserId: userId,
       });
-      return {
-        statusCode: 403,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PERMISSION_DENIED',
-            message: 'このセッションにアクセスする権限がありません',
-          },
-        } as ErrorResponse),
-      };
+      return forbidden403Response({
+        message: 'このセッションにアクセスする権限がありません',
+        code: 'PERMISSION_DENIED',
+        details: undefined,
+      });
     }
 
     // 7. セッションからplanIdを取得
@@ -287,16 +235,11 @@ export const handler = async (
         sessionId,
         metadata: session.metadata,
       });
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_NOT_FOUND',
-            message: 'セッションにプラン情報が含まれていません',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'セッションにプラン情報が含まれていません',
+        code: 'PLAN_NOT_FOUND',
+        details: undefined,
+      });
     }
 
     // 8. StripeのサブスクリプションIDを取得
@@ -307,16 +250,11 @@ export const handler = async (
 
     if (!stripeSubscriptionId) {
       console.error('Subscription ID not found in session:', sessionId);
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SUBSCRIPTION_NOT_FOUND',
-            message: 'セッションにサブスクリプション情報が含まれていません',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'セッションにサブスクリプション情報が含まれていません',
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        details: undefined,
+      });
     }
 
     console.log('Session validation successful:', {
@@ -330,16 +268,11 @@ export const handler = async (
 
     if (!purchaseFlowFunctionName) {
       console.error('PURCHASE_FLOW_FUNCTION_NAME is not configured');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'CONFIGURATION_ERROR',
-            message: 'サーバー設定エラーが発生しました',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'サーバー設定エラーが発生しました',
+        code: 'CONFIGURATION_ERROR',
+        details: undefined,
+      });
     }
 
     const flowInput: PurchaseFlowInput = {
@@ -375,33 +308,22 @@ export const handler = async (
           : null,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PURCHASE_FLOW_ERROR',
-            message: 'プラン有効化処理中にエラーが発生しました',
-            details: {
-              functionError: invokeResult.FunctionError,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プラン有効化処理中にエラーが発生しました',
+        code: 'PURCHASE_FLOW_ERROR',
+        details: {
+          functionError: invokeResult.FunctionError,
+        },
+      });
     }
 
     if (!invokeResult.Payload) {
       console.error('Purchase flow returned no payload');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_FLOW_RESPONSE',
-            message: 'プラン有効化処理からのレスポンスが不正です',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'プラン有効化処理からのレスポンスが不正です',
+        code: 'INVALID_FLOW_RESPONSE',
+        details: undefined,
+      });
     }
 
     const flowOutput: PurchaseFlowOutput = JSON.parse(
@@ -421,21 +343,15 @@ export const handler = async (
         errorDetails: flowOutput.errorDetails,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: flowOutput.errorDetails?.errorCode || 'ACTIVATION_FAILED',
-            message:
-              flowOutput.errorDetails?.errorMessage ||
-              'プラン有効化処理に失敗しました',
-            details: {
-              flowExecutionId: flowOutput.flowExecutionId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message:
+          flowOutput.errorDetails?.errorMessage ||
+          'プラン有効化処理に失敗しました',
+        code: flowOutput.errorDetails?.errorCode || 'ACTIVATION_FAILED',
+        details: {
+          flowExecutionId: flowOutput.flowExecutionId,
+        },
+      });
     }
 
     // 12. 成功レスポンスを返す
@@ -478,24 +394,14 @@ export const handler = async (
       planId,
     });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Unexpected error in activateFromSession:', error);
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      } as ErrorResponse),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };

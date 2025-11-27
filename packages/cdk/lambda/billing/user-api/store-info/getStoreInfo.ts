@@ -12,6 +12,11 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { getTenantId } from '../../../utils/tenantUtils';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 /**
  * レスポンスボディの型
@@ -63,15 +68,6 @@ async function getStripePublishableKey(tenantId: string): Promise<string | null>
 }
 
 /**
- * CORSヘッダー
- */
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,GET',
-};
-
-/**
  * Lambda関数のメインハンドラー
  */
 export const handler = async (
@@ -84,16 +80,11 @@ export const handler = async (
     const tenantId = getTenantId(event);
 
     if (!tenantId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'TENANT_NOT_FOUND',
-            message: 'Tenant ID could not be determined',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'Tenant ID could not be determined',
+        code: 'TENANT_NOT_FOUND',
+        details: undefined,
+      });
     }
 
     // 2. Stripe パブリッシュキーを取得
@@ -105,23 +96,14 @@ export const handler = async (
       tenantId,
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error in getStoreInfo:', error);
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An internal error occurred',
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'An internal error occurred',
+      code: 'INTERNAL_ERROR',
+      details: undefined,
+    });
   }
 };
