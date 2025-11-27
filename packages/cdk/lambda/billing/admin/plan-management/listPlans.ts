@@ -9,10 +9,14 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 interface ListPlansQueryParams {
   page?: string;
@@ -83,39 +87,27 @@ export const handler = async (
 
     // sort_byのバリデーション
     if (!['created_at', 'internal_name', 'status'].includes(sortBy)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'sort_by',
-              reason:
-                "sort_byには 'created_at', 'internal_name', 'status' のいずれかを指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'sort_by',
+          reason:
+            "sort_byには 'created_at', 'internal_name', 'status' のいずれかを指定してください",
+        },
+      });
     }
 
     // sort_orderのバリデーション
     if (!['asc', 'desc'].includes(sortOrder)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'sort_order',
-              reason: "sort_orderには 'asc' または 'desc' を指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'sort_order',
+          reason: "sort_orderには 'asc' または 'desc' を指定してください",
+        },
+      });
     }
 
     // データアクセス層Lambda関数を呼び出してプラン一覧を取得
@@ -179,25 +171,15 @@ export const handler = async (
       statistics,
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error listing plans:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

@@ -147,3 +147,37 @@ export interface ResetUsageCountResponse {
     error: string;
   }>;
 }
+
+/**
+ * 利用状況確認リクエスト
+ */
+export interface GetUsageStatusRequest {
+  featureIds: string[];
+}
+
+/**
+ * 利用状況確認レスポンス
+ */
+export interface GetUsageStatusResponse {
+  results: {
+    [featureId: string]: {
+      status: 'available' | 'limited' | 'quota_exceeded' | 'no_permission';
+      hasLimit: boolean;
+      remaining?: number;
+      limit?: number;
+      periodType?: 'daily' | 'monthly';
+      usage?: {
+        daily?: {
+          current: number;
+          limit: number;
+          remaining: number;
+        };
+        monthly?: {
+          current: number;
+          limit: number;
+          remaining: number;
+        };
+      };
+    };
+  };
+}

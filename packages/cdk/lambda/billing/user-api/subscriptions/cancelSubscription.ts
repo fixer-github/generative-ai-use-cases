@@ -8,7 +8,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { CORS_HEADERS } from '../../../utils/apiResponse';
+import {
+  ok200Response,
+  unauthorized401Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
 import {
   CancellationFlowInput,
@@ -73,105 +78,69 @@ export const handler = async (
 
     if (!userId || userId === 'unknown') {
       console.error('Missing authentication information');
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        } as ErrorResponse),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+      });
     }
 
     console.log('Request context:', { userId, tenantId });
 
     // 2. リクエストボディを取得
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_BODY',
+      });
     }
 
     let requestBody: CancelSubscriptionRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディが不正なJSON形式です',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが不正なJSON形式です',
+        code: 'INVALID_JSON',
+      });
     }
 
     const { subscriptionId, cancellationType, reason } = requestBody;
 
     // 3. 必須パラメータのバリデーション
     if (!subscriptionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'subscriptionId',
-              reason: 'subscriptionIdは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'subscriptionId',
+          reason: 'subscriptionIdは必須です',
+        },
+      });
     }
 
     if (!cancellationType) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: '必須パラメータが指定されていません',
-            details: {
-              field: 'cancellationType',
-              reason: 'cancellationTypeは必須です',
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'cancellationType',
+          reason: 'cancellationTypeは必須です',
+        },
+      });
     }
 
     // 4. cancellationTypeの値チェック
     if (!['immediate', 'at_period_end'].includes(cancellationType)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: 'cancellationTypeの値が不正です',
-            details: {
-              field: 'cancellationType',
-              reason:
-                "cancellationTypeは 'immediate' または 'at_period_end' のいずれかである必要があります",
-              received: cancellationType,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'cancellationTypeの値が不正です',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'cancellationType',
+          reason:
+            "cancellationTypeは 'immediate' または 'at_period_end' のいずれかである必要があります",
+          received: cancellationType,
+        },
+      });
     }
 
     console.log('Cancellation request validated:', {
@@ -186,16 +155,10 @@ export const handler = async (
 
     if (!cancellationFlowFunctionName) {
       console.error('CANCELLATION_FLOW_FUNCTION_NAME is not configured');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'CONFIGURATION_ERROR',
-            message: 'サーバー設定エラーが発生しました',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: 'サーバー設定エラーが発生しました',
+        code: 'CONFIGURATION_ERROR',
+      });
     }
 
     const flowInput: CancellationFlowInput = {
@@ -228,33 +191,21 @@ export const handler = async (
           : null,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'CANCELLATION_FLOW_ERROR',
-            message: '解約処理中にエラーが発生しました',
-            details: {
-              functionError: invokeResult.FunctionError,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: '解約処理中にエラーが発生しました',
+        code: 'CANCELLATION_FLOW_ERROR',
+        details: {
+          functionError: invokeResult.FunctionError,
+        },
+      });
     }
 
     if (!invokeResult.Payload) {
       console.error('Cancellation flow returned no payload');
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_FLOW_RESPONSE',
-            message: '解約処理からのレスポンスが不正です',
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message: '解約処理からのレスポンスが不正です',
+        code: 'INVALID_FLOW_RESPONSE',
+      });
     }
 
     const flowOutput: CancellationFlowOutput = JSON.parse(
@@ -273,20 +224,14 @@ export const handler = async (
         errorDetails: flowOutput.errorDetails,
       });
 
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: flowOutput.errorDetails?.errorCode || 'CANCELLATION_FAILED',
-            message:
-              flowOutput.errorDetails?.errorMessage || '解約処理に失敗しました',
-            details: {
-              flowExecutionId: flowOutput.flowExecutionId,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return internalServerError500Response({
+        message:
+          flowOutput.errorDetails?.errorMessage || '解約処理に失敗しました',
+        code: flowOutput.errorDetails?.errorCode || 'CANCELLATION_FAILED',
+        details: {
+          flowExecutionId: flowOutput.flowExecutionId,
+        },
+      });
     }
 
     // 8. 成功レスポンスを返す
@@ -309,24 +254,14 @@ export const handler = async (
       effectiveDate: flowOutput.effectiveDate,
     });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Unexpected error in cancelSubscription:', error);
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      } as ErrorResponse),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };

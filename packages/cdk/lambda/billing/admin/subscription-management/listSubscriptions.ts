@@ -9,9 +9,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import {
+  ok200Response,
+  badRequest400Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 interface QueryParams {
   page?: string;
@@ -55,58 +59,40 @@ export const handler = async (
     // sort_byのバリデーション
     const validSortBy = ['created_at', 'period_start', 'period_end'];
     if (!validSortBy.includes(sortBy)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'sort_by',
-              reason: `sort_byには '${validSortBy.join("', '")}' のいずれかを指定してください`,
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'sort_by',
+          reason: `sort_byには '${validSortBy.join("', '")}' のいずれかを指定してください`,
+        },
+      });
     }
 
     // sort_orderのバリデーション
     if (sortOrder !== 'asc' && sortOrder !== 'desc') {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'sort_order',
-              reason: "sort_orderには 'asc' または 'desc' を指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'sort_order',
+          reason: "sort_orderには 'asc' または 'desc' を指定してください",
+        },
+      });
     }
 
     // statusのバリデーション
     if (params.status) {
       const validStatuses = ['active', 'pending_verification', 'past_due', 'canceled', 'expired'];
       if (!validStatuses.includes(params.status)) {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'INVALID_PARAMETER',
-              message: '無効なパラメータが指定されました',
-              details: {
-                field: 'status',
-                reason: `statusには '${validStatuses.join("', '")}' のいずれかを指定してください`,
-              },
-            },
-          }),
-        };
+        return badRequest400Response({
+          message: '無効なパラメータが指定されました',
+          code: 'INVALID_PARAMETER',
+          details: {
+            field: 'status',
+            reason: `statusには '${validStatuses.join("', '")}' のいずれかを指定してください`,
+          },
+        });
       }
     }
 
@@ -161,25 +147,15 @@ export const handler = async (
       },
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error listing subscriptions:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

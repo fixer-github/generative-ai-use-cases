@@ -9,8 +9,13 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
   Subscription,
@@ -36,19 +41,13 @@ export const handler = async (
     // パスパラメータからサブスクリプションIDを取得
     const subscriptionId = event.pathParameters?.subscription_id;
     if (!subscriptionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'サブスクリプションIDが指定されていません',
-            details: {
-              field: 'subscription_id',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'サブスクリプションIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'subscription_id',
+        },
+      });
     }
 
     // リクエストボディのパース
@@ -64,58 +63,40 @@ export const handler = async (
       { subscriptionId }
     );
     if (!subscription) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SUBSCRIPTION_NOT_FOUND',
-            message: '指定されたサブスクリプションが見つかりません',
-            details: {
-              subscription_id: subscriptionId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたサブスクリプションが見つかりません',
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        details: {
+          subscription_id: subscriptionId,
+        },
+      });
     }
 
     // ステータスの確認
     if (subscription.subscription_status !== 'pending_verification') {
       // 既に承認済みの場合
       if (subscription.subscription_status === 'active') {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'ALREADY_APPROVED',
-              message: 'このサブスクリプションは既に承認されています',
-              details: {
-                subscription_id: subscriptionId,
-                current_status: subscription.subscription_status,
-              },
-            },
-          }),
-        };
+        return badRequest400Response({
+          message: 'このサブスクリプションは既に承認されています',
+          code: 'ALREADY_APPROVED',
+          details: {
+            subscription_id: subscriptionId,
+            current_status: subscription.subscription_status,
+          },
+        });
       }
 
       // その他のステータスの場合
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_STATUS_FOR_APPROVAL',
-            message: 'このステータスのサブスクリプションは承認できません',
-            details: {
-              subscription_id: subscriptionId,
-              current_status: subscription.subscription_status,
-              reason:
-                '承認できるのは pending_verification ステータスのサブスクリプションのみです',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'このステータスのサブスクリプションは承認できません',
+        code: 'INVALID_STATUS_FOR_APPROVAL',
+        details: {
+          subscription_id: subscriptionId,
+          current_status: subscription.subscription_status,
+          reason:
+            '承認できるのは pending_verification ステータスのサブスクリプションのみです',
+        },
+      });
     }
 
     const now = new Date();
@@ -172,25 +153,15 @@ export const handler = async (
       notification_sent: false, // TODO: 通知実装後にtrueに変更
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error approving subscription:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

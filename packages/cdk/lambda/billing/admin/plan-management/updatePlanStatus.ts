@@ -9,8 +9,14 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  conflict409Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
 
@@ -40,68 +46,44 @@ export const handler = async (
     // パスパラメータからplan_idを取得
     const planId = event.pathParameters?.plan_id;
     if (!planId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'プランIDが指定されていません',
-            details: {
-              field: 'plan_id',
-              reason: 'パスパラメータにplan_idを指定してください',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'プランIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'plan_id',
+          reason: 'パスパラメータにplan_idを指定してください',
+        },
+      });
     }
 
     // リクエストボディのパース
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUEST_BODY',
-            message: 'リクエストボディが必要です',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが必要です',
+        code: 'MISSING_REQUEST_BODY',
+      });
     }
 
     let requestBody: UpdateStatusRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch (error) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_JSON',
-            message: 'リクエストボディのJSON形式が不正です',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディのJSON形式が不正です',
+        code: 'INVALID_JSON',
+      });
     }
 
     // 必須フィールドのバリデーション
     if (!requestBody.new_status) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'new_status',
-              reason: 'new_statusは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'new_status',
+          reason: 'new_statusは必須です',
+        },
+      });
     }
 
     // ステータス値のバリデーション
@@ -110,21 +92,15 @@ export const handler = async (
         requestBody.new_status
       )
     ) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_FIELD_VALUE',
-            message: 'フィールドの値が不正です',
-            details: {
-              field: 'new_status',
-              reason:
-                "new_statusには 'active', 'closed_to_new', 'deprecated' のいずれかを指定してください",
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'フィールドの値が不正です',
+        code: 'INVALID_FIELD_VALUE',
+        details: {
+          field: 'new_status',
+          reason:
+            "new_statusには 'active', 'closed_to_new', 'deprecated' のいずれかを指定してください",
+        },
+      });
     }
 
     // プランの存在確認（データアクセス層Lambda関数を呼び出し）
@@ -135,57 +111,41 @@ export const handler = async (
       { id: planId }
     );
     if (!plan) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'PLAN_NOT_FOUND',
-            message: '指定されたプランが見つかりません',
-            details: {
-              plan_id: planId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたプランが見つかりません',
+        code: 'PLAN_NOT_FOUND',
+        details: {
+          plan_id: planId,
+        },
+      });
     }
 
     // 現在のステータスと同じ場合は何もしない
     if (plan.status === requestBody.new_status) {
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          plan_id: plan.plan_id,
-          internal_name: plan.internal_name,
-          display_name: plan.display_name,
-          status: plan.status,
-          previous_status: plan.status,
-          updated_at: new Date(plan.updated_at).toISOString(),
-          updated_by: adminResult.username,
-        }),
-      };
+      return ok200Response({
+        plan_id: plan.plan_id,
+        internal_name: plan.internal_name,
+        display_name: plan.display_name,
+        status: plan.status,
+        previous_status: plan.status,
+        updated_at: new Date(plan.updated_at).toISOString(),
+        updated_by: adminResult.username,
+      });
     }
 
     // ステータス遷移ルールのチェック
     const allowedStatuses = STATUS_TRANSITIONS[plan.status] || [];
     if (!allowedStatuses.includes(requestBody.new_status)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: 'このステータス遷移は許可されていません',
-            details: {
-              current_status: plan.status,
-              requested_status: requestBody.new_status,
-              allowed_statuses: allowedStatuses,
-              reason: `${plan.status} から ${requestBody.new_status} への遷移はできません`,
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'このステータス遷移は許可されていません',
+        code: 'INVALID_STATUS_TRANSITION',
+        details: {
+          current_status: plan.status,
+          requested_status: requestBody.new_status,
+          allowed_statuses: allowedStatuses,
+          reason: `${plan.status} から ${requestBody.new_status} への遷移はできません`,
+        },
+      });
     }
 
     // deprecatedへの遷移の場合、契約者数をチェック
@@ -202,20 +162,14 @@ export const handler = async (
       );
 
       if (allApplications.length > 0) {
-        return {
-          statusCode: 409,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'CANNOT_DEPRECATE_WITH_ACTIVE_SUBSCRIPTIONS',
-              message: `このプランには現在${allApplications.length}人の契約者がいるため、廃止できません`,
-              details: {
-                active_subscription_count: allApplications.length,
-                reason: 'すべての契約が終了してから廃止してください',
-              },
-            },
-          }),
-        };
+        return conflict409Response({
+          message: `このプランには現在${allApplications.length}人の契約者がいるため、廃止できません`,
+          code: 'CANNOT_DEPRECATE_WITH_ACTIVE_SUBSCRIPTIONS',
+          details: {
+            active_subscription_count: allApplications.length,
+            reason: 'すべての契約が終了してから廃止してください',
+          },
+        });
       }
     }
 
@@ -234,16 +188,10 @@ export const handler = async (
     );
 
     if (!updatedPlan) {
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UPDATE_FAILED',
-            message: 'プランのステータス更新に失敗しました',
-          },
-        }),
-      };
+      return internalServerError500Response({
+        message: 'プランのステータス更新に失敗しました',
+        code: 'UPDATE_FAILED',
+      });
     }
 
     // TODO: 監査ログの記録
@@ -263,25 +211,15 @@ export const handler = async (
       updated_by: adminResult.username,
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error updating plan status:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

@@ -13,6 +13,14 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
+import {
+  ok200Response,
+  unauthorized401Response,
+  badRequest400Response,
+  forbidden403Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 /**
  * レスポンスボディの型
@@ -72,15 +80,6 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
 }
 
 /**
- * CORSヘッダー
- */
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-};
-
-/**
  * Lambda関数のメインハンドラー
  */
 export const handler = async (
@@ -95,16 +94,10 @@ export const handler = async (
 
     if (!userId || !tenantId) {
       console.error('Missing authentication information');
-      return {
-        statusCode: 401,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: '認証が必要です',
-          },
-        } as ErrorResponse),
-      };
+      return unauthorized401Response({
+        message: '認証が必要です',
+        code: 'UNAUTHORIZED',
+      });
     }
 
     console.log('Request context:', { userId, tenantId });
@@ -113,16 +106,10 @@ export const handler = async (
     const sessionId = event.pathParameters?.sessionId;
 
     if (!sessionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'セッションIDが指定されていません',
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: 'セッションIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+      });
     }
 
     console.log('Retrieving checkout session:', sessionId);
@@ -142,16 +129,10 @@ export const handler = async (
         sessionUserId: session.metadata?.userId,
         requestUserId: userId,
       });
-      return {
-        statusCode: 403,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'FORBIDDEN',
-            message: 'このセッションへのアクセス権限がありません',
-          },
-        } as ErrorResponse),
-      };
+      return forbidden403Response({
+        message: 'このセッションへのアクセス権限がありません',
+        code: 'FORBIDDEN',
+      });
     }
 
     // 6. レスポンスを構築
@@ -174,11 +155,7 @@ export const handler = async (
       paymentStatus: response.payment_status,
     });
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error retrieving checkout session status:', error);
 
@@ -186,43 +163,25 @@ export const handler = async (
     if (error instanceof Stripe.errors.StripeError) {
       // セッションが見つからない場合
       if (error.code === 'resource_missing') {
-        return {
-          statusCode: 404,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({
-            error: {
-              code: 'SESSION_NOT_FOUND',
-              message: '指定されたセッションが見つかりません',
-            },
-          } as ErrorResponse),
-        };
+        return notFound404Response({
+          message: '指定されたセッションが見つかりません',
+          code: 'SESSION_NOT_FOUND',
+        });
       }
 
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'STRIPE_ERROR',
-            message: error.message,
-            details: {
-              type: error.type,
-              code: error.code,
-            },
-          },
-        } as ErrorResponse),
-      };
+      return badRequest400Response({
+        message: error.message,
+        code: 'STRIPE_ERROR',
+        details: {
+          type: error.type,
+          code: error.code,
+        },
+      });
     }
 
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-        },
-      } as ErrorResponse),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+    });
   }
 };

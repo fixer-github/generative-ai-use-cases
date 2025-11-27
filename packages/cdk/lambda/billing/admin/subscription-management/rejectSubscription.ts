@@ -9,10 +9,15 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   verifyAdminAccess,
   isAdminContext,
-  CORS_HEADERS,
 } from '../../../utils/adminAuth';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Subscription } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
 
 interface RejectRequest {
   rejection_reason:
@@ -38,53 +43,36 @@ export const handler = async (
     // パスパラメータからサブスクリプションIDを取得
     const subscriptionId = event.pathParameters?.subscription_id;
     if (!subscriptionId) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_PARAMETER',
-            message: 'サブスクリプションIDが指定されていません',
-            details: {
-              field: 'subscription_id',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'サブスクリプションIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'subscription_id',
+        },
+      });
     }
 
     // リクエストボディのパース
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUEST_BODY',
-            message: 'リクエストボディが指定されていません',
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'リクエストボディが指定されていません',
+        code: 'MISSING_REQUEST_BODY',
+        details: {},
+      });
     }
 
     const requestBody: RejectRequest = JSON.parse(event.body);
 
     // rejection_reasonの検証
     if (!requestBody.rejection_reason) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'MISSING_REQUIRED_FIELD',
-            message: '必須フィールドが不足しています',
-            details: {
-              field: 'rejection_reason',
-              reason: 'rejection_reasonは必須です',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '必須フィールドが不足しています',
+        code: 'MISSING_REQUIRED_FIELD',
+        details: {
+          field: 'rejection_reason',
+          reason: 'rejection_reasonは必須です',
+        },
+      });
     }
 
     const validReasons = [
@@ -94,20 +82,14 @@ export const handler = async (
       'other',
     ];
     if (!validReasons.includes(requestBody.rejection_reason)) {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_PARAMETER',
-            message: '無効なパラメータが指定されました',
-            details: {
-              field: 'rejection_reason',
-              reason: `rejection_reasonには '${validReasons.join("', '")}' のいずれかを指定してください`,
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: '無効なパラメータが指定されました',
+        code: 'INVALID_PARAMETER',
+        details: {
+          field: 'rejection_reason',
+          reason: `rejection_reasonには '${validReasons.join("', '")}' のいずれかを指定してください`,
+        },
+      });
     }
 
     // サブスクリプション情報を取得（データアクセス層Lambda関数を呼び出し）
@@ -118,39 +100,27 @@ export const handler = async (
       { subscriptionId }
     );
     if (!subscription) {
-      return {
-        statusCode: 404,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'SUBSCRIPTION_NOT_FOUND',
-            message: '指定されたサブスクリプションが見つかりません',
-            details: {
-              subscription_id: subscriptionId,
-            },
-          },
-        }),
-      };
+      return notFound404Response({
+        message: '指定されたサブスクリプションが見つかりません',
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        details: {
+          subscription_id: subscriptionId,
+        },
+      });
     }
 
     // ステータスの確認
     if (subscription.subscription_status !== 'pending_verification') {
-      return {
-        statusCode: 400,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({
-          error: {
-            code: 'INVALID_STATUS_FOR_REJECTION',
-            message: 'このステータスのサブスクリプションは却下できません',
-            details: {
-              subscription_id: subscriptionId,
-              current_status: subscription.subscription_status,
-              reason:
-                '却下できるのは pending_verification ステータスのサブスクリプションのみです',
-            },
-          },
-        }),
-      };
+      return badRequest400Response({
+        message: 'このステータスのサブスクリプションは却下できません',
+        code: 'INVALID_STATUS_FOR_REJECTION',
+        details: {
+          subscription_id: subscriptionId,
+          current_status: subscription.subscription_status,
+          reason:
+            '却下できるのは pending_verification ステータスのサブスクリプションのみです',
+        },
+      });
     }
 
     const now = new Date();
@@ -189,25 +159,15 @@ export const handler = async (
       notification_sent: false, // TODO: 通知実装後にtrueに変更
     };
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(response),
-    };
+    return ok200Response(response);
   } catch (error) {
     console.error('Error rejecting subscription:', error);
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバー内部エラーが発生しました',
-          details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-      }),
-    };
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
   }
 };

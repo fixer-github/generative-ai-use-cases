@@ -78,6 +78,7 @@ class UserBillingApi extends Construct {
   public readonly changeSubscriptionPlanFunction?: NodejsFunction;
   public readonly createCustomerPortalFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
+  public readonly getUsageStatusFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: UserBillingApiProps) {
     super(scope, id);
@@ -620,6 +621,74 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 10: 利用状況確認API
+    // POST /api/usage/status
+    // ========================================
+
+    this.getUsageStatusFunction = new NodejsFunction(this, 'GetUsageStatus', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/billing/user-api/usage/getUsageStatus.ts',
+      timeout: Duration.seconds(30),
+      memorySize: 512,
+      environment: commonEnvironment,
+    });
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(this.getUsageStatusFunction);
+
+    // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+    this.getUsageStatusFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/TenantRole-*'],
+      })
+    );
+
+    // Grant STS AssumeRoleWithWebIdentity permission
+    this.getUsageStatusFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      })
+    );
+
+    // Grant OpenFGA API Gateway invoke permissions
+    this.getUsageStatusFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['execute-api:Invoke'],
+        resources: ['arn:aws:execute-api:*:*:*/prod/*'],
+      })
+    );
+
+    // Grant SSM Parameter Store read permissions for OpenFGA config
+    this.getUsageStatusFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiEndpoint`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiRegion`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaStoreId`,
+        ],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const usageResource = apiResource.addResource('usage');
+    const usageStatusResource = usageResource.addResource('status');
+    usageStatusResource.addMethod(
+      'POST',
+      new LambdaIntegration(this.getUsageStatusFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
     // ログ出力
     // ========================================
 
@@ -635,6 +704,7 @@ class UserBillingApi extends Construct {
     }
     console.log('  - POST /api/subscriptions/customer-portal');
     console.log('  - GET /api/store-info');
+    console.log('  - POST /api/usage/status');
   }
 }
 
