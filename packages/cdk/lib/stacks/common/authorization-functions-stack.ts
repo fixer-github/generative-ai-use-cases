@@ -1,10 +1,9 @@
 /**
  * Authorization Functions Stack
- * 権限判定システムのLambda関数・EventBridge共通スタック
+ * 権限判定システムのLambda関数共通スタック
  *
  * このスタックは以下を作成します：
- * - Lambda関数（権限付与、剥奪、チェック、カウント加算、リセット）
- * - EventBridge Schedulerルール（日次・月次リセット）
+ * - Lambda関数（権限付与、剥奪、チェック、使用イベント記録）
  *
  * DynamoDBテーブルはテナント専用スタック（TenantAuthorizationDbStack）で管理されます
  * Lambda関数はAssumeRoleパターンを使用して各テナントのDBにアクセスします
@@ -91,14 +90,8 @@ export class AuthorizationFunctionsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'StackIncrementUsageCountFunctionArn', {
       value:
         this.authorizationFunctions.incrementUsageCountFunction.functionArn,
-      description: 'ARN of the increment usage count Lambda function',
+      description: 'ARN of the record usage event Lambda function',
       exportName: `${this.stackName}-IncrementUsageCountFunctionArn`,
-    });
-
-    new cdk.CfnOutput(this, 'StackResetUsageCountFunctionArn', {
-      value: this.authorizationFunctions.resetUsageCountFunction.functionArn,
-      description: 'ARN of the reset usage count Lambda function',
-      exportName: `${this.stackName}-ResetUsageCountFunctionArn`,
     });
 
     // Add tags

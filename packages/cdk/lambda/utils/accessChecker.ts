@@ -9,7 +9,8 @@
 import { verifyToken } from './auth';
 import { createOpenFgaClientFromToken } from './openFgaClient';
 import { createTenantDynamoDBClientFromToken } from './tenantDynamoDBClient';
-import { UsageCountRepository } from '../authorization/repositories/usageCountRepository';
+import { UsageEventRepository } from '../authorization/repositories/usageEventRepository';
+import { PermissionGrantRepository } from '../authorization/repositories/permissionGrantRepository';
 
 /**
  * アクセスチェック結果の型定義
@@ -55,6 +56,34 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
+}
+
+/**
+ * 期間の開始時刻を計算する（日本時間基準）
+ */
+function getPeriodStartTime(periodType: 'daily' | 'monthly'): number {
+  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
+  const now = new Date();
+
+  // 現在時刻をJSTに変換
+  const nowJST = new Date(now.getTime() + JST_OFFSET);
+
+  let startTimeJST: Date;
+
+  if (periodType === 'daily') {
+    // 今日の午前0時（JST）
+    startTimeJST = new Date(nowJST);
+    startTimeJST.setUTCHours(0, 0, 0, 0);
+  } else {
+    // 今月1日の午前0時（JST）
+    startTimeJST = new Date(nowJST);
+    startTimeJST.setUTCDate(1);
+    startTimeJST.setUTCHours(0, 0, 0, 0);
+  }
+
+  // JSTからUTCに戻してミリ秒単位で返す
+  const startTimeUTC = new Date(startTimeJST.getTime() - JST_OFFSET);
+  return startTimeUTC.getTime();
 }
 
 /**
@@ -149,50 +178,87 @@ export async function checkAccessWithQuota(
   try {
     const dynamoDBClient = await createTenantDynamoDBClientFromToken(idToken);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
+    const usageEventTableName = getTableName(
+      'AuthUsageEvent',
+      tenantId,
+      process.env.ENVIRONMENT || 'dev'
+    );
+    const permissionGrantTableName = getTableName(
+      'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    const usageCountRepository = new UsageCountRepository(
+    const usageEventRepository = new UsageEventRepository(
       dynamoDBClient,
-      usageCounterTableName
+      usageEventTableName
+    );
+    const permissionGrantRepository = new PermissionGrantRepository(
+      dynamoDBClient,
+      permissionGrantTableName
     );
 
     console.log(
-      `[AccessCheck] Fetching usage counters - tableName: ${usageCounterTableName}, userId: ${userId}, featureId: ${featureId}`
+      `[AccessCheck] Fetching permission grants - tableName: ${permissionGrantTableName}, userId: ${userId}`
     );
 
-    // 日次制限と月次制限の両方を取得
-    const [dailyCounter, monthlyCounter] = await Promise.all([
-      usageCountRepository.get(userId, `${featureId}#daily`),
-      usageCountRepository.get(userId, `${featureId}#monthly`),
-    ]);
+    // ユーザの有効な権限付与を取得
+    const activeGrants = await permissionGrantRepository.findByUserIdAndStatus(
+      userId,
+      'active'
+    );
+
+    // この機能に対する制限情報を探す
+    let dailyLimit: number | null = null;
+    let monthlyLimit: number | null = null;
+    let limitType: AccessCheckResult['limitType'] = 'unlimited';
+
+    for (const grant of activeGrants) {
+      const feature = grant.features.find((f) => f.featureId === featureId);
+      if (feature) {
+        if (feature.limitType === 'daily' && feature.limitCount) {
+          dailyLimit = feature.limitCount;
+          limitType = 'daily';
+        } else if (feature.limitType === 'monthly' && feature.limitCount) {
+          monthlyLimit = feature.limitCount;
+          limitType = 'monthly';
+        } else if (feature.limitType === 'unlimited') {
+          limitType = 'unlimited';
+        }
+      }
+    }
 
     console.log(
-      `[AccessCheck] Counter fetch results - dailyCounter: ${dailyCounter ? JSON.stringify(dailyCounter) : 'null'}, monthlyCounter: ${monthlyCounter ? JSON.stringify(monthlyCounter) : 'null'}`
+      `[AccessCheck] Limit configuration - dailyLimit: ${dailyLimit}, monthlyLimit: ${monthlyLimit}, limitType: ${limitType}`
     );
 
     const usage: AccessCheckResult['usage'] = {};
-    let limitType: AccessCheckResult['limitType'] = 'unlimited';
+    const now = Date.now();
 
     // 日次制限のチェック
-    if (dailyCounter) {
-      console.log(
-        `[AccessCheck] Daily limit found - currentCount: ${dailyCounter.currentCount}, limitCount: ${dailyCounter.limitCount}`
+    if (dailyLimit !== null) {
+      const dailyStartTime = getPeriodStartTime('daily');
+      const dailyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        dailyStartTime,
+        now
       );
-      limitType = 'daily';
-      const remaining = dailyCounter.limitCount - dailyCounter.currentCount;
+
+      console.log(
+        `[AccessCheck] Daily limit found - currentCount: ${dailyCount}, limitCount: ${dailyLimit}`
+      );
+
+      const remaining = dailyLimit - dailyCount;
       usage.daily = {
-        current: dailyCounter.currentCount,
-        limit: dailyCounter.limitCount,
+        current: dailyCount,
+        limit: dailyLimit,
         remaining: Math.max(0, remaining),
       };
 
-      if (dailyCounter.currentCount >= dailyCounter.limitCount) {
+      if (dailyCount >= dailyLimit) {
         console.log(
-          `[AccessCheck] Daily quota exceeded - User ${userId}, featureId: ${featureId}, current: ${dailyCounter.currentCount}, limit: ${dailyCounter.limitCount}`
+          `[AccessCheck] Daily quota exceeded - User ${userId}, featureId: ${featureId}, current: ${dailyCount}, limit: ${dailyLimit}`
         );
         return {
           allowed: false,
@@ -210,24 +276,29 @@ export async function checkAccessWithQuota(
     }
 
     // 月次制限のチェック
-    if (monthlyCounter) {
-      console.log(
-        `[AccessCheck] Monthly limit found - currentCount: ${monthlyCounter.currentCount}, limitCount: ${monthlyCounter.limitCount}`
+    if (monthlyLimit !== null) {
+      const monthlyStartTime = getPeriodStartTime('monthly');
+      const monthlyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        monthlyStartTime,
+        now
       );
-      // 日次制限がなければ月次制限を優先
-      if (!dailyCounter) {
-        limitType = 'monthly';
-      }
-      const remaining = monthlyCounter.limitCount - monthlyCounter.currentCount;
+
+      console.log(
+        `[AccessCheck] Monthly limit found - currentCount: ${monthlyCount}, limitCount: ${monthlyLimit}`
+      );
+
+      const remaining = monthlyLimit - monthlyCount;
       usage.monthly = {
-        current: monthlyCounter.currentCount,
-        limit: monthlyCounter.limitCount,
+        current: monthlyCount,
+        limit: monthlyLimit,
         remaining: Math.max(0, remaining),
       };
 
-      if (monthlyCounter.currentCount >= monthlyCounter.limitCount) {
+      if (monthlyCount >= monthlyLimit) {
         console.log(
-          `[AccessCheck] Monthly quota exceeded - User ${userId}, featureId: ${featureId}, current: ${monthlyCounter.currentCount}, limit: ${monthlyCounter.limitCount}`
+          `[AccessCheck] Monthly quota exceeded - User ${userId}, featureId: ${featureId}, current: ${monthlyCount}, limit: ${monthlyLimit}`
         );
         return {
           allowed: false,
@@ -269,7 +340,7 @@ export async function checkAccessWithQuota(
 }
 
 /**
- * 使用回数をカウントアップする
+ * 使用回数をカウントアップする（イベントを記録する）
  *
  * @param idToken - Cognito ID Token
  * @param resourceType - リソースの種別（例: 'llm'）
@@ -288,10 +359,10 @@ export async function incrementUsage(
     `[IncrementUsage] Start - featureId: ${featureId}, limitType: ${limitType}`
   );
 
-  // unlimitedの場合はカウントアップ不要
+  // unlimitedの場合はイベント記録不要
   if (limitType === 'unlimited') {
     console.log(
-      `[IncrementUsage] Skipping increment for unlimited feature: ${featureId}`
+      `[IncrementUsage] Skipping event recording for unlimited feature: ${featureId}`
     );
     return;
   }
@@ -319,33 +390,36 @@ export async function incrementUsage(
   try {
     const dynamoDBClient = await createTenantDynamoDBClientFromToken(idToken);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
+    const usageEventTableName = getTableName(
+      'AuthUsageEvent',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    const usageCountRepository = new UsageCountRepository(
+    const usageEventRepository = new UsageEventRepository(
       dynamoDBClient,
-      usageCounterTableName
+      usageEventTableName
     );
 
-    const featureIdPeriod = `${featureId}#${limitType}`;
+    const now = Date.now();
+    const ttl = Math.floor(now / 1000) + 120 * 24 * 60 * 60; // 120日後に自動削除
 
     console.log(
-      `[IncrementUsage] Incrementing counter - tableName: ${usageCounterTableName}, userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
+      `[IncrementUsage] Recording usage event - tableName: ${usageEventTableName}, userId: ${userId}, featureId: ${featureId}, timestamp: ${now}`
     );
 
-    const newCount = await usageCountRepository.increment(
+    await usageEventRepository.recordEvent({
       userId,
-      featureIdPeriod
-    );
+      timestamp: now,
+      featureId,
+      ttl,
+    });
 
     console.log(
-      `[IncrementUsage] Success - user: ${userId}, feature: ${featureId}, period: ${limitType}, newCount: ${newCount}`
+      `[IncrementUsage] Success - user: ${userId}, feature: ${featureId}, timestamp: ${now}`
     );
   } catch (error) {
-    // カウントアップに失敗しても処理を止めない（ログのみ）
-    console.error('[IncrementUsage] Failed to increment usage count:', error);
+    // イベント記録に失敗しても処理を止めない（ログのみ）
+    console.error('[IncrementUsage] Failed to record usage event:', error);
   }
 }

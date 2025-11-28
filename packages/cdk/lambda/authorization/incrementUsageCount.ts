@@ -1,8 +1,8 @@
 /**
- * カウント加算Lambda関数
- * Increment Usage Count Lambda Function
+ * 使用イベント記録Lambda関数
+ * Record Usage Event Lambda Function
  *
- * DynamoDBの利用回数カウンターを1増やします
+ * ユーザの機能使用イベントをDynamoDBに記録します
  */
 
 import { Context } from 'aws-lambda';
@@ -11,7 +11,7 @@ import {
   IncrementUsageCountRequest,
   IncrementUsageCountResponse,
 } from './repositories/types';
-import { UsageCountRepository } from './repositories/usageCountRepository';
+import { UsageEventRepository } from './repositories/usageEventRepository';
 
 /**
  * テーブル名を生成するヘルパー関数
@@ -30,83 +30,74 @@ export const handler = async (
   _context: Context
 ): Promise<IncrementUsageCountResponse> => {
   console.log(
-    '[IncrementUsageCount] Request received:',
+    '[RecordUsageEvent] Request received:',
     JSON.stringify(event, null, 2)
   );
 
-  const { tenantId, userId, featureId, periodType } = event;
+  const { tenantId, userId, featureId } = event;
 
   try {
     // 1. バリデーション
-    if (!tenantId || !userId || !featureId || !periodType) {
-      console.error(
-        '[IncrementUsageCount] Missing required parameters:',
-        { tenantId, userId, featureId, periodType }
-      );
+    if (!tenantId || !userId || !featureId) {
+      console.error('[RecordUsageEvent] Missing required parameters:', {
+        tenantId,
+        userId,
+        featureId,
+      });
       throw new Error(
-        'Missing required parameters: tenantId, userId, featureId, periodType'
+        'Missing required parameters: tenantId, userId, featureId'
       );
-    }
-
-    if (periodType !== 'daily' && periodType !== 'monthly') {
-      console.error(
-        `[IncrementUsageCount] Invalid periodType: ${periodType}`
-      );
-      throw new Error('periodType must be "daily" or "monthly"');
     }
 
     console.log(
-      `[IncrementUsageCount] Processing increment - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}, periodType: ${periodType}`
+      `[RecordUsageEvent] Processing event - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}`
     );
 
-    // 2. DynamoDBのカウンターをアトミックに更新
+    // 2. DynamoDBに使用イベントを記録
     const dynamoDBClient =
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
+    const usageEventTableName = getTableName(
+      'AuthUsageEvent',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    console.log(
-      `[IncrementUsageCount] Using table: ${usageCounterTableName}`
-    );
+    console.log(`[RecordUsageEvent] Using table: ${usageEventTableName}`);
 
-    const usageCountRepository = new UsageCountRepository(
+    const usageEventRepository = new UsageEventRepository(
       dynamoDBClient,
-      usageCounterTableName
+      usageEventTableName
     );
 
-    const featureIdPeriod = `${featureId}#${periodType}`;
+    const now = Date.now();
+    const ttl = Math.floor(now / 1000) + 120 * 24 * 60 * 60; // 120日後（秒単位）
 
-    console.log(
-      `[IncrementUsageCount] Calling repository increment - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}`
-    );
-
-    const newCount = await usageCountRepository.increment(
+    await usageEventRepository.recordEvent({
       userId,
-      featureIdPeriod
-    );
+      timestamp: now,
+      featureId,
+      ttl,
+    });
 
     console.log(
-      `[IncrementUsageCount] Successfully incremented - user: ${userId}, feature: ${featureId}, period: ${periodType}, newCount: ${newCount}`
+      `[RecordUsageEvent] Successfully recorded event - user: ${userId}, feature: ${featureId}, timestamp: ${now}`
     );
 
     // 3. 成功レスポンスを返す
     const response: IncrementUsageCountResponse = {
       success: true,
-      newCount,
+      timestamp: now,
     };
 
     console.log(
-      '[IncrementUsageCount] Response:',
+      '[RecordUsageEvent] Response:',
       JSON.stringify(response, null, 2)
     );
 
     return response;
   } catch (error) {
-    console.error('[IncrementUsageCount] Error occurred:', error);
+    console.error('[RecordUsageEvent] Error occurred:', error);
     throw error;
   }
 };

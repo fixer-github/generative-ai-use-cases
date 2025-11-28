@@ -12,7 +12,6 @@ import {
   RevokePermissionRequest,
   RevokePermissionResponse,
 } from './repositories/types';
-import { UsageCountRepository } from './repositories/usageCountRepository';
 import { PermissionGrantRepository } from './repositories/permissionGrantRepository';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
@@ -117,21 +116,12 @@ export const handler = async (
     const dynamoDBClient =
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
-      tenantId,
-      process.env.ENVIRONMENT || 'dev'
-    );
     const permissionGrantTableName = getTableName(
       'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    const usageCountRepository = new UsageCountRepository(
-      dynamoDBClient,
-      usageCounterTableName
-    );
     const permissionGrantRepository = new PermissionGrantRepository(
       dynamoDBClient,
       permissionGrantTableName
@@ -212,29 +202,13 @@ export const handler = async (
       throw new Error(`Failed to delete from OpenFGA: ${openFgaError}`);
     }
 
-    // 7. DynamoDBからカウンター情報を削除
-    const counters = await usageCountRepository.findByGrantId(grantId);
-
-    if (counters.length > 0) {
-      const deleteItems = counters.map((counter) => ({
-        userId: counter.userId,
-        featureIdPeriod: counter.featureIdPeriod,
-      }));
-
-      await usageCountRepository.batchDelete(deleteItems);
-
-      console.log(
-        `Deleted ${counters.length} usage counters for grant ${grantId}`
-      );
-    }
-
-    // 8. 権限付与履歴の状態を更新
+    // 7. 権限付与履歴の状態を更新
     const now = Math.floor(Date.now() / 1000);
     await permissionGrantRepository.updateStatus(grantId, 'revoked', now);
 
     console.log(`Permission grant ${grantId} revoked successfully`);
 
-    // 9. 成功レスポンスを返す
+    // 8. 成功レスポンスを返す
     const response: RevokePermissionResponse = {
       success: true,
       grantId,
