@@ -127,9 +127,9 @@ export class TenantRole extends Construct {
                 // UserStripeMapping table pattern (UserStripeMapping-{env}-tenant-{tenantId})
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}/index/*`,
-                // Authorization tables pattern (AuthUsageCounter-{env}-tenant-{tenantId}, AuthPermissionGrant-{env}-tenant-{tenantId})
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageCounter-${props.env}-tenant-${props.tenantId}`,
-                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageCounter-${props.env}-tenant-${props.tenantId}/index/*`,
+                // Authorization tables pattern (AuthUsageEvent-{env}-tenant-{tenantId}, AuthPermissionGrant-{env}-tenant-{tenantId})
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageEvent-${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageEvent-${props.env}-tenant-${props.tenantId}/index/*`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthPermissionGrant-${props.env}-tenant-${props.tenantId}`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthPermissionGrant-${props.env}-tenant-${props.tenantId}/index/*`,
               ],

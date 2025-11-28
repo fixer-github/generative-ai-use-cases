@@ -12,7 +12,8 @@ import {
   CheckPermissionRequest,
   CheckPermissionResponse,
 } from './repositories/types';
-import { UsageCountRepository } from './repositories/usageCountRepository';
+import { UsageEventRepository } from './repositories/usageEventRepository';
+import { PermissionGrantRepository } from './repositories/permissionGrantRepository';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
@@ -31,6 +32,34 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
+}
+
+/**
+ * 期間の開始時刻を計算する（日本時間基準）
+ */
+function getPeriodStartTime(periodType: 'daily' | 'monthly'): number {
+  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
+  const now = new Date();
+
+  // 現在時刻をJSTに変換
+  const nowJST = new Date(now.getTime() + JST_OFFSET);
+
+  let startTimeJST: Date;
+
+  if (periodType === 'daily') {
+    // 今日の午前0時（JST）
+    startTimeJST = new Date(nowJST);
+    startTimeJST.setUTCHours(0, 0, 0, 0);
+  } else {
+    // 今月1日の午前0時（JST）
+    startTimeJST = new Date(nowJST);
+    startTimeJST.setUTCDate(1);
+    startTimeJST.setUTCHours(0, 0, 0, 0);
+  }
+
+  // JSTからUTCに戻してミリ秒単位で返す
+  const startTimeUTC = new Date(startTimeJST.getTime() - JST_OFFSET);
+  return startTimeUTC.getTime();
 }
 
 /**
@@ -186,45 +215,74 @@ export const handler = async (
       };
     }
 
-    // 6. DynamoDBに利用回数の残数を問い合わせ
+    // 6. DynamoDBから権限付与情報を取得して、回数制限をチェック
     const dynamoDBClient =
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
+    const usageEventTableName = getTableName(
+      'AuthUsageEvent',
+      tenantId,
+      process.env.ENVIRONMENT || 'dev'
+    );
+    const permissionGrantTableName = getTableName(
+      'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    const usageCountRepository = new UsageCountRepository(
+    const usageEventRepository = new UsageEventRepository(
       dynamoDBClient,
-      usageCounterTableName
+      usageEventTableName
+    );
+    const permissionGrantRepository = new PermissionGrantRepository(
+      dynamoDBClient,
+      permissionGrantTableName
     );
 
-    // 日次制限と月次制限の両方をチェック
-    const dailyCounter = await usageCountRepository.get(
+    // ユーザの有効な権限付与を取得
+    const activeGrants = await permissionGrantRepository.findByUserIdAndStatus(
       userId,
-      `${featureId}#daily`
+      'active'
     );
-    const monthlyCounter = await usageCountRepository.get(
-      userId,
-      `${featureId}#monthly`
-    );
+
+    // この機能に対する制限情報を探す
+    let dailyLimit: number | null = null;
+    let monthlyLimit: number | null = null;
+
+    for (const grant of activeGrants) {
+      const feature = grant.features.find((f) => f.featureId === featureId);
+      if (feature) {
+        if (feature.limitType === 'daily' && feature.limitCount) {
+          dailyLimit = feature.limitCount;
+        } else if (feature.limitType === 'monthly' && feature.limitCount) {
+          monthlyLimit = feature.limitCount;
+        }
+      }
+    }
 
     const usage: CheckPermissionResponse['usage'] = {};
+    const now = Date.now();
 
     // 日次制限のチェック
-    if (dailyCounter) {
-      const remaining = dailyCounter.limitCount - dailyCounter.currentCount;
+    if (dailyLimit !== null) {
+      const dailyStartTime = getPeriodStartTime('daily');
+      const dailyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        dailyStartTime,
+        now
+      );
+
+      const remaining = dailyLimit - dailyCount;
       usage.daily = {
-        current: dailyCounter.currentCount,
-        limit: dailyCounter.limitCount,
+        current: dailyCount,
+        limit: dailyLimit,
         remaining: Math.max(0, remaining),
       };
 
-      if (dailyCounter.currentCount >= dailyCounter.limitCount) {
+      if (dailyCount >= dailyLimit) {
         console.log(
-          `User ${userId} has exceeded daily quota for feature ${featureId}`
+          `User ${userId} has exceeded daily quota for feature ${featureId} (${dailyCount}/${dailyLimit})`
         );
         return {
           allowed: false,
@@ -235,17 +293,25 @@ export const handler = async (
     }
 
     // 月次制限のチェック
-    if (monthlyCounter) {
-      const remaining = monthlyCounter.limitCount - monthlyCounter.currentCount;
+    if (monthlyLimit !== null) {
+      const monthlyStartTime = getPeriodStartTime('monthly');
+      const monthlyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        monthlyStartTime,
+        now
+      );
+
+      const remaining = monthlyLimit - monthlyCount;
       usage.monthly = {
-        current: monthlyCounter.currentCount,
-        limit: monthlyCounter.limitCount,
+        current: monthlyCount,
+        limit: monthlyLimit,
         remaining: Math.max(0, remaining),
       };
 
-      if (monthlyCounter.currentCount >= monthlyCounter.limitCount) {
+      if (monthlyCount >= monthlyLimit) {
         console.log(
-          `User ${userId} has exceeded monthly quota for feature ${featureId}`
+          `User ${userId} has exceeded monthly quota for feature ${featureId} (${monthlyCount}/${monthlyLimit})`
         );
         return {
           allowed: false,

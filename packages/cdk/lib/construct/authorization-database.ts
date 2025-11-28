@@ -29,9 +29,9 @@ export interface AuthorizationDatabaseProps {
 
 export class AuthorizationDatabase extends Construct {
   /**
-   * The usage counter table
+   * The usage event table
    */
-  public readonly usageCounterTable: dynamodb.Table;
+  public readonly usageEventTable: dynamodb.Table;
 
   /**
    * The permission grant table
@@ -39,9 +39,9 @@ export class AuthorizationDatabase extends Construct {
   public readonly permissionGrantTable: dynamodb.Table;
 
   /**
-   * Usage counter table name
+   * Usage event table name
    */
-  public readonly usageCounterTableName: string;
+  public readonly usageEventTableName: string;
 
   /**
    * Permission grant table name
@@ -67,51 +67,42 @@ export class AuthorizationDatabase extends Construct {
         : cdk.RemovalPolicy.RETAIN);
 
     // Set table names
-    this.usageCounterTableName = `AuthUsageCounter-${environment}-tenant-${sanitizedTenantId}`;
+    this.usageEventTableName = `AuthUsageEvent-${environment}-tenant-${sanitizedTenantId}`;
     this.permissionGrantTableName = `AuthPermissionGrant-${environment}-tenant-${sanitizedTenantId}`;
 
     // ========================================
     // 1. DynamoDB Tables
     // ========================================
 
-    // Usage Counter Table
-    this.usageCounterTable = new dynamodb.Table(this, 'UsageCounterTable', {
-      tableName: this.usageCounterTableName,
+    // Usage Event Table
+    this.usageEventTable = new dynamodb.Table(this, 'UsageEventTable', {
+      tableName: this.usageEventTableName,
       partitionKey: {
         name: 'userId',
         type: dynamodb.AttributeType.STRING,
       },
       sortKey: {
-        name: 'featureIdPeriod',
-        type: dynamodb.AttributeType.STRING,
+        name: 'timestamp',
+        type: dynamodb.AttributeType.NUMBER,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: removalPolicy,
+      timeToLiveAttribute: 'ttl', // 120日後に自動削除
     });
 
     // Add tags
-    cdk.Tags.of(this.usageCounterTable).add('TenantId', props.tenantId);
-    cdk.Tags.of(this.usageCounterTable).add('Environment', environment);
+    cdk.Tags.of(this.usageEventTable).add('TenantId', props.tenantId);
+    cdk.Tags.of(this.usageEventTable).add('Environment', environment);
 
-    // Add GSI for grantId
-    this.usageCounterTable.addGlobalSecondaryIndex({
-      indexName: 'grantId-index',
+    // Add GSI for featureId and timestamp (optional - for feature-based queries)
+    this.usageEventTable.addGlobalSecondaryIndex({
+      indexName: 'featureId-timestamp-index',
       partitionKey: {
-        name: 'grantId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // Add GSI for periodType and nextResetTime
-    this.usageCounterTable.addGlobalSecondaryIndex({
-      indexName: 'periodType-nextResetTime-index',
-      partitionKey: {
-        name: 'periodType',
+        name: 'featureId',
         type: dynamodb.AttributeType.STRING,
       },
       sortKey: {
-        name: 'nextResetTime',
+        name: 'timestamp',
         type: dynamodb.AttributeType.NUMBER,
       },
       projectionType: dynamodb.ProjectionType.ALL,
@@ -154,9 +145,9 @@ export class AuthorizationDatabase extends Construct {
     // 2. Outputs
     // ========================================
 
-    new cdk.CfnOutput(this, 'UsageCounterTableName', {
-      value: this.usageCounterTable.tableName,
-      description: 'Usage counter table name',
+    new cdk.CfnOutput(this, 'UsageEventTableName', {
+      value: this.usageEventTable.tableName,
+      description: 'Usage event table name',
     });
 
     new cdk.CfnOutput(this, 'PermissionGrantTableName', {
