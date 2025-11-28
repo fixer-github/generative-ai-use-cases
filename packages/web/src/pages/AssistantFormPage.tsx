@@ -13,6 +13,7 @@ import useAssistantApi from '../hooks/useAssistantApi';
 import useAssistantForm from '../hooks/useAssistantForm';
 import useUserInfo from '../hooks/useUserInfo';
 import useRoleMonitor from '../hooks/useRoleMonitor';
+import useTenantUseCaseConfig from '../hooks/useTenantUseCaseConfig';
 import {
   CreateAssistantRequest,
   UpdateAssistantRequest,
@@ -43,8 +44,17 @@ const AssistantFormPage: React.FC = () => {
     useAssistantApi();
   const { userInfo } = useUserInfo();
   // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  // Check if assistant creation requires admin privileges (configurable via cdk.json)
+  const { tenantConfig, loading: isConfigLoading } = useTenantUseCaseConfig();
   const { isAdmin, isLoading: isAdminLoading } = useRoleMonitor();
   const isCreateMode = !assistantId;
+
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  // Determine if user can create assistants based on configuration
+  const assistantCreationRequiresAdmin =
+    tenantConfig?.assistantCreationRequiresAdmin ?? true;
+  const canCreateAssistant =
+    !assistantCreationRequiresAdmin || isAdmin;
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,12 +79,14 @@ const AssistantFormPage: React.FC = () => {
   } = useAssistantForm();
 
   // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
-  // Redirect non-admin users away from create mode
+  // Redirect users who cannot create assistants away from create mode
+  // This depends on the assistantCreationRequiresAdmin configuration
   useEffect(() => {
-    if (!isAdminLoading && isCreateMode && !isAdmin) {
+    const configReady = !isConfigLoading && !isAdminLoading;
+    if (configReady && isCreateMode && !canCreateAssistant) {
       navigate('/chat/assistants');
     }
-  }, [isAdminLoading, isCreateMode, isAdmin, navigate]);
+  }, [isConfigLoading, isAdminLoading, isCreateMode, canCreateAssistant, navigate]);
 
   useEffect(() => {
     // Abort any pending request when assistantId changes

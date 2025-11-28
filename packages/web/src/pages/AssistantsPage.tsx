@@ -12,6 +12,7 @@ import {
 import useAssistantApi from '../hooks/useAssistantApi';
 import useUserInfo from '../hooks/useUserInfo';
 import useRoleMonitor from '../hooks/useRoleMonitor';
+import useTenantUseCaseConfig from '../hooks/useTenantUseCaseConfig';
 import { Assistant } from 'generative-ai-use-cases';
 import LoadingWave from '../components/LoadingWave';
 import AssistantStatusTag from '../components/assistants/AssistantStatusTag';
@@ -28,7 +29,15 @@ const AssistantsPage: React.FC = () => {
   const { listAssistants, updateAssistantVisibility } = useAssistantApi();
   const { userInfo } = useUserInfo();
   // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  // Check if assistant creation requires admin privileges (configurable via cdk.json)
+  const { tenantConfig } = useTenantUseCaseConfig();
   const { isAdmin } = useRoleMonitor();
+
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  // Determine if user can create assistants based on configuration
+  const assistantCreationRequiresAdmin =
+    tenantConfig?.assistantCreationRequiresAdmin ?? true;
+  const canCreateAssistant = !assistantCreationRequiresAdmin || isAdmin;
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -227,7 +236,8 @@ const AssistantsPage: React.FC = () => {
             />
           </div>
           {/* TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround) */}
-          {isAdmin && (
+          {/* Show create button based on assistantCreationRequiresAdmin config */}
+          {canCreateAssistant && (
             <button
               onClick={handleCreateAssistant}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
