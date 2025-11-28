@@ -12,6 +12,7 @@ import {
 import useAssistantApi from '../hooks/useAssistantApi';
 import useAssistantForm from '../hooks/useAssistantForm';
 import useUserInfo from '../hooks/useUserInfo';
+import useRoleMonitor from '../hooks/useRoleMonitor';
 import {
   CreateAssistantRequest,
   UpdateAssistantRequest,
@@ -41,6 +42,9 @@ const AssistantFormPage: React.FC = () => {
   const { getAssistant, createAssistant, updateAssistant, deleteAssistant } =
     useAssistantApi();
   const { userInfo } = useUserInfo();
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  const { isAdmin, isLoading: isAdminLoading } = useRoleMonitor();
+  const isCreateMode = !assistantId;
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,6 +67,14 @@ const AssistantFormPage: React.FC = () => {
     deleteFile,
     isValid,
   } = useAssistantForm();
+
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  // Redirect non-admin users away from create mode
+  useEffect(() => {
+    if (!isAdminLoading && isCreateMode && !isAdmin) {
+      navigate('/chat/assistants');
+    }
+  }, [isAdminLoading, isCreateMode, isAdmin, navigate]);
 
   useEffect(() => {
     // Abort any pending request when assistantId changes

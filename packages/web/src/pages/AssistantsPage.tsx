@@ -11,6 +11,7 @@ import {
 } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
 import useUserInfo from '../hooks/useUserInfo';
+import useRoleMonitor from '../hooks/useRoleMonitor';
 import { Assistant } from 'generative-ai-use-cases';
 import LoadingWave from '../components/LoadingWave';
 import AssistantStatusTag from '../components/assistants/AssistantStatusTag';
@@ -26,6 +27,8 @@ const AssistantsPage: React.FC = () => {
   const navigate = useNavigate();
   const { listAssistants, updateAssistantVisibility } = useAssistantApi();
   const { userInfo } = useUserInfo();
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  const { isAdmin } = useRoleMonitor();
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -223,12 +226,15 @@ const AssistantsPage: React.FC = () => {
               className="w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          <button
-            onClick={handleCreateAssistant}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-            <PiPlus className="text-lg" />
-            {t('assistant.createNew')}
-          </button>
+          {/* TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround) */}
+          {isAdmin && (
+            <button
+              onClick={handleCreateAssistant}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
+              <PiPlus className="text-lg" />
+              {t('assistant.createNew')}
+            </button>
+          )}
         </div>
 
         {/* Loading State */}

@@ -26,6 +26,7 @@ import {
 } from 'generative-ai-use-cases';
 import { getTenantId } from './utils/tenantUtils';
 import { canAccessAssistant } from './utils/assistantAccessControl';
+import { verifyAdminAccess } from './utils/adminAuth';
 import {
   badRequest400Response,
   created201Response,
@@ -105,11 +106,18 @@ export const handler = async (
 
 /**
  * Handle POST / - Create assistant
+ * TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
  */
 async function handleCreate(
   userId: string,
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
+  // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
+  const adminResult = await verifyAdminAccess(event);
+  if ('statusCode' in adminResult) {
+    return adminResult;
+  }
+
   const body: CreateAssistantRequest = JSON.parse(event.body || '{}');
 
   console.log(
