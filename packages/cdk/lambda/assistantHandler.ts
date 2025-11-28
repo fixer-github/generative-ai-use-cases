@@ -26,7 +26,6 @@ import {
 } from 'generative-ai-use-cases';
 import { getTenantId } from './utils/tenantUtils';
 import { canAccessAssistant } from './utils/assistantAccessControl';
-import { verifyAdminAccess } from './utils/adminAuth';
 import {
   badRequest400Response,
   created201Response,
@@ -113,9 +112,13 @@ async function handleCreate(
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
   // TODO: Update after implementing AuthZ - Currently only tenantAdmin users can create assistants (workaround)
-  const adminResult = await verifyAdminAccess(event);
-  if ('statusCode' in adminResult) {
-    return adminResult;
+  const isTenantAdmin =
+    event.requestContext.authorizer?.claims?.['custom:tenantAdmin'] === 'true';
+  if (!isTenantAdmin) {
+    return forbidden403Response({
+      message: 'Only tenant administrators can create assistants',
+      code: 'TENANT_ADMIN_REQUIRED',
+    });
   }
 
   const body: CreateAssistantRequest = JSON.parse(event.body || '{}');
