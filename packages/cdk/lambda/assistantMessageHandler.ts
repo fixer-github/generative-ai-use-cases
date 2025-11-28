@@ -32,6 +32,7 @@ import {
 } from './utils/apiResponse';
 import api from './utils/api';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import { checkAccessWithQuota, incrementUsage } from './utils/accessChecker';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -125,6 +126,35 @@ async function handleCreateMessage(
 
   // Check access: owner OR (public AND same tenant)
   if (!canAccessAssistant(assistant, userId, event)) {
+    return forbidden403Response({
+      message: 'Access denied to this assistant',
+      code: 'ASSISTANT_ACCESS_DENIED',
+    });
+  }
+
+  // Check quota/permission for assistant usage
+  const idToken = event.headers.Authorization || event.headers.authorization || '';
+  const cleanAssistantId = assistantId.replace('assistant#', '');
+  const accessCheck = await checkAccessWithQuota(
+    idToken,
+    'assistant',
+    cleanAssistantId
+  );
+
+  if (!accessCheck.allowed) {
+    if (accessCheck.reason === 'quota_exceeded') {
+      return forbidden403Response({
+        message:
+          'You have reached your usage limit for this assistant. Please upgrade your plan or try again later.',
+        code: 'QUOTA_EXCEEDED',
+      });
+    } else if (accessCheck.reason === 'no_permission') {
+      return forbidden403Response({
+        message:
+          'You do not have permission to use this assistant. Please check your subscription plan.',
+        code: 'NO_PERMISSION',
+      });
+    }
     return forbidden403Response({
       message: 'Access denied to this assistant',
       code: 'ASSISTANT_ACCESS_DENIED',
@@ -406,6 +436,14 @@ async function handleCreateMessage(
   if (chatRecord) {
     await updateChatUpdatedDate(chatRecord.id, chatRecord.createdDate, event);
   }
+
+  // Increment usage count after successful message processing
+  await incrementUsage(
+    idToken,
+    'assistant',
+    cleanAssistantId,
+    accessCheck.limitType || 'unlimited'
+  );
 
   return ok200Response({
     ...addAssistantIdToMessage(assistantMessage, assistantId),
