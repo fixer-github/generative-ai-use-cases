@@ -26,6 +26,9 @@ const STORAGE_KEY = 'app-settings';
 
 // localStorageから初期値を読み込む
 const loadSettings = (): Settings => {
+  if (typeof localStorage === 'undefined') {
+    return DEFAULT_SETTINGS;
+  }
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -40,6 +43,9 @@ const loadSettings = (): Settings => {
 
 // localStorageに保存する
 const saveSettings = (settings: Settings) => {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch (error) {
