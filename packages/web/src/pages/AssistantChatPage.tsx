@@ -33,7 +33,6 @@ import {
   isSyncBlocking,
   isStatusFinal,
 } from '../components/assistants/statusMetadata';
-import SystemPromptDisplay from '../components/SystemPromptDisplay';
 import { findModelByModelId } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import { useSettings } from '../hooks/useSettings';
@@ -79,26 +78,6 @@ const AssistantChatPage: React.FC = () => {
   const isBlocked = useMemo(() => {
     return assistant?.ragEnabled && isSyncBlocking(assistant.syncStatus);
   }, [assistant]);
-
-  // カスタム指示を含めたシステムプロンプトを構築
-  const displaySystemPrompt = useMemo(() => {
-    if (!assistant?.instruction) return undefined;
-    if (settings.customizeEnabled && settings.customInstructions.trim()) {
-      return `<instructions>
-${assistant.instruction}
-</instructions>
-<user_custom_instructions>
-${settings.customInstructions}
-</user_custom_instructions>`;
-    }
-    return `<instructions>
-${assistant.instruction}
-</instructions>`;
-  }, [
-    assistant?.instruction,
-    settings.customizeEnabled,
-    settings.customInstructions,
-  ]);
 
   useEffect(() => {
     if (assistantId) {
@@ -564,12 +543,6 @@ ${assistant.instruction}
           </Button>
         </div>
       </div>
-
-      {/* System Prompt Display */}
-      <SystemPromptDisplay
-        systemPrompt={displaySystemPrompt}
-        className="mx-4 mt-4"
-      />
 
       {showAssistantInfo && assistant && (
         <Card className="m-4 p-4">
