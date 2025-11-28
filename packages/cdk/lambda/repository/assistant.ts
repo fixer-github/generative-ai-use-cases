@@ -109,6 +109,9 @@ export const createAssistant = async (
     visibility = normalizedVisibility as 'private' | 'public';
   }
 
+  // Validate and normalize providerType
+  const providerType: 'user' | 'official' = data.providerType || 'user';
+
   const item: Assistant = {
     id: userId,
     createdDate: now,
@@ -121,6 +124,7 @@ export const createAssistant = async (
     modelId: data.modelId,
     ragEnabled: data.ragEnabled,
     visibility,
+    providerType,
     syncStatus: 'QUEUED',
     syncStatusReason: '',
     knowledgeSources: normalizeKnowledgeSources(data.knowledgeSources),
@@ -266,10 +270,12 @@ export const listAssistants = async (
   }
 
   // Convert to array and ensure knowledge sources have default status
+  // Ensure providerType has default value for backward compatibility
   let assistants = Array.from(assistantMap.values())
     .map((item: any) => ({
       ...item,
       knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
+      providerType: item.providerType || 'user',
     }))
     .sort(
       (a, b) => parseInt(b.createdDate) - parseInt(a.createdDate)
@@ -364,10 +370,12 @@ export const getAssistant = async (
   }
 
   // Ensure knowledge sources have default status for backward compatibility
+  // Ensure providerType has default value for backward compatibility
   const item = res.Items[0] as any;
   return {
     ...item,
     knowledgeSources: ensureKnowledgeSourceStatus(item.knowledgeSources),
+    providerType: item.providerType || 'user',
   } as Assistant;
 };
 
@@ -440,6 +448,17 @@ export const updateAssistant = async (
     updateExpressions.push('#visibility = :visibility');
     expressionAttributeNames['#visibility'] = 'visibility';
     expressionAttributeValues[':visibility'] = normalizedVisibility;
+  }
+  if (updates.providerType !== undefined) {
+    // Validate providerType
+    if (updates.providerType !== 'user' && updates.providerType !== 'official') {
+      throw new Error(
+        `Invalid providerType value: ${updates.providerType}. Must be 'user' or 'official'.`
+      );
+    }
+    updateExpressions.push('#providerType = :providerType');
+    expressionAttributeNames['#providerType'] = 'providerType';
+    expressionAttributeValues[':providerType'] = updates.providerType;
   }
   if (updates.knowledgeSources !== undefined) {
     updateExpressions.push('#knowledgeSources = :knowledgeSources');

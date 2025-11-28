@@ -42,9 +42,10 @@ export interface AccessCheckResult {
 /**
  * リソースタイプの定義
  * - llm: LLMモデル（例: gemini-2.5-flash）
+ * - assistant: アシスタント（例: UUID）
  * - 将来的に他のリソースタイプを追加可能
  */
-export type ResourceType = 'llm';
+export type ResourceType = 'llm' | 'assistant';
 
 /**
  * テーブル名を生成するヘルパー関数

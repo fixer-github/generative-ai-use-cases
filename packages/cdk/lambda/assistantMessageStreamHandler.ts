@@ -18,6 +18,7 @@ import { streamingChunk } from './utils/streamingChunk';
 import { canAccessAssistant } from './utils/assistantAccessControl';
 import api from './utils/api';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import { checkAccessWithQuota, incrementUsage } from './utils/accessChecker';
 
 // Request type for streaming assistant messages
 interface AssistantMessageStreamRequest {
@@ -149,6 +150,34 @@ export const handler = awslambda.streamifyResponse(
         responseStream.write(
           streamingChunk({
             text: 'Access denied to this assistant',
+            stopReason: 'error',
+          })
+        );
+        responseStream.end();
+        return;
+      }
+
+      // Check quota/permission for assistant usage
+      const cleanAssistantId = assistantId.replace('assistant#', '');
+      const accessCheck = await checkAccessWithQuota(
+        idToken,
+        'assistant',
+        cleanAssistantId
+      );
+
+      if (!accessCheck.allowed) {
+        let errorMessage = 'Access denied to this assistant';
+        if (accessCheck.reason === 'quota_exceeded') {
+          errorMessage =
+            'You have reached your usage limit for this assistant. Please upgrade your plan or try again later.';
+        } else if (accessCheck.reason === 'no_permission') {
+          errorMessage =
+            'You do not have permission to use this assistant. Please check your subscription plan.';
+        }
+
+        responseStream.write(
+          streamingChunk({
+            text: errorMessage,
             stopReason: 'error',
           })
         );
@@ -406,6 +435,14 @@ ${assistant.instruction}
           requestContext
         );
       }
+
+      // Increment usage count after successful message processing
+      await incrementUsage(
+        idToken,
+        'assistant',
+        cleanAssistantId,
+        accessCheck.limitType || 'unlimited'
+      );
 
       responseStream.end();
     } catch {
