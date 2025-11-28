@@ -4,19 +4,14 @@
  */
 
 /**
- * 利用回数カウントアイテム
+ * 使用イベントアイテム
+ * 機能の使用履歴を記録し、期間ごとの使用回数を集計するために使用
  */
-export interface UsageCounterItem {
+export interface UsageEventItem {
   userId: string; // ユーザID（パーティションキー）
-  featureIdPeriod: string; // 機能ID#期間タイプ（ソートキー）例: "feature-model-b#daily"
-  featureId: string; // 機能ID（検索用）
-  periodType: 'daily' | 'monthly'; // 期間タイプ（検索用）
-  currentCount: number; // 現在の利用回数
-  limitCount: number; // 上限回数
-  nextResetTime: number; // 次回リセット日時（Unixタイムスタンプ、秒単位）
-  grantId: string; // 権限付与ID（どの権限付与で追加されたか）
-  createdAt: number; // 作成日時（Unixタイムスタンプ、秒単位）
-  updatedAt: number; // 更新日時（Unixタイムスタンプ、秒単位）
+  timestamp: number; // イベント発生時刻（ソートキー、Unixタイムスタンプ、ミリ秒単位）
+  featureId: string; // 使用した機能ID
+  ttl: number; // TTL属性（Unixタイムスタンプ、秒単位）記録から120日後に自動削除
 }
 
 /**
@@ -111,41 +106,20 @@ export interface CheckPermissionResponse {
 }
 
 /**
- * カウント加算リクエスト
+ * カウント加算リクエスト（使用イベント記録リクエスト）
  */
 export interface IncrementUsageCountRequest {
   tenantId: string; // テナントID
   userId: string; // ユーザID
   featureId: string; // 機能ID
-  periodType: 'daily' | 'monthly'; // 期間タイプ
 }
 
 /**
- * カウント加算レスポンス
+ * カウント加算レスポンス（使用イベント記録レスポンス）
  */
 export interface IncrementUsageCountResponse {
   success: true;
-  newCount: number; // 更新後のカウント値
-}
-
-/**
- * カウントリセットリクエスト
- */
-export interface ResetUsageCountRequest {
-  periodType: 'daily' | 'monthly'; // 期間タイプ
-}
-
-/**
- * カウントリセットレスポンス
- */
-export interface ResetUsageCountResponse {
-  success: true;
-  processedTenants: number;
-  updatedItems: number;
-  errors: Array<{
-    tenantId: string;
-    error: string;
-  }>;
+  timestamp: number; // 記録されたイベントのタイムスタンプ（Unixタイムスタンプ、ミリ秒単位）
 }
 
 /**

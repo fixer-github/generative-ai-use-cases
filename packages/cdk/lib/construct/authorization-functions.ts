@@ -9,8 +9,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as events from 'aws-cdk-lib/aws-events';
-import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import {
   NodejsFunction,
@@ -57,11 +55,6 @@ export class AuthorizationFunctions extends Construct {
    * Increment usage count Lambda function
    */
   public readonly incrementUsageCountFunction: lambda.Function;
-
-  /**
-   * Reset usage count Lambda function
-   */
-  public readonly resetUsageCountFunction: lambda.Function;
 
   constructor(
     scope: Construct,
@@ -148,7 +141,7 @@ export class AuthorizationFunctions extends Construct {
       }
     );
 
-    // Increment Usage Count Function
+    // Increment Usage Count Function (Record Usage Event)
     this.incrementUsageCountFunction = new NodejsFunction(
       this,
       'IncrementUsageCountFunction',
@@ -165,28 +158,7 @@ export class AuthorizationFunctions extends Construct {
         handler: 'handler',
         environment: commonEnvironment,
         description:
-          'Increment usage count for a feature (shared across all tenants)',
-      }
-    );
-
-    // Reset Usage Count Function
-    this.resetUsageCountFunction = new NodejsFunction(
-      this,
-      'ResetUsageCountFunction',
-      {
-        ...commonLambdaProps,
-        runtime: lambda.Runtime.NODEJS_20_X,
-        timeout: cdk.Duration.minutes(15),
-        memorySize: 1024,
-        functionName: `${environment}-authorization-reset-usage`,
-        entry: path.join(
-          __dirname,
-          '../../lambda/authorization/resetUsageCount.ts'
-        ),
-        handler: 'handler',
-        environment: commonEnvironment,
-        description:
-          'Reset usage counts for all tenants (scheduled, shared across all tenants)',
+          'Record usage event for a feature (shared across all tenants)',
       }
     );
 
@@ -205,14 +177,12 @@ export class AuthorizationFunctions extends Construct {
           this.revokePermissionFunction,
           this.checkPermissionFunction,
           this.incrementUsageCountFunction,
-          this.resetUsageCountFunction,
         ]
       : [
           this.grantPermissionFunction,
           this.revokePermissionFunction,
           this.checkPermissionFunction,
           this.incrementUsageCountFunction,
-          this.resetUsageCountFunction,
         ];
 
     const functionsNeedingOpenFga = useBackgroundJobRole
@@ -277,59 +247,7 @@ export class AuthorizationFunctions extends Construct {
     });
 
     // ========================================
-    // 3. EventBridge Scheduler Rules
-    // ========================================
-
-    // Daily reset rule (every day at 15:00 UTC = 00:00 JST)
-    const dailyResetRule = new events.Rule(this, 'DailyUsageCountResetRule', {
-      ruleName: `DailyUsageCountReset-${environment}`,
-      description: 'Reset daily usage counts at midnight JST (15:00 UTC)',
-      schedule: events.Schedule.cron({
-        minute: '0',
-        hour: '15',
-        day: '*',
-        month: '*',
-        year: '*',
-      }),
-    });
-
-    dailyResetRule.addTarget(
-      new targets.LambdaFunction(this.resetUsageCountFunction, {
-        event: events.RuleTargetInput.fromObject({
-          periodType: 'daily',
-        }),
-        retryAttempts: 2,
-      })
-    );
-
-    // Monthly reset rule (first day of every month at 15:00 UTC = 00:00 JST)
-    const monthlyResetRule = new events.Rule(
-      this,
-      'MonthlyUsageCountResetRule',
-      {
-        ruleName: `MonthlyUsageCountReset-${environment}`,
-        description: 'Reset monthly usage counts on the 1st of each month JST (15:00 UTC)',
-        schedule: events.Schedule.cron({
-          minute: '0',
-          hour: '15',
-          day: '1',
-          month: '*',
-          year: '*',
-        }),
-      }
-    );
-
-    monthlyResetRule.addTarget(
-      new targets.LambdaFunction(this.resetUsageCountFunction, {
-        event: events.RuleTargetInput.fromObject({
-          periodType: 'monthly',
-        }),
-        retryAttempts: 2,
-      })
-    );
-
-    // ========================================
-    // 4. Outputs
+    // 3. Outputs
     // ========================================
 
     new cdk.CfnOutput(this, 'GrantPermissionFunctionArn', {
@@ -349,12 +267,7 @@ export class AuthorizationFunctions extends Construct {
 
     new cdk.CfnOutput(this, 'IncrementUsageCountFunctionArn', {
       value: this.incrementUsageCountFunction.functionArn,
-      description: 'Increment usage count Lambda function ARN',
-    });
-
-    new cdk.CfnOutput(this, 'ResetUsageCountFunctionArn', {
-      value: this.resetUsageCountFunction.functionArn,
-      description: 'Reset usage count Lambda function ARN',
+      description: 'Record usage event Lambda function ARN',
     });
   }
 }

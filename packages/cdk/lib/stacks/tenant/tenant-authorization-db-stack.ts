@@ -3,9 +3,9 @@
  * テナント専用の権限判定システムDBスタック
  *
  * このスタックは以下を作成します：
- * - DynamoDBテーブル（UsageCounter、PermissionGrant）
+ * - DynamoDBテーブル（UsageEvent、PermissionGrant）
  *
- * Lambda関数やEventBridgeは共通スタック（AuthorizationFunctionsStack）で管理されます
+ * Lambda関数は共通スタック（AuthorizationFunctionsStack）で管理されます
  */
 
 import * as cdk from 'aws-cdk-lib';
@@ -79,16 +79,16 @@ export class TenantAuthorizationDbStack extends cdk.Stack {
 
     // Add stack-level outputs with export names
     // DynamoDB Table outputs
-    new cdk.CfnOutput(this, 'StackUsageCounterTableArn', {
-      value: this.authorizationDatabase.usageCounterTable.tableArn,
-      description: `ARN of the usage counter table for tenant ${tenantId}`,
-      exportName: `${this.stackName}-UsageCounterTableArn`,
+    new cdk.CfnOutput(this, 'StackUsageEventTableArn', {
+      value: this.authorizationDatabase.usageEventTable.tableArn,
+      description: `ARN of the usage event table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-UsageEventTableArn`,
     });
 
-    new cdk.CfnOutput(this, 'StackUsageCounterTableName', {
-      value: this.authorizationDatabase.usageCounterTable.tableName,
-      description: `Name of the usage counter table for tenant ${tenantId}`,
-      exportName: `${this.stackName}-UsageCounterTableName`,
+    new cdk.CfnOutput(this, 'StackUsageEventTableName', {
+      value: this.authorizationDatabase.usageEventTable.tableName,
+      description: `Name of the usage event table for tenant ${tenantId}`,
+      exportName: `${this.stackName}-UsageEventTableName`,
     });
 
     new cdk.CfnOutput(this, 'StackPermissionGrantTableArn', {
