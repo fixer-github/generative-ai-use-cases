@@ -145,6 +145,18 @@ async function handleCreate(
     });
   }
 
+  // Check if providerType is 'official', only tenant administrators can create official assistants
+  if (body.providerType === 'official') {
+    const isTenantAdmin =
+      event.requestContext.authorizer?.claims?.['custom:tenantAdmin'] === 'true';
+    if (!isTenantAdmin) {
+      return forbidden403Response({
+        message: 'Only tenant administrators can create official assistants',
+        code: 'TENANT_ADMIN_REQUIRED_FOR_OFFICIAL',
+      });
+    }
+  }
+
   const assistant = await createAssistant(userId, body, event);
 
   // If RAG is enabled, process knowledge sources and update status
@@ -347,6 +359,18 @@ async function handleUpdate(
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
   const body: UpdateAssistantRequest = JSON.parse(event.body || '{}');
+
+  // Check if providerType is being changed to 'official', only tenant administrators can do this
+  if (body.providerType === 'official') {
+    const isTenantAdmin =
+      event.requestContext.authorizer?.claims?.['custom:tenantAdmin'] === 'true';
+    if (!isTenantAdmin) {
+      return forbidden403Response({
+        message: 'Only tenant administrators can set assistant as official',
+        code: 'TENANT_ADMIN_REQUIRED_FOR_OFFICIAL',
+      });
+    }
+  }
 
   try {
     const assistant = await updateAssistant(assistantId, userId, body, event);

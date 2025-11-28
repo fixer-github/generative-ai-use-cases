@@ -8,6 +8,7 @@ import {
   PiPencil,
   PiEye,
   PiLock,
+  PiSeal,
 } from 'react-icons/pi';
 import useAssistantApi from '../hooks/useAssistantApi';
 import useUserInfo from '../hooks/useUserInfo';
@@ -378,8 +379,11 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
       </div>
 
       {/* Name */}
-      <h3 className="mb-2 pr-20 text-lg font-semibold text-gray-900">
+      <h3 className="mb-2 flex items-center gap-2 pr-20 text-lg font-semibold text-gray-900">
         {assistant.name}
+        {assistant.providerType === 'official' && (
+          <PiSeal className="flex-shrink-0 text-xl text-blue-600" title="Official" />
+        )}
       </h3>
 
       {/* Description */}
