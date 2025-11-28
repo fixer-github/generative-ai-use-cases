@@ -94,7 +94,11 @@ ${settings.customInstructions}
     return `<instructions>
 ${assistant.instruction}
 </instructions>`;
-  }, [assistant?.instruction, settings.customizeEnabled, settings.customInstructions]);
+  }, [
+    assistant?.instruction,
+    settings.customizeEnabled,
+    settings.customInstructions,
+  ]);
 
   useEffect(() => {
     if (assistantId) {
