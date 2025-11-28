@@ -12,7 +12,6 @@ import {
   GrantPermissionRequest,
   GrantPermissionResponse,
 } from './repositories/types';
-import { UsageCountRepository } from './repositories/usageCountRepository';
 import { PermissionGrantRepository } from './repositories/permissionGrantRepository';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
@@ -41,38 +40,6 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
-}
-
-/**
- * 次回リセット日時を計算する（日本時間基準）
- * 日本時間の0時 = UTC 15:00（前日）
- */
-function calculateNextResetTime(periodType: 'daily' | 'monthly'): number {
-  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
-  const now = new Date();
-
-  // 現在時刻をJSTに変換
-  const nowJST = new Date(now.getTime() + JST_OFFSET);
-
-  let nextResetJST: Date;
-
-  if (periodType === 'daily') {
-    // 翌日の午前0時（JST）
-    nextResetJST = new Date(nowJST);
-    nextResetJST.setUTCDate(nextResetJST.getUTCDate() + 1);
-    nextResetJST.setUTCHours(0, 0, 0, 0);
-  } else {
-    // 翌月1日の午前0時（JST）
-    nextResetJST = new Date(nowJST);
-    nextResetJST.setUTCMonth(nextResetJST.getUTCMonth() + 1);
-    nextResetJST.setUTCDate(1);
-    nextResetJST.setUTCHours(0, 0, 0, 0);
-  }
-
-  // JSTからUTCに戻す
-  const nextResetUTC = new Date(nextResetJST.getTime() - JST_OFFSET);
-
-  return Math.floor(nextResetUTC.getTime() / 1000);
 }
 
 /**
@@ -244,25 +211,16 @@ export const handler = async (
       throw new Error(`Failed to write to OpenFGA: ${openFgaError}`);
     }
 
-    // 6. DynamoDBにカウンター情報を作成
+    // 6. DynamoDBに権限付与履歴を記録
     const dynamoDBClient =
       await createTenantDynamoDBClientForBackgroundJob(tenantId);
 
-    const usageCounterTableName = getTableName(
-      'AuthUsageCounter',
-      tenantId,
-      process.env.ENVIRONMENT || 'dev'
-    );
     const permissionGrantTableName = getTableName(
       'AuthPermissionGrant',
       tenantId,
       process.env.ENVIRONMENT || 'dev'
     );
 
-    const usageCountRepository = new UsageCountRepository(
-      dynamoDBClient,
-      usageCounterTableName
-    );
     const permissionGrantRepository = new PermissionGrantRepository(
       dynamoDBClient,
       permissionGrantTableName
@@ -271,44 +229,11 @@ export const handler = async (
     const now = Math.floor(Date.now() / 1000);
 
     try {
-      // 回数制限がある機能についてDynamoDBにカウンター情報を作成
       console.log(
-        `[GrantPermission] Creating usage counters for ${features.length} features - tableName: ${usageCounterTableName}`
+        `[GrantPermission] Recording permission grant - grantId: ${grantId}, userId: ${userId}, features: ${features.length}`
       );
 
-      for (const feature of features) {
-        if (feature.limitType !== 'unlimited') {
-          const featureIdPeriod = `${feature.featureId}#${feature.limitType}`;
-          const nextResetTime = calculateNextResetTime(feature.limitType);
-
-          console.log(
-            `[GrantPermission] Creating counter - userId: ${userId}, featureId: ${feature.featureId}, limitType: ${feature.limitType}, limitCount: ${feature.limitCount}`
-          );
-
-          await usageCountRepository.create({
-            userId,
-            featureIdPeriod,
-            featureId: feature.featureId,
-            periodType: feature.limitType,
-            currentCount: 0,
-            limitCount: feature.limitCount!,
-            nextResetTime,
-            grantId,
-            createdAt: now,
-            updatedAt: now,
-          });
-
-          console.log(
-            `[GrantPermission] Successfully created counter - userId: ${userId}, featureIdPeriod: ${featureIdPeriod}, limitCount: ${feature.limitCount}, nextResetTime: ${nextResetTime}`
-          );
-        } else {
-          console.log(
-            `[GrantPermission] Skipping counter creation for unlimited feature: ${feature.featureId}`
-          );
-        }
-      }
-
-      // 7. 権限付与履歴をDynamoDBに記録
+      // 権限付与履歴をDynamoDBに記録
       await permissionGrantRepository.create({
         grantId,
         userId,
@@ -319,11 +244,13 @@ export const handler = async (
         grantedAt: now,
       });
 
-      console.log(`Permission grant ${grantId} recorded successfully`);
+      console.log(
+        `[GrantPermission] Permission grant ${grantId} recorded successfully`
+      );
     } catch (dynamoError) {
       // DynamoDBへの書き込みに失敗した場合、OpenFGAの関係性を削除してロールバック
       console.error(
-        'DynamoDB write failed, rolling back OpenFGA tuples:',
+        '[GrantPermission] DynamoDB write failed, rolling back OpenFGA tuples:',
         dynamoError
       );
 
@@ -342,15 +269,18 @@ export const handler = async (
           credentials,
           JSON.stringify(deleteTuplesBody)
         );
-        console.log('OpenFGA tuples rolled back successfully');
+        console.log('[GrantPermission] OpenFGA tuples rolled back successfully');
       } catch (rollbackError) {
-        console.error('Failed to rollback OpenFGA tuples:', rollbackError);
+        console.error(
+          '[GrantPermission] Failed to rollback OpenFGA tuples:',
+          rollbackError
+        );
       }
 
       throw new Error(`Failed to write to DynamoDB: ${dynamoError}`);
     }
 
-    // 8. 成功レスポンスを返す
+    // 7. 成功レスポンスを返す
     const response: GrantPermissionResponse = {
       success: true,
       grantId,
