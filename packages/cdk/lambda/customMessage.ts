@@ -46,8 +46,7 @@ const createEmailHtml = (
           <!-- フッター -->
           <tr>
             <td style="background-color: ${COLORS.background}; padding: 20px 32px; border-radius: 0 0 8px 8px; border-top: 1px solid ${COLORS.lightGray};">
-              ${footerNote ? `<p style="margin: 0 0 12px 0; font-size: 12px; color: #666;">${footerNote}</p>` : ''}
-              <p style="margin: 0; font-size: 12px; color: #999;">&copy; ${new Date().getFullYear()} ${SERVICE_NAME}. All rights reserved.</p>
+              ${footerNote ? `<p style="margin: 0; font-size: 12px; color: #666;">${footerNote}</p>` : ''}
             </td>
           </tr>
         </table>
