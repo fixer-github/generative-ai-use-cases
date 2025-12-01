@@ -30,7 +30,7 @@ let isProcessingAudio = false;
 let isAudioStarted = false;
 
 // Queues
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 let eventQueue: Array<any> = [];
 let audioInputQueue: string[] = [];
 let audioOutputQueue: string[] = [];
@@ -56,7 +56,7 @@ const initialize = () => {
 const dispatchEvent = async (
   channel: EventsChannel,
   event: SpeechToSpeechEventType,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   data: any = undefined
 ) => {
   try {
@@ -309,7 +309,7 @@ const createAsyncIterator = () => {
     return: async () => {
       return { value: undefined, done: true };
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     throw: async (error: any) => {
       console.error(error);
       throw error;
@@ -474,7 +474,7 @@ export const handler = async (event: { channelId: string; model: Model }) => {
     console.log('Connected!');
 
     channel.subscribe({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       next: async (data: any) => {
         const event = data?.event;
         if (event && event.direction === 'ctob') {

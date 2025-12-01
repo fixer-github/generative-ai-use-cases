@@ -29,7 +29,7 @@ interface AssistantMessageStreamRequest {
 }
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
+   
   namespace awslambda {
     function streamifyResponse(
       f: (

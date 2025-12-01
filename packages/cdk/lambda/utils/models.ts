@@ -114,7 +114,7 @@ const LLAMA_PROMPT: PromptTemplate = {
   eosToken: '</s>',
 };
 
-/* eslint-disable i18nhelper/no-jp-string */
+ 
 const BILINGUAL_RINNA_PROMPT: PromptTemplate = {
   prefix: '',
   suffix: 'システム: ',
@@ -134,7 +134,7 @@ const RINNA_PROMPT: PromptTemplate = {
   system: 'システム: {}',
   eosToken: '</s>',
 };
-/* eslint-enable i18nhelper/no-jp-string */
+ 
 
 // Model Params
 
@@ -1529,7 +1529,7 @@ export const BEDROCK_IMAGE_GEN_MODELS: {
 
 export const BEDROCK_VIDEO_GEN_MODELS: {
   [key: string]: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     createBodyVideo: (params: GenerateVideoParams) => any;
   };
 } = {

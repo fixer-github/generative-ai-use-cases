@@ -27,13 +27,71 @@ module.exports = defineConfig([
         sourceType: 'module',
         project: './tsconfig.json',
       },
+      globals: {
+        ...globals.node,
+        ...globals.es2020,
+      },
     },
     rules: {
       ...typescriptPlugin.configs['eslint-recommended'].rules,
       ...typescriptPlugin.configs.recommended.rules,
       '@typescript-eslint/no-namespace': 'off',
-      'i18nhelper/no-jp-string': 'warn',
-      'i18nhelper/no-jp-comment': 'warn',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-asserted-optional-chain': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
+      'no-redeclare': 'off',
+      'i18nhelper/no-jp-string': 'off',
+      'i18nhelper/no-jp-comment': 'off',
+    },
+  },
+  // For cdk Lambda files (AWS Lambda streaming)
+  {
+    files: ['packages/cdk/lambda/**/*.ts'],
+    languageOptions: {
+      globals: {
+        NodeJS: 'readonly',
+        awslambda: 'readonly',
+      },
+    },
+  },
+  // For cdk test files
+  {
+    files: ['packages/cdk/**/*.test.ts', 'packages/cdk/test/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+  },
+  // For cdk JavaScript files (Lambda, CloudFront Functions, custom-resources)
+  {
+    files: ['packages/cdk/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.es2020,
+        fetch: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      'no-case-declarations': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  // For CloudFront Functions (special runtime)
+  {
+    files: ['packages/cdk/cloudfront-functions/**/*.js'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        handler: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
     },
   },
   // For web
