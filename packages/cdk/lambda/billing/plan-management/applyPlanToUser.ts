@@ -15,6 +15,8 @@ import {
 import {
   GrantPermissionRequest,
   GrantPermissionResponse,
+  RevokePermissionRequest,
+  RevokePermissionResponse,
 } from '../../authorization/repositories/types';
 
 const lambdaClient = new LambdaClient({});
@@ -151,6 +153,8 @@ export const handler = async (
     });
 
     const terminatedApplicationIds: string[] = [];
+    const revokePermissionFunctionName = process.env.REVOKE_PERMISSION_FUNCTION_NAME;
+
     for (const activeApplication of activeApplications) {
       // 既存のプラン適用を期限切れに変更
       const expired =
@@ -166,6 +170,49 @@ export const handler = async (
           applicationId: expired.application_id,
           previousPlanId: expired.plan_id,
         });
+
+        // 既存プランの権限を剥奪（revokePermission Lambda関数を呼び出し）
+        if (revokePermissionFunctionName) {
+          try {
+            const revokePermissionRequest: RevokePermissionRequest = {
+              tenantId: input.tenantId,
+              sourceId: expired.application_id, // application_idでPermissionGrantを検索
+              planId: expired.plan_id,
+            };
+
+            console.log('Invoking revokePermission:', {
+              functionName: revokePermissionFunctionName,
+              sourceId: expired.application_id,
+              planId: expired.plan_id,
+            });
+
+            const revokeResponse = await lambdaClient.send(
+              new InvokeCommand({
+                FunctionName: revokePermissionFunctionName,
+                Payload: JSON.stringify(revokePermissionRequest),
+              })
+            );
+
+            const revokeResult = JSON.parse(
+              new TextDecoder().decode(revokeResponse.Payload)
+            ) as RevokePermissionResponse;
+
+            if (!revokeResult.success) {
+              console.error('revokePermission failed:', revokeResult);
+              // 権限剥奪に失敗してもプラン適用は継続（ログ記録のみ）
+            } else {
+              console.log('Permission revoked successfully:', {
+                grantId: revokeResult.grantId,
+                revokedAt: revokeResult.revokedAt,
+              });
+            }
+          } catch (revokeError) {
+            console.error('Error invoking revokePermission:', revokeError);
+            // 権限剥奪に失敗してもプラン適用は継続（ログ記録のみ）
+          }
+        } else {
+          console.log('REVOKE_PERMISSION_FUNCTION_NAME not configured, skipping permission revoke');
+        }
       }
     }
 
