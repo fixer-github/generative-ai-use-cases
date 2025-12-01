@@ -64,8 +64,6 @@ export async function getTenantCredentials(
 
     console.log(`Assuming role for tenant ${tenantId}: ${tenant.roleArn}`);
 
-    const userId =
-      event.requestContext?.authorizer?.claims?.['cognito:username'];
     const userPoolToken = event.headers.Authorization;
     if (!userPoolToken) {
       throw new Error('No valid authorization token found');
