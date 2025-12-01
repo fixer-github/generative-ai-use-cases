@@ -107,12 +107,12 @@ export const handler = async (
 ): Promise<RevokePermissionResponse> => {
   console.log('Revoke Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, grantId, planId } = event;
+  const { tenantId, planId, sourceId } = event;
 
   try {
     // 1. バリデーション
-    if (!tenantId || !grantId || !planId) {
-      throw new Error('Missing required parameters: tenantId, grantId, planId');
+    if (!tenantId || !planId || !sourceId) {
+      throw new Error('Missing required parameters: tenantId, planId, sourceId');
     }
 
     // 2. テナント情報の取得
@@ -136,11 +136,21 @@ export const handler = async (
       permissionGrantTableName
     );
 
-    // 権限付与履歴を取得
-    const permissionGrant = await permissionGrantRepository.get(grantId);
+    // 権限付与履歴を取得（sourceIdで検索）
+    const permissionGrant = await permissionGrantRepository.findBySourceId(sourceId);
     if (!permissionGrant) {
-      throw new Error(`Permission grant ${grantId} not found`);
+      // sourceIdに対応するactiveな権限がない場合は、既に剥奪済みとみなして成功を返す（冪等性）
+      console.warn(
+        `No active permission grant found for sourceId ${sourceId}, assuming already revoked`
+      );
+      return {
+        success: true,
+        grantId: 'unknown',
+        revokedAt: new Date().toISOString(),
+      };
     }
+    const grantId = permissionGrant.grantId;
+    console.log(`Found grantId ${grantId} from sourceId ${sourceId}`);
 
     if (permissionGrant.status === 'revoked') {
       console.warn(`Permission grant ${grantId} is already revoked`);

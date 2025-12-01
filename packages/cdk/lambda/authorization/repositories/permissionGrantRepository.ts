@@ -9,6 +9,7 @@ import {
   GetItemCommand,
   UpdateItemCommand,
   QueryCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { PermissionGrantItem } from './types';
@@ -109,5 +110,32 @@ export class PermissionGrantRepository {
     });
 
     await this.client.send(command);
+  }
+
+  /**
+   * sourceIdで検索（activeな権限のみ）
+   * application_idからgrantIdを取得するために使用
+   */
+  async findBySourceId(sourceId: string): Promise<PermissionGrantItem | null> {
+    const command = new ScanCommand({
+      TableName: this.tableName,
+      FilterExpression: 'sourceId = :sourceId AND #status = :status',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: marshall({
+        ':sourceId': sourceId,
+        ':status': 'active',
+      }),
+    });
+
+    const result = await this.client.send(command);
+
+    if (!result.Items || result.Items.length === 0) {
+      return null;
+    }
+
+    // sourceIdは一意であることを想定しているため、最初の1件を返す
+    return unmarshall(result.Items[0]) as PermissionGrantItem;
   }
 }
