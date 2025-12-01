@@ -148,7 +148,6 @@ const AssistantFormPage: React.FC = () => {
           modelId: fetchedAssistant.modelId,
           ragEnabled: fetchedAssistant.ragEnabled,
           visibility: fetchedAssistant.visibility,
-          providerType: fetchedAssistant.providerType || 'user',
           knowledgeSources: fetchedAssistant.knowledgeSources || [],
         });
       }
@@ -208,7 +207,6 @@ const AssistantFormPage: React.FC = () => {
         modelId: formData.modelId,
         ragEnabled: formData.ragEnabled,
         visibility: formData.visibility,
-        providerType: formData.providerType,
         knowledgeSources: formData.knowledgeSources,
       };
 
@@ -318,16 +316,6 @@ const AssistantFormPage: React.FC = () => {
           disabled={assistantId ? !isOwner : false}
         />
 
-        {/* Assistant UUID (only for admins in edit mode) */}
-        {assistantId && isAdmin && (
-          <div className="mt-4 rounded-md bg-gray-50 p-3">
-            <span className="text-xs font-medium text-gray-600">Assistant ID:</span>
-            <code className="ml-2 rounded bg-gray-100 px-2 py-1 text-xs text-gray-800">
-              {assistantId}
-            </code>
-          </div>
-        )}
-
         {/* Visibility Selector (only for owners) */}
         {(!assistantId || isOwner) && (
           <div className="mt-6">
@@ -377,55 +365,6 @@ const AssistantFormPage: React.FC = () => {
                 </span>
                 <span className="text-xs text-gray-500">
                   ({t('assistant.visibility.publicDescription')})
-                </span>
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Provider Type Selector (only for admins when creating/editing) */}
-        {(!assistantId || isOwner) && (assistantCreationRequiresAdmin || isAdmin) && (
-          <div className="mt-6">
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Provider Type
-            </label>
-            <div className="flex gap-4">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="providerType"
-                  value="user"
-                  checked={formData.providerType === 'user'}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      providerType: e.target.value as 'user' | 'official',
-                    }))
-                  }
-                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-900">User</span>
-                <span className="text-xs text-gray-500">
-                  (User-created assistant)
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="providerType"
-                  value="official"
-                  checked={formData.providerType === 'official'}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      providerType: e.target.value as 'user' | 'official',
-                    }))
-                  }
-                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-900">Official</span>
-                <span className="text-xs text-gray-500">
-                  (Official assistant, admin only)
                 </span>
               </label>
             </div>
