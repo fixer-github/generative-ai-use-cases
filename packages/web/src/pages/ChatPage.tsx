@@ -193,7 +193,9 @@ ${baseContext}
       setIsCreatingChat(true);
       try {
         const newChatId = await createChatIfNotExist();
-        const newPathname = `/chat/${newChatId}`;
+        // Remove 'chat#' prefix from chatId for URL
+        const chatIdForUrl = newChatId.replace(/^chat#/, '');
+        const newPathname = `/chat/${chatIdForUrl}`;
 
         // Migrate the state to the new path
         migrateState(newPathname);
