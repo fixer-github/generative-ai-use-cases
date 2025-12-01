@@ -22,6 +22,15 @@ import { getOpenFgaConfig } from '../utils/tenantSsmParameters';
 const stsClient = new STSClient();
 
 /**
+ * Entitlement IDを生成する
+ * @param planId プランID
+ * @returns Entitlement ID (plan-{planId} 形式)
+ */
+function generateEntitlementId(planId: string): string {
+  return `plan-${planId}`;
+}
+
+/**
  * テーブル名を生成するヘルパー関数
  */
 function getTableName(
@@ -98,12 +107,12 @@ export const handler = async (
 ): Promise<RevokePermissionResponse> => {
   console.log('Revoke Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, grantId } = event;
+  const { tenantId, grantId, planId } = event;
 
   try {
     // 1. バリデーション
-    if (!tenantId || !grantId) {
-      throw new Error('Missing required parameters: tenantId, grantId');
+    if (!tenantId || !grantId || !planId) {
+      throw new Error('Missing required parameters: tenantId, grantId, planId');
     }
 
     // 2. テナント情報の取得
@@ -144,7 +153,6 @@ export const handler = async (
     }
 
     const userId = permissionGrant.userId;
-    const features = permissionGrant.features;
 
     // 4. テナントロールを AssumeRole してクレデンシャルを取得
     const assumeRoleCommand = new AssumeRoleCommand({
@@ -171,11 +179,15 @@ export const handler = async (
     );
 
     // 6. OpenFGAから関係性を削除
-    const tupleKeys = features.map((feature) => ({
-      user: `user:${userId}`,
-      relation: 'can_access',
-      object: `feature:${feature.featureId}`,
-    }));
+    // user:{userId} → holder → entitlement:plan-{planId} を削除
+    const entitlementId = generateEntitlementId(planId);
+    const tupleKeys = [
+      {
+        user: `user:${userId}`,
+        relation: 'holder',
+        object: `entitlement:${entitlementId}`,
+      },
+    ];
 
     const deleteTuplesBody = {
       deletes: {
@@ -186,6 +198,9 @@ export const handler = async (
     console.log(
       'Deleting tuples from OpenFGA:',
       JSON.stringify(deleteTuplesBody, null, 2)
+    );
+    console.log(
+      `Revoking holder relation from user ${userId} to entitlement:${entitlementId}`
     );
 
     try {
