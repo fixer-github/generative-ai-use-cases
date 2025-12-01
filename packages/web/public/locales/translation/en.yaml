@@ -165,9 +165,9 @@ assistant:
   myAssistants: My Assistants
   noAssistants: No assistants found
   organizationPublic: Organization Public
+  organizationPublicDescription: Members of your organization can use this assistant
   owner:
     mine: Mine
-  organizationPublicDescription: Members of your organization can use this assistant
   popularAssistants: Popular Assistants
   private: Private
   privateDescription: Only you can use this assistant
