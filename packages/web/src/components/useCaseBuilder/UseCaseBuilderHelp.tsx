@@ -39,7 +39,6 @@ const Placeholder: React.FC<{
   options?: string;
 }> = (props) => {
   return (
-     
     <span className="rounded bg-gray-200 px-1 py-0.5">
       {`{{${props.inputType}${props.label !== undefined ? ':' + props.label : ''}${props.options !== undefined ? ':' + props.options : ''}}}`}
     </span>
