@@ -61,6 +61,89 @@ export class UserPlanApplicationRepository extends BaseRepository {
   }
 
   /**
+   * プラン適用一覧を取得する（ページネーション対応）
+   *
+   * @returns フィルタ条件に合致するプラン適用のリストとページネーション情報
+   */
+  async findAllPaginated(
+    options: {
+      planId?: string;
+      userId?: string;
+      status?: string | string[];
+      applicationSource?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<{
+    items: UserPlanApplication[];
+    total_count: number;
+  }> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // フィルタ条件の追加
+    if (options.planId) {
+      conditions.push(`plan_id = $${paramIndex++}`);
+      params.push(options.planId);
+    }
+
+    if (options.userId) {
+      conditions.push(`user_id = $${paramIndex++}`);
+      params.push(options.userId);
+    }
+
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        const placeholders = options.status
+          .map(() => `$${paramIndex++}`)
+          .join(', ');
+        conditions.push(`application_status IN (${placeholders})`);
+        params.push(...options.status);
+      } else {
+        conditions.push(`application_status = $${paramIndex++}`);
+        params.push(options.status);
+      }
+    }
+
+    if (options.applicationSource) {
+      conditions.push(`application_source = $${paramIndex++}`);
+      params.push(options.applicationSource);
+    }
+
+    // WHERE句の構築
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 総件数を取得
+    const countQuery = `
+      SELECT COUNT(*) as total FROM user_plan_applications
+      ${whereClause}
+    `;
+    const countResult = await this.query<{ total: string }>(countQuery, params);
+    const totalCount = parseInt(countResult.rows[0].total, 10);
+
+    // ページネーション用のパラメータを追加
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+
+    const dataQuery = `
+      SELECT * FROM user_plan_applications
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    const dataParams = [...params, limit, offset];
+    const result = await this.query<UserPlanApplication>(dataQuery, dataParams);
+
+    return {
+      items: result.rows.map((row) => this.mapRowToUserPlanApplication(row)),
+      total_count: totalCount,
+    };
+  }
+
+  /**
    * プラン適用一覧を取得する
    *
    * @returns フィルタ条件に合致するプラン適用のリスト
