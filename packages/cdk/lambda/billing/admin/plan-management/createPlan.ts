@@ -19,18 +19,6 @@ import {
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
 import { createOpenFgaClient } from '../../../utils/openFgaClient';
-import { getAssistant } from '../../../repository/assistant';
-
-/**
- * UUID形式のバリデーション
- * @param uuid 検証するUUID文字列
- * @returns UUIDとして有効な形式であればtrue
- */
-function isValidUUID(uuid: string): boolean {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
-}
 
 /**
  * Entitlement IDを生成する
@@ -43,18 +31,15 @@ function generateEntitlementId(planId: string): string {
 
 /**
  * featureIdからリソースタイプとIDを抽出する
- * @param featureId 機能ID (例: "llm:gemini-2.5-flash" or "assistant:<UUID>" or "chat")
- * @returns { type: 'llm' | 'assistant' | 'feature', id: string }
+ * @param featureId 機能ID (例: "llm:gemini-2.5-flash" or "chat")
+ * @returns { type: 'llm' | 'feature', id: string }
  */
 function parseFeatureId(featureId: string): {
-  type: 'llm' | 'assistant' | 'feature';
+  type: 'llm' | 'feature';
   id: string;
 } {
   if (featureId.startsWith('llm:')) {
     return { type: 'llm', id: featureId.substring(4) };
-  }
-  if (featureId.startsWith('assistant:')) {
-    return { type: 'assistant', id: featureId.substring(10) };
   }
   return { type: 'feature', id: featureId };
 }
@@ -72,7 +57,6 @@ async function registerEntitlementToOpenFga(
 
   // Tuplesを構築
   // entitlement:plan-xxx → via_access → llm:xxx (LLMの場合)
-  // entitlement:plan-xxx → via_access → assistant:xxx (Assistantの場合)
   // entitlement:plan-xxx → via_enable → feature:xxx (Featureの場合)
   const tupleKeys = features.map((featureId) => {
     const { type, id } = parseFeatureId(featureId);
@@ -81,12 +65,6 @@ async function registerEntitlementToOpenFga(
         user: `entitlement:${entitlementId}`,
         relation: 'via_access',
         object: `llm:${id}`,
-      };
-    } else if (type === 'assistant') {
-      return {
-        user: `entitlement:${entitlementId}`,
-        relation: 'via_access',
-        object: `assistant:${id}`,
       };
     } else {
       return {
@@ -324,42 +302,6 @@ export const handler = async (
               field: `permissions.limits.${key}`,
               reason:
                 'typeがunlimited以外の場合、countは正の整数である必要があります',
-            },
-          });
-        }
-      }
-    }
-
-    // permissions.featuresの各featureIdをバリデーション
-    for (const featureId of requestBody.permissions.features) {
-      const { type, id } = parseFeatureId(featureId);
-
-      // assistant:<UUID>形式の場合の検証
-      if (type === 'assistant') {
-        // UUIDの形式チェック
-        if (!isValidUUID(id)) {
-          return badRequest400Response({
-            message: 'アシスタントIDの形式が不正です',
-            code: 'INVALID_ASSISTANT_ID_FORMAT',
-            details: {
-              field: 'permissions.features',
-              featureId,
-              reason: 'assistant:の後にはUUID形式のIDを指定してください',
-            },
-          });
-        }
-
-        // アシスタントの存在確認
-        const assistant = await getAssistant(id, event);
-        if (!assistant) {
-          return badRequest400Response({
-            message: '指定されたアシスタントが見つかりません',
-            code: 'ASSISTANT_NOT_FOUND',
-            details: {
-              field: 'permissions.features',
-              featureId,
-              assistantId: id,
-              reason: '存在するアシスタントのUUIDを指定してください',
             },
           });
         }

@@ -23,7 +23,6 @@ export type Assistant = {
   modelId: string;
   ragEnabled: boolean;
   visibility: 'private' | 'public'; // Visibility within tenant
-  providerType?: 'user' | 'official'; // Provider type: user-created or official
   syncStatus: 'QUEUED' | 'SYNCING' | 'SUCCEEDED' | 'FAILED' | 'PARTIAL';
   syncStatusReason: string;
   knowledgeSources: KnowledgeSource[];
@@ -84,7 +83,6 @@ export type CreateAssistantRequest = {
   modelId: string;
   ragEnabled: boolean;
   visibility?: 'private' | 'public'; // Optional, defaults to 'private'
-  providerType?: 'user' | 'official'; // Optional, defaults to 'user'
   knowledgeSources?: KnowledgeSource[];
   firstQuestions?: string[]; // Quick starter questions for new chats
   s3Urls?: string[]; // Legacy field for backward compatibility
@@ -97,7 +95,6 @@ export type UpdateAssistantRequest = {
   modelId?: string;
   ragEnabled?: boolean;
   visibility?: 'private' | 'public';
-  providerType?: 'user' | 'official';
   knowledgeSources?: KnowledgeSource[];
   firstQuestions?: string[]; // Quick starter questions for new chats
   s3Urls?: string[]; // Legacy field for backward compatibility
