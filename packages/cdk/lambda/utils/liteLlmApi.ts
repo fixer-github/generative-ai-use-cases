@@ -218,7 +218,6 @@ const liteLlmApi: ApiInterface = {
   invoke: async function (
     model: Model,
     messages: UnrecordedMessage[],
-     
     id: string
   ): Promise<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
@@ -262,9 +261,7 @@ const liteLlmApi: ApiInterface = {
   invokeStream: async function* (
     model: Model,
     messages: UnrecordedMessage[],
-     
     id: string,
-     
     idToken?: string | undefined
   ): AsyncIterable<string> {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
@@ -365,17 +362,13 @@ const liteLlmApi: ApiInterface = {
     }
   },
   generateImage: function (
-     
     model: Model,
-     
     params: GenerateImageParams
   ): Promise<string> {
     throw new Error('Function not implemented.');
   },
   generateVideo: function (
-     
     model: Model,
-     
     params: GenerateVideoParams
   ): Promise<string> {
     throw new Error('Function not implemented.');

@@ -30,7 +30,6 @@ let isProcessingAudio = false;
 let isAudioStarted = false;
 
 // Queues
- 
 let eventQueue: Array<any> = [];
 let audioInputQueue: string[] = [];
 let audioOutputQueue: string[] = [];
@@ -56,7 +55,6 @@ const initialize = () => {
 const dispatchEvent = async (
   channel: EventsChannel,
   event: SpeechToSpeechEventType,
-   
   data: any = undefined
 ) => {
   try {
@@ -309,7 +307,6 @@ const createAsyncIterator = () => {
     return: async () => {
       return { value: undefined, done: true };
     },
-     
     throw: async (error: any) => {
       console.error(error);
       throw error;
@@ -474,7 +471,6 @@ export const handler = async (event: { channelId: string; model: Model }) => {
     console.log('Connected!');
 
     channel.subscribe({
-       
       next: async (data: any) => {
         const event = data?.event;
         if (event && event.direction === 'ctob') {

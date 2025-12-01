@@ -114,7 +114,6 @@ const LLAMA_PROMPT: PromptTemplate = {
   eosToken: '</s>',
 };
 
- 
 const BILINGUAL_RINNA_PROMPT: PromptTemplate = {
   prefix: '',
   suffix: 'システム: ',
@@ -134,7 +133,6 @@ const RINNA_PROMPT: PromptTemplate = {
   system: 'システム: {}',
   eosToken: '</s>',
 };
- 
 
 // Model Params
 
@@ -1529,7 +1527,6 @@ export const BEDROCK_IMAGE_GEN_MODELS: {
 
 export const BEDROCK_VIDEO_GEN_MODELS: {
   [key: string]: {
-     
     createBodyVideo: (params: GenerateVideoParams) => any;
   };
 } = {

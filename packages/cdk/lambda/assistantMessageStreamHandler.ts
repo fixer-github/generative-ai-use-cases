@@ -29,7 +29,6 @@ interface AssistantMessageStreamRequest {
 }
 
 declare global {
-   
   namespace awslambda {
     function streamifyResponse(
       f: (
