@@ -209,7 +209,9 @@ ${baseContext}
         targetPathname = newPathname;
       } catch (error) {
         setIsCreatingChat(false);
-        setCreateChatError('チャットの作成に失敗しました。もう一度お試しください。');
+        setCreateChatError(
+          'チャットの作成に失敗しました。もう一度お試しください。'
+        );
         return; // Keep the input content and return
       }
       setIsCreatingChat(false);
