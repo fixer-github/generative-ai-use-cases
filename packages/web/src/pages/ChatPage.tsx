@@ -395,7 +395,8 @@ ${baseContext}
         </h1>
 
         {/* Wrapper for messages and input to enable vertical centering when empty */}
-        {loadingMessages && chatId ? (
+        {/* Show loading only when fetching existing chat messages (not for just-created chats) */}
+        {loadingMessages && chatId && isEmpty ? (
           <div className="flex flex-1 flex-col items-center justify-center">
             <LoadingWave />
           </div>
