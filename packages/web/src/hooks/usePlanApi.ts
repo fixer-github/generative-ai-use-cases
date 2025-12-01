@@ -159,6 +159,56 @@ export interface SetDefaultPlanResponse {
   updated_by: string;
 }
 
+export interface SubscriberInfo {
+  user_id: string;
+  email: string | null;
+  application_id: string;
+  application_source: string;
+  application_status: string;
+  valid_from: string;
+  valid_until: string | null;
+  created_at: string;
+}
+
+export interface PlanSubscribersResponse {
+  plan_id: string;
+  plan_name: string;
+  subscribers: SubscriberInfo[];
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    total_count: number;
+    limit: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+}
+
+export interface MigratePlanSubscribersRequest {
+  targetPlanId: string;
+  userIds: string[];
+}
+
+export interface MigrationResult {
+  userId: string;
+  success: boolean;
+  applicationId?: string;
+  previousApplicationIds?: string[];
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+export interface MigratePlanSubscribersResponse {
+  sourcePlanId: string;
+  targetPlanId: string;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  results: MigrationResult[];
+}
+
 const usePlanApi = () => {
   const { api } = useBillingHttp();
 
@@ -270,6 +320,42 @@ const usePlanApi = () => {
     setDefaultPlan: async (planId: string): Promise<SetDefaultPlanResponse> => {
       const response = await api.put<SetDefaultPlanResponse>(
         `/admin/billing/plans/${planId}/default`
+      );
+      return response.data;
+    },
+
+    /**
+     * Get plan subscribers (detailed list)
+     */
+    getPlanSubscribers: async (
+      planId: string,
+      params?: {
+        page?: number;
+        limit?: number;
+      }
+    ): Promise<PlanSubscribersResponse> => {
+      const queryParams = new URLSearchParams();
+
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+      const queryString = queryParams.toString();
+      const url = `/admin/billing/plans/${planId}/subscribers${queryString ? `?${queryString}` : ''}`;
+
+      const response = await api.get<PlanSubscribersResponse>(url);
+      return response.data;
+    },
+
+    /**
+     * Migrate plan subscribers to another plan
+     */
+    migratePlanSubscribers: async (
+      planId: string,
+      data: MigratePlanSubscribersRequest
+    ): Promise<MigratePlanSubscribersResponse> => {
+      const response = await api.post<MigratePlanSubscribersResponse>(
+        `/admin/billing/plans/${planId}/migrate`,
+        data
       );
       return response.data;
     },

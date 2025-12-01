@@ -103,6 +103,7 @@ export class AuthorizationFunctions extends Construct {
     );
 
     // Revoke Permission Function
+    // Use backgroundJobRole if provided (for cross-tenant access via AssumeRole)
     this.revokePermissionFunction = new NodejsFunction(
       this,
       'RevokePermissionFunction',
@@ -117,6 +118,7 @@ export class AuthorizationFunctions extends Construct {
         environment: commonEnvironment,
         description:
           'Revoke permissions from users (shared across all tenants)',
+        ...(props.backgroundJobRole ? { role: props.backgroundJobRole } : {}),
       }
     );
 
@@ -171,10 +173,9 @@ export class AuthorizationFunctions extends Construct {
 
     const useBackgroundJobRole = !!props.backgroundJobRole;
 
-    // Functions that need their own policies (excludes grantPermissionFunction if using backgroundJobRole)
+    // Functions that need their own policies (excludes grantPermissionFunction and revokePermissionFunction if using backgroundJobRole)
     const functionsNeedingAssumeRole = useBackgroundJobRole
       ? [
-          this.revokePermissionFunction,
           this.checkPermissionFunction,
           this.incrementUsageCountFunction,
         ]
@@ -186,7 +187,7 @@ export class AuthorizationFunctions extends Construct {
         ];
 
     const functionsNeedingOpenFga = useBackgroundJobRole
-      ? [this.revokePermissionFunction, this.checkPermissionFunction]
+      ? [this.checkPermissionFunction]
       : [
           this.grantPermissionFunction,
           this.revokePermissionFunction,
