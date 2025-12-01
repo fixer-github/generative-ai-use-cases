@@ -118,6 +118,8 @@ class PlanManagementApi extends Construct {
         ENVIRONMENT: environment,
         // grantPermission関数名（共通スタックで定義）
         GRANT_PERMISSION_FUNCTION_NAME: `${environment}-authorization-grant-permission`,
+        // revokePermission関数名（共通スタックで定義）
+        REVOKE_PERMISSION_FUNCTION_NAME: `${environment}-authorization-revoke-permission`,
       },
       ...(vpc && securityGroup
         ? {
@@ -337,6 +339,8 @@ class PlanManagementApi extends Construct {
             `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
             // 権限付与関数（共通スタックで定義、プラン適用時に権限を付与するため）
             `arn:aws:lambda:*:*:function:${environment}-authorization-grant-permission`,
+            // 権限剥奪関数（共通スタックで定義、プラン変更時に旧権限を剥奪するため）
+            `arn:aws:lambda:*:*:function:${environment}-authorization-revoke-permission`,
           ],
         })
       );

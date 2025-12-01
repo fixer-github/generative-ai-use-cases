@@ -64,7 +64,7 @@ export interface GrantPermissionResponse {
  */
 export interface RevokePermissionRequest {
   tenantId: string; // テナントID
-  grantId: string; // 権限付与ID
+  sourceId: string; // 付与元ID（application_id）。PermissionGrantの検索に使用
   planId: string; // プランID（Entitlement IDの生成に使用）
 }
 
