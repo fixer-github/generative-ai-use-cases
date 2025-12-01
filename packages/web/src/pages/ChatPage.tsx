@@ -79,7 +79,6 @@ const ChatPage: React.FC = () => {
     isEmpty,
     messages,
     clear,
-    postChat,
     editChat,
     updateSystemContext,
     retryGeneration,
@@ -87,6 +86,7 @@ const ChatPage: React.FC = () => {
     loadingMessages,
     createChatIfNotExist,
     migrateState,
+    postChatWithId,
   } = useChat(pathname, chatId);
   const { createShareId, findShareId, deleteShareId } = useChatApi();
   const { scrollableContainer, setFollowing } = useFollow();
@@ -188,6 +188,8 @@ ${baseContext}
     setFollowing(true);
     setCreateChatError(null);
 
+    let targetPathname = pathname;
+
     // For new chats, create the chat first and navigate to its URL
     if (!chatId) {
       setIsCreatingChat(true);
@@ -202,6 +204,9 @@ ${baseContext}
 
         // Navigate to the new chat URL
         navigate(newPathname, { replace: true });
+
+        // Use the new pathname for postChat
+        targetPathname = newPathname;
       } catch (error) {
         setIsCreatingChat(false);
         setCreateChatError('チャットの作成に失敗しました。もう一度お試しください。');
@@ -210,8 +215,9 @@ ${baseContext}
       setIsCreatingChat(false);
     }
 
-    // Start LLM inference
-    postChat(
+    // Start LLM inference with the correct pathname
+    postChatWithId(
+      targetPathname,
       prompter.chatPrompt({ content }),
       false,
       undefined,
@@ -238,8 +244,9 @@ ${baseContext}
     migrateState,
     navigate,
     prompter,
-    postChat,
+    postChatWithId,
     uploadedFiles,
+    pathname,
   ]);
 
   const onRetry = useCallback(() => {

@@ -1082,8 +1082,9 @@ ${baseSystemContext}
   useEffect(() => {
     // In the case of a registered chat
     // Skip restore if the chat was just created (state already migrated)
+    // Note: chatId from URL doesn't have 'chat#' prefix, but existingChat.chatId does
     const existingChat = chats[id]?.chat;
-    const isJustCreated = existingChat?.chatId === chatId;
+    const isJustCreated = existingChat?.chatId === `chat#${chatId}`;
 
     if (
       !isLoadingMessage &&
@@ -1176,6 +1177,40 @@ ${baseSystemContext}
     ) => {
       post(
         id,
+        content,
+        mutateChatList,
+        ignoreHistory,
+        preProcessInput,
+        postProcessOutput,
+        sessionId,
+        uploadedFiles,
+        extraData,
+        overrideModelType,
+        setSessionId,
+        base64Cache,
+        overrideModelParameters
+      );
+    },
+    postChatWithId: (
+      targetId: string,
+      content: string,
+      ignoreHistory: boolean = false,
+      preProcessInput:
+        | ((message: ShownMessage[]) => ShownMessage[])
+        | undefined = undefined,
+      postProcessOutput: ((message: string) => string) | undefined = undefined,
+      sessionId: string | undefined = undefined,
+      uploadedFiles: UploadedFileType[] | undefined = undefined,
+      extraData: ExtraData[] | undefined = undefined,
+      overrideModelType: Model['type'] | undefined = undefined,
+      setSessionId: (sessionId: string) => void = () => {},
+      base64Cache: Record<string, string> | undefined = undefined,
+      overrideModelParameters:
+        | AdditionalModelRequestFields
+        | undefined = undefined
+    ) => {
+      post(
+        targetId,
         content,
         mutateChatList,
         ignoreHistory,
