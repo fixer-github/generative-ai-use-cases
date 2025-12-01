@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PiArrowLeft, PiCopy, PiWarning, PiCheckCircle } from 'react-icons/pi';
+import { PiArrowLeft, PiCopy, PiWarning, PiCheckCircle, PiArrowsLeftRight } from 'react-icons/pi';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -263,6 +263,16 @@ const PlanDetailPage: React.FC = () => {
               <p className="mt-1 text-sm text-gray-600">{plan.display_name}</p>
             </div>
             <div className="flex space-x-3">
+              {plan.platform_type === 'internal' &&
+               subscriptions &&
+               subscriptions.total_subscribers > 0 && (
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700"
+                  onClick={() => navigate(`/admin/billing/plans/${planId}/migrate`)}>
+                  <PiArrowsLeftRight className="mr-2" />
+                  加入ユーザを別のプランへ移行
+                </Button>
+              )}
               {plan.platform_type === 'internal' &&
                plan.status === 'active' &&
                !plan.is_default && (

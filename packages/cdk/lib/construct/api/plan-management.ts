@@ -258,6 +258,38 @@ class PlanManagementApi extends Construct {
     });
 
     // ========================================
+    // 8. Get Plan Subscribers (Detailed List)
+    // ========================================
+    const getPlanSubscribersFunction = new NodejsFunction(
+      this,
+      'GetPlanSubscribers',
+      {
+        ...commonLambdaConfig,
+        entry: './lambda/billing/admin/plan-management/getPlanSubscribers.ts',
+        functionName: `${environment}-billing-admin-get-plan-subscribers`,
+      }
+    );
+
+    // ========================================
+    // 9. Migrate Plan Subscribers
+    // ========================================
+    const migratePlanSubscribersFunction = new NodejsFunction(
+      this,
+      'MigratePlanSubscribers',
+      {
+        ...commonLambdaConfig,
+        timeout: Duration.seconds(300), // 移行処理は時間がかかる可能性があるため延長
+        entry:
+          './lambda/billing/admin/plan-management/migratePlanSubscribers.ts',
+        functionName: `${environment}-billing-admin-migrate-plan-subscribers`,
+        environment: {
+          ...commonLambdaConfig.environment,
+          APPLY_PLAN_TO_USER_FUNCTION_NAME: `${environment}-billing-plan-internal-apply`,
+        },
+      }
+    );
+
+    // ========================================
     // IAM Permissions
     // ========================================
     const functions = [
@@ -269,6 +301,8 @@ class PlanManagementApi extends Construct {
       setDefaultPlanFunction,
       getPlanHistoryFunction,
       getPlanSubscriptionsFunction,
+      getPlanSubscribersFunction,
+      migratePlanSubscribersFunction,
       checkPlanNameFunction,
       // Internal functions
       applyPlanToUserFunction,
@@ -346,6 +380,21 @@ class PlanManagementApi extends Construct {
       );
     });
 
+    // migratePlanSubscribers needs permission to invoke applyPlanToUser internal function
+    migratePlanSubscribersFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          // 複数テナントのdata-access関数を呼び出す可能性があるため、ワイルドカードを使用
+          `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+          `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          // applyPlanToUser内部関数の呼び出し権限
+          `arn:aws:lambda:*:*:function:${environment}-billing-plan-internal-apply`,
+        ],
+      })
+    );
+
     // ========================================
     // API Gateway Endpoints
     // ========================================
@@ -421,6 +470,28 @@ class PlanManagementApi extends Construct {
     subscriptionsResource.addMethod(
       'GET',
       new LambdaIntegration(getPlanSubscriptionsFunction),
+      {
+        authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // GET /admin/billing/plans/{plan_id}/subscribers - Get plan subscribers (detailed list)
+    const subscribersResource = planIdResource.addResource('subscribers');
+    subscribersResource.addMethod(
+      'GET',
+      new LambdaIntegration(getPlanSubscribersFunction),
+      {
+        authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // POST /admin/billing/plans/{plan_id}/migrate - Migrate plan subscribers to another plan
+    const migrateResource = planIdResource.addResource('migrate');
+    migrateResource.addMethod(
+      'POST',
+      new LambdaIntegration(migratePlanSubscribersFunction),
       {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
