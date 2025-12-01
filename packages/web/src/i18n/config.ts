@@ -6,8 +6,6 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 import yaml from 'js-yaml';
 
- 
-
 // Define the supported languages as an object.
 // This is for use when the user manually switches languages.
 export const supportedLngs = {

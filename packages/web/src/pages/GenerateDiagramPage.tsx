@@ -509,7 +509,6 @@ const GenerateDiagramPage: React.FC = () => {
                 <label className="mb-2 block text-sm font-bold text-gray-700">
                   <>
                     {t('diagram.diagram_type')}{' '}
-                    { }
                     <span className="font-normal">
                       - {DiagramData[selectedType].title}
                     </span>

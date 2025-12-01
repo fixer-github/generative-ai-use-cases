@@ -265,7 +265,6 @@ const TranscribePage: React.FC = () => {
                 {content.map((transcript, idx) => (
                   <div key={idx} className="flex">
                     {transcript.speakerLabel && (
-                       
                       <div className="min-w-20">
                         {speakerMapping[transcript.speakerLabel] ||
                           transcript.speakerLabel}

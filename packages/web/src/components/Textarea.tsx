@@ -55,13 +55,11 @@ const Textarea: React.FC<Props> = (props) => {
           <span className="text-sm">{props.label}</span>
           {props.help && <Help className="ml-1" message={props.help} />}
           {props.optional && (
-             
             <span className="ml-2 text-xs italic text-gray-500">
               - {t('common.optional')}
             </span>
           )}
           {props.required && (
-             
             <span className="ml-2 text-xs font-bold text-gray-800">
               * {t('common.required')}
             </span>

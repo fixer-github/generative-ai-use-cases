@@ -13,7 +13,6 @@ const PromptSample: React.FC<PromptSampleProps> = (props) => {
 
   return (
     <div className="mt-3 rounded border border-gray-400">
-      { }
       <div
         className="flex cursor-pointer items-center justify-between bg-gray-400 px-2 py-1 text-sm text-white hover:opacity-80"
         onClick={() => {

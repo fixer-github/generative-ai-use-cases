@@ -22,7 +22,6 @@ const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    { }
     <React.Suspense fallback={<div>Loading...</div>}>
       <Authenticator.Provider>
         <SWRConfig

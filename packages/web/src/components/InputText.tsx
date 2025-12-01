@@ -18,7 +18,6 @@ const InputText: React.FC<Props> = (props) => {
     <div className={props.className}>
       {props.label && <span className="text-sm">{props.label}</span>}
       {props.required && (
-         
         <span className="ml-2 text-xs font-bold text-gray-800">
           * {t('common.required')}
         </span>

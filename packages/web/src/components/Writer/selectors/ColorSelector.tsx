@@ -104,7 +104,6 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button size="sm" className="gap-2 rounded-none" variant="ghost">
-          { }
           <span
             className="rounded-sm px-1"
             style={{
@@ -141,7 +140,6 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
               }}
               className="hover:bg-accent flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
               <div className="flex items-center gap-2">
-                { }
                 <div
                   className="rounded-sm border px-2 py-px font-medium"
                   style={{ color }}>
@@ -168,7 +166,6 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
               }}
               className="hover:bg-accent flex cursor-pointer items-center justify-between px-2 py-1 text-sm">
               <div className="flex items-center gap-2">
-                { }
                 <div
                   className="rounded-sm border px-2 py-px font-medium"
                   style={{ backgroundColor: color }}>
