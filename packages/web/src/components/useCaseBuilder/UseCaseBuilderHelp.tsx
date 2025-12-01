@@ -13,7 +13,7 @@ const PromptSample: React.FC<PromptSampleProps> = (props) => {
 
   return (
     <div className="mt-3 rounded border border-gray-400">
-      {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
+      { }
       <div
         className="flex cursor-pointer items-center justify-between bg-gray-400 px-2 py-1 text-sm text-white hover:opacity-80"
         onClick={() => {
@@ -40,7 +40,7 @@ const Placeholder: React.FC<{
   options?: string;
 }> = (props) => {
   return (
-    /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
+     
     <span className="rounded bg-gray-200 px-1 py-0.5">
       {`{{${props.inputType}${props.label !== undefined ? ':' + props.label : ''}${props.options !== undefined ? ':' + props.options : ''}}}`}
     </span>

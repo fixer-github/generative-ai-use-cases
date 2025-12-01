@@ -59,7 +59,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
     isRoleChangeDetected: false,
   });
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastKnownAdminStatusRef = useRef<boolean | null>(null);
   const isCheckingRef = useRef(false);
   const focusDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,7 +128,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Handle role mismatch errors
         if (isRoleMismatchError(error)) {
           if (lastKnownAdminStatusRef.current === true) {
@@ -139,13 +139,15 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
           }
         }
 
+        const axiosErr = error as { response?: { status?: number } };
+
         // For non-admin users, 403 is expected
         setState((prev) => ({
           ...prev,
           isAdmin: false,
           isLoading: false,
           error:
-            error.response?.status === 403
+            axiosErr.response?.status === 403
               ? null
               : 'Failed to verify admin status',
           tenantId: null,
@@ -162,6 +164,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
         isCheckingRef.current = false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       api,
       enabled,
@@ -228,9 +231,11 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
           window.location.reload();
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { status?: number } };
+
       // Handle 403/409 errors indicating role revocation
-      if (error?.response?.status === 403 || error?.response?.status === 409) {
+      if (axiosErr?.response?.status === 403 || axiosErr?.response?.status === 409) {
         if (lastKnownAdminStatusRef.current === true) {
           await handleRoleMismatch(
             'Admin privileges likely revoked (403/409 error)'

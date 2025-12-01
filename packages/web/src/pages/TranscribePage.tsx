@@ -265,7 +265,7 @@ const TranscribePage: React.FC = () => {
                 {content.map((transcript, idx) => (
                   <div key={idx} className="flex">
                     {transcript.speakerLabel && (
-                      /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
+                       
                       <div className="min-w-20">
                         {speakerMapping[transcript.speakerLabel] ||
                           transcript.speakerLabel}

@@ -1,8 +1,8 @@
+import React, { useMemo } from 'react';
 import { ExplicitFilterConfiguration } from 'generative-ai-use-cases';
 import { FilterSelect, SelectValue } from '../components/FilterSelect';
 import { Input } from '@aws-amplify/ui-react';
 import { RetrievalFilter } from '@aws-sdk/client-bedrock-agent-runtime';
-import { useMemo } from 'react';
 import { Option } from '../components/FilterSelect';
 
 // Alowed operators for each filter type

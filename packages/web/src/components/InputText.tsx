@@ -18,7 +18,7 @@ const InputText: React.FC<Props> = (props) => {
     <div className={props.className}>
       {props.label && <span className="text-sm">{props.label}</span>}
       {props.required && (
-        /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
+         
         <span className="ml-2 text-xs font-bold text-gray-800">
           * {t('common.required')}
         </span>
@@ -30,7 +30,7 @@ const InputText: React.FC<Props> = (props) => {
         placeholder={props.placeholder || t('common.enter_text')}
         disabled={props.disabled}
         onChange={(e) => {
-          props.onChange ? props.onChange(e.target.value) : null;
+          props.onChange?.(e.target.value);
         }}
       />
     </div>

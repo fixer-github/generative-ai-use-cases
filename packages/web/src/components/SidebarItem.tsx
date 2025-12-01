@@ -1,3 +1,4 @@
+import React, { JSX } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BaseProps } from '../@types/common';
 

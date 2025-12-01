@@ -17,6 +17,7 @@ import {
   PiUploadSimple,
 } from 'react-icons/pi';
 import SignatureCanvas from 'react-signature-canvas';
+import type SignaturePad from 'signature_pad';
 import Button from './Button';
 import { BaseProps } from '../@types/common';
 import ModalDialog from './ModalDialog';

@@ -39,7 +39,7 @@ const ExpandableField: React.FC<Props> = (props) => {
         {props.label}
         {props.optional && (
           <>
-            {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
+            { }
             <span className="mx-2">-</span>
             <span className="font-light italic">{t('common.optional')}</span>
           </>

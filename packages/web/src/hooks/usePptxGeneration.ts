@@ -23,8 +23,9 @@ export const usePptxGeneration = () => {
           input
         );
         return response.data;
-      } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to generate PPTX');
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: { detail?: string } } };
+        setError(axiosErr.response?.data?.detail || 'Failed to generate PPTX');
         return null;
       } finally {
         setIsGenerating(false);
@@ -40,9 +41,10 @@ export const usePptxGeneration = () => {
           `pptx/generation/${generationId}`
         );
         return response.data ?? null;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: { detail?: string } } };
         setError(
-          err.response?.data?.detail || 'Failed to check generation status'
+          axiosErr.response?.data?.detail || 'Failed to check generation status'
         );
         return null;
       }
@@ -61,8 +63,9 @@ export const usePptxGeneration = () => {
         if (response.data?.download_url) {
           window.open(response.data.download_url, '_blank');
         }
-      } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to download PPTX');
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: { detail?: string } } };
+        setError(axiosErr.response?.data?.detail || 'Failed to download PPTX');
       }
     },
     [http]
@@ -78,8 +81,9 @@ export const usePptxGeneration = () => {
           `pptx/generation?limit=${limit}&offset=${offset}`
         );
         return response.data ?? null;
-      } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to list generations');
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: { detail?: string } } };
+        setError(axiosErr.response?.data?.detail || 'Failed to list generations');
         return null;
       }
     },

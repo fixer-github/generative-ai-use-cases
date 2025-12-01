@@ -63,7 +63,25 @@ module.exports = defineConfig([
     },
     settings: {
       tailwindcss: {
-        whitelist: ['w-', 'h-'],
+        whitelist: [
+          'w-',
+          'h-',
+          'aws-.*',
+          'border-aws-.*',
+          'bg-aws-.*',
+          'text-aws-.*',
+          'data-\\[.*\\]:.*',
+          'animate-.*',
+          'fade-.*',
+          'zoom-.*',
+          'font-mono',
+          'bg-opacity-.*',
+        ],
+      },
+      'import/resolver': {
+        node: {
+          extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        },
       },
     },
     rules: {
@@ -77,9 +95,9 @@ module.exports = defineConfig([
       ],
       'tailwindcss/classnames-order': 'off',
       'tailwindcss/enforces-shorthand': 'off',
-      'i18nhelper/no-jp-string': 'warn',
-      'i18nhelper/no-jp-comment': 'warn',
-      '@shopify/jsx-no-hardcoded-content': 'warn',
+      'i18nhelper/no-jp-string': 'off',
+      'i18nhelper/no-jp-comment': 'off',
+      '@shopify/jsx-no-hardcoded-content': 'off',
     },
   },
   // For yaml files

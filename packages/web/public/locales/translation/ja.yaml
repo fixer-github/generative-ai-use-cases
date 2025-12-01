@@ -165,9 +165,9 @@ assistant:
   myAssistants: マイアシスタント
   noAssistants: アシスタントが見つかりません
   organizationPublic: 組織内公開
+  organizationPublicDescription: 組織内のメンバーが利用できます
   owner:
     mine: 自分
-  organizationPublicDescription: 組織内のメンバーが利用できます
   popularAssistants: 人気のアシスタント
   private: プライベート
   privateDescription: 自分だけが利用できます

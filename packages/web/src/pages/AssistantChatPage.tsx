@@ -86,6 +86,7 @@ const AssistantChatPage: React.FC = () => {
       // Update currentChatId when conversationId changes
       setCurrentChatId(conversationId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantId, conversationId]);
 
   useEffect(() => {

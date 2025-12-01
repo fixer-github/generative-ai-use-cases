@@ -88,8 +88,8 @@ const PptxTemplateUploader: React.FC<PptxTemplateUploaderProps> = ({
 
       await onUpload(file, templateData);
       onClose();
-    } catch (err: any) {
-      setError(err.message || t('pptx.upload.failed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('pptx.upload.failed'));
     } finally {
       setIsUploading(false);
     }

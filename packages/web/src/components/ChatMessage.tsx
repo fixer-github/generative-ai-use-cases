@@ -322,7 +322,7 @@ const ChatMessage: React.FC<Props> = (props) => {
                   <div className="whitespace-pre-wrap">{typingTextOutput}</div>
                 )}
                 {props.loading && (chatContent?.content ?? '') === '' && (
-                  /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
+                   
                   <div className="animate-pulse">▍</div>
                 )}
 

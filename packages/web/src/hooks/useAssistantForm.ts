@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { KnowledgeSource } from 'generative-ai-use-cases';
 import useAssistantApi from './useAssistantApi';
 import { MODELS } from './useModel';

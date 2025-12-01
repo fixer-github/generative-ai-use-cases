@@ -159,10 +159,11 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       if (onInviteSuccess) {
         onInviteSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to invite users:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       setError(
-        error.response?.data?.message ||
+        axiosError.response?.data?.message ||
           t('adminPortal.invite.errors.invitationFailed')
       );
     } finally {
@@ -177,17 +178,24 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to validate domains:', error);
 
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: { message?: string; invalidEmails?: string[] };
+        };
+      };
+
       // Provide more specific error messages for domain validation failures
-      if (error.response?.status === 403) {
+      if (axiosError.response?.status === 403) {
         throw new Error(t('adminPortal.invite.errors.noPermission'));
-      } else if (error.response?.status === 409) {
+      } else if (axiosError.response?.status === 409) {
         throw new Error(t('adminPortal.invite.errors.roleRevoked'));
-      } else if (error.response?.status === 400) {
-        const errorData = error.response?.data;
-        if (errorData?.invalidEmails?.length > 0) {
+      } else if (axiosError.response?.status === 400) {
+        const errorData = axiosError.response?.data;
+        if (errorData?.invalidEmails?.length && errorData.invalidEmails.length > 0) {
           throw new Error(
             t('adminPortal.invite.errors.invalidEmails', {
               emails: errorData.invalidEmails.join(', '),
@@ -221,31 +229,32 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         return;
       }
 
-      try {
-        // First, validate domains
-        const domainValidation = await validateDomains(emails);
+      // First, validate domains
+      const domainValidation = await validateDomains(emails);
 
-        // Store pending invitation
-        setPendingInvitation({ emails, sendEmail });
+      // Store pending invitation
+      setPendingInvitation({ emails, sendEmail });
 
-        if (domainValidation.hasAnyUnconfiguredDomains) {
-          // Show warning before proceeding
-          setUnconfiguredEmails(domainValidation.unconfiguredEmails);
-          setShowUnconfiguredWarning(true);
-          // Don't resume monitoring yet - wait for user decision
-        } else {
-          // No unconfigured domains, proceed directly
-          await performInvitation(emails, sendEmail);
-          // performInvitation will handle resuming
-        }
-      } catch (validationError: any) {
-        throw validationError;
+      if (domainValidation.hasAnyUnconfiguredDomains) {
+        // Show warning before proceeding
+        setUnconfiguredEmails(domainValidation.unconfiguredEmails);
+        setShowUnconfiguredWarning(true);
+        // Don't resume monitoring yet - wait for user decision
+      } else {
+        // No unconfigured domains, proceed directly
+        await performInvitation(emails, sendEmail);
+        // performInvitation will handle resuming
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to prepare invitation:', error);
 
+      const axiosError = error as {
+        message?: string;
+        response?: { status?: number; data?: { message?: string } };
+      };
+
       // Check for specific admin privilege errors and let role monitor handle them
-      if (error.response?.status === 403 || error.response?.status === 409) {
+      if (axiosError.response?.status === 403 || axiosError.response?.status === 409) {
         // Let the role monitor handle privilege revocation - just close dialog
         handleClose();
         return;
@@ -253,8 +262,8 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
 
       // Use the specific error message if available, otherwise use generic message
       const errorMessage =
-        error.message ||
-        error.response?.data?.message ||
+        (error instanceof Error ? error.message : undefined) ||
+        axiosError.response?.data?.message ||
         t('adminPortal.invite.errors.invitationFailed');
 
       setError(errorMessage);
@@ -286,7 +295,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       {/* Backdrop - only show when warning dialog is not open */}
       {!showUnconfiguredWarning && (
         <div
-          className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 z-50 bg-gray-500/75 transition-opacity"
           onClick={handleClose}
         />
       )}
@@ -527,7 +536,7 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       {showUnconfiguredWarning && (
         <>
           {/* Warning backdrop */}
-          <div className="fixed inset-0 z-[60] bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 z-[60] bg-gray-500/75 transition-opacity" />
 
           {/* Warning content container */}
           <div className="fixed inset-0 z-[60] overflow-y-auto">

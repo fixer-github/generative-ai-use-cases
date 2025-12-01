@@ -1,3 +1,4 @@
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import './writer.css';
 import 'katex/dist/katex.min.css';
 import { getDefaultEditorContent, emptyContent } from './lib/content';
@@ -13,7 +14,6 @@ import {
   type JSONContent,
   handleCommandNavigation,
 } from 'novel';
-import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { defaultExtensions } from './extensions';
 import { ColorSelector } from './selectors/ColorSelector';
