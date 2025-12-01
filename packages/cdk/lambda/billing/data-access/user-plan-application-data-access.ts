@@ -16,6 +16,7 @@ export type UserPlanApplicationDataAccessOperation =
   | 'create'
   | 'findById'
   | 'findAll'
+  | 'findAllPaginated'
   | 'findByUserId'
   | 'findActiveByUserId'
   | 'findByApplicationSourceId'
@@ -38,11 +39,27 @@ export interface UserPlanApplicationDataAccessEvent {
 }
 
 /**
+ * ページネーション付きの結果
+ */
+export interface PaginatedResult {
+  items: UserPlanApplication[];
+  total_count: number;
+}
+
+/**
+ * トランザクション結果
+ */
+export interface TransactionResult {
+  newApplication: UserPlanApplication;
+  expiredApplications: UserPlanApplication[];
+}
+
+/**
  * Lambda関数の出力
  */
 export interface UserPlanApplicationDataAccessResponse {
   success: boolean;
-  data?: UserPlanApplication | UserPlanApplication[] | null;
+  data?: UserPlanApplication | UserPlanApplication[] | PaginatedResult | TransactionResult | null;
   error?: {
     code: string;
     message: string;
@@ -90,7 +107,12 @@ export const handler = async (
     const userPlanApplicationRepository = new UserPlanApplicationRepository(rdsConfig);
 
     // 操作を実行
-    let result: UserPlanApplication | UserPlanApplication[] | null = null;
+    let result:
+      | UserPlanApplication
+      | UserPlanApplication[]
+      | PaginatedResult
+      | TransactionResult
+      | null = null;
 
     switch (event.operation) {
       case 'create':
@@ -114,6 +136,10 @@ export const handler = async (
 
       case 'findAll':
         result = await userPlanApplicationRepository.findAll(event.params || {});
+        break;
+
+      case 'findAllPaginated':
+        result = await userPlanApplicationRepository.findAllPaginated(event.params || {});
         break;
 
       case 'findByUserId':
