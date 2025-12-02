@@ -123,6 +123,23 @@ async function makeSignedOpenFgaRequest(
 }
 
 /**
+ * featureIdのtype部分から適切なrelationを決定する
+ */
+function getRelationForFeatureType(featureId: string): string {
+  const type = featureId.split(':')[0];
+
+  switch (type) {
+    case 'llm':
+    case 'assistant':
+      return 'accessor';
+    case 'feature':
+      return 'enabled_user';
+    default:
+      return 'enabled_user';
+  }
+}
+
+/**
  * 単一のfeatureIdに対してOpenFGAで権限チェックを実行
  */
 async function checkOpenFgaPermission(
@@ -133,11 +150,12 @@ async function checkOpenFgaPermission(
   apiRegion: string,
   credentials: Credentials
 ): Promise<boolean> {
+  const relation = getRelationForFeatureType(featureId);
   const checkBody = {
     tuple_key: {
       user: `user:${userId}`,
-      relation: 'can_access',
-      object: `feature:${featureId}`,
+      relation,
+      object: featureId,
     },
   };
 
@@ -154,10 +172,7 @@ async function checkOpenFgaPermission(
     const checkResult = JSON.parse(checkResponse);
     return checkResult.allowed === true;
   } catch (error) {
-    console.error(
-      `OpenFGA check failed for feature ${featureId}:`,
-      error
-    );
+    console.error(`OpenFGA check failed for feature ${featureId}:`, error);
     // OpenFGAへのアクセスに失敗した場合は拒否する
     return false;
   }
@@ -317,7 +332,10 @@ export const handler = async (
           const limits = limitMap.get(featureId);
 
           // 回数制限がない場合（無制限）
-          if (!limits || (limits.dailyLimit === null && limits.monthlyLimit === null)) {
+          if (
+            !limits ||
+            (limits.dailyLimit === null && limits.monthlyLimit === null)
+          ) {
             results[featureId] = {
               status: 'available',
               hasLimit: false,
@@ -436,10 +454,7 @@ export const handler = async (
             usage,
           };
         } catch (error) {
-          console.error(
-            `Error processing feature ${featureId}:`,
-            error
-          );
+          console.error(`Error processing feature ${featureId}:`, error);
           // エラーが発生した場合は安全側に倒して権限なしとする
           results[featureId] = {
             status: 'no_permission',
