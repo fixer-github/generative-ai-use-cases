@@ -66,6 +66,7 @@ const AssistantChatPage: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const justCreatedChatIdRef = useRef<string | undefined>(undefined);
   const accumulatedContentRef = useRef('');
   const streamBufferRef = useRef('');
 
@@ -263,6 +264,7 @@ const AssistantChatPage: React.FC = () => {
     if (!currentChatId) {
       setIsCreatingChat(true);
       targetChatId = crypto.randomUUID();
+      justCreatedChatIdRef.current = targetChatId;
       setCurrentChatId(targetChatId);
       navigate(`/chat/assistants/chat/${assistantId}/${targetChatId}`, {
         replace: true,
@@ -493,7 +495,9 @@ const AssistantChatPage: React.FC = () => {
     );
   };
 
-  if (loading) {
+  // 新規作成直後のチャットはローディング画面を表示しない
+  const isJustCreated = justCreatedChatIdRef.current === conversationId;
+  if (loading && !isJustCreated) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingWave />
