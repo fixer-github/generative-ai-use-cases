@@ -9,7 +9,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { createTenantDynamoDBClient } from '../../../utils/tenantDynamoDBClient';
-import { getTenant } from '../../../tenantManager';
+import { getTenantCredentials } from '../../../utils/tenantCredentials';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
 import {
   GetUsageStatusRequest,
@@ -20,10 +20,8 @@ import { PermissionGrantRepository } from '../../../authorization/repositories/p
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import { getOpenFgaConfig } from '../../../utils/tenantSsmParameters';
-
-const stsClient = new STSClient();
+import { Credentials } from '@aws-sdk/client-sts';
 
 /**
  * テーブル名を生成するヘルパー関数
@@ -73,11 +71,7 @@ async function makeSignedOpenFgaRequest(
   path: string,
   apiEndpoint: string,
   apiRegion: string,
-  credentials: {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    SessionToken?: string;
-  },
+  credentials: Credentials,
   body?: string
 ): Promise<string> {
   const url = new URL(apiEndpoint);
@@ -97,7 +91,11 @@ async function makeSignedOpenFgaRequest(
   });
 
   const signer = new SignatureV4({
-    credentials,
+    credentials: {
+      accessKeyId: credentials.AccessKeyId!,
+      secretAccessKey: credentials.SecretAccessKey!,
+      sessionToken: credentials.SessionToken,
+    },
     region: apiRegion,
     service: 'execute-api',
     sha256: Sha256,
@@ -133,11 +131,7 @@ async function checkOpenFgaPermission(
   storeId: string,
   apiEndpoint: string,
   apiRegion: string,
-  credentials: {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    SessionToken?: string;
-  }
+  credentials: Credentials
 ): Promise<boolean> {
   const checkBody = {
     tuple_key: {
@@ -233,39 +227,13 @@ export const handler = async (
 
     console.log('Request from user:', { tenantId, userId, featureIds });
 
-    // 2. テナント情報の取得
-    const tenant = await getTenant(tenantId);
-    if (!tenant) {
-      return createResponse(500, {
-        message: `テナント ${tenantId} が見つかりません`,
-        code: 'TENANT_NOT_FOUND',
-      });
-    }
+    // 2. テナント認証情報をAssumeRoleWithWebIdentity経由で取得
+    const { credentials, tenant } = await getTenantCredentials(event);
 
-    // 3. テナントロールを AssumeRole してクレデンシャルを取得
-    const assumeRoleCommand = new AssumeRoleCommand({
-      RoleArn: tenant.roleArn,
-      RoleSessionName: `GetUsageStatus-${userId}`,
-    });
-
-    const assumeRoleResponse = await stsClient.send(assumeRoleCommand);
-    if (!assumeRoleResponse.Credentials) {
-      return createResponse(500, {
-        message: `テナントロールの取得に失敗しました: ${tenantId}`,
-        code: 'ASSUME_ROLE_FAILED',
-      });
-    }
-
-    const credentials = {
-      AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId!,
-      SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey!,
-      SessionToken: assumeRoleResponse.Credentials.SessionToken,
-    };
-
-    // 4. OpenFGA設定をSSM Parameter Storeから取得
+    // 3. OpenFGA設定をSSM Parameter Storeから取得
     const openFgaConfig = await getOpenFgaConfig(
       tenantId,
-      assumeRoleResponse.Credentials,
+      credentials,
       tenant.region
     );
 
