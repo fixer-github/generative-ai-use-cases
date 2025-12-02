@@ -38,7 +38,7 @@ const DialogConfirmDeleteAccount: React.FC<Props> = (props) => {
             <Dialog.Close asChild>
               <button
                 className="rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none"
-                aria-label="Close">
+                aria-label={t('common.close')}>
                 <PiX className="h-4 w-4" />
               </button>
             </Dialog.Close>
