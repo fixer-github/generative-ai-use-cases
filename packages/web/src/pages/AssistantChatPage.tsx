@@ -46,7 +46,8 @@ const AssistantChatPage: React.FC = () => {
     conversationId?: string;
   }>();
 
-  const { getAssistant, listMessages, streamMessage } = useAssistantApi();
+  const { getAssistant, listMessages, streamMessage, createAssistantChat } =
+    useAssistantApi();
   const { predictTitle, updateTitle } = useChatApi();
   const { mutate: mutateChatList } = useChatList();
   const http = useHttp();
@@ -264,16 +265,25 @@ const AssistantChatPage: React.FC = () => {
     const userMessageContent = inputMessage;
     const isFirstMessage = !currentChatId;
 
-    // 新規チャットの場合、先にchatIdを生成してURL遷移
+    // 新規チャットの場合、サーバーからchatIdを取得してURL遷移
     let targetChatId = currentChatId;
     if (!currentChatId) {
       setIsCreatingChat(true);
-      targetChatId = crypto.randomUUID();
-      justCreatedChatIdRef.current = targetChatId;
-      setCurrentChatId(targetChatId);
-      navigate(`/chat/assistants/chat/${assistantId}/${targetChatId}`, {
-        replace: true,
-      });
+      try {
+        const response = await createAssistantChat(assistantId);
+        const newChatId = response.chat.chatId;
+        targetChatId = newChatId;
+        justCreatedChatIdRef.current = newChatId;
+        setCurrentChatId(newChatId);
+        navigate(`/chat/assistants/chat/${assistantId}/${newChatId}`, {
+          replace: true,
+        });
+      } catch (error) {
+        console.error('Failed to create chat:', error);
+        setIsCreatingChat(false);
+        toast.error(t('assistant.chatPage.createChatError'));
+        return;
+      }
       setIsCreatingChat(false);
     }
 
