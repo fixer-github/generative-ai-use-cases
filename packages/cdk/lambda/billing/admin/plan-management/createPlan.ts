@@ -31,15 +31,18 @@ function generateEntitlementId(planId: string): string {
 
 /**
  * featureIdからリソースタイプとIDを抽出する
- * @param featureId 機能ID (例: "llm:gemini-2.5-flash" or "chat")
- * @returns { type: 'llm' | 'feature', id: string }
+ * @param featureId 機能ID (例: "llm:gemini-2.5-flash", "assistant:chat", or "chat")
+ * @returns { type: 'llm' | 'assistant' | 'feature', id: string }
  */
 function parseFeatureId(featureId: string): {
-  type: 'llm' | 'feature';
+  type: 'llm' | 'assistant' | 'feature';
   id: string;
 } {
   if (featureId.startsWith('llm:')) {
     return { type: 'llm', id: featureId.substring(4) };
+  }
+  if (featureId.startsWith('assistant:')) {
+    return { type: 'assistant', id: featureId.substring(10) };
   }
   return { type: 'feature', id: featureId };
 }
@@ -57,6 +60,7 @@ async function registerEntitlementToOpenFga(
 
   // Tuplesを構築
   // entitlement:plan-xxx → via_access → llm:xxx (LLMの場合)
+  // entitlement:plan-xxx → via_access → assistant:xxx (Assistantの場合)
   // entitlement:plan-xxx → via_enable → feature:xxx (Featureの場合)
   const tupleKeys = features.map((featureId) => {
     const { type, id } = parseFeatureId(featureId);
@@ -65,6 +69,12 @@ async function registerEntitlementToOpenFga(
         user: `entitlement:${entitlementId}`,
         relation: 'via_access',
         object: `llm:${id}`,
+      };
+    } else if (type === 'assistant') {
+      return {
+        user: `entitlement:${entitlementId}`,
+        relation: 'via_access',
+        object: `assistant:${id}`,
       };
     } else {
       return {

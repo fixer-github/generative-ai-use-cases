@@ -97,6 +97,37 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
     },
   },
   {
+    type: 'assistant',
+    relations: {
+      via_access: {
+        this: {},
+      },
+      accessor: {
+        union: {
+          child: [
+            { this: {} },
+            { tupleToUserset: { tupleset: { relation: 'via_access' }, computedUserset: { relation: 'holder' } } },
+          ],
+        },
+      },
+    },
+    metadata: {
+      relations: {
+        via_access: {
+          directly_related_user_types: [
+            { type: 'entitlement' },
+          ],
+        },
+        accessor: {
+          directly_related_user_types: [
+            { type: 'user' },
+            { type: 'group', relation: 'member' },
+          ],
+        },
+      },
+    },
+  },
+  {
     type: 'feature',
     relations: {
       via_enable: {

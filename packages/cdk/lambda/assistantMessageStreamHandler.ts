@@ -18,6 +18,11 @@ import { streamingChunk } from './utils/streamingChunk';
 import { canAccessAssistant } from './utils/assistantAccessControl';
 import api from './utils/api';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import {
+  checkAccessWithQuota,
+  incrementUsage,
+  AccessCheckResult,
+} from './utils/accessChecker';
 
 // Request type for streaming assistant messages
 interface AssistantMessageStreamRequest {
@@ -49,6 +54,8 @@ export const handler = awslambda.streamifyResponse(
   ) => {
     context.callbackWaitsForEmptyEventLoop = false;
 
+    let accessCheckResult: AccessCheckResult | null = null;
+
     const {
       assistantId,
       content,
@@ -56,6 +63,64 @@ export const handler = awslambda.streamifyResponse(
       idToken,
       customInstructions,
     } = event;
+
+    // Authorization check: Verify ID token and check assistant access with quota
+    if (!idToken) {
+      responseStream.write(
+        streamingChunk({
+          text: 'ID token is required for authorization',
+          stopReason: 'error',
+        })
+      );
+      responseStream.end();
+      return;
+    }
+
+    // Check permission and quota using accessChecker
+    try {
+      accessCheckResult = await checkAccessWithQuota(idToken, 'assistant', 'chat');
+    } catch (error) {
+      console.error('Access check failed:', error);
+      responseStream.write(
+        streamingChunk({
+          text: 'Authorization check failed',
+          stopReason: 'error',
+        })
+      );
+      responseStream.end();
+      return;
+    }
+
+    if (!accessCheckResult.allowed) {
+      let errorText: string;
+      switch (accessCheckResult.reason) {
+        case 'quota_exceeded':
+          console.warn(
+            `User has exceeded quota for assistant:chat`
+          );
+          errorText = 'アシスタントの利用回数の上限に達しました';
+          break;
+        case 'no_permission':
+          console.warn(
+            `User does not have access to assistant:chat`
+          );
+          errorText = 'アシスタントを使用する権限がありません';
+          break;
+        case 'invalid_token':
+          errorText = 'Invalid or expired ID token';
+          break;
+        default:
+          errorText = 'You do not have permission to use the assistant';
+      }
+      responseStream.write(
+        streamingChunk({
+          text: errorText,
+          stopReason: 'error',
+        })
+      );
+      responseStream.end();
+      return;
+    }
 
     // Extract userId from idToken
     const tokenPayload = JSON.parse(
@@ -404,6 +469,15 @@ ${assistant.instruction}
           chatRecord.id,
           chatRecord.createdDate,
           requestContext
+        );
+      }
+
+      // Increment usage count after successful streaming (fire-and-forget)
+      if (accessCheckResult?.limitType && accessCheckResult.limitType !== 'unlimited') {
+        incrementUsage(idToken, 'assistant', 'chat', accessCheckResult.limitType).catch(
+          (error) => {
+            console.error('Failed to increment usage count:', error);
+          }
         );
       }
 
