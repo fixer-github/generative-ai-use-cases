@@ -290,6 +290,24 @@ class PlanManagementApi extends Construct {
     );
 
     // ========================================
+    // 10. Apply Plan to Single User
+    // ========================================
+    const applyPlanToSingleUserFunction = new NodejsFunction(
+      this,
+      'ApplyPlanToSingleUser',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/admin/plan-management/applyPlanToSingleUser.ts',
+        functionName: `${environment}-billing-admin-apply-plan-to-user`,
+        environment: {
+          ...commonLambdaConfig.environment,
+          APPLY_PLAN_TO_USER_FUNCTION_NAME: `${environment}-billing-plan-internal-apply`,
+        },
+      }
+    );
+
+    // ========================================
     // IAM Permissions
     // ========================================
     const functions = [
@@ -303,6 +321,7 @@ class PlanManagementApi extends Construct {
       getPlanSubscriptionsFunction,
       getPlanSubscribersFunction,
       migratePlanSubscribersFunction,
+      applyPlanToSingleUserFunction,
       checkPlanNameFunction,
       // Internal functions
       applyPlanToUserFunction,
@@ -382,6 +401,21 @@ class PlanManagementApi extends Construct {
 
     // migratePlanSubscribers needs permission to invoke applyPlanToUser internal function
     migratePlanSubscribersFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          // 複数テナントのdata-access関数を呼び出す可能性があるため、ワイルドカードを使用
+          `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+          `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          // applyPlanToUser内部関数の呼び出し権限
+          `arn:aws:lambda:*:*:function:${environment}-billing-plan-internal-apply`,
+        ],
+      })
+    );
+
+    // applyPlanToSingleUser needs permission to invoke applyPlanToUser internal function
+    applyPlanToSingleUserFunction.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['lambda:InvokeFunction'],
@@ -492,6 +526,22 @@ class PlanManagementApi extends Construct {
     migrateResource.addMethod(
       'POST',
       new LambdaIntegration(migratePlanSubscribersFunction),
+      {
+        authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
+    // User-specific Endpoints
+    // ========================================
+    // POST /admin/billing/users/{user_id}/apply-plan - Apply plan to a specific user
+    const usersResource = billingResource.addResource('users');
+    const userIdResource = usersResource.addResource('{user_id}');
+    const applyPlanResource = userIdResource.addResource('apply-plan');
+    applyPlanResource.addMethod(
+      'POST',
+      new LambdaIntegration(applyPlanToSingleUserFunction),
       {
         authorizer,
         authorizationType: AuthorizationType.COGNITO,
