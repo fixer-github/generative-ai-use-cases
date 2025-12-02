@@ -73,7 +73,8 @@ export const handler = async (
     }
 
     // Determine if this is a chat or messages endpoint
-    const isChatEndpoint = event.resource?.endsWith('/chat') || event.path?.endsWith('/chat');
+    const isChatEndpoint =
+      event.resource?.endsWith('/chat') || event.path?.endsWith('/chat');
 
     // Route based on HTTP method and path
     switch (method) {
