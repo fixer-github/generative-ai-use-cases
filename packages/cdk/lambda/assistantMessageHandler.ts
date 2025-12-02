@@ -186,7 +186,14 @@ async function handleCreateMessage(
 
   // Create chat history entry only for new conversations
   // This ensures the assistant conversation appears in the unified chat history
-  if (isNewConversation) {
+  // Check if chat exists when chatId is provided from frontend
+  let shouldCreateChat = isNewConversation;
+  if (!isNewConversation) {
+    const existingChat = await findChatById(userId, cleanChatId, event);
+    shouldCreateChat = !existingChat;
+  }
+
+  if (shouldCreateChat) {
     await createAssistantChat(
       userId,
       assistantId,
