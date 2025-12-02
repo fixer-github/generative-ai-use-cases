@@ -1,5 +1,6 @@
 import { Duration } from 'aws-cdk-lib';
 import {
+  ClientAttributes,
   LambdaVersion,
   StringAttribute,
   UserPool,
@@ -56,6 +57,12 @@ export class Auth extends Construct {
         requireDigits: true,
         minLength: 8,
       },
+      standardAttributes: {
+        birthdate: {
+          required: false,
+          mutable: true,
+        },
+      },
       customAttributes: {
         tenant_id: new StringAttribute({
           minLen: 1,
@@ -66,6 +73,11 @@ export class Auth extends Construct {
           minLen: 4, // "true" or "false"
           maxLen: 5,
           mutable: true, // Allows updating admin status
+        }),
+        parental_consent: new StringAttribute({
+          minLen: 4, // "true" or "false"
+          maxLen: 5,
+          mutable: true,
         }),
       },
     });
@@ -81,6 +93,12 @@ export class Auth extends Construct {
         userPassword: true,
         userSrp: true,
       },
+      readAttributes: new ClientAttributes().withStandardAttributes({
+        birthdate: true,
+      }).withCustomAttributes('parental_consent'),
+      writeAttributes: new ClientAttributes().withStandardAttributes({
+        birthdate: true,
+      }).withCustomAttributes('parental_consent'),
     });
 
     const idPool = new IdentityPool(this, 'IdentityPool', {
