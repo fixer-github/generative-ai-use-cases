@@ -36,6 +36,7 @@ import {
 import { findModelByModelId } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import { useSettings } from '../hooks/useSettings';
+import useChatList from '../hooks/useChatList';
 
 const AssistantChatPage: React.FC = () => {
   const { t } = useTranslation();
@@ -47,6 +48,7 @@ const AssistantChatPage: React.FC = () => {
 
   const { getAssistant, listMessages, streamMessage } = useAssistantApi();
   const { predictTitle, updateTitle } = useChatApi();
+  const { mutate: mutateChatList } = useChatList();
   const http = useHttp();
   const { settings } = useSettings();
 
@@ -369,6 +371,11 @@ const AssistantChatPage: React.FC = () => {
         createdDate: Date.now().toString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Update chat list in sidebar for new chats
+      if (isFirstMessage) {
+        mutateChatList();
+      }
 
       // Generate title for the first message
       if (isFirstMessage && targetChatId) {
