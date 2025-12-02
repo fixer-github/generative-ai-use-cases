@@ -83,7 +83,10 @@ const AssistantChatPage: React.FC = () => {
   useEffect(() => {
     if (assistantId) {
       fetchAssistant();
-      fetchMessages();
+      // 新規作成直後のチャットはfetchMessagesをスキップ（ローカルステートを保持）
+      if (justCreatedChatIdRef.current !== conversationId) {
+        fetchMessages();
+      }
       // Update currentChatId when conversationId changes
       setCurrentChatId(conversationId);
     }
