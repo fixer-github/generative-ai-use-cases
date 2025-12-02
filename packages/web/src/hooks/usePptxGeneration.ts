@@ -83,7 +83,9 @@ export const usePptxGeneration = () => {
         return response.data ?? null;
       } catch (err: unknown) {
         const axiosErr = err as { response?: { data?: { detail?: string } } };
-        setError(axiosErr.response?.data?.detail || 'Failed to list generations');
+        setError(
+          axiosErr.response?.data?.detail || 'Failed to list generations'
+        );
         return null;
       }
     },

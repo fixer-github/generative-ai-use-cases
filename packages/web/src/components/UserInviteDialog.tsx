@@ -161,7 +161,9 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       }
     } catch (error: unknown) {
       console.error('Failed to invite users:', error);
-      const axiosError = error as { response?: { data?: { message?: string } } };
+      const axiosError = error as {
+        response?: { data?: { message?: string } };
+      };
       setError(
         axiosError.response?.data?.message ||
           t('adminPortal.invite.errors.invitationFailed')
@@ -195,7 +197,10 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         throw new Error(t('adminPortal.invite.errors.roleRevoked'));
       } else if (axiosError.response?.status === 400) {
         const errorData = axiosError.response?.data;
-        if (errorData?.invalidEmails?.length && errorData.invalidEmails.length > 0) {
+        if (
+          errorData?.invalidEmails?.length &&
+          errorData.invalidEmails.length > 0
+        ) {
           throw new Error(
             t('adminPortal.invite.errors.invalidEmails', {
               emails: errorData.invalidEmails.join(', '),
@@ -254,7 +259,10 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
       };
 
       // Check for specific admin privilege errors and let role monitor handle them
-      if (axiosError.response?.status === 403 || axiosError.response?.status === 409) {
+      if (
+        axiosError.response?.status === 403 ||
+        axiosError.response?.status === 409
+      ) {
         // Let the role monitor handle privilege revocation - just close dialog
         handleClose();
         return;

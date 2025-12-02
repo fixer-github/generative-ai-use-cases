@@ -208,7 +208,9 @@ const MeetingMinutesPage: React.FC = () => {
   } = useMeetingMinutesState();
   const ref = useRef<HTMLInputElement>(null);
   const transcriptTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
   const shouldGenerateRef = useRef<boolean>(false);
   const isAtBottomRef = useRef<boolean>(true);
 

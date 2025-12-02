@@ -235,7 +235,10 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
       const axiosErr = error as { response?: { status?: number } };
 
       // Handle 403/409 errors indicating role revocation
-      if (axiosErr?.response?.status === 403 || axiosErr?.response?.status === 409) {
+      if (
+        axiosErr?.response?.status === 403 ||
+        axiosErr?.response?.status === 409
+      ) {
         if (lastKnownAdminStatusRef.current === true) {
           await handleRoleMismatch(
             'Admin privileges likely revoked (403/409 error)'

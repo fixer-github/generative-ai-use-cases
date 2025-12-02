@@ -28,7 +28,11 @@ export const isRoleMismatchError = (error: unknown): boolean => {
   const axiosErr = error as {
     response?: {
       status?: number;
-      data?: { roleChanged?: boolean; refreshRequired?: boolean; message?: string };
+      data?: {
+        roleChanged?: boolean;
+        refreshRequired?: boolean;
+        message?: string;
+      };
     };
   };
 
