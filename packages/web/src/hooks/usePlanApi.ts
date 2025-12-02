@@ -209,6 +209,17 @@ export interface MigratePlanSubscribersResponse {
   results: MigrationResult[];
 }
 
+export interface ApplyPlanToUserRequest {
+  planId: string;
+}
+
+export interface ApplyPlanToUserResponse {
+  userId: string;
+  planId: string;
+  applicationId: string;
+  previousApplicationIds: string[];
+}
+
 const usePlanApi = () => {
   const { api } = useBillingHttp();
 
@@ -355,6 +366,20 @@ const usePlanApi = () => {
     ): Promise<MigratePlanSubscribersResponse> => {
       const response = await api.post<MigratePlanSubscribersResponse>(
         `/admin/billing/plans/${planId}/migrate`,
+        data
+      );
+      return response.data;
+    },
+
+    /**
+     * Apply a plan to a specific user (admin only)
+     */
+    applyPlanToUser: async (
+      userId: string,
+      data: ApplyPlanToUserRequest
+    ): Promise<ApplyPlanToUserResponse> => {
+      const response = await api.post<ApplyPlanToUserResponse>(
+        `/admin/billing/users/${userId}/apply-plan`,
         data
       );
       return response.data;

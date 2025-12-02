@@ -44,6 +44,7 @@ import PlanManagementPage from '../pages/PlanManagementPage';
 import PlanDetailPage from '../pages/PlanDetailPage';
 import PlanCreatePage from '../pages/PlanCreatePage';
 import PlanMigratePage from '../pages/PlanMigratePage';
+import UserPlanManagementPage from '../pages/UserPlanManagementPage';
 import PaymentCompletePage from '../pages/PaymentCompletePage';
 
 interface DynamicRouterProps {
@@ -271,6 +272,10 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     {
       path: '/admin/billing/plans/:planId/migrate',
       element: <PlanMigratePage />,
+    },
+    {
+      path: '/admin/billing/users',
+      element: <UserPlanManagementPage />,
     },
     {
       path: '/billing/complete',
