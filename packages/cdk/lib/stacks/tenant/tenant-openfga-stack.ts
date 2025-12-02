@@ -10,10 +10,12 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as crypto from 'crypto';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import { OpenFgaConfig } from '../../create-tenant-stacks';
+import { AUTHORIZATION_MODEL_TYPE_DEFINITIONS } from './custom-resources/openFgaSchema';
 
 export interface TenantOpenFgaStackProps extends cdk.StackProps {
   /**
@@ -657,6 +659,13 @@ export class TenantOpenFgaStack extends cdk.Stack {
       }
     );
 
+    // Generate schema hash to trigger update when schema changes
+    const schemaHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(AUTHORIZATION_MODEL_TYPE_DEFINITIONS))
+      .digest('hex')
+      .substring(0, 16);
+
     // Create Custom Resource to initialize schema
     const schemaInitializer = new cdk.CustomResource(
       this,
@@ -667,6 +676,8 @@ export class TenantOpenFgaStack extends cdk.Stack {
         properties: {
           InternalEndpoint: `http://${nlb.loadBalancerDnsName}`,
           TenantId: props.tenantId,
+          // SchemaHash triggers CloudFormation Update event when schema changes
+          SchemaHash: schemaHash,
         },
       }
     );
