@@ -56,6 +56,7 @@ const AssistantChatPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [showAssistantInfo, setShowAssistantInfo] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
@@ -65,7 +66,6 @@ const AssistantChatPage: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const streamChatIdRef = useRef<string | undefined>(undefined);
   const accumulatedContentRef = useRef('');
   const streamBufferRef = useRef('');
 
@@ -257,6 +257,19 @@ const AssistantChatPage: React.FC = () => {
 
     const userMessageContent = inputMessage;
     const isFirstMessage = !currentChatId;
+
+    // 新規チャットの場合、先にchatIdを生成してURL遷移
+    let targetChatId = currentChatId;
+    if (!currentChatId) {
+      setIsCreatingChat(true);
+      targetChatId = crypto.randomUUID();
+      setCurrentChatId(targetChatId);
+      navigate(`/chat/assistants/chat/${assistantId}/${targetChatId}`, {
+        replace: true,
+      });
+      setIsCreatingChat(false);
+    }
+
     setInputMessage('');
     setSending(true);
     setWriting(true);
@@ -268,7 +281,7 @@ const AssistantChatPage: React.FC = () => {
       id: tempMessageId,
       messageId: tempMessageId,
       assistantId: assistantId,
-      chatId: currentChatId || 'temp-chat',
+      chatId: targetChatId || 'temp-chat',
       userId: 'temp-user',
       role: 'user',
       content: userMessageContent,
@@ -277,7 +290,6 @@ const AssistantChatPage: React.FC = () => {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     // Reset refs for new stream
-    streamChatIdRef.current = undefined;
     accumulatedContentRef.current = '';
     streamBufferRef.current = '';
 
@@ -291,7 +303,7 @@ const AssistantChatPage: React.FC = () => {
       // Use streaming API
       const stream = streamMessage(assistantId, {
         content: userMessageContent,
-        chatId: currentChatId,
+        chatId: targetChatId,
         customInstructions,
       });
 
@@ -315,10 +327,6 @@ const AssistantChatPage: React.FC = () => {
               accumulatedContentRef.current += parsed.text;
               setStreamingContent(accumulatedContentRef.current);
             }
-            // Capture chatId (sessionId) from the stream
-            if (parsed.sessionId && !streamChatIdRef.current) {
-              streamChatIdRef.current = parsed.sessionId;
-            }
           } catch {
             // Log parse errors for debugging - complete lines should always be valid JSON
             console.warn('Failed to parse JSONL line:', trimmedLine);
@@ -335,9 +343,6 @@ const AssistantChatPage: React.FC = () => {
             accumulatedContentRef.current += parsed.text;
             setStreamingContent(accumulatedContentRef.current);
           }
-          if (parsed.sessionId && !streamChatIdRef.current) {
-            streamChatIdRef.current = parsed.sessionId;
-          }
         } catch {
           console.warn('Failed to parse final JSONL line:', remainingLine);
         }
@@ -346,30 +351,26 @@ const AssistantChatPage: React.FC = () => {
       setWriting(false);
       setSending(false);
 
-      // If this was a new conversation, update state and navigate
-      if (!currentChatId && streamChatIdRef.current) {
-        setCurrentChatId(streamChatIdRef.current);
-        navigate(
-          `/chat/assistants/chat/${assistantId}/${streamChatIdRef.current}`,
-          {
-            replace: true,
-          }
-        );
-      }
-
       // Refresh messages to get the persisted messages from server
-      // Use streamChatIdRef.current for new conversations since state update is async
-      await fetchMessages(streamChatIdRef.current ?? currentChatId);
+      await fetchMessages(targetChatId);
 
       // Generate title for the first message
-      if (isFirstMessage && streamChatIdRef.current) {
-        await generateChatTitle(streamChatIdRef.current);
+      if (isFirstMessage && targetChatId) {
+        await generateChatTitle(targetChatId);
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       setWriting(false);
       setSending(false);
+      setIsCreatingChat(false);
       toast.error(t('assistant.chatPage.sendError'));
+
+      // 新規チャットでエラーの場合、元のURLに戻す
+      if (isFirstMessage) {
+        navigate(`/chat/assistants/chat/${assistantId}`, { replace: true });
+        setCurrentChatId(undefined);
+      }
+
       // Remove the temporary user message on error
       setMessages((prev) =>
         prev.filter((m) => m.messageId !== tempUserMessage.messageId)
@@ -696,7 +697,9 @@ const AssistantChatPage: React.FC = () => {
                 ? t('assistant.chatPage.syncingPlaceholder')
                 : t('assistant.chatPage.inputPlaceholder')
             }
-            disabled={sending || writing || !assistantId || isBlocked}
+            disabled={
+              sending || writing || !assistantId || isBlocked || isCreatingChat
+            }
             className="flex-1 rounded border border-black/30 p-1.5 outline-none disabled:bg-gray-100 disabled:text-gray-500"
           />
           <Button
@@ -706,7 +709,8 @@ const AssistantChatPage: React.FC = () => {
               sending ||
               writing ||
               !assistantId ||
-              isBlocked
+              isBlocked ||
+              isCreatingChat
             }
             className="flex items-center gap-1">
             <PiPaperPlaneTilt />
