@@ -353,8 +353,19 @@ const AssistantChatPage: React.FC = () => {
       setWriting(false);
       setSending(false);
 
-      // Refresh messages to get the persisted messages from server
-      await fetchMessages(targetChatId);
+      // Add assistant message to local state instead of fetching from server
+      // This prevents the "reload" effect after streaming completes
+      const assistantMessage: AssistantMessage = {
+        id: `assistant-${Date.now()}`,
+        messageId: `assistant-${Date.now()}`,
+        assistantId: assistantId,
+        chatId: targetChatId || '',
+        userId: 'assistant',
+        role: 'assistant',
+        content: accumulatedContentRef.current,
+        createdDate: Date.now().toString(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
 
       // Generate title for the first message
       if (isFirstMessage && targetChatId) {
