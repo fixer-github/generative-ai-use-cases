@@ -1,0 +1,80 @@
+/**
+ * Post Confirmation統合ハンドラー
+ *
+ * Cognito POST_CONFIRMATIONトリガーから呼び出され、
+ * 1. テナント割り当て
+ * 2. デフォルトプラン適用
+ * を順番に実行します。
+ */
+
+import { PostConfirmationTriggerEvent } from 'aws-lambda';
+import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { assignTenantToUser } from './assignTenant';
+import { applyDefaultPlanToUser } from './applyDefaultPlanToUser';
+
+/**
+ * POST_CONFIRMATIONトリガーのメインハンドラー
+ */
+exports.handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfirmationTriggerEvent> => {
+  console.log('postConfirmHandler - Starting POST_CONFIRMATION processing');
+  console.log('Event:', JSON.stringify(event, null, 2));
+
+  try {
+    // 環境変数からテナントマップを取得
+    const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
+    const TENANT_MAP: SelfSignUpTenantMapEntry[] = JSON.parse(TENANT_MAP_STR);
+
+    // Step 1: テナント割り当て
+    console.log('postConfirmHandler - Step 1: Assigning tenant');
+    const eventAfterTenant = await assignTenantToUser(event, TENANT_MAP);
+
+    // テナントIDを取得（割り当て後のカスタム属性から取得）
+    let tenantId: string | undefined;
+
+    // assignTenantToUserは既存のevent構造を変更しないため、
+    // テナントIDはemailアドレスから再度判定する必要がある
+    const email = event.request.userAttributes.email;
+    if (email) {
+      const lowerEmail = email.toLowerCase();
+      const domain = lowerEmail.split('@')[1];
+
+      for (const entry of TENANT_MAP) {
+        if (entry.emails && entry.emails.includes(lowerEmail)) {
+          tenantId = entry.tenantId;
+          break;
+        }
+        if (entry.domains && entry.domains.includes(domain)) {
+          tenantId = entry.tenantId;
+          break;
+        }
+      }
+    }
+
+    if (!tenantId) {
+      if (TENANT_MAP.length === 0) {
+        console.log('postConfirmHandler - No tenant map configured, skipping default plan application');
+        return eventAfterTenant;
+      }
+      console.warn('postConfirmHandler - Could not determine tenant ID, skipping default plan application');
+      return eventAfterTenant;
+    }
+
+    // Step 2: デフォルトプラン適用
+    console.log(`postConfirmHandler - Step 2: Applying default plan for tenant ${tenantId}`);
+    const planApplied = await applyDefaultPlanToUser(eventAfterTenant, tenantId);
+
+    if (planApplied) {
+      console.log('postConfirmHandler - Default plan applied successfully');
+    } else {
+      console.warn('postConfirmHandler - Failed to apply default plan, but continuing user registration');
+      // デフォルトプランの適用に失敗してもユーザー登録は続行する
+    }
+
+    console.log('postConfirmHandler - POST_CONFIRMATION processing completed successfully');
+    return eventAfterTenant;
+  } catch (error) {
+    console.error('postConfirmHandler - Fatal error during POST_CONFIRMATION processing:', error);
+    // テナント割り当てエラーは致命的なので、エラーを再スローする
+    throw error;
+  }
+};

@@ -116,6 +116,8 @@ class PlanManagementApi extends Construct {
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
         AWS_ACCOUNT_ID: process.env.CDK_DEFAULT_ACCOUNT || '',
         ENVIRONMENT: environment,
+        // grantPermission関数名のワイルドカードパターン（テナントIDで解決）
+        GRANT_PERMISSION_FUNCTION_NAME: `${environment}-*-authorization-grant-permission`,
       },
       ...(vpc && securityGroup
         ? {
@@ -160,7 +162,8 @@ class PlanManagementApi extends Construct {
       'InternalUpdatePlanApplicationStatus',
       {
         ...commonLambdaConfig,
-        entry: './lambda/billing/plan-management/updatePlanApplicationStatus.ts',
+        entry:
+          './lambda/billing/plan-management/updatePlanApplicationStatus.ts',
         functionName: `${environment}-billing-plan-internal-update-status`,
       }
     );
@@ -215,15 +218,11 @@ class PlanManagementApi extends Construct {
     // ========================================
     // 4.1 Set Default Plan
     // ========================================
-    const setDefaultPlanFunction = new NodejsFunction(
-      this,
-      'SetDefaultPlan',
-      {
-        ...commonLambdaConfig,
-        entry: './lambda/billing/admin/plan-management/setDefaultPlan.ts',
-        functionName: `${environment}-billing-admin-set-default-plan`,
-      }
-    );
+    const setDefaultPlanFunction = new NodejsFunction(this, 'SetDefaultPlan', {
+      ...commonLambdaConfig,
+      entry: './lambda/billing/admin/plan-management/setDefaultPlan.ts',
+      functionName: `${environment}-billing-admin-set-default-plan`,
+    });
 
     // ========================================
     // 5. Get Plan Change History
@@ -316,6 +315,29 @@ class PlanManagementApi extends Construct {
           effect: Effect.ALLOW,
           actions: ['rds-db:connect'],
           resources: ['*'], // Tenant-specific resources will be constrained by assumed role
+        })
+      );
+    });
+
+    // Internal functions need permission to invoke plan-data-access Lambda functions
+    const internalFunctions = [
+      applyPlanToUserFunction,
+      terminatePlanApplicationFunction,
+      updatePlanApplicationStatusFunction,
+    ];
+
+    internalFunctions.forEach((func) => {
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            // 複数テナントのdata-access関数を呼び出す可能性があるため、ワイルドカードを使用
+            `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+            // 権限付与関数（プラン適用時に権限を付与するため）
+            `arn:aws:lambda:*:*:function:${environment}-*-authorization-grant-permission`,
+          ],
         })
       );
     });
