@@ -10,6 +10,12 @@ const baseStackInputSchema = z.object({
 
   // Auth
   selfSignUpEnabled: z.boolean().default(true),
+  // SES Email Configuration (optional - uses Cognito default if not specified)
+  sesFromEmail: z.string().email().nullish(),
+  sesFromName: z.string().nullish(),
+  sesReplyTo: z.string().email().nullish(),
+  sesRegion: z.string().nullish(),
+  sesVerifiedDomain: z.string().nullish(), // Use domain verification (e.g., "example.com")
   selfSignUpTenantMap: z
     .array(
       z

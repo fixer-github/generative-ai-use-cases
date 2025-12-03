@@ -34,6 +34,11 @@
     "rerankingModelId": null,
     "queryDecompositionEnabled": false,
     "selfSignUpEnabled": true,
+    "sesFromEmail": null,
+    "sesFromName": null,
+    "sesReplyTo": null,
+    "sesRegion": null,
+    "sesVerifiedDomain": null,
     "selfSignUpTenantMap": [
       {
         "tenantId": "tenant-a",

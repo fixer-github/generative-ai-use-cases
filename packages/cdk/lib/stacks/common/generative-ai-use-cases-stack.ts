@@ -74,6 +74,12 @@ export class GenerativeAiUseCasesStack extends Stack {
       selfSignUpTenantMap: params.selfSignUpTenantMap,
       samlAuthEnabled: params.samlAuthEnabled,
       samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
+      // SES Email Configuration (removes 50/day Cognito limit)
+      sesFromEmail: params.sesFromEmail,
+      sesFromName: params.sesFromName,
+      sesReplyTo: params.sesReplyTo,
+      sesRegion: params.sesRegion,
+      sesVerifiedDomain: params.sesVerifiedDomain,
     });
 
     // Database

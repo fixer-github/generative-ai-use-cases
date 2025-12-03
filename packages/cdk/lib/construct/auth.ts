@@ -4,6 +4,7 @@ import {
   StringAttribute,
   UserPool,
   UserPoolClient,
+  UserPoolEmail,
   UserPoolOperation,
 } from 'aws-cdk-lib/aws-cognito';
 import {
@@ -30,6 +31,12 @@ export interface AuthProps {
   readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
   readonly samlAuthEnabled: boolean;
   readonly samlDefaultAuthEnabled: boolean;
+  // SES Email Configuration (optional - uses Cognito default 50/day limit if not specified)
+  readonly sesFromEmail?: string | null;
+  readonly sesFromName?: string | null;
+  readonly sesReplyTo?: string | null;
+  readonly sesRegion?: string | null;
+  readonly sesVerifiedDomain?: string | null; // Use domain verification instead of email verification
 }
 
 export class Auth extends Construct {
@@ -39,6 +46,17 @@ export class Auth extends Construct {
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
+
+    // Configure email: use SES if sesFromEmail is provided, otherwise use Cognito default (50/day limit)
+    const email = props.sesFromEmail
+      ? UserPoolEmail.withSES({
+          fromEmail: props.sesFromEmail,
+          fromName: props.sesFromName ?? undefined,
+          replyTo: props.sesReplyTo ?? undefined,
+          sesRegion: props.sesRegion ?? undefined,
+          sesVerifiedDomain: props.sesVerifiedDomain ?? undefined,
+        })
+      : undefined; // Use Cognito default email
 
     const userPool = new UserPool(this, 'UserPool', {
       // If SAML authentication is enabled and default auth is disabled, do not use self-sign-up with UserPool. Be aware of security.
@@ -50,6 +68,7 @@ export class Auth extends Construct {
         username: false,
         email: true,
       },
+      email,
       passwordPolicy: {
         requireUppercase: true,
         requireSymbols: true,
