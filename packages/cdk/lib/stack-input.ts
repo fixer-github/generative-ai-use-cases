@@ -173,6 +173,11 @@ const baseStackInputSchema = z.object({
   // Dashboard
   dashboard: z.boolean().default(false),
 
+  // Email Service (SendGrid)
+  emailServiceName: z.string().default('GenU'),
+  sendgridApiKey: z.string(),
+  sendgridFromEmail: z.string().email(),
+
   // LangChain
   openai: z
     .object({
