@@ -254,7 +254,8 @@ export class Auth extends Construct {
           SERVICE_NAME: props.emailServiceName,
           SENDGRID_API_KEY: props.sendgridApiKey,
           SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
-          KEY_ID: kmsKey.keyArn,
+          KEY_ID: kmsKey.keyId,
+          KEY_ARN: kmsKey.keyArn,
         },
       }
     );

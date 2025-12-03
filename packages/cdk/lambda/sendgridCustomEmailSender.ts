@@ -4,15 +4,22 @@ import {
   CustomEmailSenderTriggerHandler,
 } from 'aws-lambda';
 import {
-  KMSClient,
-  DecryptCommand,
-  DecryptCommandInput,
-} from '@aws-sdk/client-kms';
+  KmsKeyringNode,
+  buildClient,
+  CommitmentPolicy,
+} from '@aws-crypto/client-node';
 
 const SERVICE_NAME = process.env.SERVICE_NAME || 'GenU';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '';
 const SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
+
+// Configure AWS Encryption SDK
+const { decrypt } = buildClient(CommitmentPolicy.REQUIRE_ENCRYPT_ALLOW_DECRYPT);
+const keyring = new KmsKeyringNode({
+  generatorKeyId: process.env.KEY_ID,
+  keyIds: [process.env.KEY_ARN || ''],
+});
 
 // Color theme (matching frontend)
 const COLORS = {
@@ -178,19 +185,13 @@ const createAdminCreateUserEmail = (
   };
 };
 
-// Decrypt code using KMS (symmetric key)
+// Decrypt code using AWS Encryption SDK
 const decryptCode = async (encryptedCode: string): Promise<string> => {
-  const client = new KMSClient({});
-  const input: DecryptCommandInput = {
-    CiphertextBlob: Buffer.from(encryptedCode, 'base64'),
-    KeyId: process.env.KEY_ID,
-  };
-  const command = new DecryptCommand(input);
-  const response = await client.send(command);
-  if (!response.Plaintext) {
-    throw new Error('Failed to decrypt code');
-  }
-  return Buffer.from(response.Plaintext).toString('utf-8');
+  const { plaintext } = await decrypt(
+    keyring,
+    Buffer.from(encryptedCode, 'base64')
+  );
+  return Buffer.from(plaintext).toString('utf-8');
 };
 
 // Send email via SendGrid API
@@ -233,7 +234,7 @@ export const handler: CustomEmailSenderTriggerHandler = async (
 
   const { triggerSource, request, userName } = event;
 
-  // Decrypt the code
+  // Decrypt the code using AWS Encryption SDK
   const encryptedCode = request.code;
   if (!encryptedCode) {
     console.log('No code provided, skipping email send');
@@ -244,7 +245,9 @@ export const handler: CustomEmailSenderTriggerHandler = async (
 
   let emailContent: { subject: string; htmlContent: string } | null = null;
   // Type guard: userAttributes is a StringMap (Record<string, string>) for most trigger sources
-  const userAttributes = request.userAttributes as Record<string, string> | undefined;
+  const userAttributes = request.userAttributes as
+    | Record<string, string>
+    | undefined;
   const recipientEmail = userAttributes?.email || userName;
 
   switch (triggerSource) {
@@ -267,7 +270,11 @@ export const handler: CustomEmailSenderTriggerHandler = async (
   }
 
   if (emailContent && recipientEmail) {
-    await sendEmail(recipientEmail, emailContent.subject, emailContent.htmlContent);
+    await sendEmail(
+      recipientEmail,
+      emailContent.subject,
+      emailContent.htmlContent
+    );
   }
 
   return event;
