@@ -37,6 +37,7 @@ export interface AuthProps {
   readonly sendgridApiKey: string;
   readonly sendgridFromEmail: string;
   readonly enableAutoDelete?: boolean;
+  readonly environment?: string; // 環境名（Lambda関数名を動的に構築するために使用）
 }
 
 export class Auth extends Construct {
@@ -182,25 +183,55 @@ export class Auth extends Construct {
 
       userPool.addTrigger(UserPoolOperation.PRE_SIGN_UP, checkTenantFunction);
 
-      const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/assignTenant.ts',
-        timeout: Duration.seconds(30),
-        environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
-        },
-      });
+      // 新しい統合POST_CONFIRMATIONハンドラー
+      const postConfirmHandlerFunction = new NodejsFunction(
+        this,
+        'PostConfirmHandler',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/postConfirmHandler.ts',
+          timeout: Duration.seconds(60), // タイムアウトを延長（プラン適用処理を含むため）
+          environment: {
+            SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
+            // 環境名がある場合はLambda関数名を動的に構築、ない場合は空文字列
+            PLAN_DATA_ACCESS_FUNCTION_NAME: props.environment
+              ? `${props.environment}-*-plan-data-access`
+              : '',
+            APPLY_PLAN_TO_USER_FUNCTION_NAME: props.environment
+              ? `${props.environment}-billing-plan-internal-apply`
+              : '',
+          },
+        }
+      );
 
-      assignTenantFunction.addToRolePolicy(
+      // Cognitoユーザー属性更新権限
+      postConfirmHandlerFunction.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['cognito-idp:AdminUpdateUserAttributes'],
           resources: ['*'],
         })
       );
+
+      // プラン関連Lambda関数を呼び出す権限（環境名がある場合のみ）
+      if (props.environment) {
+        postConfirmHandlerFunction.addToRolePolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['lambda:InvokeFunction'],
+            resources: [
+              // 複数テナントのplan-data-access関数を呼び出す可能性があるため、ワイルドカードを使用
+              `arn:aws:lambda:*:*:function:${props.environment}-*-plan-data-access`,
+              // applyPlanToUser関数
+              `arn:aws:lambda:*:*:function:${props.environment}-billing-plan-internal-apply`,
+            ],
+          })
+        );
+      }
+
       userPool.addTrigger(
         UserPoolOperation.POST_CONFIRMATION,
-        assignTenantFunction
+        postConfirmHandlerFunction
       );
     }
 

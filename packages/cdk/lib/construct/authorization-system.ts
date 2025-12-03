@@ -209,6 +209,7 @@ export class AuthorizationSystem extends Construct {
       'GrantPermissionFunction',
       {
         ...commonLambdaProps,
+        functionName: `${environment}-${sanitizedTenantId}-authorization-grant-permission`,
         entry: path.join(
           __dirname,
           '../../lambda/authorization/grantPermission.ts'

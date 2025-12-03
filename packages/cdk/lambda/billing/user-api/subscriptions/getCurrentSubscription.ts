@@ -13,7 +13,7 @@ import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
   Plan,
   Subscription,
-  UserPlanApplication
+  UserPlanApplication,
 } from '../../data-access/repositories/types';
 import { CORS_HEADERS } from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
@@ -41,13 +41,15 @@ interface CurrentPlanResponse {
 /**
  * プラン適用の優先順位を決定する
  */
-function getApplicationPriority(source: UserPlanApplication['application_source']): number {
+function getApplicationPriority(
+  source: UserPlanApplication['application_source']
+): number {
   const priorities = {
-    'subscription': 5,
-    'manual': 4,
-    'campaign': 3,
-    'trial': 2,
-    'default': 1
+    subscription: 5,
+    manual: 4,
+    campaign: 3,
+    trial: 2,
+    default: 1,
   };
   return priorities[source] || 0;
 }
@@ -64,7 +66,9 @@ function selectHighestPriorityApplication(
 
   // 優先順位でソート（高い順）
   const sorted = [...applications].sort((a, b) => {
-    const priorityDiff = getApplicationPriority(b.application_source) - getApplicationPriority(a.application_source);
+    const priorityDiff =
+      getApplicationPriority(b.application_source) -
+      getApplicationPriority(a.application_source);
     if (priorityDiff !== 0) {
       return priorityDiff;
     }
@@ -95,9 +99,9 @@ export const handler = async (
         body: JSON.stringify({
           error: {
             code: 'UNAUTHORIZED',
-            message: '認証が必要です'
-          }
-        })
+            message: '認証が必要です',
+          },
+        }),
       };
     }
 
@@ -109,7 +113,7 @@ export const handler = async (
       applications = await invokeDataAccessFunction<UserPlanApplication[]>(
         event,
         'user-plan-application',
-        'findActiveByUser',
+        'findActiveByUserId',
         { userId }
       );
     } catch (error) {
@@ -123,17 +127,19 @@ export const handler = async (
           error: {
             code: 'DATA_ACCESS_ERROR',
             message: 'プラン適用情報の取得に失敗しました',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          }
-        })
+            details: error instanceof Error ? error.message : 'Unknown error',
+          },
+        }),
       };
     }
 
     // 3. 有効なプラン適用をフィルタリング
     const now = new Date();
-    const activeApplications = (applications || []).filter(app => {
+    const activeApplications = (applications || []).filter((app) => {
       // ステータスチェック
-      if (!['active', 'scheduled_termination'].includes(app.application_status)) {
+      if (
+        !['active', 'scheduled_termination'].includes(app.application_status)
+      ) {
         return false;
       }
 
@@ -167,15 +173,16 @@ export const handler = async (
             message: '有効なプランが見つかりません',
             details: {
               userId,
-              message: 'ユーザに適用されているプランが存在しません'
-            }
-          }
-        })
+              message: 'ユーザに適用されているプランが存在しません',
+            },
+          },
+        }),
       };
     }
 
     // 5. 最も優先度の高いプラン適用を選択
-    const selectedApplication = selectHighestPriorityApplication(activeApplications);
+    const selectedApplication =
+      selectHighestPriorityApplication(activeApplications);
 
     if (!selectedApplication) {
       return {
@@ -184,33 +191,33 @@ export const handler = async (
         body: JSON.stringify({
           error: {
             code: 'NO_PLAN_FOUND',
-            message: '有効なプランが見つかりません'
-          }
-        })
+            message: '有効なプランが見つかりません',
+          },
+        }),
       };
     }
 
     console.log('Selected plan application:', {
       applicationId: selectedApplication.application_id,
       planId: selectedApplication.plan_id,
-      source: selectedApplication.application_source
+      source: selectedApplication.application_source,
     });
 
     // 6. プランの詳細情報を取得
     let plan: Plan;
     try {
-      const plans = await invokeDataAccessFunction<Plan[]>(
+      const fetchedPlan = await invokeDataAccessFunction<Plan | null>(
         event,
         'plan',
         'findById',
-        { planId: selectedApplication.plan_id }
+        { id: selectedApplication.plan_id }
       );
 
-      if (!plans || plans.length === 0) {
+      if (!fetchedPlan) {
         throw new Error(`Plan not found: ${selectedApplication.plan_id}`);
       }
 
-      plan = plans[0];
+      plan = fetchedPlan;
     } catch (error) {
       console.error('Error fetching plan details:', error);
 
@@ -221,9 +228,9 @@ export const handler = async (
           error: {
             code: 'PLAN_FETCH_ERROR',
             message: 'プラン情報の取得に失敗しました',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          }
-        })
+            details: error instanceof Error ? error.message : 'Unknown error',
+          },
+        }),
       };
     }
 
@@ -233,8 +240,10 @@ export const handler = async (
     let cancelAtPeriodEnd = false;
     let serviceEndDate: string | null = null;
 
-    if (selectedApplication.application_source === 'subscription' &&
-        selectedApplication.application_source_id) {
+    if (
+      selectedApplication.application_source === 'subscription' &&
+      selectedApplication.application_source_id
+    ) {
       try {
         const subscriptions = await invokeDataAccessFunction<Subscription[]>(
           event,
@@ -271,7 +280,8 @@ export const handler = async (
       status: selectedApplication.application_status,
       subscriptionId: subscription?.subscription_id || null,
       platformType: subscription?.platform_type || null,
-      currentPeriodStart: subscription?.current_period_start?.toISOString() || null,
+      currentPeriodStart:
+        subscription?.current_period_start?.toISOString() || null,
       currentPeriodEnd: subscription?.current_period_end?.toISOString() || null,
       nextBillingDate,
       cancelAtPeriodEnd,
@@ -279,21 +289,20 @@ export const handler = async (
       // 価格情報（Freeプランの場合は0円、それ以外は要件に応じて実装）
       amount: plan.internal_name === 'Freeプラン' ? 0 : 1000, // TODO: 価格情報を動的に取得
       currency: 'JPY',
-      interval: 'month'
+      interval: 'month',
     };
 
     console.log('Returning current plan information:', {
       planId: response.planId,
       planName: response.planName,
-      status: response.status
+      status: response.status,
     });
 
     return {
       statusCode: 200,
       headers: CORS_HEADERS,
-      body: JSON.stringify(response)
+      body: JSON.stringify(response),
     };
-
   } catch (error) {
     console.error('Unexpected error in getCurrentSubscription:', error);
 
@@ -305,9 +314,9 @@ export const handler = async (
         body: JSON.stringify({
           error: {
             code: 'UNAUTHORIZED',
-            message: '認証が必要です'
-          }
-        })
+            message: '認証が必要です',
+          },
+        }),
       };
     }
 
@@ -319,9 +328,9 @@ export const handler = async (
         error: {
           code: 'INTERNAL_SERVER_ERROR',
           message: 'サーバー内部エラーが発生しました',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        }
-      })
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+      }),
     };
   }
 };
