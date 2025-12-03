@@ -178,12 +178,11 @@ const createAdminCreateUserEmail = (
   };
 };
 
-// Decrypt code using KMS
+// Decrypt code using KMS (symmetric key)
 const decryptCode = async (encryptedCode: string): Promise<string> => {
   const client = new KMSClient({});
   const input: DecryptCommandInput = {
     CiphertextBlob: Buffer.from(encryptedCode, 'base64'),
-    EncryptionAlgorithm: 'RSAES_OAEP_SHA_256',
     KeyId: process.env.KEY_ID,
   };
   const command = new DecryptCommand(input);

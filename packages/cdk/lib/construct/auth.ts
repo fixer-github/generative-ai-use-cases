@@ -19,7 +19,7 @@ import {
   CfnRole,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import { Key, KeySpec, KeyUsage } from 'aws-cdk-lib/aws-kms';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
@@ -222,22 +222,22 @@ export class Auth extends Construct {
     );
 
     // SendGrid Custom Email Sender
-    // Create KMS key for encrypting email codes (required for custom email sender)
+    // Create symmetric KMS key for encrypting email codes (required for custom email sender)
+    // Note: Cognito CustomEmailSender requires a symmetric key, not asymmetric
     const kmsKey = new Key(this, 'CustomEmailSenderKey', {
-      keySpec: KeySpec.RSA_2048,
-      keyUsage: KeyUsage.ENCRYPT_DECRYPT,
+      enableKeyRotation: true,
       removalPolicy: props.enableAutoDelete
         ? RemovalPolicy.DESTROY
         : RemovalPolicy.RETAIN,
       description: 'KMS key for Cognito custom email sender',
     });
 
-    // Allow Cognito to use the key
+    // Allow Cognito to use the key for encryption with CreateGrant
     kmsKey.addToResourcePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         principals: [new ServicePrincipal('cognito-idp.amazonaws.com')],
-        actions: ['kms:Encrypt'],
+        actions: ['kms:Encrypt', 'kms:CreateGrant', 'kms:DescribeKey'],
         resources: ['*'],
       })
     );
