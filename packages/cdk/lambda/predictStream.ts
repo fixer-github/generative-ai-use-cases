@@ -3,10 +3,10 @@ import { PredictRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 import {
-  createOpenFgaClientFromToken,
-  checkLlmAccess,
-} from './utils/openFgaClient';
-import { verifyToken } from './utils/auth';
+  checkAccessWithQuota,
+  incrementUsage,
+  AccessCheckResult,
+} from './utils/accessChecker';
 
 declare global {
   namespace awslambda {
@@ -24,10 +24,12 @@ export const handler = awslambda.streamifyResponse(
   async (event, responseStream, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
 
+    let accessCheckResult: AccessCheckResult | null = null;
+
     try {
       const model = event.model || defaultModel;
 
-      // Authorization check: Verify ID token and check LLM access
+      // Authorization check: Verify ID token and check LLM access with quota
       if (!event.idToken) {
         const errorMessage = JSON.stringify({
           text: 'ID token is required for authorization',
@@ -38,43 +40,39 @@ export const handler = awslambda.streamifyResponse(
         return;
       }
 
-      // Verify token and extract user ID
-      const payload = await verifyToken(event.idToken);
-      if (!payload) {
-        const errorMessage = JSON.stringify({
-          text: 'Invalid or expired ID token',
-          stopReason: 'error',
-        });
-        responseStream.write(errorMessage);
-        responseStream.end();
-        return;
-      }
-
-      const userId = payload['cognito:username'];
-      if (!userId) {
-        const errorMessage = JSON.stringify({
-          text: 'User ID not found in token',
-          stopReason: 'error',
-        });
-        responseStream.write(errorMessage);
-        responseStream.end();
-        return;
-      }
-
-      // Create OpenFGA client and check authorization for the specific LLM model
-      const openFgaClient = await createOpenFgaClientFromToken(event.idToken);
-      const hasAccess = await checkLlmAccess(
-        openFgaClient,
-        userId,
+      // Check permission and quota using accessChecker
+      accessCheckResult = await checkAccessWithQuota(
+        event.idToken,
+        'llm',
         model.modelId
       );
 
-      if (!hasAccess) {
-        console.warn(
-          `User ${userId} does not have access to model ${model.modelId}`
-        );
+      if (!accessCheckResult.allowed) {
+        const userId = accessCheckResult.userContext?.userId || 'unknown';
+        let errorText: string;
+
+        switch (accessCheckResult.reason) {
+          case 'quota_exceeded':
+            console.warn(
+              `User ${userId} has exceeded quota for model ${model.modelId}`
+            );
+            errorText = `利用回数の上限に達しました: ${model.modelId}`;
+            break;
+          case 'no_permission':
+            console.warn(
+              `User ${userId} does not have access to model ${model.modelId}`
+            );
+            errorText = `このモデルを使用する権限がありません: ${model.modelId}`;
+            break;
+          case 'invalid_token':
+            errorText = 'Invalid or expired ID token';
+            break;
+          default:
+            errorText = `You do not have permission to use the model: ${model.modelId}`;
+        }
+
         const errorMessage = JSON.stringify({
-          text: `You do not have permission to use the model: ${model.modelId}`,
+          text: errorText,
           stopReason: 'error',
         });
         responseStream.write(errorMessage);
@@ -91,6 +89,19 @@ export const handler = awslambda.streamifyResponse(
       ) ?? []) {
         responseStream.write(token);
       }
+
+      // Increment usage count after successful streaming (fire-and-forget)
+      if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
+        incrementUsage(
+          event.idToken,
+          'llm',
+          model.modelId,
+          accessCheckResult.limitType
+        ).catch((error) => {
+          console.error('Failed to increment usage count:', error);
+        });
+      }
+
       responseStream.end();
     } catch (error) {
       console.error('PredictStream error:', error);

@@ -283,7 +283,6 @@ export const handler = async (
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       payment_method_types: ['card'],
-      customer_creation: 'always', // 新規顧客を作成
       locale: 'ja', // 日本語表示
     });
 

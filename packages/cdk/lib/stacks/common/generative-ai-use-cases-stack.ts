@@ -80,6 +80,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       sendgridApiKey: params.sendgridApiKey,
       sendgridFromEmail: params.sendgridFromEmail,
       enableAutoDelete: params.enableAutoDelete,
+      environment: params.env, // 環境名を渡してLambda関数名の動的構築を可能にする
     });
 
     // Database
