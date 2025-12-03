@@ -1,4 +1,4 @@
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import {
   LambdaVersion,
   StringAttribute,
@@ -17,7 +17,9 @@ import {
   PolicyStatement,
   Role,
   CfnRole,
+  ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
@@ -233,14 +235,90 @@ export class Auth extends Construct {
       LambdaVersion.V2_0
     );
 
-    // Custom Message Lambda for email customization
-    const customMessageFunction = new NodejsFunction(this, 'CustomMessage', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/customMessage.ts',
-      timeout: Duration.seconds(5),
-    });
+    // Email customization: Use Custom Email Sender Lambda with SES for HTML emails,
+    // or fall back to Custom Message Lambda for Cognito default email
+    if (props.sesFromEmail) {
+      // Create KMS key for encrypting/decrypting verification codes
+      const kmsKey = new kms.Key(this, 'CustomEmailSenderKey', {
+        description: 'KMS key for Cognito Custom Email Sender',
+        enableKeyRotation: true,
+      });
 
-    userPool.addTrigger(UserPoolOperation.CUSTOM_MESSAGE, customMessageFunction);
+      // Allow Cognito to use the KMS key
+      kmsKey.addToResourcePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          principals: [new ServicePrincipal('cognito-idp.amazonaws.com')],
+          actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:GenerateDataKey*'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              'aws:SourceAccount': Stack.of(this).account,
+            },
+          },
+        })
+      );
+
+      // Custom Email Sender Lambda
+      const customEmailSenderFunction = new NodejsFunction(
+        this,
+        'CustomEmailSender',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/customEmailSender.ts',
+          timeout: Duration.seconds(30),
+          environment: {
+            KMS_KEY_ID: kmsKey.keyId,
+            KMS_KEY_ARN: kmsKey.keyArn,
+            SES_FROM_EMAIL: props.sesFromEmail,
+            SES_FROM_NAME: props.sesFromName ?? 'GaiXer',
+            SES_REGION: props.sesRegion ?? Stack.of(this).region,
+          },
+          bundling: {
+            nodeModules: ['@aws-crypto/client-node'],
+          },
+        }
+      );
+
+      // Grant Lambda permissions
+      kmsKey.grantDecrypt(customEmailSenderFunction);
+      customEmailSenderFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+          resources: ['*'],
+        })
+      );
+
+      // Allow Cognito to invoke the Lambda
+      customEmailSenderFunction.addPermission('CognitoInvoke', {
+        principal: new ServicePrincipal('cognito-idp.amazonaws.com'),
+        sourceArn: userPool.userPoolArn,
+      });
+
+      // Configure Custom Email Sender trigger using CfnUserPool
+      const cfnUserPool = userPool.node.defaultChild as import('aws-cdk-lib/aws-cognito').CfnUserPool;
+      cfnUserPool.lambdaConfig = {
+        ...cfnUserPool.lambdaConfig,
+        customEmailSender: {
+          lambdaArn: customEmailSenderFunction.functionArn,
+          lambdaVersion: 'V1_0',
+        },
+        kmsKeyId: kmsKey.keyArn,
+      };
+    } else {
+      // Fall back to Custom Message Lambda for Cognito default email
+      const customMessageFunction = new NodejsFunction(this, 'CustomMessage', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/customMessage.ts',
+        timeout: Duration.seconds(5),
+      });
+
+      userPool.addTrigger(
+        UserPoolOperation.CUSTOM_MESSAGE,
+        customMessageFunction
+      );
+    }
 
     this.client = client;
     this.userPool = userPool;
