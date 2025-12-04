@@ -21,7 +21,8 @@ const DEFAULT_ASSISTANT_TABLE_NAME: string =
 
 /**
  * Get or create a tenant-specific DynamoDB document client
- * Falls back to default client if tenant-specific access fails
+ * Throws TooManyRequestsError (429) for rate limit errors
+ * Throws ServiceUnavailableError (503) for other tenant authentication failures
  */
 export async function getTenantDynamoDBDocument(
   event: APIGatewayProxyEvent

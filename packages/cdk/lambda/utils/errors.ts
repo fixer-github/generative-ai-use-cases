@@ -13,7 +13,8 @@ export class TooManyRequestsError extends Error {
   constructor(message: string, retryAfter: number = 60) {
     super(message);
     this.name = 'TooManyRequestsError';
-    this.retryAfter = retryAfter;
+    // retryAfterは正の数であることを保証
+    this.retryAfter = Math.max(1, Math.floor(retryAfter));
   }
 }
 
@@ -45,16 +46,4 @@ export function isRateLimitError(error: unknown): boolean {
 
   const errorString = `${error.name} ${error.message}`;
   return rateLimitPatterns.some((pattern) => errorString.includes(pattern));
-}
-
-/**
- * HTTPエラーかどうかを判定するための型ガード
- */
-export function isHttpError(
-  error: unknown
-): error is TooManyRequestsError | ServiceUnavailableError {
-  return (
-    error instanceof TooManyRequestsError ||
-    error instanceof ServiceUnavailableError
-  );
 }
