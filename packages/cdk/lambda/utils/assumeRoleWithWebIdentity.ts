@@ -12,9 +12,41 @@ import {
 import { getTenantId, getUsername } from './tenantUtils';
 
 // Constants for AssumeRole operations
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
+const MAX_RETRIES = 5;
+const BASE_DELAY_MS = 500;
+const MAX_DELAY_MS = 10000;
 const SESSION_DURATION_SECONDS = 3600;
+
+/**
+ * ジッター付き指数バックオフでリトライ間隔を計算
+ * サンダリングハード問題を緩和するためランダム要素を追加
+ */
+function calculateRetryDelay(attempt: number): number {
+  // 指数バックオフ: 500ms, 1000ms, 2000ms, 4000ms, 8000ms (最大10000ms)
+  const exponentialDelay = Math.min(
+    BASE_DELAY_MS * Math.pow(2, attempt - 1),
+    MAX_DELAY_MS
+  );
+  // ジッター: 0〜50%のランダムな遅延を追加
+  const jitter = Math.random() * exponentialDelay * 0.5;
+  return Math.floor(exponentialDelay + jitter);
+}
+
+/**
+ * リトライ可能なエラーかどうかを判定
+ */
+function isRetryableError(error: Error): boolean {
+  const retryableErrors = [
+    'TooManyRequestsException',
+    'ThrottlingException',
+    'ServiceUnavailable',
+    'InternalServerError',
+    'ECONNRESET',
+    'ETIMEDOUT',
+  ];
+  const errorString = `${error.name} ${error.message}`;
+  return retryableErrors.some((e) => errorString.includes(e));
+}
 
 /**
  * Assume role using Identity Pool token exchange from Cognito User Pool JWT
@@ -135,12 +167,19 @@ export async function assumeRoleWithWebIdentity(
         }
       );
 
+      // リトライ不可能なエラーの場合は即座に失敗
+      if (!isRetryableError(lastError)) {
+        console.error(`Non-retryable error detected, failing immediately`);
+        break;
+      }
+
       if (attempt < MAX_RETRIES) {
-        // Exponential backoff
-        console.log(`Retrying in ${RETRY_DELAY_MS * attempt}ms...`);
-        await new Promise((resolve) =>
-          setTimeout(resolve, RETRY_DELAY_MS * attempt)
+        // ジッター付き指数バックオフ
+        const delay = calculateRetryDelay(attempt);
+        console.log(
+          `Retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})...`
         );
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
