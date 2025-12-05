@@ -21,24 +21,8 @@ devbox shell
 このコマンドを実行すると、以下のツールが自動的に利用可能になります:
 
 - Node.js 24
-- AWS CLI 2
-- jq
-- git
 
 また、`node_modules` が存在しない場合は自動的に `npm install` が実行されます。
-
-#### Devbox スクリプト
-
-Devbox シェル内では、以下のスクリプトが利用可能です:
-
-| コマンド | 説明 |
-|----------|------|
-| `devbox run dev` | Web 開発サーバーを起動 |
-| `devbox run build` | Web アプリをビルド |
-| `devbox run deploy` | CDK スタックをデプロイ |
-| `devbox run lint` | Linter を実行 |
-| `devbox run test` | テストを実行 |
-| `devbox run setup` | 依存関係をインストール |
 
 ### Unix 系コマンドが使えるユーザー (Cloud9, Linux, MacOS, Windows WSL/Bash/Git Bash 等)
 
