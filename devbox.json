@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
   "packages": [
-    "nodejs_24"
+    "nodejs_22"
   ],
   "_disabled_packages": [
     "awscli2@latest  // nixpkgs version is outdated, install via brew/pip instead"
