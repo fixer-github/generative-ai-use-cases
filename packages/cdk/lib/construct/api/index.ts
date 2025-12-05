@@ -175,6 +175,7 @@ export class Api extends Construct {
     // Set TLS 1.2 security policy
     const cfnApi = api.node.defaultChild as CfnRestApi;
     cfnApi.securityPolicy = 'SecurityPolicy_TLS12_2018_EDGE';
+    cfnApi.addPropertyOverride('EndpointAccessMode', 'BASIC');
 
     api.addGatewayResponse('Api4XX', {
       type: ResponseType.DEFAULT_4XX,
