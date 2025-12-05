@@ -74,7 +74,7 @@ function isRetryableError(error: unknown): boolean {
 }
 
 /**
- * Internal helper: Assume role using Identity Pool token exchange from Cognito User Pool JWT
+ * Assume role using Identity Pool token exchange from Cognito User Pool JWT
  * Exchange User Pool JWT → Identity Pool token → AssumeRoleWithWebIdentity
  *
  * @param userPoolToken - Cognito User Pool ID token (JWT)
