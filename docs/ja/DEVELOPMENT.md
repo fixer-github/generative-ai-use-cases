@@ -2,7 +2,45 @@
 
 開発者用にローカル環境を構築する手順を説明します。なお、ローカル環境を構築する場合も、[AWS へのデプロイ](/README.md#デプロイ)は完了している必要があります。
 
-### (推奨) Unix 系コマンドが使えるユーザー (Cloud9, Linux, MacOS, Windows WSL/Bash/Git Bash 等)
+### (推奨) Devbox を使用した環境構築
+
+[Devbox](https://www.jetify.com/devbox) を使用することで、チームメンバー間で統一された開発環境を簡単に構築できます。
+
+#### Devbox のインストール
+
+```bash
+curl -fsSL https://get.jetify.com/devbox | bash
+```
+
+#### 開発環境の起動
+
+```bash
+devbox shell
+```
+
+このコマンドを実行すると、以下のツールが自動的に利用可能になります:
+
+- Node.js 24
+- AWS CLI 2
+- jq
+- git
+
+また、`node_modules` が存在しない場合は自動的に `npm install` が実行されます。
+
+#### Devbox スクリプト
+
+Devbox シェル内では、以下のスクリプトが利用可能です:
+
+| コマンド | 説明 |
+|----------|------|
+| `devbox run dev` | Web 開発サーバーを起動 |
+| `devbox run build` | Web アプリをビルド |
+| `devbox run deploy` | CDK スタックをデプロイ |
+| `devbox run lint` | Linter を実行 |
+| `devbox run test` | テストを実行 |
+| `devbox run setup` | 依存関係をインストール |
+
+### Unix 系コマンドが使えるユーザー (Cloud9, Linux, MacOS, Windows WSL/Bash/Git Bash 等)
 
 以下のコマンドを実行することで、必要な環境変数を CloudFormation の Output から動的に取得し、サーバーを起動します。
 なお、内部で `aws` コマンドと `jq` コマンドを利用しているので、未インストールの場合はインストールしてから実行してください。

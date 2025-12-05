@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
   "packages": [
-    "nodejs_24",
-    "awscli2",
-    "jq",
-    "git"
+    "nodejs_24"
+  ],
+  "_disabled_packages": [
+    "awscli2@latest  // nixpkgs version is outdated, install via brew/pip instead"
   ],
   "env": {
     "DEVBOX_COREPACK_ENABLED": "1"
@@ -15,26 +15,13 @@
       "echo ''",
       "echo 'Node.js:' $(node --version)",
       "echo 'npm:' $(npm --version)",
-      "echo 'AWS CLI:' $(aws --version 2>&1 | cut -d' ' -f1)",
       "echo ''",
       "if [ ! -d 'node_modules' ]; then",
       "  echo '📦 Installing npm dependencies...'",
-      "  npm install",
+      "  npm ci",
       "fi",
-      "echo ''",
-      "echo '✅ Environment ready! Available commands:'",
-      "echo '  npm run web:dev      - Start web development server'",
-      "echo '  npm run cdk:deploy   - Deploy CDK stack'",
-      "echo '  npm run lint         - Run linter'",
-      "echo '  npm run test         - Run tests'"
     ],
     "scripts": {
-      "dev": "npm run web:dev",
-      "build": "npm run web:build",
-      "deploy": "npm run cdk:deploy",
-      "lint": "npm run lint",
-      "test": "npm run test",
-      "setup": "npm install"
     }
   }
 }
