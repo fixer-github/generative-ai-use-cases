@@ -20,6 +20,7 @@ const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 
 // Request interface
+// Note: OpenFGA configuration is managed via AWS AppConfig, not stored in tenant registration
 interface TenantRegistrationRequest {
   tenantId: string;
   accountId: string;
@@ -30,9 +31,6 @@ interface TenantRegistrationRequest {
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
-  openFgaApiEndpoint: string;
-  openFgaApiRegion: string;
-  openFgaStoreId: string;
 }
 
 /**
@@ -62,9 +60,6 @@ export const handler = async (
       openSearchDomainArn,
       openSearchEndpoint,
       openSearchIndexName,
-      openFgaApiEndpoint,
-      openFgaApiRegion,
-      openFgaStoreId,
     } = request;
 
     // Log request without sensitive data
@@ -131,20 +126,6 @@ export const handler = async (
           message: 'OpenSearch endpoint region must match domain ARN region',
         });
       }
-    }
-    if (
-      !tenantId ||
-      !accountId ||
-      !region ||
-      !environment ||
-      !openFgaApiEndpoint ||
-      !openFgaApiRegion ||
-      !openFgaStoreId
-    ) {
-      return badRequest400Response({
-        message:
-          'Missing required fields: tenantId, accountId, region, environment, openFgaApiEndpoint, openFgaApiRegion, openFgaStoreId',
-      });
     }
 
     // Create tenant record with default use case configuration
