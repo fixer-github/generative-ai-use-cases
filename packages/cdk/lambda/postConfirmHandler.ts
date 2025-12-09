@@ -3,7 +3,8 @@
  *
  * Cognito POST_CONFIRMATIONトリガーから呼び出され、
  * 1. テナント割り当て
- * 2. デフォルトプラン適用
+ * 2. ユーザー登録メタデータの保存（clientMetadataがある場合）
+ * 3. デフォルトプラン適用
  * を順番に実行します。
  */
 
@@ -11,6 +12,7 @@ import { PostConfirmationTriggerEvent } from 'aws-lambda';
 import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
 import { assignTenantToUser } from './assignTenant';
 import { applyDefaultPlanToUser } from './applyDefaultPlanToUser';
+import { saveUserRegistrationMetadata } from './saveUserRegistrationMetadata';
 
 /**
  * POST_CONFIRMATIONトリガーのメインハンドラー
@@ -50,6 +52,18 @@ exports.handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfi
       }
     }
 
+    // Step 2: ユーザー登録メタデータの保存（clientMetadataがある場合）
+    // テナント割り当てやプラン適用の成否に関係なく実行する
+    console.log('postConfirmHandler - Step 2: Saving user registration metadata');
+    const metadataSaved = await saveUserRegistrationMetadata(event);
+
+    if (metadataSaved) {
+      console.log('postConfirmHandler - User registration metadata saved successfully');
+    } else {
+      console.warn('postConfirmHandler - Failed to save user registration metadata, but continuing user registration');
+      // メタデータの保存に失敗してもユーザー登録は続行する
+    }
+
     if (!tenantId) {
       if (TENANT_MAP.length === 0) {
         console.log('postConfirmHandler - No tenant map configured, skipping default plan application');
@@ -59,8 +73,8 @@ exports.handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfi
       return eventAfterTenant;
     }
 
-    // Step 2: デフォルトプラン適用
-    console.log(`postConfirmHandler - Step 2: Applying default plan for tenant ${tenantId}`);
+    // Step 3: デフォルトプラン適用
+    console.log(`postConfirmHandler - Step 3: Applying default plan for tenant ${tenantId}`);
     const planApplied = await applyDefaultPlanToUser(eventAfterTenant, tenantId);
 
     if (planApplied) {
