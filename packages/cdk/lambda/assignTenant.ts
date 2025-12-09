@@ -14,6 +14,10 @@ const findTenantId = (email: string, tenantMap: SelfSignUpTenantMapEntry[]): str
   const lowerEmail = email.toLowerCase();
   const domain = lowerEmail.split('@')[1];
   for (const entry of tenantMap) {
+    // "*" をワイルドカードとして扱い、すべてのドメインをこのテナントに割り当て
+    if (entry.domains && entry.domains.includes('*')) {
+      return entry.tenantId;
+    }
     if (entry.emails && entry.emails.includes(lowerEmail)) {
       return entry.tenantId;
     }

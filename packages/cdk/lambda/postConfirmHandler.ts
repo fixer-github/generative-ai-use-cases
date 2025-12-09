@@ -41,6 +41,11 @@ exports.handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfi
       const domain = lowerEmail.split('@')[1];
 
       for (const entry of TENANT_MAP) {
+        // "*" をワイルドカードとして扱い、すべてのドメインをこのテナントに割り当て
+        if (entry.domains && entry.domains.includes('*')) {
+          tenantId = entry.tenantId;
+          break;
+        }
         if (entry.emails && entry.emails.includes(lowerEmail)) {
           tenantId = entry.tenantId;
           break;
