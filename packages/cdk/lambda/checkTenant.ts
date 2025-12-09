@@ -11,6 +11,10 @@ const isAllowed = (email: string): boolean => {
   const lowerEmail = email.toLowerCase();
   const domain = lowerEmail.split('@')[1];
   for (const entry of TENANT_MAP) {
+    // "*" をワイルドカードとして扱い、すべてのドメインを許可
+    if (entry.domains && entry.domains.includes('*')) {
+      return true;
+    }
     if (entry.emails && entry.emails.includes(lowerEmail)) {
       return true;
     }
