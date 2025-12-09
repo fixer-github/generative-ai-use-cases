@@ -20,6 +20,12 @@ import {
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Key } from 'aws-cdk-lib/aws-kms';
+import {
+  Table,
+  AttributeType,
+  BillingMode,
+  TableEncryption,
+} from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
@@ -44,6 +50,7 @@ export class Auth extends Construct {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
+  readonly userRegistrationMetadataTable: Table;
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
@@ -170,6 +177,29 @@ export class Auth extends Construct {
       })
     );
 
+    // UserRegistrationMetadata DynamoDB Table
+    // ユーザー登録時のclientMetadata（生年月日、規約同意など）を保存するテーブル
+    // Cognitoと同様に共通リソースとして配置
+    const userRegistrationMetadataTable = new Table(
+      this,
+      'UserRegistrationMetadataTable',
+      {
+        tableName: props.environment
+          ? `UserRegistrationMetadata-${props.environment}`
+          : 'UserRegistrationMetadata',
+        partitionKey: {
+          name: 'userId',
+          type: AttributeType.STRING,
+        },
+        billingMode: BillingMode.PAY_PER_REQUEST,
+        encryption: TableEncryption.AWS_MANAGED,
+        pointInTimeRecovery: true,
+        removalPolicy: props.enableAutoDelete
+          ? RemovalPolicy.DESTROY
+          : RemovalPolicy.RETAIN,
+      }
+    );
+
     // Lambda
     if (props.selfSignUpTenantMap && props.selfSignUpTenantMap.length > 0) {
       const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
@@ -200,9 +230,15 @@ export class Auth extends Construct {
             APPLY_PLAN_TO_USER_FUNCTION_NAME: props.environment
               ? `${props.environment}-billing-plan-internal-apply`
               : '',
+            // ユーザー登録メタデータ保存用テーブル名
+            USER_REGISTRATION_METADATA_TABLE_NAME:
+              userRegistrationMetadataTable.tableName,
           },
         }
       );
+
+      // UserRegistrationMetadataテーブルへの書き込み権限
+      userRegistrationMetadataTable.grantWriteData(postConfirmHandlerFunction);
 
       // Cognitoユーザー属性更新権限
       postConfirmHandlerFunction.addToRolePolicy(
@@ -312,5 +348,6 @@ export class Auth extends Construct {
     this.client = client;
     this.userPool = userPool;
     this.idPool = idPool;
+    this.userRegistrationMetadataTable = userRegistrationMetadataTable;
   }
 }
