@@ -55,7 +55,13 @@
       "ecs": {
         "cpu": 256,
         "memoryLimitMiB": 512,
-        "desiredCount": 1,
+        "minCapacity": 1,
+        "maxCapacity": 10,
+        "cpuTargetUtilizationPercent": 70,
+        "memoryTargetUtilizationPercent": null,
+        "scaleOutCooldownSeconds": null,
+        "scaleInCooldownSeconds": null,
+        "scheduledScaling": [],
         "imageVersion": "v1.8.0"
       },
       "logging": {
