@@ -1,4 +1,5 @@
 import { Duration, Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
@@ -22,7 +23,10 @@ import { StackInput } from '../stack-input';
 interface AgentProps {
   // Context Params
   readonly searchAgentEnabled: boolean;
+  // DEPRECATED: Use searchApiKeySecretArn instead
   readonly searchApiKey?: string | null;
+  // ARN of the secret in AWS Secrets Manager containing the search API key
+  readonly searchApiKeySecretArn?: string | null;
   readonly searchEngine?: StackInput['searchEngine'];
 }
 
@@ -34,7 +38,7 @@ export class Agent extends Construct {
 
     const suffix = Lazy.string({ produce: () => Names.uniqueId(this) });
 
-    const { searchAgentEnabled, searchApiKey, searchEngine } = props;
+    const { searchAgentEnabled, searchApiKey, searchApiKeySecretArn, searchEngine } = props;
 
     // Bucket to store schema and data for agents for bedrock
     const s3Bucket = new Bucket(this, 'Bucket', {
@@ -78,7 +82,26 @@ export class Agent extends Construct {
     });
 
     // Search Agent
-    if (searchAgentEnabled && searchApiKey && searchEngine) {
+    // Check if we have either the secret ARN or direct API key (for backward compatibility)
+    const hasSearchCredentials = searchApiKeySecretArn || searchApiKey;
+    if (searchAgentEnabled && hasSearchCredentials && searchEngine) {
+      // Build environment variables for Lambda
+      const lambdaEnvironment: Record<string, string> = {
+        SEARCH_ENGINE: searchEngine,
+      };
+
+      // If using Secrets Manager (recommended)
+      if (searchApiKeySecretArn) {
+        lambdaEnvironment['SEARCH_API_KEY_SECRET_ARN'] = searchApiKeySecretArn;
+      } else if (searchApiKey) {
+        // Fallback to direct API key (deprecated - for backward compatibility)
+        console.warn(
+          'WARNING: Using searchApiKey directly is deprecated and insecure. ' +
+            'Please migrate to searchApiKeySecretArn for improved security.'
+        );
+        lambdaEnvironment['SEARCH_API_KEY'] = searchApiKey;
+      }
+
       const bedrockAgentLambda = new NodejsFunction(
         this,
         'BedrockAgentLambda',
@@ -86,12 +109,20 @@ export class Agent extends Construct {
           runtime: LAMBDA_RUNTIME_NODEJS,
           entry: './lambda/agent.ts',
           timeout: Duration.seconds(300),
-          environment: {
-            SEARCH_API_KEY: searchApiKey ?? '',
-            SEARCH_ENGINE: searchEngine,
-          },
+          environment: lambdaEnvironment,
         }
       );
+
+      // Grant Secrets Manager read permission if using secret ARN
+      if (searchApiKeySecretArn) {
+        const searchApiKeySecret = secretsmanager.Secret.fromSecretCompleteArn(
+          this,
+          'SearchApiKeySecret',
+          searchApiKeySecretArn
+        );
+        searchApiKeySecret.grantRead(bedrockAgentLambda);
+      }
+
       bedrockAgentLambda.grantInvoke(
         new ServicePrincipal('bedrock.amazonaws.com')
       );

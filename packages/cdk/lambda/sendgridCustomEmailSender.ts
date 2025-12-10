@@ -8,11 +8,75 @@ import {
   buildClient,
   CommitmentPolicy,
 } from '@aws-crypto/client-node';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 
 const SERVICE_NAME = process.env.SERVICE_NAME || 'GenU';
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
+// Direct API key (deprecated - for backward compatibility)
+const SENDGRID_API_KEY_DIRECT = process.env.SENDGRID_API_KEY || '';
+// Secrets Manager ARN (recommended)
+const SENDGRID_API_KEY_SECRET_ARN = process.env.SENDGRID_API_KEY_SECRET_ARN || '';
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '';
 const SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
+
+// Secrets Manager client
+const secretsManagerClient = new SecretsManagerClient({});
+
+// Cache for the API key to avoid repeated Secrets Manager calls
+let cachedApiKey: string | null = null;
+
+/**
+ * Retrieves the SendGrid API key from Secrets Manager or falls back to direct environment variable.
+ * The key is cached to minimize Secrets Manager API calls.
+ */
+const getSendGridApiKey = async (): Promise<string> => {
+  // Return cached key if available
+  if (cachedApiKey) {
+    return cachedApiKey;
+  }
+
+  // If using Secrets Manager (recommended)
+  if (SENDGRID_API_KEY_SECRET_ARN) {
+    try {
+      const command = new GetSecretValueCommand({
+        SecretId: SENDGRID_API_KEY_SECRET_ARN,
+      });
+      const response = await secretsManagerClient.send(command);
+
+      if (response.SecretString) {
+        // Try to parse as JSON first (in case it's stored as {"apiKey": "value"})
+        try {
+          const parsed = JSON.parse(response.SecretString);
+          cachedApiKey = parsed.apiKey || parsed.SENDGRID_API_KEY || response.SecretString;
+        } catch {
+          // If not JSON, use the raw string
+          cachedApiKey = response.SecretString;
+        }
+        return cachedApiKey;
+      }
+      throw new Error('Secret value is empty');
+    } catch (error) {
+      console.error('Failed to retrieve SendGrid API key from Secrets Manager:', error);
+      throw error;
+    }
+  }
+
+  // Fallback to direct API key (deprecated)
+  if (SENDGRID_API_KEY_DIRECT) {
+    console.warn(
+      'WARNING: Using SENDGRID_API_KEY environment variable directly is deprecated. ' +
+        'Please migrate to SENDGRID_API_KEY_SECRET_ARN for improved security.'
+    );
+    cachedApiKey = SENDGRID_API_KEY_DIRECT;
+    return cachedApiKey;
+  }
+
+  throw new Error(
+    'SendGrid API key not configured. Please set either SENDGRID_API_KEY_SECRET_ARN or SENDGRID_API_KEY.'
+  );
+};
 
 // Configure AWS Encryption SDK
 const { decrypt } = buildClient(CommitmentPolicy.REQUIRE_ENCRYPT_ALLOW_DECRYPT);
@@ -200,6 +264,9 @@ const sendEmail = async (
   subject: string,
   htmlContent: string
 ): Promise<void> => {
+  // Get API key from Secrets Manager or environment variable
+  const apiKey = await getSendGridApiKey();
+
   const payload = {
     personalizations: [{ to: [{ email: to }] }],
     from: { email: SENDGRID_FROM_EMAIL },
@@ -210,7 +277,7 @@ const sendEmail = async (
   const response = await fetch(SENDGRID_API_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${SENDGRID_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),

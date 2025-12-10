@@ -1,4 +1,5 @@
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import {
   CfnUserPool,
   LambdaVersion,
@@ -34,7 +35,10 @@ export interface AuthProps {
   readonly samlAuthEnabled: boolean;
   readonly samlDefaultAuthEnabled: boolean;
   readonly emailServiceName: string;
-  readonly sendgridApiKey: string;
+  // DEPRECATED: Use sendgridApiKeySecretArn instead
+  readonly sendgridApiKey?: string | null;
+  // ARN of the secret in AWS Secrets Manager containing the SendGrid API key
+  readonly sendgridApiKeySecretArn?: string | null;
   readonly sendgridFromEmail: string;
   readonly enableAutoDelete?: boolean;
 }
@@ -242,6 +246,30 @@ export class Auth extends Construct {
       })
     );
 
+    // Resolve SendGrid API Key: prefer Secrets Manager ARN, fallback to direct value (deprecated)
+    const sendgridApiKeySecretArn = props.sendgridApiKeySecretArn;
+    const sendgridApiKeyDirect = props.sendgridApiKey;
+
+    // Build environment variables for Lambda
+    const lambdaEnvironment: Record<string, string> = {
+      SERVICE_NAME: props.emailServiceName,
+      SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+      KEY_ID: kmsKey.keyId,
+      KEY_ARN: kmsKey.keyArn,
+    };
+
+    // If using Secrets Manager (recommended)
+    if (sendgridApiKeySecretArn) {
+      lambdaEnvironment['SENDGRID_API_KEY_SECRET_ARN'] = sendgridApiKeySecretArn;
+    } else if (sendgridApiKeyDirect) {
+      // Fallback to direct API key (deprecated - for backward compatibility)
+      console.warn(
+        'WARNING: Using sendgridApiKey directly is deprecated and insecure. ' +
+          'Please migrate to sendgridApiKeySecretArn for improved security.'
+      );
+      lambdaEnvironment['SENDGRID_API_KEY'] = sendgridApiKeyDirect;
+    }
+
     // SendGrid Custom Email Sender Lambda
     const sendgridEmailSenderFunction = new NodejsFunction(
       this,
@@ -250,18 +278,22 @@ export class Auth extends Construct {
         runtime: LAMBDA_RUNTIME_NODEJS,
         entry: './lambda/sendgridCustomEmailSender.ts',
         timeout: Duration.seconds(30),
-        environment: {
-          SERVICE_NAME: props.emailServiceName,
-          SENDGRID_API_KEY: props.sendgridApiKey,
-          SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
-          KEY_ID: kmsKey.keyId,
-          KEY_ARN: kmsKey.keyArn,
-        },
+        environment: lambdaEnvironment,
       }
     );
 
     // Grant KMS decrypt permission to Lambda
     kmsKey.grant(sendgridEmailSenderFunction, 'kms:Decrypt');
+
+    // Grant Secrets Manager read permission if using secret ARN
+    if (sendgridApiKeySecretArn) {
+      const sendgridSecret = secretsmanager.Secret.fromSecretCompleteArn(
+        this,
+        'SendGridApiKeySecret',
+        sendgridApiKeySecretArn
+      );
+      sendgridSecret.grantRead(sendgridEmailSenderFunction);
+    }
 
     // Add custom email sender trigger using property overrides
     // (Direct lambdaConfig assignment doesn't work due to CDK token resolution)

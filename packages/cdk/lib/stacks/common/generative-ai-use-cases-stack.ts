@@ -76,6 +76,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       samlDefaultAuthEnabled: params.samlDefaultAuthEnabled,
       emailServiceName: params.emailServiceName,
       sendgridApiKey: params.sendgridApiKey,
+      sendgridApiKeySecretArn: params.sendgridApiKeySecretArn,
       sendgridFromEmail: params.sendgridFromEmail,
       enableAutoDelete: params.enableAutoDelete,
     });

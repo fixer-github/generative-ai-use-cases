@@ -5,6 +5,10 @@ import {
   TavilySearchResult,
 } from 'generative-ai-use-cases';
 import { StackInput } from '../lib/stack-input';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 
 type SearchResult = {
   title: string;
@@ -13,10 +17,72 @@ type SearchResult = {
   extraSnippets?: string[];
 };
 
+// Direct API key (deprecated - for backward compatibility)
+const SEARCH_API_KEY_DIRECT = process.env.SEARCH_API_KEY || '';
+// Secrets Manager ARN (recommended)
+const SEARCH_API_KEY_SECRET_ARN = process.env.SEARCH_API_KEY_SECRET_ARN || '';
+
+// Secrets Manager client
+const secretsManagerClient = new SecretsManagerClient({});
+
+// Cache for the API key to avoid repeated Secrets Manager calls
+let cachedApiKey: string | null = null;
+
+/**
+ * Retrieves the Search API key from Secrets Manager or falls back to direct environment variable.
+ * The key is cached to minimize Secrets Manager API calls.
+ */
+const getSearchApiKey = async (): Promise<string> => {
+  // Return cached key if available
+  if (cachedApiKey) {
+    return cachedApiKey;
+  }
+
+  // If using Secrets Manager (recommended)
+  if (SEARCH_API_KEY_SECRET_ARN) {
+    try {
+      const command = new GetSecretValueCommand({
+        SecretId: SEARCH_API_KEY_SECRET_ARN,
+      });
+      const response = await secretsManagerClient.send(command);
+
+      if (response.SecretString) {
+        // Try to parse as JSON first (in case it's stored as {"apiKey": "value"})
+        try {
+          const parsed = JSON.parse(response.SecretString);
+          cachedApiKey = parsed.apiKey || parsed.SEARCH_API_KEY || response.SecretString;
+        } catch {
+          // If not JSON, use the raw string
+          cachedApiKey = response.SecretString;
+        }
+        return cachedApiKey;
+      }
+      throw new Error('Secret value is empty');
+    } catch (error) {
+      console.error('Failed to retrieve Search API key from Secrets Manager:', error);
+      throw error;
+    }
+  }
+
+  // Fallback to direct API key (deprecated)
+  if (SEARCH_API_KEY_DIRECT) {
+    console.warn(
+      'WARNING: Using SEARCH_API_KEY environment variable directly is deprecated. ' +
+        'Please migrate to SEARCH_API_KEY_SECRET_ARN for improved security.'
+    );
+    cachedApiKey = SEARCH_API_KEY_DIRECT;
+    return cachedApiKey;
+  }
+
+  throw new Error(
+    'Search API key not configured. Please set either SEARCH_API_KEY_SECRET_ARN or SEARCH_API_KEY.'
+  );
+};
+
 const searchUsingBrave = async (keyword: string): Promise<SearchResult[]> => {
   // https://api-dashboard.search.brave.com/app/documentation/web-search/get-started
   const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${keyword}&count=3&text_decorations=0`;
-  const searchApiKey = process.env.SEARCH_API_KEY || '';
+  const searchApiKey = await getSearchApiKey();
   const response = await fetch(searchUrl, {
     headers: {
       'X-Subscription-Token': searchApiKey,
@@ -37,7 +103,7 @@ const searchUsingBrave = async (keyword: string): Promise<SearchResult[]> => {
 
 const searchUsingTavily = async (keyword: string): Promise<SearchResult[]> => {
   const searchUrl = 'https://api.tavily.com/search';
-  const searchApiKey = process.env.SEARCH_API_KEY || '';
+  const searchApiKey = await getSearchApiKey();
 
   // https://docs.tavily.com/documentation/api-reference/endpoint/search
   const response = await fetch(searchUrl, {

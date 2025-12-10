@@ -129,7 +129,10 @@ const baseStackInputSchema = z.object({
   // Agent
   agentEnabled: z.boolean().default(false),
   searchAgentEnabled: z.boolean().default(false),
+  // DEPRECATED: searchApiKey is deprecated. Use searchApiKeySecretArn instead for security.
   searchApiKey: z.string().nullish(),
+  // ARN of the secret in AWS Secrets Manager containing the search API key
+  searchApiKeySecretArn: z.string().nullish(),
   searchEngine: z.enum(['Brave', 'Tavily']).default('Brave'),
   agents: z
     .array(
@@ -180,7 +183,10 @@ const baseStackInputSchema = z.object({
 
   // Email Service (SendGrid)
   emailServiceName: z.string().default('GenU'),
-  sendgridApiKey: z.string(),
+  // DEPRECATED: sendgridApiKey is deprecated. Use sendgridApiKeySecretArn instead for security.
+  sendgridApiKey: z.string().nullish(),
+  // ARN of the secret in AWS Secrets Manager containing the SendGrid API key
+  sendgridApiKeySecretArn: z.string().nullish(),
   sendgridFromEmail: z.string().email(),
 
   // LangChain

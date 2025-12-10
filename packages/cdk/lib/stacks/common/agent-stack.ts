@@ -14,11 +14,12 @@ export class AgentStack extends Stack {
   constructor(scope: Construct, id: string, props: AgentStackProps) {
     super(scope, id, props);
 
-    const { searchAgentEnabled, searchApiKey, searchEngine } = props.params;
+    const { searchAgentEnabled, searchApiKey, searchApiKeySecretArn, searchEngine } = props.params;
 
     const agent = new Agent(this, 'Agent', {
       searchAgentEnabled,
       searchApiKey,
+      searchApiKeySecretArn,
       searchEngine,
     });
 
