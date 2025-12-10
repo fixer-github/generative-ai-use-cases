@@ -29,6 +29,7 @@
     "cdk:lambda-build-dryrun": "npm -w packages/cdk run lambda-build-dryrun",
     "cdk:test": "npm -w packages/cdk run test",
     "cdk:test:update-snapshot": "npm -w packages/cdk run test -- --update-snapshot",
+    "cdk:test:e2e": "npm -w packages/cdk run test:e2e",
     "cdk:watch": "npm -w packages/cdk run cdk watch",
     "extension:ci": "cd browser-extension && npm ci",
     "extension:dev": "cd browser-extension && npm run dev",
