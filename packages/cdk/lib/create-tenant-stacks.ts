@@ -48,7 +48,28 @@ export interface OpenFgaConfig {
   ecs: {
     cpu: number;
     memoryLimitMiB: number;
-    desiredCount: number;
+    minCapacity: number;
+    maxCapacity: number;
+    cpuTargetUtilizationPercent?: number;
+    memoryTargetUtilizationPercent?: number;
+    scaleOutCooldownSeconds?: number;
+    scaleInCooldownSeconds?: number;
+    /**
+     * Schedule-based scaling configurations.
+     * @example
+     * scheduledScaling: [
+     *   { scheduleName: "ScaleUpMorning", schedule: "cron(0 9 * * ? *)", minCapacity: 2 },
+     *   { scheduleName: "ScaleDownNight", schedule: "cron(0 21 * * ? *)", maxCapacity: 1 }
+     * ]
+     */
+    scheduledScaling?: Array<{
+      /** Unique identifier for this schedule. Must be alphanumeric (used as CloudFormation logical ID). */
+      scheduleName: string;
+      /** Cron or rate expression. e.g., "cron(0 9 * * ? *)" or "rate(1 hour)" */
+      schedule: string;
+      minCapacity?: number;
+      maxCapacity?: number;
+    }>;
     imageVersion: string;
   };
   logging: {

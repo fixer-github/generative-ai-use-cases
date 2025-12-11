@@ -10,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as appscaling from 'aws-cdk-lib/aws-applicationautoscaling';
 import * as crypto from 'crypto';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -420,10 +421,11 @@ export class TenantOpenFgaStack extends cdk.Stack {
     });
 
     // Create Fargate service
+    const ecsConfig = props.openFgaConfig.ecs;
     const service = new ecs.FargateService(this, 'OpenFgaService', {
       cluster,
       taskDefinition,
-      desiredCount: props.openFgaConfig.ecs.desiredCount,
+      desiredCount: ecsConfig.minCapacity,
       assignPublicIp: false,
       vpcSubnets: {
         subnets: props.subnets,
@@ -436,6 +438,67 @@ export class TenantOpenFgaStack extends cdk.Stack {
         rollback: true,
       },
     });
+
+    // ====================================================
+    // Auto Scaling Configuration
+    // ====================================================
+    // Auto scaling is enabled when maxCapacity > minCapacity
+    if (ecsConfig.maxCapacity > ecsConfig.minCapacity) {
+      const hasCpuScaling = !!ecsConfig.cpuTargetUtilizationPercent;
+      const hasMemoryScaling = !!ecsConfig.memoryTargetUtilizationPercent;
+      const hasScheduledScaling =
+        ecsConfig.scheduledScaling && ecsConfig.scheduledScaling.length > 0;
+
+      if (!hasCpuScaling && !hasMemoryScaling && !hasScheduledScaling) {
+        console.warn(
+          `[${props.tenantId}] Auto Scaling is enabled (maxCapacity: ${ecsConfig.maxCapacity} > minCapacity: ${ecsConfig.minCapacity}) ` +
+            'but no scaling policy is configured. Consider setting cpuTargetUtilizationPercent, ' +
+            'memoryTargetUtilizationPercent, or scheduledScaling.'
+        );
+      }
+
+      const scalableTarget = service.autoScaleTaskCount({
+        minCapacity: ecsConfig.minCapacity,
+        maxCapacity: ecsConfig.maxCapacity,
+      });
+
+      // Shared cooldown configuration for scaling policies
+      const cooldownConfig = {
+        scaleOutCooldown: ecsConfig.scaleOutCooldownSeconds
+          ? cdk.Duration.seconds(ecsConfig.scaleOutCooldownSeconds)
+          : undefined,
+        scaleInCooldown: ecsConfig.scaleInCooldownSeconds
+          ? cdk.Duration.seconds(ecsConfig.scaleInCooldownSeconds)
+          : undefined,
+      };
+
+      // CPU utilization based scaling (enabled when cpuTargetUtilizationPercent is specified)
+      if (ecsConfig.cpuTargetUtilizationPercent) {
+        scalableTarget.scaleOnCpuUtilization('CpuScaling', {
+          targetUtilizationPercent: ecsConfig.cpuTargetUtilizationPercent,
+          ...cooldownConfig,
+        });
+      }
+
+      // Memory utilization based scaling (enabled when memoryTargetUtilizationPercent is specified)
+      if (ecsConfig.memoryTargetUtilizationPercent) {
+        scalableTarget.scaleOnMemoryUtilization('MemoryScaling', {
+          targetUtilizationPercent: ecsConfig.memoryTargetUtilizationPercent,
+          ...cooldownConfig,
+        });
+      }
+
+      // Schedule based scaling
+      if (ecsConfig.scheduledScaling && ecsConfig.scheduledScaling.length > 0) {
+        for (const scheduleConfig of ecsConfig.scheduledScaling) {
+          scalableTarget.scaleOnSchedule(scheduleConfig.scheduleName, {
+            schedule: appscaling.Schedule.expression(scheduleConfig.schedule),
+            minCapacity: scheduleConfig.minCapacity,
+            maxCapacity: scheduleConfig.maxCapacity,
+          });
+        }
+      }
+    }
 
     // Attach the service to the target group
     service.attachToNetworkTargetGroup(targetGroup);
