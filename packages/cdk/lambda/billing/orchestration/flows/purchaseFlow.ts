@@ -338,32 +338,33 @@ export const handler = async (
 
         return result;
       },
-      rollbackFunction: async (outputData: unknown) => {
-        console.log('Rolling back apply_plan step', { outputData });
+      rollbackFunction: async () => {
+        console.log('Rolling back apply_plan step');
 
-        const planApplicationData = outputData as {
-          applicationId?: string;
+        // previousStepResultsからsubscriptionIdを取得
+        const subscriptionData = previousStepResults.create_subscription as {
+          subscriptionId?: string;
         };
 
-        if (!planApplicationData?.applicationId) {
-          console.warn('No application ID found for rollback');
+        if (!subscriptionData?.subscriptionId) {
+          console.warn('No subscription ID found for rollback');
           return;
         }
 
         try {
+          // subscriptionIdをapplicationSourceIdとして渡し、プラン適用を終了
           await planClient.terminatePlanApplication({
             tenantId,
             userId,
-            planApplicationId: planApplicationData.applicationId,
-            immediate: true,
+            applicationSourceId: subscriptionData.subscriptionId,
           });
 
           console.log('Plan application terminated successfully', {
-            applicationId: planApplicationData.applicationId,
+            subscriptionId: subscriptionData.subscriptionId,
           });
         } catch (error) {
           console.error('Failed to rollback plan application', {
-            applicationId: planApplicationData.applicationId,
+            subscriptionId: subscriptionData.subscriptionId,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
           // ロールバック失敗はベストエフォート（エラーをスローしない）

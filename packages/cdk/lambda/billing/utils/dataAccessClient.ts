@@ -2,12 +2,17 @@
  * データアクセス層Lambda関数呼び出し用クライアント
  *
  * VPC外のビジネスロジック層から、VPC内のデータアクセス層Lambda関数を呼び出すためのヘルパー
+ * クロスアカウント呼び出しに対応
  */
 
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { extractTenantId } from '../../utils/assumeRoleWithWebIdentity';
-import { getTenantCredentials } from '../../utils/tenantCredentials';
+import {
+  getTenantCredentials,
+  getTenantCredentialsForInternalCall,
+} from '../../utils/tenantCredentials';
+import { getTenant, Tenant } from '../../tenantManager';
 
 /**
  * データアクセス層の種類
@@ -15,14 +20,28 @@ import { getTenantCredentials } from '../../utils/tenantCredentials';
 export type DataAccessType = 'plan' | 'subscription' | 'user-plan-application';
 
 /**
- * Lambda関数名を環境変数とテナントIDから構築
+ * Lambda関数名をテナント情報から構築
+ * クロスアカウントの場合はテナントのenvironmentを使用
  */
 function getDataAccessFunctionName(
-  tenantId: string,
+  tenant: Tenant,
   dataAccessType: DataAccessType
 ): string {
-  const env = process.env.ENVIRONMENT || 'dev';
-  return `${env}-${tenantId}-${dataAccessType}-data-access`;
+  // テナント固有の環境名を使用（クロスアカウント対応）
+  const env = tenant.environment || process.env.ENVIRONMENT || 'dev';
+  return `${env}-${tenant.tenantId}-${dataAccessType}-data-access`;
+}
+
+/**
+ * クロスアカウント呼び出し用のLambda ARNを構築
+ */
+function getDataAccessFunctionArn(
+  tenant: Tenant,
+  dataAccessType: DataAccessType
+): string {
+  const functionName = getDataAccessFunctionName(tenant, dataAccessType);
+  const region = tenant.region || process.env.AWS_REGION || 'ap-northeast-1';
+  return `arn:aws:lambda:${region}:${tenant.accountId}:function:${functionName}`;
 }
 
 /**
@@ -44,7 +63,17 @@ export async function invokeDataAccessFunction<TResponse>(
   // 1. テナントIDを取得
   const tenantId = extractTenantId(event);
 
-  // 2. テナント専用のIAMクレデンシャルを取得
+  // 2. テナント情報を取得
+  const tenant = await getTenant(tenantId);
+  if (!tenant) {
+    throw new DataAccessError(
+      'TENANT_NOT_FOUND',
+      `Tenant not found: ${tenantId}`,
+      { tenantId }
+    );
+  }
+
+  // 3. テナント専用のIAMクレデンシャルを取得
   const { credentials } = await getTenantCredentials(event);
 
   // クレデンシャルの検証
@@ -60,10 +89,11 @@ export async function invokeDataAccessFunction<TResponse>(
     );
   }
 
-  // 3. Lambda クライアントを作成（テナント専用クレデンシャルを使用）
-  // Credentials型からAwsCredentialIdentity型に変換
+  // 4. Lambda クライアントを作成（テナント専用クレデンシャルを使用）
+  // クロスアカウントの場合はテナントのリージョンを使用
+  const targetRegion = tenant.region || process.env.AWS_REGION || 'ap-northeast-1';
   const lambdaClient = new LambdaClient({
-    region: process.env.AWS_REGION || 'ap-northeast-1',
+    region: targetRegion,
     credentials: {
       accessKeyId: credentials.AccessKeyId,
       secretAccessKey: credentials.SecretAccessKey,
@@ -72,24 +102,25 @@ export async function invokeDataAccessFunction<TResponse>(
     },
   });
 
-  // 4. データアクセス層Lambda関数名を決定
-  const functionName = getDataAccessFunctionName(tenantId, dataAccessType);
+  // 5. データアクセス層Lambda関数ARNを決定（クロスアカウント対応）
+  const functionArn = getDataAccessFunctionArn(tenant, dataAccessType);
 
-  // 5. ペイロードを作成
+  // 6. ペイロードを作成
   const payload = {
     operation,
     params,
     tenantId,
   };
 
-  console.log(`Invoking data access function: ${functionName}`, {
+  console.log(`Invoking data access function: ${functionArn}`, {
     operation,
     tenantId,
+    targetAccountId: tenant.accountId,
   });
 
-  // 6. Lambda関数を同期呼び出し
+  // 7. Lambda関数を同期呼び出し
   const invokeCommand = new InvokeCommand({
-    FunctionName: functionName,
+    FunctionName: functionArn,
     InvocationType: 'RequestResponse', // 同期呼び出し
     Payload: Buffer.from(JSON.stringify(payload)),
   });
@@ -97,7 +128,7 @@ export async function invokeDataAccessFunction<TResponse>(
   try {
     const response = await lambdaClient.send(invokeCommand);
 
-    // 7. レスポンスをパース
+    // 8. レスポンスをパース
     if (!response.Payload) {
       throw new Error('No payload returned from data access function');
     }
@@ -105,7 +136,7 @@ export async function invokeDataAccessFunction<TResponse>(
     const payloadString = new TextDecoder().decode(response.Payload);
     const result = JSON.parse(payloadString);
 
-    // 8. エラーチェック
+    // 9. エラーチェック
     if (!result.success) {
       const error = new DataAccessError(
         result.error?.code || 'UNKNOWN_ERROR',
@@ -115,7 +146,7 @@ export async function invokeDataAccessFunction<TResponse>(
       throw error;
     }
 
-    // 9. データを返却
+    // 10. データを返却
     return result.data as TResponse;
   } catch (error) {
     console.error('Error invoking data access function:', error);
@@ -128,7 +159,7 @@ export async function invokeDataAccessFunction<TResponse>(
       'INVOKE_ERROR',
       'Failed to invoke data access function',
       {
-        functionName,
+        functionArn,
         operation,
         error: error instanceof Error ? error.message : 'Unknown error',
       }
@@ -141,6 +172,7 @@ export async function invokeDataAccessFunction<TResponse>(
  *
  * Lambda-to-Lambda呼び出しで使用します。API Gateway経由ではないため、
  * テナント専用のIAMクレデンシャルは不要で、Lambda実行ロールで呼び出します。
+ * クロスアカウント呼び出しに対応しています。
  *
  * @param tenantId テナントID
  * @param dataAccessType データアクセス層の種類
@@ -155,29 +187,62 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
   operation: string,
   params: any
 ): Promise<TResponse> {
-  // 1. Lambda クライアントを作成（共通リソースのLambda実行ロールを使用）
-  const lambdaClient = new LambdaClient({
-    region: process.env.AWS_REGION || 'ap-northeast-1',
-  });
+  // 1. クロスアカウント対応のクレデンシャルを取得
+  // 同一アカウントの場合はnull、クロスアカウントの場合はクレデンシャルが返る
+  const tenantCredentials = await getTenantCredentialsForInternalCall(tenantId);
 
-  // 2. データアクセス層Lambda関数名を決定
-  const functionName = getDataAccessFunctionName(tenantId, dataAccessType);
+  // 2. テナント情報を取得（クレデンシャル取得時に既に取得済みだが、nullの場合は再取得）
+  const tenant = tenantCredentials?.tenant ?? (await getTenant(tenantId));
+  if (!tenant) {
+    throw new DataAccessError(
+      'TENANT_NOT_FOUND',
+      `Tenant not found: ${tenantId}`,
+      { tenantId }
+    );
+  }
 
-  // 3. ペイロードを作成
+  // 3. Lambda クライアントを作成
+  const targetRegion = tenant.region || process.env.AWS_REGION || 'ap-northeast-1';
+  const isCrossAccount = tenantCredentials !== null;
+
+  let lambdaClient: LambdaClient;
+  if (tenantCredentials) {
+    // クロスアカウントの場合はテナントロールのクレデンシャルを使用
+    lambdaClient = new LambdaClient({
+      region: targetRegion,
+      credentials: {
+        accessKeyId: tenantCredentials.credentials.AccessKeyId!,
+        secretAccessKey: tenantCredentials.credentials.SecretAccessKey!,
+        sessionToken: tenantCredentials.credentials.SessionToken,
+      },
+    });
+  } else {
+    // 同一アカウントの場合はLambda実行ロールを使用
+    lambdaClient = new LambdaClient({
+      region: targetRegion,
+    });
+  }
+
+  // 4. データアクセス層Lambda関数ARNを決定（クロスアカウント対応）
+  const functionArn = getDataAccessFunctionArn(tenant, dataAccessType);
+
+  // 5. ペイロードを作成
   const payload = {
     operation,
     params,
     tenantId,
   };
 
-  console.log(`Invoking data access function: ${functionName}`, {
+  console.log(`Invoking data access function: ${functionArn}`, {
     operation,
     tenantId,
+    targetAccountId: tenant.accountId,
+    isCrossAccount,
   });
 
-  // 4. Lambda関数を同期呼び出し
+  // 5. Lambda関数を同期呼び出し
   const invokeCommand = new InvokeCommand({
-    FunctionName: functionName,
+    FunctionName: functionArn,
     InvocationType: 'RequestResponse', // 同期呼び出し
     Payload: Buffer.from(JSON.stringify(payload)),
   });
@@ -185,7 +250,7 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
   try {
     const response = await lambdaClient.send(invokeCommand);
 
-    // 5. レスポンスをパース
+    // 6. レスポンスをパース
     if (!response.Payload) {
       throw new Error('No payload returned from data access function');
     }
@@ -193,7 +258,7 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
     const payloadString = new TextDecoder().decode(response.Payload);
     const result = JSON.parse(payloadString);
 
-    // 6. エラーチェック
+    // 7. エラーチェック
     if (!result.success) {
       const error = new DataAccessError(
         result.error?.code || 'UNKNOWN_ERROR',
@@ -203,7 +268,7 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
       throw error;
     }
 
-    // 7. データを返却
+    // 8. データを返却
     return result.data as TResponse;
   } catch (error) {
     console.error('Error invoking data access function:', error);
@@ -216,7 +281,7 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
       'INVOKE_ERROR',
       'Failed to invoke data access function',
       {
-        functionName,
+        functionArn,
         operation,
         error: error instanceof Error ? error.message : 'Unknown error',
       }

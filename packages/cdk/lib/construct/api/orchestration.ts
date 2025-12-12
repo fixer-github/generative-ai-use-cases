@@ -1,7 +1,7 @@
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import { Effect, PolicyStatement, IRole } from 'aws-cdk-lib/aws-iam';
 import { TenantManager } from '../../construct/tenant-manager';
 import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
@@ -120,6 +120,7 @@ class OrchestrationApi extends Construct {
       environment: {
         TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
         ENVIRONMENT: environment,
+        AWS_ACCOUNT_ID: Stack.of(this).account!,
         // Plan Management Internal Functions
         PLAN_MANAGEMENT_APPLY_FUNCTION_NAME:
           planManagementInternalFunctions.applyPlanToUser.functionName,

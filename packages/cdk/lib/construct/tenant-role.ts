@@ -7,6 +7,7 @@ import {
   PolicyDocument,
   CompositePrincipal,
   ArnPrincipal,
+  AccountPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Tags } from 'aws-cdk-lib';
 import { IUserPool } from 'aws-cdk-lib/aws-cognito';
@@ -25,6 +26,14 @@ export interface TenantRoleProps {
    * Required for cross-account background job access
    */
   readonly controlPlaneLambdaRoleArn?: string;
+  /**
+   * Optional: AWS Account ID of the control plane (main stack)
+   * When provided, allows all Lambda roles from this account matching
+   * the naming pattern to assume this tenant role.
+   * This is useful for cross-account deployments where multiple Lambda
+   * functions (billing, orchestration, etc.) need to access tenant resources.
+   */
+  readonly controlPlaneAccountId?: string;
 }
 
 /**
@@ -56,13 +65,32 @@ export class TenantRole extends Construct {
       'sts:AssumeRoleWithWebIdentity'
     );
 
-    // For cross-account deployments, also trust control plane Lambda role for background jobs
-    const assumedBy = props.controlPlaneLambdaRoleArn
-      ? new CompositePrincipal(
-          cognitoFederatedPrincipal,
-          new ArnPrincipal(props.controlPlaneLambdaRoleArn)
-        )
-      : cognitoFederatedPrincipal;
+    // Build cross-account trust principals
+    const crossAccountPrincipals: (ArnPrincipal | AccountPrincipal)[] = [];
+
+    // Add specific Lambda role ARN if provided
+    if (props.controlPlaneLambdaRoleArn) {
+      crossAccountPrincipals.push(
+        new ArnPrincipal(props.controlPlaneLambdaRoleArn)
+      );
+    }
+
+    // Add control plane account trust if provided
+    // This allows Lambda roles from the control plane account to assume this role
+    if (props.controlPlaneAccountId) {
+      crossAccountPrincipals.push(
+        new AccountPrincipal(props.controlPlaneAccountId)
+      );
+    }
+
+    // For cross-account deployments, also trust control plane Lambda roles for background jobs
+    const assumedBy =
+      crossAccountPrincipals.length > 0
+        ? new CompositePrincipal(
+            cognitoFederatedPrincipal,
+            ...crossAccountPrincipals
+          )
+        : cognitoFederatedPrincipal;
 
     // Create tenant-specific IAM role
     this.role = new Role(this, `TenantRole`, {

@@ -376,6 +376,17 @@ class SubscriptionManagementApi extends Construct {
           ],
         })
       );
+      // クロスアカウントLambda呼び出しのためテナントロールを引き受ける権限
+      func.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: [
+            // テナントごとに異なるアカウントのロールを引き受ける可能性があるため、ワイルドカードを使用
+            'arn:aws:iam::*:role/TenantRole-*',
+          ],
+        })
+      );
     });
 
     // Additional permissions for functions that interact with payment platforms

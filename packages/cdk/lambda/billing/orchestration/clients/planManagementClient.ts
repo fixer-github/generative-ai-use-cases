@@ -57,18 +57,24 @@ export interface TerminatePlanApplicationParams {
   tenantId: string;
   /** ユーザID */
   userId: string;
-  /** プラン適用ID */
-  planApplicationId: string;
-  /** 即座に終了するか（true: 即座、false: 期間終了時） */
-  immediate: boolean;
+  /** 適用元ID（サブスクリプションIDなど） */
+  applicationSourceId: string;
 }
 
 /**
  * プラン適用終了レスポンス
  */
 export interface TerminatePlanApplicationResponse {
-  /** 成功フラグ */
-  success: boolean;
+  /** 適用ID */
+  applicationId: string;
+  /** 以前のステータス */
+  previousStatus: 'active' | 'scheduled_termination';
+  /** 新しいステータス */
+  newStatus: 'expired';
+  /** 終了日時（ISO 8601形式） */
+  terminatedAt: string;
+  /** 成功フラグ (for backward compatibility) */
+  success?: boolean;
 }
 
 /**
@@ -78,9 +84,9 @@ export interface UpdatePlanApplicationStatusParams {
   /** テナントID */
   tenantId: string;
   /** プラン適用ID */
-  planApplicationId: string;
+  applicationId: string;
   /** 新しいステータス */
-  status: 'active' | 'scheduled_termination' | 'expired';
+  newStatus: 'active' | 'scheduled_termination' | 'expired';
 }
 
 /**
@@ -173,8 +179,7 @@ export class PlanManagementClient {
       functionName,
       tenantId: params.tenantId,
       userId: params.userId,
-      planApplicationId: params.planApplicationId,
-      immediate: params.immediate,
+      applicationSourceId: params.applicationSourceId,
     });
 
     return this.invokeLambda<TerminatePlanApplicationResponse>(
@@ -208,8 +213,8 @@ export class PlanManagementClient {
     console.log('Updating plan application status', {
       functionName,
       tenantId: params.tenantId,
-      planApplicationId: params.planApplicationId,
-      status: params.status,
+      applicationId: params.applicationId,
+      newStatus: params.newStatus,
     });
 
     return this.invokeLambda<UpdatePlanApplicationStatusResponse>(

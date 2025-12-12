@@ -1,5 +1,9 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { Credentials } from '@aws-sdk/client-sts';
+import {
+  Credentials,
+  STSClient,
+  AssumeRoleCommand,
+} from '@aws-sdk/client-sts';
 import {
   assumeRoleWithWebIdentity,
   extractTenantId,
@@ -153,6 +157,7 @@ export async function getTenantCredentials(
       return {
         credentials: cached.credentials,
         tenant: cached.tenant,
+        region: cached.tenant.region || region,
       };
     }
   }
@@ -291,6 +296,161 @@ export async function getTenantCredentialsFromToken(
 
     throw new Error(
       `Failed to get tenant credentials: ${(error as Error).message}`
+    );
+  }
+}
+
+/**
+ * === 内部Lambda呼び出し用キャッシュ ===
+ *
+ * Lambda-to-Lambda内部呼び出し用のクレデンシャルキャッシュ。
+ * ユーザーコンテキストがないため、テナントID単位でキャッシュ。
+ */
+const internalCredentialsCache = new Map<string, CachedCredentials>();
+
+function getInternalCacheKey(tenantId: string): string {
+  return `internal:${tenantId}`;
+}
+
+function getFromInternalCache(tenantId: string): CachedCredentials | null {
+  const cacheKey = getInternalCacheKey(tenantId);
+  const cached = internalCredentialsCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+  if (Date.now() >= cached.expiresAt) {
+    internalCredentialsCache.delete(cacheKey);
+    console.log(`Internal cache expired for tenant: ${tenantId}`);
+    return null;
+  }
+  return { ...cached };
+}
+
+function saveToInternalCache(
+  tenantId: string,
+  credentials: Credentials,
+  tenant: Tenant
+): void {
+  // LRU eviction
+  if (internalCredentialsCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = internalCredentialsCache.keys().next().value;
+    if (oldestKey) {
+      internalCredentialsCache.delete(oldestKey);
+      console.log(`Evicted oldest internal cache entry due to size limit`);
+    }
+  }
+
+  const expiresAt = credentials.Expiration
+    ? new Date(credentials.Expiration).getTime() - CACHE_BUFFER_MS
+    : Date.now() + DEFAULT_CACHE_TTL_MS;
+
+  internalCredentialsCache.set(getInternalCacheKey(tenantId), {
+    credentials,
+    tenant,
+    expiresAt,
+  });
+
+  console.log(
+    `Cached internal credentials for tenant: ${tenantId}, expires at: ${new Date(expiresAt).toISOString()}`
+  );
+}
+
+/**
+ * 内部Lambda-to-Lambda呼び出し用のテナントクレデンシャル取得
+ *
+ * API Gateway経由ではない内部呼び出し（Lambda-to-Lambda）で使用。
+ * ユーザーコンテキスト（JWT）がないため、直接STSのAssumeRoleを使用。
+ *
+ * クロスアカウント呼び出しの場合のみクレデンシャルを返し、
+ * 同一アカウントの場合はnullを返す（Lambda実行ロールを使用すべき）。
+ *
+ * @param tenantId テナントID
+ * @returns クロスアカウントの場合はクレデンシャル、同一アカウントの場合はnull
+ */
+export async function getTenantCredentialsForInternalCall(
+  tenantId: string
+): Promise<TenantCredentialsWithInfo | null> {
+  // Validate environment variables
+  const { region, accountId } = validateEnvironment();
+
+  // Get tenant metadata
+  const tenant = await getTenant(tenantId);
+  if (!tenant) {
+    throw new Error(`Tenant ${tenantId} not found in tenants table`);
+  }
+
+  // Check if cross-account
+  const isCrossAccount = tenant.accountId !== accountId;
+  if (!isCrossAccount) {
+    console.log(
+      `Same account detected for tenant: ${tenantId}. Using Lambda execution role.`
+    );
+    return null;
+  }
+
+  // Check cache
+  const cached = getFromInternalCache(tenantId);
+  if (cached) {
+    console.log(`Using cached internal credentials for tenant: ${tenantId}`);
+    return {
+      credentials: cached.credentials,
+      tenant: cached.tenant,
+      region: tenant.region || region,
+    };
+  }
+
+  // Check if tenant has role ARN configured
+  if (!tenant.roleArn) {
+    throw new Error(`Tenant ${tenantId} is missing roleArn configuration`);
+  }
+
+  console.log(
+    `Cross-account invocation for tenant: ${tenantId}. Assuming role: ${tenant.roleArn}`
+  );
+
+  try {
+    const stsClient = new STSClient({
+      region: region,
+    });
+
+    const assumeRoleCommand = new AssumeRoleCommand({
+      RoleArn: tenant.roleArn,
+      RoleSessionName: `internal-${tenantId}-${Date.now()}`,
+      DurationSeconds: 900, // 15 minutes
+    });
+
+    const response = await stsClient.send(assumeRoleCommand);
+
+    if (!response.Credentials) {
+      throw new Error(`Failed to assume role for tenant: ${tenantId}`);
+    }
+
+    const credentials: Credentials = {
+      AccessKeyId: response.Credentials.AccessKeyId!,
+      SecretAccessKey: response.Credentials.SecretAccessKey!,
+      SessionToken: response.Credentials.SessionToken!,
+      Expiration: response.Credentials.Expiration,
+    };
+
+    // Save to cache
+    saveToInternalCache(tenantId, credentials, tenant);
+
+    console.log(
+      `Successfully assumed role for tenant: ${tenantId} (cross-account)`
+    );
+
+    return {
+      credentials,
+      tenant,
+      region: tenant.region || region,
+    };
+  } catch (error) {
+    console.error(
+      `Failed to assume role for tenant: ${tenantId}:`,
+      (error as Error).message
+    );
+    throw new Error(
+      `Failed to get internal tenant credentials: ${(error as Error).message}`
     );
   }
 }

@@ -289,9 +289,11 @@ describe('プラン管理 E2Eフロー', () => {
       const userId = generateTestUserId();
       tracker.trackUser(userId);
 
+      // Use valid UUID format that doesn't exist in database
+      // (plan_id column is UUID type, so invalid format will cause SQL error)
       const response = await apiClient.post<ErrorResponse>(
         `/admin/billing/users/${userId}/apply-plan`,
-        { planId: 'non-existent-plan-id-12345' }
+        { planId: '00000000-0000-0000-0000-000000000000' }
       );
 
       expect(response.status).toBe(404);

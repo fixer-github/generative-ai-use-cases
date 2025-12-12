@@ -76,22 +76,82 @@ async function getDefaultPlanId(tenantId: string): Promise<string> {
 }
 
 /**
- * サブスクリプション情報から決済プラットフォームを取得
- *
- * TODO: 実際の実装では subscriptionManagementClient.getSubscription() を呼び出して取得
- * 現時点では仮でstripeを返す
- *
- * @param subscriptionId サブスクリプションID
- * @returns 決済プラットフォーム
+ * サブスクリプション情報
  */
-async function getPlatformFromSubscription(
-  subscriptionId: string
-): Promise<PlatformType> {
-  console.log('Getting platform from subscription', { subscriptionId });
+interface SubscriptionInfo {
+  platform: PlatformType;
+  platformSubscriptionId: string;
+  currentPeriodEnd: string;
+}
 
-  // TODO: subscriptionManagementClient.getSubscription() を実装後、実際の取得処理に置き換える
-  // 現時点では仮でstripeを返す
-  return 'stripe';
+/**
+ * サブスクリプション情報を取得
+ *
+ * @param tenantId テナントID
+ * @param subscriptionId サブスクリプションID
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @returns サブスクリプション情報（プラットフォーム、プラットフォームサブスクリプションID）
+ */
+async function getSubscriptionInfo(
+  tenantId: string,
+  subscriptionId: string,
+  subscriptionClient: SubscriptionManagementClient
+): Promise<SubscriptionInfo> {
+  console.log('Getting subscription info', { tenantId, subscriptionId });
+
+  const result = await subscriptionClient.getSubscription({
+    tenantId,
+    subscriptionId,
+  });
+
+  // ランタイムバリデーション
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    !('subscription' in result) ||
+    result.subscription === null ||
+    typeof result.subscription !== 'object'
+  ) {
+    throw new Error(
+      `Invalid subscription response format for subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  const subscription = result.subscription as Record<string, unknown>;
+
+  // 必須フィールドの検証
+  if (
+    typeof subscription.platformType !== 'string' ||
+    typeof subscription.platformSubscriptionId !== 'string' ||
+    typeof subscription.currentPeriodEnd !== 'string'
+  ) {
+    throw new Error(
+      `Missing required fields in subscription response for subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  // PlatformType の検証
+  const validPlatformTypes: PlatformType[] = ['stripe', 'apple', 'google'];
+  if (!validPlatformTypes.includes(subscription.platformType as PlatformType)) {
+    throw new Error(
+      `Invalid platformType: ${subscription.platformType} for subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  const platformType = subscription.platformType as PlatformType;
+  const platformSubscriptionId = subscription.platformSubscriptionId as string;
+  const currentPeriodEnd = subscription.currentPeriodEnd as string;
+
+  console.log('Subscription info retrieved', {
+    platform: platformType,
+    platformSubscriptionId,
+  });
+
+  return {
+    platform: platformType,
+    platformSubscriptionId,
+    currentPeriodEnd,
+  };
 }
 
 /**
@@ -133,12 +193,18 @@ async function getCurrentPlanApplicationId(
 
   try {
     // サブスクリプションIDをapplication_source_idとして、プラン適用を検索
-    const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+    // Note: findByApplicationSourceId returns an array
+    const planApplications = await invokeDataAccessFunctionByTenantId<UserPlanApplication[]>(
       tenantId,
       'user-plan-application',
       'findByApplicationSourceId',
       { sourceId: subscriptionId }
     );
+
+    // 最初のアクティブなプラン適用を取得
+    const planApplication = planApplications?.find(
+      (app) => app.application_status === 'active' || app.application_status === 'scheduled_termination'
+    ) || planApplications?.[0];
 
     if (!planApplication) {
       // プラン適用が見つからない場合はエラー
@@ -392,24 +458,30 @@ function buildImmediateCancellationSteps(
           subscriptionId,
         });
 
-        // サブスクリプション情報から決済プラットフォームを取得
-        const platform = await getPlatformFromSubscription(subscriptionId);
+        // サブスクリプション情報を取得
+        const subscriptionInfo = await getSubscriptionInfo(
+          tenantId,
+          subscriptionId,
+          subscriptionClient
+        );
 
         try {
           const result = await paymentClient.cancelSubscription({
-            platform,
-            subscriptionId,
+            platform: subscriptionInfo.platform,
+            platformSubscriptionId: subscriptionInfo.platformSubscriptionId,
             atPeriodEnd: false, // 即時解約
+            tenantId,
           });
 
           console.log('Payment subscription canceled successfully', {
             subscriptionId,
+            platformSubscriptionId: subscriptionInfo.platformSubscriptionId,
             success: result.success,
           });
 
           return {
             success: result.success,
-            platform,
+            platform: subscriptionInfo.platform,
           };
         } catch (error) {
           console.error('Failed to cancel payment subscription', {
@@ -468,35 +540,29 @@ function buildImmediateCancellationSteps(
         console.log('Terminating plan application (immediate)', {
           tenantId,
           userId,
+          subscriptionId,
         });
 
-        // 現在のプラン適用IDを取得
-        const planApplicationId = await getCurrentPlanApplicationId(
-          tenantId,
-          userId,
-          subscriptionId
-        );
-
         try {
+          // subscriptionIdをapplicationSourceIdとして渡し、Lambda側で適用を検索して終了
           const result = await planClient.terminatePlanApplication({
             tenantId,
             userId,
-            planApplicationId,
-            immediate: true, // 即時終了
+            applicationSourceId: subscriptionId,
           });
 
           console.log('Plan application terminated successfully', {
-            planApplicationId,
+            applicationId: result.applicationId,
             success: result.success,
           });
 
           return {
-            planApplicationId,
+            applicationId: result.applicationId,
             success: result.success,
           };
         } catch (error) {
           console.error('Failed to terminate plan application', {
-            planApplicationId,
+            subscriptionId,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
 
@@ -506,7 +572,6 @@ function buildImmediateCancellationSteps(
             {
               userId,
               subscriptionId,
-              planApplicationId,
             }
           );
 
@@ -571,33 +636,16 @@ function buildImmediateCancellationSteps(
       rollbackFunction: async (outputData: unknown) => {
         console.log('Rolling back apply_default_plan step', { outputData });
 
-        const planApplicationData = outputData as {
-          applicationId?: string;
-        };
-
-        if (!planApplicationData?.applicationId) {
-          console.warn('No application ID found for rollback');
-          return;
-        }
-
-        try {
-          await planClient.terminatePlanApplication({
-            tenantId,
+        // Note: デフォルトプランは applicationSourceId が undefined で作成されるため、
+        // terminatePlanApplication では削除できません。
+        // 手動対応として管理者アラート（ログに記録）
+        console.warn(
+          'MANUAL_INTERVENTION_MAY_BE_REQUIRED: Default plan application rollback not implemented',
+          {
             userId,
-            planApplicationId: planApplicationData.applicationId,
-            immediate: true,
-          });
-
-          console.log('Default plan application terminated successfully', {
-            applicationId: planApplicationData.applicationId,
-          });
-        } catch (error) {
-          console.error('Failed to rollback default plan application', {
-            applicationId: planApplicationData.applicationId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-          // ロールバック失敗はベストエフォート（エラーをスローしない）
-        }
+            outputData,
+          }
+        );
       },
       retryable: true,
       maxRetries: 3,
@@ -655,27 +703,33 @@ function buildAtPeriodEndCancellationSteps(
           subscriptionId,
         });
 
-        // サブスクリプション情報から決済プラットフォームを取得
-        const platform = await getPlatformFromSubscription(subscriptionId);
+        // サブスクリプション情報を取得
+        const subscriptionInfo = await getSubscriptionInfo(
+          tenantId,
+          subscriptionId,
+          subscriptionClient
+        );
 
         try {
           const result = await paymentClient.cancelSubscription({
-            platform,
-            subscriptionId,
+            platform: subscriptionInfo.platform,
+            platformSubscriptionId: subscriptionInfo.platformSubscriptionId,
             atPeriodEnd: true, // 期限終了時解約
+            tenantId,
           });
 
           console.log(
             'Payment subscription scheduled for cancellation at period end',
             {
               subscriptionId,
+              platformSubscriptionId: subscriptionInfo.platformSubscriptionId,
               success: result.success,
             }
           );
 
           return {
             success: result.success,
-            platform,
+            platform: subscriptionInfo.platform,
           };
         } catch (error) {
           console.error('Failed to schedule subscription cancellation', {
@@ -746,8 +800,8 @@ function buildAtPeriodEndCancellationSteps(
         try {
           const result = await planClient.updatePlanApplicationStatus({
             tenantId,
-            planApplicationId,
-            status: 'scheduled_termination',
+            applicationId: planApplicationId,
+            newStatus: 'scheduled_termination',
           });
 
           console.log('Plan application status updated to scheduled_termination', {

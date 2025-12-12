@@ -48,6 +48,8 @@ export interface TestUserCredentials {
   username: string;
   password: string;
   token: string;
+  /** Cognito user sub (UUID) - this is the actual user ID used by APIs */
+  sub: string;
 }
 
 /**
@@ -152,15 +154,31 @@ export class TestUserManager {
       // Track for cleanup
       this.createdUsers.push(username);
 
+      // Get user's sub (Cognito user ID)
+      const userResponse = await this.client.send(
+        new AdminGetUserCommand({
+          UserPoolId: this.userPoolId,
+          Username: username,
+        })
+      );
+
+      const subAttribute = userResponse.UserAttributes?.find(
+        (attr) => attr.Name === 'sub'
+      );
+      if (!subAttribute?.Value) {
+        throw new Error('Failed to get user sub attribute');
+      }
+
       // Get auth token
       const token = await this.authenticateUser(username, password);
 
-      console.log(`Test admin user created successfully: ${username}`);
+      console.log(`Test admin user created successfully: ${username} (sub: ${subAttribute.Value})`);
 
       return {
         username,
         password,
         token,
+        sub: subAttribute.Value,
       };
     } catch (error) {
       console.error(`Failed to create test user ${username}:`, error);

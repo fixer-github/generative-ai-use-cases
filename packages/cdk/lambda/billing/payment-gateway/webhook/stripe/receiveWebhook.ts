@@ -80,25 +80,10 @@ export async function handler(
     const webhookEventTableName = `${tenantId}-payment-gateway-webhook-events`;
 
     // 3. リクエストボディと署名を取得
-    // デバッグログ: リクエストの詳細を確認
-    console.log('Request headers keys:', Object.keys(event.headers || {}));
-    console.log('Request body exists:', !!event.body);
-    console.log('Request body length:', event.body?.length || 0);
-
+    // Note: API Gateway HTTP API v2 lowercases all header names
     const payload = event.body;
-    const signature = event.headers['Stripe-Signature'];
-
-    console.log('Extracted payload exists:', !!payload);
-    console.log('Extracted signature exists:', !!signature);
-    console.log('stripe-signature header value:', signature || 'undefined');
-
-    // ヘッダー名のバリエーションもチェック
-    const signatureVariations = {
-      'stripe-signature': event.headers['stripe-signature'],
-      'Stripe-Signature': event.headers['Stripe-Signature'],
-      'Stripe-signature': event.headers['Stripe-signature'],
-    };
-    console.log('Signature header variations:', JSON.stringify(signatureVariations));
+    const signature =
+      event.headers['stripe-signature'] || event.headers['Stripe-Signature'];
 
     if (!payload || !signature) {
       console.error('Missing payload or signature:', {
