@@ -117,8 +117,9 @@ const createSignUpEmail = (
   code: string
 ): { subject: string; htmlContent: string; textContent: string } => {
   const bodyContent = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 20px;">メールアドレスの確認</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 20px;">確認コードのご案内</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.text}; font-size: 15px; line-height: 1.6;">
+      このメールは、${SERVICE_NAME}に新規登録された方のみにお送りしています。<br><br>
       ${SERVICE_NAME}へのご登録ありがとうございます。<br>
       アカウントを有効にするため、以下の確認コードを入力してください。
     </p>
@@ -131,7 +132,9 @@ const createSignUpEmail = (
 
   const textContent = `${SERVICE_NAME}
 
-メールアドレスの確認
+確認コードのご案内
+
+このメールは、${SERVICE_NAME}に新規登録された方のみにお送りしています。
 
 ${SERVICE_NAME}へのご登録ありがとうございます。
 アカウントを有効にするため、以下の確認コードを入力してください。
@@ -142,8 +145,8 @@ ${SERVICE_NAME}へのご登録ありがとうございます。
 心当たりがない場合は、このメールを無視してください。`;
 
   return {
-    subject: `【${SERVICE_NAME}】メールアドレスの確認`,
-    htmlContent: createEmailHtml('メールアドレスの確認', bodyContent),
+    subject: `【${SERVICE_NAME}】ご登録ありがとうございます｜確認コードのご案内`,
+    htmlContent: createEmailHtml('確認コードのご案内', bodyContent),
     textContent,
   };
 };
