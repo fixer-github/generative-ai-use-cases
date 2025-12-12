@@ -617,6 +617,25 @@ export class TenantOpenFgaStack extends cdk.Stack {
       INFO: apigateway.MethodLoggingLevel.INFO,
     };
 
+    // Create CloudWatch Logs role for API Gateway (account-level setting)
+    // This is idempotent - safe for both single-account and cross-account deployments
+    const apiGatewayLogsRole = new iam.Role(this, 'ApiGatewayCloudWatchRole', {
+      assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+        ),
+      ],
+    });
+
+    const apiGatewayAccount = new apigateway.CfnAccount(
+      this,
+      'ApiGatewayAccount',
+      {
+        cloudWatchRoleArn: apiGatewayLogsRole.roleArn,
+      }
+    );
+
     // Create HTTP API Gateway
     const api = new apigateway.RestApi(this, 'OpenFgaApi', {
       restApiName: `${props.environment}-${props.tenantId}-openfga-api`,
@@ -630,6 +649,9 @@ export class TenantOpenFgaStack extends cdk.Stack {
       //   allowMethods: apigateway.Cors.ALL_METHODS,
       // },
     });
+
+    // Ensure API Gateway account setting is configured before API creation
+    api.node.addDependency(apiGatewayAccount);
 
     // Create integration with VPC Link
     const integration = new apigateway.Integration({
