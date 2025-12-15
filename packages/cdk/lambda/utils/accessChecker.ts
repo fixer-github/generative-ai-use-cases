@@ -480,17 +480,21 @@ export async function incrementUsage(
     );
 
     const now = Date.now();
-    const ttl = Math.floor(now / 1000) + 120 * 24 * 60 * 60; // 120日後に自動削除
+    // 累計制限(total)の場合はTTLを設定しない（永続化）
+    // daily/monthlyの場合は120日後に自動削除
+    const ttl = limitType === 'total'
+      ? undefined
+      : Math.floor(now / 1000) + 120 * 24 * 60 * 60;
 
     console.log(
-      `[IncrementUsage] Recording usage event - tableName: ${usageEventTableName}, userId: ${userId}, featureId: ${featureId}, timestamp: ${now}`
+      `[IncrementUsage] Recording usage event - tableName: ${usageEventTableName}, userId: ${userId}, featureId: ${featureId}, timestamp: ${now}, ttl: ${ttl ?? 'none (permanent)'}`
     );
 
     await usageEventRepository.recordEvent({
       userId,
       timestamp: now,
       featureId,
-      ttl,
+      ...(ttl !== undefined && { ttl }),
     });
 
     console.log(

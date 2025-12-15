@@ -11,7 +11,7 @@ export interface UsageEventItem {
   userId: string; // ユーザID（パーティションキー）
   timestamp: number; // イベント発生時刻（ソートキー、Unixタイムスタンプ、ミリ秒単位）
   featureId: string; // 使用した機能ID
-  ttl: number; // TTL属性（Unixタイムスタンプ、秒単位）記録から120日後に自動削除
+  ttl?: number; // TTL属性（Unixタイムスタンプ、秒単位）記録から120日後に自動削除。累計制限(total)の場合は設定しない
 }
 
 /**
