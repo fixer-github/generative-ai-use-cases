@@ -2,6 +2,11 @@ import { Handler, Context } from 'aws-lambda';
 import { PredictRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
+import {
+  AccessCheckResult,
+  checkAccessWithQuota,
+  incrementUsage,
+} from './utils/accessChecker';
 
 declare global {
   namespace awslambda {
@@ -107,15 +112,5 @@ export const handler = awslambda.streamifyResponse(
       responseStream.write(errorMessage);
       responseStream.end();
     }
-    const model = event.model || defaultModel;
-    for await (const token of api[model.type].invokeStream?.(
-      model,
-      event.messages,
-      event.id,
-      event.idToken
-    ) ?? []) {
-      responseStream.write(token);
-    }
-    responseStream.end();
   }
 );
