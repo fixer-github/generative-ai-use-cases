@@ -19,12 +19,28 @@ import { GenerateImageParams } from './image';
 import { GenerateVideoParams, VideoJob } from './video';
 import { ShareId, UserIdAndChatId } from './share';
 
+/**
+ * 利用回数情報（APIレスポンス用）
+ * チャットAPI完了時に、インクリメント後の最新使用回数を返却するために使用
+ */
+export type QuotaUsage = {
+  featureId: string;
+  /** 総使用回数（30回制限） */
+  total: {
+    current: number;
+    limit: number;
+    remaining: number;
+  };
+};
+
 export type StreamingChunk = {
   text: string;
   trace?: string;
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
   sessionId?: string;
+  /** 利用回数情報（ストリーミング完了時に含まれる） */
+  quotaUsage?: QuotaUsage;
 };
 
 export type Pagination<T> = {
