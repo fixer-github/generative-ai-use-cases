@@ -21,6 +21,7 @@ import { modelMetadata } from '@generative-ai-use-cases/common';
 import {
   checkAccessWithQuota,
   incrementUsage,
+  getLatestUsage,
   AccessCheckResult,
 } from './utils/accessChecker';
 
@@ -472,13 +473,26 @@ ${assistant.instruction}
         );
       }
 
-      // Increment usage count after successful streaming (fire-and-forget)
+      // Increment usage count after successful streaming and return latest usage info
       if (accessCheckResult?.limitType && accessCheckResult.limitType !== 'unlimited') {
-        incrementUsage(idToken, 'assistant', 'chat', accessCheckResult.limitType).catch(
-          (error) => {
-            console.error('Failed to increment usage count:', error);
+        try {
+          await incrementUsage(idToken, 'assistant', 'chat', accessCheckResult.limitType);
+
+          // Get latest usage info after incrementing
+          const latestUsage = await getLatestUsage(idToken, 'assistant', 'chat');
+
+          // Send final chunk with updated usage info
+          if (latestUsage) {
+            responseStream.write(
+              streamingChunk({
+                text: '',
+                usage: latestUsage,
+              })
+            );
           }
-        );
+        } catch (error) {
+          console.error('Failed to increment usage count:', error);
+        }
       }
 
       responseStream.end();
