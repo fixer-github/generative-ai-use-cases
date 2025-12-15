@@ -23,7 +23,7 @@ export interface PermissionGrantItem {
   features: Array<{
     // 付与された機能のリスト
     featureId: string;
-    limitType: 'unlimited' | 'daily' | 'monthly';
+    limitType: 'unlimited' | 'daily' | 'monthly' | 'total';
     limitCount?: number;
   }>;
   status: 'active' | 'revoked'; // 状態
@@ -43,7 +43,7 @@ export interface GrantPermissionRequest {
   planId: string; // プランID（Entitlement IDの生成に使用）
   features: Array<{
     featureId: string; // 機能ID（例: "llm:gemini-2.5-flash"）
-    limitType: 'unlimited' | 'daily' | 'monthly';
+    limitType: 'unlimited' | 'daily' | 'monthly' | 'total';
     limitCount?: number; // limitTypeが'unlimited'以外の場合に必須
   }>; // DynamoDBへの回数制限カウンター作成に使用
   sourceType: string; // 付与元のタイプ（例: "subscription", "trial", "campaign", "manual"）

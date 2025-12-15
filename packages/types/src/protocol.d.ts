@@ -25,6 +25,25 @@ export type StreamingChunk = {
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
   sessionId?: string;
+  /** 利用回数情報（ストリーミング終了時に返却） */
+  usage?: {
+    daily?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
+    monthly?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
+    /** 累計の利用回数制限（期間なし） */
+    total?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
+  };
 };
 
 export type Pagination<T> = {

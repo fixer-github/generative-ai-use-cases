@@ -481,6 +481,46 @@ ${assistant.instruction}
         );
       }
 
+      // Send usage information at the end of streaming
+      if (accessCheckResult?.usage) {
+        // Calculate updated usage (current + 1 for this request)
+        const updatedUsage: {
+          daily?: { current: number; limit: number; remaining: number };
+          monthly?: { current: number; limit: number; remaining: number };
+          total?: { current: number; limit: number; remaining: number };
+        } = {};
+        if (accessCheckResult.usage.daily) {
+          const newCurrent = accessCheckResult.usage.daily.current + 1;
+          updatedUsage.daily = {
+            current: newCurrent,
+            limit: accessCheckResult.usage.daily.limit,
+            remaining: Math.max(0, accessCheckResult.usage.daily.limit - newCurrent),
+          };
+        }
+        if (accessCheckResult.usage.monthly) {
+          const newCurrent = accessCheckResult.usage.monthly.current + 1;
+          updatedUsage.monthly = {
+            current: newCurrent,
+            limit: accessCheckResult.usage.monthly.limit,
+            remaining: Math.max(0, accessCheckResult.usage.monthly.limit - newCurrent),
+          };
+        }
+        if (accessCheckResult.usage.total) {
+          const newCurrent = accessCheckResult.usage.total.current + 1;
+          updatedUsage.total = {
+            current: newCurrent,
+            limit: accessCheckResult.usage.total.limit,
+            remaining: Math.max(0, accessCheckResult.usage.total.limit - newCurrent),
+          };
+        }
+        responseStream.write(
+          streamingChunk({
+            text: '',
+            usage: updatedUsage,
+          })
+        );
+      }
+
       responseStream.end();
     } catch {
       responseStream.write(

@@ -29,9 +29,15 @@ export interface AccessCheckResult {
       limit: number;
       remaining: number;
     };
+    /** 累計の利用回数制限（期間なし） */
+    total?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
   };
   /** 回数制限のタイプ（incrementUsageで使用） */
-  limitType?: 'unlimited' | 'daily' | 'monthly';
+  limitType?: 'unlimited' | 'daily' | 'monthly' | 'total';
   /** 検証済みのユーザー情報（後続処理で使用） */
   userContext?: {
     tenantId: string;
@@ -45,6 +51,14 @@ export interface AccessCheckResult {
  * - assistant: アシスタント機能（例: chat）
  */
 export type ResourceType = 'llm' | 'assistant';
+
+/**
+ * デフォルトの利用回数制限設定
+ * PermissionGrantテーブルに設定がない場合に適用される
+ */
+const DEFAULT_LIMITS: Record<string, { limitType: 'daily' | 'monthly' | 'total'; limitCount: number }> = {
+  'assistant:chat': { limitType: 'total', limitCount: 30 },
+};
 
 /**
  * テーブル名を生成するヘルパー関数
@@ -211,25 +225,49 @@ export async function checkAccessWithQuota(
     // この機能に対する制限情報を探す
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
+    let totalLimit: number | null = null;
     let limitType: AccessCheckResult['limitType'] = 'unlimited';
+    let foundInGrants = false;
 
     for (const grant of activeGrants) {
       const feature = grant.features.find((f) => f.featureId === featureId);
       if (feature) {
+        foundInGrants = true;
         if (feature.limitType === 'daily' && feature.limitCount) {
           dailyLimit = feature.limitCount;
           limitType = 'daily';
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
           limitType = 'monthly';
+        } else if (feature.limitType === 'total' && feature.limitCount) {
+          totalLimit = feature.limitCount;
+          limitType = 'total';
         } else if (feature.limitType === 'unlimited') {
           limitType = 'unlimited';
         }
       }
     }
 
+    // PermissionGrantに設定がない場合、デフォルト制限を適用
+    if (!foundInGrants && DEFAULT_LIMITS[featureId]) {
+      const defaultLimit = DEFAULT_LIMITS[featureId];
+      if (defaultLimit.limitType === 'daily') {
+        dailyLimit = defaultLimit.limitCount;
+        limitType = 'daily';
+      } else if (defaultLimit.limitType === 'monthly') {
+        monthlyLimit = defaultLimit.limitCount;
+        limitType = 'monthly';
+      } else if (defaultLimit.limitType === 'total') {
+        totalLimit = defaultLimit.limitCount;
+        limitType = 'total';
+      }
+      console.log(
+        `[AccessCheck] Applying default limit for ${featureId} - type: ${defaultLimit.limitType}, count: ${defaultLimit.limitCount}`
+      );
+    }
+
     console.log(
-      `[AccessCheck] Limit configuration - dailyLimit: ${dailyLimit}, monthlyLimit: ${monthlyLimit}, limitType: ${limitType}`
+      `[AccessCheck] Limit configuration - dailyLimit: ${dailyLimit}, monthlyLimit: ${monthlyLimit}, totalLimit: ${totalLimit}, limitType: ${limitType}`
     );
 
     const usage: AccessCheckResult['usage'] = {};
@@ -315,6 +353,46 @@ export async function checkAccessWithQuota(
       console.log(`[AccessCheck] No monthly limit configured for ${featureId}`);
     }
 
+    // 累計制限のチェック（期間なし）
+    if (totalLimit !== null) {
+      // 全期間のイベント数をカウント（開始時刻を0にして全件取得）
+      const totalCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        0,
+        now
+      );
+
+      console.log(
+        `[AccessCheck] Total limit found - currentCount: ${totalCount}, limitCount: ${totalLimit}`
+      );
+
+      const remaining = totalLimit - totalCount;
+      usage.total = {
+        current: totalCount,
+        limit: totalLimit,
+        remaining: Math.max(0, remaining),
+      };
+
+      if (totalCount >= totalLimit) {
+        console.log(
+          `[AccessCheck] Total quota exceeded - User ${userId}, featureId: ${featureId}, current: ${totalCount}, limit: ${totalLimit}`
+        );
+        return {
+          allowed: false,
+          reason: 'quota_exceeded',
+          usage,
+          limitType: 'total',
+          userContext: { tenantId, userId },
+        };
+      }
+      console.log(
+        `[AccessCheck] Total quota check passed - remaining: ${remaining}`
+      );
+    } else {
+      console.log(`[AccessCheck] No total limit configured for ${featureId}`);
+    }
+
     // 回数制限がない（unlimitedまたは制限なしプラン）
     console.log(
       `[AccessCheck] Access granted - User ${userId}, featureId: ${featureId}, limitType: ${limitType}`
@@ -351,7 +429,7 @@ export async function incrementUsage(
   idToken: string,
   resourceType: ResourceType,
   resourceId: string,
-  limitType: 'unlimited' | 'daily' | 'monthly'
+  limitType: 'unlimited' | 'daily' | 'monthly' | 'total'
 ): Promise<void> {
   const featureId = buildFeatureId(resourceType, resourceId);
 
