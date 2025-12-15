@@ -473,7 +473,7 @@ ${assistant.instruction}
       }
 
       // Increment usage count after successful streaming (fire-and-forget)
-      if (accessCheckResult?.limitType && accessCheckResult.limitType !== 'unlimited') {
+      if (accessCheckResult?.limitType === 'limited') {
         incrementUsage(idToken, 'assistant', 'chat', accessCheckResult.limitType).catch(
           (error) => {
             console.error('Failed to increment usage count:', error);

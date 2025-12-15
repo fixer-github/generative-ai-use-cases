@@ -115,4 +115,33 @@ export class UsageEventRepository {
 
     return result.Items.map((item) => unmarshall(item) as UsageEventItem);
   }
+
+  /**
+   * ユーザーの総使用回数を集計（期間制限なし）
+   * @param userId ユーザID
+   * @returns 総使用回数
+   */
+  async countTotalUsage(userId: string): Promise<number> {
+    console.log(
+      `[UsageEventRepository.countTotalUsage] Counting total events - tableName: ${this.tableName}, userId: ${userId}`
+    );
+
+    const command = new QueryCommand({
+      TableName: this.tableName,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: marshall({
+        ':userId': userId,
+      }),
+      Select: 'COUNT',
+    });
+
+    const result = await this.client.send(command);
+
+    const count = result.Count || 0;
+    console.log(
+      `[UsageEventRepository.countTotalUsage] Found ${count} total events for user ${userId}`
+    );
+
+    return count;
+  }
 }
