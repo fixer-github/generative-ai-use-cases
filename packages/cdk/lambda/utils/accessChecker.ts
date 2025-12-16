@@ -340,6 +340,139 @@ export async function checkAccessWithQuota(
 }
 
 /**
+ * 使用状況の型定義（getLatestUsageの戻り値）
+ */
+export type UsageInfo = {
+  daily?: {
+    current: number;
+    limit: number;
+    remaining: number;
+  };
+  monthly?: {
+    current: number;
+    limit: number;
+    remaining: number;
+  };
+};
+
+/**
+ * 最新の使用回数情報を取得する
+ *
+ * @param idToken - Cognito ID Token
+ * @param resourceType - リソースの種別（例: 'llm'）
+ * @param resourceId - リソースのID（例: 'gemini-2.5-flash'）
+ * @returns 最新の使用回数情報
+ */
+export async function getLatestUsage(
+  idToken: string,
+  resourceType: ResourceType,
+  resourceId: string
+): Promise<UsageInfo | undefined> {
+  const payload = await verifyToken(idToken);
+  if (!payload) {
+    console.error('[GetLatestUsage] Invalid token');
+    return undefined;
+  }
+
+  const tenantId = payload['custom:tenant_id'];
+  const userId = payload['cognito:username'];
+
+  if (!tenantId || !userId) {
+    console.error('[GetLatestUsage] Missing tenantId or userId in token claims');
+    return undefined;
+  }
+
+  const featureId = buildFeatureId(resourceType, resourceId);
+
+  try {
+    const dynamoDBClient = await createTenantDynamoDBClientFromToken(idToken);
+
+    const usageEventTableName = getTableName(
+      'AuthUsageEvent',
+      tenantId,
+      process.env.ENVIRONMENT || 'dev'
+    );
+    const permissionGrantTableName = getTableName(
+      'AuthPermissionGrant',
+      tenantId,
+      process.env.ENVIRONMENT || 'dev'
+    );
+
+    const usageEventRepository = new UsageEventRepository(
+      dynamoDBClient,
+      usageEventTableName
+    );
+    const permissionGrantRepository = new PermissionGrantRepository(
+      dynamoDBClient,
+      permissionGrantTableName
+    );
+
+    // ユーザの有効な権限付与を取得
+    const activeGrants = await permissionGrantRepository.findByUserIdAndStatus(
+      userId,
+      'active'
+    );
+
+    // この機能に対する制限情報を探す
+    let dailyLimit: number | null = null;
+    let monthlyLimit: number | null = null;
+
+    for (const grant of activeGrants) {
+      const feature = grant.features.find((f) => f.featureId === featureId);
+      if (feature) {
+        if (feature.limitType === 'daily' && feature.limitCount) {
+          dailyLimit = feature.limitCount;
+        } else if (feature.limitType === 'monthly' && feature.limitCount) {
+          monthlyLimit = feature.limitCount;
+        }
+      }
+    }
+
+    const usage: UsageInfo = {};
+    const now = Date.now();
+
+    // 日次使用回数を取得
+    if (dailyLimit !== null) {
+      const dailyStartTime = getPeriodStartTime('daily');
+      const dailyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        dailyStartTime,
+        now
+      );
+
+      usage.daily = {
+        current: dailyCount,
+        limit: dailyLimit,
+        remaining: Math.max(0, dailyLimit - dailyCount),
+      };
+    }
+
+    // 月次使用回数を取得
+    if (monthlyLimit !== null) {
+      const monthlyStartTime = getPeriodStartTime('monthly');
+      const monthlyCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        monthlyStartTime,
+        now
+      );
+
+      usage.monthly = {
+        current: monthlyCount,
+        limit: monthlyLimit,
+        remaining: Math.max(0, monthlyLimit - monthlyCount),
+      };
+    }
+
+    return Object.keys(usage).length > 0 ? usage : undefined;
+  } catch (error) {
+    console.error('[GetLatestUsage] Failed to get usage info:', error);
+    return undefined;
+  }
+}
+
+/**
  * 使用回数をカウントアップする（イベントを記録する）
  *
  * @param idToken - Cognito ID Token

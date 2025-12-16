@@ -25,6 +25,10 @@ export type StreamingChunk = {
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
   sessionId?: string;
+  usage?: {
+    daily?: { current: number; limit: number; remaining: number };
+    monthly?: { current: number; limit: number; remaining: number };
+  };
 };
 
 export type Pagination<T> = {
