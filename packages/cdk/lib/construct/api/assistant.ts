@@ -48,6 +48,8 @@ class AssistantApi extends Construct {
         OPENSEARCH_INDEX: 'assistant-docs',
         ASSISTANT_FILES_BUCKET_NAME: fileBucket?.bucketName || '',
         TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+        UNIFIED_OPENSEARCH_ENDPOINT: props.unifiedOpenSearchEndpoint || '',
+        UNIFIED_OPENSEARCH_REGION: props.unifiedOpenSearchRegion || '',
         ASSISTANT_CREATION_REQUIRES_ADMIN: (
           props.assistantCreationRequiresAdmin ?? true
         ).toString(),
@@ -105,6 +107,8 @@ class AssistantApi extends Construct {
           ),
           OPENSEARCH_INDEX: 'assistant-docs',
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+          UNIFIED_OPENSEARCH_ENDPOINT: props.unifiedOpenSearchEndpoint || '',
+          UNIFIED_OPENSEARCH_REGION: props.unifiedOpenSearchRegion || '',
           LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
           ...(props.openai?.apiKey
             ? { OPENAI_API_KEY: props.openai.apiKey }
@@ -155,6 +159,8 @@ class AssistantApi extends Construct {
           USER_POOL_ID: userPool.userPoolId,
           USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+          UNIFIED_OPENSEARCH_ENDPOINT: props.unifiedOpenSearchEndpoint || '',
+          UNIFIED_OPENSEARCH_REGION: props.unifiedOpenSearchRegion || '',
           LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
         }),
       }
@@ -276,6 +282,8 @@ class AssistantApi extends Construct {
             ASSISTANT_FILES_BUCKET_NAME: fileBucket.bucketName,
             OPENSEARCH_INDEX: 'assistant-docs',
             TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+            UNIFIED_OPENSEARCH_ENDPOINT: props.unifiedOpenSearchEndpoint || '',
+            UNIFIED_OPENSEARCH_REGION: props.unifiedOpenSearchRegion || '',
           }),
         }
       );

@@ -1,20 +1,13 @@
 import { Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
-import * as oss from 'aws-cdk-lib/aws-opensearchserverless';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3Deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ProcessedStackInput } from '../../stack-input';
-import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-
-const UUID = '339C5FED-A1B5-43B6-B40A-5E8E59E5734D';
 
 // Embedding models supported by Bedrock
-// Dimension is passed as a prop of the Custom resource, but there is an issue that the type is automatically converted, so it is set to string instead of number.
-// https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/1037
 const MODEL_VECTOR_MAPPING: { [key: string]: string } = {
   'amazon.titan-embed-text-v1': '1536',
   'amazon.titan-embed-text-v2:0': '1024',
@@ -69,61 +62,30 @@ EPS: $1.25
 | | 12/31 ended year | |
 
 2021	2022
-Cash Flow:		
+Cash Flow:
 Operating Activity	$ 46,327	$ 46,752
 Investing Activity	(58,154)	(37,601)
 Financial Activity	6,291	9,718`;
 
 const EMBEDDING_MODELS = Object.keys(MODEL_VECTOR_MAPPING);
 
-interface OpenSearchServerlessIndexProps {
-  readonly collectionId: string;
-  readonly vectorIndexName: string;
-  readonly vectorField: string;
-  readonly metadataField: string;
-  readonly textField: string;
-  readonly vectorDimension: string;
-  readonly ragKnowledgeBaseBinaryVector: boolean;
-}
-
-class OpenSearchServerlessIndex extends Construct {
-  public readonly customResourceHandler: lambda.IFunction;
-  public readonly customResource: cdk.CustomResource;
-
-  constructor(
-    scope: Construct,
-    id: string,
-    props: OpenSearchServerlessIndexProps
-  ) {
-    super(scope, id);
-
-    const customResourceHandler = new lambda.SingletonFunction(
-      this,
-      'OpenSearchServerlessIndex',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        code: lambda.Code.fromAsset('custom-resources'),
-        handler: 'oss-index.handler',
-        uuid: UUID,
-        lambdaPurpose: 'OpenSearchServerlessIndex',
-        timeout: cdk.Duration.minutes(15),
-      }
-    );
-
-    const customResource = new cdk.CustomResource(this, 'CustomResource', {
-      serviceToken: customResourceHandler.functionArn,
-      resourceType: 'Custom::OssIndex',
-      properties: props,
-    });
-
-    this.customResourceHandler = customResourceHandler;
-    this.customResource = customResource;
-  }
-}
-
 export interface RagKnowledgeBaseStackProps extends StackProps {
   params: ProcessedStackInput;
-  collectionName?: string;
+  /**
+   * Unified OpenSearch domain ARN (from UnifiedOpenSearchStack)
+   */
+  unifiedOpenSearchDomainArn: string;
+  /**
+   * Unified OpenSearch domain endpoint (from UnifiedOpenSearchStack)
+   */
+  unifiedOpenSearchDomainEndpoint: string;
+  /**
+   * IAM role for Knowledge Base (from UnifiedOpenSearchStack)
+   */
+  knowledgeBaseRole: iam.IRole;
+  /**
+   * Vector index name for Bedrock Knowledge Base
+   */
   vectorIndexName?: string;
   vectorField?: string;
   metadataField?: string;
@@ -138,12 +100,9 @@ export class RagKnowledgeBaseStack extends Stack {
     super(scope, id, props);
 
     const {
-      env,
       embeddingModelId,
-      ragKnowledgeBaseStandbyReplicas,
       ragKnowledgeBaseAdvancedParsing,
       ragKnowledgeBaseAdvancedParsingModelId,
-      ragKnowledgeBaseBinaryVector,
       crossAccountBedrockRoleArn,
     } = props.params;
 
@@ -165,19 +124,6 @@ export class RagKnowledgeBaseStack extends Stack {
       );
     }
 
-    const collectionName =
-      props.collectionName ?? `generative-ai-use-cases-jp${env.toLowerCase()}`;
-    const vectorIndexName =
-      props.vectorIndexName ?? 'bedrock-knowledge-base-default';
-    const vectorField =
-      props.vectorField ?? 'bedrock-knowledge-base-default-vector';
-    const textField = props.textField ?? 'AMAZON_BEDROCK_TEXT_CHUNK';
-    const metadataField = props.metadataField ?? 'AMAZON_BEDROCK_METADATA';
-
-    const knowledgeBaseRole = new iam.Role(this, 'KnowledgeBaseRole', {
-      assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
-    });
-
     if (
       ragKnowledgeBaseAdvancedParsing &&
       typeof ragKnowledgeBaseAdvancedParsingModelId !== 'string'
@@ -187,110 +133,18 @@ export class RagKnowledgeBaseStack extends Stack {
       );
     }
 
-    const collection = new oss.CfnCollection(this, 'Collection', {
-      name: collectionName,
-      description: 'GenU Collection',
-      type: 'VECTORSEARCH',
-      standbyReplicas: ragKnowledgeBaseStandbyReplicas ? 'ENABLED' : 'DISABLED',
-    });
+    // Default field names (must match UnifiedOpenSearchStack configuration)
+    const vectorIndexName =
+      props.vectorIndexName ?? 'bedrock-knowledge-base-default';
+    const vectorField =
+      props.vectorField ?? 'bedrock-knowledge-base-default-vector';
+    const textField = props.textField ?? 'AMAZON_BEDROCK_TEXT_CHUNK';
+    const metadataField = props.metadataField ?? 'AMAZON_BEDROCK_METADATA';
 
-    const ossIndex = new OpenSearchServerlessIndex(this, 'OssIndex', {
-      collectionId: collection.ref,
-      vectorIndexName,
-      vectorField,
-      textField,
-      metadataField,
-      vectorDimension: MODEL_VECTOR_MAPPING[embeddingModelId],
-      ragKnowledgeBaseBinaryVector,
-    });
+    // Use the Knowledge Base role from UnifiedOpenSearchStack
+    const knowledgeBaseRole = props.knowledgeBaseRole;
 
-    ossIndex.customResourceHandler.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        resources: [cdk.Token.asString(collection.getAtt('Arn'))],
-        actions: ['aoss:APIAccessAll'],
-      })
-    );
-
-    const accessPolicy = new oss.CfnAccessPolicy(this, 'AccessPolicy', {
-      name: collectionName,
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              Resource: [`collection/${collectionName}`],
-              Permission: [
-                'aoss:DescribeCollectionItems',
-                'aoss:CreateCollectionItems',
-                'aoss:UpdateCollectionItems',
-              ],
-              ResourceType: 'collection',
-            },
-            {
-              Resource: [`index/${collectionName}/*`],
-              Permission: [
-                'aoss:UpdateIndex',
-                'aoss:DescribeIndex',
-                'aoss:ReadDocument',
-                'aoss:WriteDocument',
-                'aoss:CreateIndex',
-                'aoss:DeleteIndex',
-              ],
-              ResourceType: 'index',
-            },
-          ],
-          Principal: [
-            knowledgeBaseRole.roleArn,
-            ossIndex.customResourceHandler.role?.roleArn,
-          ],
-          Description: '',
-        },
-      ]),
-      type: 'data',
-    });
-
-    const networkPolicy = new oss.CfnSecurityPolicy(this, 'NetworkPolicy', {
-      name: collectionName,
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              Resource: [`collection/${collectionName}`],
-              ResourceType: 'collection',
-            },
-            {
-              Resource: [`collection/${collectionName}`],
-              ResourceType: 'dashboard',
-            },
-          ],
-          AllowFromPublic: true,
-        },
-      ]),
-      type: 'network',
-    });
-
-    const encryptionPolicy = new oss.CfnSecurityPolicy(
-      this,
-      'EncryptionPolicy',
-      {
-        name: collectionName,
-        policy: JSON.stringify({
-          Rules: [
-            {
-              Resource: [`collection/${collectionName}`],
-              ResourceType: 'collection',
-            },
-          ],
-          AWSOwnedKey: true,
-        }),
-        type: 'encryption',
-      }
-    );
-
-    collection.node.addDependency(accessPolicy);
-    collection.node.addDependency(networkPolicy);
-    collection.node.addDependency(encryptionPolicy);
-
+    // Create S3 bucket for data source
     const accessLogsBucket = new s3.Bucket(this, 'DataSourceAccessLogsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -311,23 +165,8 @@ export class RagKnowledgeBaseStack extends Stack {
       enforceSSL: true,
     });
 
-    knowledgeBaseRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        resources: ['*'],
-        actions: ['bedrock:InvokeModel'],
-      })
-    );
-
-    knowledgeBaseRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        resources: [cdk.Token.asString(collection.getAtt('Arn'))],
-        actions: ['aoss:APIAccessAll'],
-      })
-    );
-
-    knowledgeBaseRole.addToPolicy(
+    // Grant S3 access to Knowledge Base role
+    knowledgeBaseRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         resources: [`arn:aws:s3:::${dataSourceBucket.bucketName}`],
@@ -335,7 +174,7 @@ export class RagKnowledgeBaseStack extends Stack {
       })
     );
 
-    knowledgeBaseRole.addToPolicy(
+    knowledgeBaseRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         resources: [`arn:aws:s3:::${dataSourceBucket.bucketName}/*`],
@@ -343,34 +182,28 @@ export class RagKnowledgeBaseStack extends Stack {
       })
     );
 
+    // Create Knowledge Base with Managed OpenSearch configuration
+    // Note: Using OPENSEARCH_MANAGED_CLUSTER instead of OPENSEARCH_SERVERLESS
     const knowledgeBase = new bedrock.CfnKnowledgeBase(this, 'KnowledgeBase', {
-      name: collectionName,
+      name: `genu-knowledge-base-${props.params.env.toLowerCase()}`,
       roleArn: knowledgeBaseRole.roleArn,
       knowledgeBaseConfiguration: {
         type: 'VECTOR',
         vectorKnowledgeBaseConfiguration: {
           embeddingModelArn: `arn:aws:bedrock:${this.region}::foundation-model/${embeddingModelId}`,
-          ...(ragKnowledgeBaseBinaryVector
-            ? {
-                embeddingModelConfiguration: {
-                  bedrockEmbeddingModelConfiguration: {
-                    embeddingDataType: 'BINARY',
-                  },
-                },
-              }
-            : {}),
         },
       },
       storageConfiguration: {
-        type: 'OPENSEARCH_SERVERLESS',
-        opensearchServerlessConfiguration: {
-          collectionArn: cdk.Token.asString(collection.getAtt('Arn')),
+        type: 'OPENSEARCH_MANAGED_CLUSTER',
+        opensearchManagedClusterConfiguration: {
+          domainArn: props.unifiedOpenSearchDomainArn,
+          domainEndpoint: props.unifiedOpenSearchDomainEndpoint,
+          vectorIndexName,
           fieldMapping: {
             metadataField,
             textField,
             vectorField,
           },
-          vectorIndexName,
         },
       },
     });
@@ -446,9 +279,6 @@ export class RagKnowledgeBaseStack extends Stack {
       knowledgeBaseId: knowledgeBase.ref,
       name: 's3-data-source',
     });
-
-    knowledgeBase.addDependency(collection);
-    knowledgeBase.node.addDependency(ossIndex.customResource);
 
     new s3Deploy.BucketDeployment(this, 'DeployDocs', {
       sources: [s3Deploy.Source.asset('./rag-docs')],

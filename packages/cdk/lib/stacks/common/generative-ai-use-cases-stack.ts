@@ -34,6 +34,9 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   // RAG Knowledge Base
   readonly knowledgeBaseId?: string;
   readonly knowledgeBaseDataSourceBucketName?: string;
+  // Unified OpenSearch (for assistant RAG)
+  readonly unifiedOpenSearchEndpoint?: string;
+  readonly unifiedOpenSearchRegion?: string;
   // Agent
   readonly agents?: Agent[];
   // Video Generation
@@ -191,6 +194,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailVersion: props.guardrailVersion,
       litellmEndpoint: litellmEndpoint,
       litellmProxy: litellmProxy,
+      unifiedOpenSearchEndpoint: props.unifiedOpenSearchEndpoint,
+      unifiedOpenSearchRegion: props.unifiedOpenSearchRegion,
     });
 
     // MCP

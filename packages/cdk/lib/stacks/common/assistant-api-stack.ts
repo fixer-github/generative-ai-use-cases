@@ -26,6 +26,9 @@ interface AssistantApiStackProps extends StackProps {
   guardrailVersion?: string;
   litellmEndpoint?: string | null;
   litellmProxy?: LitellmProxyServer | null;
+  // Unified OpenSearch endpoint for assistant RAG
+  unifiedOpenSearchEndpoint?: string;
+  unifiedOpenSearchRegion?: string;
 }
 
 class AssistantApiStack extends NestedStack {
@@ -47,6 +50,8 @@ class AssistantApiStack extends NestedStack {
       guardrailVersion,
       litellmEndpoint,
       litellmProxy,
+      unifiedOpenSearchEndpoint,
+      unifiedOpenSearchRegion,
     } = props;
 
     // Create authorizer for the nested stack
@@ -98,6 +103,10 @@ class AssistantApiStack extends NestedStack {
       guardrailIdentify: guardrailIdentifier,
       guardrailVersion: guardrailVersion,
       tenantManager,
+
+      // Unified OpenSearch for assistant RAG
+      unifiedOpenSearchEndpoint,
+      unifiedOpenSearchRegion,
 
       // API Gateway
       api: api.restApi,

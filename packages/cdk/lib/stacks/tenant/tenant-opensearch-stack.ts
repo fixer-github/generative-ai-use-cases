@@ -1,3 +1,18 @@
+/**
+ * @deprecated This stack is deprecated and no longer used.
+ *
+ * OpenSearch is now unified in UnifiedOpenSearchStack (packages/cdk/lib/stacks/common/unified-opensearch-stack.ts).
+ * All tenants share the unified OpenSearch domain with data isolation via metadata.assistantId filtering.
+ *
+ * This file is kept for backward compatibility during migration.
+ * It can be safely removed after all existing deployments have been migrated.
+ *
+ * Migration path:
+ * 1. Deploy UnifiedOpenSearchStack (created automatically when ragKnowledgeBaseEnabled is true)
+ * 2. Migrate existing data from per-tenant OpenSearch domains to unified domain
+ * 3. Remove TenantOpenSearchStack from tenant deployments
+ * 4. Delete this file
+ */
 import * as cdk from 'aws-cdk-lib';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';

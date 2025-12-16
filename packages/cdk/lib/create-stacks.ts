@@ -4,6 +4,7 @@ import { GenerativeAiUseCasesStack } from './stacks/common/generative-ai-use-cas
 import { CloudFrontWafStack } from './stacks/common/cloud-front-waf-stack';
 import { DashboardStack } from './stacks/common/dashboard-stack';
 import { AgentStack } from './stacks/common/agent-stack';
+import { UnifiedOpenSearchStack } from './stacks/common/unified-opensearch-stack';
 import { RagKnowledgeBaseStack } from './stacks/common/rag-knowledge-base-stack';
 import { GuardrailStack } from './stacks/common/guardrail-stack';
 import { ProcessedStackInput } from './stack-input';
@@ -41,9 +42,28 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
         })
       : null;
 
-  // RAG Knowledge Base
-  const ragKnowledgeBaseStack =
+  // Unified OpenSearch Stack
+  // Creates a single managed OpenSearch domain for both:
+  // - Bedrock Knowledge Base (vector search)
+  // - Tenant assistant RAG documents
+  // This replaces both OpenSearch Serverless and per-tenant OpenSearch domains
+  const unifiedOpenSearchStack =
     params.ragKnowledgeBaseEnabled && !params.ragKnowledgeBaseId
+      ? new UnifiedOpenSearchStack(app, `UnifiedOpenSearchStack${params.env}`, {
+          env: {
+            account: params.account,
+            region: params.modelRegion,
+          },
+          params: params,
+          crossRegionReferences: true,
+        })
+      : null;
+
+  // RAG Knowledge Base (now uses Unified OpenSearch instead of Serverless)
+  const ragKnowledgeBaseStack =
+    params.ragKnowledgeBaseEnabled &&
+    !params.ragKnowledgeBaseId &&
+    unifiedOpenSearchStack
       ? new RagKnowledgeBaseStack(app, `RagKnowledgeBaseStack${params.env}`, {
           env: {
             account: params.account,
@@ -51,6 +71,14 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
           },
           params: params,
           crossRegionReferences: true,
+          // Pass unified OpenSearch configuration
+          unifiedOpenSearchDomainArn: unifiedOpenSearchStack.domainArn,
+          unifiedOpenSearchDomainEndpoint: `https://${unifiedOpenSearchStack.domainEndpoint}`,
+          knowledgeBaseRole: unifiedOpenSearchStack.knowledgeBaseRole,
+          vectorIndexName: unifiedOpenSearchStack.bedrockKnowledgeBaseIndexName,
+          vectorField: unifiedOpenSearchStack.vectorField,
+          metadataField: unifiedOpenSearchStack.metadataField,
+          textField: unifiedOpenSearchStack.textField,
         })
       : null;
 
@@ -126,6 +154,13 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       knowledgeBaseId: ragKnowledgeBaseStack?.knowledgeBaseId,
       knowledgeBaseDataSourceBucketName:
         ragKnowledgeBaseStack?.dataSourceBucketName,
+      // Unified OpenSearch (for assistant RAG)
+      unifiedOpenSearchEndpoint: unifiedOpenSearchStack
+        ? `https://${unifiedOpenSearchStack.domainEndpoint}`
+        : undefined,
+      unifiedOpenSearchRegion: unifiedOpenSearchStack
+        ? params.modelRegion
+        : undefined,
       // Agent
       agents: agentStack?.agents,
       // Video Generation
@@ -166,6 +201,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
   return {
     cloudFrontWafStack,
+    unifiedOpenSearchStack,
     ragKnowledgeBaseStack,
     agentStack,
     guardrail,

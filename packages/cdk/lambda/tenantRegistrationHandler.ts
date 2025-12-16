@@ -20,6 +20,8 @@ const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 
 // Request interface
+// Note: OpenSearch fields are optional and deprecated - OpenSearch is now unified
+// via UnifiedOpenSearchStack. Legacy tenants may still provide these fields.
 interface TenantRegistrationRequest {
   tenantId: string;
   accountId: string;
@@ -27,6 +29,7 @@ interface TenantRegistrationRequest {
   environment: string;
   roleArn?: string;
   controlPlaneLambdaRoleArn?: string;
+  // Deprecated: OpenSearch is now unified. These fields are kept for backwards compatibility.
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
@@ -83,7 +86,9 @@ export const handler = async (
       });
     }
 
-    // Validate OpenSearch configuration - all three fields must be provided together
+    // Validate OpenSearch configuration if provided (deprecated - for backwards compatibility)
+    // Note: OpenSearch is now unified via UnifiedOpenSearchStack.
+    // Legacy tenants may still provide these fields, so we validate them if present.
     const hasOpenSearchConfig = !!(
       openSearchDomainArn?.trim() ||
       openSearchEndpoint?.trim() ||
@@ -91,7 +96,11 @@ export const handler = async (
     );
 
     if (hasOpenSearchConfig) {
-      // All three must be provided and non-empty
+      console.log(
+        '[WARN] OpenSearch configuration provided but deprecated. OpenSearch is now unified.'
+      );
+
+      // If any OpenSearch field is provided, all must be provided (backwards compatibility)
       if (
         !openSearchDomainArn?.trim() ||
         !openSearchEndpoint?.trim() ||
@@ -99,7 +108,7 @@ export const handler = async (
       ) {
         return badRequest400Response({
           message:
-            'All OpenSearch fields (domainArn, endpoint, indexName) must be provided together',
+            'If providing OpenSearch configuration (deprecated), all fields (domainArn, endpoint, indexName) must be provided together',
         });
       }
 
@@ -150,7 +159,8 @@ export const handler = async (
       },
     };
 
-    // Add OpenSearch configuration if provided
+    // Add OpenSearch configuration if provided (deprecated - for backwards compatibility)
+    // Note: New tenants should NOT provide OpenSearch configuration as it's now unified
     if (hasOpenSearchConfig) {
       tenant.openSearchDomainArn = openSearchDomainArn;
       tenant.openSearchEndpoint = openSearchEndpoint;

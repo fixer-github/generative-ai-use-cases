@@ -1,3 +1,12 @@
+/**
+ * @deprecated This custom resource is deprecated and no longer used.
+ *
+ * OpenSearch is now unified in UnifiedOpenSearchStack.
+ * Per-tenant OpenSearch configuration is no longer needed.
+ *
+ * This file is kept for backward compatibility during migration.
+ * It can be safely removed after all existing deployments have been migrated.
+ */
 const {
   DynamoDBClient,
   UpdateItemCommand,
