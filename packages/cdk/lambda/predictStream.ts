@@ -5,6 +5,7 @@ import { defaultModel } from './utils/models';
 import {
   checkAccessWithQuota,
   incrementUsage,
+  getLatestUsage,
   AccessCheckResult,
 } from './utils/accessChecker';
 
@@ -90,16 +91,31 @@ export const handler = awslambda.streamifyResponse(
         responseStream.write(token);
       }
 
-      // Increment usage count after successful streaming (fire-and-forget)
+      // Increment usage count after successful streaming and return latest usage info
       if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
-        incrementUsage(
-          event.idToken,
-          'llm',
-          model.modelId,
-          accessCheckResult.limitType
-        ).catch((error) => {
+        try {
+          await incrementUsage(
+            event.idToken,
+            'llm',
+            model.modelId,
+            accessCheckResult.limitType
+          );
+
+          // Get latest usage info after incrementing
+          const latestUsage = await getLatestUsage(event.idToken, 'llm', model.modelId);
+
+          // Send final chunk with updated usage info
+          if (latestUsage) {
+            responseStream.write(
+              JSON.stringify({
+                text: '',
+                usage: latestUsage,
+              })
+            );
+          }
+        } catch (error) {
           console.error('Failed to increment usage count:', error);
-        });
+        }
       }
 
       responseStream.end();
