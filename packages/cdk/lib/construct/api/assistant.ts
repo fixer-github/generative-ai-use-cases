@@ -37,6 +37,11 @@ class AssistantApi extends Construct {
 
     const assistantResource = api.root.addResource('assistant');
 
+    // Get unified OpenSearch configuration
+    const unifiedOpenSearchEndpoint = props.unifiedOpenSearchEndpoint || '';
+    const unifiedOpenSearchIndex =
+      props.unifiedOpenSearchIndexName || 'assistant-docs';
+
     // Consolidated handler for all assistant CRUD operations
     const assistantHandler = new NodejsFunction(this, 'AssistantHandler', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -45,7 +50,8 @@ class AssistantApi extends Construct {
       environment: getBaseEnvironment(this, props, {
         ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
         DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
-        OPENSEARCH_INDEX: 'assistant-docs',
+        OPENSEARCH_INDEX: unifiedOpenSearchIndex,
+        UNIFIED_OPENSEARCH_ENDPOINT: unifiedOpenSearchEndpoint,
         ASSISTANT_FILES_BUCKET_NAME: fileBucket?.bucketName || '',
         TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
         ASSISTANT_CREATION_REQUIRES_ADMIN: (
@@ -69,7 +75,13 @@ class AssistantApi extends Construct {
       assistantHandler.addToRolePolicy(props.bedrockPolicy);
     }
 
-    // Grant OpenSearch permissions for tenant OpenSearch domains (cross-account)
+    // Grant OpenSearch permissions for unified OpenSearch domain
+    // When unifiedOpenSearchDomainArn is available, restrict to that domain
+    // Otherwise, use pattern-based restriction for cross-account scenarios
+    const opensearchResources = props.unifiedOpenSearchDomainArn
+      ? [`${props.unifiedOpenSearchDomainArn}/*`]
+      : ['arn:aws:es:*:*:domain/*'];
+
     assistantHandler.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -80,7 +92,7 @@ class AssistantApi extends Construct {
           'es:ESHttpDelete',
           'es:ESHttpHead',
         ],
-        resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+        resources: opensearchResources,
       })
     );
 
@@ -103,7 +115,8 @@ class AssistantApi extends Construct {
           VIDEO_GENERATION_MODEL_IDS: JSON.stringify(
             props.videoGenerationModelIds
           ),
-          OPENSEARCH_INDEX: 'assistant-docs',
+          OPENSEARCH_INDEX: unifiedOpenSearchIndex,
+          UNIFIED_OPENSEARCH_ENDPOINT: unifiedOpenSearchEndpoint,
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
           LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
           ...(props.openai?.apiKey
@@ -122,7 +135,7 @@ class AssistantApi extends Construct {
       assistantMessageHandler.addToRolePolicy(props.bedrockPolicy);
     }
 
-    // Grant OpenSearch permissions for tenant OpenSearch domains (cross-account)
+    // Grant OpenSearch permissions for unified OpenSearch domain
     assistantMessageHandler.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -133,7 +146,7 @@ class AssistantApi extends Construct {
           'es:ESHttpDelete',
           'es:ESHttpHead',
         ],
-        resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+        resources: opensearchResources,
       })
     );
 
@@ -151,7 +164,8 @@ class AssistantApi extends Construct {
           DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
           MODEL_REGION: modelRegion,
           MODEL_IDS: JSON.stringify(props.modelIds),
-          OPENSEARCH_INDEX: 'assistant-docs',
+          OPENSEARCH_INDEX: unifiedOpenSearchIndex,
+          UNIFIED_OPENSEARCH_ENDPOINT: unifiedOpenSearchEndpoint,
           USER_POOL_ID: userPool.userPoolId,
           USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
@@ -182,7 +196,7 @@ class AssistantApi extends Construct {
           'es:ESHttpDelete',
           'es:ESHttpHead',
         ],
-        resources: ['*'],
+        resources: opensearchResources,
       })
     );
 
@@ -274,7 +288,8 @@ class AssistantApi extends Construct {
           timeout: Duration.seconds(30),
           environment: getBaseEnvironment(this, props, {
             ASSISTANT_FILES_BUCKET_NAME: fileBucket.bucketName,
-            OPENSEARCH_INDEX: 'assistant-docs',
+            OPENSEARCH_INDEX: unifiedOpenSearchIndex,
+            UNIFIED_OPENSEARCH_ENDPOINT: unifiedOpenSearchEndpoint,
             TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
           }),
         }
@@ -299,7 +314,7 @@ class AssistantApi extends Construct {
             'es:ESHttpDelete',
             'es:ESHttpHead',
           ],
-          resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+          resources: opensearchResources,
         })
       );
 

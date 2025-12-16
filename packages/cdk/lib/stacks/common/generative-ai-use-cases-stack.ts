@@ -37,6 +37,10 @@ export interface GenerativeAiUseCasesStackProps extends StackProps {
   // RAG Knowledge Base
   readonly knowledgeBaseId?: string;
   readonly knowledgeBaseDataSourceBucketName?: string;
+  // Unified OpenSearch (for assistant RAG)
+  readonly unifiedOpenSearchEndpoint?: string;
+  readonly unifiedOpenSearchDomainArn?: string;
+  readonly unifiedOpenSearchIndexName?: string;
   // Agent
   readonly agents?: Agent[];
   // Video Generation
@@ -102,7 +106,8 @@ export class GenerativeAiUseCasesStack extends Stack {
     const backgroundJobRole = new iam.Role(this, 'BackgroundJobRole', {
       roleName: `${params.env}-billing-background-job-role`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Shared IAM role for background job Lambda functions that need cross-tenant access',
+      description:
+        'Shared IAM role for background job Lambda functions that need cross-tenant access',
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName(
           'service-role/AWSLambdaBasicExecutionRole'
@@ -249,6 +254,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       guardrailVersion: props.guardrailVersion,
       litellmEndpoint: litellmEndpoint,
       litellmProxy: litellmProxy,
+      // Unified OpenSearch configuration (for assistant RAG)
+      unifiedOpenSearchEndpoint: props.unifiedOpenSearchEndpoint,
+      unifiedOpenSearchDomainArn: props.unifiedOpenSearchDomainArn,
+      unifiedOpenSearchIndexName: props.unifiedOpenSearchIndexName,
     });
 
     // MCP
@@ -365,7 +374,8 @@ export class GenerativeAiUseCasesStack extends Stack {
     // This ARN should be set as controlPlaneLambdaRoleArn in cdk.tenant.json
     new CfnOutput(this, 'BackgroundJobRoleArn', {
       value: backgroundJobRole.roleArn,
-      description: 'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
+      description:
+        'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
       exportName: `${this.stackName}-BackgroundJobRoleArn`,
     });
 

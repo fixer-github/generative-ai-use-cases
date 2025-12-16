@@ -8,10 +8,16 @@ import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantCredentials } from '../utils/tenantCredentials';
 
-// Tenant-aware cache: store vector store per tenant to prevent cross-tenant data leakage
-const vectorStoreCache = new Map<string, OpenSearchVectorStore>();
-let cachedEndpoint: string | null = null;
-let cachedTenantId: string | null = null;
+// Tenant-aware cache with expiration: store vector store per tenant to prevent cross-tenant data leakage
+// STS credentials expire after ~1 hour, so we track expiration to refresh before failure
+type CachedStore = {
+  store: OpenSearchVectorStore;
+  expiresAt: number;
+};
+const vectorStoreCache = new Map<string, CachedStore>();
+
+// Cache for unified endpoint (shared by all tenants)
+let cachedUnifiedEndpoint: string | null = null;
 
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 
@@ -33,20 +39,32 @@ function getTenantIdFromEvent(event: APIGatewayProxyEvent): string {
 }
 
 /**
- * Query tenants table for OpenSearch endpoint
+ * Get OpenSearch endpoint.
+ * Priority:
+ * 1. UNIFIED_OPENSEARCH_ENDPOINT environment variable (recommended - unified cluster)
+ * 2. Tenant-specific endpoint from tenants table (legacy - per-tenant OpenSearch)
  */
 async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
-  // Return cached endpoint if tenant hasn't changed
-  if (cachedEndpoint && cachedTenantId === tenantId) {
-    console.log(`Using cached OpenSearch endpoint for tenant ${tenantId}`);
-    return cachedEndpoint;
+  // Priority 1: Use unified OpenSearch endpoint if configured
+  const unifiedEndpoint = process.env.UNIFIED_OPENSEARCH_ENDPOINT;
+  if (unifiedEndpoint) {
+    if (!cachedUnifiedEndpoint) {
+      console.log(`Using unified OpenSearch endpoint: ${unifiedEndpoint}`);
+      cachedUnifiedEndpoint = unifiedEndpoint;
+    }
+    return cachedUnifiedEndpoint;
   }
+
+  // Priority 2: Fall back to tenant-specific endpoint from tenants table (legacy support)
+  console.warn(
+    'UNIFIED_OPENSEARCH_ENDPOINT not set, falling back to tenant-specific endpoint lookup'
+  );
 
   const tenantsTableName = process.env.TENANTS_TABLE_NAME;
 
   if (!tenantsTableName) {
     throw new Error(
-      'TENANTS_TABLE_NAME environment variable is required for multi-tenant OpenSearch access'
+      'Either UNIFIED_OPENSEARCH_ENDPOINT or TENANTS_TABLE_NAME environment variable is required'
     );
   }
 
@@ -66,7 +84,7 @@ async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
 
     if (!response.Item) {
       throw new Error(
-        `Tenant ${tenantId} not found in tenants table. Ensure tenant is registered with OpenSearch configuration.`
+        `Tenant ${tenantId} not found in tenants table. Ensure tenant is registered.`
       );
     }
 
@@ -75,16 +93,13 @@ async function getOpenSearchEndpoint(tenantId: string): Promise<string> {
 
     if (!endpoint) {
       throw new Error(
-        `OpenSearch endpoint not configured for tenant ${tenantId}. Please run tenant OpenSearch setup.`
+        `OpenSearch endpoint not configured for tenant ${tenantId}. ` +
+          'Consider setting UNIFIED_OPENSEARCH_ENDPOINT for unified cluster access.'
       );
     }
 
-    // Cache for subsequent calls
-    cachedEndpoint = endpoint;
-    cachedTenantId = tenantId;
-
     console.log(
-      `Successfully retrieved OpenSearch endpoint for tenant ${tenantId}: ${endpoint}`
+      `Retrieved tenant-specific OpenSearch endpoint for ${tenantId}: ${endpoint}`
     );
     return endpoint;
   } catch (error) {
@@ -110,11 +125,19 @@ async function initVectorStore(
   // Get OpenSearch endpoint from tenants table
   const endpoint = await getOpenSearchEndpoint(tenantId);
 
-  // Check if we have a cached vector store for this tenant
-  const cachedStore = vectorStoreCache.get(tenantId);
-  if (cachedStore) {
+  // Check if we have a valid cached vector store for this tenant (not expired)
+  const cached = vectorStoreCache.get(tenantId);
+  if (cached && Date.now() < cached.expiresAt) {
     console.log(`Using cached vector store for tenant ${tenantId}`);
-    return cachedStore;
+    return cached.store;
+  }
+
+  // Clear expired cache entry if exists
+  if (cached) {
+    console.log(
+      `Cached vector store for tenant ${tenantId} expired, refreshing credentials`
+    );
+    vectorStoreCache.delete(tenantId);
   }
 
   console.log(`Creating new vector store for tenant ${tenantId}`);
@@ -125,11 +148,16 @@ async function initVectorStore(
     : `https://${endpoint}`;
 
   // Get tenant credentials for OpenSearch access
-  const { credentials, tenant } = await getTenantCredentials(event);
+  const { credentials } = await getTenantCredentials(event);
 
   if (!credentials.AccessKeyId || !credentials.SecretAccessKey) {
     throw new Error('Invalid tenant credentials for OpenSearch access');
   }
+
+  // Calculate expiration time with 5 minute buffer before actual expiration
+  const expiresAt = credentials.Expiration
+    ? new Date(credentials.Expiration).getTime() - 5 * 60 * 1000
+    : Date.now() + 55 * 60 * 1000; // Default to 55 minutes if no expiration provided
 
   // Create OpenSearch client with AWS Sigv4 authentication using tenant credentials
   const client = new Client({
@@ -163,8 +191,8 @@ async function initVectorStore(
     indexName,
   });
 
-  // Cache the vector store for this tenant
-  vectorStoreCache.set(tenantId, newVectorStore);
+  // Cache the vector store for this tenant with expiration
+  vectorStoreCache.set(tenantId, { store: newVectorStore, expiresAt });
 
   return newVectorStore;
 }
@@ -242,6 +270,21 @@ export async function similaritySearch(
  * @param assistantId The assistant ID
  * @param event API Gateway event for tenant context
  */
+/**
+ * Get OpenSearch client from vector store
+ * OpenSearchVectorStore stores the client internally but doesn't expose it in types.
+ * We use type assertion via unknown to safely access the internal client property.
+ */
+function getClientFromStore(store: OpenSearchVectorStore): Client {
+  // OpenSearchVectorStore stores client internally, access via unknown to avoid TS intersection issues
+  const storeRecord = store as unknown as Record<string, unknown>;
+  const client = storeRecord.client;
+  if (client && typeof (client as Client).deleteByQuery === 'function') {
+    return client as Client;
+  }
+  throw new Error('OpenSearch client not available in vector store');
+}
+
 export async function deleteAssistantDocuments(
   assistantId: string,
   event: APIGatewayProxyEvent
@@ -251,7 +294,7 @@ export async function deleteAssistantDocuments(
     const indexName = process.env.OPENSEARCH_INDEX || 'assistant-docs';
 
     // Get the OpenSearch client
-    const client = (store as any).client as Client;
+    const client = getClientFromStore(store);
 
     // Delete by query - remove all documents with matching assistantId
     await client.deleteByQuery({

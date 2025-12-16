@@ -4,13 +4,13 @@ import { TenantS3Stack } from './stacks/tenant/tenant-s3-stack';
 import { TenantIAMStack } from './stacks/tenant/tenant-iam-stack';
 import { TenantPptxStack } from './stacks/tenant/tenant-pptx-stack';
 import { TenantVpcStack } from './stacks/tenant/tenant-vpc-stack';
-import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
+// Note: TenantOpenSearchStack has been replaced by UnifiedOpenSearchStack
+// import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
 import { TenantOpenFgaStack } from './stacks/tenant/tenant-openfga-stack';
 import { TenantPaymentGatewayStack } from './stacks/tenant/tenant-payment-gateway-stack';
 import { TenantRdsStack } from './stacks/tenant/tenant-rds-stack';
 import { TenantAuthorizationDbStack } from './stacks/tenant/tenant-authorization-db-stack';
 import { TenantOrchestrationDbStack } from './stacks/tenant/tenant-orchestration-db-stack';
-import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export interface NetworkConfig {
@@ -19,13 +19,9 @@ export interface NetworkConfig {
   natGateways: number;
 }
 
-export interface OpenSearchConfig {
-  capacity: opensearch.CapacityConfig;
-  ebsVolumeSize: number;
-  ebsVolumeType: ec2.EbsDeviceVolumeType;
-  availabilityZoneCount: number;
-  automatedSnapshotStartHour: number;
-}
+// Note: OpenSearchConfig has been removed.
+// OpenSearch is now managed by the unified OpenSearchStack in the common stack.
+// Tenants share the unified OpenSearch domain with index-level isolation.
 export interface IpAccessControlConfig {
   enabled: boolean;
   allowedIpV4AddressRanges: string[];
@@ -93,13 +89,13 @@ export interface TenantStackInput {
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
-  openSearchConfig: OpenSearchConfig;
+  // Note: openSearchConfig has been removed - OpenSearch is now unified
   networkConfig: NetworkConfig;
   ipAccessControl?: IpAccessControlConfig;
   controlPlaneRegion?: string;
   controlPlaneAccount?: string;
   tenantsTableName?: string;
-  openSearchIndexName?: string;
+  // Note: openSearchIndexName has been removed - using unified index
   openFgaConfig: OpenFgaConfig;
   controlPlaneLambdaRoleArn?: string;
 }
@@ -167,38 +163,10 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     }
   );
 
-  // Tenant Managed OpenSearch Stack
-  const tenantOpenSearchStack = new TenantOpenSearchStack(
-    app,
-    `TenantOpenSearchStack${params.environment}-${params.tenantId}`,
-    {
-      env: {
-        account: params.account,
-        region: params.region,
-      },
-      tenantId: params.tenantId,
-      environment: params.environment,
-      vpc: tenantVpcStack.vpc,
-      subnets: tenantVpcStack.privateSubnets,
-      capacity: params.openSearchConfig.capacity,
-      ebsVolumeSize: params.openSearchConfig.ebsVolumeSize,
-      ebsVolumeType: params.openSearchConfig.ebsVolumeType,
-      availabilityZoneCount: params.openSearchConfig.availabilityZoneCount,
-      automatedSnapshotStartHour:
-        params.openSearchConfig.automatedSnapshotStartHour,
-      removalPolicy: params.removalPolicy
-        ? cdk.RemovalPolicy.DESTROY
-        : cdk.RemovalPolicy.RETAIN,
-      tenantRoleArn: tenantIAMStack.tenantRole.role.roleArn,
-      tenantsTableName: params.tenantsTableName,
-      controlPlaneRegion: params.controlPlaneRegion,
-      openSearchIndexName: params.openSearchIndexName,
-    }
-  );
-
-  // Add dependencies to ensure IAM and VPC are created before OpenSearch
-  tenantOpenSearchStack.addDependency(tenantVpcStack);
-  tenantOpenSearchStack.addDependency(tenantIAMStack);
+  // Note: TenantOpenSearchStack has been removed.
+  // OpenSearch is now managed by the unified OpenSearchStack in the common stack.
+  // All tenants share the unified OpenSearch domain with index-level isolation
+  // using metadata.assistantId for document filtering.
 
   // Tenant PPTX Stack (optional)
   let tenantPptxStack;
@@ -326,7 +294,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantDynamoDBStack,
     tenantS3Stack,
     tenantVpcStack,
-    tenantOpenSearchStack,
+    // Note: tenantOpenSearchStack removed - using unified OpenSearch
     tenantPptxStack,
     tenantOpenFgaStack,
     tenantRdsStack,

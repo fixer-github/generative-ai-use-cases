@@ -53,6 +53,11 @@ export type GenericApiProps = {
   readonly tenantManager?: TenantManager;
   readonly tenantsTable?: Table;
 
+  // Unified OpenSearch (for assistant RAG)
+  readonly unifiedOpenSearchEndpoint?: string;
+  readonly unifiedOpenSearchDomainArn?: string;
+  readonly unifiedOpenSearchIndexName?: string;
+
   // LangChain Credentials
   readonly openai?: {
     readonly apiKey: string; // OPENAI_API_KEY
