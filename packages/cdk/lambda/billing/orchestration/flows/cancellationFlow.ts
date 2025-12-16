@@ -85,6 +85,89 @@ interface SubscriptionInfo {
 }
 
 /**
+ * サブスクリプションレスポンスの内部型
+ */
+interface SubscriptionResponseData {
+  platformType: string;
+  platformSubscriptionId: string;
+  currentPeriodEnd: string;
+}
+
+/**
+ * サブスクリプションレスポンスのバリデーション結果
+ */
+interface ValidatedSubscriptionResult {
+  isValid: true;
+  data: SubscriptionResponseData;
+}
+
+interface InvalidSubscriptionResult {
+  isValid: false;
+  error: string;
+}
+
+type SubscriptionValidationResult = ValidatedSubscriptionResult | InvalidSubscriptionResult;
+
+/**
+ * サブスクリプションレスポンスをバリデートする型ガード
+ */
+function validateSubscriptionResponse(
+  result: unknown,
+  subscriptionId: string
+): SubscriptionValidationResult {
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    !('subscription' in result)
+  ) {
+    return {
+      isValid: false,
+      error: `Invalid subscription response format for subscriptionId: ${subscriptionId}`,
+    };
+  }
+
+  const resultObj = result as { subscription: unknown };
+  const subscription = resultObj.subscription;
+
+  if (subscription === null || typeof subscription !== 'object') {
+    return {
+      isValid: false,
+      error: `Invalid subscription response format for subscriptionId: ${subscriptionId}`,
+    };
+  }
+
+  const sub = subscription as Record<string, unknown>;
+
+  if (
+    typeof sub.platformType !== 'string' ||
+    typeof sub.platformSubscriptionId !== 'string' ||
+    typeof sub.currentPeriodEnd !== 'string'
+  ) {
+    return {
+      isValid: false,
+      error: `Missing required fields in subscription response for subscriptionId: ${subscriptionId}`,
+    };
+  }
+
+  return {
+    isValid: true,
+    data: {
+      platformType: sub.platformType,
+      platformSubscriptionId: sub.platformSubscriptionId,
+      currentPeriodEnd: sub.currentPeriodEnd,
+    },
+  };
+}
+
+/**
+ * PlatformType のバリデーション型ガード
+ */
+function isPlatformType(value: string): value is PlatformType {
+  const validPlatformTypes: PlatformType[] = ['stripe', 'apple', 'google'];
+  return validPlatformTypes.includes(value as PlatformType);
+}
+
+/**
  * サブスクリプション情報を取得
  *
  * @param tenantId テナントID
@@ -104,43 +187,21 @@ async function getSubscriptionInfo(
     subscriptionId,
   });
 
-  // ランタイムバリデーション
-  if (
-    !result ||
-    typeof result !== 'object' ||
-    !('subscription' in result) ||
-    result.subscription === null ||
-    typeof result.subscription !== 'object'
-  ) {
-    throw new Error(
-      `Invalid subscription response format for subscriptionId: ${subscriptionId}`
-    );
+  // 型ガードを使用してバリデーション
+  const validationResult = validateSubscriptionResponse(result, subscriptionId);
+
+  if (validationResult.isValid === false) {
+    throw new Error(validationResult.error);
   }
 
-  const subscription = result.subscription as Record<string, unknown>;
+  const { platformType, platformSubscriptionId, currentPeriodEnd } = validationResult.data;
 
-  // 必須フィールドの検証
-  if (
-    typeof subscription.platformType !== 'string' ||
-    typeof subscription.platformSubscriptionId !== 'string' ||
-    typeof subscription.currentPeriodEnd !== 'string'
-  ) {
+  // PlatformType の検証（型ガード使用）
+  if (!isPlatformType(platformType)) {
     throw new Error(
-      `Missing required fields in subscription response for subscriptionId: ${subscriptionId}`
+      `Invalid platformType: ${platformType} for subscriptionId: ${subscriptionId}`
     );
   }
-
-  // PlatformType の検証
-  const validPlatformTypes: PlatformType[] = ['stripe', 'apple', 'google'];
-  if (!validPlatformTypes.includes(subscription.platformType as PlatformType)) {
-    throw new Error(
-      `Invalid platformType: ${subscription.platformType} for subscriptionId: ${subscriptionId}`
-    );
-  }
-
-  const platformType = subscription.platformType as PlatformType;
-  const platformSubscriptionId = subscription.platformSubscriptionId as string;
-  const currentPeriodEnd = subscription.currentPeriodEnd as string;
 
   console.log('Subscription info retrieved', {
     platform: platformType,

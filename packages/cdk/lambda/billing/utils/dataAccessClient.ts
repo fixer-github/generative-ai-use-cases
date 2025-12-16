@@ -58,7 +58,7 @@ export async function invokeDataAccessFunction<TResponse>(
   event: APIGatewayProxyEvent,
   dataAccessType: DataAccessType,
   operation: string,
-  params: any
+  params: Record<string, unknown>
 ): Promise<TResponse> {
   // 1. テナントIDを取得
   const tenantId = extractTenantId(event);
@@ -185,7 +185,7 @@ export async function invokeDataAccessFunctionByTenantId<TResponse>(
   tenantId: string,
   dataAccessType: DataAccessType,
   operation: string,
-  params: any
+  params: Record<string, unknown>
 ): Promise<TResponse> {
   // 1. クロスアカウント対応のクレデンシャルを取得
   // 同一アカウントの場合はnull、クロスアカウントの場合はクレデンシャルが返る
