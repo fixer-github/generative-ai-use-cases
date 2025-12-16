@@ -9,6 +9,12 @@ export type { ApiResponse, ApiError } from './apiClient';
 
 export { TestCleanupHelper, TestResourceTracker } from './cleanupHelper';
 
+export {
+  GlobalUserCleanup,
+  GlobalPlanCleanup,
+  createCleanupAdminUser,
+} from './globalCleanupHelper';
+
 export { TestUserManager, generateTestUserEmail } from './testUserHelper';
 export type { TestUserCredentials } from './testUserHelper';
 
