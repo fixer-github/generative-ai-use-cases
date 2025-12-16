@@ -1,5 +1,6 @@
 *.js
 !jest.config.js
+!getMetricsLambda.js
 *.d.ts
 node_modules
 **/__pycache__/**
