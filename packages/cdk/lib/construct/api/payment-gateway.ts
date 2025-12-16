@@ -59,6 +59,9 @@ class PaymentGatewayApi extends Construct {
   public readonly cancelSubscriptionFunction: NodejsFunction;
   public readonly createCustomerPortalSessionFunction: NodejsFunction;
 
+  // Internal functions for Lambda-to-Lambda invocation (orchestration flow)
+  public readonly cancelSubscriptionInternalFunction: NodejsFunction;
+
   constructor(scope: Construct, id: string, props: PaymentGatewayApiProps) {
     super(scope, id);
 
@@ -199,6 +202,23 @@ class PaymentGatewayApi extends Construct {
       }
     );
 
+    // サブスクリプションキャンセル（内部用 - Lambda-to-Lambda呼び出し専用）
+    const cancelSubscriptionInternalFunction = new NodejsFunction(
+      this,
+      'CancelSubscriptionInternal',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/payment-gateway/internal/cancelSubscription.ts',
+        functionName: `${environment}-billing-payment-cancel-subscription-internal`,
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: {
+          // テナント専用リソースへのアクセスは実行時に動的に決定
+        },
+      }
+    );
+
     // 請求書PDF取得
     const getInvoiceFunction = new NodejsFunction(this, 'GetInvoice', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -294,6 +314,7 @@ class PaymentGatewayApi extends Construct {
       createCheckoutSessionFunction,
       updateSubscriptionFunction,
       cancelSubscriptionFunction,
+      cancelSubscriptionInternalFunction,
       getInvoiceFunction,
       createCustomerPortalSessionFunction,
     ].forEach((func) => {
@@ -439,6 +460,7 @@ class PaymentGatewayApi extends Construct {
     this.updateSubscriptionFunction = updateSubscriptionFunction;
     this.cancelSubscriptionFunction = cancelSubscriptionFunction;
     this.createCustomerPortalSessionFunction = createCustomerPortalSessionFunction;
+    this.cancelSubscriptionInternalFunction = cancelSubscriptionInternalFunction;
   }
 }
 

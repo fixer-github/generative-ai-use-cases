@@ -90,9 +90,14 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`;
 
+    // Extract origin from baseUrl for APIs that need it (e.g., Stripe checkout return URL)
+    const baseUrlObj = new URL(this.baseUrl);
+    const origin = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
+
     const headers: Record<string, string> = {
       Authorization: this.authToken,
       'Content-Type': 'application/json',
+      Origin: origin,
     };
 
     const options: RequestInit = {

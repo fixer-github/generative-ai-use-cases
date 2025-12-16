@@ -65,10 +65,16 @@ export interface UpdateSubscriptionResponse {
 export interface CancelSubscriptionParams {
   /** プラットフォームタイプ（stripe、apple、google） */
   platform: 'stripe' | 'apple' | 'google';
-  /** サブスクリプションID */
-  subscriptionId: string;
+  /** プラットフォーム側のサブスクリプションID（Stripe: sub_xxx, etc.） */
+  platformSubscriptionId: string;
   /** 期間終了時にキャンセルするか（true: 期間終了時、false: 即座） */
   atPeriodEnd: boolean;
+  /** テナントID（シークレット取得に必要） */
+  tenantId: string;
+  /** Google固有: パッケージ名 */
+  packageName?: string;
+  /** Google固有: 購入トークン */
+  purchaseToken?: string;
 }
 
 /**
@@ -195,7 +201,7 @@ export class PaymentGatewayClient {
     console.log('Canceling subscription', {
       functionName,
       platform: params.platform,
-      subscriptionId: params.subscriptionId,
+      platformSubscriptionId: params.platformSubscriptionId,
       atPeriodEnd: params.atPeriodEnd,
     });
 

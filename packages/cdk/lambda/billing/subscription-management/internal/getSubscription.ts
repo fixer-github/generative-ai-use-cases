@@ -101,11 +101,11 @@ export const handler = async (
         platformType: subscription.platform_type,
         platformSubscriptionId: subscription.platform_subscription_id,
         subscriptionStatus: subscription.subscription_status,
-        currentPeriodStart: subscription.current_period_start.toISOString(),
-        currentPeriodEnd: subscription.current_period_end.toISOString(),
+        currentPeriodStart: new Date(subscription.current_period_start).toISOString(),
+        currentPeriodEnd: new Date(subscription.current_period_end).toISOString(),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        createdAt: subscription.created_at.toISOString(),
-        updatedAt: subscription.updated_at.toISOString(),
+        createdAt: new Date(subscription.created_at).toISOString(),
+        updatedAt: new Date(subscription.updated_at).toISOString(),
       },
     };
   } catch (error) {

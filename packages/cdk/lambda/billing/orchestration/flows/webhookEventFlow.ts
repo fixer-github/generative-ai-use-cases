@@ -390,8 +390,8 @@ async function handlePaymentSucceeded(
         // プラン適用の有効期限を延長（activeステータスを維持）
         const result = await planClient.updatePlanApplicationStatus({
           tenantId,
-          planApplicationId,
-          status: 'active',
+          applicationId: planApplicationId,
+          newStatus: 'active',
         });
 
         console.log('Plan application period extended successfully', {
@@ -692,18 +692,15 @@ async function handleRefundCreated(
           userId,
         });
 
-        // 現在のプラン適用IDを取得（実際にはサブスクリプションから取得）
-        const planApplicationId = `app-${userId}-${subscriptionId}`;
-
+        // subscriptionIdをapplicationSourceIdとして渡し、Lambda側で適用を検索して終了
         const result = await planClient.terminatePlanApplication({
           tenantId,
           userId,
-          planApplicationId,
-          immediate: true, // 返金時は即座に終了
+          applicationSourceId: subscriptionId,
         });
 
         console.log('Plan application terminated immediately', {
-          planApplicationId,
+          applicationId: result.applicationId,
           success: result.success,
         });
 

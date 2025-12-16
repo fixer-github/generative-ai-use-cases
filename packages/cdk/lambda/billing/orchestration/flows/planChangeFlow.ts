@@ -286,30 +286,26 @@ export const handler = async (
           currentPlanId,
         });
 
-        // TODO: 現在のプラン適用IDを取得する処理を実装
-        // 現時点では仮のIDを使用
-        const planApplicationId = `app-${userId}-${currentPlanId}`;
-
         try {
+          // subscriptionIdをapplicationSourceIdとして渡し、Lambda側で適用を検索して終了
           const result = await planClient.terminatePlanApplication({
             tenantId,
             userId,
-            planApplicationId,
-            immediate: changeType === 'upgrade', // アップグレードは即座、ダウングレードは次回更新時
+            applicationSourceId: subscriptionId,
           });
 
           console.log('Old plan application terminated successfully', {
-            planApplicationId,
+            applicationId: result.applicationId,
             success: result.success,
           });
 
           return {
-            planApplicationId,
+            applicationId: result.applicationId,
             success: result.success,
           };
         } catch (error) {
           console.error('Failed to terminate old plan application', {
-            planApplicationId,
+            subscriptionId,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
 
@@ -371,21 +367,16 @@ export const handler = async (
           applicationId?: string;
         };
 
-        if (!planApplicationData?.applicationId) {
-          console.warn('No application ID found for rollback');
-          return;
-        }
-
         try {
+          // subscriptionIdをapplicationSourceIdとして渡し、新しいプラン適用を終了
           await planClient.terminatePlanApplication({
             tenantId,
             userId,
-            planApplicationId: planApplicationData.applicationId,
-            immediate: true,
+            applicationSourceId: subscriptionId,
           });
 
           console.log('New plan application terminated successfully', {
-            applicationId: planApplicationData.applicationId,
+            subscriptionId,
           });
 
           // 古いプランの権限を再付与

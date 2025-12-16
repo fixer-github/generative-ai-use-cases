@@ -209,7 +209,7 @@ export class BillingManagementStack extends NestedStack {
       paymentGatewayFunctions: {
         verifyReceipt: paymentGatewayApi.verifyReceiptFunction,
         updateSubscription: paymentGatewayApi.updateSubscriptionFunction,
-        cancelSubscription: paymentGatewayApi.cancelSubscriptionFunction,
+        cancelSubscription: paymentGatewayApi.cancelSubscriptionInternalFunction,
       },
     });
 

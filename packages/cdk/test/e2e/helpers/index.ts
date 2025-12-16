@@ -29,3 +29,15 @@ export type {
   ApplyPlanToUserResponse,
   CreateTestPlanRequestOptions,
 } from './testDataFactory';
+
+export { WebhookTestClient } from './webhookClient';
+export type { WebhookResponse, StripeSignatureOptions } from './webhookClient';
+
+export {
+  SubscriptionTestHelper,
+  generateTestPlatformSubscriptionId,
+} from './subscriptionTestHelper';
+export type {
+  CreateTestSubscriptionInput,
+  CreateTestSubscriptionOutput,
+} from './subscriptionTestHelper';
