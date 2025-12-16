@@ -30,6 +30,7 @@ export default defineConfig({
     globals: true,
     include: ['**/*.e2e.test.ts'],
     setupFiles: ['./setup.ts'],
+    globalSetup: ['./globalSetup.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,
   },

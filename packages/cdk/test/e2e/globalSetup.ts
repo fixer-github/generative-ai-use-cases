@@ -3,10 +3,12 @@
  *
  * This runs ONCE before any test files are loaded.
  * Sets AWS_PROFILE and AWS_REGION so AWS SDK clients work correctly.
+ * Returns a teardown function that runs after all tests complete.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import globalTeardown from './globalTeardown';
 
 const CDK_ROOT = path.join(__dirname, '..', '..');
 const ENV_FILE = path.join(CDK_ROOT, '.env.e2e');
@@ -35,7 +37,7 @@ function loadEnvFile(): Record<string, string> {
   return config;
 }
 
-export default function globalSetup() {
+export default function globalSetup(): () => Promise<void> {
   const envConfig = loadEnvFile();
 
   // Set AWS credentials config
@@ -57,4 +59,7 @@ export default function globalSetup() {
   }
 
   console.log(`Global Setup: AWS_PROFILE=${process.env.AWS_PROFILE || '(default)'}, AWS_REGION=${process.env.AWS_REGION}`);
+
+  // Return teardown function to be called after all tests complete
+  return globalTeardown;
 }

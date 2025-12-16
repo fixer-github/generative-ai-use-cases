@@ -17,22 +17,16 @@ import {
   InitiateAuthCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { fromEnv, fromIni } from '@aws-sdk/credential-providers';
+import { fromIni } from '@aws-sdk/credential-providers';
 import type { AwsCredentialIdentityProvider } from '@smithy/types';
 import { testConfig } from '../setup';
 import { E2E_TEST_EMAIL_PREFIX } from './testDataFactory';
 
 /**
- * Get credential provider based on available configuration.
- * Priority: Environment variables > AWS Profile
+ * Get credential provider based on AWS_PROFILE configuration.
  */
 function getCredentialProvider(): AwsCredentialIdentityProvider | undefined {
-  // If AWS credentials are set as environment variables, use them
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    return fromEnv();
-  }
-
-  // If AWS_PROFILE is set, try to use it
+  // If AWS_PROFILE is set, use profile-based credentials
   if (process.env.AWS_PROFILE) {
     return fromIni({ profile: process.env.AWS_PROFILE });
   }
