@@ -34,6 +34,8 @@ import {
   UpdateSubscriptionStatusParams,
 } from '../clients/subscriptionManagementClient';
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
+import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
 
 /**
  * プランレベル定義
@@ -203,15 +205,37 @@ export const handler = async (
           prorate: changeType === 'upgrade',
         });
 
+        // 新しいプランの情報を取得してStripe Price IDを取得
+        const newPlan = await invokeDataAccessFunctionByTenantId<Plan | null>(
+          tenantId,
+          'plan',
+          'findById',
+          { id: newPlanId }
+        );
+
+        if (!newPlan) {
+          throw new Error(`Plan not found: ${newPlanId}`);
+        }
+
+        if (!newPlan.platform_product_id) {
+          throw new Error(`Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`);
+        }
+
+        console.log('Retrieved new plan info', {
+          planId: newPlan.plan_id,
+          platformProductId: newPlan.platform_product_id,
+          platformType: newPlan.platform_type,
+        });
+
         // TODO: サブスクリプション情報から決済プラットフォームを取得
-        // 現時点では仮でstripeを使用
-        const platform: PlatformType = 'stripe';
+        // 現時点ではプランのプラットフォームタイプを使用
+        const platform: PlatformType = newPlan.platform_type as PlatformType || 'stripe';
 
         try {
           const result = await paymentClient.updateSubscription({
             platform,
             subscriptionId,
-            newPlanId,
+            newPlanId: newPlan.platform_product_id, // Use Stripe price ID instead of internal plan ID
             prorate: changeType === 'upgrade', // アップグレードは即座、ダウングレードは次回更新時
           });
 

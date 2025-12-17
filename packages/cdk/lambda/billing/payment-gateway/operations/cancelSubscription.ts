@@ -10,11 +10,19 @@ import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
  * リクエストボディの型
+ * Note: PaymentGatewayClient sends 'platform', 'platformSubscriptionId', 'atPeriodEnd'
+ * We accept both naming conventions for backward compatibility
  */
 interface CancelSubscriptionRequest {
-  platformType: PlatformType;
-  subscriptionId: string;
-  cancelImmediately: boolean; // 即時キャンセルか期限終了時キャンセルか
+  /** Platform type - accepts both 'platform' and 'platformType' */
+  platform?: PlatformType;
+  platformType?: PlatformType;
+  /** Subscription ID - accepts both 'subscriptionId' and 'platformSubscriptionId' */
+  subscriptionId?: string;
+  platformSubscriptionId?: string;
+  /** Whether to cancel immediately - accepts 'cancelImmediately' or inverse of 'atPeriodEnd' */
+  cancelImmediately?: boolean;
+  atPeriodEnd?: boolean;
   // Google固有のパラメータ
   packageName?: string;
   purchaseToken?: string;
@@ -78,19 +86,39 @@ export async function handler(
     }
 
     const requestBody: CancelSubscriptionRequest = JSON.parse(event.body);
-    const {
-      platformType,
-      subscriptionId,
-      cancelImmediately,
-      packageName,
-      purchaseToken,
-    } = requestBody;
+
+    // Support both naming conventions for backward compatibility
+    const platformType = requestBody.platform || requestBody.platformType;
+    const subscriptionId = requestBody.platformSubscriptionId || requestBody.subscriptionId;
+    // atPeriodEnd is inverse of cancelImmediately
+    const cancelImmediately = requestBody.cancelImmediately ?? (requestBody.atPeriodEnd === false);
+    const { packageName, purchaseToken } = requestBody;
 
     console.log('Cancel subscription request:', {
       platformType,
       subscriptionId,
+      cancelImmediately,
       tenantId,
     });
+
+    // Validate required fields
+    if (!platformType) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'platformType (or platform) is required',
+        }),
+      };
+    }
+
+    if (!subscriptionId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'subscriptionId (or platformSubscriptionId) is required',
+        }),
+      };
+    }
 
     // 3. プラットフォームごとにキャンセル処理を実行
     let result;
