@@ -411,6 +411,15 @@ class UserBillingApi extends Construct {
       })
     );
 
+    // Secrets Manager読み取り権限（Stripe APIキー取得用）
+    this.getCurrentSubscriptionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
     const currentResource = subscriptionsResource.addResource('current');
     currentResource.addMethod(
       'GET',

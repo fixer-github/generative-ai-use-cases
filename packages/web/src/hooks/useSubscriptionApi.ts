@@ -59,6 +59,19 @@ export interface ActivateSubscriptionResponse {
   message?: string;
 }
 
+export interface PaymentMethodCard {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  displayName: string;
+}
+
+export interface PaymentMethod {
+  type: string;
+  card?: PaymentMethodCard;
+}
+
 export interface CurrentSubscription {
   subscriptionId?: string;
   planId?: string;
@@ -66,6 +79,8 @@ export interface CurrentSubscription {
   status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'none';
   nextBillingDate?: string;
   cancelAtPeriodEnd?: boolean;
+  subscribedAt?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface StoreInfo {
