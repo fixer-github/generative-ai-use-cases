@@ -265,8 +265,32 @@ export class PaymentGatewayClient {
           );
         }
 
-        const result = JSON.parse(new TextDecoder().decode(response.Payload));
-        return result as T;
+        const rawResult = JSON.parse(new TextDecoder().decode(response.Payload));
+
+        // Handle API Gateway response format (statusCode + body)
+        // Internal Lambdas may return this format when they're designed for API Gateway
+        if (
+          rawResult &&
+          typeof rawResult.statusCode === 'number' &&
+          typeof rawResult.body === 'string'
+        ) {
+          // Check if the Lambda returned an error status code
+          if (rawResult.statusCode >= 400) {
+            const errorBody = JSON.parse(rawResult.body);
+            throw new PaymentGatewayClientError(
+              `HTTP_${rawResult.statusCode}`,
+              errorBody.error || `Lambda returned status ${rawResult.statusCode}`,
+              errorBody
+            );
+          }
+
+          // Parse and return the body
+          const result = JSON.parse(rawResult.body);
+          return result as T;
+        }
+
+        // Direct response format (no API Gateway wrapper)
+        return rawResult as T;
       } catch (error) {
         lastError = error as Error;
 

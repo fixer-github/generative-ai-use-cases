@@ -397,7 +397,7 @@ const PlanManagementTab: React.FC = () => {
                   ? '利用不可'
                   : isCreatingSession && selectedPlan?.planId === plan.planId
                   ? '処理中...'
-                  : currentSubscription?.status === 'active' && !currentSubscription?.cancelAtPeriodEnd
+                  : currentSubscription?.status === 'active' && currentSubscription?.subscriptionId && !currentSubscription?.cancelAtPeriodEnd
                   ? (plan.pricing?.amount || 0) > (currentPlan?.pricing?.amount || 0)
                     ? 'アップグレード'
                     : 'ダウングレード'

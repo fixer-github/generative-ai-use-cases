@@ -112,19 +112,19 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {loading || !stripePromise ? (
+            {stripeError ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <p className="text-sm text-red-600">{stripeError}</p>
+                </div>
+              </div>
+            ) : loading || !stripePromise ? (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                   <PiSpinnerGap className="mx-auto h-8 w-8 animate-spin text-gray-400" />
                   <p className="mt-2 text-sm text-gray-600">
                     {loading ? '処理中...' : '読み込み中...'}
                   </p>
-                </div>
-              </div>
-            ) : stripeError ? (
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center">
-                  <p className="text-sm text-red-600">{stripeError}</p>
                 </div>
               </div>
             ) : (
