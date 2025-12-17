@@ -10,12 +10,20 @@ import { getTenantId } from '../../../utils/tenantUtils';
 
 /**
  * リクエストボディの型
+ * Note: PaymentGatewayClient sends 'platform', 'newPlanId', 'prorate'
+ * We accept both naming conventions for backward compatibility
  */
 interface UpdateSubscriptionRequest {
-  platformType: PlatformType;
+  /** Platform type - accepts both 'platform' and 'platformType' */
+  platform?: PlatformType;
+  platformType?: PlatformType;
   subscriptionId: string;
-  newPriceId: string;
-  isUpgrade: boolean;
+  /** New price/plan ID - accepts both 'newPlanId' and 'newPriceId' */
+  newPlanId?: string;
+  newPriceId?: string;
+  /** Whether to prorate (upgrade) - accepts both 'prorate' and 'isUpgrade' */
+  prorate?: boolean;
+  isUpgrade?: boolean;
 }
 
 /**
@@ -75,13 +83,48 @@ export async function handler(
     }
 
     const requestBody: UpdateSubscriptionRequest = JSON.parse(event.body);
-    const { platformType, subscriptionId, newPriceId, isUpgrade } = requestBody;
+
+    // Support both naming conventions for backward compatibility
+    const platformType = requestBody.platform || requestBody.platformType;
+    const subscriptionId = requestBody.subscriptionId;
+    const newPriceId = requestBody.newPlanId || requestBody.newPriceId;
+    const isUpgrade = requestBody.prorate ?? requestBody.isUpgrade ?? false;
 
     console.log('Update subscription request:', {
       platformType,
       subscriptionId,
+      newPriceId,
+      isUpgrade,
       tenantId,
     });
+
+    // Validate required fields
+    if (!platformType) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'platformType (or platform) is required',
+        }),
+      };
+    }
+
+    if (!subscriptionId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'subscriptionId is required',
+        }),
+      };
+    }
+
+    if (!newPriceId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'newPriceId (or newPlanId) is required',
+        }),
+      };
+    }
 
     // 3. プラットフォームごとに更新処理を実行
     let result;

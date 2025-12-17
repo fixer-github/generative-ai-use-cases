@@ -321,7 +321,7 @@ export const handler = async (
       success: true,
       flowExecutionId: flowOutput.flowExecutionId,
       changeType: flowOutput.changeType,
-      newPlanId: flowOutput.newPlanId,
+      newPlanId, // Use newPlanId from the request, as it's not in flowOutput
       effectiveDate: flowOutput.effectiveDate,
       message,
     };
@@ -329,7 +329,7 @@ export const handler = async (
     console.log('Plan change completed successfully:', {
       flowExecutionId: flowOutput.flowExecutionId,
       changeType: flowOutput.changeType,
-      newPlanId: flowOutput.newPlanId,
+      newPlanId,
       effectiveDate: flowOutput.effectiveDate,
     });
 

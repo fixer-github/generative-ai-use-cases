@@ -15,6 +15,7 @@ const api = axios.create({
 // Billing API instance with separate endpoint
 const billingApi = axios.create({
   baseURL: import.meta.env.VITE_APP_BILLING_API_ENDPOINT,
+  timeout: 60000, // 60 second timeout for billing operations
 });
 
 // Helper function to setup interceptors for axios instances
