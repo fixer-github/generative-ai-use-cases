@@ -9,6 +9,11 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import Stripe from 'stripe';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
   Plan,
@@ -22,6 +27,25 @@ import {
   internalServerError500Response,
 } from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
+
+/**
+ * 支払い方法（カード）の型
+ */
+interface PaymentMethodCard {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  displayName: string;
+}
+
+/**
+ * 支払い方法の型
+ */
+interface PaymentMethod {
+  type: string;
+  card?: PaymentMethodCard;
+}
 
 /**
  * 現在のプラン情報のレスポンス型
@@ -38,9 +62,248 @@ interface CurrentPlanResponse {
   nextBillingDate: string | null;
   cancelAtPeriodEnd: boolean;
   serviceEndDate?: string | null;
+  subscribedAt: string | null;
+  paymentMethod: PaymentMethod | null;
   amount: number;
   currency: string;
   interval: string;
+}
+
+/**
+ * Stripe APIキーのキャッシュ
+ */
+let stripeApiKeyCache: { [key: string]: string } = {};
+
+/**
+ * Secrets ManagerからStripe APIキーを取得する
+ */
+async function getStripeApiKey(tenantId: string): Promise<string | null> {
+  if (stripeApiKeyCache[tenantId]) {
+    return stripeApiKeyCache[tenantId];
+  }
+
+  const secretName = `${tenantId}/billing/stripe`;
+  const client = new SecretsManagerClient({});
+  const command = new GetSecretValueCommand({ SecretId: secretName });
+
+  try {
+    const response = await client.send(command);
+
+    if (!response.SecretString) {
+      console.log(`Secret ${secretName} is empty`);
+      return null;
+    }
+
+    const secret = JSON.parse(response.SecretString);
+    if (!secret.apiKey) {
+      console.log(`API key not configured for tenant ${tenantId}`);
+      return null;
+    }
+
+    stripeApiKeyCache[tenantId] = secret.apiKey;
+    return secret.apiKey;
+  } catch (error) {
+    console.error('Failed to retrieve Stripe API key:', error);
+    return null;
+  }
+}
+
+/**
+ * Stripe PaymentMethodオブジェクトからカード情報を抽出する
+ */
+function extractCardFromPaymentMethod(
+  paymentMethod: Stripe.PaymentMethod
+): PaymentMethod | null {
+  if (paymentMethod.type !== 'card' || !paymentMethod.card) {
+    console.log('Payment method is not a card', {
+      paymentMethodType: paymentMethod.type,
+    });
+    return null;
+  }
+
+  const card = paymentMethod.card;
+  const brandDisplay = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
+
+  return {
+    type: 'card',
+    card: {
+      brand: card.brand,
+      last4: card.last4 || '',
+      expMonth: card.exp_month,
+      expYear: card.exp_year,
+      displayName: `${brandDisplay} •••• ${card.last4}`,
+    },
+  };
+}
+
+/**
+ * 文字列からIDを抽出する（オブジェクトの場合はidプロパティを取得）
+ */
+function extractId(
+  value: string | { id: string } | null | undefined
+): string | null {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if ('id' in value) {
+    return value.id;
+  }
+  return null;
+}
+
+/**
+ * 顧客IDを取得する
+ */
+function getCustomerId(
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined
+): string | null {
+  if (!customer) {
+    return null;
+  }
+  if (typeof customer === 'string') {
+    return customer;
+  }
+  if ('id' in customer) {
+    return customer.id;
+  }
+  return null;
+}
+
+/**
+ * 顧客IDと支払い方法IDを使用してPaymentMethodを取得する
+ * GET /v1/customers/{customer_id}/payment_methods/{payment_method_id}
+ */
+async function retrieveCustomerPaymentMethod(
+  stripe: Stripe,
+  customerId: string,
+  paymentMethodId: string
+): Promise<Stripe.PaymentMethod | null> {
+  try {
+    console.log('Retrieving payment method:', { customerId, paymentMethodId });
+    return await stripe.customers.retrievePaymentMethod(customerId, paymentMethodId);
+  } catch (error) {
+    console.error('Failed to retrieve customer payment method:', error);
+    return null;
+  }
+}
+
+/**
+ * Stripeから支払い方法情報を取得する
+ *
+ * フロー:
+ * 1. サブスクリプションから顧客IDと最新インボイスIDを取得
+ * 2. インボイスのdefault_payment_methodから支払い方法IDを取得
+ * 3. 顧客IDと支払い方法IDを使用してPaymentMethodを取得
+ *
+ * フォールバック:
+ * - インボイスのdefault_payment_methodがない場合、payments経由で取得
+ * - それでもない場合、顧客の支払い方法一覧から取得
+ */
+async function getPaymentMethodFromStripe(
+  tenantId: string,
+  platformSubscriptionId: string
+): Promise<PaymentMethod | null> {
+  try {
+    const apiKey = await getStripeApiKey(tenantId);
+    if (!apiKey) {
+      console.log('Stripe API key not available');
+      return null;
+    }
+
+    const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+    // 1. サブスクリプション情報を取得
+    const subscription = await stripe.subscriptions.retrieve(platformSubscriptionId);
+
+    const customerId = getCustomerId(subscription.customer);
+    if (!customerId) {
+      console.log('No customer ID found on subscription');
+      return null;
+    }
+
+    console.log('Subscription info:', {
+      customerId,
+      latestInvoiceId: extractId(subscription.latest_invoice),
+      defaultPaymentMethodId: extractId(subscription.default_payment_method),
+    });
+
+    // 2. サブスクリプションのdefault_payment_methodを試す
+    const subscriptionPaymentMethodId = extractId(subscription.default_payment_method);
+    if (subscriptionPaymentMethodId) {
+      const pm = await retrieveCustomerPaymentMethod(stripe, customerId, subscriptionPaymentMethodId);
+      if (pm) {
+        console.log('Using subscription.default_payment_method');
+        const result = extractCardFromPaymentMethod(pm);
+        if (result) return result;
+      }
+    }
+
+    // 3. インボイスから支払い方法を取得
+    const invoiceId = extractId(subscription.latest_invoice);
+    if (invoiceId) {
+      const invoice = await stripe.invoices.retrieve(invoiceId, {
+        expand: ['payments.data.payment.payment_intent'],
+      });
+
+      console.log('Invoice info:', {
+        invoiceId: invoice.id,
+        defaultPaymentMethodId: extractId(invoice.default_payment_method),
+        paymentsCount: invoice.payments?.data?.length ?? 0,
+      });
+
+      // 3a. インボイスのdefault_payment_methodを試す
+      const invoicePaymentMethodId = extractId(invoice.default_payment_method);
+      if (invoicePaymentMethodId) {
+        const pm = await retrieveCustomerPaymentMethod(stripe, customerId, invoicePaymentMethodId);
+        if (pm) {
+          console.log('Using invoice.default_payment_method');
+          const result = extractCardFromPaymentMethod(pm);
+          if (result) return result;
+        }
+      }
+
+      // 3b. インボイスのpayments経由でpayment_intent.payment_methodを取得
+      const firstPayment = invoice.payments?.data?.[0];
+      if (firstPayment?.payment?.payment_intent) {
+        const paymentIntentId = extractId(firstPayment.payment.payment_intent);
+        if (paymentIntentId) {
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const paymentMethodId = extractId(paymentIntent.payment_method);
+          if (paymentMethodId) {
+            const pm = await retrieveCustomerPaymentMethod(stripe, customerId, paymentMethodId);
+            if (pm) {
+              console.log('Using invoice.payments.payment.payment_intent.payment_method');
+              const result = extractCardFromPaymentMethod(pm);
+              if (result) return result;
+            }
+          }
+        }
+      }
+    }
+
+    // 4. 顧客の支払い方法一覧から最新のカードを取得（最終フォールバック）
+    console.log('Trying to list customer payment methods as fallback');
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+      limit: 1,
+    });
+
+    if (paymentMethods.data.length > 0) {
+      console.log('Using customer payment method from list');
+      const result = extractCardFromPaymentMethod(paymentMethods.data[0]);
+      if (result) return result;
+    }
+
+    console.log('No payment method found from any source');
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch payment method from Stripe:', error);
+    return null;
+  }
 }
 
 /**
@@ -294,7 +557,23 @@ export const handler = async (
       });
     }
 
-    // 8. レスポンスの構築
+    // 8. 支払い方法情報を取得（Stripeの場合のみ）
+    let paymentMethod: PaymentMethod | null = null;
+    if (
+      subscription &&
+      subscription.platform_type === 'stripe' &&
+      subscription.platform_subscription_id
+    ) {
+      console.log('Fetching payment method from Stripe:', {
+        platformSubscriptionId: subscription.platform_subscription_id,
+      });
+      paymentMethod = await getPaymentMethodFromStripe(
+        tenantId,
+        subscription.platform_subscription_id
+      );
+    }
+
+    // 9. レスポンスの構築
     const response: CurrentPlanResponse = {
       planId: plan.plan_id,
       planName: plan.internal_name,
@@ -315,6 +594,12 @@ export const handler = async (
       nextBillingDate,
       cancelAtPeriodEnd,
       serviceEndDate,
+      subscribedAt: subscription?.created_at
+        ? (typeof subscription.created_at === 'string'
+            ? subscription.created_at
+            : new Date(subscription.created_at).toISOString())
+        : null,
+      paymentMethod,
       // 価格情報（Freeプランの場合は0円、それ以外は要件に応じて実装）
       amount: plan.internal_name === 'Freeプラン' ? 0 : 1000, // TODO: 価格情報を動的に取得
       currency: 'JPY',

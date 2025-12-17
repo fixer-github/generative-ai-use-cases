@@ -275,10 +275,27 @@ const PlanManagementTab: React.FC = () => {
                 <p className="text-sm text-gray-700">
                   プラン: <span className="font-medium">{currentSubscription.planName || '未設定'}</span>
                 </p>
+                {currentSubscription.subscribedAt && (
+                  <p className="text-sm text-gray-700">
+                    契約開始日: <span className="font-medium">
+                      {new Date(currentSubscription.subscribedAt).toLocaleDateString('ja-JP')}
+                    </span>
+                  </p>
+                )}
                 {currentSubscription.nextBillingDate && (
                   <p className="text-sm text-gray-700">
                     次回請求日: <span className="font-medium">
                       {new Date(currentSubscription.nextBillingDate).toLocaleDateString('ja-JP')}
+                    </span>
+                  </p>
+                )}
+                {currentSubscription.paymentMethod?.card && (
+                  <p className="text-sm text-gray-700">
+                    お支払い方法: <span className="font-medium">
+                      {currentSubscription.paymentMethod.card.displayName}
+                    </span>
+                    <span className="ml-2 text-gray-500">
+                      (有効期限: {currentSubscription.paymentMethod.card.expMonth}/{currentSubscription.paymentMethod.card.expYear})
                     </span>
                   </p>
                 )}
