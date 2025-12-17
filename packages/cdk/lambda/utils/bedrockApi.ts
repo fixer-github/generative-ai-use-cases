@@ -14,6 +14,7 @@ import {
 import {
   ApiInterface,
   BedrockImageGenerationResponse,
+  ErrorCode,
   GenerateImageParams,
   GenerateVideoParams,
   Model,
@@ -156,22 +157,34 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
         e instanceof ServiceQuotaExceededException
       ) {
         yield streamingChunk({
-          text: 'The server is currently experiencing high access. Please try again later.',
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'THROTTLED' as ErrorCode,
+            message: 'The server is currently experiencing high access. Please try again later.',
+          },
         });
       } else if (e instanceof AccessDeniedException) {
         const modelAccessURL = `https://${region}.console.aws.amazon.com/bedrock/home?region=${region}#/modelaccess`;
         yield streamingChunk({
-          text: `The selected model is not enabled. Please enable the model in the [Bedrock console Model Access screen](${modelAccessURL}).`,
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'MODEL_NOT_ENABLED' as ErrorCode,
+            message: `The selected model is not enabled. Please enable the model in the [Bedrock console Model Access screen](${modelAccessURL}).`,
+          },
         });
       } else {
         console.error(e);
         yield streamingChunk({
-          text:
-            'An error occurred. Please report the following error to the administrator.\n' +
-            e,
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'INTERNAL_ERROR' as ErrorCode,
+            message:
+              'An error occurred. Please report the following error to the administrator.\n' +
+              e,
+          },
         });
       }
     }

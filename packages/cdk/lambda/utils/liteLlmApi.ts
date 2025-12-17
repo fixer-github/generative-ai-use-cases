@@ -1,5 +1,6 @@
 import {
   ApiInterface,
+  ErrorCode,
   ExtraData,
   GenerateImageParams,
   GenerateVideoParams,
@@ -270,98 +271,142 @@ const liteLlmApi: ApiInterface = {
     const litellmEndpoint = process.env.LITELLM_ENDPOINT;
 
     if (!litellmEndpoint) {
-      throw new Error('LITELLM_ENDPOINT environment variable is not set');
+      yield streamingChunk({
+        text: '',
+        stopReason: 'error',
+        error: {
+          code: 'INTERNAL_ERROR' as ErrorCode,
+          message: 'LITELLM_ENDPOINT environment variable is not set',
+        },
+      });
+      return;
     }
-
-    const openAIMessages = await createOpenAIChatCompletionMessages(messages);
-    const requestBody = {
-      model: model.modelId,
-      messages: openAIMessages,
-      stream: true,
-    };
-
-    const signedRequest = await createSignedRequest(
-      litellmEndpoint,
-      requestBody
-    );
-
-    const fullUrl = litellmEndpoint.endsWith('/')
-      ? litellmEndpoint + 'chat/completions'
-      : litellmEndpoint + '/chat/completions';
-
-    const response = await fetch(fullUrl, {
-      method: signedRequest.method,
-      headers: signedRequest.headers,
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `LiteLLM API request failed: ${response.status} - ${errorText}`
-      );
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Failed to get response reader');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
+      const openAIMessages = await createOpenAIChatCompletionMessages(messages);
+      const requestBody = {
+        model: model.modelId,
+        messages: openAIMessages,
+        stream: true,
+      };
 
-        if (done) {
-          break;
+      const signedRequest = await createSignedRequest(
+        litellmEndpoint,
+        requestBody
+      );
+
+      const fullUrl = litellmEndpoint.endsWith('/')
+        ? litellmEndpoint + 'chat/completions'
+        : litellmEndpoint + '/chat/completions';
+
+      const response = await fetch(fullUrl, {
+        method: signedRequest.method,
+        headers: signedRequest.headers,
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`LiteLLM API request failed: ${response.status} - ${errorText}`);
+
+        // Determine error code based on status
+        let errorCode: ErrorCode = 'INTERNAL_ERROR';
+        if (response.status === 429) {
+          errorCode = 'THROTTLED';
+        } else if (response.status === 401 || response.status === 403) {
+          errorCode = 'NO_PERMISSION';
         }
 
-        if (value) {
-          const decodedChunk = decoder.decode(value, { stream: true });
-          buffer += decodedChunk;
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+        yield streamingChunk({
+          text: '',
+          stopReason: 'error',
+          error: {
+            code: errorCode,
+            message: `LiteLLM API request failed: ${response.status} - ${errorText}`,
+          },
+        });
+        return;
+      }
 
-          for (const line of lines) {
-            if (line.trim() === '') continue;
+      const reader = response.body?.getReader();
+      if (!reader) {
+        yield streamingChunk({
+          text: '',
+          stopReason: 'error',
+          error: {
+            code: 'INTERNAL_ERROR' as ErrorCode,
+            message: 'Failed to get response reader',
+          },
+        });
+        return;
+      }
 
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-              if (data === '[DONE]') {
-                yield streamingChunk({
-                  text: '',
-                  stopReason: StopReason.STOP_SEQUENCE,
-                });
-                return;
-              }
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
 
-              try {
-                const parsed = JSON.parse(data);
-                const choice = parsed.choices?.[0];
+          if (done) {
+            break;
+          }
 
-                if (choice?.finish_reason) {
-                  const stopReason = convertFinishReason(choice.finish_reason);
+          if (value) {
+            const decodedChunk = decoder.decode(value, { stream: true });
+            buffer += decodedChunk;
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.trim() === '') continue;
+
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+
+                if (data === '[DONE]') {
                   yield streamingChunk({
                     text: '',
-                    stopReason: stopReason,
+                    stopReason: StopReason.STOP_SEQUENCE,
                   });
-                } else if (choice?.delta?.content) {
-                  yield streamingChunk({
-                    text: choice.delta.content,
-                  });
+                  return;
                 }
-              } catch (e) {
-                console.warn('Failed to parse SSE data:', e);
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const choice = parsed.choices?.[0];
+
+                  if (choice?.finish_reason) {
+                    const stopReason = convertFinishReason(choice.finish_reason);
+                    yield streamingChunk({
+                      text: '',
+                      stopReason: stopReason,
+                    });
+                  } else if (choice?.delta?.content) {
+                    yield streamingChunk({
+                      text: choice.delta.content,
+                    });
+                  }
+                } catch (e) {
+                  console.warn('Failed to parse SSE data:', e);
+                }
               }
             }
           }
         }
+      } finally {
+        reader.releaseLock();
       }
-    } finally {
-      reader.releaseLock();
+    } catch (e) {
+      console.error('LiteLLM streaming error:', e);
+      yield streamingChunk({
+        text: '',
+        stopReason: 'error',
+        error: {
+          code: 'INTERNAL_ERROR' as ErrorCode,
+          message: `An error occurred during LiteLLM streaming: ${e}`,
+        },
+      });
     }
   },
   generateImage: function (

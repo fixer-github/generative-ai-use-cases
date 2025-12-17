@@ -11,6 +11,26 @@ import {
   RetrieveCommandOutput,
 } from '@aws-sdk/client-kendra';
 import { StopReason } from '@aws-sdk/client-bedrock-runtime';
+
+// エラーコード定義
+export type ErrorCode =
+  | 'QUOTA_EXCEEDED' // 利用回数上限
+  | 'NO_PERMISSION' // 権限なし
+  | 'INVALID_TOKEN' // トークン無効
+  | 'INTERNAL_ERROR' // 内部エラー
+  | 'THROTTLED' // スロットリング
+  | 'MODEL_NOT_ENABLED' // モデル未有効化
+  | 'ASSISTANT_NOT_FOUND' // アシスタントが見つからない
+  | 'ACCESS_DENIED' // アクセス拒否
+  | 'MODEL_NOT_CONFIGURED' // モデル未設定
+  | 'DOCUMENT_INDEXING' // ドキュメントインデックス中
+  | 'SYSTEM_PROMPT_NOT_SET'; // システムプロンプト未設定
+
+// 構造化エラー情報
+export type StreamingError = {
+  code: ErrorCode;
+  message: string;
+};
 import {
   FlowInputContent,
   RetrieveCommandOutput as RetrieveCommandOutputKnowledgeBase,
@@ -29,6 +49,8 @@ export type StreamingChunk = {
     daily?: { current: number; limit: number; remaining: number };
     monthly?: { current: number; limit: number; remaining: number };
   };
+  // 構造化エラー情報
+  error?: StreamingError;
 };
 
 export type Pagination<T> = {

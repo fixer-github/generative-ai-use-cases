@@ -12,6 +12,7 @@ import {
   AssistantMessageSource,
   Model,
   UnrecordedMessage,
+  ErrorCode,
 } from 'generative-ai-use-cases';
 import { similaritySearch } from './repository/assistantSearch';
 import { streamingChunk } from './utils/streamingChunk';
@@ -69,8 +70,12 @@ export const handler = awslambda.streamifyResponse(
     if (!idToken) {
       responseStream.write(
         streamingChunk({
-          text: 'ID token is required for authorization',
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'INVALID_TOKEN' as ErrorCode,
+            message: 'ID token is required for authorization',
+          },
         })
       );
       responseStream.end();
@@ -84,8 +89,12 @@ export const handler = awslambda.streamifyResponse(
       console.error('Access check failed:', error);
       responseStream.write(
         streamingChunk({
-          text: 'Authorization check failed',
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'INTERNAL_ERROR' as ErrorCode,
+            message: 'Authorization check failed',
+          },
         })
       );
       responseStream.end();
@@ -93,30 +102,39 @@ export const handler = awslambda.streamifyResponse(
     }
 
     if (!accessCheckResult.allowed) {
-      let errorText: string;
+      let errorCode: ErrorCode;
+      let errorMessage: string;
       switch (accessCheckResult.reason) {
         case 'quota_exceeded':
           console.warn(
             `User has exceeded quota for assistant:chat`
           );
-          errorText = 'アシスタントの利用回数の上限に達しました';
+          errorCode = 'QUOTA_EXCEEDED';
+          errorMessage = 'アシスタントの利用回数の上限に達しました';
           break;
         case 'no_permission':
           console.warn(
             `User does not have access to assistant:chat`
           );
-          errorText = 'アシスタントを使用する権限がありません';
+          errorCode = 'NO_PERMISSION';
+          errorMessage = 'アシスタントを使用する権限がありません';
           break;
         case 'invalid_token':
-          errorText = 'Invalid or expired ID token';
+          errorCode = 'INVALID_TOKEN';
+          errorMessage = 'Invalid or expired ID token';
           break;
         default:
-          errorText = 'You do not have permission to use the assistant';
+          errorCode = 'NO_PERMISSION';
+          errorMessage = 'You do not have permission to use the assistant';
       }
       responseStream.write(
         streamingChunk({
-          text: errorText,
+          text: '',
           stopReason: 'error',
+          error: {
+            code: errorCode,
+            message: errorMessage,
+          },
         })
       );
       responseStream.end();
@@ -202,8 +220,12 @@ export const handler = awslambda.streamifyResponse(
       if (!assistant) {
         responseStream.write(
           streamingChunk({
-            text: 'Assistant not found',
+            text: '',
             stopReason: 'error',
+            error: {
+              code: 'ASSISTANT_NOT_FOUND' as ErrorCode,
+              message: 'Assistant not found',
+            },
           })
         );
         responseStream.end();
@@ -214,8 +236,12 @@ export const handler = awslambda.streamifyResponse(
       if (!canAccessAssistant(assistant, userId, requestContext)) {
         responseStream.write(
           streamingChunk({
-            text: 'Access denied to this assistant',
+            text: '',
             stopReason: 'error',
+            error: {
+              code: 'ACCESS_DENIED' as ErrorCode,
+              message: 'Access denied to this assistant',
+            },
           })
         );
         responseStream.end();
@@ -225,8 +251,12 @@ export const handler = awslambda.streamifyResponse(
       if (!assistant.modelId) {
         responseStream.write(
           streamingChunk({
-            text: 'Assistant has no model configured',
+            text: '',
             stopReason: 'error',
+            error: {
+              code: 'MODEL_NOT_CONFIGURED' as ErrorCode,
+              message: 'Assistant has no model configured',
+            },
           })
         );
         responseStream.end();
@@ -241,8 +271,12 @@ export const handler = awslambda.streamifyResponse(
       ) {
         responseStream.write(
           streamingChunk({
-            text: 'Assistant is currently indexing documents. Please wait until indexing completes.',
+            text: '',
             stopReason: 'error',
+            error: {
+              code: 'DOCUMENT_INDEXING' as ErrorCode,
+              message: 'Assistant is currently indexing documents. Please wait until indexing completes.',
+            },
           })
         );
         responseStream.end();
@@ -252,8 +286,12 @@ export const handler = awslambda.streamifyResponse(
       if (!assistant.instruction) {
         responseStream.write(
           streamingChunk({
-            text: 'Assistant has no system prompt configured',
+            text: '',
             stopReason: 'error',
+            error: {
+              code: 'SYSTEM_PROMPT_NOT_SET' as ErrorCode,
+              message: 'Assistant has no system prompt configured',
+            },
           })
         );
         responseStream.end();
@@ -499,8 +537,12 @@ ${assistant.instruction}
     } catch {
       responseStream.write(
         streamingChunk({
-          text: 'An error occurred during streaming',
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'INTERNAL_ERROR' as ErrorCode,
+            message: 'An error occurred during streaming',
+          },
         })
       );
       responseStream.end();

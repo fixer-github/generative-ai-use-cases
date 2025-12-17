@@ -1,5 +1,5 @@
 import { Handler, Context } from 'aws-lambda';
-import { PredictRequest } from 'generative-ai-use-cases';
+import { PredictRequest, ErrorCode } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 import {
@@ -33,8 +33,12 @@ export const handler = awslambda.streamifyResponse(
       // Authorization check: Verify ID token and check LLM access with quota
       if (!event.idToken) {
         const errorMessage = JSON.stringify({
-          text: 'ID token is required for authorization',
+          text: '',
           stopReason: 'error',
+          error: {
+            code: 'INVALID_TOKEN' as ErrorCode,
+            message: 'ID token is required for authorization',
+          },
         });
         responseStream.write(errorMessage);
         responseStream.end();
@@ -50,33 +54,42 @@ export const handler = awslambda.streamifyResponse(
 
       if (!accessCheckResult.allowed) {
         const userId = accessCheckResult.userContext?.userId || 'unknown';
-        let errorText: string;
+        let errorCode: ErrorCode;
+        let errorMessage: string;
 
         switch (accessCheckResult.reason) {
           case 'quota_exceeded':
             console.warn(
               `User ${userId} has exceeded quota for model ${model.modelId}`
             );
-            errorText = `利用回数の上限に達しました: ${model.modelId}`;
+            errorCode = 'QUOTA_EXCEEDED';
+            errorMessage = `利用回数の上限に達しました: ${model.modelId}`;
             break;
           case 'no_permission':
             console.warn(
               `User ${userId} does not have access to model ${model.modelId}`
             );
-            errorText = `このモデルを使用する権限がありません: ${model.modelId}`;
+            errorCode = 'NO_PERMISSION';
+            errorMessage = `このモデルを使用する権限がありません: ${model.modelId}`;
             break;
           case 'invalid_token':
-            errorText = 'Invalid or expired ID token';
+            errorCode = 'INVALID_TOKEN';
+            errorMessage = 'Invalid or expired ID token';
             break;
           default:
-            errorText = `You do not have permission to use the model: ${model.modelId}`;
+            errorCode = 'NO_PERMISSION';
+            errorMessage = `You do not have permission to use the model: ${model.modelId}`;
         }
 
-        const errorMessage = JSON.stringify({
-          text: errorText,
+        const errorResponse = JSON.stringify({
+          text: '',
           stopReason: 'error',
+          error: {
+            code: errorCode,
+            message: errorMessage,
+          },
         });
-        responseStream.write(errorMessage);
+        responseStream.write(errorResponse);
         responseStream.end();
         return;
       }
@@ -121,11 +134,15 @@ export const handler = awslambda.streamifyResponse(
       responseStream.end();
     } catch (error) {
       console.error('PredictStream error:', error);
-      const errorMessage = JSON.stringify({
-        text: 'Internal Server Error',
+      const errorResponse = JSON.stringify({
+        text: '',
         stopReason: 'error',
+        error: {
+          code: 'INTERNAL_ERROR' as ErrorCode,
+          message: 'Internal Server Error',
+        },
       });
-      responseStream.write(errorMessage);
+      responseStream.write(errorResponse);
       responseStream.end();
     }
   }
