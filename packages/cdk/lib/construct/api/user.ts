@@ -1,7 +1,7 @@
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
 import { GenericApiProps } from './props';
 import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
@@ -55,7 +55,7 @@ class UserApi extends Construct {
       commonAuthorizerProps
     );
 
-    // Lambda function for updating birthdate
+    // Lambda function for setting birthdate
     // テーブル名を環境変数から構築（auth.tsと同じ命名規則）
     const userRegistrationMetadataTableName = props.userRegistrationMetadataTable
       ? props.userRegistrationMetadataTable.tableName
@@ -63,12 +63,12 @@ class UserApi extends Construct {
         ? `UserRegistrationMetadata-${props.environment}`
         : 'UserRegistrationMetadata';
 
-    const updateBirthdateFunction = new NodejsFunction(
+    const setBirthdateFunction = new NodejsFunction(
       this,
-      'UpdateBirthdate',
+      'SetBirthdate',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/updateBirthdate.ts',
+        entry: './lambda/setBirthdate.ts',
         timeout: Duration.minutes(1),
         bundling: {
           nodeModules: ['aws-jwt-verify'],
@@ -82,10 +82,11 @@ class UserApi extends Construct {
 
     // Grant DynamoDB write permission
     if (props.userRegistrationMetadataTable) {
-      props.userRegistrationMetadataTable.grantWriteData(updateBirthdateFunction);
+      props.userRegistrationMetadataTable.grantWriteData(setBirthdateFunction);
     } else {
       // テーブル参照がない場合は、テーブル名ベースで権限を付与
-      updateBirthdateFunction.addToRolePolicy(
+      const stack = Stack.of(this);
+      setBirthdateFunction.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: [
@@ -93,17 +94,17 @@ class UserApi extends Construct {
             'dynamodb:PutItem',
           ],
           resources: [
-            `arn:aws:dynamodb:*:*:table/${userRegistrationMetadataTableName}`,
+            `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${userRegistrationMetadataTableName}`,
           ],
         })
       );
     }
 
-    // POST /user/birthdate - Update birthdate
+    // PUT /user/birthdate - Set birthdate
     const birthdateResource = userResource.addResource('birthdate');
     birthdateResource.addMethod(
-      'POST',
-      new LambdaIntegration(updateBirthdateFunction),
+      'PUT',
+      new LambdaIntegration(setBirthdateFunction),
       commonAuthorizerProps
     );
   }

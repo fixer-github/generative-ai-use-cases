@@ -18,12 +18,12 @@ const USER_REGISTRATION_METADATA_TABLE_NAME =
   process.env.USER_REGISTRATION_METADATA_TABLE_NAME!;
 
 // リクエストの型定義
-interface UpdateBirthdateRequest {
+interface SetBirthdateRequest {
   birthdate: string;
 }
 
 // レスポンスの型定義
-interface UpdateBirthdateResponse {
+interface SetBirthdateResponse {
   message: string;
   birthdate: string;
 }
@@ -88,8 +88,6 @@ function validateBirthdate(birthdate: unknown): string | null {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Event:', JSON.stringify(event, null, 2));
-
   try {
     // 認証チェック: Authorization headerからトークンを取得
     const authHeader =
@@ -120,7 +118,7 @@ export const handler = async (
     }
 
     // リクエストボディの解析
-    let requestBody: UpdateBirthdateRequest;
+    let requestBody: SetBirthdateRequest;
     try {
       requestBody = JSON.parse(event.body || '{}');
     } catch {
@@ -150,20 +148,20 @@ export const handler = async (
         })
       );
 
-      console.log(`Successfully updated birthdate for user: ${userId}`);
+      console.log(`Successfully set birthdate for user: ${userId}`);
 
-      return ok200Response<UpdateBirthdateResponse>({
-        message: 'Birthdate updated successfully',
+      return ok200Response<SetBirthdateResponse>({
+        message: 'Birthdate set successfully',
         birthdate,
       });
     } catch (error) {
-      console.error(`Failed to update birthdate for user ${userId}:`, error);
+      console.error(`Failed to set birthdate for user ${userId}:`, error);
       throw error;
     }
   } catch (error) {
-    console.error('Error updating birthdate:', error);
+    console.error('Error setting birthdate:', error);
     return internalServerError500Response({
-      message: 'Failed to update birthdate',
+      message: 'Failed to set birthdate',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
