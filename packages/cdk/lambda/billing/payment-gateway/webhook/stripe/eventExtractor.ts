@@ -32,6 +32,12 @@ export async function extractEventDetail(
     case 'invoice.payment_failed':
       return extractFromInvoicePaymentFailed(stripeEvent, tenantId);
 
+    case 'invoice.created':
+      return extractFromInvoiceCreated(stripeEvent, tenantId);
+
+    case 'invoice.finalized':
+      return extractFromInvoiceFinalized(stripeEvent, tenantId);
+
     case 'customer.subscription.deleted':
       return extractFromSubscriptionDeleted(stripeEvent, tenantId);
 
@@ -173,6 +179,102 @@ function extractFromInvoicePaymentFailed(
     userId,
     planId,
     errorMessage,
+    eventData: stripeEvent,
+  };
+}
+
+/**
+ * invoice.created からの情報抽出
+ */
+function extractFromInvoiceCreated(
+  stripeEvent: Stripe.Event,
+  tenantId: string
+): Partial<EventDetail> {
+  const invoice = stripeEvent.data.object as any;
+
+  const subscriptionId =
+    (typeof invoice.subscription === 'string' ? invoice.subscription : '') ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription ||
+    invoice.lines?.data?.[0]?.subscription ||
+    '';
+
+  if (!subscriptionId) {
+    throw new Error(
+      'subscriptionId is required but not found in invoice.created event'
+    );
+  }
+
+  const userId =
+    invoice.parent?.subscription_details?.metadata?.userId ||
+    invoice.subscription_details?.metadata?.userId ||
+    invoice.metadata?.userId ||
+    '';
+
+  if (!userId) {
+    console.warn(
+      `userId not found in invoice metadata. subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  const invoiceId = invoice.id;
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId: subscriptionId as string,
+    userId,
+    invoiceId,
+    eventData: stripeEvent,
+  };
+}
+
+/**
+ * invoice.finalized からの情報抽出
+ */
+function extractFromInvoiceFinalized(
+  stripeEvent: Stripe.Event,
+  tenantId: string
+): Partial<EventDetail> {
+  const invoice = stripeEvent.data.object as any;
+
+  const subscriptionId =
+    (typeof invoice.subscription === 'string' ? invoice.subscription : '') ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription ||
+    invoice.lines?.data?.[0]?.subscription ||
+    '';
+
+  if (!subscriptionId) {
+    throw new Error(
+      'subscriptionId is required but not found in invoice.finalized event'
+    );
+  }
+
+  const userId =
+    invoice.parent?.subscription_details?.metadata?.userId ||
+    invoice.subscription_details?.metadata?.userId ||
+    invoice.metadata?.userId ||
+    '';
+
+  if (!userId) {
+    console.warn(
+      `userId not found in invoice metadata. subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  const invoiceId = invoice.id;
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId: subscriptionId as string,
+    userId,
+    invoiceId,
     eventData: stripeEvent,
   };
 }

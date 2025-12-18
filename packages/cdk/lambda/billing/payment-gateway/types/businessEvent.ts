@@ -1,12 +1,14 @@
 /**
- * ビジネスイベントタイプ（統括責務が処理する5つのイベント）
+ * ビジネスイベントタイプ（統括責務が処理するイベント）
  */
 export type BusinessEventType =
   | 'payment.succeeded' // 支払い更新成功
   | 'payment.failed' // 支払い失敗
   | 'subscription.canceled' // サブスクリプションキャンセル
   | 'payment.refunded' // 返金
-  | 'payment_method.updated'; // 支払い方法更新
+  | 'payment_method.updated' // 支払い方法更新
+  | 'invoice.created' // 請求書作成
+  | 'invoice.finalized'; // 請求書確定
 
 /**
  * イベント詳細情報
@@ -44,6 +46,9 @@ export interface EventDetail {
 
   /** プラットフォーム固有の決済ID（参照用） */
   platformPaymentId?: string;
+
+  /** 請求書ID（invoice.created、invoice.finalized時に含まれる） */
+  invoiceId?: string;
 
   /** エラーメッセージ（payment.failed時に含まれる） */
   errorMessage?: string;

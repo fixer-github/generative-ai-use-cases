@@ -26,6 +26,8 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.payment_succeeded': 'payment.succeeded',
   'invoice.paid': 'payment.succeeded', // 補助的なマッピング
   'invoice.payment_failed': 'payment.failed',
+  'invoice.created': 'invoice.created',
+  'invoice.finalized': 'invoice.finalized',
   'customer.subscription.deleted': 'subscription.canceled',
   'charge.refunded': 'payment.refunded',
   // checkout.session.completedは動的にマッピング（setup modeのみ処理）

@@ -230,6 +230,24 @@ class PaymentGatewayApi extends Construct {
       },
     });
 
+    // 請求書メール送信
+    const sendInvoiceEmailFunction = new NodejsFunction(
+      this,
+      'SendInvoiceEmail',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/payment-gateway/operations/sendInvoiceEmail.ts',
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: {
+          SERVICE_NAME: process.env.SERVICE_NAME || 'GenU',
+          SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
+          SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || '',
+        },
+      }
+    );
+
     // Customer Portal Session作成
     const createCustomerPortalSessionFunction = new NodejsFunction(
       this,
@@ -316,6 +334,7 @@ class PaymentGatewayApi extends Construct {
       cancelSubscriptionFunction,
       cancelSubscriptionInternalFunction,
       getInvoiceFunction,
+      sendInvoiceEmailFunction,
       createCustomerPortalSessionFunction,
     ].forEach((func) => {
       func.addToRolePolicy(
@@ -435,6 +454,16 @@ class PaymentGatewayApi extends Construct {
     invoiceResource.addMethod(
       'GET',
       new LambdaIntegration(getInvoiceFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    const invoiceSendResource = invoiceResource.addResource('send');
+    invoiceSendResource.addMethod(
+      'POST',
+      new LambdaIntegration(sendInvoiceEmailFunction),
       {
         authorizer: authorizer,
         authorizationType: AuthorizationType.COGNITO,
