@@ -42,6 +42,21 @@ const COLORS = {
 };
 
 /**
+ * HTMLエスケープ関数
+ * ユーザー入力をHTMLに埋め込む際にXSS/HTMLインジェクションを防止
+ */
+const escapeHtml = (str: string = ''): string => {
+  const escapeMap: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (char) => escapeMap[char]);
+};
+
+/**
  * リクエストボディの型
  */
 interface SendCheckoutLinkRequest {
@@ -154,6 +169,9 @@ const createPlanInfoBlock = (
   price: string,
   childName?: string
 ): string => {
+  const safeChildName = escapeHtml(childName);
+  const safePlanName = escapeHtml(planName);
+
   return `
     <div style="background-color: ${COLORS.background}; border-radius: 8px; padding: 20px; margin: 24px 0;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -162,7 +180,7 @@ const createPlanInfoBlock = (
             ? `<tr>
           <td style="padding: 8px 0;">
             <span style="font-size: 14px; color: #666;">お子様のお名前</span><br>
-            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${childName}</span>
+            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${safeChildName}</span>
           </td>
         </tr>`
             : ''
@@ -170,7 +188,7 @@ const createPlanInfoBlock = (
         <tr>
           <td style="padding: 8px 0; ${childName ? `border-top: 1px solid ${COLORS.lightGray};` : ''}">
             <span style="font-size: 14px; color: #666;">プラン名</span><br>
-            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${planName}</span>
+            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${safePlanName}</span>
           </td>
         </tr>
         <tr>
@@ -193,10 +211,12 @@ const createParentPaymentRequestEmail = (
   price: string,
   childName?: string
 ): { subject: string; htmlContent: string } => {
+  const safeChildName = escapeHtml(childName);
+
   const bodyContent = `
     <h2 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 20px;">サブスクリプション決済のお願い</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.text}; font-size: 15px; line-height: 1.6;">
-      ${childName ? `${childName}さんから` : 'お子様から'}${SERVICE_NAME}のサブスクリプション登録のリクエストがありました。<br>
+      ${childName ? `${safeChildName}さんから` : 'お子様から'}${SERVICE_NAME}のサブスクリプション登録のリクエストがありました。<br>
       以下の内容をご確認の上、決済を完了してください。
     </p>
     ${createPlanInfoBlock(planName, price, childName)}
