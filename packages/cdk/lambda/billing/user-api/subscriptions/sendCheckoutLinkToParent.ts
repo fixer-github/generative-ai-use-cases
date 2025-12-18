@@ -259,13 +259,28 @@ const sendEmail = async (
 };
 
 /**
+ * Stripeのゼロ小数通貨リスト
+ * これらの通貨はunit_amountがすでに最小単位（例: 円）なので100で割らない
+ * @see https://docs.stripe.com/currencies#zero-decimal
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
+  'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
+]);
+
+/**
  * 料金フォーマット
  */
 function formatPrice(amount: number, currency: string): string {
+  const currencyLower = currency.toLowerCase();
+  const displayAmount = ZERO_DECIMAL_CURRENCIES.has(currencyLower)
+    ? amount
+    : amount / 100;
+
   return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
     currency: currency.toUpperCase(),
-  }).format(amount / 100);
+  }).format(displayAmount);
 }
 
 /**
