@@ -6,7 +6,11 @@
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { PostConfirmationTriggerEvent } from 'aws-lambda';
 
 const dynamoClient = new DynamoDBClient({});
@@ -68,7 +72,12 @@ export async function saveUserRegistrationMetadata(
     console.log(
       `saveUserRegistrationMetadata - Saving metadata for user ${userId}`
     );
-    console.log('Metadata:', JSON.stringify(metadata, null, 2));
+    // PIIをマスクしてログ出力（birthdateは個人情報のため）
+    const maskedMetadata = {
+      ...metadata,
+      birthdate: metadata.birthdate ? '****-**-**' : undefined,
+    };
+    console.log('Metadata:', JSON.stringify(maskedMetadata, null, 2));
 
     await docClient.send(
       new PutCommand({
@@ -89,8 +98,33 @@ export async function saveUserRegistrationMetadata(
       error.name === 'ConditionalCheckFailedException'
     ) {
       console.log(
-        `saveUserRegistrationMetadata - Metadata already exists for user ${userId}, skipping`
+        `saveUserRegistrationMetadata - Metadata already exists for user ${userId}`
       );
+
+      // birthdateがあれば、既存レコードに追加（未設定の場合のみ）
+      if (birthdate) {
+        try {
+          await docClient.send(
+            new UpdateCommand({
+              TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
+              Key: { userId },
+              UpdateExpression:
+                'SET birthdate = if_not_exists(birthdate, :birthdate)',
+              ExpressionAttributeValues: {
+                ':birthdate': birthdate,
+              },
+            })
+          );
+          console.log(
+            `saveUserRegistrationMetadata - Updated birthdate for existing user ${userId}`
+          );
+        } catch (updateError) {
+          console.error(
+            `saveUserRegistrationMetadata - Failed to update birthdate for user ${userId}:`,
+            updateError
+          );
+        }
+      }
       return true;
     }
 
