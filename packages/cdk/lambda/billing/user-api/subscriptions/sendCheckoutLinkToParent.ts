@@ -441,7 +441,7 @@ export const handler = async (
     // 11. 保護者にメール送信
     const emailContent = createParentPaymentRequestEmail(
       session.url!,
-      plan.plan_name,
+      plan.display_name,
       formattedPrice,
       childName
     );
