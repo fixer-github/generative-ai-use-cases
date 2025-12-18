@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load .env.e2e file before tests run
 const envFile = path.join(__dirname, '.env.e2e');
