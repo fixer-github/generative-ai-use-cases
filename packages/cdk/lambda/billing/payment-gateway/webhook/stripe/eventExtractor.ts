@@ -29,6 +29,9 @@ export async function extractEventDetail(
     case 'charge.refunded':
       return extractFromChargeRefunded(stripeEvent, tenantId);
 
+    case 'checkout.session.completed':
+      return extractFromCheckoutSessionCompleted(stripeEvent, tenantId);
+
     default:
       throw new Error(`Unsupported event type: ${eventType}`);
   }
@@ -241,5 +244,71 @@ function extractFromChargeRefunded(
     currency,
     platformPaymentId,
     eventData: stripeEvent,
+  };
+}
+
+/**
+ * checkout.session.completed（setup mode）からの情報抽出
+ *
+ * 支払い方法更新のためのCheckout Session完了イベントを処理します。
+ */
+function extractFromCheckoutSessionCompleted(
+  stripeEvent: Stripe.Event,
+  tenantId: string
+): Partial<EventDetail> {
+  const session = stripeEvent.data.object as Stripe.Checkout.Session;
+
+  // setup modeのみ処理
+  if (session.mode !== 'setup') {
+    throw new Error(`Unsupported checkout session mode: ${session.mode}`);
+  }
+
+  // SetupIntentのIDを取得
+  const setupIntentId =
+    typeof session.setup_intent === 'string'
+      ? session.setup_intent
+      : session.setup_intent?.id;
+
+  if (!setupIntentId) {
+    throw new Error('SetupIntent ID not found in checkout session');
+  }
+
+  // メタデータからサブスクリプション情報を取得
+  const metadata = session.metadata || {};
+  const subscriptionId = metadata.subscription_id || '';
+  const platformSubscriptionId = metadata.platform_subscription_id || '';
+  const userId = metadata.user_id || '';
+
+  // 顧客IDを取得
+  const customerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id;
+
+  if (!subscriptionId) {
+    console.warn('subscription_id not found in session metadata');
+  }
+
+  if (!userId) {
+    console.warn('user_id not found in session metadata');
+  }
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId,
+    userId,
+    platformPaymentId: setupIntentId, // SetupIntent IDを格納
+    platformSubscriptionId,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        setupIntentId,
+        platformSubscriptionId,
+        customerId,
+      },
+    },
   };
 }

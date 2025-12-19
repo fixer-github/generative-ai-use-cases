@@ -77,6 +77,7 @@ class UserBillingApi extends Construct {
   public readonly cancelSubscriptionFunction?: NodejsFunction;
   public readonly changeSubscriptionPlanFunction?: NodejsFunction;
   public readonly createCustomerPortalFunction: NodejsFunction;
+  public readonly createPaymentMethodUpdateSessionFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
   public readonly getUsageStatusFunction: NodejsFunction;
 
@@ -571,6 +572,10 @@ class UserBillingApi extends Construct {
     // ========================================
     // API 8: Customer Portalセッション作成API
     // POST /api/subscriptions/customer-portal
+    //
+    // @deprecated Use createPaymentMethodUpdateSession for updating payment methods.
+    // Customer Portal updates the customer's default payment method,
+    // but does NOT immediately update the subscription's payment method.
     // ========================================
 
     this.createCustomerPortalFunction = new NodejsFunction(
@@ -715,6 +720,83 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 11: 支払い方法更新セッション作成API
+    // POST /api/subscriptions/update-payment-method
+    //
+    // サブスクリプションの支払い方法を即座に更新するための
+    // Stripe Checkout Session（setup mode）を作成します。
+    // ========================================
+
+    this.createPaymentMethodUpdateSessionFunction = new NodejsFunction(
+      this,
+      'CreatePaymentMethodUpdateSession',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/user-api/subscriptions/createPaymentMethodUpdateSession.ts',
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: commonEnvironment,
+      }
+    );
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(
+      this.createPaymentMethodUpdateSessionFunction
+    );
+
+    // Secrets Manager読み取り権限（Stripe APIキー取得用）
+    this.createPaymentMethodUpdateSessionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
+    // Lambda呼び出し権限（データアクセス層用）
+    this.createPaymentMethodUpdateSessionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+        ],
+      })
+    );
+
+    // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+    this.createPaymentMethodUpdateSessionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/TenantRole-*'],
+      })
+    );
+
+    // Grant STS AssumeRoleWithWebIdentity permission
+    this.createPaymentMethodUpdateSessionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const updatePaymentMethodResource = subscriptionsResource.addResource(
+      'update-payment-method'
+    );
+    updatePaymentMethodResource.addMethod(
+      'POST',
+      new LambdaIntegration(this.createPaymentMethodUpdateSessionFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
     // ログ出力
     // ========================================
 
@@ -728,7 +810,8 @@ class UserBillingApi extends Construct {
       console.log('  - POST /api/subscriptions/cancel');
       console.log('  - POST /api/subscriptions/change-plan');
     }
-    console.log('  - POST /api/subscriptions/customer-portal');
+    console.log('  - POST /api/subscriptions/customer-portal (deprecated)');
+    console.log('  - POST /api/subscriptions/update-payment-method');
     console.log('  - GET /api/store-info');
     console.log('  - POST /api/usage/status');
   }

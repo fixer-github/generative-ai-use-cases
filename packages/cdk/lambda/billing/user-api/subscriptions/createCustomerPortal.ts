@@ -13,6 +13,14 @@ const lambdaClient = new LambdaClient({});
 /**
  * Lambda関数のメインハンドラー
  * Stripe Customer Portalセッションを作成するラッパー
+ *
+ * @deprecated Use createPaymentMethodUpdateSession for updating payment methods.
+ * This API will be removed in a future version.
+ *
+ * Note: Customer Portal updates the customer's default payment method,
+ * but does NOT update the subscription's payment method immediately.
+ * The subscription continues using its original payment method until
+ * the next billing cycle.
  */
 export async function handler(
   event: APIGatewayProxyEvent

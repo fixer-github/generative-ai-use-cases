@@ -151,8 +151,8 @@ export async function handler(
 
     console.log(`Webhook event saved: ${eventId}`);
 
-    // ビジネスイベントにマッピング
-    const businessEventType = mapStripeEventToBusinessEvent(eventType);
+    // ビジネスイベントにマッピング（動的マッピング用にイベントオブジェクトも渡す）
+    const businessEventType = mapStripeEventToBusinessEvent(eventType, stripeEvent);
 
     if (!businessEventType) {
       // マッピング対象外のイベントはスキップ（またはログのみ記録）

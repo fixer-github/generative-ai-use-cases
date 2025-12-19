@@ -30,6 +30,11 @@
  * - 最大リトライ回数3回、指数バックオフ（EventBridge側で制御される）
  */
 
+import Stripe from 'stripe';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -184,6 +189,13 @@ export const handler = async (
           subscriptionClient
         );
 
+      case 'payment_method.updated':
+        return await handlePaymentMethodUpdated(
+          input,
+          orchestrator,
+          tenantId
+        );
+
       default:
         console.warn('Unknown event type, skipping processing', {
           eventType,
@@ -234,10 +246,10 @@ export const handler = async (
 function normalizeEventType(
   platform: PlatformType,
   eventType: WebhookEventType
-): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'unknown' {
+): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment_method.updated' | 'unknown' {
   // Stripeのイベントはそのまま使用
   if (platform === 'stripe') {
-    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created';
+    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment_method.updated';
   }
 
   // Appleのイベントをマッピング
@@ -971,4 +983,153 @@ function extractUserId(
   // Apple/Googleの場合は、イベントデータからユーザIDを直接取得できない
   // サブスクリプション情報から取得する必要がある
   return undefined;
+}
+
+/**
+ * Stripe APIキーのキャッシュ
+ */
+let stripeApiKeyCache: { [key: string]: string } = {};
+
+/**
+ * Secrets ManagerからStripe APIキーを取得する
+ */
+async function getStripeApiKey(tenantId: string): Promise<string> {
+  if (stripeApiKeyCache[tenantId]) {
+    return stripeApiKeyCache[tenantId];
+  }
+
+  const secretName = `${tenantId}/billing/stripe`;
+  const client = new SecretsManagerClient({});
+  const command = new GetSecretValueCommand({ SecretId: secretName });
+
+  try {
+    const response = await client.send(command);
+
+    if (!response.SecretString) {
+      throw new Error(`Secret ${secretName} is empty`);
+    }
+
+    const secret = JSON.parse(response.SecretString);
+    stripeApiKeyCache[tenantId] = secret.apiKey;
+
+    return secret.apiKey;
+  } catch (error) {
+    console.error('Failed to retrieve Stripe API key:', error);
+    throw new Error('Failed to retrieve payment configuration');
+  }
+}
+
+/**
+ * payment_method.updated（支払い方法更新）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. SetupIntentから新しい支払い方法IDを取得
+ * 2. サブスクリプションのdefault_payment_methodを更新
+ * 3. 顧客のinvoice_settings.default_payment_methodを更新（オプション）
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param tenantId テナントID
+ * @returns 処理結果
+ */
+async function handlePaymentMethodUpdated(
+  input: WebhookEventFlowInput,
+  orchestrator: FlowOrchestrator,
+  tenantId: string
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, platform, eventData } = input;
+  const userId = extractUserId(platform, eventData);
+
+  console.log('Processing payment_method.updated event', { eventId, tenantId, platform });
+
+  // イベントデータから抽出情報を取得
+  const extracted = (eventData as any)._extracted || {};
+  const { setupIntentId, platformSubscriptionId, customerId } = extracted;
+
+  if (!setupIntentId) {
+    throw new Error('SetupIntent ID not found in event data');
+  }
+
+  if (!platformSubscriptionId) {
+    throw new Error('Platform subscription ID not found in event data');
+  }
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    {
+      stepName: 'update_subscription_payment_method',
+      stepType: 'api_call',
+      targetService: 'Stripe',
+      executeFunction: async () => {
+        console.log('Updating subscription payment method', {
+          tenantId,
+          platformSubscriptionId,
+          setupIntentId,
+        });
+
+        // Stripe APIキーを取得
+        const apiKey = await getStripeApiKey(tenantId);
+        const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+        // SetupIntentから支払い方法IDを取得
+        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+        const newPaymentMethodId =
+          typeof setupIntent.payment_method === 'string'
+            ? setupIntent.payment_method
+            : setupIntent.payment_method?.id;
+
+        if (!newPaymentMethodId) {
+          throw new Error('Payment method not found on SetupIntent');
+        }
+
+        console.log('Retrieved payment method from SetupIntent', {
+          setupIntentId,
+          newPaymentMethodId,
+        });
+
+        // サブスクリプションのdefault_payment_methodを更新
+        await stripe.subscriptions.update(platformSubscriptionId, {
+          default_payment_method: newPaymentMethodId,
+        });
+
+        console.log('Subscription payment method updated', {
+          platformSubscriptionId,
+          newPaymentMethodId,
+        });
+
+        // 顧客のinvoice_settings.default_payment_methodも更新（オプション）
+        if (customerId) {
+          await stripe.customers.update(customerId, {
+            invoice_settings: {
+              default_payment_method: newPaymentMethodId,
+            },
+          });
+
+          console.log('Customer invoice settings updated', {
+            customerId,
+            newPaymentMethodId,
+          });
+        }
+
+        return {
+          success: true,
+          newPaymentMethodId,
+          platformSubscriptionId,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
 }
