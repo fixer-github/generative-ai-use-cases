@@ -988,7 +988,7 @@ function extractUserId(
 /**
  * Stripe APIキーのキャッシュ
  */
-let stripeApiKeyCache: { [key: string]: string } = {};
+const stripeApiKeyCache: Record<string, string> = {};
 
 /**
  * Secrets ManagerからStripe APIキーを取得する
@@ -1042,8 +1042,9 @@ async function handlePaymentMethodUpdated(
 
   console.log('Processing payment_method.updated event', { eventId, tenantId, platform });
 
-  // イベントデータから抽出情報を取得
-  const extracted = (eventData as any)._extracted || {};
+  // イベントデータから抽出情報を取得（Stripeプラットフォームのみ対応）
+  const stripeData: StripeEventData = eventData;
+  const extracted = stripeData._extracted ?? {};
   const { setupIntentId, platformSubscriptionId, customerId } = extracted;
 
   if (!setupIntentId) {

@@ -7,6 +7,15 @@ import { BusinessEventType } from '../../types/businessEvent';
 type EventMapper = (event: Stripe.Event) => BusinessEventType | null;
 
 /**
+ * Checkout Session型ガード
+ */
+function isCheckoutSession(
+  obj: Stripe.Event.Data.Object
+): obj is Stripe.Checkout.Session {
+  return 'object' in obj && obj.object === 'checkout.session';
+}
+
+/**
  * Stripeイベントタイプ → ビジネスイベントタイプのマッピング
  * 静的マッピングと動的マッピング（関数）の両方をサポート
  */
@@ -21,11 +30,14 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'charge.refunded': 'payment.refunded',
   // checkout.session.completedは動的にマッピング（setup modeのみ処理）
   'checkout.session.completed': (event: Stripe.Event): BusinessEventType | null => {
-    const session = event.data.object as Stripe.Checkout.Session;
+    const eventObject = event.data.object;
+    if (!isCheckoutSession(eventObject)) {
+      return null;
+    }
     // setup modeかつpurposeがupdate_payment_methodの場合のみ処理
     if (
-      session.mode === 'setup' &&
-      session.metadata?.purpose === 'update_payment_method'
+      eventObject.mode === 'setup' &&
+      eventObject.metadata?.purpose === 'update_payment_method'
     ) {
       return 'payment_method.updated';
     }

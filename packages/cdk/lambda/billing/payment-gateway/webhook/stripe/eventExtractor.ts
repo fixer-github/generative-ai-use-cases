@@ -2,6 +2,15 @@ import Stripe from 'stripe';
 import { EventDetail } from '../../types/businessEvent';
 
 /**
+ * Checkout Session型ガード
+ */
+function isCheckoutSession(
+  obj: Stripe.Event.Data.Object
+): obj is Stripe.Checkout.Session {
+  return 'object' in obj && obj.object === 'checkout.session';
+}
+
+/**
  * Stripeイベントから必須情報を抽出
  * @param stripeEvent Stripeイベントオブジェクト
  * @param tenantId テナントID
@@ -256,34 +265,37 @@ function extractFromCheckoutSessionCompleted(
   stripeEvent: Stripe.Event,
   tenantId: string
 ): Partial<EventDetail> {
-  const session = stripeEvent.data.object as Stripe.Checkout.Session;
+  const eventObject = stripeEvent.data.object;
+  if (!isCheckoutSession(eventObject)) {
+    throw new Error('Event object is not a Checkout Session');
+  }
 
   // setup modeのみ処理
-  if (session.mode !== 'setup') {
-    throw new Error(`Unsupported checkout session mode: ${session.mode}`);
+  if (eventObject.mode !== 'setup') {
+    throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
   }
 
   // SetupIntentのIDを取得
   const setupIntentId =
-    typeof session.setup_intent === 'string'
-      ? session.setup_intent
-      : session.setup_intent?.id;
+    typeof eventObject.setup_intent === 'string'
+      ? eventObject.setup_intent
+      : eventObject.setup_intent?.id;
 
   if (!setupIntentId) {
     throw new Error('SetupIntent ID not found in checkout session');
   }
 
   // メタデータからサブスクリプション情報を取得
-  const metadata = session.metadata || {};
-  const subscriptionId = metadata.subscription_id || '';
-  const platformSubscriptionId = metadata.platform_subscription_id || '';
-  const userId = metadata.user_id || '';
+  const metadata = eventObject.metadata ?? {};
+  const subscriptionId = metadata.subscription_id ?? '';
+  const platformSubscriptionId = metadata.platform_subscription_id ?? '';
+  const userId = metadata.user_id ?? '';
 
   // 顧客IDを取得
   const customerId =
-    typeof session.customer === 'string'
-      ? session.customer
-      : session.customer?.id;
+    typeof eventObject.customer === 'string'
+      ? eventObject.customer
+      : eventObject.customer?.id;
 
   if (!subscriptionId) {
     console.warn('subscription_id not found in session metadata');

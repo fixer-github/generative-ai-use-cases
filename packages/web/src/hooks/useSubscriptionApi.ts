@@ -105,6 +105,7 @@ export interface UpdatePaymentMethodResponse {
   url: string;
   session_id: string;
   client_secret: string;
+  publishable_key: string;
 }
 
 const useSubscriptionApi = () => {

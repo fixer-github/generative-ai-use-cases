@@ -31,6 +31,7 @@ import {
  */
 interface CreatePaymentMethodUpdateSessionRequest {
   subscriptionId: string; // 内部サブスクリプションID
+  returnUrl: string; // Embedded Checkout完了後のリダイレクトURL
 }
 
 /**
@@ -40,19 +41,41 @@ interface CreatePaymentMethodUpdateSessionResponse {
   url: string; // Checkout URL（リダイレクト用）
   session_id: string; // セッションID
   client_secret: string; // Embedded Checkout用
+  publishable_key: string; // Stripe Publishable Key（Embedded Checkout用）
+}
+
+/**
+ * Stripe認証情報の型
+ */
+interface StripeCredentials {
+  apiKey: string;
+  publishableKey: string;
+}
+
+/**
+ * リクエストボディをパースする
+ */
+function parseRequestBody(
+  body: string
+): CreatePaymentMethodUpdateSessionRequest | { error: true } {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return { error: true };
+  }
 }
 
 /**
  * シークレットのキャッシュ
  */
-let stripeApiKeyCache: { [key: string]: string } = {};
+const stripeCredentialsCache: Record<string, StripeCredentials> = {};
 
 /**
- * Secrets ManagerからStripe APIキーを取得する
+ * Secrets ManagerからStripe認証情報を取得する
  */
-async function getStripeApiKey(tenantId: string): Promise<string> {
-  if (stripeApiKeyCache[tenantId]) {
-    return stripeApiKeyCache[tenantId];
+async function getStripeCredentials(tenantId: string): Promise<StripeCredentials> {
+  if (stripeCredentialsCache[tenantId]) {
+    return stripeCredentialsCache[tenantId];
   }
 
   const secretName = `${tenantId}/billing/stripe`;
@@ -67,41 +90,17 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
     }
 
     const secret = JSON.parse(response.SecretString);
-    stripeApiKeyCache[tenantId] = secret.apiKey;
+    const credentials: StripeCredentials = {
+      apiKey: secret.apiKey,
+      publishableKey: secret.publishableKey,
+    };
+    stripeCredentialsCache[tenantId] = credentials;
 
-    return secret.apiKey;
+    return credentials;
   } catch (error) {
-    console.error('Failed to retrieve Stripe API key:', error);
+    console.error('Failed to retrieve Stripe credentials:', error);
     throw new Error('Failed to retrieve payment configuration');
   }
-}
-
-/**
- * リクエストヘッダーからフロントエンドのベースURLを取得する
- * Origin > Referer の優先順位で取得し、取得できない場合はエラーをスローする
- */
-function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
-  const headers = event.headers;
-
-  // Originヘッダーから取得（CORS リクエストの場合）
-  const origin = headers['origin'] || headers['Origin'];
-  if (origin) {
-    return origin;
-  }
-
-  // Refererヘッダーから取得（フォールバック）
-  const referer = headers['referer'] || headers['Referer'];
-  if (referer) {
-    try {
-      const url = new URL(referer);
-      return `${url.protocol}//${url.host}`;
-    } catch {
-      // Refererのパースに失敗した場合は続行
-    }
-  }
-
-  // どちらも取得できない場合はエラー
-  throw new Error('Unable to determine frontend base URL from request headers');
 }
 
 /**
@@ -162,10 +161,8 @@ export const handler = async (
       });
     }
 
-    let requestBody: CreatePaymentMethodUpdateSessionRequest;
-    try {
-      requestBody = JSON.parse(event.body);
-    } catch (error) {
+    const parseResult = parseRequestBody(event.body);
+    if ('error' in parseResult) {
       return badRequest400Response({
         message: 'リクエストボディが不正なJSON形式です',
         code: 'INVALID_JSON',
@@ -173,7 +170,7 @@ export const handler = async (
       });
     }
 
-    const { subscriptionId } = requestBody;
+    const { subscriptionId, returnUrl } = parseResult;
 
     if (!subscriptionId) {
       return badRequest400Response({
@@ -182,6 +179,17 @@ export const handler = async (
         details: {
           field: 'subscriptionId',
           reason: 'subscriptionIdは必須です',
+        },
+      });
+    }
+
+    if (!returnUrl) {
+      return badRequest400Response({
+        message: '必須パラメータが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'returnUrl',
+          reason: 'returnUrlは必須です',
         },
       });
     }
@@ -259,9 +267,9 @@ export const handler = async (
       status: subscription.subscription_status,
     });
 
-    // 7. Stripe APIキーを取得
-    const apiKey = await getStripeApiKey(tenantId);
-    const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+    // 7. Stripe認証情報を取得
+    const credentials = await getStripeCredentials(tenantId);
+    const stripe = new Stripe(credentials.apiKey, { apiVersion: '2025-10-29.clover' });
 
     // 8. Stripe顧客IDを取得
     const customerId = await getStripeCustomerId(
@@ -271,11 +279,7 @@ export const handler = async (
 
     console.log('Stripe customer ID retrieved:', { customerId });
 
-    // 9. return URLを設定（Embedded Checkout用）
-    const baseUrl = getBaseUrlFromRequest(event);
-    const returnUrl = `${baseUrl}/billing/payment-method-updated?session_id={CHECKOUT_SESSION_ID}`;
-
-    console.log('Return URL configured:', { baseUrl, returnUrl });
+    console.log('Return URL configured:', { returnUrl });
 
     // 10. Checkout Sessionを作成（setup mode）
     const session = await stripe.checkout.sessions.create({
@@ -294,6 +298,8 @@ export const handler = async (
       },
       metadata: {
         subscription_id: subscription.subscription_id,
+        platform_subscription_id: subscription.platform_subscription_id,
+        user_id: userId,
         purpose: 'update_payment_method',
       },
       locale: 'ja',
@@ -306,6 +312,7 @@ export const handler = async (
       url: session.url || '',
       session_id: session.id,
       client_secret: session.client_secret || '',
+      publishable_key: credentials.publishableKey,
     };
 
     return ok200Response(response);
