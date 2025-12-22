@@ -86,3 +86,18 @@ export const getUsername = (event: APIGatewayProxyEvent): string => {
 
   return username;
 };
+
+/**
+ * Extract user sub (unique user ID) from the API Gateway event authorizer context
+ * This is the Cognito user's unique identifier (UUID format)
+ */
+export const getUserSub = (event: APIGatewayProxyEvent): string => {
+  // Try to get sub from authorizer context (Lambda Request Authorizer - flat structure)
+  const sub =
+    event.requestContext?.authorizer?.['sub'] ||
+    // Try to get from parsed claims object (Lambda Request Authorizer - nested structure or Cognito User Pools)
+    parseClaims(event)?.['sub'] ||
+    'unknown';
+
+  return sub;
+};
