@@ -1063,6 +1063,14 @@ async function handlePaymentMethodUpdated(
   const extracted = stripeData._extracted ?? {};
   const { setupIntentId, platformSubscriptionId, customerId } = extracted;
 
+  console.log('Extracted data from event', {
+    setupIntentId,
+    platformSubscriptionId,
+    customerId,
+    hasExtracted: !!stripeData._extracted,
+    eventDataKeys: Object.keys(eventData),
+  });
+
   if (!setupIntentId) {
     throw new Error('SetupIntent ID not found in event data');
   }
