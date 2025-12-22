@@ -14,8 +14,6 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
   Plan,
@@ -28,7 +26,7 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
-import { getTenantId, getUsername, getUserSub } from '../../../utils/tenantUtils';
+import { getTenantId, getUsername, getBirthdateFromClaims } from '../../../utils/tenantUtils';
 
 /**
  * 支払い方法（カード）の型
@@ -73,15 +71,6 @@ interface CurrentPlanResponse {
 }
 
 /**
- * DynamoDBクライアント
- */
-const dynamoClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(dynamoClient);
-
-const USER_REGISTRATION_METADATA_TABLE_NAME =
-  process.env.USER_REGISTRATION_METADATA_TABLE_NAME || '';
-
-/**
  * Stripe APIキーのキャッシュ
  */
 let stripeApiKeyCache: { [key: string]: string } = {};
@@ -116,36 +105,6 @@ async function getStripeApiKey(tenantId: string): Promise<string | null> {
     return secret.apiKey;
   } catch (error) {
     console.error('Failed to retrieve Stripe API key:', error);
-    return null;
-  }
-}
-
-/**
- * USER_REGISTRATION_METADATAテーブルからユーザーの生年月日を取得する
- */
-async function getBirthdateFromMetadata(userId: string): Promise<string | null> {
-  if (!USER_REGISTRATION_METADATA_TABLE_NAME) {
-    console.log('USER_REGISTRATION_METADATA_TABLE_NAME is not configured');
-    return null;
-  }
-
-  try {
-    const result = await docClient.send(
-      new GetCommand({
-        TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
-        Key: { userId },
-        ProjectionExpression: 'birthdate',
-      })
-    );
-
-    if (result.Item && result.Item.birthdate) {
-      return result.Item.birthdate;
-    }
-
-    console.log('Birthdate not found for user:', userId);
-    return null;
-  } catch (error) {
-    console.error('Failed to retrieve birthdate from metadata:', error);
     return null;
   }
 }
@@ -615,9 +574,8 @@ export const handler = async (
       );
     }
 
-    // 9. 生年月日を取得（subをキーとして使用 - setBirthdateと同じキーを使用）
-    const userSub = getUserSub(event);
-    const birthdate = await getBirthdateFromMetadata(userSub);
+    // 9. 生年月日を取得（Cognito ユーザー属性から直接取得）
+    const birthdate = getBirthdateFromClaims(event);
 
     // 10. レスポンスの構築
     const response: CurrentPlanResponse = {
