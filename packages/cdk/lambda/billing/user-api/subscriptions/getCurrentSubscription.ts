@@ -14,6 +14,8 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import {
   Plan,
@@ -67,7 +69,17 @@ interface CurrentPlanResponse {
   amount: number;
   currency: string;
   interval: string;
+  birthdate: string | null;
 }
+
+/**
+ * DynamoDBクライアント
+ */
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+
+const USER_REGISTRATION_METADATA_TABLE_NAME =
+  process.env.USER_REGISTRATION_METADATA_TABLE_NAME || '';
 
 /**
  * Stripe APIキーのキャッシュ
@@ -104,6 +116,36 @@ async function getStripeApiKey(tenantId: string): Promise<string | null> {
     return secret.apiKey;
   } catch (error) {
     console.error('Failed to retrieve Stripe API key:', error);
+    return null;
+  }
+}
+
+/**
+ * USER_REGISTRATION_METADATAテーブルからユーザーの生年月日を取得する
+ */
+async function getBirthdateFromMetadata(userId: string): Promise<string | null> {
+  if (!USER_REGISTRATION_METADATA_TABLE_NAME) {
+    console.log('USER_REGISTRATION_METADATA_TABLE_NAME is not configured');
+    return null;
+  }
+
+  try {
+    const result = await docClient.send(
+      new GetCommand({
+        TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
+        Key: { userId },
+        ProjectionExpression: 'birthdate',
+      })
+    );
+
+    if (result.Item && result.Item.birthdate) {
+      return result.Item.birthdate;
+    }
+
+    console.log('Birthdate not found for user:', userId);
+    return null;
+  } catch (error) {
+    console.error('Failed to retrieve birthdate from metadata:', error);
     return null;
   }
 }
@@ -573,7 +615,10 @@ export const handler = async (
       );
     }
 
-    // 9. レスポンスの構築
+    // 9. 生年月日を取得
+    const birthdate = await getBirthdateFromMetadata(userId);
+
+    // 10. レスポンスの構築
     const response: CurrentPlanResponse = {
       planId: plan.plan_id,
       planName: plan.internal_name,
@@ -604,6 +649,7 @@ export const handler = async (
       amount: plan.internal_name === 'Freeプラン' ? 0 : 1000, // TODO: 価格情報を動的に取得
       currency: 'JPY',
       interval: 'month',
+      birthdate,
     };
 
     console.log('Returning current plan information:', {
