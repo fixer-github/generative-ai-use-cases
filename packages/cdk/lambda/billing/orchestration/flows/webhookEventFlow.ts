@@ -1008,6 +1008,8 @@ const stripeApiKeyCache: Record<string, string> = {};
 
 /**
  * Secrets ManagerからStripe APIキーを取得する
+ * コントロールプレーン（genu account）のSecrets Managerから取得
+ * テナント固有のシークレット名: {tenantId}/billing/stripe
  */
 async function getStripeApiKey(tenantId: string): Promise<string> {
   if (stripeApiKeyCache[tenantId]) {
@@ -1015,10 +1017,11 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
   }
 
   const secretName = `${tenantId}/billing/stripe`;
-  const client = new SecretsManagerClient({});
-  const command = new GetSecretValueCommand({ SecretId: secretName });
 
   try {
+    // コントロールプレーンのSecrets Managerから取得（receiveWebhookと同じ方式）
+    const client = new SecretsManagerClient({ region: process.env.AWS_REGION });
+    const command = new GetSecretValueCommand({ SecretId: secretName });
     const response = await client.send(command);
 
     if (!response.SecretString) {

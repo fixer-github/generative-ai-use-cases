@@ -147,6 +147,18 @@ export class GenerativeAiUseCasesStack extends Stack {
       })
     );
 
+    // Billing permission: Secrets Manager read for tenant Stripe API keys
+    // Required for webhookEventFlow Lambda to call Stripe API
+    backgroundJobRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          `arn:aws:secretsmanager:${params.region}:${params.account}:secret:*/billing/stripe*`,
+        ],
+      })
+    );
+
     // PPTX resources moved to per-tenant stacks (TenantPptxStack and TenantS3Stack)
     // Each tenant now has their own isolated PPTX database and S3 buckets
 
