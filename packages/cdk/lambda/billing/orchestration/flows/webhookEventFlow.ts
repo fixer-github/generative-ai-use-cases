@@ -107,16 +107,27 @@ interface WebhookEventFlowOutput {
 }
 
 /**
+ * EventBridgeイベントのdetailペイロード
+ * Payment Gatewayから送信されるEventDetail形式
+ */
+interface EventDetailPayload {
+  eventId: string;
+  tenantId: string;
+  platform: PlatformType;
+  eventData: Record<string, unknown>;
+}
+
+/**
  * EventBridgeイベント構造
  * EventBridgeから渡されるイベント全体を表す型
  */
 interface EventBridgeEvent {
   /** イベントソース（例: "billing.payment-gateway"） */
   source: string;
-  /** イベント詳細タイプ（例: "Stripe Webhook Event"） */
+  /** イベント詳細タイプ（ビジネスイベントタイプ: "payment_method.updated" など） */
   'detail-type': string;
-  /** イベントペイロード */
-  detail: WebhookEventFlowInput;
+  /** イベントペイロード（EventDetail形式） */
+  detail: EventDetailPayload;
 }
 
 /**
@@ -131,14 +142,18 @@ export const handler = async (
   event: EventBridgeEvent
 ): Promise<WebhookEventFlowOutput> => {
   // EventBridgeイベントからdetailを抽出
-  const input: WebhookEventFlowInput = event.detail;
-  const { eventId, tenantId, platform, eventType, eventData } = input;
+  // Note: event['detail-type'] contains the business event type (e.g., 'payment_method.updated')
+  //       event.detail contains the EventDetail object with originalEventType
+  const input = event.detail;
+  const { eventId, tenantId, platform, eventData } = input;
+  // Use detail-type as the business event type (already normalized by eventMapper)
+  const businessEventType = event['detail-type'];
 
   console.log('Webhook event flow started', {
     eventId,
     tenantId,
     platform,
-    eventType,
+    businessEventType,
   });
 
   // クライアントのインスタンス化
@@ -148,11 +163,12 @@ export const handler = async (
 
   // イベントタイプごとに処理を分岐
   try {
-    // イベントタイプの正規化（プラットフォーム固有のイベント名を共通イベント名にマッピング）
-    const normalizedEventType = normalizeEventType(platform, eventType);
+    // EventBridgeのdetail-typeは既にビジネスイベントタイプに正規化されている
+    // Stripeの場合: eventMapperで checkout.session.completed → payment_method.updated に変換済み
+    const normalizedEventType = normalizeEventType(platform, businessEventType as WebhookEventType);
 
     console.log('Normalized event type', {
-      originalEventType: eventType,
+      businessEventType,
       normalizedEventType,
       platform,
     });
@@ -198,7 +214,7 @@ export const handler = async (
 
       default:
         console.warn('Unknown event type, skipping processing', {
-          eventType,
+          businessEventType,
           normalizedEventType,
           platform,
         });
@@ -210,7 +226,7 @@ export const handler = async (
           eventId,
           errorDetails: {
             errorCode: 'UNKNOWN_EVENT_TYPE',
-            errorMessage: `Unknown event type: ${eventType}`,
+            errorMessage: `Unknown event type: ${businessEventType}`,
           },
         };
     }
@@ -221,7 +237,7 @@ export const handler = async (
       eventId,
       tenantId,
       platform,
-      eventType,
+      businessEventType,
       error: err.message,
       stack: err.stack,
     });
@@ -302,7 +318,7 @@ function normalizeEventType(
  * @returns 処理結果
  */
 async function handlePaymentSucceeded(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
@@ -447,7 +463,7 @@ async function handlePaymentSucceeded(
  * @returns 処理結果
  */
 async function handlePaymentFailed(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
@@ -542,7 +558,7 @@ async function handlePaymentFailed(
  * @returns 処理結果
  */
 async function handleSubscriptionCanceled(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
@@ -639,7 +655,7 @@ async function handleSubscriptionCanceled(
  * @returns 処理結果
  */
 async function handleRefundCreated(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
@@ -1033,7 +1049,7 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
  * @returns 処理結果
  */
 async function handlePaymentMethodUpdated(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   tenantId: string
 ): Promise<WebhookEventFlowOutput> {
