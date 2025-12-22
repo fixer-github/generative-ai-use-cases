@@ -9,7 +9,13 @@
     "cdk": "cdk",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
-    "postinstall": "npm ci --prefix custom-resources"
+    "postinstall": "npm ci --prefix custom-resources",
+    "migration:discover": "ts-node scripts/migration/index.ts discover",
+    "migration:backup": "ts-node scripts/migration/index.ts backup",
+    "migration:verify": "ts-node scripts/migration/index.ts verify",
+    "migration:report": "ts-node scripts/migration/index.ts report",
+    "migration:full": "ts-node scripts/migration/index.ts full",
+    "migration:init": "ts-node scripts/migration/index.ts init"
   },
   "devDependencies": {
     "@smithy/types": "^4.3.2",
@@ -32,6 +38,7 @@
     "@aws-sdk/client-bedrock-agent": "^3.755.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.755.0",
     "@aws-sdk/client-bedrock-runtime": "^3.755.0",
+    "@aws-sdk/client-cloudformation": "^3.755.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.755.0",
     "@aws-sdk/client-dynamodb": "^3.755.0",
     "@aws-sdk/client-kendra": "^3.755.0",
