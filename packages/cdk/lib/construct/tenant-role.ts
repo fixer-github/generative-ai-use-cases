@@ -9,13 +9,10 @@ import {
   ArnPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Tags } from 'aws-cdk-lib';
-import { IUserPool } from 'aws-cdk-lib/aws-cognito';
-import { IIdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 
 export interface TenantRoleProps {
   readonly tenantId: string;
-  readonly userPool: IUserPool;
-  readonly identityPool: IIdentityPool;
+  readonly identityPoolId: string;
   readonly userPoolClientId: string;
   readonly region: string;
   readonly account: string;
@@ -46,8 +43,7 @@ export class TenantRole extends Construct {
       'cognito-identity.amazonaws.com',
       {
         StringEquals: {
-          'cognito-identity.amazonaws.com:aud':
-            props.identityPool.identityPoolId,
+          'cognito-identity.amazonaws.com:aud': props.identityPoolId,
         },
         'ForAnyValue:StringLike': {
           'cognito-identity.amazonaws.com:amr': 'authenticated',

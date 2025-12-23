@@ -1,10 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { UserPool, IUserPool } from 'aws-cdk-lib/aws-cognito';
-import {
-  IdentityPool,
-  IIdentityPool,
-} from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { TenantRole } from '../../construct/tenant-role';
@@ -109,23 +104,12 @@ export class TenantIAMStack extends cdk.Stack {
       );
     }
 
-    // Import existing pools using the context values from main stack
-    const userPool = UserPool.fromUserPoolId(
-      this,
-      'ImportedUserPool',
-      userPoolId
-    );
-    const identityPool = IdentityPool.fromIdentityPoolId(
-      this,
-      'ImportedIdentityPool',
-      identityPoolId
-    );
-
     // Create the tenant role construct
+    // Note: We pass identityPoolId directly as a string instead of using IdentityPool.fromIdentityPoolId()
+    // to avoid CloudFormation Early Validation errors (AWS::EarlyValidation::ResourceExistenceCheck)
     this.tenantRole = new TenantRole(this, 'TenantRole', {
       tenantId: this.tenantId,
-      userPool: userPool,
-      identityPool: identityPool,
+      identityPoolId: identityPoolId,
       userPoolClientId: userPoolClientId,
       region: this.region,
       account: this.account,
