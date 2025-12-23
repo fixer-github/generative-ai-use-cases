@@ -198,6 +198,7 @@ export const handler = async (
         );
 
       case 'refund.created':
+      case 'payment.refunded':
         return await handleRefundCreated(
           input,
           orchestrator,
@@ -262,10 +263,10 @@ export const handler = async (
 function normalizeEventType(
   platform: PlatformType,
   eventType: WebhookEventType
-): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment_method.updated' | 'unknown' {
+): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated' | 'unknown' {
   // Stripeのイベントはそのまま使用
   if (platform === 'stripe') {
-    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment_method.updated';
+    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated';
   }
 
   // Appleのイベントをマッピング
