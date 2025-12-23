@@ -15,7 +15,10 @@
     "migration:verify": "ts-node scripts/migration/index.ts verify",
     "migration:report": "ts-node scripts/migration/index.ts report",
     "migration:full": "ts-node scripts/migration/index.ts full",
-    "migration:init": "ts-node scripts/migration/index.ts init"
+    "migration:init": "ts-node scripts/migration/index.ts init",
+    "migration:transform": "ts-node scripts/migration/transform/botToAssistant.ts",
+    "migration:s3-copy": "ts-node scripts/migration/import/s3Copy.ts",
+    "migration:import": "ts-node scripts/migration/import/assistantImport.ts"
   },
   "devDependencies": {
     "@smithy/types": "^4.3.2",
