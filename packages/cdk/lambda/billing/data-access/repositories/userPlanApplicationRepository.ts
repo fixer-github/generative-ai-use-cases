@@ -219,11 +219,12 @@ export class UserPlanApplicationRepository extends BaseRepository {
 
   /**
    * ユーザの有効なプラン適用を取得する
+   * active（有効）およびscheduled_termination（解約予定）のステータスを含む
    */
   async findActiveByUserId(userId: string): Promise<UserPlanApplication[]> {
     const query = `
       SELECT * FROM user_plan_applications
-      WHERE user_id = $1 AND application_status = 'active'
+      WHERE user_id = $1 AND application_status IN ('active', 'scheduled_termination')
       ORDER BY created_at DESC
     `;
 

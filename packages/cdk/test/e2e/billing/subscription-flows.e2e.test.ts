@@ -728,9 +728,17 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
         expect(cancelResponse.data.success).toBe(true);
         expect(cancelResponse.data.cancellationType).toBe('at_period_end');
 
-        // Note: 解約予約後もサブスクリプションはアクティブのまま
-        // 実際のアクセス制御は各サービスの認可ロジックで行われる
-        // ここでは解約予約が正常に記録されることを確認
+        // Assert: 解約予約後もサブスクリプション情報が取得できること
+        // ステータスは scheduled_termination となり、プランは引き続き有効
+        const currentResponse = await apiClient.get<CurrentSubscriptionResponse>(
+          '/api/subscriptions/current'
+        );
+
+        expect(currentResponse.status).toBe(200);
+        expect(currentResponse.data.planId).toBe(testStripePlanId);
+        expect(currentResponse.data.status).toBe('scheduled_termination');
+        expect(currentResponse.data.cancelAtPeriodEnd).toBe(true);
+        expect(currentResponse.data.serviceEndDate).toBeDefined();
       });
 
       it('期間終了済みサブスクリプションの状態確認', async () => {
