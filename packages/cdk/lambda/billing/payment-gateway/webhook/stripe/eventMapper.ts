@@ -28,20 +28,27 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
   'charge.refunded': 'payment.refunded',
-  // checkout.session.completedは動的にマッピング（setup modeのみ処理）
+  // checkout.session.completedは動的にマッピング
   'checkout.session.completed': (event: Stripe.Event): BusinessEventType | null => {
     const eventObject = event.data.object;
     if (!isCheckoutSession(eventObject)) {
       return null;
     }
-    // setup modeかつpurposeがupdate_payment_methodの場合のみ処理
+    // setup modeかつpurposeがupdate_payment_methodの場合
     if (
       eventObject.mode === 'setup' &&
       eventObject.metadata?.purpose === 'update_payment_method'
     ) {
       return 'payment_method.updated';
     }
-    // subscriptionモードのcheckoutはinvoiceイベントで処理されるためスキップ
+    // subscription modeかつペアレンタルコントロールの場合
+    if (
+      eventObject.mode === 'subscription' &&
+      eventObject.metadata?.isParentalControl === 'true'
+    ) {
+      return 'subscription.parental_activated';
+    }
+    // その他のsubscriptionモードのcheckoutはinvoiceイベントで処理されるためスキップ
     return null;
   },
 };

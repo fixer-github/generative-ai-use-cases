@@ -364,6 +364,9 @@ export class GenerativeAiUseCasesStack extends Stack {
         backgroundJobRole: backgroundJobRole,
         allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
         allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
+        sendgridApiKey: params.sendgridApiKey,
+        sendgridFromEmail: params.sendgridFromEmail,
+        emailServiceName: params.emailServiceName,
       }
     );
 

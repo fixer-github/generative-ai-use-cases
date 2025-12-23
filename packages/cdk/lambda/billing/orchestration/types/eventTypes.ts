@@ -21,6 +21,7 @@ export type WebhookEventType =
   | 'subscription.canceled'
   | 'refund.created'
   | 'payment_method.updated'
+  | 'subscription.parental_activated' // ペアレンタルコントロールによるサブスクリプション有効化
   // Apple events (App Store Server Notifications)
   | 'RENEWAL'
   | 'DID_FAIL_TO_RENEW'
@@ -94,11 +95,17 @@ export interface StripeEventData {
   /** プラットフォームサブスクリプションID（payment_method.updated時） */
   platformSubscriptionId?: string;
 
-  /** 抽出された詳細情報（payment_method.updated時） */
+  /** 抽出された詳細情報 */
   _extracted?: {
     setupIntentId?: string;
     platformSubscriptionId?: string;
     customerId?: string;
+    // ペアレンタルコントロール用フィールド
+    sessionId?: string;
+    userId?: string;
+    planId?: string;
+    childEmail?: string;
+    parentEmail?: string;
   };
 
   /** その他のStripe固有データ */

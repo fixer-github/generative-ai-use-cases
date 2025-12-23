@@ -12,7 +12,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { getTenantId } from '../../../utils/tenantUtils';
-import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
+import { getUserIdFromCognitoEvent, getUserEmailFromCognitoEvent } from '../../../utils/cognitoUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
 import {
@@ -167,26 +167,26 @@ const createEmailHtml = (
 const createPlanInfoBlock = (
   planName: string,
   price: string,
-  childName?: string
+  childEmail?: string
 ): string => {
-  const safeChildName = escapeHtml(childName);
+  const safeChildEmail = escapeHtml(childEmail);
   const safePlanName = escapeHtml(planName);
 
   return `
     <div style="background-color: ${COLORS.background}; border-radius: 8px; padding: 20px; margin: 24px 0;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         ${
-          childName
+          childEmail
             ? `<tr>
           <td style="padding: 8px 0;">
-            <span style="font-size: 14px; color: #666;">お子様のお名前</span><br>
-            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${safeChildName}</span>
+            <span style="font-size: 14px; color: #666;">お子様のメールアドレス</span><br>
+            <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${safeChildEmail}</span>
           </td>
         </tr>`
             : ''
         }
         <tr>
-          <td style="padding: 8px 0; ${childName ? `border-top: 1px solid ${COLORS.lightGray};` : ''}">
+          <td style="padding: 8px 0; ${childEmail ? `border-top: 1px solid ${COLORS.lightGray};` : ''}">
             <span style="font-size: 14px; color: #666;">プラン名</span><br>
             <span style="font-size: 16px; font-weight: bold; color: ${COLORS.primary};">${safePlanName}</span>
           </td>
@@ -209,17 +209,17 @@ const createParentPaymentRequestEmail = (
   checkoutUrl: string,
   planName: string,
   price: string,
-  childName?: string
+  childEmail?: string
 ): { subject: string; htmlContent: string } => {
-  const safeChildName = escapeHtml(childName);
+  const safeChildEmail = escapeHtml(childEmail);
 
   const bodyContent = `
     <h2 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 20px;">サブスクリプション決済のお願い</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.text}; font-size: 15px; line-height: 1.6;">
-      ${childName ? `${safeChildName}さんから` : 'お子様から'}${SERVICE_NAME}のサブスクリプション登録のリクエストがありました。<br>
+      ${childEmail ? `お子様（${safeChildEmail}）から` : 'お子様から'}${SERVICE_NAME}のサブスクリプション登録のリクエストがありました。<br>
       以下の内容をご確認の上、決済を完了してください。
     </p>
-    ${createPlanInfoBlock(planName, price, childName)}
+    ${createPlanInfoBlock(planName, price, childEmail)}
     <div style="text-align: center; margin: 24px 0;">
       <a href="${checkoutUrl}" style="display: inline-block; background-color: ${COLORS.accent}; color: ${COLORS.white}; text-decoration: none; padding: 16px 48px; border-radius: 6px; font-size: 16px; font-weight: bold;">決済ページへ進む</a>
     </div>
@@ -279,28 +279,15 @@ const sendEmail = async (
 };
 
 /**
- * Stripeのゼロ小数通貨リスト
- * これらの通貨はunit_amountがすでに最小単位（例: 円）なので100で割らない
- * @see https://docs.stripe.com/currencies#zero-decimal
+ * 料金フォーマット（JPYのみサポート）
+ * ペアレンタルコントロール用メール決済は日本円のみ対応
  */
-const ZERO_DECIMAL_CURRENCIES = new Set([
-  'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
-  'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
-]);
-
-/**
- * 料金フォーマット
- */
-function formatPrice(amount: number, currency: string): string {
-  const currencyLower = currency.toLowerCase();
-  const displayAmount = ZERO_DECIMAL_CURRENCIES.has(currencyLower)
-    ? amount
-    : amount / 100;
-
+function formatPriceJpy(amount: number): string {
+  // JPYはゼロ小数通貨なのでamountをそのまま使用
   return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(displayAmount);
+    currency: 'JPY',
+  }).format(amount);
 }
 
 /**
@@ -312,9 +299,10 @@ export const handler = async (
   console.log('User API: Send Checkout Link to Parent request received');
 
   try {
-    // 1. 認証情報からユーザIDとテナントIDを取得
+    // 1. 認証情報からユーザID、テナントID、子供のメールを取得
     const userId = getUserIdFromCognitoEvent(event);
     const tenantId = getTenantId(event);
+    const childEmail = getUserEmailFromCognitoEvent(event);
 
     if (!userId || !tenantId) {
       console.error('Missing authentication information');
@@ -325,7 +313,7 @@ export const handler = async (
       });
     }
 
-    console.log('Request context:', { userId, tenantId });
+    console.log('Request context:', { userId, tenantId, childEmail });
 
     // 2. リクエストボディを取得
     if (!event.body) {
@@ -432,16 +420,15 @@ export const handler = async (
     const apiKey = await getStripeApiKey(tenantId);
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // 8. 価格情報を取得
+    // 8. 価格情報を取得（JPYのみサポート）
     const price = await stripe.prices.retrieve(priceId);
-    const formattedPrice = formatPrice(
-      price.unit_amount || 0,
-      price.currency || 'jpy'
-    );
+    const formattedPrice = formatPriceJpy(price.unit_amount || 0);
 
-    // 9. return URLを設定（通常のCheckoutリダイレクト用）
+    // 9. return URLを設定（ペアレンタルコントロール専用の完了ページ）
+    // 保護者は認証されていないため、認証不要の完了ページにリダイレクト
+    // サブスクリプションの有効化はWebhook経由で自動的に行われる
     const baseUrl = getBaseUrlFromRequest(event);
-    const successUrl = `${baseUrl}/billing/complete?session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${baseUrl}/billing/parental-complete`;
     const cancelUrl = `${baseUrl}/billing/cancel`;
 
     // 10. Checkout Sessionを作成（リダイレクトモード）
@@ -462,6 +449,7 @@ export const handler = async (
         planId,
         parentEmail, // 保護者メールをメタデータにも保存
         childName: childName || '',
+        childEmail: childEmail || '', // 子供のメールをメタデータに保存
         isParentalControl: 'true', // ペアレンタルコントロールフラグ
       },
       allow_promotion_codes: true,
@@ -473,12 +461,12 @@ export const handler = async (
 
     console.log('Checkout Session created for parental control:', session.id);
 
-    // 11. 保護者にメール送信
+    // 11. 保護者にメール送信（子供のメールアドレスを使用）
     const emailContent = createParentPaymentRequestEmail(
       session.url!,
       plan.display_name,
       formattedPrice,
-      childName
+      childEmail
     );
 
     await sendEmail(parentEmail, emailContent.subject, emailContent.htmlContent);

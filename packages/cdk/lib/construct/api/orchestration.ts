@@ -208,6 +208,8 @@ class OrchestrationApi extends Construct {
         environment: {
           ...commonLambdaConfig.environment,
           EVENT_BUS_NAME: eventBus.eventBusName,
+          // Purchase flow function for parental control activation
+          PURCHASE_FLOW_FUNCTION_NAME: purchaseFlowFunction.functionName,
         },
       }
     );
@@ -237,6 +239,8 @@ class OrchestrationApi extends Construct {
           `arn:aws:lambda:*:*:function:${environment}-billing-subscription-internal-*`,
           // Payment Gateway functions: ${environment}-billing-payment-*
           `arn:aws:lambda:*:*:function:${environment}-billing-payment-*`,
+          // Orchestration functions (for webhook flow to invoke purchase flow)
+          `arn:aws:lambda:*:*:function:${environment}-billing-orchestration-*`,
         ],
       })
     );
@@ -269,6 +273,7 @@ class OrchestrationApi extends Construct {
           'subscription.canceled',
           'payment.refunded',
           'payment_method.updated',
+          'subscription.parental_activated',
         ],
         detail: {
           platform: ['stripe'],

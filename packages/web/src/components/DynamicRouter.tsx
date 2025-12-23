@@ -46,6 +46,7 @@ import PlanCreatePage from '../pages/PlanCreatePage';
 import PlanMigratePage from '../pages/PlanMigratePage';
 import UserPlanManagementPage from '../pages/UserPlanManagementPage';
 import PaymentCompletePage from '../pages/PaymentCompletePage';
+import ParentalPaymentCompletePage from '../pages/ParentalPaymentCompletePage';
 
 interface DynamicRouterProps {
   ragEnabled: boolean;
@@ -288,6 +289,12 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
   ].flatMap((r) => (r !== null ? [r] : []));
 
   const router = createBrowserRouter([
+    // Public route for parental payment completion (no auth required)
+    {
+      path: '/billing/parental-complete',
+      element: <ParentalPaymentCompletePage />,
+    },
+    // All other routes require authentication
     {
       path: '/',
       element: samlAuthEnabled ? (

@@ -257,9 +257,10 @@ function extractFromChargeRefunded(
 }
 
 /**
- * checkout.session.completed（setup mode）からの情報抽出
+ * checkout.session.completed からの情報抽出
  *
- * 支払い方法更新のためのCheckout Session完了イベントを処理します。
+ * setup mode: 支払い方法更新のためのCheckout Session完了イベントを処理
+ * subscription mode (parental control): ペアレンタルコントロールによるサブスクリプション有効化を処理
  */
 function extractFromCheckoutSessionCompleted(
   stripeEvent: Stripe.Event,
@@ -270,32 +271,109 @@ function extractFromCheckoutSessionCompleted(
     throw new Error('Event object is not a Checkout Session');
   }
 
-  // setup modeのみ処理
-  if (eventObject.mode !== 'setup') {
-    throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
+  const metadata = eventObject.metadata ?? {};
+
+  // subscription mode かつ ペアレンタルコントロールの場合
+  if (
+    eventObject.mode === 'subscription' &&
+    metadata.isParentalControl === 'true'
+  ) {
+    return extractFromParentalControlCheckout(stripeEvent, eventObject, tenantId, metadata);
   }
 
+  // setup modeの場合（既存の処理）
+  if (eventObject.mode === 'setup') {
+    return extractFromSetupModeCheckout(stripeEvent, eventObject, tenantId, metadata);
+  }
+
+  throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
+}
+
+/**
+ * ペアレンタルコントロールCheckout Session（subscription mode）からの情報抽出
+ */
+function extractFromParentalControlCheckout(
+  stripeEvent: Stripe.Event,
+  session: Stripe.Checkout.Session,
+  tenantId: string,
+  metadata: Record<string, string>
+): Partial<EventDetail> {
+  const userId = metadata.userId ?? '';
+  const planId = metadata.planId ?? '';
+  const childEmail = metadata.childEmail ?? '';
+
+  // StripeのサブスクリプションIDを取得
+  const platformSubscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id ?? '';
+
+  if (!userId) {
+    console.warn('userId not found in parental control session metadata');
+  }
+
+  if (!planId) {
+    console.warn('planId not found in parental control session metadata');
+  }
+
+  if (!platformSubscriptionId) {
+    console.warn('subscription not found in parental control session');
+  }
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId: '', // まだ内部サブスクリプションIDは作成されていない
+    userId,
+    planId,
+    platformSubscriptionId,
+    sessionId: session.id,
+    childEmail,
+    isParentalControl: true,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        sessionId: session.id,
+        platformSubscriptionId,
+        userId,
+        planId,
+        childEmail,
+        parentEmail: metadata.parentEmail ?? '',
+      },
+    },
+  };
+}
+
+/**
+ * Setup mode Checkout Sessionからの情報抽出（支払い方法更新）
+ */
+function extractFromSetupModeCheckout(
+  stripeEvent: Stripe.Event,
+  session: Stripe.Checkout.Session,
+  tenantId: string,
+  metadata: Record<string, string>
+): Partial<EventDetail> {
   // SetupIntentのIDを取得
   const setupIntentId =
-    typeof eventObject.setup_intent === 'string'
-      ? eventObject.setup_intent
-      : eventObject.setup_intent?.id;
+    typeof session.setup_intent === 'string'
+      ? session.setup_intent
+      : session.setup_intent?.id;
 
   if (!setupIntentId) {
     throw new Error('SetupIntent ID not found in checkout session');
   }
 
-  // メタデータからサブスクリプション情報を取得
-  const metadata = eventObject.metadata ?? {};
   const subscriptionId = metadata.subscription_id ?? '';
   const platformSubscriptionId = metadata.platform_subscription_id ?? '';
   const userId = metadata.user_id ?? '';
 
   // 顧客IDを取得
   const customerId =
-    typeof eventObject.customer === 'string'
-      ? eventObject.customer
-      : eventObject.customer?.id;
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id;
 
   if (!subscriptionId) {
     console.warn('subscription_id not found in session metadata');

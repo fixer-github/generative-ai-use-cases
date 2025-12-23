@@ -8,7 +8,8 @@ export type BusinessEventType =
   | 'payment.refunded' // 返金
   | 'payment_method.updated' // 支払い方法更新
   | 'invoice.created' // 請求書作成
-  | 'invoice.finalized'; // 請求書確定
+  | 'invoice.finalized' // 請求書確定
+  | 'subscription.parental_activated'; // ペアレンタルコントロールによるサブスクリプション有効化
 
 /**
  * イベント詳細情報
@@ -55,6 +56,15 @@ export interface EventDetail {
 
   /** プラットフォーム固有のサブスクリプションID（payment_method.updated時に含まれる） */
   platformSubscriptionId?: string;
+
+  /** Checkout Session ID（subscription.parental_activated時に含まれる） */
+  sessionId?: string;
+
+  /** 子供のメールアドレス（subscription.parental_activated時に含まれる） */
+  childEmail?: string;
+
+  /** ペアレンタルコントロールフラグ（subscription.parental_activated時にtrue） */
+  isParentalControl?: boolean;
 
   /** プラットフォーム固有の生イベントデータ（詳細調査用） */
   eventData: Record<string, any>;

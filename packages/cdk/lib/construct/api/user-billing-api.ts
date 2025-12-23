@@ -65,6 +65,21 @@ export interface UserBillingApiProps {
    * (createCheckoutSession関数を再利用するため)
    */
   readonly paymentGatewayApi?: PaymentGatewayApi;
+
+  /**
+   * SendGrid API key for sending emails
+   */
+  readonly sendgridApiKey: string;
+
+  /**
+   * SendGrid sender email address
+   */
+  readonly sendgridFromEmail: string;
+
+  /**
+   * Email service name (displayed in emails)
+   */
+  readonly emailServiceName: string;
 }
 
 class UserBillingApi extends Construct {
@@ -315,9 +330,9 @@ class UserBillingApi extends Construct {
         memorySize: 256,
         environment: {
           ...commonEnvironment,
-          SERVICE_NAME: process.env.SERVICE_NAME || 'GenU',
-          SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
-          SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || '',
+          SERVICE_NAME: props.emailServiceName,
+          SENDGRID_API_KEY: props.sendgridApiKey,
+          SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
         },
       }
     );
