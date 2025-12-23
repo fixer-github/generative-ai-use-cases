@@ -26,7 +26,7 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
-import { getTenantId, getUsername } from '../../../utils/tenantUtils';
+import { getTenantId, getUsername, getBirthdateFromClaims } from '../../../utils/tenantUtils';
 
 /**
  * 支払い方法（カード）の型
@@ -67,6 +67,7 @@ interface CurrentPlanResponse {
   amount: number;
   currency: string;
   interval: string;
+  birthdate: string | null;
 }
 
 /**
@@ -573,7 +574,10 @@ export const handler = async (
       );
     }
 
-    // 9. レスポンスの構築
+    // 9. 生年月日を取得（Cognito ユーザー属性から直接取得）
+    const birthdate = getBirthdateFromClaims(event);
+
+    // 10. レスポンスの構築
     const response: CurrentPlanResponse = {
       planId: plan.plan_id,
       planName: plan.internal_name,
@@ -604,6 +608,7 @@ export const handler = async (
       amount: plan.internal_name === 'Freeプラン' ? 0 : 1000, // TODO: 価格情報を動的に取得
       currency: 'JPY',
       interval: 'month',
+      birthdate,
     };
 
     console.log('Returning current plan information:', {

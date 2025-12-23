@@ -86,3 +86,33 @@ export const getUsername = (event: APIGatewayProxyEvent): string => {
 
   return username;
 };
+
+/**
+ * Extract user sub (unique user ID) from the API Gateway event authorizer context
+ * This is the Cognito user's unique identifier (UUID format)
+ */
+export const getUserSub = (event: APIGatewayProxyEvent): string => {
+  // Try to get sub from authorizer context (Lambda Request Authorizer - flat structure)
+  const sub =
+    event.requestContext?.authorizer?.['sub'] ||
+    // Try to get from parsed claims object (Lambda Request Authorizer - nested structure or Cognito User Pools)
+    parseClaims(event)?.['sub'] ||
+    'unknown';
+
+  return sub;
+};
+
+/**
+ * Extract birthdate from the API Gateway event authorizer context (Cognito claims)
+ * Returns the birthdate string if available, null otherwise
+ */
+export const getBirthdateFromClaims = (event: APIGatewayProxyEvent): string | null => {
+  // Try to get birthdate from authorizer context (Lambda Request Authorizer - flat structure)
+  const birthdate =
+    event.requestContext?.authorizer?.['birthdate'] ||
+    // Try to get from parsed claims object (Lambda Request Authorizer - nested structure or Cognito User Pools)
+    parseClaims(event)?.['birthdate'] ||
+    null;
+
+  return birthdate;
+};

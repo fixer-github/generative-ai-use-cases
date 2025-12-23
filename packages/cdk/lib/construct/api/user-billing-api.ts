@@ -363,6 +363,9 @@ class UserBillingApi extends Construct {
     // GET /api/subscriptions/current
     // ========================================
 
+    // USER_REGISTRATION_METADATA テーブル名を構築
+    const userRegistrationMetadataTableName = `UserRegistrationMetadata-${environment}`;
+
     this.getCurrentSubscriptionFunction = new NodejsFunction(
       this,
       'GetCurrentSubscription',
@@ -371,7 +374,10 @@ class UserBillingApi extends Construct {
         entry: './lambda/billing/user-api/subscriptions/getCurrentSubscription.ts',
         timeout: Duration.seconds(10),
         memorySize: 256,
-        environment: commonEnvironment,
+        environment: {
+          ...commonEnvironment,
+          USER_REGISTRATION_METADATA_TABLE_NAME: userRegistrationMetadataTableName,
+        },
       }
     );
 
@@ -417,6 +423,17 @@ class UserBillingApi extends Construct {
         effect: Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
         resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
+    // DynamoDB読み取り権限（USER_REGISTRATION_METADATAテーブル - 生年月日取得用）
+    this.getCurrentSubscriptionFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['dynamodb:GetItem'],
+        resources: [
+          `arn:aws:dynamodb:*:*:table/${userRegistrationMetadataTableName}`,
+        ],
       })
     );
 
