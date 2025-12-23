@@ -288,6 +288,7 @@ export const handler = async (
       customer: customerId,
       payment_method_types: ['card'],
       return_url: returnUrl,
+      redirect_on_completion: 'if_required',
       setup_intent_data: {
         metadata: {
           subscription_id: subscription.subscription_id,
