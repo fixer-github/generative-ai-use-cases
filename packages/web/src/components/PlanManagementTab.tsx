@@ -13,6 +13,7 @@ const PlanManagementTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showChangePlanModal, setShowChangePlanModal] = useState(false);
@@ -92,6 +93,7 @@ const PlanManagementTab: React.FC = () => {
           planId: plan.planId,
         });
         setCheckoutClientSecret(sessionResponse.client_secret);
+        setCheckoutSessionId(sessionResponse.session_id);
       } catch (err) {
         console.error('Failed to create checkout session:', err);
         setError('チェックアウトセッションの作成に失敗しました。');
@@ -105,12 +107,14 @@ const PlanManagementTab: React.FC = () => {
   // Handle checkout modal close
   const handleCheckoutClose = () => {
     setCheckoutClientSecret(null);
+    setCheckoutSessionId(null);
     setSelectedPlan(null);
   };
 
   // Handle checkout success
   const handleCheckoutSuccess = () => {
     setCheckoutClientSecret(null);
+    setCheckoutSessionId(null);
     setSelectedPlan(null);
     // Refresh subscription data
     fetchData();
@@ -433,9 +437,10 @@ const PlanManagementTab: React.FC = () => {
       )}
 
       {/* Stripe Checkout Modal */}
-      {checkoutClientSecret && (
+      {checkoutClientSecret && checkoutSessionId && (
         <StripeCheckoutModal
           clientSecret={checkoutClientSecret}
+          sessionId={checkoutSessionId}
           onClose={handleCheckoutClose}
           onSuccess={handleCheckoutSuccess}
         />

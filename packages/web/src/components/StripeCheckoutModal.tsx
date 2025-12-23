@@ -10,12 +10,14 @@ import useSubscriptionApi from '../hooks/useSubscriptionApi';
 
 interface StripeCheckoutModalProps {
   clientSecret: string;
+  sessionId: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   clientSecret,
+  sessionId,
   onClose,
   onSuccess,
 }) => {
@@ -45,16 +47,8 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     fetchStripeKey();
   }, [subscriptionApi]);
 
-  // Handle return from Stripe Checkout
-  const handleCheckoutReturn = useCallback(async () => {
-    // Parse the session_id from URL if present
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
-
-    if (!sessionId) {
-      return;
-    }
-
+  // Handle completion without redirect (when redirect_on_completion: 'if_required')
+  const handleComplete = useCallback(async () => {
     setLoading(true);
     try {
       // Check session status
@@ -64,6 +58,39 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
         // Activate subscription
         const activationResult = await subscriptionApi.activateFromSession({
           sessionId: sessionId,
+        });
+
+        if (activationResult.success) {
+          // Notify success
+          onSuccess();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to handle checkout completion:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [subscriptionApi, sessionId, onSuccess]);
+
+  // Handle return from Stripe Checkout (for redirect-based payment methods)
+  const handleCheckoutReturn = useCallback(async () => {
+    // Parse the session_id from URL if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSessionId = urlParams.get('session_id');
+
+    if (!urlSessionId) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Check session status
+      const sessionStatus = await subscriptionApi.getSessionStatus(urlSessionId);
+
+      if (sessionStatus.status === 'complete') {
+        // Activate subscription
+        const activationResult = await subscriptionApi.activateFromSession({
+          sessionId: urlSessionId,
         });
 
         if (activationResult.success) {
@@ -89,6 +116,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
   const options = {
     clientSecret,
+    onComplete: handleComplete,
   };
 
   return (

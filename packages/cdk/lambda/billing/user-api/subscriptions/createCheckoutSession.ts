@@ -250,13 +250,14 @@ export const handler = async (
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       ui_mode: 'embedded', // Embedded Checkoutを使用
+      redirect_on_completion: 'if_required', // カード決済時はリダイレクトしない
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      return_url: returnUrl, // Embedded Checkout用のreturn URL
+      return_url: returnUrl, // Embedded Checkout用のreturn URL（リダイレクト必要時のみ使用）
       metadata: {
         userId,
         tenantId,
