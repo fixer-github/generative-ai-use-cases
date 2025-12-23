@@ -271,6 +271,17 @@ export class TenantRole extends Construct {
                 `arn:aws:rds-db:${props.region}:${props.account}:dbuser:*/*`,
               ],
             }),
+
+            // Secrets Manager access for tenant-specific secrets (e.g., Stripe API keys)
+            new PolicyStatement({
+              sid: 'SecretsManagerTenantAccess',
+              effect: Effect.ALLOW,
+              actions: ['secretsmanager:GetSecretValue'],
+              resources: [
+                // Allow reading tenant-specific billing secrets
+                `arn:aws:secretsmanager:${props.region}:${props.account}:secret:${props.tenantId}/billing/*`,
+              ],
+            }),
           ],
         }),
       },

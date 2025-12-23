@@ -2,6 +2,15 @@ import Stripe from 'stripe';
 import { EventDetail } from '../../types/businessEvent';
 
 /**
+ * Checkout Session型ガード
+ */
+function isCheckoutSession(
+  obj: Stripe.Event.Data.Object
+): obj is Stripe.Checkout.Session {
+  return 'object' in obj && obj.object === 'checkout.session';
+}
+
+/**
  * Stripeイベントから必須情報を抽出
  * @param stripeEvent Stripeイベントオブジェクト
  * @param tenantId テナントID
@@ -28,6 +37,9 @@ export async function extractEventDetail(
 
     case 'charge.refunded':
       return extractFromChargeRefunded(stripeEvent, tenantId);
+
+    case 'checkout.session.completed':
+      return extractFromCheckoutSessionCompleted(stripeEvent, tenantId);
 
     default:
       throw new Error(`Unsupported event type: ${eventType}`);
@@ -241,5 +253,74 @@ function extractFromChargeRefunded(
     currency,
     platformPaymentId,
     eventData: stripeEvent,
+  };
+}
+
+/**
+ * checkout.session.completed（setup mode）からの情報抽出
+ *
+ * 支払い方法更新のためのCheckout Session完了イベントを処理します。
+ */
+function extractFromCheckoutSessionCompleted(
+  stripeEvent: Stripe.Event,
+  tenantId: string
+): Partial<EventDetail> {
+  const eventObject = stripeEvent.data.object;
+  if (!isCheckoutSession(eventObject)) {
+    throw new Error('Event object is not a Checkout Session');
+  }
+
+  // setup modeのみ処理
+  if (eventObject.mode !== 'setup') {
+    throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
+  }
+
+  // SetupIntentのIDを取得
+  const setupIntentId =
+    typeof eventObject.setup_intent === 'string'
+      ? eventObject.setup_intent
+      : eventObject.setup_intent?.id;
+
+  if (!setupIntentId) {
+    throw new Error('SetupIntent ID not found in checkout session');
+  }
+
+  // メタデータからサブスクリプション情報を取得
+  const metadata = eventObject.metadata ?? {};
+  const subscriptionId = metadata.subscription_id ?? '';
+  const platformSubscriptionId = metadata.platform_subscription_id ?? '';
+  const userId = metadata.user_id ?? '';
+
+  // 顧客IDを取得
+  const customerId =
+    typeof eventObject.customer === 'string'
+      ? eventObject.customer
+      : eventObject.customer?.id;
+
+  if (!subscriptionId) {
+    console.warn('subscription_id not found in session metadata');
+  }
+
+  if (!userId) {
+    console.warn('user_id not found in session metadata');
+  }
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId,
+    userId,
+    platformPaymentId: setupIntentId, // SetupIntent IDを格納
+    platformSubscriptionId,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        setupIntentId,
+        platformSubscriptionId,
+        customerId,
+      },
+    },
   };
 }

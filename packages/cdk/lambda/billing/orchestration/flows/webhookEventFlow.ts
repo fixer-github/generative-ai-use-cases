@@ -30,6 +30,11 @@
  * - 最大リトライ回数3回、指数バックオフ（EventBridge側で制御される）
  */
 
+import Stripe from 'stripe';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -102,16 +107,27 @@ interface WebhookEventFlowOutput {
 }
 
 /**
+ * EventBridgeイベントのdetailペイロード
+ * Payment Gatewayから送信されるEventDetail形式
+ */
+interface EventDetailPayload {
+  eventId: string;
+  tenantId: string;
+  platform: PlatformType;
+  eventData: Record<string, unknown>;
+}
+
+/**
  * EventBridgeイベント構造
  * EventBridgeから渡されるイベント全体を表す型
  */
 interface EventBridgeEvent {
   /** イベントソース（例: "billing.payment-gateway"） */
   source: string;
-  /** イベント詳細タイプ（例: "Stripe Webhook Event"） */
+  /** イベント詳細タイプ（ビジネスイベントタイプ: "payment_method.updated" など） */
   'detail-type': string;
-  /** イベントペイロード */
-  detail: WebhookEventFlowInput;
+  /** イベントペイロード（EventDetail形式） */
+  detail: EventDetailPayload;
 }
 
 /**
@@ -126,14 +142,18 @@ export const handler = async (
   event: EventBridgeEvent
 ): Promise<WebhookEventFlowOutput> => {
   // EventBridgeイベントからdetailを抽出
-  const input: WebhookEventFlowInput = event.detail;
-  const { eventId, tenantId, platform, eventType, eventData } = input;
+  // Note: event['detail-type'] contains the business event type (e.g., 'payment_method.updated')
+  //       event.detail contains the EventDetail object with originalEventType
+  const input = event.detail;
+  const { eventId, tenantId, platform, eventData } = input;
+  // Use detail-type as the business event type (already normalized by eventMapper)
+  const businessEventType = event['detail-type'];
 
   console.log('Webhook event flow started', {
     eventId,
     tenantId,
     platform,
-    eventType,
+    businessEventType,
   });
 
   // クライアントのインスタンス化
@@ -143,11 +163,12 @@ export const handler = async (
 
   // イベントタイプごとに処理を分岐
   try {
-    // イベントタイプの正規化（プラットフォーム固有のイベント名を共通イベント名にマッピング）
-    const normalizedEventType = normalizeEventType(platform, eventType);
+    // EventBridgeのdetail-typeは既にビジネスイベントタイプに正規化されている
+    // Stripeの場合: eventMapperで checkout.session.completed → payment_method.updated に変換済み
+    const normalizedEventType = normalizeEventType(platform, businessEventType as WebhookEventType);
 
     console.log('Normalized event type', {
-      originalEventType: eventType,
+      businessEventType,
       normalizedEventType,
       platform,
     });
@@ -177,6 +198,7 @@ export const handler = async (
         );
 
       case 'refund.created':
+      case 'payment.refunded':
         return await handleRefundCreated(
           input,
           orchestrator,
@@ -184,9 +206,16 @@ export const handler = async (
           subscriptionClient
         );
 
+      case 'payment_method.updated':
+        return await handlePaymentMethodUpdated(
+          input,
+          orchestrator,
+          tenantId
+        );
+
       default:
         console.warn('Unknown event type, skipping processing', {
-          eventType,
+          businessEventType,
           normalizedEventType,
           platform,
         });
@@ -198,7 +227,7 @@ export const handler = async (
           eventId,
           errorDetails: {
             errorCode: 'UNKNOWN_EVENT_TYPE',
-            errorMessage: `Unknown event type: ${eventType}`,
+            errorMessage: `Unknown event type: ${businessEventType}`,
           },
         };
     }
@@ -209,7 +238,7 @@ export const handler = async (
       eventId,
       tenantId,
       platform,
-      eventType,
+      businessEventType,
       error: err.message,
       stack: err.stack,
     });
@@ -234,10 +263,10 @@ export const handler = async (
 function normalizeEventType(
   platform: PlatformType,
   eventType: WebhookEventType
-): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'unknown' {
+): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated' | 'unknown' {
   // Stripeのイベントはそのまま使用
   if (platform === 'stripe') {
-    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created';
+    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated';
   }
 
   // Appleのイベントをマッピング
@@ -290,7 +319,7 @@ function normalizeEventType(
  * @returns 処理結果
  */
 async function handlePaymentSucceeded(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
@@ -435,7 +464,7 @@ async function handlePaymentSucceeded(
  * @returns 処理結果
  */
 async function handlePaymentFailed(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
@@ -530,7 +559,7 @@ async function handlePaymentFailed(
  * @returns 処理結果
  */
 async function handleSubscriptionCanceled(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
@@ -627,7 +656,7 @@ async function handleSubscriptionCanceled(
  * @returns 処理結果
  */
 async function handleRefundCreated(
-  input: WebhookEventFlowInput,
+  input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
@@ -971,4 +1000,165 @@ function extractUserId(
   // Apple/Googleの場合は、イベントデータからユーザIDを直接取得できない
   // サブスクリプション情報から取得する必要がある
   return undefined;
+}
+
+/**
+ * Stripe APIキーのキャッシュ
+ */
+const stripeApiKeyCache: Record<string, string> = {};
+
+/**
+ * Secrets ManagerからStripe APIキーを取得する
+ * コントロールプレーン（genu account）のSecrets Managerから取得
+ * テナント固有のシークレット名: {tenantId}/billing/stripe
+ */
+async function getStripeApiKey(tenantId: string): Promise<string> {
+  if (stripeApiKeyCache[tenantId]) {
+    return stripeApiKeyCache[tenantId];
+  }
+
+  const secretName = `${tenantId}/billing/stripe`;
+
+  try {
+    // コントロールプレーンのSecrets Managerから取得（receiveWebhookと同じ方式）
+    const client = new SecretsManagerClient({ region: process.env.AWS_REGION });
+    const command = new GetSecretValueCommand({ SecretId: secretName });
+    const response = await client.send(command);
+
+    if (!response.SecretString) {
+      throw new Error(`Secret ${secretName} is empty`);
+    }
+
+    const secret = JSON.parse(response.SecretString);
+    stripeApiKeyCache[tenantId] = secret.apiKey;
+
+    return secret.apiKey;
+  } catch (error) {
+    console.error('Failed to retrieve Stripe API key:', error);
+    throw new Error('Failed to retrieve payment configuration');
+  }
+}
+
+/**
+ * payment_method.updated（支払い方法更新）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. SetupIntentから新しい支払い方法IDを取得
+ * 2. サブスクリプションのdefault_payment_methodを更新
+ * 3. 顧客のinvoice_settings.default_payment_methodを更新（オプション）
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param tenantId テナントID
+ * @returns 処理結果
+ */
+async function handlePaymentMethodUpdated(
+  input: EventDetailPayload,
+  orchestrator: FlowOrchestrator,
+  tenantId: string
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, platform, eventData } = input;
+  const userId = extractUserId(platform, eventData);
+
+  console.log('Processing payment_method.updated event', { eventId, tenantId, platform });
+
+  // イベントデータから抽出情報を取得（Stripeプラットフォームのみ対応）
+  const stripeData: StripeEventData = eventData;
+  const extracted = stripeData._extracted ?? {};
+  const { setupIntentId, platformSubscriptionId, customerId } = extracted;
+
+  console.log('Extracted data from event', {
+    setupIntentId,
+    platformSubscriptionId,
+    customerId,
+    hasExtracted: !!stripeData._extracted,
+    eventDataKeys: Object.keys(eventData),
+  });
+
+  if (!setupIntentId) {
+    throw new Error('SetupIntent ID not found in event data');
+  }
+
+  if (!platformSubscriptionId) {
+    throw new Error('Platform subscription ID not found in event data');
+  }
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    {
+      stepName: 'update_subscription_payment_method',
+      stepType: 'api_call',
+      targetService: 'Stripe',
+      executeFunction: async () => {
+        console.log('Updating subscription payment method', {
+          tenantId,
+          platformSubscriptionId,
+          setupIntentId,
+        });
+
+        // Stripe APIキーを取得
+        const apiKey = await getStripeApiKey(tenantId);
+        const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+        // SetupIntentから支払い方法IDを取得
+        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+        const newPaymentMethodId =
+          typeof setupIntent.payment_method === 'string'
+            ? setupIntent.payment_method
+            : setupIntent.payment_method?.id;
+
+        if (!newPaymentMethodId) {
+          throw new Error('Payment method not found on SetupIntent');
+        }
+
+        console.log('Retrieved payment method from SetupIntent', {
+          setupIntentId,
+          newPaymentMethodId,
+        });
+
+        // サブスクリプションのdefault_payment_methodを更新
+        await stripe.subscriptions.update(platformSubscriptionId, {
+          default_payment_method: newPaymentMethodId,
+        });
+
+        console.log('Subscription payment method updated', {
+          platformSubscriptionId,
+          newPaymentMethodId,
+        });
+
+        // 顧客のinvoice_settings.default_payment_methodも更新（オプション）
+        if (customerId) {
+          await stripe.customers.update(customerId, {
+            invoice_settings: {
+              default_payment_method: newPaymentMethodId,
+            },
+          });
+
+          console.log('Customer invoice settings updated', {
+            customerId,
+            newPaymentMethodId,
+          });
+        }
+
+        return {
+          success: true,
+          newPaymentMethodId,
+          platformSubscriptionId,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId || 'unknown',
+    `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
 }

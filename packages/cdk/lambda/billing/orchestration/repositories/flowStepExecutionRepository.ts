@@ -14,6 +14,7 @@ import {
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { StepExecution, StepStatus } from '../types';
+import { createTenantDynamoDBClientForBackgroundJob } from '../../../utils/tenantDynamoDBClient';
 
 /**
  * FlowStepExecutionRepository
@@ -24,17 +25,35 @@ import { StepExecution, StepStatus } from '../types';
  * Primary Key: flowExecutionId (PK), stepSequence (SK)
  */
 export class FlowStepExecutionRepository {
-  private readonly docClient: DynamoDBDocumentClient;
+  private docClient: DynamoDBDocumentClient | null = null;
   private readonly tenantId: string;
 
   constructor(tenantId: string, client?: DynamoDBClient) {
-    const dynamoClient = client || new DynamoDBClient({});
-    this.docClient = DynamoDBDocumentClient.from(dynamoClient, {
-      marshallOptions: {
-        removeUndefinedValues: true,
-      },
-    });
     this.tenantId = tenantId;
+    // クライアントが指定された場合は同期的に使用（テスト用）
+    if (client) {
+      this.docClient = DynamoDBDocumentClient.from(client, {
+        marshallOptions: {
+          removeUndefinedValues: true,
+        },
+      });
+    }
+  }
+
+  /**
+   * DynamoDB Document Clientを取得（遅延初期化）
+   * createTenantDynamoDBClientForBackgroundJobを使用してテナント固有のクライアントを作成
+   */
+  private async getDocClient(): Promise<DynamoDBDocumentClient> {
+    if (!this.docClient) {
+      const dynamoClient = await createTenantDynamoDBClientForBackgroundJob(this.tenantId);
+      this.docClient = DynamoDBDocumentClient.from(dynamoClient, {
+        marshallOptions: {
+          removeUndefinedValues: true,
+        },
+      });
+    }
+    return this.docClient;
   }
 
   /**
@@ -51,6 +70,8 @@ export class FlowStepExecutionRepository {
    * @throws {Error} If the DynamoDB operation fails
    */
   async create(stepExecution: StepExecution): Promise<void> {
+    const docClient = await this.getDocClient();
+
     try {
       // Set TTL to 1 year from now (Unix timestamp in seconds)
       const ttl = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
@@ -65,7 +86,7 @@ export class FlowStepExecutionRepository {
         Item: item,
       });
 
-      await this.docClient.send(command);
+      await docClient.send(command);
       console.log(
         `Created step execution: ${stepExecution.flowExecutionId}/${stepExecution.stepSequence} for tenant: ${this.tenantId}`
       );
@@ -100,6 +121,8 @@ export class FlowStepExecutionRepository {
       duration?: number;
     }
   ): Promise<void> {
+    const docClient = await this.getDocClient();
+
     try {
       // Build update expression dynamically
       const updateExpressions: string[] = [];
@@ -157,7 +180,7 @@ export class FlowStepExecutionRepository {
         ExpressionAttributeValues: expressionAttributeValues,
       });
 
-      await this.docClient.send(command);
+      await docClient.send(command);
       console.log(
         `Updated step execution: ${flowExecutionId}/${stepSequence} for tenant: ${this.tenantId}`
       );
@@ -180,6 +203,8 @@ export class FlowStepExecutionRepository {
    * @throws {Error} If the DynamoDB operation fails
    */
   async listByFlowExecution(flowExecutionId: string): Promise<StepExecution[]> {
+    const docClient = await this.getDocClient();
+
     try {
       const command = new QueryCommand({
         TableName: this.getTableName(),
@@ -190,7 +215,7 @@ export class FlowStepExecutionRepository {
         ScanIndexForward: true, // Sort by stepSequence ASC
       });
 
-      const response = await this.docClient.send(command);
+      const response = await docClient.send(command);
 
       return (response.Items || []) as StepExecution[];
     } catch (error) {

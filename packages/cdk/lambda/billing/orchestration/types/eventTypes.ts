@@ -20,6 +20,7 @@ export type WebhookEventType =
   | 'payment.failed'
   | 'subscription.canceled'
   | 'refund.created'
+  | 'payment_method.updated'
   // Apple events (App Store Server Notifications)
   | 'RENEWAL'
   | 'DID_FAIL_TO_RENEW'
@@ -86,6 +87,19 @@ export interface StripeEventData {
 
   /** 請求書ID */
   invoiceId?: string;
+
+  /** SetupIntent ID（payment_method.updated時） */
+  setupIntentId?: string;
+
+  /** プラットフォームサブスクリプションID（payment_method.updated時） */
+  platformSubscriptionId?: string;
+
+  /** 抽出された詳細情報（payment_method.updated時） */
+  _extracted?: {
+    setupIntentId?: string;
+    platformSubscriptionId?: string;
+    customerId?: string;
+  };
 
   /** その他のStripe固有データ */
   [key: string]: unknown;

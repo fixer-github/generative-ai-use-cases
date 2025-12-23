@@ -257,13 +257,19 @@ class OrchestrationApi extends Construct {
     // EventBridge Rules for Webhook Event Flow
     // ========================================
 
-    // Stripe Webhook Event Rule
+    // Stripe Webhook Event Rule - matches business event types
     const stripeWebhookRule = new Rule(this, 'StripeWebhookRule', {
       ruleName: `${environment}-stripe-webhook-to-orchestration`,
       eventBus,
       eventPattern: {
         source: ['billing.payment-gateway'],
-        detailType: ['Stripe Webhook Event'],
+        detailType: [
+          'payment.succeeded',
+          'payment.failed',
+          'subscription.canceled',
+          'payment.refunded',
+          'payment_method.updated',
+        ],
         detail: {
           platform: ['stripe'],
         },

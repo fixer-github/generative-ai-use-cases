@@ -96,6 +96,18 @@ export interface CustomerPortalResponse {
   url: string;
 }
 
+export interface UpdatePaymentMethodRequest {
+  subscriptionId: string;
+  returnUrl?: string;
+}
+
+export interface UpdatePaymentMethodResponse {
+  url: string;
+  session_id: string;
+  client_secret: string;
+  publishable_key: string;
+}
+
 const useSubscriptionApi = () => {
   const { api } = useBillingHttp();
 
@@ -204,12 +216,26 @@ const useSubscriptionApi = () => {
         return response.data;
       },
 
-      // Create Customer Portal session
+      /**
+       * @deprecated Use createPaymentMethodUpdateSession for updating payment methods.
+       * Customer Portal updates customer's default but NOT subscription's payment method.
+       */
       createCustomerPortalSession: async (
         request: CustomerPortalRequest
       ): Promise<CustomerPortalResponse> => {
         const response = await api.post<CustomerPortalResponse>(
           '/api/subscriptions/customer-portal',
+          request
+        );
+        return response.data;
+      },
+
+      // Create Payment Method Update Session (Stripe Checkout with setup mode)
+      createPaymentMethodUpdateSession: async (
+        request: UpdatePaymentMethodRequest
+      ): Promise<UpdatePaymentMethodResponse> => {
+        const response = await api.post<UpdatePaymentMethodResponse>(
+          '/api/subscriptions/update-payment-method',
           request
         );
         return response.data;
