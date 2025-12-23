@@ -61,9 +61,10 @@ export class TenantRole extends Construct {
       : cognitoFederatedPrincipal;
 
     // Create tenant-specific IAM role
+    // Include environment in role name to avoid conflicts between environments (e.g., dev vs devel)
     this.role = new Role(this, `TenantRole`, {
-      roleName: `TenantRole-${props.tenantId}`,
-      description: `IAM role for tenant ${props.tenantId} - supports both same-account and cross-account access`,
+      roleName: `TenantRole-${props.env}-${props.tenantId}`,
+      description: `IAM role for tenant ${props.tenantId} (${props.env}) - supports both same-account and cross-account access`,
       assumedBy,
       inlinePolicies: {
         TenantResourceAccess: new PolicyDocument({

@@ -119,7 +119,7 @@ export class TenantIAMStack extends cdk.Stack {
 
     // Create a Lambda to call the registration API
     const registerTenantLambda = new NodejsFunction(this, 'RegisterTenant', {
-      functionName: `tenant-registration-caller-${this.tenantId}`,
+      functionName: `tenant-registration-caller-${environment}-${this.tenantId}`,
       runtime: Runtime.NODEJS_18_X,
       handler: 'index.handler',
       timeout: cdk.Duration.seconds(30),
