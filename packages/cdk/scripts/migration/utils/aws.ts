@@ -294,3 +294,12 @@ export async function getStackDetails(
 export function clearClientCache(): void {
   clientCache.clear();
 }
+
+/**
+ * ARN からアカウントIDを抽出する
+ * 形式: arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME
+ */
+export function extractAccountIdFromArn(arn: string): string | null {
+  const match = arn.match(/^arn:aws:iam::(\d+):/);
+  return match ? match[1] : null;
+}

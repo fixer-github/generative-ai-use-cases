@@ -10,6 +10,7 @@ import {
   AWSClientConfig,
   createDynamoDBDocClient,
   createTenantDynamoDBClient,
+  getCallerIdentity,
 } from '../utils/aws';
 import { isCrossAccountTenant } from '../discovery/tenant';
 import * as logger from '../utils/logger';
@@ -114,9 +115,12 @@ export async function exportTenantSystemContexts(
   tenant: DiscoveredTenant,
   config: AWSClientConfig
 ): Promise<SystemContextBackup> {
+  // 現在のアカウントIDを取得
+  const { accountId: currentAccountId } = await getCallerIdentity(config);
+
   let docClient: DynamoDBDocumentClient;
 
-  if (isCrossAccountTenant(tenant)) {
+  if (isCrossAccountTenant(tenant, currentAccountId)) {
     // クロスアカウントテナントの場合は AssumeRole
     logger.info(`クロスアカウントテナント "${tenant.tenantId}" のロールをAssume中...`);
     docClient = await createTenantDynamoDBClient(

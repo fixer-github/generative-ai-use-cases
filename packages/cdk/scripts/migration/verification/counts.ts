@@ -17,6 +17,7 @@ import {
   createDynamoDBDocClient,
   createDynamoDBClient,
   assumeTenantRole,
+  getCallerIdentity,
 } from '../utils/aws';
 import { isCrossAccountTenant } from '../discovery/tenant';
 import * as logger from '../utils/logger';
@@ -278,10 +279,13 @@ export async function verifyTenant(
 ): Promise<VerificationResult> {
   logger.startProcess(`テナント "${tenant.tenantId}" 検証`);
 
+  // 現在のアカウントIDを取得
+  const { accountId: currentAccountId } = await getCallerIdentity(config);
+
   let docClient: DynamoDBDocumentClient;
   let dynamoClient: DynamoDBClient;
 
-  if (isCrossAccountTenant(tenant)) {
+  if (isCrossAccountTenant(tenant, currentAccountId)) {
     // クロスアカウントテナントの場合は AssumeRole
     logger.info(`クロスアカウントテナント "${tenant.tenantId}" のロールをAssume中...`);
     const credentials = await assumeTenantRole(

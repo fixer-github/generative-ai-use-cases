@@ -5,7 +5,11 @@
 
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { DiscoveredTenant, DiscoveredEnvironment } from '../config/types';
-import { AWSClientConfig, createDynamoDBDocClient } from '../utils/aws';
+import {
+  AWSClientConfig,
+  createDynamoDBDocClient,
+  extractAccountIdFromArn,
+} from '../utils/aws';
 import * as logger from '../utils/logger';
 
 /**
@@ -205,9 +209,30 @@ export function createDefaultTenant(
 
 /**
  * テナントがクロスアカウントかどうかを判定する
+ * @param tenant テナント情報
+ * @param currentAccountId 現在のアカウントID（指定された場合、同一アカウントなら false を返す）
  */
-export function isCrossAccountTenant(tenant: DiscoveredTenant): boolean {
-  return !!tenant.roleArn && tenant.roleArn.trim() !== '';
+export function isCrossAccountTenant(
+  tenant: DiscoveredTenant,
+  currentAccountId?: string
+): boolean {
+  if (!tenant.roleArn || tenant.roleArn.trim() === '') {
+    return false;
+  }
+
+  // currentAccountId が指定された場合、同一アカウントかチェック
+  if (currentAccountId) {
+    const tenantAccountId = extractAccountIdFromArn(tenant.roleArn);
+    if (tenantAccountId === currentAccountId) {
+      // 同一アカウント内のロールはクロスアカウントとして扱わない
+      logger.debug(
+        `テナント "${tenant.tenantId}" は同一アカウント内のため、AssumeRole をスキップします`
+      );
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
