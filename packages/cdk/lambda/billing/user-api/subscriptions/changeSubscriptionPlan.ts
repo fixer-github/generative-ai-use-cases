@@ -77,7 +77,7 @@ interface ErrorResponse {
 const lambdaClient = new LambdaClient({});
 
 // Stripe API key cache
-let stripeApiKeyCache: { [key: string]: string } = {};
+const stripeApiKeyCache: { [key: string]: string } = {};
 
 /**
  * Secrets ManagerからStripe APIキーを取得する
@@ -192,12 +192,9 @@ async function getProrationPreview(
 
     // プロレーション行の金額を合計
     // Proration lines have negative amounts for credit and positive for charges
-    let prorationAmount = 0;
-    for (const line of upcomingInvoice.lines.data) {
-      if (line.proration) {
-        prorationAmount += line.amount;
-      }
-    }
+    const prorationAmount = upcomingInvoice.lines.data
+      .filter((line) => line.proration)
+      .reduce((sum, line) => sum + line.amount, 0);
 
     console.log('Proration preview calculated:', {
       platformSubscriptionId,
@@ -209,6 +206,84 @@ async function getProrationPreview(
   } catch (error) {
     console.error('Failed to get proration preview:', error);
     return null;
+  }
+}
+
+/**
+ * リクエストボディをパースする
+ */
+function parseRequestBody(body: string): ChangePlanRequest | null {
+  try {
+    return JSON.parse(body) as ChangePlanRequest;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * データ取得結果の型
+ */
+type FetchResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: Error };
+
+/**
+ * ユーザーのプラン適用情報を取得する
+ */
+async function fetchUserPlanApplications(
+  event: APIGatewayProxyEvent,
+  userId: string
+): Promise<FetchResult<UserPlanApplication[]>> {
+  try {
+    const data = await invokeDataAccessFunction<UserPlanApplication[]>(
+      event,
+      'user-plan-application',
+      'findActiveByUserId',
+      { userId }
+    );
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}
+
+/**
+ * サブスクリプション情報を取得する
+ */
+async function fetchSubscription(
+  event: APIGatewayProxyEvent,
+  subscriptionId: string
+): Promise<FetchResult<Subscription | null>> {
+  try {
+    const data = await invokeDataAccessFunction<Subscription | null>(
+      event,
+      'subscription',
+      'findById',
+      { subscriptionId }
+    );
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}
+
+/**
+ * プラン情報を取得する
+ */
+async function fetchPlan(
+  event: APIGatewayProxyEvent,
+  planId: string
+): Promise<FetchResult<Plan | null>> {
+  try {
+    const data = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
+    );
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
   }
 }
 
@@ -243,10 +318,8 @@ export const handler = async (
       });
     }
 
-    let requestBody: ChangePlanRequest;
-    try {
-      requestBody = JSON.parse(event.body);
-    } catch {
+    const requestBody = parseRequestBody(event.body);
+    if (!requestBody) {
       return badRequest400Response({
         message: 'リクエストボディが不正なJSON形式です',
         code: 'INVALID_JSON',
@@ -268,22 +341,16 @@ export const handler = async (
     }
 
     // 4. 現在のプラン適用情報を取得
-    let applications: UserPlanApplication[];
-    try {
-      applications = await invokeDataAccessFunction<UserPlanApplication[]>(
-        event,
-        'user-plan-application',
-        'findActiveByUserId',
-        { userId }
-      );
-    } catch (error) {
-      console.error('Error fetching user plan applications:', error);
+    const applicationsResult = await fetchUserPlanApplications(event, userId);
+    if (!applicationsResult.success) {
+      console.error('Error fetching user plan applications:', applicationsResult.error);
       return internalServerError500Response({
         message: 'プラン情報の取得に失敗しました',
         code: 'DATA_ACCESS_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: applicationsResult.error.message,
       });
     }
+    const applications = applicationsResult.data;
 
     // 有効なプラン適用をフィルタリング
     const now = new Date();
@@ -345,22 +412,16 @@ export const handler = async (
     const subscriptionId = highestPriorityApplication.application_source_id;
 
     // サブスクリプション情報を取得
-    let subscription: Subscription | null;
-    try {
-      subscription = await invokeDataAccessFunction<Subscription | null>(
-        event,
-        'subscription',
-        'findById',
-        { subscriptionId }
-      );
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
+    const subscriptionResult = await fetchSubscription(event, subscriptionId);
+    if (!subscriptionResult.success) {
+      console.error('Error fetching subscription:', subscriptionResult.error);
       return internalServerError500Response({
         message: 'サブスクリプション情報の取得に失敗しました',
         code: 'SUBSCRIPTION_FETCH_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: subscriptionResult.error.message,
       });
     }
+    const subscription = subscriptionResult.data;
 
     if (!subscription) {
       return notFound404Response({
@@ -370,22 +431,16 @@ export const handler = async (
     }
 
     // 7. 新しいプランの情報を取得
-    let newPlan: Plan | null;
-    try {
-      newPlan = await invokeDataAccessFunction<Plan | null>(
-        event,
-        'plan',
-        'findById',
-        { id: newPlanId }
-      );
-    } catch (error) {
-      console.error('Error fetching new plan:', error);
+    const newPlanResult = await fetchPlan(event, newPlanId);
+    if (!newPlanResult.success) {
+      console.error('Error fetching new plan:', newPlanResult.error);
       return internalServerError500Response({
         message: '新しいプラン情報の取得に失敗しました',
         code: 'PLAN_FETCH_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: newPlanResult.error.message,
       });
     }
+    const newPlan = newPlanResult.data;
 
     if (!newPlan) {
       return badRequest400Response({
@@ -405,21 +460,16 @@ export const handler = async (
     });
 
     // 8. Stripeのプロレーション金額をプレビュー（Stripeプラットフォームの場合）
-    let prorationAmount: number | undefined;
-    if (
+    const prorationAmount =
       subscription.platform_type === 'stripe' &&
       subscription.platform_subscription_id &&
       newPlan.platform_product_id
-    ) {
-      const prorationPreview = await getProrationPreview(
-        tenantId,
-        subscription.platform_subscription_id,
-        newPlan.platform_product_id
-      );
-      if (prorationPreview !== null) {
-        prorationAmount = prorationPreview;
-      }
-    }
+        ? await getProrationPreview(
+            tenantId,
+            subscription.platform_subscription_id,
+            newPlan.platform_product_id
+          )
+        : null;
 
     // 9. Plan Change Flowを呼び出す
     const planChangeFlowFunctionName = process.env.PLAN_CHANGE_FLOW_FUNCTION_NAME;
@@ -519,12 +569,8 @@ export const handler = async (
       displayName: newPlan.display_name,
       message,
       effectiveDate: flowOutput.effectiveDate,
+      ...(prorationAmount !== null && { prorationAmount }),
     };
-
-    // プロレーション金額がある場合は追加
-    if (prorationAmount !== undefined) {
-      response.prorationAmount = prorationAmount;
-    }
 
     console.log('Plan change completed successfully:', {
       subscriptionId,
