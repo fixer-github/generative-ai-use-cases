@@ -224,15 +224,15 @@ function extractFromSubscriptionDeleted(
 
 /**
  * customer.subscription.updated からの情報抽出
- * プラン変更（アップグレード/ダウングレード）時に呼び出される
+ * Customer Portalやsubscriptions.update APIによるプラン変更時に発火
  */
 function extractFromSubscriptionUpdated(
   stripeEvent: Stripe.Event,
   tenantId: string
 ): Partial<EventDetail> {
   const subscription = stripeEvent.data.object as Stripe.Subscription;
-  const previousAttributes = stripeEvent.data
-    .previous_attributes as Partial<Stripe.Subscription> | undefined;
+  // previous_attributes には変更前の値が含まれる
+  const previousAttributes = (stripeEvent.data as any).previous_attributes ?? {};
 
   const subscriptionId = subscription.id;
 
@@ -250,18 +250,31 @@ function extractFromSubscriptionUpdated(
     );
   }
 
-  // 現在のPrice ID（変更後）
-  const newPriceId =
+  // 現在のprice ID（新しいプラン）
+  const currentPriceId =
     (typeof subscription.items.data[0]?.price === 'string'
       ? subscription.items.data[0]?.price
       : subscription.items.data[0]?.price?.id) || '';
 
-  // 以前のPrice ID（変更前）- previous_attributesから取得
+  // 変更前のprice ID（previous_attributesから取得）
+  // items配列の変更がある場合、previous_attributes.items に変更前の値がある
   let previousPriceId = '';
-  if (previousAttributes?.items?.data?.[0]?.price) {
+  if (previousAttributes.items?.data?.[0]?.price) {
     const prevPrice = previousAttributes.items.data[0].price;
-    previousPriceId = typeof prevPrice === 'string' ? prevPrice : prevPrice.id;
+    previousPriceId = typeof prevPrice === 'string' ? prevPrice : prevPrice?.id || '';
   }
+
+  // プラン変更があったかどうかを判定
+  const isPlanChange = previousPriceId && previousPriceId !== currentPriceId;
+
+  console.log('Subscription updated event details', {
+    subscriptionId,
+    userId,
+    currentPriceId,
+    previousPriceId,
+    isPlanChange,
+    previousAttributesKeys: Object.keys(previousAttributes),
+  });
 
   return {
     platform: 'stripe',
@@ -270,11 +283,21 @@ function extractFromSubscriptionUpdated(
     originalEventType: stripeEvent.type,
     subscriptionId,
     userId,
-    planId: newPriceId,
-    newPriceId,
-    previousPriceId,
+    planId: currentPriceId,
+    newPlanId: isPlanChange ? currentPriceId : undefined,
+    previousPlanId: isPlanChange ? previousPriceId : undefined,
     platformSubscriptionId: subscriptionId,
-    eventData: stripeEvent,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        subscriptionId,
+        userId,
+        currentPriceId,
+        previousPriceId,
+        isPlanChange,
+        status: subscription.status,
+      },
+    },
   };
 }
 

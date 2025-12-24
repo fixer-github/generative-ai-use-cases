@@ -99,6 +99,32 @@ export interface ExtendSubscriptionPeriodResponse {
 }
 
 /**
+ * サブスクリプションプラン更新リクエストパラメータ
+ */
+export interface UpdateSubscriptionPlanParams {
+  /** テナントID */
+  tenantId: string;
+  /** サブスクリプションID */
+  subscriptionId: string;
+  /** 新しいプランID */
+  newPlanId: string;
+}
+
+/**
+ * サブスクリプションプラン更新レスポンス
+ */
+export interface UpdateSubscriptionPlanResponse {
+  /** サブスクリプションID */
+  subscriptionId: string;
+  /** 以前のプランID */
+  previousPlanId: string;
+  /** 新しいプランID */
+  newPlanId: string;
+  /** 更新日時（ISO 8601形式） */
+  updatedAt: string;
+}
+
+/**
  * Lambda呼び出しエラー
  */
 export class SubscriptionManagementClientError extends Error {
@@ -251,6 +277,41 @@ export class SubscriptionManagementClient {
     });
 
     return this.invokeLambda<ExtendSubscriptionPeriodResponse>(
+      functionName,
+      params
+    );
+  }
+
+  /**
+   * サブスクリプションのプランを更新
+   *
+   * 既存のサブスクリプションのプランIDを更新します。プラン変更フローから呼び出されます。
+   *
+   * @param params サブスクリプションプラン更新パラメータ
+   * @returns プラン更新結果
+   * @throws SubscriptionManagementClientError 呼び出しエラーまたはビジネスロジックエラー
+   */
+  async updateSubscriptionPlan(
+    params: UpdateSubscriptionPlanParams
+  ): Promise<UpdateSubscriptionPlanResponse> {
+    const functionName =
+      process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_PLAN_FUNCTION_NAME;
+
+    if (!functionName) {
+      throw new SubscriptionManagementClientError(
+        'CONFIGURATION_ERROR',
+        'SUBSCRIPTION_MANAGEMENT_UPDATE_PLAN_FUNCTION_NAME environment variable is not set'
+      );
+    }
+
+    console.log('Updating subscription plan', {
+      functionName,
+      tenantId: params.tenantId,
+      subscriptionId: params.subscriptionId,
+      newPlanId: params.newPlanId,
+    });
+
+    return this.invokeLambda<UpdateSubscriptionPlanResponse>(
       functionName,
       params
     );

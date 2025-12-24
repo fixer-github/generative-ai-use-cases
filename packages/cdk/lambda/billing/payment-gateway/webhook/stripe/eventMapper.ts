@@ -36,6 +36,7 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.paid': 'payment.succeeded', // 補助的なマッピング
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
+  'customer.subscription.updated': 'subscription.updated',
   'charge.refunded': 'payment.refunded',
   // customer.subscription.updatedは動的にマッピング（プラン変更時のみ処理）
   'customer.subscription.updated': (event: Stripe.Event): BusinessEventType | null => {

@@ -201,6 +201,15 @@ export const handler = async (
           subscriptionClient
         );
 
+      case 'subscription.updated':
+        return await handleSubscriptionUpdated(
+          input,
+          orchestrator,
+          planClient,
+          subscriptionClient,
+          tenantId
+        );
+
       case 'refund.created':
       case 'payment.refunded':
         return await handleRefundCreated(
@@ -668,6 +677,256 @@ async function handleSubscriptionCanceled(
     'webhook_event',
     userId || 'unknown',
     `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * subscription.updated（サブスクリプション更新）イベントを処理
+ *
+ * Customer Portalやsubscriptions.update APIによるプラン変更時に発火。
+ * プラン変更があった場合、内部DBの状態を更新する。
+ *
+ * 処理ステップ:
+ * 1. プラン変更かどうかを判定
+ * 2. プラン変更の場合、現在のプラン適用を終了
+ * 3. 新しいプランを適用
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param planClient プラン管理クライアント
+ * @param subscriptionClient サブスクリプション管理クライアント
+ * @param tenantId テナントID
+ * @returns 処理結果
+ */
+async function handleSubscriptionUpdated(
+  input: EventDetailPayload,
+  orchestrator: FlowOrchestrator,
+  planClient: PlanManagementClient,
+  subscriptionClient: SubscriptionManagementClient,
+  tenantId: string
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, platform, eventData } = input;
+
+  console.log('Processing subscription.updated event', { eventId, tenantId, platform });
+
+  // イベントデータから抽出情報を取得
+  const stripeData = eventData as StripeEventData;
+  const extracted = stripeData._extracted ?? {};
+  const {
+    subscriptionId: platformSubscriptionId,
+    userId,
+    currentPriceId,
+    previousPriceId,
+    isPlanChange,
+  } = extracted;
+
+  console.log('Extracted subscription update data', {
+    platformSubscriptionId,
+    userId,
+    currentPriceId,
+    previousPriceId,
+    isPlanChange,
+  });
+
+  // プラン変更がない場合は処理をスキップ
+  if (!isPlanChange) {
+    console.log('No plan change detected, skipping processing', {
+      eventId,
+      platformSubscriptionId,
+    });
+
+    return {
+      success: true,
+      flowExecutionId: '',
+      eventId,
+      errorDetails: {
+        errorCode: 'NO_PLAN_CHANGE',
+        errorMessage: 'Subscription updated but no plan change detected',
+      },
+    };
+  }
+
+  if (!platformSubscriptionId) {
+    throw new Error('Platform subscription ID not found in event data');
+  }
+
+  if (!userId) {
+    throw new Error('User ID not found in event data');
+  }
+
+  if (!currentPriceId) {
+    throw new Error('Current price ID not found in event data');
+  }
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    // ステップ1: 現在のプラン適用を終了
+    {
+      stepName: 'terminate_current_plan_application',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Terminating current plan application (plan change via portal)', {
+          tenantId,
+          userId,
+          platformSubscriptionId,
+        });
+
+        // platform_subscription_idをapplicationSourceIdとして渡し、
+        // Lambda側で適用を検索して終了
+        // 注: 内部サブスクリプションIDを取得するためにまず検索が必要
+        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
+          tenantId,
+          'subscription',
+          'findByPlatformSubscriptionId',
+          { platformSubscriptionId }
+        );
+
+        if (!subscription) {
+          console.warn('No internal subscription found for platform subscription', {
+            platformSubscriptionId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_found',
+          };
+        }
+
+        const result = await planClient.terminatePlanApplication({
+          tenantId,
+          userId: userId as string,
+          applicationSourceId: subscription.subscription_id,
+        });
+
+        console.log('Plan application terminated successfully', {
+          applicationId: result.applicationId,
+          success: result.success,
+        });
+
+        return {
+          ...result,
+          internalSubscriptionId: subscription.subscription_id,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: サブスクリプションのプランIDを更新
+    {
+      stepName: 'update_subscription_plan',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      executeFunction: async () => {
+        console.log('Updating subscription plan ID', {
+          tenantId,
+          platformSubscriptionId,
+          newPriceId: currentPriceId,
+        });
+
+        // platform_subscription_idでサブスクリプションを検索
+        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
+          tenantId,
+          'subscription',
+          'findByPlatformSubscriptionId',
+          { platformSubscriptionId }
+        );
+
+        if (!subscription) {
+          console.warn('No internal subscription found, skipping plan update', {
+            platformSubscriptionId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_found',
+          };
+        }
+
+        // サブスクリプションのplan_idを更新（既存のupdateオペレーションを使用）
+        const updateResult = await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
+          tenantId,
+          'subscription',
+          'update',
+          {
+            subscriptionId: subscription.subscription_id,
+            updates: {
+              plan_id: currentPriceId,
+            },
+          }
+        );
+
+        console.log('Subscription plan ID updated', {
+          subscriptionId: subscription.subscription_id,
+          newPlanId: currentPriceId,
+        });
+
+        return {
+          success: true,
+          internalSubscriptionId: subscription.subscription_id,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ3: 新しいプランを適用
+    {
+      stepName: 'apply_new_plan',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
+      executeFunction: async () => {
+        // platform_subscription_idでサブスクリプションを検索
+        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
+          tenantId,
+          'subscription',
+          'findByPlatformSubscriptionId',
+          { platformSubscriptionId }
+        );
+
+        if (!subscription) {
+          throw new Error('Internal subscription not found for platform subscription');
+        }
+
+        console.log('Applying new plan to user (plan change via portal)', {
+          tenantId,
+          userId,
+          planId: currentPriceId,
+          subscriptionId: subscription.subscription_id,
+        });
+
+        const result = await planClient.applyPlanToUser({
+          tenantId,
+          userId: userId as string,
+          planId: currentPriceId as string,
+          applicationSource: 'subscription',
+          applicationSourceId: subscription.subscription_id,
+          validFrom: new Date().toISOString(),
+          // validUntilはサブスクリプションの有効期限に合わせる
+        });
+
+        console.log('New plan applied successfully', {
+          applicationId: result.applicationId,
+          applicationStatus: result.applicationStatus,
+        });
+
+        return result;
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId as string || 'unknown',
+    `${platform}_webhook_plan_change`,
     input,
     steps,
     eventId

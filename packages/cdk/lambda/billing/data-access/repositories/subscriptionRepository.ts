@@ -175,6 +175,11 @@ export class SubscriptionRepository extends BaseRepository {
       params.push(updates.cancel_at_period_end);
     }
 
+    if (updates.plan_id !== undefined) {
+      fields.push(`plan_id = $${paramIndex++}`);
+      params.push(updates.plan_id);
+    }
+
     if (fields.length === 0) {
       return this.findById(subscriptionId);
     }

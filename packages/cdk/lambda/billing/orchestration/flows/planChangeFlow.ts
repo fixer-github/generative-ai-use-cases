@@ -9,14 +9,16 @@
  * 2. 決済システムへのプラン変更依頼（paymentGatewayClient.updateSubscription）
  *    - アップグレード: prorate=true（即座に変更）
  *    - ダウングレード: prorate=false（次回更新時に変更）
- * 3. サブスクリプション情報更新（subscriptionManagementClient.updateSubscriptionStatus）
- * 4. 古いプランの権限剥奪（planManagementClient.terminatePlanApplication）
- * 5. 新しいプラン適用（planManagementClient.applyPlanToUser）
- * 6. 権限付与（将来実装）
+ * 3. サブスクリプションのプランID更新（subscriptionManagementClient.updateSubscriptionPlan）
+ *    - DBのsubscriptions.plan_idを新しいプランIDに更新
+ * 4. サブスクリプション情報更新（subscriptionManagementClient.updateSubscriptionStatus）
+ * 5. 古いプランの権限剥奪（planManagementClient.terminatePlanApplication）
+ * 6. 新しいプラン適用（planManagementClient.applyPlanToUser）
+ *    - 権限付与はapplyPlanToUser内部で自動的に実行される（grantPermission Lambda呼び出し）
  * 7. 通知送信（将来実装）
  *
  * エラーハンドリング:
- * - ステップ4、5で失敗した場合、古いプランの権限を再付与するロールバック処理
+ * - ステップ3以降で失敗した場合、DBのplan_idを元に戻し、古いプランの権限を再付与するロールバック処理
  * - ステップ2で失敗した場合、決済システム側でトランザクションが保証される前提のため、エラーとして記録
  */
 
@@ -356,7 +358,63 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ3: サブスクリプション情報更新
+    // ステップ3: サブスクリプションのプランIDを更新（DBへの反映）
+    {
+      stepName: 'update_subscription_plan',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_PLAN_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Updating subscription plan in database', {
+          tenantId,
+          subscriptionId,
+          newPlanId,
+        });
+
+        const result = await subscriptionClient.updateSubscriptionPlan({
+          tenantId,
+          subscriptionId,
+          newPlanId,
+        });
+
+        console.log('Subscription plan updated successfully in database', {
+          subscriptionId,
+          previousPlanId: result.previousPlanId,
+          newPlanId: result.newPlanId,
+        });
+
+        return result;
+      },
+      rollbackFunction: async (outputData: unknown) => {
+        console.log('Rolling back update_subscription_plan step', { outputData });
+
+        const planUpdateData = outputData as {
+          previousPlanId?: string;
+        };
+
+        if (planUpdateData.previousPlanId) {
+          try {
+            await subscriptionClient.updateSubscriptionPlan({
+              tenantId,
+              subscriptionId,
+              newPlanId: planUpdateData.previousPlanId,
+            });
+            console.log('Subscription plan rolled back to previous', {
+              previousPlanId: planUpdateData.previousPlanId,
+            });
+          } catch (error) {
+            console.error('Failed to rollback subscription plan', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ4: サブスクリプション情報更新（ステータス確認）
     {
       stepName: 'update_subscription_status',
       stepType: 'api_call',
@@ -391,7 +449,7 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ4: 古いプランの権限剥奪
+    // ステップ5: 古いプランの権限剥奪
     {
       stepName: 'terminate_old_plan',
       stepType: 'api_call',
@@ -445,7 +503,7 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ5: 新しいプラン適用
+    // ステップ6: 新しいプラン適用
     {
       stepName: 'apply_new_plan',
       stepType: 'api_call',
@@ -522,25 +580,10 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ6: 権限付与（将来実装）
-    // {
-    //   stepName: 'grant_new_permissions',
-    //   stepType: 'api_call',
-    //   targetService: 'AuthorizationService',
-    //   targetFunction: process.env.AUTHORIZATION_SERVICE_GRANT_FUNCTION_NAME,
-    //   executeFunction: async () => {
-    //     console.log('Granting new permissions', { tenantId, userId, newPlanId });
-    //
-    //     // TODO: AuthorizationServiceClientを実装後、権限付与処理を追加
-    //     return { grantId: 'grant-placeholder' };
-    //   },
-    //   rollbackFunction: async (outputData: unknown) => {
-    //     console.log('Rolling back grant_new_permissions step', { outputData });
-    //     // TODO: AuthorizationServiceClient.revokePermission() を実装
-    //   },
-    //   retryable: true,
-    //   maxRetries: 3,
-    // },
+    // NOTE: 権限付与はステップ6の applyPlanToUser 内で自動的に実行される
+    // applyPlanToUser は以下の処理を内部で行う:
+    // - 既存のプラン適用を期限切れにし、revokePermission で権限を剥奪
+    // - 新しいプラン適用を作成し、grantPermission で権限を付与
 
     // ステップ7: 通知送信（将来実装）
     // {
@@ -648,10 +691,11 @@ export const handler = async (
         stackTrace: err.stack,
       });
 
-      // ロールバック実行（ステップ4以降で失敗した場合のみ）
-      // ステップ4: terminate_old_plan、ステップ5: apply_new_plan
+      // ロールバック実行（ステップ3以降で失敗した場合のみ）
+      // ステップ3: update_subscription_plan、ステップ5: terminate_old_plan、ステップ6: apply_new_plan
       const rollbackableSteps = completedSteps.filter(
         (step) =>
+          step.stepConfig.stepName === 'update_subscription_plan' ||
           step.stepConfig.stepName === 'terminate_old_plan' ||
           step.stepConfig.stepName === 'apply_new_plan'
       );
