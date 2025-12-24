@@ -65,6 +65,21 @@ export interface UserBillingApiProps {
    * (createCheckoutSession関数を再利用するため)
    */
   readonly paymentGatewayApi?: PaymentGatewayApi;
+
+  /**
+   * SendGrid API key for sending emails
+   */
+  readonly sendgridApiKey: string;
+
+  /**
+   * SendGrid sender email address
+   */
+  readonly sendgridFromEmail: string;
+
+  /**
+   * Email service name (displayed in emails)
+   */
+  readonly emailServiceName: string;
 }
 
 class UserBillingApi extends Construct {
@@ -72,6 +87,7 @@ class UserBillingApi extends Construct {
   public readonly listPlansFunction: NodejsFunction;
   public readonly createCheckoutSessionFunction: NodejsFunction;
   public readonly getCheckoutSessionStatusFunction: NodejsFunction;
+  public readonly sendCheckoutLinkToParentFunction: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
@@ -292,6 +308,85 @@ class UserBillingApi extends Construct {
     statusResource.addMethod(
       'GET',
       new LambdaIntegration(this.getCheckoutSessionStatusFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
+    // API 3.5: 保護者向け決済リンク送信API（ペアレンタルコントロール）
+    // POST /api/subscriptions/send-checkout-to-parent
+    // ========================================
+
+    this.sendCheckoutLinkToParentFunction = new NodejsFunction(
+      this,
+      'SendCheckoutLinkToParent',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/user-api/subscriptions/sendCheckoutLinkToParent.ts',
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: {
+          ...commonEnvironment,
+          SERVICE_NAME: props.emailServiceName,
+          SENDGRID_API_KEY: props.sendgridApiKey,
+          SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+        },
+      }
+    );
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(
+      this.sendCheckoutLinkToParentFunction
+    );
+
+    // Secrets Manager読み取り権限（Stripe APIキー取得用）
+    this.sendCheckoutLinkToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
+    // Lambda呼び出し権限（データアクセス層用）
+    this.sendCheckoutLinkToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+        ],
+      })
+    );
+
+    // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+    this.sendCheckoutLinkToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/TenantRole-*'],
+      })
+    );
+
+    // Grant STS AssumeRoleWithWebIdentity permission
+    this.sendCheckoutLinkToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const sendToParentResource = subscriptionsResource.addResource(
+      'send-checkout-to-parent'
+    );
+    sendToParentResource.addMethod(
+      'POST',
+      new LambdaIntegration(this.sendCheckoutLinkToParentFunction),
       {
         authorizer: authorizer,
         authorizationType: AuthorizationType.COGNITO,
@@ -804,6 +899,7 @@ class UserBillingApi extends Construct {
     console.log('  - GET /api/plans');
     console.log('  - POST /api/subscriptions/checkout-session');
     console.log('  - GET /api/subscriptions/checkout-session/{sessionId}/status');
+    console.log('  - POST /api/subscriptions/send-checkout-to-parent');
     console.log('  - GET /api/subscriptions/current');
     if (props.orchestrationFunctions) {
       console.log('  - POST /api/subscriptions/activate-from-session');

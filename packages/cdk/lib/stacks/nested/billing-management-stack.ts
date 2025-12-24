@@ -62,6 +62,21 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * This role is created in the parent stack and passed here for additional permissions
    */
   readonly backgroundJobRole: IRole;
+
+  /**
+   * SendGrid API key for sending emails
+   */
+  readonly sendgridApiKey: string;
+
+  /**
+   * SendGrid sender email address
+   */
+  readonly sendgridFromEmail: string;
+
+  /**
+   * Email service name (displayed in emails)
+   */
+  readonly emailServiceName: string;
 }
 
 /**
@@ -223,6 +238,9 @@ export class BillingManagementStack extends NestedStack {
       environment: props.environment,
       orchestrationFunctions: orchestrationApi.orchestrationFunctions,
       paymentGatewayApi: paymentGatewayApi,
+      sendgridApiKey: props.sendgridApiKey,
+      sendgridFromEmail: props.sendgridFromEmail,
+      emailServiceName: props.emailServiceName,
     });
 
     // ========================================

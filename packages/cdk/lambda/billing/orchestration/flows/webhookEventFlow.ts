@@ -35,6 +35,7 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -50,9 +51,12 @@ import {
   UpdateSubscriptionStatusParams,
   ExtendSubscriptionPeriodParams,
 } from '../clients/subscriptionManagementClient';
-import { PlatformType } from '../types/flowTypes';
+import { PlatformType, PurchaseFlowInput, PurchaseFlowOutput } from '../types/flowTypes';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
 import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
+
+// Lambda client instance
+const lambdaClient = new LambdaClient({});
 
 /**
  * デフォルトプランを取得
@@ -213,6 +217,13 @@ export const handler = async (
           tenantId
         );
 
+      case 'subscription.parental_activated':
+        return await handleParentalControlActivation(
+          input,
+          orchestrator,
+          tenantId
+        );
+
       default:
         console.warn('Unknown event type, skipping processing', {
           businessEventType,
@@ -252,6 +263,19 @@ export const handler = async (
 };
 
 /**
+ * 正規化されたイベントタイプ
+ */
+type NormalizedEventType =
+  | 'payment.succeeded'
+  | 'payment.failed'
+  | 'subscription.canceled'
+  | 'refund.created'
+  | 'payment.refunded'
+  | 'payment_method.updated'
+  | 'subscription.parental_activated'
+  | 'unknown';
+
+/**
  * イベントタイプを正規化
  *
  * プラットフォーム固有のイベント名を共通イベント名にマッピングします。
@@ -263,10 +287,10 @@ export const handler = async (
 function normalizeEventType(
   platform: PlatformType,
   eventType: WebhookEventType
-): 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated' | 'unknown' {
+): NormalizedEventType {
   // Stripeのイベントはそのまま使用
   if (platform === 'stripe') {
-    return eventType as 'payment.succeeded' | 'payment.failed' | 'subscription.canceled' | 'refund.created' | 'payment.refunded' | 'payment_method.updated';
+    return eventType as NormalizedEventType;
   }
 
   // Appleのイベントをマッピング
@@ -1157,6 +1181,157 @@ async function handlePaymentMethodUpdated(
     'webhook_event',
     userId || 'unknown',
     `${platform}_webhook`,
+    input,
+    steps,
+    eventId
+  );
+}
+
+/**
+ * subscription.parental_activated（ペアレンタルコントロールによるサブスクリプション有効化）イベントを処理
+ *
+ * 処理ステップ:
+ * 1. purchaseFlowを呼び出してサブスクリプションを有効化
+ *
+ * @param input Webhookイベント入力
+ * @param orchestrator フローオーケストレーター
+ * @param tenantId テナントID
+ * @returns 処理結果
+ */
+async function handleParentalControlActivation(
+  input: EventDetailPayload,
+  orchestrator: FlowOrchestrator,
+  tenantId: string
+): Promise<WebhookEventFlowOutput> {
+  const { eventId, platform, eventData } = input;
+
+  console.log('Processing subscription.parental_activated event', { eventId, tenantId, platform });
+
+  // イベントデータから抽出情報を取得
+  const stripeData = eventData as StripeEventData;
+  const extracted = stripeData._extracted ?? {};
+  const { sessionId, platformSubscriptionId, userId, planId, childEmail } = extracted;
+
+  console.log('Extracted parental control data from event', {
+    sessionId,
+    platformSubscriptionId,
+    userId,
+    planId,
+    childEmail,
+    hasExtracted: !!stripeData._extracted,
+  });
+
+  if (!sessionId) {
+    throw new Error('Session ID not found in event data');
+  }
+
+  if (!platformSubscriptionId) {
+    throw new Error('Platform subscription ID not found in event data');
+  }
+
+  if (!userId) {
+    throw new Error('User ID not found in event data');
+  }
+
+  if (!planId) {
+    throw new Error('Plan ID not found in event data');
+  }
+
+  // ステップ設定
+  const steps: StepConfig[] = [
+    {
+      stepName: 'activate_parental_control_subscription',
+      stepType: 'api_call',
+      targetService: 'PurchaseFlow',
+      executeFunction: async () => {
+        console.log('Invoking purchase flow for parental control activation', {
+          tenantId,
+          userId,
+          planId,
+          sessionId,
+          platformSubscriptionId,
+        });
+
+        // purchaseFlowを呼び出す
+        const purchaseFlowFunctionName = process.env.PURCHASE_FLOW_FUNCTION_NAME;
+
+        if (!purchaseFlowFunctionName) {
+          throw new Error('PURCHASE_FLOW_FUNCTION_NAME is not configured');
+        }
+
+        const flowInput: PurchaseFlowInput = {
+          tenantId,
+          userId: userId as string,
+          planId: planId as string,
+          paymentPlatform: 'stripe',
+          receiptData: {
+            sessionId: sessionId as string,
+            subscriptionId: platformSubscriptionId as string,
+          },
+        };
+
+        console.log('Invoking purchase flow:', {
+          functionName: purchaseFlowFunctionName,
+          input: { ...flowInput, receiptData: '[REDACTED]' },
+        });
+
+        const invokeCommand = new InvokeCommand({
+          FunctionName: purchaseFlowFunctionName,
+          InvocationType: 'RequestResponse',
+          Payload: JSON.stringify(flowInput),
+        });
+
+        const invokeResult = await lambdaClient.send(invokeCommand);
+
+        if (invokeResult.FunctionError) {
+          console.error('Purchase flow function error:', {
+            functionError: invokeResult.FunctionError,
+            payload: invokeResult.Payload
+              ? new TextDecoder().decode(invokeResult.Payload)
+              : null,
+          });
+
+          throw new Error(`Purchase flow failed: ${invokeResult.FunctionError}`);
+        }
+
+        if (!invokeResult.Payload) {
+          throw new Error('Purchase flow returned no payload');
+        }
+
+        const flowOutput: PurchaseFlowOutput = JSON.parse(
+          new TextDecoder().decode(invokeResult.Payload)
+        );
+
+        console.log('Purchase flow completed:', {
+          success: flowOutput.success,
+          flowExecutionId: flowOutput.flowExecutionId,
+          subscriptionId: flowOutput.subscriptionId,
+        });
+
+        if (!flowOutput.success) {
+          throw new Error(
+            flowOutput.errorDetails?.errorMessage ||
+            'Purchase flow failed'
+          );
+        }
+
+        return {
+          success: true,
+          subscriptionId: flowOutput.subscriptionId,
+          flowExecutionId: flowOutput.flowExecutionId,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+  ];
+
+  // フロー実行
+  return await executeWebhookEventFlow(
+    orchestrator,
+    'webhook_event',
+    userId as string || 'unknown',
+    `${platform}_parental_control_webhook`,
     input,
     steps,
     eventId
