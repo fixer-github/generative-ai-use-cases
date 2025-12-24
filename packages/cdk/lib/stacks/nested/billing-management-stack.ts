@@ -1,18 +1,16 @@
-import { NestedStack, NestedStackProps, CfnOutput } from 'aws-cdk-lib';
+import {
+  NestedStack,
+  NestedStackProps,
+  CfnOutput,
+  RemovalPolicy,
+} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import {
-  RestApi,
-  Cors,
-  ResponseType,
-} from 'aws-cdk-lib/aws-apigateway';
-import {
-  IRole,
-  PolicyStatement,
-  Effect,
-} from 'aws-cdk-lib/aws-iam';
+import { RestApi, Cors, ResponseType } from 'aws-cdk-lib/aws-apigateway';
+import { IRole, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { EventBus } from 'aws-cdk-lib/aws-events';
+import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
@@ -45,7 +43,6 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * Tenant Manager for multi-tenant support (required for IAM-based RDS access)
    */
   readonly tenantManager: TenantManager;
-
 
   /**
    * Allowed IPv4 address ranges for IP-based access control
@@ -95,7 +92,11 @@ export interface BillingManagementStackProps extends NestedStackProps {
 export class BillingManagementStack extends NestedStack {
   public readonly billingApi: RestApi;
 
-  constructor(scope: Construct, id: string, props: BillingManagementStackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: BillingManagementStackProps
+  ) {
     super(scope, id, props);
 
     const { backgroundJobRole } = props;
@@ -135,6 +136,30 @@ export class BillingManagementStack extends NestedStack {
     // 環境ごとに専用のEventBusを定義し、イベントの分離と権限の明確化を実現
     const billingEventBus = new EventBus(this, 'BillingEventBus', {
       eventBusName: `${props.environment}-billing-events`,
+    });
+
+    // ========================================
+    // Create Pending Plan Changes Table
+    // ========================================
+    // 保護者承認待ちのプラン変更リクエストを保存するテーブル
+    const pendingPlanChangesTable = new Table(this, 'PendingPlanChangesTable', {
+      tableName: `${props.environment}-pending-plan-changes`,
+      partitionKey: {
+        name: 'requestId',
+        type: AttributeType.STRING,
+      },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'ttl',
+    });
+
+    // GSI for token lookup (保護者がリンクをクリックした際のトークン検索用)
+    pendingPlanChangesTable.addGlobalSecondaryIndex({
+      indexName: 'approvalToken-index',
+      partitionKey: {
+        name: 'approvalToken',
+        type: AttributeType.STRING,
+      },
     });
 
     // ========================================
@@ -199,19 +224,15 @@ export class BillingManagementStack extends NestedStack {
     );
 
     // Payment Gateway API
-    const paymentGatewayApi = new PaymentGatewayApi(
-      this,
-      'PaymentGateway',
-      {
-        api: billingApi,
-        userPool: props.userPool,
-        userPoolClient: props.userPoolClient,
-        idPool: props.idPool,
-        tenantManager: props.tenantManager,
-        eventBus: billingEventBus,
-        environment: props.environment,
-      }
-    );
+    const paymentGatewayApi = new PaymentGatewayApi(this, 'PaymentGateway', {
+      api: billingApi,
+      userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
+      idPool: props.idPool,
+      tenantManager: props.tenantManager,
+      eventBus: billingEventBus,
+      environment: props.environment,
+    });
 
     // Orchestration API
     const orchestrationApi = new OrchestrationApi(this, 'Orchestration', {
@@ -220,11 +241,13 @@ export class BillingManagementStack extends NestedStack {
       backgroundJobRole: backgroundJobRole,
       eventBus: billingEventBus,
       planManagementInternalFunctions: planManagementApi.internalFunctions,
-      subscriptionManagementInternalFunctions: subscriptionManagementApi.internalFunctions,
+      subscriptionManagementInternalFunctions:
+        subscriptionManagementApi.internalFunctions,
       paymentGatewayFunctions: {
         verifyReceipt: paymentGatewayApi.verifyReceiptFunction,
         updateSubscription: paymentGatewayApi.updateSubscriptionFunction,
-        cancelSubscription: paymentGatewayApi.cancelSubscriptionInternalFunction,
+        cancelSubscription:
+          paymentGatewayApi.cancelSubscriptionInternalFunction,
       },
     });
 
@@ -241,6 +264,7 @@ export class BillingManagementStack extends NestedStack {
       sendgridApiKey: props.sendgridApiKey,
       sendgridFromEmail: props.sendgridFromEmail,
       emailServiceName: props.emailServiceName,
+      pendingPlanChangesTable: pendingPlanChangesTable,
     });
 
     // ========================================
@@ -273,13 +297,15 @@ export class BillingManagementStack extends NestedStack {
     });
 
     new CfnOutput(this, 'OrchestrationCancellationFlowFunctionArn', {
-      value: orchestrationApi.orchestrationFunctions.cancellationFlow.functionArn,
+      value:
+        orchestrationApi.orchestrationFunctions.cancellationFlow.functionArn,
       description: 'Cancellation Flow Orchestration Lambda Function ARN',
       exportName: `${this.stackName}-OrchestrationCancellationFlowFunctionArn`,
     });
 
     new CfnOutput(this, 'OrchestrationWebhookEventFlowFunctionArn', {
-      value: orchestrationApi.orchestrationFunctions.webhookEventFlow.functionArn,
+      value:
+        orchestrationApi.orchestrationFunctions.webhookEventFlow.functionArn,
       description: 'Webhook Event Flow Orchestration Lambda Function ARN',
       exportName: `${this.stackName}-OrchestrationWebhookEventFlowFunctionArn`,
     });
