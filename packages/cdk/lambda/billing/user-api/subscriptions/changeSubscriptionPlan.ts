@@ -3,15 +3,25 @@
  *
  * ユーザ向けのプラン変更API。
  * 現在のサブスクリプションから新しいプランへの変更を処理します。
- * アップグレードは即座に、ダウングレードは次回更新時に適用されます。
+ * アップグレードは即座に（日割り計算）、ダウングレードは次回更新時に適用されます。
+ *
+ * Frontend API Contract:
+ * - Request: { newPlanId: string }
+ * - Response: { success, subscriptionId, planId, displayName, message, prorationAmount?, effectiveDate }
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import Stripe from 'stripe';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import {
   ok200Response,
   unauthorized401Response,
   badRequest400Response,
+  notFound404Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
 import { getTenantId, getUsername } from '../../../utils/tenantUtils';
@@ -20,34 +30,38 @@ import {
   PlanChangeFlowInput,
   PlanChangeFlowOutput,
 } from '../../orchestration/types/flowTypes';
-import { UserPlanApplication } from '../../data-access/repositories/types';
+import {
+  Plan,
+  Subscription,
+  UserPlanApplication,
+} from '../../data-access/repositories/types';
 
 /**
- * リクエストボディの型
+ * リクエストボディの型（フロントエンドAPI契約）
  */
-interface ChangeSubscriptionPlanRequest {
+interface ChangePlanRequest {
   /** 変更先のプランID */
   newPlanId: string;
-  /** サブスクリプションID */
-  subscriptionId: string;
 }
 
 /**
- * レスポンスボディの型
+ * レスポンスボディの型（フロントエンドAPI契約）
  */
-interface ChangeSubscriptionPlanResponse {
+interface ChangePlanResponse {
   /** 成功フラグ */
   success: boolean;
-  /** フロー実行ID */
-  flowExecutionId: string;
-  /** プラン変更タイプ（upgrade/downgrade） */
-  changeType: 'upgrade' | 'downgrade';
+  /** サブスクリプションID */
+  subscriptionId: string;
   /** 新しいプランID */
-  newPlanId: string;
-  /** 変更が有効になる日時 */
-  effectiveDate: string;
+  planId: string;
+  /** プランの表示名 */
+  displayName: string;
   /** メッセージ */
   message: string;
+  /** プロレーション（日割り計算）金額（オプション） */
+  prorationAmount?: number;
+  /** 変更が有効になる日時（ISO 8601形式） */
+  effectiveDate: string;
 }
 
 /**
@@ -61,6 +75,43 @@ interface ErrorResponse {
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
+
+// Stripe API key cache
+let stripeApiKeyCache: { [key: string]: string } = {};
+
+/**
+ * Secrets ManagerからStripe APIキーを取得する
+ */
+async function getStripeApiKey(tenantId: string): Promise<string | null> {
+  if (stripeApiKeyCache[tenantId]) {
+    return stripeApiKeyCache[tenantId];
+  }
+
+  const secretName = `${tenantId}/billing/stripe`;
+  const client = new SecretsManagerClient({});
+  const command = new GetSecretValueCommand({ SecretId: secretName });
+
+  try {
+    const response = await client.send(command);
+
+    if (!response.SecretString) {
+      console.log(`Secret ${secretName} is empty`);
+      return null;
+    }
+
+    const secret = JSON.parse(response.SecretString);
+    if (!secret.apiKey) {
+      console.log(`API key not configured for tenant ${tenantId}`);
+      return null;
+    }
+
+    stripeApiKeyCache[tenantId] = secret.apiKey;
+    return secret.apiKey;
+  } catch (error) {
+    console.error('Failed to retrieve Stripe API key:', error);
+    return null;
+  }
+}
 
 /**
  * 最も優先度の高いプラン適用を選択する関数
@@ -99,6 +150,69 @@ function selectHighestPriorityApplication(
 }
 
 /**
+ * Stripeのプロレーション金額をプレビューする
+ */
+async function getProrationPreview(
+  tenantId: string,
+  platformSubscriptionId: string,
+  newPriceId: string
+): Promise<number | null> {
+  try {
+    const apiKey = await getStripeApiKey(tenantId);
+    if (!apiKey) {
+      console.log('Stripe API key not available for proration preview');
+      return null;
+    }
+
+    const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+    // 現在のサブスクリプションを取得
+    const subscription = await stripe.subscriptions.retrieve(platformSubscriptionId);
+
+    // サブスクリプションアイテムを取得
+    const subscriptionItemId = subscription.items.data[0]?.id;
+    if (!subscriptionItemId) {
+      console.log('No subscription item found for proration preview');
+      return null;
+    }
+
+    // 次回インボイスのプレビューを取得
+    const upcomingInvoice = await stripe.invoices.createPreview({
+      subscription: platformSubscriptionId,
+      subscription_details: {
+        items: [
+          {
+            id: subscriptionItemId,
+            price: newPriceId,
+          },
+        ],
+        proration_behavior: 'always_invoice',
+      },
+    });
+
+    // プロレーション行の金額を合計
+    // Proration lines have negative amounts for credit and positive for charges
+    let prorationAmount = 0;
+    for (const line of upcomingInvoice.lines.data) {
+      if (line.proration) {
+        prorationAmount += line.amount;
+      }
+    }
+
+    console.log('Proration preview calculated:', {
+      platformSubscriptionId,
+      newPriceId,
+      prorationAmount,
+    });
+
+    return prorationAmount;
+  } catch (error) {
+    console.error('Failed to get proration preview:', error);
+    return null;
+  }
+}
+
+/**
  * Lambda関数のメインハンドラー
  */
 export const handler = async (
@@ -129,7 +243,7 @@ export const handler = async (
       });
     }
 
-    let requestBody: ChangeSubscriptionPlanRequest;
+    let requestBody: ChangePlanRequest;
     try {
       requestBody = JSON.parse(event.body);
     } catch {
@@ -139,7 +253,7 @@ export const handler = async (
       });
     }
 
-    const { newPlanId, subscriptionId } = requestBody;
+    const { newPlanId } = requestBody;
 
     // 3. 必須パラメータのバリデーション
     if (!newPlanId) {
@@ -153,18 +267,7 @@ export const handler = async (
       });
     }
 
-    if (!subscriptionId) {
-      return badRequest400Response({
-        message: '必須パラメータが指定されていません',
-        code: 'MISSING_PARAMETER',
-        details: {
-          field: 'subscriptionId',
-          reason: 'subscriptionIdは必須です',
-        },
-      });
-    }
-
-    // 4. 現在のプランIDを取得
+    // 4. 現在のプラン適用情報を取得
     let applications: UserPlanApplication[];
     try {
       applications = await invokeDataAccessFunction<UserPlanApplication[]>(
@@ -201,7 +304,7 @@ export const handler = async (
     const highestPriorityApplication = selectHighestPriorityApplication(activeApplications);
 
     if (!highestPriorityApplication) {
-      return badRequest400Response({
+      return notFound404Response({
         message: '現在有効なプランがありません',
         code: 'NO_ACTIVE_PLAN',
       });
@@ -221,13 +324,104 @@ export const handler = async (
       });
     }
 
+    // 6. サブスクリプションベースのプランか確認し、サブスクリプション情報を取得
+    if (highestPriorityApplication.application_source !== 'subscription') {
+      return badRequest400Response({
+        message: 'サブスクリプションベースのプランのみ変更可能です',
+        code: 'NOT_SUBSCRIPTION_PLAN',
+        details: {
+          applicationSource: highestPriorityApplication.application_source,
+        },
+      });
+    }
+
+    if (!highestPriorityApplication.application_source_id) {
+      return internalServerError500Response({
+        message: 'サブスクリプションIDが見つかりません',
+        code: 'MISSING_SUBSCRIPTION_ID',
+      });
+    }
+
+    const subscriptionId = highestPriorityApplication.application_source_id;
+
+    // サブスクリプション情報を取得
+    let subscription: Subscription | null;
+    try {
+      subscription = await invokeDataAccessFunction<Subscription | null>(
+        event,
+        'subscription',
+        'findById',
+        { subscriptionId }
+      );
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+      return internalServerError500Response({
+        message: 'サブスクリプション情報の取得に失敗しました',
+        code: 'SUBSCRIPTION_FETCH_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    if (!subscription) {
+      return notFound404Response({
+        message: 'アクティブなサブスクリプションが見つかりません',
+        code: 'NO_ACTIVE_SUBSCRIPTION',
+      });
+    }
+
+    // 7. 新しいプランの情報を取得
+    let newPlan: Plan | null;
+    try {
+      newPlan = await invokeDataAccessFunction<Plan | null>(
+        event,
+        'plan',
+        'findById',
+        { id: newPlanId }
+      );
+    } catch (error) {
+      console.error('Error fetching new plan:', error);
+      return internalServerError500Response({
+        message: '新しいプラン情報の取得に失敗しました',
+        code: 'PLAN_FETCH_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    if (!newPlan) {
+      return badRequest400Response({
+        message: '指定されたプランが見つかりません',
+        code: 'INVALID_PLAN',
+        details: {
+          planId: newPlanId,
+        },
+      });
+    }
+
     console.log('Plan change request validated:', {
       currentPlanId,
       newPlanId,
       subscriptionId,
+      platformSubscriptionId: subscription.platform_subscription_id,
     });
 
-    // 6. Plan Change Flowを呼び出す
+    // 8. Stripeのプロレーション金額をプレビュー（Stripeプラットフォームの場合）
+    let prorationAmount: number | undefined;
+    if (
+      subscription.platform_type === 'stripe' &&
+      subscription.platform_subscription_id &&
+      newPlan.platform_product_id
+    ) {
+      const prorationPreview = await getProrationPreview(
+        tenantId,
+        subscription.platform_subscription_id,
+        newPlan.platform_product_id
+      );
+      if (prorationPreview !== null) {
+        prorationAmount = prorationPreview;
+      }
+    }
+
+    // 9. Plan Change Flowを呼び出す
     const planChangeFlowFunctionName = process.env.PLAN_CHANGE_FLOW_FUNCTION_NAME;
 
     if (!planChangeFlowFunctionName) {
@@ -259,7 +453,7 @@ export const handler = async (
 
     const invokeResult = await lambdaClient.send(invokeCommand);
 
-    // 7. Lambda呼び出し結果の処理
+    // 10. Lambda呼び出し結果の処理
     if (invokeResult.FunctionError) {
       console.error('Plan change flow function error:', {
         functionError: invokeResult.FunctionError,
@@ -292,9 +486,10 @@ export const handler = async (
     console.log('Plan change flow completed:', {
       success: flowOutput.success,
       flowExecutionId: flowOutput.flowExecutionId,
+      changeType: flowOutput.changeType,
     });
 
-    // 8. フロー実行結果の確認
+    // 11. フロー実行結果の確認
     if (!flowOutput.success) {
       console.error('Plan change flow failed:', {
         flowExecutionId: flowOutput.flowExecutionId,
@@ -311,26 +506,33 @@ export const handler = async (
       });
     }
 
-    // 9. 成功レスポンスを返す
+    // 12. 成功レスポンスを返す（フロントエンドAPI契約に準拠）
     const message =
       flowOutput.changeType === 'upgrade'
         ? 'プランがアップグレードされました。新しいプランは即座に有効になります。'
         : 'プランのダウングレードが予約されました。現在の請求期間終了時に新しいプランに切り替わります。';
 
-    const response: ChangeSubscriptionPlanResponse = {
+    const response: ChangePlanResponse = {
       success: true,
-      flowExecutionId: flowOutput.flowExecutionId,
-      changeType: flowOutput.changeType,
-      newPlanId, // Use newPlanId from the request, as it's not in flowOutput
-      effectiveDate: flowOutput.effectiveDate,
+      subscriptionId,
+      planId: newPlanId,
+      displayName: newPlan.display_name,
       message,
+      effectiveDate: flowOutput.effectiveDate,
     };
 
+    // プロレーション金額がある場合は追加
+    if (prorationAmount !== undefined) {
+      response.prorationAmount = prorationAmount;
+    }
+
     console.log('Plan change completed successfully:', {
-      flowExecutionId: flowOutput.flowExecutionId,
+      subscriptionId,
+      planId: newPlanId,
+      displayName: newPlan.display_name,
       changeType: flowOutput.changeType,
-      newPlanId,
       effectiveDate: flowOutput.effectiveDate,
+      prorationAmount,
     });
 
     return ok200Response(response);
