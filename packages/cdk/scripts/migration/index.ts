@@ -602,10 +602,14 @@ async function runBackup(
           chatHistory: env.chatHistoryTableName,
           tokenUsageStats: env.tokenUsageStatsTableName,
           useCaseBuilder: env.useCaseBuilderTableName,
+          bots: env.botTableName,
         },
         awsConfig,
         envDir,
-        config.settings.tables.includeData
+        {
+          ...config.settings.tables.includeData,
+          bots: config.settings.tables.includeData.bots ?? true,
+        }
       );
 
       const manifest = createBackupManifest(
@@ -655,7 +659,10 @@ async function runBackup(
             tenant,
             awsConfig,
             envDir,
-            config.settings.tables.includeData
+            {
+              ...config.settings.tables.includeData,
+              bots: config.settings.tables.includeData.bots ?? true,
+            }
           );
 
           const manifest = createBackupManifest(

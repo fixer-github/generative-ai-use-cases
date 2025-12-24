@@ -249,6 +249,41 @@ export async function findGenUStacks(
 }
 
 /**
+ * TenantBedrockChatStack を検索する (v0.5.3 Bot テーブル用)
+ * スタック名パターン: TenantBedrockChatStack{env}-{tenantId}
+ */
+export async function findTenantBedrockChatStacks(
+  config: AWSClientConfig
+): Promise<StackSummary[]> {
+  const client = createCloudFormationClient(config);
+  const stacks: StackSummary[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const response = await client.send(
+      new ListStacksCommand({
+        NextToken: nextToken,
+        StackStatusFilter: [
+          'CREATE_COMPLETE',
+          'UPDATE_COMPLETE',
+          'UPDATE_ROLLBACK_COMPLETE',
+        ],
+      })
+    );
+
+    const bedrockChatStacks =
+      response.StackSummaries?.filter((stack) =>
+        stack.StackName?.startsWith('TenantBedrockChatStack')
+      ) ?? [];
+
+    stacks.push(...bedrockChatStacks);
+    nextToken = response.NextToken;
+  } while (nextToken);
+
+  return stacks;
+}
+
+/**
  * スタックの詳細と出力を取得する
  */
 export async function getStackDetails(

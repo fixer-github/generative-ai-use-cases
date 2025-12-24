@@ -257,7 +257,8 @@ export async function backupTenantTables(
     tenant.tokenUsageStatsTableName,
     tenant.useCaseBuilderTableName,
     tenant.assistantTableName,
-  ].filter((name) => name && name.trim() !== '');
+    tenant.botTableName,
+  ].filter((name): name is string => !!name && name.trim() !== '');
 
   const results: DynamoDBBackupResult[] = [];
 

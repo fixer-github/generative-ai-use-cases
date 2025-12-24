@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: MigrationSettings = {
       chatHistory: true,
       tokenUsageStats: true,
       useCaseBuilder: true,
+      bots: true,
     },
   },
 };
@@ -165,6 +166,9 @@ function mergeSettings(partial?: Partial<MigrationSettings>): MigrationSettings 
         useCaseBuilder:
           partial.tables?.includeData?.useCaseBuilder ??
           DEFAULT_SETTINGS.tables.includeData.useCaseBuilder,
+        bots:
+          partial.tables?.includeData?.bots ??
+          DEFAULT_SETTINGS.tables.includeData.bots,
       },
     },
   };

@@ -204,6 +204,7 @@ export function createDefaultTenant(
     tokenUsageStatsTableName: environment.tokenUsageStatsTableName || '',
     useCaseBuilderTableName: environment.useCaseBuilderTableName || '',
     assistantTableName: '',
+    botTableName: environment.botTableName,
   };
 }
 

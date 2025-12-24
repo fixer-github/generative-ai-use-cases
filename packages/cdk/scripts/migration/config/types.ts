@@ -35,6 +35,8 @@ export interface TableSettings {
     chatHistory: boolean;
     tokenUsageStats: boolean;
     useCaseBuilder: boolean;
+    /** Bot データ (v0.5.3 の BotTableV3) */
+    bots: boolean;
   };
 }
 
@@ -96,6 +98,8 @@ export interface DiscoveredEnvironment {
   tokenUsageStatsTableName?: string;
   /** UseCaseBuilder テーブル名 (デフォルトテナント用) */
   useCaseBuilderTableName?: string;
+  /** Bot テーブル名 (v0.5.3 BotTableV3) */
+  botTableName?: string;
 }
 
 /**
@@ -128,6 +132,8 @@ export interface DiscoveredTenant {
   useCaseBuilderTableName: string;
   /** Assistant テーブル名 */
   assistantTableName: string;
+  /** Bot テーブル名 (v0.5.3 BotTableV3) */
+  botTableName?: string;
 }
 
 /**
@@ -218,6 +224,8 @@ export interface BackupManifest {
       chatHistory?: string;
       tokenUsageStats?: string;
       useCaseBuilder?: string;
+      /** Bot データ (v0.5.3 の BotTableV3) */
+      bots?: string;
     };
   };
 }

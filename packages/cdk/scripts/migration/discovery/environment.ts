@@ -7,6 +7,7 @@ import { DiscoveredEnvironment } from '../config/types';
 import {
   AWSClientConfig,
   findGenUStacks,
+  findTenantBedrockChatStacks,
   getStackDetails,
 } from '../utils/aws';
 import * as logger from '../utils/logger';
@@ -77,6 +78,26 @@ function getUseCaseBuilderTableName(outputs: Record<string, string>): string | u
 }
 
 /**
+ * スタック出力から Bot テーブル名を取得する (v0.5.3 BotTableV3)
+ */
+function getBotTableName(outputs: Record<string, string>): string | undefined {
+  // TenantBedrockChatStack の出力キー名をチェック
+  const possibleKeys = ['BotTableName', 'BotTable', 'BotTableV3Name', 'BotTableV3'];
+  for (const key of possibleKeys) {
+    if (outputs[key]) {
+      return outputs[key];
+    }
+  }
+  // 出力キーに "BotTable" を含むものを探す
+  for (const [key, value] of Object.entries(outputs)) {
+    if (key.toLowerCase().includes('bottable')) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/**
  * 環境を自動検出する
  * CloudFormation スタックから GenU 環境を検出
  */
@@ -99,6 +120,32 @@ export async function discoverEnvironments(
 
     logger.info(`${stacks.length} 個の GenU スタックが見つかりました`);
 
+    // TenantBedrockChatStack を検索 (Bot テーブル用)
+    logger.info('TenantBedrockChatStack を検索中 (Bot テーブル用)...');
+    const bedrockChatStacks = await findTenantBedrockChatStacks(config);
+    logger.info(`${bedrockChatStacks.length} 個の TenantBedrockChatStack が見つかりました`);
+
+    // 環境名とBot テーブル名のマッピングを作成
+    const envBotTableMap: Record<string, string> = {};
+    for (const chatStack of bedrockChatStacks) {
+      if (!chatStack.StackName) continue;
+      try {
+        const chatStackDetails = await getStackDetails(chatStack.StackName, config);
+        const botTableName = getBotTableName(chatStackDetails.outputs);
+        if (botTableName) {
+          // スタック名から環境名を抽出 (TenantBedrockChatStack{env}-{tenantId})
+          const envMatch = chatStack.StackName.match(/^TenantBedrockChatStack([^-]+)/);
+          if (envMatch) {
+            const envName = envMatch[1] || 'default';
+            envBotTableMap[envName] = botTableName;
+            logger.debug(`  環境 "${envName}" の Bot テーブル: ${botTableName}`);
+          }
+        }
+      } catch (error) {
+        logger.debug(`TenantBedrockChatStack ${chatStack.StackName} の詳細取得に失敗しました:`, error);
+      }
+    }
+
     // 各スタックの詳細を取得
     for (const stack of stacks) {
       if (!stack.StackName) continue;
@@ -106,9 +153,10 @@ export async function discoverEnvironments(
       try {
         logger.debug(`スタック ${stack.StackName} の詳細を取得中...`);
         const details = await getStackDetails(stack.StackName, config);
+        const envName = extractEnvironmentName(stack.StackName);
 
         const environment: DiscoveredEnvironment = {
-          name: extractEnvironmentName(stack.StackName),
+          name: envName,
           region: config.region,
           stackName: stack.StackName,
           stackStatus: details.status,
@@ -119,6 +167,7 @@ export async function discoverEnvironments(
           chatHistoryTableName: getChatHistoryTableName(details.outputs),
           tokenUsageStatsTableName: getTokenUsageStatsTableName(details.outputs),
           useCaseBuilderTableName: getUseCaseBuilderTableName(details.outputs),
+          botTableName: envBotTableMap[envName],
         };
 
         environments.push(environment);
@@ -131,6 +180,9 @@ export async function discoverEnvironments(
         }
         if (environment.chatHistoryTableName) {
           logger.debug(`  ChatHistory テーブル: ${environment.chatHistoryTableName}`);
+        }
+        if (environment.botTableName) {
+          logger.debug(`  Bot テーブル: ${environment.botTableName}`);
         }
       } catch (error) {
         logger.error(`スタック ${stack.StackName} の詳細取得に失敗しました:`, error);
@@ -159,6 +211,26 @@ export async function discoverEnvironmentByName(
   try {
     const details = await getStackDetails(stackName, config);
 
+    // Bot テーブルを TenantBedrockChatStack から検索
+    let botTableName: string | undefined;
+    try {
+      const bedrockChatStacks = await findTenantBedrockChatStacks(config);
+      for (const chatStack of bedrockChatStacks) {
+        if (!chatStack.StackName) continue;
+        // 環境名に一致するスタックを探す
+        if (chatStack.StackName.startsWith(`TenantBedrockChatStack${environmentName}`)) {
+          const chatStackDetails = await getStackDetails(chatStack.StackName, config);
+          botTableName = getBotTableName(chatStackDetails.outputs);
+          if (botTableName) {
+            logger.debug(`Bot テーブルを検出: ${botTableName}`);
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      logger.debug('TenantBedrockChatStack の検索中にエラーが発生しました:', error);
+    }
+
     const environment: DiscoveredEnvironment = {
       name: environmentName,
       region: config.region,
@@ -171,6 +243,7 @@ export async function discoverEnvironmentByName(
       chatHistoryTableName: getChatHistoryTableName(details.outputs),
       tokenUsageStatsTableName: getTokenUsageStatsTableName(details.outputs),
       useCaseBuilderTableName: getUseCaseBuilderTableName(details.outputs),
+      botTableName,
     };
 
     logger.success(`環境 "${environmentName}" を検出しました`);

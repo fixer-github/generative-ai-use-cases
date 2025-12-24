@@ -132,6 +132,7 @@ export function createBackupManifest(
     chatHistory?: string;
     tokenUsageStats?: string;
     useCaseBuilder?: string;
+    bots?: string;
   }
 ): BackupManifest {
   return {
@@ -173,6 +174,7 @@ export async function exportDefaultTenantData(
     chatHistory?: string;
     tokenUsageStats?: string;
     useCaseBuilder?: string;
+    bots?: string;
   },
   config: AWSClientConfig,
   outputDir: string,
@@ -180,6 +182,7 @@ export async function exportDefaultTenantData(
     chatHistory: boolean;
     tokenUsageStats: boolean;
     useCaseBuilder: boolean;
+    bots: boolean;
   }
 ): Promise<{ exports: Record<string, string>; itemCounts: Record<string, number> }> {
   logger.startProcess('デフォルトテナントエクスポート');
@@ -238,6 +241,21 @@ export async function exportDefaultTenantData(
     }
   }
 
+  // Bots エクスポート (v0.5.3 BotTableV3)
+  if (includeData.bots && tableNames.bots) {
+    try {
+      const result = await exportTableToJson(
+        tableNames.bots,
+        docClient,
+        path.join(tenantDir, 'Bots-export.json')
+      );
+      exports.bots = result.filePath;
+      itemCounts.bots = result.itemCount;
+    } catch (error) {
+      logger.warn(`Bots のエクスポートに失敗しました:`, error);
+    }
+  }
+
   logger.endProcess('デフォルトテナントエクスポート');
 
   return { exports, itemCounts };
@@ -254,6 +272,7 @@ export async function exportTenantData(
     chatHistory: boolean;
     tokenUsageStats: boolean;
     useCaseBuilder: boolean;
+    bots: boolean;
   }
 ): Promise<{ exports: Record<string, string>; itemCounts: Record<string, number> }> {
   logger.startProcess(`テナント "${tenant.tenantId}" エクスポート`);
@@ -358,6 +377,26 @@ export async function exportTenantData(
         logger.warn(`テーブル "${tenant.useCaseBuilderTableName}" が存在しないためスキップします`);
       } else {
         logger.warn(`UseCaseBuilder のエクスポートに失敗しました:`, error);
+      }
+    }
+  }
+
+  // Bots エクスポート (v0.5.3 BotTableV3)
+  if (includeData.bots && tenant.botTableName) {
+    try {
+      const result = await exportTableToJson(
+        tenant.botTableName,
+        docClient,
+        path.join(tenantDir, 'Bots-export.json')
+      );
+      exports.bots = result.filePath;
+      itemCounts.bots = result.itemCount;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('ResourceNotFoundException') || errorMessage.includes('not found')) {
+        logger.warn(`テーブル "${tenant.botTableName}" が存在しないためスキップします`);
+      } else {
+        logger.warn(`Bots のエクスポートに失敗しました:`, error);
       }
     }
   }
