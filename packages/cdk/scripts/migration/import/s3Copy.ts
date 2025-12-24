@@ -416,7 +416,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  console.error('Copy failed:', error);
-  process.exit(1);
-});
+// 直接実行された場合のみ main() を呼び出す
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('Copy failed:', error);
+    process.exit(1);
+  });
+}

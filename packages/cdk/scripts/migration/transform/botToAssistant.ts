@@ -434,7 +434,10 @@ async function main(): Promise<void> {
   console.log('\nTransform completed successfully!');
 }
 
-main().catch((error) => {
-  console.error('Transform failed:', error);
-  process.exit(1);
-});
+// 直接実行された場合のみ main() を呼び出す
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('Transform failed:', error);
+    process.exit(1);
+  });
+}
