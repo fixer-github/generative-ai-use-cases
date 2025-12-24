@@ -52,18 +52,18 @@ const PLAN_LEVELS: Record<string, number> = {
 /**
  * プランレベルを取得
  *
- * @param planId プランID
+ * @param internalName プランの内部名（internal_name）
  * @returns プランレベル（数値）
  */
-function getPlanLevel(planId: string): number {
-  // プランIDからプレフィックスを除去して正規化（例: "plan-standard" -> "standard"）
-  const normalizedPlanId = planId.toLowerCase().replace(/^plan-?/, '');
+function getPlanLevel(internalName: string): number {
+  // 内部名からプレフィックスを除去して正規化（例: "plan-standard" -> "standard"）
+  const normalizedName = internalName.toLowerCase().replace(/^plan[-_]?/, '');
 
   // マッピングからレベルを取得
-  const level = PLAN_LEVELS[normalizedPlanId];
+  const level = PLAN_LEVELS[normalizedName];
 
   if (level === undefined) {
-    console.warn(`Unknown plan ID: ${planId}, treating as level 0`);
+    console.warn(`Unknown plan internal_name: ${internalName}, treating as level 0`);
     return 0;
   }
 
@@ -73,21 +73,37 @@ function getPlanLevel(planId: string): number {
 /**
  * プラン変更タイプを判定
  *
- * @param currentPlanId 現在のプランID
- * @param newPlanId 新しいプランID
+ * @param currentPlan 現在のプラン
+ * @param newPlan 新しいプラン
  * @returns プラン変更タイプ（upgrade/downgrade）
  * @throws Error 同一プランへの変更の場合
  */
 function determineChangeType(
-  currentPlanId: string,
-  newPlanId: string
+  currentPlan: Plan,
+  newPlan: Plan
 ): PlanChangeType {
-  const currentLevel = getPlanLevel(currentPlanId);
-  const newLevel = getPlanLevel(newPlanId);
+  // 同一プランへの変更は不可
+  if (currentPlan.plan_id === newPlan.plan_id) {
+    throw new Error(
+      `Cannot change to the same plan: ${currentPlan.internal_name} (${currentPlan.plan_id})`
+    );
+  }
+
+  const currentLevel = getPlanLevel(currentPlan.internal_name);
+  const newLevel = getPlanLevel(newPlan.internal_name);
+
+  // 両方のレベルが不明な場合は、upgradeとして扱う（workaround）
+  // TODO: Plan tableにlevelフィールドを追加して、DBからレベルを取得するように変更
+  if (currentLevel === 0 && newLevel === 0) {
+    console.warn(
+      `Both plan levels are unknown, treating as upgrade: ${currentPlan.internal_name} -> ${newPlan.internal_name}`
+    );
+    return 'upgrade';
+  }
 
   if (currentLevel === newLevel) {
     throw new Error(
-      `Cannot change to the same plan level: ${currentPlanId} -> ${newPlanId}`
+      `Cannot change to the same plan level: ${currentPlan.internal_name} (${currentPlan.plan_id}) -> ${newPlan.internal_name} (${newPlan.plan_id})`
     );
   }
 
@@ -141,13 +157,69 @@ export const handler = async (
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
 
-  // プラン変更タイプを判定
-  let changeType: PlanChangeType;
+  // プランをデータベースから取得
+  const [fetchedCurrentPlan, fetchedNewPlan] = await Promise.all([
+    invokeDataAccessFunctionByTenantId<Plan | null>(
+      tenantId,
+      'plan',
+      'findById',
+      { id: currentPlanId }
+    ),
+    invokeDataAccessFunctionByTenantId<Plan | null>(
+      tenantId,
+      'plan',
+      'findById',
+      { id: newPlanId }
+    ),
+  ]);
 
-  try {
-    changeType = determineChangeType(currentPlanId, newPlanId);
-    console.log('Plan change type determined', { changeType });
-  } catch (error) {
+  if (!fetchedCurrentPlan) {
+    console.error('Current plan not found', { currentPlanId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'PLAN_NOT_FOUND',
+        errorMessage: `Current plan not found: ${currentPlanId}`,
+      },
+    };
+  }
+
+  if (!fetchedNewPlan) {
+    console.error('New plan not found', { newPlanId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'PLAN_NOT_FOUND',
+        errorMessage: `New plan not found: ${newPlanId}`,
+      },
+    };
+  }
+
+  const currentPlan = fetchedCurrentPlan;
+  const newPlan = fetchedNewPlan;
+
+  console.log('Plans fetched', {
+    currentPlan: { id: currentPlan.plan_id, internal_name: currentPlan.internal_name },
+    newPlan: { id: newPlan.plan_id, internal_name: newPlan.internal_name },
+  });
+
+  // プラン変更タイプを判定
+  const changeTypeResult = (() => {
+    try {
+      return { success: true as const, value: determineChangeType(currentPlan, newPlan) };
+    } catch (error) {
+      return { success: false as const, error };
+    }
+  })();
+
+  if (!changeTypeResult.success) {
+    const error = changeTypeResult.error;
     console.error('Failed to determine plan change type', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
@@ -155,7 +227,7 @@ export const handler = async (
     return {
       success: false,
       flowExecutionId: '',
-      changeType: 'upgrade', // デフォルト値
+      changeType: 'upgrade',
       effectiveDate: new Date().toISOString(),
       errorDetails: {
         errorCode: 'INVALID_PLAN_CHANGE',
@@ -164,6 +236,9 @@ export const handler = async (
       },
     };
   }
+
+  const changeType: PlanChangeType = changeTypeResult.value;
+  console.log('Plan change type determined', { changeType });
 
   // ステップ設定
   const steps: StepConfig[] = [
@@ -174,7 +249,9 @@ export const handler = async (
       executeFunction: async () => {
         console.log('Comparing plans', {
           currentPlanId,
+          currentInternalName: currentPlan.internal_name,
           newPlanId,
+          newInternalName: newPlan.internal_name,
           changeType,
         });
 
@@ -183,8 +260,8 @@ export const handler = async (
           currentPlanId,
           newPlanId,
           changeType,
-          currentLevel: getPlanLevel(currentPlanId),
-          newLevel: getPlanLevel(newPlanId),
+          currentLevel: getPlanLevel(currentPlan.internal_name),
+          newLevel: getPlanLevel(newPlan.internal_name),
         };
       },
       retryable: false,
@@ -205,23 +282,12 @@ export const handler = async (
           prorate: changeType === 'upgrade',
         });
 
-        // 新しいプランの情報を取得してStripe Price IDを取得
-        const newPlan = await invokeDataAccessFunctionByTenantId<Plan | null>(
-          tenantId,
-          'plan',
-          'findById',
-          { id: newPlanId }
-        );
-
-        if (!newPlan) {
-          throw new Error(`Plan not found: ${newPlanId}`);
-        }
-
+        // 事前に取得したプラン情報を使用（Stripe Price ID）
         if (!newPlan.platform_product_id) {
           throw new Error(`Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`);
         }
 
-        console.log('Retrieved new plan info', {
+        console.log('Using pre-fetched plan info', {
           planId: newPlan.plan_id,
           platformProductId: newPlan.platform_product_id,
           platformType: newPlan.platform_type,
@@ -233,6 +299,7 @@ export const handler = async (
 
         try {
           const result = await paymentClient.updateSubscription({
+            tenantId,
             platform,
             subscriptionId,
             newPlanId: newPlan.platform_product_id, // Use Stripe price ID instead of internal plan ID

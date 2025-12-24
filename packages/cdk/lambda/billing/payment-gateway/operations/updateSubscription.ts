@@ -63,26 +63,41 @@ async function getSecret(secretName: string): Promise<any> {
 }
 
 /**
+ * Direct Lambda invocation request type (from PaymentGatewayClient)
+ */
+interface DirectInvocationRequest extends UpdateSubscriptionRequest {
+  tenantId?: string;
+}
+
+/**
  * Lambda関数のメインハンドラー
+ * Supports both API Gateway and direct Lambda invocation patterns
  */
 export async function handler(
-  event: APIGatewayProxyEvent
+  event: APIGatewayProxyEvent | DirectInvocationRequest
 ): Promise<APIGatewayProxyResult> {
   console.log('Update subscription request received');
 
   try {
-    // 1. Cognitoの認証情報からテナントIDを取得
-    const tenantId = getTenantId(event);
+    // Detect invocation pattern: API Gateway vs Direct Lambda
+    // API Gateway events have httpMethod, direct invocations don't
+    const isApiGateway = 'httpMethod' in event;
 
-    // 2. リクエストボディを取得
-    if (!event.body) {
+    const requestBody: UpdateSubscriptionRequest = isApiGateway
+      ? JSON.parse((event as APIGatewayProxyEvent).body || '{}')
+      : event as DirectInvocationRequest;
+
+    // Get tenantId from either Cognito (API Gateway) or direct payload
+    const tenantId = isApiGateway
+      ? getTenantId(event as APIGatewayProxyEvent)
+      : (event as DirectInvocationRequest).tenantId;
+
+    if (!tenantId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Request body is required' }),
+        body: JSON.stringify({ error: 'tenantId is required' }),
       };
     }
-
-    const requestBody: UpdateSubscriptionRequest = JSON.parse(event.body);
 
     // Support both naming conventions for backward compatibility
     const platformType = requestBody.platform || requestBody.platformType;
