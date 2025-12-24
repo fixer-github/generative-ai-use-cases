@@ -35,7 +35,7 @@ import {
 } from '../clients/subscriptionManagementClient';
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan } from '../../data-access/repositories/types';
+import { Plan, Subscription } from '../../data-access/repositories/types';
 
 /**
  * プランレベル定義
@@ -157,8 +157,8 @@ export const handler = async (
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
 
-  // プランをデータベースから取得
-  const [fetchedCurrentPlan, fetchedNewPlan] = await Promise.all([
+  // プラン・サブスクリプションをデータベースから取得
+  const [fetchedCurrentPlan, fetchedNewPlan, fetchedSubscription] = await Promise.all([
     invokeDataAccessFunctionByTenantId<Plan | null>(
       tenantId,
       'plan',
@@ -170,6 +170,12 @@ export const handler = async (
       'plan',
       'findById',
       { id: newPlanId }
+    ),
+    invokeDataAccessFunctionByTenantId<Subscription | null>(
+      tenantId,
+      'subscription',
+      'findById',
+      { id: subscriptionId }
     ),
   ]);
 
@@ -201,12 +207,32 @@ export const handler = async (
     };
   }
 
+  if (!fetchedSubscription) {
+    console.error('Subscription not found', { subscriptionId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'SUBSCRIPTION_NOT_FOUND',
+        errorMessage: `Subscription not found: ${subscriptionId}`,
+      },
+    };
+  }
+
   const currentPlan = fetchedCurrentPlan;
   const newPlan = fetchedNewPlan;
+  const subscription = fetchedSubscription;
 
-  console.log('Plans fetched', {
+  console.log('Plans and subscription fetched', {
     currentPlan: { id: currentPlan.plan_id, internal_name: currentPlan.internal_name },
     newPlan: { id: newPlan.plan_id, internal_name: newPlan.internal_name },
+    subscription: {
+      id: subscription.subscription_id,
+      platform_subscription_id: subscription.platform_subscription_id,
+      platform_type: subscription.platform_type,
+    },
   });
 
   // プラン変更タイプを判定
@@ -277,7 +303,8 @@ export const handler = async (
         process.env.PAYMENT_GATEWAY_UPDATE_SUBSCRIPTION_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Updating payment subscription', {
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
+          platformSubscriptionId: subscription.platform_subscription_id,
           newPlanId,
           prorate: changeType === 'upgrade',
         });
@@ -287,27 +314,27 @@ export const handler = async (
           throw new Error(`Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`);
         }
 
-        console.log('Using pre-fetched plan info', {
+        console.log('Using pre-fetched plan and subscription info', {
           planId: newPlan.plan_id,
           platformProductId: newPlan.platform_product_id,
-          platformType: newPlan.platform_type,
+          platformSubscriptionId: subscription.platform_subscription_id,
+          platformType: subscription.platform_type,
         });
 
-        // TODO: サブスクリプション情報から決済プラットフォームを取得
-        // 現時点ではプランのプラットフォームタイプを使用
-        const platform: PlatformType = newPlan.platform_type as PlatformType || 'stripe';
+        // サブスクリプション情報から決済プラットフォームを取得
+        const platform: PlatformType = subscription.platform_type as PlatformType;
 
         try {
           const result = await paymentClient.updateSubscription({
             tenantId,
             platform,
-            subscriptionId,
-            newPlanId: newPlan.platform_product_id, // Use Stripe price ID instead of internal plan ID
+            subscriptionId: subscription.platform_subscription_id, // Use Stripe subscription ID (sub_xxx)
+            newPlanId: newPlan.platform_product_id, // Use Stripe price ID (price_xxx)
             prorate: changeType === 'upgrade', // アップグレードは即座、ダウングレードは次回更新時
           });
 
           console.log('Payment subscription updated successfully', {
-            subscriptionId,
+            platformSubscriptionId: subscription.platform_subscription_id,
             success: result.success,
           });
 
