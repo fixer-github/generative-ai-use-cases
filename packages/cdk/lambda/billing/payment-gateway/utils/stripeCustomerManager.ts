@@ -167,17 +167,11 @@ export async function getOrCreateStripeCustomerId(
     Item: mappingItem,
   });
 
-  try {
-    await dynamoDB.send(putCommand);
-    console.log('Saved Stripe Customer mapping:', {
-      userId,
-      stripeCustomerId: customer.id,
-    });
-  } catch (error) {
-    console.error('Error saving mapping to DynamoDB:', error);
-    // 保存に失敗してもCustomer IDは返す
-    // （次回の呼び出しで再度保存を試みる）
-  }
+  await dynamoDB.send(putCommand);
+  console.log('Saved Stripe Customer mapping:', {
+    userId,
+    stripeCustomerId: customer.id,
+  });
 
   return customer.id;
 }
