@@ -175,7 +175,7 @@ export const handler = async (
       tenantId,
       'subscription',
       'findById',
-      { id: subscriptionId }
+      { subscriptionId }
     ),
   ]);
 
