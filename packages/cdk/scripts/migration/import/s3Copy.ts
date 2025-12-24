@@ -19,7 +19,7 @@ import * as path from 'path';
 // Types
 // ============================================================================
 
-interface S3CopyMapping {
+export interface S3CopyMapping {
   sourceKey: string;
   targetKey: string;
   fileName: string;
@@ -37,7 +37,7 @@ interface CopyResult {
   skipReason?: string;
 }
 
-interface CopyStatistics {
+export interface CopyStatistics {
   total: number;
   success: number;
   skipped: number;
@@ -62,7 +62,7 @@ interface CliOptions {
 /**
  * S3 クライアントを作成
  */
-function createS3Client(region: string, profile?: string): S3Client {
+export function createS3Client(region: string, profile?: string): S3Client {
   const config: { region: string; credentials?: ReturnType<typeof fromIni> } = {
     region,
   };
@@ -77,7 +77,7 @@ function createS3Client(region: string, profile?: string): S3Client {
 /**
  * オブジェクトの存在確認
  */
-async function objectExists(
+export async function objectExists(
   client: S3Client,
   bucket: string,
   key: string
@@ -98,7 +98,7 @@ async function objectExists(
 /**
  * 単一ファイルをコピー
  */
-async function copyObject(
+export async function copyObject(
   client: S3Client,
   sourceBucket: string,
   targetBucket: string,
@@ -170,7 +170,7 @@ async function copyObject(
 /**
  * バッチでファイルをコピー
  */
-async function copyFiles(
+export async function copyFiles(
   client: S3Client,
   sourceBucket: string,
   targetBucket: string,
@@ -227,7 +227,7 @@ async function copyFiles(
 /**
  * バケット内の全ファイルを一覧取得
  */
-async function listAllObjects(
+export async function listAllObjects(
   client: S3Client,
   bucket: string,
   prefix?: string

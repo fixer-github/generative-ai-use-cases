@@ -10,6 +10,7 @@ import {
   BatchWriteItemCommand,
   DescribeTableCommand,
   ScanCommand,
+  AttributeValue,
 } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { fromIni } from '@aws-sdk/credential-providers';
@@ -20,7 +21,7 @@ import * as path from 'path';
 // Types
 // ============================================================================
 
-interface AssistantItem {
+export interface AssistantItem {
   id: string;
   createdDate: string;
   assistantId: string;
@@ -46,7 +47,7 @@ interface ImportResult {
   error?: string;
 }
 
-interface ImportStatistics {
+export interface ImportStatistics {
   total: number;
   success: number;
   skipped: number;
@@ -70,7 +71,7 @@ interface CliOptions {
 /**
  * DynamoDB クライアントを作成
  */
-function createDynamoDBClient(
+export function createDynamoDBClient(
   region: string,
   profile?: string
 ): DynamoDBClient {
@@ -89,7 +90,7 @@ function createDynamoDBClient(
 /**
  * テーブルの存在確認
  */
-async function tableExists(
+export async function tableExists(
   client: DynamoDBClient,
   tableName: string
 ): Promise<boolean> {
@@ -104,7 +105,7 @@ async function tableExists(
 /**
  * 既存の assistantId を取得
  */
-async function getExistingAssistantIds(
+export async function getExistingAssistantIds(
   client: DynamoDBClient,
   tableName: string
 ): Promise<Set<string>> {
@@ -117,7 +118,7 @@ async function getExistingAssistantIds(
         TableName: tableName,
         ProjectionExpression: 'assistantId',
         ExclusiveStartKey: lastEvaluatedKey as
-          | Record<string, { S?: string; N?: string }>
+          | Record<string, AttributeValue>
           | undefined,
       })
     );
@@ -141,7 +142,7 @@ async function getExistingAssistantIds(
 /**
  * バッチで Assistant を投入
  */
-async function importAssistants(
+export async function importAssistants(
   client: DynamoDBClient,
   tableName: string,
   assistants: AssistantItem[],
