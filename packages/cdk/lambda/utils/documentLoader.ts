@@ -7,6 +7,7 @@ import { Document } from '@langchain/core/documents';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { sdkStreamMixin } from '@smithy/util-stream-node';
+import * as XLSX from 'xlsx';
 import { KnowledgeSource } from 'generative-ai-use-cases';
 import * as https from 'https';
 import * as http from 'http';
@@ -28,6 +29,12 @@ const dnsResolve6 = promisify(dns.resolve6);
 // Environment variable for managed bucket
 const MANAGED_BUCKET_NAME = process.env.ASSISTANT_FILES_BUCKET_NAME;
 
+// Excel MIME types
+const EXCEL_MIME_TYPES = [
+  'application/vnd.ms-excel', // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+];
+
 /**
  * Determine content type from file extension
  */
@@ -40,8 +47,49 @@ function getContentTypeFromKey(key: string): string | null {
     pdf: 'application/pdf',
     html: 'text/html',
     csv: 'text/csv',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
   return contentTypes[ext || ''] || null;
+}
+
+/**
+ * Parse Excel file (xlsx/xls) to text for RAG processing
+ * @param buffer Excel file binary data
+ * @returns Text representation of all sheets
+ */
+function parseExcelToText(buffer: Buffer): string {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+  const sheetTexts: string[] = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Skip empty sheets
+    if (!worksheet['!ref']) {
+      continue;
+    }
+
+    // Convert to tab-separated text
+    // strip: true removes trailing whitespace
+    // blankrows: false skips empty rows
+    const sheetText = XLSX.utils.sheet_to_txt(worksheet, {
+      strip: true,
+      blankrows: false,
+    });
+
+    // Only add non-empty sheets
+    if (sheetText.trim()) {
+      sheetTexts.push(`[Sheet: ${sheetName}]\n${sheetText}`);
+    }
+  }
+
+  if (sheetTexts.length === 0) {
+    return '';
+  }
+
+  return sheetTexts.join('\n\n');
 }
 
 /**
@@ -219,6 +267,12 @@ async function loadDocumentFromFile(
       });
       const docs = await loader.load();
       content = docs.map((doc) => doc.pageContent).join('\n\n');
+    } else if (EXCEL_MIME_TYPES.includes(contentType)) {
+      // Parse Excel file to text
+      content = parseExcelToText(Buffer.from(data));
+      if (!content) {
+        throw new Error('Excel file is empty or contains no readable data');
+      }
     } else {
       // Use UTF-8 string conversion for text files
       content = Buffer.from(data).toString('utf-8');

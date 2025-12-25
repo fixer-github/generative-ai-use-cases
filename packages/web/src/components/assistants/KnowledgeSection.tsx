@@ -95,7 +95,7 @@ const KnowledgeSection: React.FC<KnowledgeSectionProps> = ({
           <>
             <FileUploader
               onFileSelect={onFileUpload}
-              accept=".pdf,.txt,.doc,.docx,.md"
+              accept=".pdf,.txt,.md,.csv,.html,.json,.xls,.xlsx"
               multiple
             />
             {uploadingFiles && (

@@ -75,6 +75,8 @@ export const handler = async (
       'application/json',
       'text/csv',
       'application/pdf',
+      'application/vnd.ms-excel', // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
     ];
 
     if (!allowedTypes.some((type) => body.contentType.includes(type))) {
