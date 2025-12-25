@@ -119,6 +119,12 @@ interface EventDetailPayload {
   tenantId: string;
   platform: PlatformType;
   eventData: Record<string, unknown>;
+  /** ユーザーID（EventDetail.userIdから抽出） */
+  userId?: string;
+  /** 内部サブスクリプションID（EventDetail.subscriptionIdから抽出） */
+  subscriptionId?: string;
+  /** プラットフォームサブスクリプションID（Stripe等のサブスクリプションID） */
+  platformSubscriptionId?: string;
 }
 
 /**
@@ -611,13 +617,26 @@ async function handleSubscriptionCanceled(
   planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
-  const { eventId, tenantId, platform, eventData } = input;
+  const {
+    eventId,
+    tenantId,
+    platform,
+    eventData,
+    userId: eventUserId,
+    subscriptionId: platformSubscriptionId,
+  } = input;
 
-  console.log('Processing subscription.canceled event', { eventId, tenantId, platform });
+  console.log('Processing subscription.canceled event', {
+    eventId,
+    tenantId,
+    platform,
+    eventUserId,
+    platformSubscriptionId,
+  });
 
-  // イベントデータから必要な情報を抽出
-  const platformSubscriptionId = extractSubscriptionId(platform, eventData);
-  const userId = extractUserId(platform, eventData);
+  // Note: subscriptionIdとuserIdはEventDetailから直接取得（eventExtractorで抽出済み）
+  // extractUserId()はStripe customerIdを返すため、eventUserIdを優先使用
+  const userId = eventUserId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -645,10 +664,25 @@ async function handleSubscriptionCanceled(
         if (!subscription) {
           console.warn('No internal subscription found for platform subscription', {
             platformSubscriptionId,
+            eventUserId: userId,
           });
+          // 内部サブスクリプションが見つからなくても、userIdがあれば
+          // デフォルトプラン適用は可能なのでsubscription_infoを設定
+          if (userId) {
+            previousStepResults['subscription_info'] = {
+              internalSubscriptionId: undefined,
+              userId: userId,
+            };
+            console.log('Using userId from event data for default plan application', { userId });
+            return {
+              skipped: true,
+              reason: 'no_internal_subscription_found',
+              userId,
+            };
+          }
           return {
             skipped: true,
-            reason: 'no_internal_subscription_found',
+            reason: 'no_internal_subscription_found_and_no_user_id',
           };
         }
 
@@ -695,7 +729,7 @@ async function handleSubscriptionCanceled(
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
         const subscriptionInfo = previousStepResults['subscription_info'] as {
-          internalSubscriptionId: string;
+          internalSubscriptionId: string | undefined;
           userId: string;
         } | undefined;
 
@@ -704,6 +738,18 @@ async function handleSubscriptionCanceled(
           return {
             skipped: true,
             reason: 'no_subscription_info',
+          };
+        }
+
+        // 内部サブスクリプションIDがない場合はプラン終了をスキップ
+        // （デフォルトプランへの遷移は次のステップで実行）
+        if (!subscriptionInfo.internalSubscriptionId) {
+          console.log('Skipping plan termination (no internal subscription ID)', {
+            userId: subscriptionInfo.userId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_id',
           };
         }
 
@@ -754,15 +800,15 @@ async function handleSubscriptionCanceled(
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
         const subscriptionInfo = previousStepResults['subscription_info'] as {
-          internalSubscriptionId: string;
+          internalSubscriptionId: string | undefined;
           userId: string;
         } | undefined;
 
-        if (!subscriptionInfo) {
-          console.log('Skipping default plan application (no subscription info)');
+        if (!subscriptionInfo || !subscriptionInfo.userId) {
+          console.log('Skipping default plan application (no subscription info or userId)');
           return {
             skipped: true,
-            reason: 'no_subscription_info',
+            reason: 'no_subscription_info_or_user_id',
           };
         }
 
