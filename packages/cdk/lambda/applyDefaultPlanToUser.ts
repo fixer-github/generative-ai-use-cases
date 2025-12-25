@@ -51,8 +51,8 @@ export async function applyDefaultPlanToUser(
     // Lambda関数名パターンから実際の関数名を取得
     const planDataAccessPattern = process.env.PLAN_DATA_ACCESS_FUNCTION_NAME;
     if (!planDataAccessPattern) {
-      console.warn('applyDefaultPlanToUser - PLAN_DATA_ACCESS_FUNCTION_NAME not configured');
-      return true; // 設定されていない場合は正常終了とする
+      console.error('applyDefaultPlanToUser - PLAN_DATA_ACCESS_FUNCTION_NAME not configured');
+      return false; // 設定されていない場合はエラーとして報告
     }
 
     const planDataAccessFunctionName = await findLambdaFunctionName(

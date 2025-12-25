@@ -119,6 +119,12 @@ interface EventDetailPayload {
   tenantId: string;
   platform: PlatformType;
   eventData: Record<string, unknown>;
+  /** ユーザーID（EventDetail.userIdから抽出） */
+  userId?: string;
+  /** 内部サブスクリプションID（EventDetail.subscriptionIdから抽出） */
+  subscriptionId?: string;
+  /** プラットフォームサブスクリプションID（Stripe等のサブスクリプションID） */
+  platformSubscriptionId?: string;
 }
 
 /**
@@ -198,6 +204,7 @@ export const handler = async (
         return await handleSubscriptionCanceled(
           input,
           orchestrator,
+          planClient,
           subscriptionClient
         );
 
@@ -595,25 +602,41 @@ async function handlePaymentFailed(
  *
  * 処理ステップ:
  * 1. サブスクリプション状態更新（status: 'canceled'）
- * 2. キャンセル日時記録
+ * 2. プラン適用終了
+ * 3. デフォルトプランへの遷移
  *
  * @param input Webhookイベント入力
  * @param orchestrator フローオーケストレーター
+ * @param planClient プラン管理クライアント
  * @param subscriptionClient サブスクリプション管理クライアント
  * @returns 処理結果
  */
 async function handleSubscriptionCanceled(
   input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
+  planClient: PlanManagementClient,
   subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
-  const { eventId, tenantId, platform, eventData } = input;
+  const {
+    eventId,
+    tenantId,
+    platform,
+    eventData,
+    userId: eventUserId,
+    subscriptionId: platformSubscriptionId,
+  } = input;
 
-  console.log('Processing subscription.canceled event', { eventId, tenantId, platform });
+  console.log('Processing subscription.canceled event', {
+    eventId,
+    tenantId,
+    platform,
+    eventUserId,
+    platformSubscriptionId,
+  });
 
-  // イベントデータから必要な情報を抽出
-  const subscriptionId = extractSubscriptionId(platform, eventData);
-  const userId = extractUserId(platform, eventData);
+  // Note: subscriptionIdとuserIdはEventDetailから直接取得（eventExtractorで抽出済み）
+  // extractUserId()はStripe customerIdを返すため、eventUserIdを優先使用
+  const userId = eventUserId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -627,23 +650,190 @@ async function handleSubscriptionCanceled(
       targetService: 'SubscriptionManagement',
       targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
+        // platform_subscription_idから内部サブスクリプションIDを取得
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+          user_id: string;
+        } | null>(
+          tenantId,
+          'subscription',
+          'findByPlatformSubscriptionId',
+          { platformSubscriptionId }
+        );
+
+        if (!subscription) {
+          console.warn('No internal subscription found for platform subscription', {
+            platformSubscriptionId,
+            eventUserId: userId,
+          });
+          // 内部サブスクリプションが見つからなくても、userIdがあれば
+          // デフォルトプラン適用は可能なのでsubscription_infoを設定
+          if (userId) {
+            previousStepResults['subscription_info'] = {
+              internalSubscriptionId: undefined,
+              userId: userId,
+            };
+            console.log('Using userId from event data for default plan application', { userId });
+            return {
+              skipped: true,
+              reason: 'no_internal_subscription_found',
+              userId,
+            };
+          }
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_found_and_no_user_id',
+          };
+        }
+
         console.log('Updating subscription status to canceled', {
           tenantId,
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
         });
 
         const params: UpdateSubscriptionStatusParams = {
           tenantId,
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
           newStatus: 'canceled',
         };
 
         const result = await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Subscription status updated to canceled', {
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
           previousStatus: result.previousStatus,
           newStatus: result.newStatus,
+        });
+
+        // 次のステップで使用するため、内部サブスクリプション情報を返す
+        previousStepResults['subscription_info'] = {
+          internalSubscriptionId: subscription.subscription_id,
+          userId: subscription.user_id,
+        };
+
+        return {
+          ...result,
+          internalSubscriptionId: subscription.subscription_id,
+          userId: subscription.user_id,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ2: プラン適用終了
+    {
+      stepName: 'terminate_plan_application',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
+      executeFunction: async () => {
+        const subscriptionInfo = previousStepResults['subscription_info'] as {
+          internalSubscriptionId: string | undefined;
+          userId: string;
+        } | undefined;
+
+        if (!subscriptionInfo) {
+          console.log('Skipping plan termination (no subscription info from previous step)');
+          return {
+            skipped: true,
+            reason: 'no_subscription_info',
+          };
+        }
+
+        // 内部サブスクリプションIDがない場合はプラン終了をスキップ
+        // （デフォルトプランへの遷移は次のステップで実行）
+        if (!subscriptionInfo.internalSubscriptionId) {
+          console.log('Skipping plan termination (no internal subscription ID)', {
+            userId: subscriptionInfo.userId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_id',
+          };
+        }
+
+        console.log('Terminating plan application', {
+          tenantId,
+          userId: subscriptionInfo.userId,
+          applicationSourceId: subscriptionInfo.internalSubscriptionId,
+        });
+
+        try {
+          const result = await planClient.terminatePlanApplication({
+            tenantId,
+            userId: subscriptionInfo.userId,
+            applicationSourceId: subscriptionInfo.internalSubscriptionId,
+          });
+
+          console.log('Plan application terminated successfully', {
+            applicationId: result.applicationId,
+            success: result.success,
+          });
+
+          return result;
+        } catch (error) {
+          // プラン適用が見つからない場合（既に終了済みなど）はスキップ
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          if (errorMessage.includes('NO_ACTIVE_APPLICATION') || errorMessage.includes('not found')) {
+            console.warn('No active plan application found, skipping termination', {
+              userId: subscriptionInfo.userId,
+              applicationSourceId: subscriptionInfo.internalSubscriptionId,
+            });
+            return {
+              skipped: true,
+              reason: 'no_active_application',
+            };
+          }
+          throw error;
+        }
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ3: デフォルトプランへの遷移
+    {
+      stepName: 'apply_default_plan',
+      stepType: 'api_call',
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
+      executeFunction: async () => {
+        const subscriptionInfo = previousStepResults['subscription_info'] as {
+          internalSubscriptionId: string | undefined;
+          userId: string;
+        } | undefined;
+
+        if (!subscriptionInfo || !subscriptionInfo.userId) {
+          console.log('Skipping default plan application (no subscription info or userId)');
+          return {
+            skipped: true,
+            reason: 'no_subscription_info_or_user_id',
+          };
+        }
+
+        // データベースからデフォルトプランを取得
+        const defaultPlanId = await getDefaultPlanId(tenantId);
+
+        console.log('Applying default plan to user', {
+          tenantId,
+          userId: subscriptionInfo.userId,
+          planId: defaultPlanId,
+        });
+
+        const result = await planClient.applyPlanToUser({
+          tenantId,
+          userId: subscriptionInfo.userId,
+          planId: defaultPlanId,
+          applicationSource: 'default',
+          applicationSourceId: undefined,
+          validFrom: new Date().toISOString(),
+          // validUntilは指定しない（無期限の無料プラン）
+        });
+
+        console.log('Default plan applied successfully', {
+          applicationId: result.applicationId,
+          applicationStatus: result.applicationStatus,
         });
 
         return result;
@@ -652,11 +842,7 @@ async function handleSubscriptionCanceled(
       maxRetries: 3,
     },
 
-    // ステップ2: キャンセル日時記録
-    // キャンセル日時の記録はSubscriptionManagementClient.updateSubscriptionStatus()内で
-    // canceledAt属性に記録される想定のため、統括責務では明示的なステップとしては実装しない
-
-    // ステップ3: 通知送信（将来実装）
+    // ステップ4: 通知送信（将来実装）
     // {
     //   stepName: 'send_subscription_canceled_notification',
     //   stepType: 'api_call',
