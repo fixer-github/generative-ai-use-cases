@@ -545,6 +545,50 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
         expect(response.data.success).toBe(true);
         expect(response.data.cancellationType).toBe('immediate');
       });
+
+      it('即時解約後にデフォルトプランが適用されること', async () => {
+        // Skip if test plans are not configured
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder' || !testDefaultPlanId) {
+          console.log('Skipping: Test plans not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを直接作成
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        const subscription = await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: 即時解約を実行
+        const cancelResponse = await apiClient.post<CancelSubscriptionResponse>(
+          '/api/subscriptions/cancel',
+          {
+            subscriptionId: subscription.subscriptionId,
+            cancellationType: 'immediate',
+          }
+        );
+
+        expect(cancelResponse.status).toBe(200);
+        expect(cancelResponse.data.success).toBe(true);
+
+        // Assert: デフォルトプランが適用されていることを確認
+        const currentResponse = await apiClient.get<CurrentSubscriptionResponse>(
+          '/api/subscriptions/current'
+        );
+
+        console.log('Current subscription after cancellation:', JSON.stringify(currentResponse.data));
+
+        expect(currentResponse.status).toBe(200);
+        expect(currentResponse.data.planId).toBe(testDefaultPlanId);
+        // デフォルトプランはサブスクリプションベースではない
+        expect(currentResponse.data.subscriptionId).toBeNull();
+      });
     });
 
     describe('異常系', () => {
@@ -908,16 +952,58 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
     const describeWithStripeCli = STRIPE_WEBHOOK_SECRET ? describe : describe.skip;
 
     describeWithStripeCli('正常系 (requires Stripe CLI forwarding)', () => {
-      it('サブスクリプション削除時にFreeプランに移行すること', async () => {
+      it('サブスクリプション削除時にデフォルトプランに移行すること', async () => {
         // Note: このテストは実際のサブスクリプション削除が必要
         // 1. 有効なサブスクリプションを作成
         // 2. Stripe API または Dashboard でサブスクリプションをキャンセル
         // 3. Stripeが customer.subscription.deleted webhookを送信
-        // 4. ユーザーがFreeプランに移行される
+        // 4. webhookEventFlow.handleSubscriptionCanceled が:
+        //    - サブスクリプションステータスを canceled に更新
+        //    - プラン適用を終了
+        //    - デフォルトプランを適用
         console.log('To test subscription deletion:');
         console.log('1. Create active subscription');
         console.log('2. Cancel via Stripe API: stripe subscriptions cancel sub_xxx');
-        console.log('3. Verify user is moved to Free plan');
+        console.log('3. Verify user is moved to default plan');
+      });
+
+      it('subscription.canceled webhook処理後にデフォルトプランが適用されること', async () => {
+        // Skip if test plans are not configured
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder' || !testDefaultPlanId) {
+          console.log('Skipping: Test plans not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを作成
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        const subscription = await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: Stripeサブスクリプションをキャンセル（Webhookがトリガーされる）
+        const stripeSubscriptionId = subscription.platformSubscriptionId;
+        if (stripeSubscriptionId) {
+          await subscriptionHelper.cancelStripeSubscription(stripeSubscriptionId);
+
+          // Wait for webhook processing
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+
+        // Assert: デフォルトプランが適用されていることを確認
+        const currentResponse = await apiClient.get<CurrentSubscriptionResponse>(
+          '/api/subscriptions/current'
+        );
+
+        console.log('Current subscription after webhook:', JSON.stringify(currentResponse.data));
+
+        expect(currentResponse.status).toBe(200);
+        expect(currentResponse.data.planId).toBe(testDefaultPlanId);
       });
     });
   });
