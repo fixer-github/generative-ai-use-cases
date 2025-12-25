@@ -5,6 +5,7 @@
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { S3Client } from '@aws-sdk/client-s3';
 import {
   STSClient,
   AssumeRoleCommand,
@@ -76,6 +77,26 @@ export function createDynamoDBDocClient(
       removeUndefinedValues: true,
     },
   });
+}
+
+/**
+ * S3 クライアントを作成する
+ */
+export function createS3Client(config: AWSClientConfig): S3Client {
+  const cacheKey = getCacheKey('s3', config.region, config.profile);
+  const cached = clientCache.get(cacheKey);
+
+  if (cached) {
+    return cached as S3Client;
+  }
+
+  const client = new S3Client({
+    region: config.region,
+    credentials: config.credentials ?? getCredentialProvider(config.profile),
+  });
+
+  clientCache.set(cacheKey, client);
+  return client;
 }
 
 /**

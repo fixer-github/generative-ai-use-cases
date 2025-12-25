@@ -170,3 +170,17 @@ export interface ExportResult {
   itemCount: number;
   exportedAt: string;
 }
+
+/**
+ * S3 バックアップ結果
+ */
+export interface S3BackupResult {
+  bucketName: string;
+  outputDir: string;
+  totalFiles: number;
+  downloadedFiles: number;
+  skippedFiles: number;
+  failedFiles: number;
+  errors: string[];
+  exportedAt: string;
+}

@@ -18,7 +18,8 @@ import * as path from 'path';
 import { V053Bot, AssistantItem, S3CopyMapping, AWSClientConfig } from './types';
 
 // Export
-import { exportBotTable } from './export/botExport';
+import { exportBotTable, scanBotTable, saveBotData } from './export/botExport';
+import { backupS3Files } from './export/s3Backup';
 
 // Transform
 import { transformBots } from './transform/botToAssistant';
@@ -44,16 +45,21 @@ program
 
 program
   .command('export')
-  .description('Bot テーブルを JSON エクスポート')
+  .description('Bot テーブルと S3 ファイルをエクスポート')
   .requiredOption('-t, --table <name>', 'DynamoDB テーブル名')
   .requiredOption('-r, --region <region>', 'AWS リージョン')
-  .requiredOption('-o, --output <path>', '出力ファイルパス')
+  .requiredOption('-o, --output <path>', '出力ディレクトリ')
+  .option('-b, --bucket <name>', 'S3 バケット名（ファイルバックアップ用）')
   .option('-p, --profile <profile>', 'AWS プロファイル')
+  .option('-c, --concurrency <num>', 'S3 ダウンロード同時実行数', '10')
   .action(async (options) => {
-    console.log('=== Bot テーブルエクスポート ===');
+    console.log('=== Bot データエクスポート ===');
     console.log(`テーブル: ${options.table}`);
     console.log(`リージョン: ${options.region}`);
-    console.log(`出力: ${options.output}`);
+    console.log(`出力ディレクトリ: ${options.output}`);
+    if (options.bucket) {
+      console.log(`S3 バケット: ${options.bucket}`);
+    }
 
     try {
       const config: AWSClientConfig = {
@@ -61,12 +67,54 @@ program
         profile: options.profile,
       };
 
-      const result = await exportBotTable(options.table, options.output, config);
+      // 出力ディレクトリを作成
+      if (!fs.existsSync(options.output)) {
+        fs.mkdirSync(options.output, { recursive: true });
+      }
 
-      console.log('\n=== 結果 ===');
-      console.log(`アイテム数: ${result.itemCount}`);
-      console.log(`出力ファイル: ${result.outputPath}`);
-      console.log('エクスポート完了');
+      // Bot テーブルをスキャン
+      const { createDynamoDBDocClient } = await import('./utils/aws');
+      const docClient = createDynamoDBDocClient(config);
+      const bots = await scanBotTable(options.table, docClient);
+
+      // JSON ファイルに保存
+      const botsJsonPath = path.join(options.output, 'bots.json');
+      const botResult = saveBotData(bots, options.table, botsJsonPath);
+
+      console.log('\n=== DynamoDB エクスポート結果 ===');
+      console.log(`アイテム数: ${botResult.itemCount}`);
+      console.log(`出力ファイル: ${botResult.outputPath}`);
+
+      // S3 バックアップ（オプション）
+      if (options.bucket) {
+        console.log('\n--- S3 ファイルバックアップ ---');
+        const concurrency = parseInt(options.concurrency, 10);
+        const s3Result = await backupS3Files(
+          bots,
+          options.bucket,
+          options.output,
+          config,
+          concurrency
+        );
+
+        console.log('\n=== S3 バックアップ結果 ===');
+        console.log(`総ファイル数: ${s3Result.totalFiles}`);
+        console.log(`ダウンロード: ${s3Result.downloadedFiles}`);
+        console.log(`スキップ: ${s3Result.skippedFiles}`);
+        console.log(`失敗: ${s3Result.failedFiles}`);
+
+        if (s3Result.errors.length > 0) {
+          console.log(`エラー: ${s3Result.errors.length} 件`);
+          s3Result.errors.slice(0, 5).forEach((e) => console.log(`  - ${e}`));
+        }
+
+        // S3 バックアップ結果を保存
+        const s3StatsPath = path.join(options.output, 's3-backup-stats.json');
+        fs.writeFileSync(s3StatsPath, JSON.stringify(s3Result, null, 2));
+        console.log(`統計ファイル: ${s3StatsPath}`);
+      }
+
+      console.log('\nエクスポート完了');
     } catch (error) {
       console.error('エクスポートに失敗しました:', error);
       process.exit(1);
