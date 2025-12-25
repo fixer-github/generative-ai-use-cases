@@ -355,6 +355,14 @@ function extractFromCheckoutSessionCompleted(
 
   const metadata = eventObject.metadata ?? {};
 
+  // subscription mode かつ プラン変更の場合
+  if (
+    eventObject.mode === 'subscription' &&
+    metadata.type === 'plan_change'
+  ) {
+    return extractFromPlanChangeCheckout(stripeEvent, eventObject, tenantId, metadata);
+  }
+
   // subscription mode かつ ペアレンタルコントロールの場合
   if (
     eventObject.mode === 'subscription' &&
@@ -369,6 +377,87 @@ function extractFromCheckoutSessionCompleted(
   }
 
   throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
+}
+
+/**
+ * プラン変更Checkout Session（subscription mode）からの情報抽出
+ *
+ * 新しいサブスクリプションが作成されるため、古いサブスクリプションのキャンセルと
+ * 内部DBの更新が必要。これらはwebhookEventFlow側で処理される。
+ */
+function extractFromPlanChangeCheckout(
+  stripeEvent: Stripe.Event,
+  session: Stripe.Checkout.Session,
+  tenantId: string,
+  metadata: Record<string, string>
+): Partial<EventDetail> {
+  const userId = metadata.userId ?? '';
+  const newPlanId = metadata.newPlanId ?? '';
+  const previousPlanId = metadata.previousPlanId ?? '';
+  const previousSubscriptionId = metadata.previousSubscriptionId ?? '';
+  const internalSubscriptionId = metadata.internalSubscriptionId ?? '';
+  const isUpgrade = metadata.isUpgrade === 'true';
+
+  // 新しいStripeサブスクリプションIDを取得
+  const newPlatformSubscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id ?? '';
+
+  if (!userId) {
+    console.warn('userId not found in plan change session metadata');
+  }
+
+  if (!newPlanId) {
+    console.warn('newPlanId not found in plan change session metadata');
+  }
+
+  if (!previousSubscriptionId) {
+    console.warn('previousSubscriptionId not found in plan change session metadata');
+  }
+
+  if (!newPlatformSubscriptionId) {
+    console.warn('new subscription not found in plan change session');
+  }
+
+  console.log('Plan change checkout completed', {
+    sessionId: session.id,
+    userId,
+    newPlanId,
+    previousPlanId,
+    previousSubscriptionId,
+    newPlatformSubscriptionId,
+    internalSubscriptionId,
+    isUpgrade,
+  });
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId: internalSubscriptionId, // 内部サブスクリプションID
+    userId,
+    planId: newPlanId,
+    newPlanId,
+    previousPlanId,
+    platformSubscriptionId: newPlatformSubscriptionId,
+    sessionId: session.id,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        sessionId: session.id,
+        userId,
+        newPlanId,
+        previousPlanId,
+        previousSubscriptionId,
+        newPlatformSubscriptionId,
+        internalSubscriptionId,
+        isUpgrade,
+        tenantId,
+      },
+    },
+  };
 }
 
 /**

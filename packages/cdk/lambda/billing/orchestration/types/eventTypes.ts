@@ -113,6 +113,13 @@ export interface StripeEventData {
     previousPriceId?: string;
     isPlanChange?: boolean;
     status?: string;
+    // Checkoutベースのプラン変更用フィールド
+    newPlanId?: string;
+    previousPlanId?: string;
+    previousSubscriptionId?: string;
+    newPlatformSubscriptionId?: string;
+    internalSubscriptionId?: string;
+    isUpgrade?: string;
   };
 
   /** その他のStripe固有データ */

@@ -6,6 +6,7 @@ export type BusinessEventType =
   | 'payment.failed' // 支払い失敗
   | 'subscription.canceled' // サブスクリプションキャンセル
   | 'subscription.updated' // サブスクリプション更新（プラン変更など）
+  | 'subscription.plan_change_completed' // プラン変更Checkout完了
   | 'payment.refunded' // 返金
   | 'payment_method.updated' // 支払い方法更新
   | 'invoice.created' // 請求書作成

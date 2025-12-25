@@ -61,6 +61,13 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
     ) {
       return 'payment_method.updated';
     }
+    // subscription modeかつプラン変更の場合
+    if (
+      eventObject.mode === 'subscription' &&
+      eventObject.metadata?.type === 'plan_change'
+    ) {
+      return 'subscription.plan_change_completed';
+    }
     // subscription modeかつペアレンタルコントロールの場合
     if (
       eventObject.mode === 'subscription' &&

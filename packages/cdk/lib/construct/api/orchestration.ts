@@ -275,6 +275,8 @@ class OrchestrationApi extends Construct {
           'payment.succeeded',
           'payment.failed',
           'subscription.canceled',
+          'subscription.updated',
+          'subscription.plan_change_completed',
           'payment.refunded',
           'payment_method.updated',
           'subscription.parental_activated',

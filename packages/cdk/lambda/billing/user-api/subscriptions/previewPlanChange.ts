@@ -1,21 +1,9 @@
 /**
- * User-facing Change Subscription Plan API
+ * User-facing Plan Change Preview API
  *
- * ユーザ向けのプラン変更API。
- * プラン変更時にStripe Checkout Sessionを作成し、ユーザーに支払い確認画面を表示します。
- * 実際のプラン変更は、Checkoutが完了した後にWebhookハンドラーで処理されます。
- *
- * Frontend API Contract:
- * - Request: { newPlanId: string }
- * - Response: { sessionId, clientSecret } (for embedded checkout)
- *
- * Flow:
- * 1. ユーザーがpreviewPlanChangeでプロレーション金額を確認
- * 2. ユーザーが確認ボタンを押す → このAPIが呼ばれる
- * 3. Stripe Checkout Sessionを作成（プロレーション支払い用）
- * 4. フロントエンドがEmbedded Checkoutを表示
- * 5. 支払い完了後、Webhookでsubscription.plan_changeイベントを処理
- * 6. Webhookハンドラーがサブスクリプションを更新
+ * プラン変更プレビューAPI。
+ * ユーザーが確認ボタンを押す前に、実際に請求される金額を表示するためのAPI。
+ * Stripeの`invoices.retrieveUpcoming`を使用して日割り計算金額を取得します。
  */
 
 import Stripe from 'stripe';
@@ -42,19 +30,46 @@ import {
 /**
  * リクエストボディの型
  */
-interface ChangePlanRequest {
+interface PreviewPlanChangeRequest {
   /** 変更先のプランID */
   newPlanId: string;
 }
 
 /**
- * レスポンスボディの型（Checkout Session用）
+ * レスポンスボディの型
  */
-interface ChangePlanResponse {
-  /** Stripe Checkout Session ID */
-  sessionId: string;
-  /** Embedded Checkout用のclient secret */
-  clientSecret: string;
+interface PreviewPlanChangeResponse {
+  /** 現在のプラン情報 */
+  currentPlan: {
+    planId: string;
+    displayName: string;
+    amount: number;
+    currency: string;
+    interval: string;
+  };
+  /** 新しいプラン情報 */
+  newPlan: {
+    planId: string;
+    displayName: string;
+    amount: number;
+    currency: string;
+    interval: string;
+  };
+  /** プロレーション（日割り計算）情報 */
+  proration: {
+    /** 請求金額（正の値）またはクレジット（負の値） */
+    amount: number;
+    /** 通貨 */
+    currency: string;
+    /** 残り日数 */
+    daysRemaining: number;
+    /** 現在の請求期間終了日（ISO 8601形式） */
+    periodEnd: string;
+  };
+  /** アップグレードかどうか */
+  isUpgrade: boolean;
+  /** サブスクリプションID（プラン変更時に使用） */
+  subscriptionId: string;
 }
 
 /**
@@ -89,30 +104,6 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
     console.error('Failed to retrieve Stripe API key:', error);
     throw new Error('Failed to retrieve payment configuration');
   }
-}
-
-/**
- * リクエストヘッダーからフロントエンドのベースURLを取得する
- */
-function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
-  const headers = event.headers;
-
-  const origin = headers['origin'] || headers['Origin'];
-  if (origin) {
-    return origin;
-  }
-
-  const referer = headers['referer'] || headers['Referer'];
-  if (referer) {
-    try {
-      const url = new URL(referer);
-      return `${url.protocol}//${url.host}`;
-    } catch {
-      // Continue if referer parsing fails
-    }
-  }
-
-  throw new Error('Unable to determine frontend base URL from request headers');
 }
 
 /**
@@ -157,7 +148,7 @@ function selectHighestPriorityApplication(
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('User API: Change Subscription Plan request received');
+  console.log('User API: Preview Plan Change request received');
 
   try {
     // 1. 認証情報からユーザIDとテナントIDを取得
@@ -182,7 +173,7 @@ export const handler = async (
       });
     }
 
-    const requestBody: ChangePlanRequest | null = (() => {
+    const requestBody: PreviewPlanChangeRequest = (() => {
       try {
         return JSON.parse(event.body);
       } catch {
@@ -215,6 +206,7 @@ export const handler = async (
       { userId }
     );
 
+    // 有効なプラン適用をフィルタリング
     const now = new Date();
     const activeApplications = (applications || []).filter((app) => {
       if (!['active', 'scheduled_termination'].includes(app.application_status)) {
@@ -300,27 +292,18 @@ export const handler = async (
       });
     }
 
-    // 8. Stripeプラットフォームのみ対応
+    // 8. Stripeでプロレーション金額を計算
     if (subscription.platform_type !== 'stripe') {
       return badRequest400Response({
-        message: 'Web版のみプラン変更に対応しています',
+        message: 'Web版のみプラン変更プレビューに対応しています',
         code: 'UNSUPPORTED_PLATFORM',
       });
     }
 
-    const newPriceId = newPlan.platform_product_id;
-    if (!newPriceId) {
-      return badRequest400Response({
-        message: '新しいプランの価格設定が見つかりません',
-        code: 'NO_PRICE_ID',
-      });
-    }
-
-    // 9. Stripe APIを初期化
     const apiKey = await getStripeApiKey(tenantId);
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // 10. 現在のStripeサブスクリプション情報を取得
+    // Stripeサブスクリプション情報を取得
     const stripeSubscription = await stripe.subscriptions.retrieve(
       subscription.platform_subscription_id
     );
@@ -333,93 +316,120 @@ export const handler = async (
       });
     }
 
-    // 11. アップグレードかダウングレードかを判定（Stripeの価格情報を使用）
+    // 新しいプランのStripe Price IDを取得
+    const newPriceId = newPlan.platform_product_id;
+    if (!newPriceId) {
+      return badRequest400Response({
+        message: '新しいプランの価格設定が見つかりません',
+        code: 'NO_PRICE_ID',
+      });
+    }
+
+    // 現在と新しいプランのStripe価格情報を取得
     const currentPriceId = stripeSubscription.items.data[0]?.price?.id;
-    const [currentPrice, newPriceInfo] = await Promise.all([
-      currentPriceId ? stripe.prices.retrieve(currentPriceId) : Promise.resolve(null),
+    if (!currentPriceId) {
+      return internalServerError500Response({
+        message: '現在のプランの価格IDが見つかりません',
+        code: 'NO_CURRENT_PRICE_ID',
+      });
+    }
+
+    const [currentPrice, newPrice] = await Promise.all([
+      stripe.prices.retrieve(currentPriceId),
       stripe.prices.retrieve(newPriceId),
     ]);
-    const currentAmount = currentPrice?.unit_amount || 0;
-    const newAmount = newPriceInfo.unit_amount || 0;
-    const isUpgrade = newAmount > currentAmount;
 
-    // 12. 顧客IDを取得
+    // 顧客IDを取得
     const customerId = typeof stripeSubscription.customer === 'string'
       ? stripeSubscription.customer
       : stripeSubscription.customer.id;
 
-    console.log('Creating checkout session for plan change:', {
+    // Stripeで次回インボイスをプレビュー
+    const upcomingInvoice = await stripe.invoices.createPreview({
+      customer: customerId,
+      subscription: subscription.platform_subscription_id,
+      subscription_details: {
+        items: [
+          {
+            id: subscriptionItemId,
+            price: newPriceId,
+          },
+        ],
+        proration_behavior: 'create_prorations',
+      },
+    });
+
+    // プロレーション金額を計算（amount < 0のクレジットまたはamount > 0の追加料金）
+    // 新規サブスクリプション以外の行（通常はプロレーション）を合計
+    const prorationAmount = upcomingInvoice.lines.data
+      .filter((line: Stripe.InvoiceLineItem) => {
+        // サブスクリプションの新規行でない場合はプロレーション
+        return line.description?.toLowerCase().includes('proration') ||
+          line.description?.toLowerCase().includes('unused') ||
+          line.description?.toLowerCase().includes('remaining');
+      })
+      .reduce((sum: number, line: Stripe.InvoiceLineItem) => sum + line.amount, 0);
+
+    // 残り日数を計算（subscription objectから期間終了日を取得）
+    const subscriptionData = stripeSubscription as unknown as {
+      current_period_end: number;
+      items: { data: Array<{ current_period_end?: number }> };
+    };
+    const currentPeriodEnd = subscriptionData.items.data[0]?.current_period_end
+      ?? subscriptionData.current_period_end;
+    const periodEnd = new Date(currentPeriodEnd * 1000);
+    const daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // アップグレードかダウングレードかを判定
+    const currentAmount = currentPrice.unit_amount || 0;
+    const newAmount = newPrice.unit_amount || 0;
+    const isUpgrade = newAmount > currentAmount;
+
+    // インターバル文字列を取得
+    const getIntervalString = (price: Stripe.Price): string => {
+      if (!price.recurring) return 'one_time';
+      const interval = price.recurring.interval;
+      const count = price.recurring.interval_count;
+      return count === 1 ? interval : `${count}_${interval}s`;
+    };
+
+    console.log('Plan change preview calculated:', {
       currentPlanId,
       newPlanId,
+      prorationAmount,
+      isUpgrade,
+      daysRemaining,
+    });
+
+    // 9. レスポンスを返す
+    const response: PreviewPlanChangeResponse = {
+      currentPlan: {
+        planId: currentPlan.plan_id,
+        displayName: currentPlan.display_name,
+        amount: currentAmount,
+        currency: currentPrice.currency || 'jpy',
+        interval: getIntervalString(currentPrice),
+      },
+      newPlan: {
+        planId: newPlan.plan_id,
+        displayName: newPlan.display_name,
+        amount: newAmount,
+        currency: newPrice.currency || 'jpy',
+        interval: getIntervalString(newPrice),
+      },
+      proration: {
+        amount: prorationAmount,
+        currency: upcomingInvoice.currency || 'jpy',
+        daysRemaining,
+        periodEnd: periodEnd.toISOString(),
+      },
       isUpgrade,
       subscriptionId,
-      platformSubscriptionId: subscription.platform_subscription_id,
-    });
-
-    // 13. Return URLを設定（Embedded Checkout用）
-    const baseUrl = getBaseUrlFromRequest(event);
-    const returnUrl = `${baseUrl}/billing/complete?session_id={CHECKOUT_SESSION_ID}`;
-
-    // 14. Checkout Sessionを作成
-    // subscription モードでサブスクリプション更新用のCheckoutを作成
-    // これにより、ユーザーは支払い確認画面を経由してプラン変更できる
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      ui_mode: 'embedded',
-      redirect_on_completion: 'if_required',
-      customer: customerId,
-      // 既存のサブスクリプションを更新するために line_items で新しいプランを指定
-      line_items: [
-        {
-          price: newPriceId,
-          quantity: 1,
-        },
-      ],
-      // サブスクリプション更新設定
-      subscription_data: {
-        // Note: Checkout modeでは proration_behavior は使用不可
-        // 代わりに metadata でフラグを渡し、Webhook側で処理
-        metadata: {
-          type: 'plan_change',
-          previousSubscriptionId: subscription.platform_subscription_id,
-          previousPlanId: currentPlanId,
-          newPlanId: newPlanId,
-          isUpgrade: isUpgrade.toString(),
-          internalSubscriptionId: subscriptionId,
-          userId,
-          tenantId,
-        },
-      },
-      return_url: returnUrl,
-      metadata: {
-        type: 'plan_change',
-        previousSubscriptionId: subscription.platform_subscription_id,
-        previousPlanId: currentPlanId,
-        newPlanId: newPlanId,
-        isUpgrade: isUpgrade.toString(),
-        internalSubscriptionId: subscriptionId,
-        userId,
-        tenantId,
-      },
-      locale: 'ja',
-      allow_promotion_codes: true,
-    });
-
-    console.log('Checkout session created for plan change:', {
-      sessionId: session.id,
-      newPlanId,
-      isUpgrade,
-    });
-
-    // 14. レスポンスを返す
-    const response: ChangePlanResponse = {
-      sessionId: session.id,
-      clientSecret: session.client_secret || '',
     };
 
     return ok200Response(response);
   } catch (error) {
-    console.error('Error creating plan change checkout session:', error);
+    console.error('Error previewing plan change:', error);
 
     if (error instanceof Stripe.errors.StripeError) {
       return badRequest400Response({
