@@ -19,6 +19,7 @@ import {
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { TenantManager } from '../../construct/tenant-manager';
 import OrchestrationApi from './orchestration';
 import PaymentGatewayApi from './payment-gateway';
@@ -80,6 +81,11 @@ export interface UserBillingApiProps {
    * Email service name (displayed in emails)
    */
   readonly emailServiceName: string;
+
+  /**
+   * DynamoDB table for pending plan change requests (parental approval)
+   */
+  readonly pendingPlanChangesTable?: ITable;
 }
 
 class UserBillingApi extends Construct {
@@ -88,6 +94,9 @@ class UserBillingApi extends Construct {
   public readonly createCheckoutSessionFunction: NodejsFunction;
   public readonly getCheckoutSessionStatusFunction: NodejsFunction;
   public readonly sendCheckoutLinkToParentFunction: NodejsFunction;
+  public readonly sendPlanChangeLinkToParentFunction?: NodejsFunction;
+  public readonly getPlanChangeRequestStatusFunction?: NodejsFunction;
+  public readonly approvePlanChangeFunction?: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
@@ -100,7 +109,14 @@ class UserBillingApi extends Construct {
   constructor(scope: Construct, id: string, props: UserBillingApiProps) {
     super(scope, id);
 
-    const { api, userPool, userPoolClient, idPool, tenantManager, environment } = props;
+    const {
+      api,
+      userPool,
+      userPoolClient,
+      idPool,
+      tenantManager,
+      environment,
+    } = props;
 
     // Common Lambda configuration
     const commonEnvironment = {
@@ -303,7 +319,8 @@ class UserBillingApi extends Construct {
       })
     );
 
-    const sessionIdResource = checkoutSessionResource.addResource('{sessionId}');
+    const sessionIdResource =
+      checkoutSessionResource.addResource('{sessionId}');
     const statusResource = sessionIdResource.addResource('status');
     statusResource.addMethod(
       'GET',
@@ -394,6 +411,201 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 3.6: 保護者向けプラン変更リンク送信API（ペアレンタルコントロール）
+    // POST /api/subscriptions/send-plan-change-to-parent
+    // ========================================
+
+    if (
+      props.pendingPlanChangesTable &&
+      props.orchestrationFunctions?.planChangeFlow
+    ) {
+      this.sendPlanChangeLinkToParentFunction = new NodejsFunction(
+        this,
+        'SendPlanChangeLinkToParent',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/sendPlanChangeLinkToParent.ts',
+          timeout: Duration.seconds(30),
+          memorySize: 256,
+          environment: {
+            ...commonEnvironment,
+            SERVICE_NAME: props.emailServiceName,
+            SENDGRID_API_KEY: props.sendgridApiKey,
+            SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+            PENDING_PLAN_CHANGES_TABLE_NAME:
+              props.pendingPlanChangesTable.tableName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.sendPlanChangeLinkToParentFunction
+      );
+
+      // Grant DynamoDB write access for pending plan changes
+      props.pendingPlanChangesTable.grantReadWriteData(
+        this.sendPlanChangeLinkToParentFunction
+      );
+
+      // Secrets Manager読み取り権限（Stripe APIキー取得用）
+      this.sendPlanChangeLinkToParentFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+        })
+      );
+
+      // Lambda呼び出し権限（データアクセス層用）
+      this.sendPlanChangeLinkToParentFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          ],
+        })
+      );
+
+      // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+      this.sendPlanChangeLinkToParentFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
+        })
+      );
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      this.sendPlanChangeLinkToParentFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRoleWithWebIdentity'],
+          resources: ['*'],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const sendPlanChangeToParentResource = subscriptionsResource.addResource(
+        'send-plan-change-to-parent'
+      );
+      sendPlanChangeToParentResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.sendPlanChangeLinkToParentFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+
+      // ========================================
+      // API 3.7: プラン変更承認API（公開エンドポイント - 保護者用）
+      // POST /api/subscriptions/approve-plan-change
+      // ========================================
+
+      this.approvePlanChangeFunction = new NodejsFunction(
+        this,
+        'ApprovePlanChange',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/billing/user-api/subscriptions/approvePlanChange.ts',
+          timeout: Duration.seconds(60), // planChangeFlow呼び出しを含むため長めに設定
+          memorySize: 512,
+          environment: {
+            ...commonEnvironment,
+            PENDING_PLAN_CHANGES_TABLE_NAME:
+              props.pendingPlanChangesTable.tableName,
+            PLAN_CHANGE_FLOW_FUNCTION_NAME:
+              props.orchestrationFunctions.planChangeFlow.functionName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(this.approvePlanChangeFunction);
+
+      // Grant DynamoDB read/write access for pending plan changes
+      props.pendingPlanChangesTable.grantReadWriteData(
+        this.approvePlanChangeFunction
+      );
+
+      // Lambda呼び出し権限（Orchestration planChangeFlow用）
+      this.approvePlanChangeFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [props.orchestrationFunctions.planChangeFlow.functionArn],
+        })
+      );
+
+      // API Gatewayエンドポイント（認証なし - 公開）
+      const approvePlanChangeResource = subscriptionsResource.addResource(
+        'approve-plan-change'
+      );
+      approvePlanChangeResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.approvePlanChangeFunction),
+        {
+          // 認証なし - 保護者はログインしていないため
+          authorizationType: AuthorizationType.NONE,
+        }
+      );
+
+      // ========================================
+      // API 3.8: プラン変更リクエストステータス確認API
+      // GET /api/subscriptions/plan-change-request/{requestId}/status
+      // ========================================
+
+      this.getPlanChangeRequestStatusFunction = new NodejsFunction(
+        this,
+        'GetPlanChangeRequestStatus',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/getPlanChangeRequestStatus.ts',
+          timeout: Duration.seconds(10),
+          memorySize: 256,
+          environment: {
+            ...commonEnvironment,
+            PENDING_PLAN_CHANGES_TABLE_NAME:
+              props.pendingPlanChangesTable.tableName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.getPlanChangeRequestStatusFunction
+      );
+
+      // Grant DynamoDB read access for pending plan changes
+      props.pendingPlanChangesTable.grantReadData(
+        this.getPlanChangeRequestStatusFunction
+      );
+
+      // API Gatewayエンドポイント
+      const planChangeRequestResource = subscriptionsResource.addResource(
+        'plan-change-request'
+      );
+      const planChangeRequestIdResource =
+        planChangeRequestResource.addResource('{requestId}');
+      const planChangeRequestStatusResource =
+        planChangeRequestIdResource.addResource('status');
+      planChangeRequestStatusResource.addMethod(
+        'GET',
+        new LambdaIntegration(this.getPlanChangeRequestStatusFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+    }
+
+    // ========================================
     // API 4: プランアクティベーションAPI
     // POST /api/subscriptions/activate-from-session
     // ========================================
@@ -467,12 +679,14 @@ class UserBillingApi extends Construct {
       'GetCurrentSubscription',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/user-api/subscriptions/getCurrentSubscription.ts',
+        entry:
+          './lambda/billing/user-api/subscriptions/getCurrentSubscription.ts',
         timeout: Duration.seconds(10),
         memorySize: 256,
         environment: {
           ...commonEnvironment,
-          USER_REGISTRATION_METADATA_TABLE_NAME: userRegistrationMetadataTableName,
+          USER_REGISTRATION_METADATA_TABLE_NAME:
+            userRegistrationMetadataTableName,
         },
       }
     );
@@ -554,7 +768,8 @@ class UserBillingApi extends Construct {
         'CancelSubscription',
         {
           runtime: LAMBDA_RUNTIME_NODEJS,
-          entry: './lambda/billing/user-api/subscriptions/cancelSubscription.ts',
+          entry:
+            './lambda/billing/user-api/subscriptions/cancelSubscription.ts',
           timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
           memorySize: 512,
           environment: {
@@ -573,7 +788,9 @@ class UserBillingApi extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['lambda:InvokeFunction'],
-          resources: [props.orchestrationFunctions.cancellationFlow.functionArn],
+          resources: [
+            props.orchestrationFunctions.cancellationFlow.functionArn,
+          ],
         })
       );
 
@@ -600,7 +817,8 @@ class UserBillingApi extends Construct {
         'ChangeSubscriptionPlan',
         {
           runtime: LAMBDA_RUNTIME_NODEJS,
-          entry: './lambda/billing/user-api/subscriptions/changeSubscriptionPlan.ts',
+          entry:
+            './lambda/billing/user-api/subscriptions/changeSubscriptionPlan.ts',
           timeout: Duration.seconds(60), // Orchestrationフロー呼び出しを含むため長めに設定
           memorySize: 512,
           environment: {
@@ -612,7 +830,9 @@ class UserBillingApi extends Construct {
       );
 
       // Grant Tenants table read access
-      tenantManager.tenantsTable.grantReadData(this.changeSubscriptionPlanFunction);
+      tenantManager.tenantsTable.grantReadData(
+        this.changeSubscriptionPlanFunction
+      );
 
       // Lambda呼び出し権限（データアクセス層用）
       this.changeSubscriptionPlanFunction.addToRolePolicy(
@@ -621,7 +841,18 @@ class UserBillingApi extends Construct {
           actions: ['lambda:InvokeFunction'],
           resources: [
             `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
           ],
+        })
+      );
+
+      // Secrets Manager読み取り権限（Stripe APIキー取得用）
+      this.changeSubscriptionPlanFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
         })
       );
 
@@ -653,7 +884,8 @@ class UserBillingApi extends Construct {
       );
 
       // API Gatewayエンドポイント
-      const changePlanResource = subscriptionsResource.addResource('change-plan');
+      const changePlanResource =
+        subscriptionsResource.addResource('change-plan');
       changePlanResource.addMethod(
         'POST',
         new LambdaIntegration(this.changeSubscriptionPlanFunction),
@@ -678,7 +910,8 @@ class UserBillingApi extends Construct {
       'CreateCustomerPortal',
       {
         runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/billing/user-api/subscriptions/createCustomerPortal.ts',
+        entry:
+          './lambda/billing/user-api/subscriptions/createCustomerPortal.ts',
         timeout: Duration.seconds(30),
         memorySize: 256,
         environment: commonEnvironment,
@@ -700,7 +933,8 @@ class UserBillingApi extends Construct {
     );
 
     // API Gatewayエンドポイント
-    const customerPortalResource = subscriptionsResource.addResource('customer-portal');
+    const customerPortalResource =
+      subscriptionsResource.addResource('customer-portal');
     customerPortalResource.addMethod(
       'POST',
       new LambdaIntegration(this.createCustomerPortalFunction),
@@ -898,8 +1132,20 @@ class UserBillingApi extends Construct {
     console.log('User Billing API endpoints created:');
     console.log('  - GET /api/plans');
     console.log('  - POST /api/subscriptions/checkout-session');
-    console.log('  - GET /api/subscriptions/checkout-session/{sessionId}/status');
+    console.log(
+      '  - GET /api/subscriptions/checkout-session/{sessionId}/status'
+    );
     console.log('  - POST /api/subscriptions/send-checkout-to-parent');
+    if (
+      props.pendingPlanChangesTable &&
+      props.orchestrationFunctions?.planChangeFlow
+    ) {
+      console.log('  - POST /api/subscriptions/send-plan-change-to-parent');
+      console.log('  - POST /api/subscriptions/approve-plan-change (public)');
+      console.log(
+        '  - GET /api/subscriptions/plan-change-request/{requestId}/status'
+      );
+    }
     console.log('  - GET /api/subscriptions/current');
     if (props.orchestrationFunctions) {
       console.log('  - POST /api/subscriptions/activate-from-session');

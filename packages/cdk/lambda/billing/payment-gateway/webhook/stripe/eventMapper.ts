@@ -16,6 +16,15 @@ function isCheckoutSession(
 }
 
 /**
+ * Subscription型ガード
+ */
+function isSubscription(
+  obj: Stripe.Event.Data.Object
+): obj is Stripe.Subscription {
+  return 'object' in obj && obj.object === 'subscription';
+}
+
+/**
  * Stripeイベントタイプ → ビジネスイベントタイプのマッピング
  * 静的マッピングと動的マッピング（関数）の両方をサポート
  */
@@ -28,6 +37,16 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
   'charge.refunded': 'payment.refunded',
+  // customer.subscription.updatedは動的にマッピング（プラン変更時のみ処理）
+  'customer.subscription.updated': (event: Stripe.Event): BusinessEventType | null => {
+    // previous_attributes に items が含まれている場合のみプラン変更として処理
+    const previousAttributes = event.data.previous_attributes as Record<string, unknown> | undefined;
+    if (previousAttributes && 'items' in previousAttributes) {
+      return 'subscription.updated';
+    }
+    // items の変更がない場合はスキップ（他の属性変更は無視）
+    return null;
+  },
   // checkout.session.completedは動的にマッピング
   'checkout.session.completed': (event: Stripe.Event): BusinessEventType | null => {
     const eventObject = event.data.object;
