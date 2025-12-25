@@ -70,6 +70,15 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     const params = props.params;
 
+    // Database
+    const database = new Database(this, 'Database');
+
+    // Tenant Management（Auth より先に作成：postConfirmHandler がテナント情報を参照するため）
+    const tenantManager = new TenantManager(this, 'TenantManager', {
+      environment: params.env,
+      enableAutoDelete: params.enableAutoDelete,
+    });
+
     // Auth
     const auth = new Auth(this, 'Auth', {
       selfSignUpEnabled: params.selfSignUpEnabled,
@@ -83,15 +92,8 @@ export class GenerativeAiUseCasesStack extends Stack {
       sendgridFromEmail: params.sendgridFromEmail,
       enableAutoDelete: params.enableAutoDelete,
       environment: params.env, // 環境名を渡してLambda関数名の動的構築を可能にする
-    });
-
-    // Database
-    const database = new Database(this, 'Database');
-
-    // Tenant Management
-    const tenantManager = new TenantManager(this, 'TenantManager', {
-      environment: params.env,
-      enableAutoDelete: params.enableAutoDelete,
+      tenantsTableName: tenantManager.tenantsTable.tableName, // クロスアカウント呼び出し用
+      tenantsTableArn: tenantManager.tenantsTable.tableArn, // 権限付与用
     });
 
     // ========================================

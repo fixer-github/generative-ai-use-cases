@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import {
   CfnUserPool,
   LambdaVersion,
@@ -44,6 +44,8 @@ export interface AuthProps {
   readonly sendgridFromEmail: string;
   readonly enableAutoDelete?: boolean;
   readonly environment?: string; // 環境名（Lambda関数名を動的に構築するために使用）
+  readonly tenantsTableName?: string; // テナント情報テーブル名（クロスアカウント呼び出しに使用）
+  readonly tenantsTableArn?: string; // テナント情報テーブルARN（権限付与に使用）
 }
 
 export class Auth extends Construct {
@@ -233,6 +235,10 @@ export class Auth extends Construct {
             // ユーザー登録メタデータ保存用テーブル名
             USER_REGISTRATION_METADATA_TABLE_NAME:
               userRegistrationMetadataTable.tableName,
+            // テナント情報テーブル名（クロスアカウント呼び出しに必要）
+            TENANTS_TABLE_NAME: props.tenantsTableName || '',
+            // 現在のAWSアカウントID（クロスアカウント判定に必要）
+            AWS_ACCOUNT_ID: Stack.of(this).account,
           },
         }
       );
@@ -246,6 +252,26 @@ export class Auth extends Construct {
           effect: Effect.ALLOW,
           actions: ['cognito-idp:AdminUpdateUserAttributes'],
           resources: ['*'],
+        })
+      );
+
+      // テナント情報テーブルへの読み取り権限（クロスアカウント呼び出しのためのテナント情報取得）
+      if (props.tenantsTableArn) {
+        postConfirmHandlerFunction.addToRolePolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['dynamodb:GetItem'],
+            resources: [props.tenantsTableArn],
+          })
+        );
+      }
+
+      // STS AssumeRole権限（クロスアカウントのテナントロールを引き受けるため）
+      postConfirmHandlerFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
         })
       );
 
