@@ -31,6 +31,10 @@ import {
   tableExists,
 } from './import/assistantImport';
 import { createS3Client, copyFiles } from './import/s3Copy';
+import {
+  createS3Client as createS3ClientForUpload,
+  uploadFiles,
+} from './import/s3Upload';
 
 const program = new Command();
 
@@ -215,12 +219,16 @@ program
   .requiredOption('-a, --assistants <path>', 'Assistants JSON ファイルパス')
   .option('-s, --s3-mappings <path>', 'S3 マッピング JSON ファイルパス')
   .requiredOption('-t, --table <name>', 'DynamoDB テーブル名')
-  .option('--source-bucket <name>', 'ソース S3 バケット名')
+  .option('--source-bucket <name>', 'ソース S3 バケット名（S3→S3 コピー時）')
   .option('--target-bucket <name>', 'ターゲット S3 バケット名')
+  .option(
+    '--local-files <path>',
+    'ローカルバックアップディレクトリ（ローカル→S3 アップロード時）'
+  )
   .requiredOption('-r, --region <region>', 'AWS リージョン')
   .option('-p, --profile <profile>', 'AWS プロファイル')
   .option('-d, --dry-run', 'ドライランモード')
-  .option('-c, --concurrency <num>', 'S3 コピー同時実行数', '10')
+  .option('-c, --concurrency <num>', 'S3 コピー/アップロード同時実行数', '10')
   .action(async (options) => {
     console.log('=== データインポート ===');
 
@@ -263,38 +271,81 @@ program
       console.log(`スキップ: ${importStats.skipped}`);
       console.log(`失敗: ${importStats.failed}`);
 
-      // S3 コピー（オプション）
-      if (options.s3Mappings && options.sourceBucket && options.targetBucket) {
-        console.log('\n--- S3 ファイルコピー ---');
-        console.log(`ソースバケット: ${options.sourceBucket}`);
-        console.log(`ターゲットバケット: ${options.targetBucket}`);
-
+      // S3 ファイル処理（オプション）
+      if (options.s3Mappings && options.targetBucket) {
         const mappings: S3CopyMapping[] = JSON.parse(
           fs.readFileSync(options.s3Mappings, 'utf-8')
         );
-        console.log(`ファイル数: ${mappings.length}`);
-
-        const s3Client = createS3Client(options.region, options.profile);
         const concurrency = parseInt(options.concurrency, 10);
 
-        const copyStats = await copyFiles(
-          s3Client,
-          options.sourceBucket,
-          options.targetBucket,
-          mappings,
-          options.dryRun || false,
-          concurrency
-        );
+        // ローカルファイルからアップロード
+        if (options.localFiles) {
+          console.log('\n--- S3 ファイルアップロード（ローカル→S3）---');
+          console.log(`ローカルディレクトリ: ${options.localFiles}`);
+          console.log(`ターゲットバケット: ${options.targetBucket}`);
+          console.log(`ファイル数: ${mappings.length}`);
 
-        console.log('\n=== S3 コピー統計 ===');
-        console.log(`総数: ${copyStats.total}`);
-        console.log(`成功: ${copyStats.success}`);
-        console.log(`スキップ: ${copyStats.skipped}`);
-        console.log(`失敗: ${copyStats.failed}`);
+          const s3Client = createS3ClientForUpload(
+            options.region,
+            options.profile
+          );
 
-        if (copyStats.errors.length > 0) {
-          console.log(`エラー: ${copyStats.errors.length} 件`);
-          copyStats.errors.slice(0, 5).forEach((e) => console.log(`  - ${e}`));
+          const uploadStats = await uploadFiles(
+            s3Client,
+            options.targetBucket,
+            options.localFiles,
+            mappings,
+            options.dryRun || false,
+            concurrency
+          );
+
+          console.log('\n=== S3 アップロード統計 ===');
+          console.log(`総数: ${uploadStats.total}`);
+          console.log(`成功: ${uploadStats.success}`);
+          console.log(`スキップ: ${uploadStats.skipped}`);
+          console.log(`失敗: ${uploadStats.failed}`);
+
+          if (uploadStats.errors.length > 0) {
+            console.log(`エラー: ${uploadStats.errors.length} 件`);
+            uploadStats.errors
+              .slice(0, 5)
+              .forEach((e) => console.log(`  - ${e}`));
+          }
+        }
+        // S3 から S3 へコピー
+        else if (options.sourceBucket) {
+          console.log('\n--- S3 ファイルコピー（S3→S3）---');
+          console.log(`ソースバケット: ${options.sourceBucket}`);
+          console.log(`ターゲットバケット: ${options.targetBucket}`);
+          console.log(`ファイル数: ${mappings.length}`);
+
+          const s3Client = createS3Client(options.region, options.profile);
+
+          const copyStats = await copyFiles(
+            s3Client,
+            options.sourceBucket,
+            options.targetBucket,
+            mappings,
+            options.dryRun || false,
+            concurrency
+          );
+
+          console.log('\n=== S3 コピー統計 ===');
+          console.log(`総数: ${copyStats.total}`);
+          console.log(`成功: ${copyStats.success}`);
+          console.log(`スキップ: ${copyStats.skipped}`);
+          console.log(`失敗: ${copyStats.failed}`);
+
+          if (copyStats.errors.length > 0) {
+            console.log(`エラー: ${copyStats.errors.length} 件`);
+            copyStats.errors
+              .slice(0, 5)
+              .forEach((e) => console.log(`  - ${e}`));
+          }
+        } else {
+          console.warn(
+            '\n警告: S3 マッピングが指定されていますが、--source-bucket または --local-files が必要です'
+          );
         }
       }
 
