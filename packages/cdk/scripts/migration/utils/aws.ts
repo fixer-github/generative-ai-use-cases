@@ -3,12 +3,6 @@
  * AWSクライアントのファクトリとクロスアカウントアクセス
  */
 
-import {
-  CloudFormationClient,
-  DescribeStacksCommand,
-  ListStacksCommand,
-  StackSummary,
-} from '@aws-sdk/client-cloudformation';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
@@ -19,15 +13,7 @@ import {
 } from '@aws-sdk/client-sts';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { AwsCredentialIdentity, Provider } from '@aws-sdk/types';
-
-/**
- * AWS クライアント設定
- */
-export interface AWSClientConfig {
-  region: string;
-  profile?: string;
-  credentials?: AwsCredentialIdentity | Provider<AwsCredentialIdentity>;
-}
+import { AWSClientConfig } from '../types';
 
 /**
  * クライアントキャッシュ
@@ -55,29 +41,6 @@ function getCredentialProvider(
     return fromIni({ profile });
   }
   return undefined;
-}
-
-/**
- * CloudFormation クライアントを作成する
- */
-export function createCloudFormationClient(
-  config: AWSClientConfig
-): CloudFormationClient {
-  const cacheKey = getCacheKey('cloudformation', config.region, config.profile);
-  const cached = clientCache.get(cacheKey);
-
-  if (cached) {
-    return cached as CloudFormationClient;
-  }
-
-  const client = new CloudFormationClient({
-    region: config.region,
-    credentials:
-      config.credentials ?? getCredentialProvider(config.profile),
-  });
-
-  clientCache.set(cacheKey, client);
-  return client;
 }
 
 /**
@@ -154,7 +117,6 @@ export async function getCallerIdentity(
 
 /**
  * テナントのIAMロールをAssumeしてクレデンシャルを取得する
- * 既存パターン: packages/cdk/lambda/utils/tenantDynamoDBClient.ts
  */
 export async function assumeTenantRole(
   roleArn: string,
@@ -211,116 +173,6 @@ export async function createTenantDynamoDBClient(
       removeUndefinedValues: true,
     },
   });
-}
-
-/**
- * GenU スタックを検索する
- * スタック名パターン: GenerativeAiUseCasesStack{env}
- */
-export async function findGenUStacks(
-  config: AWSClientConfig
-): Promise<StackSummary[]> {
-  const client = createCloudFormationClient(config);
-  const stacks: StackSummary[] = [];
-  let nextToken: string | undefined;
-
-  do {
-    const response = await client.send(
-      new ListStacksCommand({
-        NextToken: nextToken,
-        StackStatusFilter: [
-          'CREATE_COMPLETE',
-          'UPDATE_COMPLETE',
-          'UPDATE_ROLLBACK_COMPLETE',
-        ],
-      })
-    );
-
-    const genUStacks =
-      response.StackSummaries?.filter((stack) =>
-        stack.StackName?.startsWith('GenerativeAiUseCasesStack')
-      ) ?? [];
-
-    stacks.push(...genUStacks);
-    nextToken = response.NextToken;
-  } while (nextToken);
-
-  return stacks;
-}
-
-/**
- * TenantBedrockChatStack を検索する (v0.5.3 Bot テーブル用)
- * スタック名パターン: TenantBedrockChatStack{env}-{tenantId}
- */
-export async function findTenantBedrockChatStacks(
-  config: AWSClientConfig
-): Promise<StackSummary[]> {
-  const client = createCloudFormationClient(config);
-  const stacks: StackSummary[] = [];
-  let nextToken: string | undefined;
-
-  do {
-    const response = await client.send(
-      new ListStacksCommand({
-        NextToken: nextToken,
-        StackStatusFilter: [
-          'CREATE_COMPLETE',
-          'UPDATE_COMPLETE',
-          'UPDATE_ROLLBACK_COMPLETE',
-        ],
-      })
-    );
-
-    const bedrockChatStacks =
-      response.StackSummaries?.filter((stack) =>
-        stack.StackName?.startsWith('TenantBedrockChatStack')
-      ) ?? [];
-
-    stacks.push(...bedrockChatStacks);
-    nextToken = response.NextToken;
-  } while (nextToken);
-
-  return stacks;
-}
-
-/**
- * スタックの詳細と出力を取得する
- */
-export async function getStackDetails(
-  stackName: string,
-  config: AWSClientConfig
-): Promise<{
-  status: string;
-  outputs: Record<string, string>;
-  createdAt: string;
-  updatedAt: string;
-}> {
-  const client = createCloudFormationClient(config);
-
-  const response = await client.send(
-    new DescribeStacksCommand({
-      StackName: stackName,
-    })
-  );
-
-  const stack = response.Stacks?.[0];
-  if (!stack) {
-    throw new Error(`スタックが見つかりません: ${stackName}`);
-  }
-
-  const outputs: Record<string, string> = {};
-  for (const output of stack.Outputs ?? []) {
-    if (output.OutputKey && output.OutputValue) {
-      outputs[output.OutputKey] = output.OutputValue;
-    }
-  }
-
-  return {
-    status: stack.StackStatus ?? 'UNKNOWN',
-    outputs,
-    createdAt: stack.CreationTime?.toISOString() ?? '',
-    updatedAt: stack.LastUpdatedTime?.toISOString() ?? stack.CreationTime?.toISOString() ?? '',
-  };
 }
 
 /**

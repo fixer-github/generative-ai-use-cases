@@ -10,15 +10,9 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lambda-build-dryrun": "tsc --noEmit --skipLibCheck",
     "postinstall": "npm ci --prefix custom-resources",
-    "migration:discover": "ts-node scripts/migration/index.ts discover",
-    "migration:backup": "ts-node scripts/migration/index.ts backup",
-    "migration:verify": "ts-node scripts/migration/index.ts verify",
-    "migration:report": "ts-node scripts/migration/index.ts report",
-    "migration:full": "ts-node scripts/migration/index.ts full",
-    "migration:init": "ts-node scripts/migration/index.ts init",
-    "migration:transform": "ts-node scripts/migration/transform/botToAssistant.ts",
-    "migration:s3-copy": "ts-node scripts/migration/import/s3Copy.ts",
-    "migration:import": "ts-node scripts/migration/import/assistantImport.ts"
+    "migration:export": "ts-node scripts/migration/index.ts export",
+    "migration:transform": "ts-node scripts/migration/index.ts transform",
+    "migration:import": "ts-node scripts/migration/index.ts import"
   },
   "devDependencies": {
     "@smithy/types": "^4.3.2",
