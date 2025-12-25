@@ -21,6 +21,15 @@ exports.handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfi
   console.log('postConfirmHandler - Starting POST_CONFIRMATION processing');
   console.log('Event:', JSON.stringify(event, null, 2));
 
+  // パスワードリセット時はデフォルトプラン適用をスキップ
+  // POST_CONFIRMATIONトリガーは新規登録時(PostConfirmation_ConfirmSignUp)と
+  // パスワードリセット時(PostConfirmation_ConfirmForgotPassword)の両方で発火するため、
+  // パスワードリセット時は既存のプランを上書きしないようにする
+  if (event.triggerSource === 'PostConfirmation_ConfirmForgotPassword') {
+    console.log('postConfirmHandler - Skipping processing for ConfirmForgotPassword (password reset)');
+    return event;
+  }
+
   try {
     // 環境変数からテナントマップを取得
     const TENANT_MAP_STR = process.env.SELF_SIGNUP_TENANT_MAP || '[]';
