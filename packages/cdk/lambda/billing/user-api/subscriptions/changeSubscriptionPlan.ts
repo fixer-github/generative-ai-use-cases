@@ -395,7 +395,7 @@ export const handler = async (
         type: 'plan_change',
         previousSubscriptionId: subscription.platform_subscription_id,
         previousPlanId: currentPlanId,
-        newPlanId: newPlanId,
+        planId: newPlanId,
         isUpgrade: isUpgrade.toString(),
         internalSubscriptionId: subscriptionId,
         userId,
