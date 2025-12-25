@@ -623,8 +623,12 @@ async function handleSubscriptionCanceled(
     platform,
     eventData,
     userId: eventUserId,
-    subscriptionId: platformSubscriptionId,
+    subscriptionId,
+    platformSubscriptionId: platformSubId,
   } = input;
+
+  // platformSubscriptionIdを優先し、なければsubscriptionIdを使用
+  const platformSubscriptionId = platformSubId || subscriptionId || '';
 
   console.log('Processing subscription.canceled event', {
     eventId,
@@ -632,6 +636,8 @@ async function handleSubscriptionCanceled(
     platform,
     eventUserId,
     platformSubscriptionId,
+    subscriptionId,
+    platformSubId,
   });
 
   // Note: subscriptionIdとuserIdはEventDetailから直接取得（eventExtractorで抽出済み）

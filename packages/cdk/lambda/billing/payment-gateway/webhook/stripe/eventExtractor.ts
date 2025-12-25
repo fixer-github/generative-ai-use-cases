@@ -218,7 +218,15 @@ function extractFromSubscriptionDeleted(
     subscriptionId,
     userId,
     planId,
-    eventData: stripeEvent,
+    platformSubscriptionId: subscriptionId,
+    eventData: {
+      ...stripeEvent,
+      _extracted: {
+        subscriptionId,
+        userId,
+        planId,
+      },
+    },
   };
 }
 
