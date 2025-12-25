@@ -36,20 +36,36 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.paid': 'payment.succeeded', // 補助的なマッピング
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
-  'customer.subscription.updated': 'subscription.updated',
   'charge.refunded': 'payment.refunded',
   // customer.subscription.updatedは動的にマッピング（プラン変更時のみ処理）
-  'customer.subscription.updated': (event: Stripe.Event): BusinessEventType | null => {
-    // previous_attributes に items が含まれている場合のみプラン変更として処理
-    const previousAttributes = event.data.previous_attributes as Record<string, unknown> | undefined;
-    if (previousAttributes && 'items' in previousAttributes) {
+  'customer.subscription.updated': (
+    event: Stripe.Event
+  ): BusinessEventType | null => {
+    // previous_attributes をチェック
+    const previousAttributes = event.data.previous_attributes as
+      | Record<string, unknown>
+      | undefined;
+    if (!previousAttributes) {
+      return null;
+    }
+    // items, plan, default_price のいずれかが変更されている場合はプラン変更として処理
+    // - items: 通常のプラン変更（API経由）
+    // - plan: Billing Portal経由でのプラン変更
+    // - default_price: 価格変更を伴うプラン変更
+    if (
+      'items' in previousAttributes ||
+      'plan' in previousAttributes ||
+      'default_price' in previousAttributes
+    ) {
       return 'subscription.updated';
     }
-    // items の変更がない場合はスキップ（他の属性変更は無視）
+    // プラン関連の変更がない場合はスキップ（他の属性変更は無視）
     return null;
   },
   // checkout.session.completedは動的にマッピング
-  'checkout.session.completed': (event: Stripe.Event): BusinessEventType | null => {
+  'checkout.session.completed': (
+    event: Stripe.Event
+  ): BusinessEventType | null => {
     const eventObject = event.data.object;
     if (!isCheckoutSession(eventObject)) {
       return null;

@@ -38,52 +38,29 @@ import {
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
 import { Plan, Subscription } from '../../data-access/repositories/types';
+import {
+  getPricing,
+  PricingInfo,
+} from '../../payment-gateway/operations/getPricing';
 
 /**
- * プランレベル定義
- * プランIDからレベルを判定するためのマッピング
- */
-const PLAN_LEVELS: Record<string, number> = {
-  free: 1,
-  basic: 2,
-  standard: 3,
-  premium: 4,
-  enterprise: 5,
-};
-
-/**
- * プランレベルを取得
+ * プラン変更タイプを判定（金額ベース）
  *
- * @param internalName プランの内部名（internal_name）
- * @returns プランレベル（数値）
- */
-function getPlanLevel(internalName: string): number {
-  // 内部名からプレフィックスを除去して正規化（例: "plan-standard" -> "standard"）
-  const normalizedName = internalName.toLowerCase().replace(/^plan[-_]?/, '');
-
-  // マッピングからレベルを取得
-  const level = PLAN_LEVELS[normalizedName];
-
-  if (level === undefined) {
-    console.warn(`Unknown plan internal_name: ${internalName}, treating as level 0`);
-    return 0;
-  }
-
-  return level;
-}
-
-/**
- * プラン変更タイプを判定
- *
+ * @param tenantId テナントID
  * @param currentPlan 現在のプラン
  * @param newPlan 新しいプラン
- * @returns プラン変更タイプ（upgrade/downgrade）
- * @throws Error 同一プランへの変更の場合
+ * @returns プラン変更タイプ（upgrade/downgrade）と金額情報
+ * @throws Error 同一プランへの変更、または金額が同じ場合
  */
-function determineChangeType(
+async function determineChangeType(
+  tenantId: string,
   currentPlan: Plan,
   newPlan: Plan
-): PlanChangeType {
+): Promise<{
+  changeType: PlanChangeType;
+  currentAmount: number;
+  newAmount: number;
+}> {
   // 同一プランへの変更は不可
   if (currentPlan.plan_id === newPlan.plan_id) {
     throw new Error(
@@ -91,25 +68,61 @@ function determineChangeType(
     );
   }
 
-  const currentLevel = getPlanLevel(currentPlan.internal_name);
-  const newLevel = getPlanLevel(newPlan.internal_name);
-
-  // 両方のレベルが不明な場合は、upgradeとして扱う（workaround）
-  // TODO: Plan tableにlevelフィールドを追加して、DBからレベルを取得するように変更
-  if (currentLevel === 0 && newLevel === 0) {
-    console.warn(
-      `Both plan levels are unknown, treating as upgrade: ${currentPlan.internal_name} -> ${newPlan.internal_name}`
-    );
-    return 'upgrade';
-  }
-
-  if (currentLevel === newLevel) {
+  // 両方のプランに platform_product_id（Stripe price ID）が必要
+  if (!currentPlan.platform_product_id) {
     throw new Error(
-      `Cannot change to the same plan level: ${currentPlan.internal_name} (${currentPlan.plan_id}) -> ${newPlan.internal_name} (${newPlan.plan_id})`
+      `Current plan does not have a platform_product_id: ${currentPlan.internal_name} (${currentPlan.plan_id})`
+    );
+  }
+  if (!newPlan.platform_product_id) {
+    throw new Error(
+      `New plan does not have a platform_product_id: ${newPlan.internal_name} (${newPlan.plan_id})`
     );
   }
 
-  return newLevel > currentLevel ? 'upgrade' : 'downgrade';
+  // 両プランの価格情報を取得
+  const [currentPricing, newPricing] = await Promise.all([
+    getPricing(
+      tenantId,
+      currentPlan.platform_product_id,
+      currentPlan.platform_type
+    ),
+    getPricing(tenantId, newPlan.platform_product_id, newPlan.platform_type),
+  ]);
+
+  // エラーチェック
+  if ('error' in currentPricing) {
+    throw new Error(
+      `Failed to get pricing for current plan: ${currentPricing.message}`
+    );
+  }
+  if ('error' in newPricing) {
+    throw new Error(
+      `Failed to get pricing for new plan: ${newPricing.message}`
+    );
+  }
+
+  const currentAmount = (currentPricing as PricingInfo).amount;
+  const newAmount = (newPricing as PricingInfo).amount;
+
+  console.log('Plan pricing comparison', {
+    currentPlan: currentPlan.internal_name,
+    currentAmount,
+    newPlan: newPlan.internal_name,
+    newAmount,
+  });
+
+  // 金額が同じ場合はエラー
+  if (currentAmount === newAmount) {
+    throw new Error(
+      `Cannot change to a plan with the same price: ${currentPlan.internal_name} (${currentAmount}) -> ${newPlan.internal_name} (${newAmount})`
+    );
+  }
+
+  const changeType: PlanChangeType =
+    newAmount > currentAmount ? 'upgrade' : 'downgrade';
+
+  return { changeType, currentAmount, newAmount };
 }
 
 /**
@@ -160,26 +173,27 @@ export const handler = async (
   const previousStepResults: Record<string, unknown> = {};
 
   // プラン・サブスクリプションをデータベースから取得
-  const [fetchedCurrentPlan, fetchedNewPlan, fetchedSubscription] = await Promise.all([
-    invokeDataAccessFunctionByTenantId<Plan | null>(
-      tenantId,
-      'plan',
-      'findById',
-      { id: currentPlanId }
-    ),
-    invokeDataAccessFunctionByTenantId<Plan | null>(
-      tenantId,
-      'plan',
-      'findById',
-      { id: newPlanId }
-    ),
-    invokeDataAccessFunctionByTenantId<Subscription | null>(
-      tenantId,
-      'subscription',
-      'findById',
-      { subscriptionId }
-    ),
-  ]);
+  const [fetchedCurrentPlan, fetchedNewPlan, fetchedSubscription] =
+    await Promise.all([
+      invokeDataAccessFunctionByTenantId<Plan | null>(
+        tenantId,
+        'plan',
+        'findById',
+        { id: currentPlanId }
+      ),
+      invokeDataAccessFunctionByTenantId<Plan | null>(
+        tenantId,
+        'plan',
+        'findById',
+        { id: newPlanId }
+      ),
+      invokeDataAccessFunctionByTenantId<Subscription | null>(
+        tenantId,
+        'subscription',
+        'findById',
+        { subscriptionId }
+      ),
+    ]);
 
   if (!fetchedCurrentPlan) {
     console.error('Current plan not found', { currentPlanId });
@@ -228,7 +242,10 @@ export const handler = async (
   const subscription = fetchedSubscription;
 
   console.log('Plans and subscription fetched', {
-    currentPlan: { id: currentPlan.plan_id, internal_name: currentPlan.internal_name },
+    currentPlan: {
+      id: currentPlan.plan_id,
+      internal_name: currentPlan.internal_name,
+    },
     newPlan: { id: newPlan.plan_id, internal_name: newPlan.internal_name },
     subscription: {
       id: subscription.subscription_id,
@@ -237,17 +254,17 @@ export const handler = async (
     },
   });
 
-  // プラン変更タイプを判定
-  const changeTypeResult = (() => {
-    try {
-      return { success: true as const, value: determineChangeType(currentPlan, newPlan) };
-    } catch (error) {
-      return { success: false as const, error };
-    }
-  })();
+  // プラン変更タイプを判定（金額ベース）
+  let changeType: PlanChangeType;
+  let currentAmount: number;
+  let newAmount: number;
 
-  if (!changeTypeResult.success) {
-    const error = changeTypeResult.error;
+  try {
+    const result = await determineChangeType(tenantId, currentPlan, newPlan);
+    changeType = result.changeType;
+    currentAmount = result.currentAmount;
+    newAmount = result.newAmount;
+  } catch (error) {
     console.error('Failed to determine plan change type', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
@@ -265,8 +282,11 @@ export const handler = async (
     };
   }
 
-  const changeType: PlanChangeType = changeTypeResult.value;
-  console.log('Plan change type determined', { changeType });
+  console.log('Plan change type determined', {
+    changeType,
+    currentAmount,
+    newAmount,
+  });
 
   // ステップ設定
   const steps: StepConfig[] = [
@@ -278,18 +298,20 @@ export const handler = async (
         console.log('Comparing plans', {
           currentPlanId,
           currentInternalName: currentPlan.internal_name,
+          currentAmount,
           newPlanId,
           newInternalName: newPlan.internal_name,
+          newAmount,
           changeType,
         });
 
-        // プラン比較結果を返す
+        // プラン比較結果を返す（金額ベース）
         return {
           currentPlanId,
           newPlanId,
           changeType,
-          currentLevel: getPlanLevel(currentPlan.internal_name),
-          newLevel: getPlanLevel(newPlan.internal_name),
+          currentAmount,
+          newAmount,
         };
       },
       retryable: false,
@@ -313,7 +335,9 @@ export const handler = async (
 
         // 事前に取得したプラン情報を使用（Stripe Price ID）
         if (!newPlan.platform_product_id) {
-          throw new Error(`Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`);
+          throw new Error(
+            `Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`
+          );
         }
 
         console.log('Using pre-fetched plan and subscription info', {
@@ -324,7 +348,8 @@ export const handler = async (
         });
 
         // サブスクリプション情報から決済プラットフォームを取得
-        const platform: PlatformType = subscription.platform_type as PlatformType;
+        const platform: PlatformType =
+          subscription.platform_type as PlatformType;
 
         try {
           const result = await paymentClient.updateSubscription({
@@ -387,7 +412,9 @@ export const handler = async (
         return result;
       },
       rollbackFunction: async (outputData: unknown) => {
-        console.log('Rolling back update_subscription_plan step', { outputData });
+        console.log('Rolling back update_subscription_plan step', {
+          outputData,
+        });
 
         const planUpdateData = outputData as {
           previousPlanId?: string;
@@ -627,12 +654,9 @@ export const handler = async (
 
       console.log(`Executing step ${i + 1}/${steps.length}: ${step.stepName}`);
 
-      const result = await orchestrator.executeStep(
-        flowExecutionId,
-        i,
-        step,
-        { previousStepResults }
-      );
+      const result = await orchestrator.executeStep(flowExecutionId, i, step, {
+        previousStepResults,
+      });
 
       if (!result.success) {
         console.error(`Step ${step.stepName} failed`);
@@ -715,9 +739,7 @@ export const handler = async (
                 ? rollbackError.message
                 : 'Unknown error',
             stack:
-              rollbackError instanceof Error
-                ? rollbackError.stack
-                : undefined,
+              rollbackError instanceof Error ? rollbackError.stack : undefined,
           });
           // ロールバック失敗はログ出力のみ（フロー失敗は既に記録済み）
         }

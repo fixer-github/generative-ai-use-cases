@@ -36,6 +36,11 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import {
+  DynamoDBClient,
+  QueryCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -51,12 +56,22 @@ import {
   UpdateSubscriptionStatusParams,
   ExtendSubscriptionPeriodParams,
 } from '../clients/subscriptionManagementClient';
-import { PlatformType, PurchaseFlowInput, PurchaseFlowOutput } from '../types/flowTypes';
+import {
+  PlatformType,
+  PurchaseFlowInput,
+  PurchaseFlowOutput,
+} from '../types/flowTypes';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
+import {
+  Plan,
+  UserPlanApplication,
+} from '../../data-access/repositories/types';
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
+
+// DynamoDB client instance
+const dynamoDbClient = new DynamoDBClient({});
 
 /**
  * デフォルトプランを取得
@@ -78,12 +93,14 @@ async function getDefaultPlanId(tenantId: string): Promise<string> {
     );
 
     if (!defaultPlan) {
-      throw new Error('Default plan is not configured. Please configure a default plan in the system.');
+      throw new Error(
+        'Default plan is not configured. Please configure a default plan in the system.'
+      );
     }
 
     console.log('Default plan found', {
       planId: defaultPlan.plan_id,
-      internalName: defaultPlan.internal_name
+      internalName: defaultPlan.internal_name,
     });
 
     return defaultPlan.plan_id;
@@ -169,7 +186,10 @@ export const handler = async (
   try {
     // EventBridgeのdetail-typeは既にビジネスイベントタイプに正規化されている
     // Stripeの場合: eventMapperで checkout.session.completed → payment_method.updated に変換済み
-    const normalizedEventType = normalizeEventType(platform, businessEventType as WebhookEventType);
+    const normalizedEventType = normalizeEventType(
+      platform,
+      businessEventType as WebhookEventType
+    );
 
     console.log('Normalized event type', {
       businessEventType,
@@ -206,7 +226,6 @@ export const handler = async (
           input,
           orchestrator,
           planClient,
-          subscriptionClient,
           tenantId
         );
 
@@ -220,24 +239,12 @@ export const handler = async (
         );
 
       case 'payment_method.updated':
-        return await handlePaymentMethodUpdated(
-          input,
-          orchestrator,
-          tenantId
-        );
+        return await handlePaymentMethodUpdated(input, orchestrator, tenantId);
 
       case 'subscription.parental_activated':
         return await handleParentalControlActivation(
           input,
           orchestrator,
-          tenantId
-        );
-
-      case 'subscription.updated':
-        return await handleSubscriptionUpdated(
-          input,
-          orchestrator,
-          planClient,
           tenantId
         );
 
@@ -281,10 +288,9 @@ export const handler = async (
     });
 
     // EventBridgeのDLQに送信するため、エラーをスロー
-    throw new Error(
-      `Webhook event processing failed: ${err.message}`,
-      { cause: err }
-    );
+    throw new Error(`Webhook event processing failed: ${err.message}`, {
+      cause: err,
+    });
   }
 };
 
@@ -378,7 +384,11 @@ async function handlePaymentSucceeded(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing payment.succeeded event', { eventId, tenantId, platform });
+  console.log('Processing payment.succeeded event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   const subscriptionId = extractSubscriptionId(platform, eventData);
@@ -395,7 +405,8 @@ async function handlePaymentSucceeded(
       stepName: 'extend_subscription_period',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Extending subscription period', {
           tenantId,
@@ -409,7 +420,8 @@ async function handlePaymentSucceeded(
           newExpiresAt,
         };
 
-        const result = await subscriptionClient.extendSubscriptionPeriod(params);
+        const result =
+          await subscriptionClient.extendSubscriptionPeriod(params);
 
         console.log('Subscription period extended successfully', {
           subscriptionId,
@@ -436,12 +448,13 @@ async function handlePaymentSucceeded(
         });
 
         // サブスクリプションIDをapplication_source_idとして、プラン適用を検索
-        const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
-          tenantId,
-          'user-plan-application',
-          'findByApplicationSourceId',
-          { sourceId: subscriptionId }
-        );
+        const planApplication =
+          await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+            tenantId,
+            'user-plan-application',
+            'findByApplicationSourceId',
+            { sourceId: subscriptionId }
+          );
 
         if (!planApplication) {
           console.warn('No plan application found for subscription, skipping', {
@@ -454,14 +467,18 @@ async function handlePaymentSucceeded(
         }
 
         const planApplicationId = planApplication.application_id;
-        const isScheduledTermination = planApplication.application_status === 'scheduled_termination';
+        const isScheduledTermination =
+          planApplication.application_status === 'scheduled_termination';
 
         // ステータスがscheduled_terminationの場合はスキップ（解約予約済みなので延長しない）
         if (isScheduledTermination) {
-          console.log('Skipping plan application period extension (scheduled_termination)', {
-            planApplicationId,
-            currentStatus: planApplication.application_status,
-          });
+          console.log(
+            'Skipping plan application period extension (scheduled_termination)',
+            {
+              planApplicationId,
+              currentStatus: planApplication.application_status,
+            }
+          );
           return {
             skipped: true,
             reason: 'scheduled_termination',
@@ -522,7 +539,11 @@ async function handlePaymentFailed(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing payment.failed event', { eventId, tenantId, platform });
+  console.log('Processing payment.failed event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   const subscriptionId = extractSubscriptionId(platform, eventData);
@@ -538,7 +559,8 @@ async function handlePaymentFailed(
       stepName: 'update_subscription_to_past_due',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Updating subscription status to past_due', {
           tenantId,
@@ -551,7 +573,8 @@ async function handlePaymentFailed(
           newStatus: 'past_due',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Subscription status updated to past_due', {
           subscriptionId,
@@ -617,7 +640,11 @@ async function handleSubscriptionCanceled(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing subscription.canceled event', { eventId, tenantId, platform });
+  console.log('Processing subscription.canceled event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   const subscriptionId = extractSubscriptionId(platform, eventData);
@@ -633,7 +660,8 @@ async function handleSubscriptionCanceled(
       stepName: 'update_subscription_to_canceled',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Updating subscription status to canceled', {
           tenantId,
@@ -646,7 +674,8 @@ async function handleSubscriptionCanceled(
           newStatus: 'canceled',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Subscription status updated to canceled', {
           subscriptionId,
@@ -694,256 +723,6 @@ async function handleSubscriptionCanceled(
 }
 
 /**
- * subscription.updated（サブスクリプション更新）イベントを処理
- *
- * Customer Portalやsubscriptions.update APIによるプラン変更時に発火。
- * プラン変更があった場合、内部DBの状態を更新する。
- *
- * 処理ステップ:
- * 1. プラン変更かどうかを判定
- * 2. プラン変更の場合、現在のプラン適用を終了
- * 3. 新しいプランを適用
- *
- * @param input Webhookイベント入力
- * @param orchestrator フローオーケストレーター
- * @param planClient プラン管理クライアント
- * @param subscriptionClient サブスクリプション管理クライアント
- * @param tenantId テナントID
- * @returns 処理結果
- */
-async function handleSubscriptionUpdated(
-  input: EventDetailPayload,
-  orchestrator: FlowOrchestrator,
-  planClient: PlanManagementClient,
-  subscriptionClient: SubscriptionManagementClient,
-  tenantId: string
-): Promise<WebhookEventFlowOutput> {
-  const { eventId, platform, eventData } = input;
-
-  console.log('Processing subscription.updated event', { eventId, tenantId, platform });
-
-  // イベントデータから抽出情報を取得
-  const stripeData = eventData as StripeEventData;
-  const extracted = stripeData._extracted ?? {};
-  const {
-    subscriptionId: platformSubscriptionId,
-    userId,
-    currentPriceId,
-    previousPriceId,
-    isPlanChange,
-  } = extracted;
-
-  console.log('Extracted subscription update data', {
-    platformSubscriptionId,
-    userId,
-    currentPriceId,
-    previousPriceId,
-    isPlanChange,
-  });
-
-  // プラン変更がない場合は処理をスキップ
-  if (!isPlanChange) {
-    console.log('No plan change detected, skipping processing', {
-      eventId,
-      platformSubscriptionId,
-    });
-
-    return {
-      success: true,
-      flowExecutionId: '',
-      eventId,
-      errorDetails: {
-        errorCode: 'NO_PLAN_CHANGE',
-        errorMessage: 'Subscription updated but no plan change detected',
-      },
-    };
-  }
-
-  if (!platformSubscriptionId) {
-    throw new Error('Platform subscription ID not found in event data');
-  }
-
-  if (!userId) {
-    throw new Error('User ID not found in event data');
-  }
-
-  if (!currentPriceId) {
-    throw new Error('Current price ID not found in event data');
-  }
-
-  // ステップ設定
-  const steps: StepConfig[] = [
-    // ステップ1: 現在のプラン適用を終了
-    {
-      stepName: 'terminate_current_plan_application',
-      stepType: 'api_call',
-      targetService: 'PlanManagement',
-      targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
-      executeFunction: async () => {
-        console.log('Terminating current plan application (plan change via portal)', {
-          tenantId,
-          userId,
-          platformSubscriptionId,
-        });
-
-        // platform_subscription_idをapplicationSourceIdとして渡し、
-        // Lambda側で適用を検索して終了
-        // 注: 内部サブスクリプションIDを取得するためにまず検索が必要
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
-
-        if (!subscription) {
-          console.warn('No internal subscription found for platform subscription', {
-            platformSubscriptionId,
-          });
-          return {
-            skipped: true,
-            reason: 'no_internal_subscription_found',
-          };
-        }
-
-        const result = await planClient.terminatePlanApplication({
-          tenantId,
-          userId: userId as string,
-          applicationSourceId: subscription.subscription_id,
-        });
-
-        console.log('Plan application terminated successfully', {
-          applicationId: result.applicationId,
-          success: result.success,
-        });
-
-        return {
-          ...result,
-          internalSubscriptionId: subscription.subscription_id,
-        };
-      },
-      retryable: true,
-      maxRetries: 3,
-    },
-
-    // ステップ2: サブスクリプションのプランIDを更新
-    {
-      stepName: 'update_subscription_plan',
-      stepType: 'api_call',
-      targetService: 'SubscriptionManagement',
-      executeFunction: async () => {
-        console.log('Updating subscription plan ID', {
-          tenantId,
-          platformSubscriptionId,
-          newPriceId: currentPriceId,
-        });
-
-        // platform_subscription_idでサブスクリプションを検索
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
-
-        if (!subscription) {
-          console.warn('No internal subscription found, skipping plan update', {
-            platformSubscriptionId,
-          });
-          return {
-            skipped: true,
-            reason: 'no_internal_subscription_found',
-          };
-        }
-
-        // サブスクリプションのplan_idを更新（既存のupdateオペレーションを使用）
-        const updateResult = await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
-          tenantId,
-          'subscription',
-          'update',
-          {
-            subscriptionId: subscription.subscription_id,
-            updates: {
-              plan_id: currentPriceId,
-            },
-          }
-        );
-
-        console.log('Subscription plan ID updated', {
-          subscriptionId: subscription.subscription_id,
-          newPlanId: currentPriceId,
-        });
-
-        return {
-          success: true,
-          internalSubscriptionId: subscription.subscription_id,
-        };
-      },
-      retryable: true,
-      maxRetries: 3,
-    },
-
-    // ステップ3: 新しいプランを適用
-    {
-      stepName: 'apply_new_plan',
-      stepType: 'api_call',
-      targetService: 'PlanManagement',
-      targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
-      executeFunction: async () => {
-        // platform_subscription_idでサブスクリプションを検索
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
-
-        if (!subscription) {
-          throw new Error('Internal subscription not found for platform subscription');
-        }
-
-        console.log('Applying new plan to user (plan change via portal)', {
-          tenantId,
-          userId,
-          planId: currentPriceId,
-          subscriptionId: subscription.subscription_id,
-        });
-
-        const result = await planClient.applyPlanToUser({
-          tenantId,
-          userId: userId as string,
-          planId: currentPriceId as string,
-          applicationSource: 'subscription',
-          applicationSourceId: subscription.subscription_id,
-          validFrom: new Date().toISOString(),
-          // validUntilはサブスクリプションの有効期限に合わせる
-        });
-
-        console.log('New plan applied successfully', {
-          applicationId: result.applicationId,
-          applicationStatus: result.applicationStatus,
-        });
-
-        return result;
-      },
-      retryable: true,
-      maxRetries: 3,
-    },
-  ];
-
-  // フロー実行
-  return await executeWebhookEventFlow(
-    orchestrator,
-    'webhook_event',
-    userId as string || 'unknown',
-    `${platform}_webhook_plan_change`,
-    input,
-    steps,
-    eventId
-  );
-}
-
-/**
  * refund.created（返金）イベントを処理
  *
  * 処理ステップ:
@@ -965,7 +744,11 @@ async function handleRefundCreated(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing refund.created event', { eventId, tenantId, platform });
+  console.log('Processing refund.created event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   const subscriptionId = extractSubscriptionId(platform, eventData);
@@ -983,7 +766,8 @@ async function handleRefundCreated(
       stepName: 'record_refund',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Recording refund', {
           tenantId,
@@ -997,7 +781,8 @@ async function handleRefundCreated(
           newStatus: 'canceled',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Refund recorded successfully', {
           subscriptionId,
@@ -1140,7 +925,10 @@ async function executeWebhookEventFlow(
       steps.length
     );
 
-    console.log('Webhook event flow execution started', { flowExecutionId, eventId });
+    console.log('Webhook event flow execution started', {
+      flowExecutionId,
+      eventId,
+    });
 
     // 各ステップを順次実行
     for (let i = 0; i < steps.length; i++) {
@@ -1148,12 +936,9 @@ async function executeWebhookEventFlow(
 
       console.log(`Executing step ${i + 1}/${steps.length}: ${step.stepName}`);
 
-      const result = await orchestrator.executeStep(
-        flowExecutionId,
-        i,
-        step,
-        { previousStepResults }
-      );
+      const result = await orchestrator.executeStep(flowExecutionId, i, step, {
+        previousStepResults,
+      });
 
       if (!result.success) {
         console.error(`Step ${step.stepName} failed`);
@@ -1173,7 +958,10 @@ async function executeWebhookEventFlow(
       eventId,
     };
 
-    await orchestrator.completeFlow(flowExecutionId, output as unknown as Record<string, unknown>);
+    await orchestrator.completeFlow(
+      flowExecutionId,
+      output as unknown as Record<string, unknown>
+    );
 
     console.log('Webhook event flow completed successfully', {
       flowExecutionId,
@@ -1201,10 +989,9 @@ async function executeWebhookEventFlow(
     }
 
     // エラーレスポンスを返す（EventBridgeのDLQに送信するため、エラーをスロー）
-    throw new Error(
-      `Webhook event flow failed: ${err.message}`,
-      { cause: err }
-    );
+    throw new Error(`Webhook event flow failed: ${err.message}`, {
+      cause: err,
+    });
   }
 }
 
@@ -1362,7 +1149,11 @@ async function handlePaymentMethodUpdated(
   const { eventId, platform, eventData } = input;
   const userId = extractUserId(platform, eventData);
 
-  console.log('Processing payment_method.updated event', { eventId, tenantId, platform });
+  console.log('Processing payment_method.updated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得（Stripeプラットフォームのみ対応）
   const stripeData: StripeEventData = eventData;
@@ -1483,12 +1274,17 @@ async function handleParentalControlActivation(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.parental_activated event', { eventId, tenantId, platform });
+  console.log('Processing subscription.parental_activated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得
   const stripeData = eventData as StripeEventData;
   const extracted = stripeData._extracted ?? {};
-  const { sessionId, platformSubscriptionId, userId, planId, childEmail } = extracted;
+  const { sessionId, platformSubscriptionId, userId, planId, childEmail } =
+    extracted;
 
   console.log('Extracted parental control data from event', {
     sessionId,
@@ -1531,7 +1327,8 @@ async function handleParentalControlActivation(
         });
 
         // purchaseFlowを呼び出す
-        const purchaseFlowFunctionName = process.env.PURCHASE_FLOW_FUNCTION_NAME;
+        const purchaseFlowFunctionName =
+          process.env.PURCHASE_FLOW_FUNCTION_NAME;
 
         if (!purchaseFlowFunctionName) {
           throw new Error('PURCHASE_FLOW_FUNCTION_NAME is not configured');
@@ -1569,7 +1366,9 @@ async function handleParentalControlActivation(
               : null,
           });
 
-          throw new Error(`Purchase flow failed: ${invokeResult.FunctionError}`);
+          throw new Error(
+            `Purchase flow failed: ${invokeResult.FunctionError}`
+          );
         }
 
         if (!invokeResult.Payload) {
@@ -1588,8 +1387,7 @@ async function handleParentalControlActivation(
 
         if (!flowOutput.success) {
           throw new Error(
-            flowOutput.errorDetails?.errorMessage ||
-            'Purchase flow failed'
+            flowOutput.errorDetails?.errorMessage || 'Purchase flow failed'
           );
         }
 
@@ -1608,7 +1406,7 @@ async function handleParentalControlActivation(
   return await executeWebhookEventFlow(
     orchestrator,
     'webhook_event',
-    userId as string || 'unknown',
+    (userId as string) || 'unknown',
     `${platform}_parental_control_webhook`,
     input,
     steps,
@@ -1641,11 +1439,16 @@ async function handleSubscriptionUpdated(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.updated event', { eventId, tenantId, platform });
+  console.log('Processing subscription.updated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   const stripeData = eventData as StripeEventData;
-  const platformSubscriptionId = stripeData.platformSubscriptionId || stripeData.subscriptionId || '';
+  const platformSubscriptionId =
+    stripeData.platformSubscriptionId || stripeData.subscriptionId || '';
   const newPriceId = stripeData.newPriceId;
   const previousPriceId = stripeData.previousPriceId;
   const userId = stripeData.userId;
@@ -1662,8 +1465,13 @@ async function handleSubscriptionUpdated(
   }
 
   if (!platformSubscriptionId) {
-    throw new Error('Platform subscription ID not found in subscription.updated event');
+    throw new Error(
+      'Platform subscription ID not found in subscription.updated event'
+    );
   }
+
+  // ステップ間で共有する変数（ステップ1で設定、ステップ2で参照）
+  let internalSubscriptionId: string | undefined;
 
   // ステップ設定
   const steps: StepConfig[] = [
@@ -1687,7 +1495,9 @@ async function handleSubscriptionUpdated(
         );
 
         if (!newPlan) {
-          throw new Error(`Plan not found for platform product ID: ${newPriceId}`);
+          throw new Error(
+            `Plan not found for platform product ID: ${newPriceId}`
+          );
         }
 
         console.log('Found new plan', {
@@ -1699,15 +1509,14 @@ async function handleSubscriptionUpdated(
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
           user_id: string;
-        } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId,
+        });
 
         if (!subscription) {
-          throw new Error(`Subscription not found for platform subscription ID: ${platformSubscriptionId}`);
+          throw new Error(
+            `Subscription not found for platform subscription ID: ${platformSubscriptionId}`
+          );
         }
 
         const subscriptionId = subscription.subscription_id;
@@ -1759,6 +1568,9 @@ async function handleSubscriptionUpdated(
           applicationStatus: applyResult.applicationStatus,
         });
 
+        // ステップ2で使用するために内部subscriptionIdを保存
+        internalSubscriptionId = subscriptionId;
+
         return {
           success: true,
           subscriptionId,
@@ -1777,46 +1589,126 @@ async function handleSubscriptionUpdated(
     {
       stepName: 'update_pending_plan_change_status',
       stepType: 'api_call',
-      targetService: 'DataAccess',
+      targetService: 'DynamoDB',
       executeFunction: async () => {
-        console.log('Checking for pending plan change request', {
-          tenantId,
-          platformSubscriptionId,
-        });
+        const tableName = process.env.PENDING_PLAN_CHANGES_TABLE_NAME;
 
-        // platformSubscriptionIdに紐づくpending-plan-changeを検索
-        // 注意: 内部subscriptionIdを使用する必要がある
-        try {
-          // pending-plan-changeのステータスを更新
-          const result = await invokeDataAccessFunctionByTenantId<{
-            updated: boolean;
-            requestId?: string;
-          }>(
-            tenantId,
-            'pending-plan-change',
-            'updateStatusByPlatformSubscriptionId',
-            {
-              platformSubscriptionId,
-              newStatus: 'approved',
-              approvedAt: new Date().toISOString(),
-            }
+        // テーブル名が設定されていない場合はスキップ
+        if (!tableName) {
+          console.log(
+            'PENDING_PLAN_CHANGES_TABLE_NAME not configured, skipping'
           );
-
-          console.log('Pending plan change status update result', result);
-
-          return {
-            success: true,
-            pendingPlanChangeUpdated: result.updated,
-            requestId: result.requestId,
-          };
-        } catch (error) {
-          // pending-plan-changeが見つからない場合はスキップ（直接Customer Portalからの変更の可能性）
-          console.warn('Failed to update pending plan change (may not exist)', { error });
           return {
             success: true,
             pendingPlanChangeUpdated: false,
             skipped: true,
-            reason: 'pending_plan_change_not_found_or_error',
+            reason: 'table_not_configured',
+          };
+        }
+
+        // 内部subscriptionIdが取得できていない場合はスキップ
+        if (!internalSubscriptionId) {
+          console.log(
+            'Internal subscription ID not available, skipping pending plan change update'
+          );
+          return {
+            success: true,
+            pendingPlanChangeUpdated: false,
+            skipped: true,
+            reason: 'no_subscription_id',
+          };
+        }
+
+        console.log('Checking for pending plan change request', {
+          tenantId,
+          subscriptionId: internalSubscriptionId,
+        });
+
+        try {
+          // subscriptionId-index GSIを使用してpending-plan-changeを検索
+          const queryResult = await dynamoDbClient.send(
+            new QueryCommand({
+              TableName: tableName,
+              IndexName: 'subscriptionId-index',
+              KeyConditionExpression: 'subscriptionId = :sid',
+              FilterExpression: '#status = :pending',
+              ExpressionAttributeNames: {
+                '#status': 'status',
+              },
+              ExpressionAttributeValues: {
+                ':sid': { S: internalSubscriptionId },
+                ':pending': { S: 'pending' },
+              },
+            })
+          );
+
+          // 見つからない場合はスキップ（直接Customer Portalからの変更の可能性）
+          if (!queryResult.Items || queryResult.Items.length === 0) {
+            console.log(
+              'No pending plan change request found for subscription',
+              {
+                subscriptionId: internalSubscriptionId,
+              }
+            );
+            return {
+              success: true,
+              pendingPlanChangeUpdated: false,
+              skipped: true,
+              reason: 'pending_plan_change_not_found',
+            };
+          }
+
+          // 見つかった場合はステータスを更新
+          const requestId = queryResult.Items[0].requestId?.S;
+          if (!requestId) {
+            console.warn('Request ID not found in pending plan change record');
+            return {
+              success: true,
+              pendingPlanChangeUpdated: false,
+              skipped: true,
+              reason: 'request_id_not_found',
+            };
+          }
+
+          console.log('Updating pending plan change status', { requestId });
+
+          await dynamoDbClient.send(
+            new UpdateItemCommand({
+              TableName: tableName,
+              Key: {
+                requestId: { S: requestId },
+              },
+              UpdateExpression: 'SET #status = :approved, approvedAt = :now',
+              ExpressionAttributeNames: {
+                '#status': 'status',
+              },
+              ExpressionAttributeValues: {
+                ':approved': { S: 'approved' },
+                ':now': { N: Date.now().toString() },
+              },
+            })
+          );
+
+          console.log('Pending plan change status updated successfully', {
+            requestId,
+          });
+
+          return {
+            success: true,
+            pendingPlanChangeUpdated: true,
+            requestId,
+          };
+        } catch (error) {
+          // エラーが発生してもフローは継続（ステータス更新は必須ではない）
+          console.warn('Failed to update pending plan change status', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            subscriptionId: internalSubscriptionId,
+          });
+          return {
+            success: true,
+            pendingPlanChangeUpdated: false,
+            skipped: true,
+            reason: 'update_error',
           };
         }
       },
@@ -1865,7 +1757,11 @@ async function handlePlanChangeCompleted(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.plan_change_completed event', { eventId, tenantId, platform });
+  console.log('Processing subscription.plan_change_completed event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得
   const stripeData: StripeEventData = eventData;
@@ -1896,7 +1792,9 @@ async function handlePlanChangeCompleted(
   }
 
   if (!previousPlatformSubscriptionId) {
-    throw new Error('Previous platform subscription ID not found in event data');
+    throw new Error(
+      'Previous platform subscription ID not found in event data'
+    );
   }
 
   if (!newPlatformSubscriptionId) {
@@ -1906,7 +1804,8 @@ async function handlePlanChangeCompleted(
   // 検証済みの値を定数として保持
   const validatedUserId = userId;
   const validatedNewPlanId = newPlanId;
-  const validatedPreviousPlatformSubscriptionId = previousPlatformSubscriptionId;
+  const validatedPreviousPlatformSubscriptionId =
+    previousPlatformSubscriptionId;
   const validatedNewPlatformSubscriptionId = newPlatformSubscriptionId;
   const validatedInternalSubscriptionId = internalSubscriptionId;
 
@@ -1920,15 +1819,16 @@ async function handlePlanChangeCompleted(
       return validatedInternalSubscriptionId;
     }
 
-    const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-      tenantId,
-      'subscription',
-      'findByPlatformSubscriptionId',
-      { platformSubscriptionId }
-    );
+    const subscription = await invokeDataAccessFunctionByTenantId<{
+      subscription_id: string;
+    } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+      platformSubscriptionId,
+    });
 
     if (!subscription) {
-      throw new Error(`Internal subscription not found for platform subscription: ${platformSubscriptionId}`);
+      throw new Error(
+        `Internal subscription not found for platform subscription: ${platformSubscriptionId}`
+      );
     }
 
     return subscription.subscription_id;
@@ -1944,18 +1844,23 @@ async function handlePlanChangeCompleted(
       executeFunction: async () => {
         console.log('Canceling previous Stripe subscription', {
           tenantId,
-          previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+          previousPlatformSubscriptionId:
+            validatedPreviousPlatformSubscriptionId,
         });
 
         const apiKey = await getStripeApiKey(tenantId);
         const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-        await stripe.subscriptions.cancel(validatedPreviousPlatformSubscriptionId, {
-          prorate: true,
-        });
+        await stripe.subscriptions.cancel(
+          validatedPreviousPlatformSubscriptionId,
+          {
+            prorate: true,
+          }
+        );
 
         console.log('Previous Stripe subscription canceled', {
-          previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+          previousPlatformSubscriptionId:
+            validatedPreviousPlatformSubscriptionId,
         });
 
         return {
@@ -1973,7 +1878,9 @@ async function handlePlanChangeCompleted(
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
       executeFunction: async () => {
-        const subscriptionId = await getInternalSubscriptionId(validatedPreviousPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedPreviousPlatformSubscriptionId
+        );
 
         console.log('Updating internal subscription', {
           subscriptionId,
@@ -2017,7 +1924,9 @@ async function handlePlanChangeCompleted(
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
         // ステップ2で更新済みなので新しいplatform_subscription_idで検索
-        const subscriptionId = await getInternalSubscriptionId(validatedNewPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedNewPlatformSubscriptionId
+        );
 
         console.log('Terminating previous plan application', {
           tenantId,
@@ -2049,7 +1958,9 @@ async function handlePlanChangeCompleted(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        const subscriptionId = await getInternalSubscriptionId(validatedNewPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedNewPlatformSubscriptionId
+        );
 
         console.log('Applying new plan to user', {
           tenantId,
@@ -2090,4 +2001,3 @@ async function handlePlanChangeCompleted(
     eventId
   );
 }
-

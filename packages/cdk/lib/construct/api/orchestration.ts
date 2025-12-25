@@ -7,6 +7,7 @@ import { TenantManager } from '../../construct/tenant-manager';
 import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 
 export interface OrchestrationApiProps {
   /**
@@ -59,6 +60,12 @@ export interface OrchestrationApiProps {
     updateSubscription?: NodejsFunction;
     cancelSubscription?: NodejsFunction;
   };
+
+  /**
+   * Pending Plan Changes Table for parental control plan change requests
+   * Used by webhookEventFlow to update status after plan change completion
+   */
+  readonly pendingPlanChangesTable?: ITable;
 }
 
 /**
@@ -214,9 +221,15 @@ class OrchestrationApi extends Construct {
           EVENT_BUS_NAME: eventBus.eventBusName,
           // Purchase flow function for parental control activation
           PURCHASE_FLOW_FUNCTION_NAME: purchaseFlowFunction.functionName,
+          // Pending plan changes table for updating status after plan change
+          PENDING_PLAN_CHANGES_TABLE_NAME:
+            props.pendingPlanChangesTable?.tableName || '',
         },
       }
     );
+
+    // Note: Pending plan changes table access is granted via static ARN pattern below
+    // to avoid circular dependencies. See comment at line 243.
 
     // ========================================
     // IAM Permissions (added to backgroundJobRole)
@@ -257,7 +270,28 @@ class OrchestrationApi extends Construct {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['events:PutEvents'],
-        resources: [`arn:aws:events:*:*:event-bus/${environment}-billing-events`],
+        resources: [
+          `arn:aws:events:*:*:event-bus/${environment}-billing-events`,
+        ],
+      })
+    );
+
+    // Permission for Webhook Event Flow to access pending plan changes table
+    // Note: Using static ARN pattern instead of table.grantReadWriteData() to avoid
+    // circular dependency. The table is created in BillingManagementStack.
+    backgroundJobRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:Query',
+        ],
+        resources: [
+          `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`,
+          `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes/index/*`,
+        ],
       })
     );
 

@@ -250,17 +250,12 @@ const createPlanComparisonBlock = (
   currentPrice: string,
   newPlanName: string,
   newPrice: string,
-  changeType: 'upgrade' | 'downgrade',
+  _changeType: 'upgrade' | 'downgrade',
   childEmail?: string
 ): string => {
   const safeChildEmail = escapeHtml(childEmail);
   const safeCurrentPlanName = escapeHtml(currentPlanName);
   const safeNewPlanName = escapeHtml(newPlanName);
-
-  const changeTypeLabel =
-    changeType === 'upgrade' ? 'アップグレード' : 'ダウングレード';
-  const changeTypeColor =
-    changeType === 'upgrade' ? COLORS.success : COLORS.warning;
 
   return `
     <div style="background-color: ${COLORS.background}; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -282,14 +277,11 @@ const createPlanComparisonBlock = (
         <!-- 矢印 -->
         <div style="font-size: 24px; color: ${COLORS.accent};">→</div>
         <!-- 変更後のプラン -->
-        <div style="flex: 1; min-width: 180px; text-align: center; padding: 16px; background-color: ${COLORS.white}; border-radius: 8px; border: 2px solid ${changeTypeColor};">
+        <div style="flex: 1; min-width: 180px; text-align: center; padding: 16px; background-color: ${COLORS.white}; border-radius: 8px; border: 2px solid ${COLORS.accent};">
           <span style="font-size: 12px; color: #666; display: block; margin-bottom: 8px;">変更後のプラン</span>
           <span style="font-size: 18px; font-weight: bold; color: ${COLORS.primary}; display: block;">${safeNewPlanName}</span>
           <span style="font-size: 16px; color: ${COLORS.accent}; font-weight: bold; display: block; margin-top: 8px;">${newPrice}</span>
         </div>
-      </div>
-      <div style="text-align: center; margin-top: 16px;">
-        <span style="display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold; background-color: ${changeTypeColor}; color: ${COLORS.white};">${changeTypeLabel}</span>
       </div>
     </div>
   `;
@@ -830,7 +822,8 @@ export const handler = async (
     }
 
     // 15. Stripeサブスクリプションから customer ID と subscription item ID を取得
-    const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const stripeSubscription =
+      await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const subscriptionItemId = stripeSubscription.items.data[0]?.id;
     const stripeCustomerId =
       typeof stripeSubscription.customer === 'string'
@@ -846,7 +839,10 @@ export const handler = async (
     }
 
     if (!stripeCustomerId) {
-      console.error('Customer ID not found in Stripe subscription:', stripeSubscriptionId);
+      console.error(
+        'Customer ID not found in Stripe subscription:',
+        stripeSubscriptionId
+      );
       return internalServerError500Response({
         message: 'Stripe顧客情報が見つかりません',
         code: 'MISSING_STRIPE_CUSTOMER',
