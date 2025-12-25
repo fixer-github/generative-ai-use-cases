@@ -4,15 +4,8 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import {
-  CognitoIdentityProviderClient,
-  AdminGetUserCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
 import { getTenantId } from '../../../utils/tenantUtils';
-import {
-  getOrCreateStripeCustomerId,
-  getExistingStripeCustomerId,
-} from '../utils/stripeCustomerManager';
+import { getExistingStripeCustomerId } from '../utils/stripeCustomerManager';
 
 /**
  * リクエストボディの型
@@ -52,37 +45,6 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
 }
 
 /**
- * Cognitoからユーザー情報を取得する
- */
-async function getUserInfo(userId: string): Promise<{ email: string }> {
-  const userPoolId = process.env.USER_POOL_ID;
-
-  if (!userPoolId) {
-    throw new Error('USER_POOL_ID is not set');
-  }
-
-  const client = new CognitoIdentityProviderClient({});
-  const command = new AdminGetUserCommand({
-    UserPoolId: userPoolId,
-    Username: userId,
-  });
-
-  const response = await client.send(command);
-
-  const emailAttribute = response.UserAttributes?.find(
-    (attr) => attr.Name === 'email'
-  );
-
-  if (!emailAttribute?.Value) {
-    throw new Error(`Email not found for user: ${userId}`);
-  }
-
-  return {
-    email: emailAttribute.Value,
-  };
-}
-
-/**
  * Lambda関数のメインハンドラー
  * Stripe Customer Portalセッションを作成する
  */
@@ -115,22 +77,20 @@ export async function handler(
     });
 
     // 3. 既存のStripe Customer IDを確認
-    // Customer Portalの利用時は既存顧客のみアクセス可能とする場合
-    // （新規作成せずに既存顧客のみに制限したい場合はこちらを使用）
-    let customerId = await getExistingStripeCustomerId(event, userId, tenantId);
+    // Customer Portalは既存顧客のみ - 新規作成はしない
+    const customerId = await getExistingStripeCustomerId(event, userId, tenantId);
 
     if (!customerId) {
-      // Customer IDが存在しない場合は、ユーザー情報を取得して新規作成
-      console.log(
-        'No existing Stripe Customer ID found, creating new customer'
-      );
-      const userInfo = await getUserInfo(userId);
-      customerId = await getOrCreateStripeCustomerId(
-        event,
-        userId,
-        userInfo.email,
-        tenantId
-      );
+      // Customer IDが存在しない場合はエラー
+      // （サブスクリプション契約がない、またはマッピングが欠損している）
+      console.error('No existing Stripe Customer ID found for user:', userId);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          error: 'Customer not found',
+          message: 'サブスクリプションの契約履歴がありません。最初にプランを契約してください。',
+        }),
+      };
     }
 
     // 4. Stripe APIキーを取得（テナント専用）

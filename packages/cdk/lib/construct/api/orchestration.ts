@@ -46,6 +46,7 @@ export interface OrchestrationApiProps {
   readonly subscriptionManagementInternalFunctions: {
     createSubscription: NodejsFunction;
     updateSubscriptionStatus: NodejsFunction;
+    updateSubscriptionPlan: NodejsFunction;
     getSubscription: NodejsFunction;
     extendSubscriptionPeriod: NodejsFunction;
   };
@@ -135,6 +136,9 @@ class OrchestrationApi extends Construct {
             .functionName,
         SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME:
           subscriptionManagementInternalFunctions.updateSubscriptionStatus
+            .functionName,
+        SUBSCRIPTION_MANAGEMENT_UPDATE_PLAN_FUNCTION_NAME:
+          subscriptionManagementInternalFunctions.updateSubscriptionPlan
             .functionName,
         SUBSCRIPTION_MANAGEMENT_GET_FUNCTION_NAME:
           subscriptionManagementInternalFunctions.getSubscription.functionName,
@@ -271,6 +275,8 @@ class OrchestrationApi extends Construct {
           'payment.succeeded',
           'payment.failed',
           'subscription.canceled',
+          'subscription.updated',
+          'subscription.plan_change_completed',
           'payment.refunded',
           'payment_method.updated',
           'subscription.parental_activated',

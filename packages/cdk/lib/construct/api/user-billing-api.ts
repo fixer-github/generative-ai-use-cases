@@ -101,6 +101,7 @@ class UserBillingApi extends Construct {
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
   public readonly changeSubscriptionPlanFunction?: NodejsFunction;
+  public readonly previewPlanChangeFunction?: NodejsFunction;
   public readonly createCustomerPortalFunction: NodejsFunction;
   public readonly createPaymentMethodUpdateSessionFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
@@ -889,6 +890,76 @@ class UserBillingApi extends Construct {
       changePlanResource.addMethod(
         'POST',
         new LambdaIntegration(this.changeSubscriptionPlanFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+
+      // ========================================
+      // API 7b: プラン変更プレビューAPI
+      // POST /api/subscriptions/preview-plan-change
+      // ========================================
+      this.previewPlanChangeFunction = new NodejsFunction(
+        this,
+        'PreviewPlanChange',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/billing/user-api/subscriptions/previewPlanChange.ts',
+          timeout: Duration.seconds(30),
+          memorySize: 256,
+          environment: commonEnvironment,
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(this.previewPlanChangeFunction);
+
+      // Lambda呼び出し権限（データアクセス層用）
+      this.previewPlanChangeFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
+          ],
+        })
+      );
+
+      // Secrets Manager読み取り権限（Stripe APIキー取得用）
+      this.previewPlanChangeFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+        })
+      );
+
+      // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+      this.previewPlanChangeFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
+        })
+      );
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      this.previewPlanChangeFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRoleWithWebIdentity'],
+          resources: ['*'],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const previewPlanChangeResource = subscriptionsResource.addResource('preview-plan-change');
+      previewPlanChangeResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.previewPlanChangeFunction),
         {
           authorizer: authorizer,
           authorizationType: AuthorizationType.COGNITO,

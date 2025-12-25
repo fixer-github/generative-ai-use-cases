@@ -9,14 +9,16 @@
  * 2. 決済システムへのプラン変更依頼（paymentGatewayClient.updateSubscription）
  *    - アップグレード: prorate=true（即座に変更）
  *    - ダウングレード: prorate=false（次回更新時に変更）
- * 3. サブスクリプション情報更新（subscriptionManagementClient.updateSubscriptionStatus）
- * 4. 古いプランの権限剥奪（planManagementClient.terminatePlanApplication）
- * 5. 新しいプラン適用（planManagementClient.applyPlanToUser）
- * 6. 権限付与（将来実装）
+ * 3. サブスクリプションのプランID更新（subscriptionManagementClient.updateSubscriptionPlan）
+ *    - DBのsubscriptions.plan_idを新しいプランIDに更新
+ * 4. サブスクリプション情報更新（subscriptionManagementClient.updateSubscriptionStatus）
+ * 5. 古いプランの権限剥奪（planManagementClient.terminatePlanApplication）
+ * 6. 新しいプラン適用（planManagementClient.applyPlanToUser）
+ *    - 権限付与はapplyPlanToUser内部で自動的に実行される（grantPermission Lambda呼び出し）
  * 7. 通知送信（将来実装）
  *
  * エラーハンドリング:
- * - ステップ4、5で失敗した場合、古いプランの権限を再付与するロールバック処理
+ * - ステップ3以降で失敗した場合、DBのplan_idを元に戻し、古いプランの権限を再付与するロールバック処理
  * - ステップ2で失敗した場合、決済システム側でトランザクションが保証される前提のため、エラーとして記録
  */
 
@@ -35,7 +37,7 @@ import {
 } from '../clients/subscriptionManagementClient';
 import { PaymentGatewayClient } from '../clients/paymentGatewayClient';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan } from '../../data-access/repositories/types';
+import { Plan, Subscription } from '../../data-access/repositories/types';
 
 /**
  * プランレベル定義
@@ -52,18 +54,18 @@ const PLAN_LEVELS: Record<string, number> = {
 /**
  * プランレベルを取得
  *
- * @param planId プランID
+ * @param internalName プランの内部名（internal_name）
  * @returns プランレベル（数値）
  */
-function getPlanLevel(planId: string): number {
-  // プランIDからプレフィックスを除去して正規化（例: "plan-standard" -> "standard"）
-  const normalizedPlanId = planId.toLowerCase().replace(/^plan-?/, '');
+function getPlanLevel(internalName: string): number {
+  // 内部名からプレフィックスを除去して正規化（例: "plan-standard" -> "standard"）
+  const normalizedName = internalName.toLowerCase().replace(/^plan[-_]?/, '');
 
   // マッピングからレベルを取得
-  const level = PLAN_LEVELS[normalizedPlanId];
+  const level = PLAN_LEVELS[normalizedName];
 
   if (level === undefined) {
-    console.warn(`Unknown plan ID: ${planId}, treating as level 0`);
+    console.warn(`Unknown plan internal_name: ${internalName}, treating as level 0`);
     return 0;
   }
 
@@ -73,21 +75,37 @@ function getPlanLevel(planId: string): number {
 /**
  * プラン変更タイプを判定
  *
- * @param currentPlanId 現在のプランID
- * @param newPlanId 新しいプランID
+ * @param currentPlan 現在のプラン
+ * @param newPlan 新しいプラン
  * @returns プラン変更タイプ（upgrade/downgrade）
  * @throws Error 同一プランへの変更の場合
  */
 function determineChangeType(
-  currentPlanId: string,
-  newPlanId: string
+  currentPlan: Plan,
+  newPlan: Plan
 ): PlanChangeType {
-  const currentLevel = getPlanLevel(currentPlanId);
-  const newLevel = getPlanLevel(newPlanId);
+  // 同一プランへの変更は不可
+  if (currentPlan.plan_id === newPlan.plan_id) {
+    throw new Error(
+      `Cannot change to the same plan: ${currentPlan.internal_name} (${currentPlan.plan_id})`
+    );
+  }
+
+  const currentLevel = getPlanLevel(currentPlan.internal_name);
+  const newLevel = getPlanLevel(newPlan.internal_name);
+
+  // 両方のレベルが不明な場合は、upgradeとして扱う（workaround）
+  // TODO: Plan tableにlevelフィールドを追加して、DBからレベルを取得するように変更
+  if (currentLevel === 0 && newLevel === 0) {
+    console.warn(
+      `Both plan levels are unknown, treating as upgrade: ${currentPlan.internal_name} -> ${newPlan.internal_name}`
+    );
+    return 'upgrade';
+  }
 
   if (currentLevel === newLevel) {
     throw new Error(
-      `Cannot change to the same plan level: ${currentPlanId} -> ${newPlanId}`
+      `Cannot change to the same plan level: ${currentPlan.internal_name} (${currentPlan.plan_id}) -> ${newPlan.internal_name} (${newPlan.plan_id})`
     );
   }
 
@@ -141,13 +159,95 @@ export const handler = async (
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
 
-  // プラン変更タイプを判定
-  let changeType: PlanChangeType;
+  // プラン・サブスクリプションをデータベースから取得
+  const [fetchedCurrentPlan, fetchedNewPlan, fetchedSubscription] = await Promise.all([
+    invokeDataAccessFunctionByTenantId<Plan | null>(
+      tenantId,
+      'plan',
+      'findById',
+      { id: currentPlanId }
+    ),
+    invokeDataAccessFunctionByTenantId<Plan | null>(
+      tenantId,
+      'plan',
+      'findById',
+      { id: newPlanId }
+    ),
+    invokeDataAccessFunctionByTenantId<Subscription | null>(
+      tenantId,
+      'subscription',
+      'findById',
+      { subscriptionId }
+    ),
+  ]);
 
-  try {
-    changeType = determineChangeType(currentPlanId, newPlanId);
-    console.log('Plan change type determined', { changeType });
-  } catch (error) {
+  if (!fetchedCurrentPlan) {
+    console.error('Current plan not found', { currentPlanId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'PLAN_NOT_FOUND',
+        errorMessage: `Current plan not found: ${currentPlanId}`,
+      },
+    };
+  }
+
+  if (!fetchedNewPlan) {
+    console.error('New plan not found', { newPlanId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'PLAN_NOT_FOUND',
+        errorMessage: `New plan not found: ${newPlanId}`,
+      },
+    };
+  }
+
+  if (!fetchedSubscription) {
+    console.error('Subscription not found', { subscriptionId });
+    return {
+      success: false,
+      flowExecutionId: '',
+      changeType: 'upgrade',
+      effectiveDate: new Date().toISOString(),
+      errorDetails: {
+        errorCode: 'SUBSCRIPTION_NOT_FOUND',
+        errorMessage: `Subscription not found: ${subscriptionId}`,
+      },
+    };
+  }
+
+  const currentPlan = fetchedCurrentPlan;
+  const newPlan = fetchedNewPlan;
+  const subscription = fetchedSubscription;
+
+  console.log('Plans and subscription fetched', {
+    currentPlan: { id: currentPlan.plan_id, internal_name: currentPlan.internal_name },
+    newPlan: { id: newPlan.plan_id, internal_name: newPlan.internal_name },
+    subscription: {
+      id: subscription.subscription_id,
+      platform_subscription_id: subscription.platform_subscription_id,
+      platform_type: subscription.platform_type,
+    },
+  });
+
+  // プラン変更タイプを判定
+  const changeTypeResult = (() => {
+    try {
+      return { success: true as const, value: determineChangeType(currentPlan, newPlan) };
+    } catch (error) {
+      return { success: false as const, error };
+    }
+  })();
+
+  if (!changeTypeResult.success) {
+    const error = changeTypeResult.error;
     console.error('Failed to determine plan change type', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
@@ -155,7 +255,7 @@ export const handler = async (
     return {
       success: false,
       flowExecutionId: '',
-      changeType: 'upgrade', // デフォルト値
+      changeType: 'upgrade',
       effectiveDate: new Date().toISOString(),
       errorDetails: {
         errorCode: 'INVALID_PLAN_CHANGE',
@@ -164,6 +264,9 @@ export const handler = async (
       },
     };
   }
+
+  const changeType: PlanChangeType = changeTypeResult.value;
+  console.log('Plan change type determined', { changeType });
 
   // ステップ設定
   const steps: StepConfig[] = [
@@ -174,7 +277,9 @@ export const handler = async (
       executeFunction: async () => {
         console.log('Comparing plans', {
           currentPlanId,
+          currentInternalName: currentPlan.internal_name,
           newPlanId,
+          newInternalName: newPlan.internal_name,
           changeType,
         });
 
@@ -183,8 +288,8 @@ export const handler = async (
           currentPlanId,
           newPlanId,
           changeType,
-          currentLevel: getPlanLevel(currentPlanId),
-          newLevel: getPlanLevel(newPlanId),
+          currentLevel: getPlanLevel(currentPlan.internal_name),
+          newLevel: getPlanLevel(newPlan.internal_name),
         };
       },
       retryable: false,
@@ -200,47 +305,38 @@ export const handler = async (
         process.env.PAYMENT_GATEWAY_UPDATE_SUBSCRIPTION_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Updating payment subscription', {
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
+          platformSubscriptionId: subscription.platform_subscription_id,
           newPlanId,
           prorate: changeType === 'upgrade',
         });
 
-        // 新しいプランの情報を取得してStripe Price IDを取得
-        const newPlan = await invokeDataAccessFunctionByTenantId<Plan | null>(
-          tenantId,
-          'plan',
-          'findById',
-          { id: newPlanId }
-        );
-
-        if (!newPlan) {
-          throw new Error(`Plan not found: ${newPlanId}`);
-        }
-
+        // 事前に取得したプラン情報を使用（Stripe Price ID）
         if (!newPlan.platform_product_id) {
           throw new Error(`Plan ${newPlanId} does not have a platform_product_id (Stripe price ID)`);
         }
 
-        console.log('Retrieved new plan info', {
+        console.log('Using pre-fetched plan and subscription info', {
           planId: newPlan.plan_id,
           platformProductId: newPlan.platform_product_id,
-          platformType: newPlan.platform_type,
+          platformSubscriptionId: subscription.platform_subscription_id,
+          platformType: subscription.platform_type,
         });
 
-        // TODO: サブスクリプション情報から決済プラットフォームを取得
-        // 現時点ではプランのプラットフォームタイプを使用
-        const platform: PlatformType = newPlan.platform_type as PlatformType || 'stripe';
+        // サブスクリプション情報から決済プラットフォームを取得
+        const platform: PlatformType = subscription.platform_type as PlatformType;
 
         try {
           const result = await paymentClient.updateSubscription({
+            tenantId,
             platform,
-            subscriptionId,
-            newPlanId: newPlan.platform_product_id, // Use Stripe price ID instead of internal plan ID
+            subscriptionId: subscription.platform_subscription_id, // Use Stripe subscription ID (sub_xxx)
+            newPlanId: newPlan.platform_product_id, // Use Stripe price ID (price_xxx)
             prorate: changeType === 'upgrade', // アップグレードは即座、ダウングレードは次回更新時
           });
 
           console.log('Payment subscription updated successfully', {
-            subscriptionId,
+            platformSubscriptionId: subscription.platform_subscription_id,
             success: result.success,
           });
 
@@ -262,7 +358,63 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ3: サブスクリプション情報更新
+    // ステップ3: サブスクリプションのプランIDを更新（DBへの反映）
+    {
+      stepName: 'update_subscription_plan',
+      stepType: 'api_call',
+      targetService: 'SubscriptionManagement',
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_PLAN_FUNCTION_NAME,
+      executeFunction: async () => {
+        console.log('Updating subscription plan in database', {
+          tenantId,
+          subscriptionId,
+          newPlanId,
+        });
+
+        const result = await subscriptionClient.updateSubscriptionPlan({
+          tenantId,
+          subscriptionId,
+          newPlanId,
+        });
+
+        console.log('Subscription plan updated successfully in database', {
+          subscriptionId,
+          previousPlanId: result.previousPlanId,
+          newPlanId: result.newPlanId,
+        });
+
+        return result;
+      },
+      rollbackFunction: async (outputData: unknown) => {
+        console.log('Rolling back update_subscription_plan step', { outputData });
+
+        const planUpdateData = outputData as {
+          previousPlanId?: string;
+        };
+
+        if (planUpdateData.previousPlanId) {
+          try {
+            await subscriptionClient.updateSubscriptionPlan({
+              tenantId,
+              subscriptionId,
+              newPlanId: planUpdateData.previousPlanId,
+            });
+            console.log('Subscription plan rolled back to previous', {
+              previousPlanId: planUpdateData.previousPlanId,
+            });
+          } catch (error) {
+            console.error('Failed to rollback subscription plan', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
+
+    // ステップ4: サブスクリプション情報更新（ステータス確認）
     {
       stepName: 'update_subscription_status',
       stepType: 'api_call',
@@ -297,7 +449,7 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ4: 古いプランの権限剥奪
+    // ステップ5: 古いプランの権限剥奪
     {
       stepName: 'terminate_old_plan',
       stepType: 'api_call',
@@ -351,7 +503,7 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ5: 新しいプラン適用
+    // ステップ6: 新しいプラン適用
     {
       stepName: 'apply_new_plan',
       stepType: 'api_call',
@@ -428,25 +580,10 @@ export const handler = async (
       maxRetries: 3,
     },
 
-    // ステップ6: 権限付与（将来実装）
-    // {
-    //   stepName: 'grant_new_permissions',
-    //   stepType: 'api_call',
-    //   targetService: 'AuthorizationService',
-    //   targetFunction: process.env.AUTHORIZATION_SERVICE_GRANT_FUNCTION_NAME,
-    //   executeFunction: async () => {
-    //     console.log('Granting new permissions', { tenantId, userId, newPlanId });
-    //
-    //     // TODO: AuthorizationServiceClientを実装後、権限付与処理を追加
-    //     return { grantId: 'grant-placeholder' };
-    //   },
-    //   rollbackFunction: async (outputData: unknown) => {
-    //     console.log('Rolling back grant_new_permissions step', { outputData });
-    //     // TODO: AuthorizationServiceClient.revokePermission() を実装
-    //   },
-    //   retryable: true,
-    //   maxRetries: 3,
-    // },
+    // NOTE: 権限付与はステップ6の applyPlanToUser 内で自動的に実行される
+    // applyPlanToUser は以下の処理を内部で行う:
+    // - 既存のプラン適用を期限切れにし、revokePermission で権限を剥奪
+    // - 新しいプラン適用を作成し、grantPermission で権限を付与
 
     // ステップ7: 通知送信（将来実装）
     // {
@@ -554,10 +691,11 @@ export const handler = async (
         stackTrace: err.stack,
       });
 
-      // ロールバック実行（ステップ4以降で失敗した場合のみ）
-      // ステップ4: terminate_old_plan、ステップ5: apply_new_plan
+      // ロールバック実行（ステップ3以降で失敗した場合のみ）
+      // ステップ3: update_subscription_plan、ステップ5: terminate_old_plan、ステップ6: apply_new_plan
       const rollbackableSteps = completedSteps.filter(
         (step) =>
+          step.stepConfig.stepName === 'update_subscription_plan' ||
           step.stepConfig.stepName === 'terminate_old_plan' ||
           step.stepConfig.stepName === 'apply_new_plan'
       );

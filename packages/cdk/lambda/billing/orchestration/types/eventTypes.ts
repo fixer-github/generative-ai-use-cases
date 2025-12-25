@@ -19,7 +19,7 @@ export type WebhookEventType =
   | 'payment.succeeded'
   | 'payment.failed'
   | 'subscription.canceled'
-  | 'subscription.updated' // プラン変更（Customer Portalからの変更など）
+  | 'subscription.updated' // サブスクリプション更新（プラン変更など）
   | 'refund.created'
   | 'payment_method.updated'
   | 'subscription.parental_activated' // ペアレンタルコントロールによるサブスクリプション有効化
@@ -107,9 +107,19 @@ export interface StripeEventData {
     planId?: string;
     childEmail?: string;
     parentEmail?: string;
-    // プラン変更用フィールド
-    newPriceId?: string;
+    // サブスクリプション更新（プラン変更）用フィールド
+    subscriptionId?: string;
+    currentPriceId?: string;
     previousPriceId?: string;
+    isPlanChange?: boolean;
+    status?: string;
+    // Checkoutベースのプラン変更用フィールド
+    newPlanId?: string;
+    previousPlanId?: string;
+    previousSubscriptionId?: string;
+    newPlatformSubscriptionId?: string;
+    internalSubscriptionId?: string;
+    isUpgrade?: string;
   };
 
   /** その他のStripe固有データ */

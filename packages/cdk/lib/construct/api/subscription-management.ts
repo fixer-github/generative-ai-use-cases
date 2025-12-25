@@ -72,8 +72,9 @@ export interface SubscriptionManagementApiProps {
  * Also provides internal Lambda functions for orchestrator:
  * 1. createSubscription - Create subscription from purchase flow
  * 2. updateSubscriptionStatus - Update status from webhook handler
- * 3. getSubscription - Get subscription from orchestrator flows
- * 4. extendSubscriptionPeriod - Extend period from payment.succeeded event
+ * 3. updateSubscriptionPlan - Update plan_id from plan change flow
+ * 4. getSubscription - Get subscription from orchestrator flows
+ * 5. extendSubscriptionPeriod - Extend period from payment.succeeded event
  */
 class SubscriptionManagementApi extends Construct {
   /**
@@ -83,6 +84,7 @@ class SubscriptionManagementApi extends Construct {
   public readonly internalFunctions: {
     createSubscription: NodejsFunction;
     updateSubscriptionStatus: NodejsFunction;
+    updateSubscriptionPlan: NodejsFunction;
     getSubscription: NodejsFunction;
     extendSubscriptionPeriod: NodejsFunction;
   };
@@ -163,6 +165,18 @@ class SubscriptionManagementApi extends Construct {
       }
     );
 
+    // Internal: Update Subscription Plan
+    const updateSubscriptionPlanFunction = new NodejsFunction(
+      this,
+      'InternalUpdateSubscriptionPlan',
+      {
+        ...commonLambdaConfig,
+        entry:
+          './lambda/billing/subscription-management/internal/updateSubscriptionPlan.ts',
+        functionName: `${environment}-billing-subscription-internal-update-plan`,
+      }
+    );
+
     // Internal: Get Subscription
     const getSubscriptionInternalFunction = new NodejsFunction(
       this,
@@ -191,6 +205,7 @@ class SubscriptionManagementApi extends Construct {
     this.internalFunctions = {
       createSubscription: createSubscriptionFunction,
       updateSubscriptionStatus: updateSubscriptionStatusFunction,
+      updateSubscriptionPlan: updateSubscriptionPlanFunction,
       getSubscription: getSubscriptionInternalFunction,
       extendSubscriptionPeriod: extendSubscriptionPeriodFunction,
     };
@@ -302,6 +317,7 @@ class SubscriptionManagementApi extends Construct {
       // Internal functions
       createSubscriptionFunction,
       updateSubscriptionStatusFunction,
+      updateSubscriptionPlanFunction,
       getSubscriptionInternalFunction,
       extendSubscriptionPeriodFunction,
       // Admin API functions
@@ -364,6 +380,7 @@ class SubscriptionManagementApi extends Construct {
     [
       createSubscriptionFunction,
       updateSubscriptionStatusFunction,
+      updateSubscriptionPlanFunction,
       getSubscriptionInternalFunction,
       extendSubscriptionPeriodFunction,
     ].forEach((func) => {

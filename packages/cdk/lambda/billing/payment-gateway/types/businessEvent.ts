@@ -6,6 +6,7 @@ export type BusinessEventType =
   | 'payment.failed' // 支払い失敗
   | 'subscription.canceled' // サブスクリプションキャンセル
   | 'subscription.updated' // サブスクリプション更新（プラン変更など）
+  | 'subscription.plan_change_completed' // プラン変更Checkout完了
   | 'payment.refunded' // 返金
   | 'payment_method.updated' // 支払い方法更新
   | 'invoice.created' // 請求書作成
@@ -58,11 +59,11 @@ export interface EventDetail {
   /** プラットフォーム固有のサブスクリプションID（payment_method.updated時に含まれる） */
   platformSubscriptionId?: string;
 
-  /** 新しいPrice ID（subscription.updated時に含まれる） */
-  newPriceId?: string;
+  /** 新しいプランID（subscription.updated時に含まれる、プラン変更の場合） */
+  newPlanId?: string;
 
-  /** 以前のPrice ID（subscription.updated時に含まれる） */
-  previousPriceId?: string;
+  /** 以前のプランID（subscription.updated時に含まれる、プラン変更の場合） */
+  previousPlanId?: string;
 
   /** Checkout Session ID（subscription.parental_activated時に含まれる） */
   sessionId?: string;

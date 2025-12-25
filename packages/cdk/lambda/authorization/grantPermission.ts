@@ -207,8 +207,16 @@ export const handler = async (
         `User ${userId} granted holder relation to entitlement:${entitlementId}`
       );
     } catch (openFgaError) {
-      console.error('OpenFGA write failed:', openFgaError);
-      throw new Error(`Failed to write to OpenFGA: ${openFgaError}`);
+      // Tuple already exists is not an error - treat as idempotent success
+      const errorMessage = openFgaError instanceof Error ? openFgaError.message : String(openFgaError);
+      if (errorMessage.includes('tuple which already exists') || errorMessage.includes('write_failed_due_to_invalid_input')) {
+        console.log(
+          `Tuple already exists for user ${userId} -> entitlement:${entitlementId}, treating as success (idempotent)`
+        );
+      } else {
+        console.error('OpenFGA write failed:', openFgaError);
+        throw new Error(`Failed to write to OpenFGA: ${openFgaError}`);
+      }
     }
 
     // 6. DynamoDBに権限付与履歴を記録

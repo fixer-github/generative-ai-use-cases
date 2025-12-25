@@ -98,10 +98,29 @@ interface CancelSubscriptionResponse {
 }
 
 /**
+ * プラン変更レスポンス型（フロントエンドAPI契約）
+ */
+interface ChangePlanResponse {
+  success: boolean;
+  subscriptionId: string;
+  planId: string;
+  displayName: string;
+  message: string;
+  prorationAmount?: number;
+  effectiveDate: string;
+}
+
+/**
  * テスト用Stripeプラン設定
  * 注意: 実際のStripe Price IDを設定する必要がある
  */
 const TEST_STRIPE_PRICE_ID = process.env.E2E_TEST_STRIPE_PRICE_ID || 'price_test_placeholder';
+
+/**
+ * テスト用Stripeプラン設定（プラン変更テスト用 - 上位プラン）
+ * 注意: 実際のStripe Price IDを設定する必要がある
+ */
+const TEST_STRIPE_PREMIUM_PRICE_ID = process.env.E2E_TEST_STRIPE_PREMIUM_PRICE_ID || 'price_premium_test_placeholder';
 
 /**
  * Stripe Webhook Secret for testing
@@ -117,6 +136,7 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
   let userManager: TestUserManager;
   let subscriptionHelper: SubscriptionTestHelper;
   let testStripePlanId: string;
+  let testStripePremiumPlanId: string; // Higher tier plan for plan change tests
   let testDefaultPlanId: string; // Internal default plan for cancellation flow
   let adminUserSub: string; // Cognito user sub for API user ID matching
 
@@ -160,6 +180,29 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
       console.log(`Test Stripe plan created: ${testStripePlanId}`);
     } else {
       console.warn('Failed to create test Stripe plan, some tests may fail:', createResponse.data);
+    }
+
+    // テスト用Stripeプレミアムプランを作成（プラン変更テスト用）
+    const premiumPlanRequest = createTestStripePlanRequest(TEST_STRIPE_PREMIUM_PRICE_ID, {
+      displayName: 'E2E Test - Enterprise Stripe Plan',
+      description: 'Enterprise plan for plan change E2E testing',
+      features: ['feature:enterprise', 'llm:claude-opus', 'feature:unlimited-chat', 'feature:priority-support'],
+      limits: {
+        'llm:claude-opus': { type: 'daily', count: 500 },
+      },
+    });
+
+    const premiumPlanResponse = await apiClient.post<CreatePlanResponse>(
+      '/admin/billing/plans',
+      premiumPlanRequest
+    );
+
+    if (premiumPlanResponse.status === 201) {
+      testStripePremiumPlanId = premiumPlanResponse.data.plan_id;
+      tracker.trackPlan(testStripePremiumPlanId);
+      console.log(`Test Stripe premium plan created: ${testStripePremiumPlanId}`);
+    } else {
+      console.warn('Failed to create test Stripe premium plan, plan change tests may fail:', premiumPlanResponse.data);
     }
 
     // テスト用デフォルトプラン（内部プラン）を作成
@@ -211,6 +254,9 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
       // テスト用プランを再追加
       if (testStripePlanId) {
         tracker.trackPlan(testStripePlanId);
+      }
+      if (testStripePremiumPlanId) {
+        tracker.trackPlan(testStripePremiumPlanId);
       }
       if (testDefaultPlanId) {
         tracker.trackPlan(testDefaultPlanId);
@@ -552,6 +598,189 @@ describe('サブスクリプション・Webhookフロー E2Eテスト', () => {
         // Assert
         expect(response.status).toBe(400);
         expect(response.data.code).toBe('INVALID_PARAMETER');
+      });
+    });
+  });
+
+  // ============================================================
+  // テストケース 2.5: プラン変更フロー
+  // POST /api/subscriptions/change-plan
+  // ============================================================
+  describe('テストケース2.5: プラン変更フロー', () => {
+    describe('正常系', () => {
+      it('アップグレード（上位プランへの変更）が正常に動作すること', async () => {
+        // Skip if no valid Stripe price IDs
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder' ||
+            TEST_STRIPE_PREMIUM_PRICE_ID === 'price_premium_test_placeholder') {
+          console.log('Skipping: Stripe Price IDs not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを作成（標準プラン）
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        const subscription = await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: プレミアムプランへアップグレード
+        const response = await apiClient.post<ChangePlanResponse>(
+          '/api/subscriptions/change-plan',
+          { newPlanId: testStripePremiumPlanId }
+        );
+
+        // Assert
+        console.log('Change plan response:', response.status, JSON.stringify(response.data));
+        expect(response.status).toBe(200);
+        expect(response.data.success).toBe(true);
+        expect(response.data.subscriptionId).toBe(subscription.subscriptionId);
+        expect(response.data.planId).toBe(testStripePremiumPlanId);
+        expect(response.data.displayName).toBeDefined();
+        expect(response.data.effectiveDate).toBeDefined();
+        expect(response.data.message).toContain('アップグレード');
+        // プロレーション金額が返される可能性がある
+        if (response.data.prorationAmount !== undefined) {
+          expect(typeof response.data.prorationAmount).toBe('number');
+        }
+      });
+
+      it('ダウングレード（下位プランへの変更）が正常に動作すること', async () => {
+        // Skip if no valid Stripe price IDs
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder' ||
+            TEST_STRIPE_PREMIUM_PRICE_ID === 'price_premium_test_placeholder') {
+          console.log('Skipping: Stripe Price IDs not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを作成（プレミアムプラン）
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        const subscription = await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePremiumPlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PREMIUM_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: 標準プランへダウングレード
+        const response = await apiClient.post<ChangePlanResponse>(
+          '/api/subscriptions/change-plan',
+          { newPlanId: testStripePlanId }
+        );
+
+        // Assert
+        console.log('Change plan response:', response.status, JSON.stringify(response.data));
+        expect(response.status).toBe(200);
+        expect(response.data.success).toBe(true);
+        expect(response.data.subscriptionId).toBe(subscription.subscriptionId);
+        expect(response.data.planId).toBe(testStripePlanId);
+        expect(response.data.displayName).toBeDefined();
+        expect(response.data.effectiveDate).toBeDefined();
+        expect(response.data.message).toContain('ダウングレード');
+      });
+    });
+
+    describe('異常系', () => {
+      it('newPlanId未指定でプラン変更が400を返すこと', async () => {
+        // Arrange
+        const requestBody = {};
+
+        // Act
+        const response = await apiClient.post<ErrorResponse>(
+          '/api/subscriptions/change-plan',
+          requestBody
+        );
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.data.code).toBe('MISSING_PARAMETER');
+      });
+
+      it('同じプランへの変更が400を返すこと', async () => {
+        // Skip if no valid Stripe price ID
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder') {
+          console.log('Skipping: E2E_TEST_STRIPE_PRICE_ID not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを作成
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: 同じプランへ変更を試みる
+        const response = await apiClient.post<ErrorResponse>(
+          '/api/subscriptions/change-plan',
+          { newPlanId: testStripePlanId }
+        );
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.data.code).toBe('SAME_PLAN');
+      });
+
+      it('存在しないプランIDでプラン変更が400を返すこと', async () => {
+        // Skip if no valid Stripe price ID
+        if (TEST_STRIPE_PRICE_ID === 'price_test_placeholder') {
+          console.log('Skipping: E2E_TEST_STRIPE_PRICE_ID not configured');
+          return;
+        }
+
+        // Arrange: サブスクリプションを作成
+        const testUserId = adminUserSub;
+        tracker.trackUser(testUserId);
+
+        await subscriptionHelper.createSubscription({
+          userId: testUserId,
+          planId: testStripePlanId,
+          platformType: 'stripe',
+          stripePriceId: TEST_STRIPE_PRICE_ID,
+          periodDurationDays: 30,
+        });
+
+        // Act: 存在しないプランへ変更を試みる
+        const response = await apiClient.post<ErrorResponse>(
+          '/api/subscriptions/change-plan',
+          { newPlanId: 'non-existent-plan-id-12345' }
+        );
+
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.data.code).toBe('INVALID_PLAN');
+      });
+
+      it('サブスクリプションがない状態でプラン変更が404を返すこと', async () => {
+        // Note: 新しいテストユーザーでAPIクライアントを作成した場合、
+        // デフォルトプランが適用されていてもサブスクリプションベースではない
+
+        // Act
+        const response = await apiClient.post<ErrorResponse>(
+          '/api/subscriptions/change-plan',
+          { newPlanId: 'some-plan-id' }
+        );
+
+        // Assert: プラン適用がない場合は404、
+        // デフォルトプラン（非サブスクリプション）の場合は400
+        expect([400, 404]).toContain(response.status);
+        if (response.status === 404) {
+          expect(response.data.code).toBe('NO_ACTIVE_PLAN');
+        } else if (response.status === 400) {
+          expect(response.data.code).toBe('NOT_SUBSCRIPTION_PLAN');
+        }
       });
     });
   });

@@ -22,6 +22,30 @@ import {
 const lambdaClient = new LambdaClient({});
 
 /**
+ * 権限付与失敗時にプラン適用をロールバック（期限切れに変更）
+ */
+async function rollbackPlanApplication(
+  tenantId: string,
+  applicationId: string
+): Promise<void> {
+  try {
+    await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+      tenantId,
+      'user-plan-application',
+      'expire',
+      { applicationId }
+    );
+    console.log('Rolled back plan application:', { applicationId });
+  } catch (rollbackError) {
+    // ロールバック自体が失敗した場合はログのみ（二重エラーを避ける）
+    console.error('Failed to rollback plan application:', {
+      applicationId,
+      error: rollbackError instanceof Error ? rollbackError.message : 'Unknown error',
+    });
+  }
+}
+
+/**
  * 入力パラメータ
  */
 export interface ApplyPlanToUserInput {
@@ -322,19 +346,41 @@ export const handler = async (
 
         if (!grantResult.success) {
           console.error('grantPermission failed:', grantResult);
-          // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
-          // 管理者が後から手動で権限付与を行う運用を想定
-          grantId = undefined;
-        } else {
-          console.log('Permission granted successfully:', {
-            grantId: grantResult.grantId,
-            grantedAt: grantResult.grantedAt,
-          });
+          // 権限付与に失敗した場合、作成したプラン適用をロールバック
+          await rollbackPlanApplication(input.tenantId, createdApplication.application_id);
+          throw new ApplyPlanToUserError(
+            'PERMISSION_GRANT_FAILED',
+            '権限付与に失敗しました。プラン適用をロールバックしました。',
+            {
+              grantId,
+              planId: input.planId,
+              applicationId: createdApplication.application_id,
+              grantResult,
+            }
+          );
         }
+        console.log('Permission granted successfully:', {
+          grantId: grantResult.grantId,
+          grantedAt: grantResult.grantedAt,
+        });
       } catch (grantError) {
+        // ApplyPlanToUserErrorは再スロー
+        if (grantError instanceof ApplyPlanToUserError) {
+          throw grantError;
+        }
         console.error('Error invoking grantPermission:', grantError);
-        // 権限付与に失敗してもプラン適用は成功とする（ログ記録のみ）
-        grantId = undefined;
+        // 権限付与に失敗した場合、作成したプラン適用をロールバック
+        await rollbackPlanApplication(input.tenantId, createdApplication.application_id);
+        throw new ApplyPlanToUserError(
+          'PERMISSION_GRANT_ERROR',
+          '権限付与処理中にエラーが発生しました。プラン適用をロールバックしました。',
+          {
+            grantId,
+            planId: input.planId,
+            applicationId: createdApplication.application_id,
+            error: grantError instanceof Error ? grantError.message : 'Unknown error',
+          }
+        );
       }
     } else {
       if (!grantPermissionFunctionName) {

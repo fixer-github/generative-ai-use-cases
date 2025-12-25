@@ -41,6 +41,8 @@ export interface VerifyReceiptResponse {
  * サブスクリプション更新リクエストパラメータ
  */
 export interface UpdateSubscriptionParams {
+  /** テナントID */
+  tenantId: string;
   /** プラットフォームタイプ（stripe、apple、google） */
   platform: 'stripe' | 'apple' | 'google';
   /** サブスクリプションID */
