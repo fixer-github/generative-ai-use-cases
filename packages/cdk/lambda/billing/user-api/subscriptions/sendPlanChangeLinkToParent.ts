@@ -150,6 +150,7 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
 
 /**
  * リクエストヘッダーからフロントエンドのベースURLを取得する
+ * （決済フローと同様）
  */
 function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
   const headers = event.headers;
@@ -817,15 +818,76 @@ export const handler = async (
     const formattedNextBillingDate = formatDate(nextBillingDate);
     const formattedNextBillingAmount = formatPriceJpy(newPriceAmount);
 
-    // 14. 承認トークンを生成
-    const requestId = randomUUID();
-    const approvalToken = randomUUID();
+    // 14. Stripe サブスクリプションIDを確認
+    const stripeSubscriptionId = subscription.platform_subscription_id;
 
-    // 15. 承認URLを生成
+    if (!stripeSubscriptionId) {
+      console.error('Missing Stripe subscription ID');
+      return internalServerError500Response({
+        message: 'Stripeサブスクリプション情報が見つかりません',
+        code: 'MISSING_STRIPE_INFO',
+      });
+    }
+
+    // 15. Stripeサブスクリプションから customer ID と subscription item ID を取得
+    const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const subscriptionItemId = stripeSubscription.items.data[0]?.id;
+    const stripeCustomerId =
+      typeof stripeSubscription.customer === 'string'
+        ? stripeSubscription.customer
+        : stripeSubscription.customer?.id;
+
+    if (!subscriptionItemId) {
+      console.error('Subscription item not found:', stripeSubscriptionId);
+      return internalServerError500Response({
+        message: 'サブスクリプションアイテムが見つかりません',
+        code: 'SUBSCRIPTION_ITEM_NOT_FOUND',
+      });
+    }
+
+    if (!stripeCustomerId) {
+      console.error('Customer ID not found in Stripe subscription:', stripeSubscriptionId);
+      return internalServerError500Response({
+        message: 'Stripe顧客情報が見つかりません',
+        code: 'MISSING_STRIPE_CUSTOMER',
+      });
+    }
+
+    // 16. return URLを設定（決済フローと同様、フロントエンドのURL）
     const baseUrl = getBaseUrlFromRequest(event);
-    const approvalUrl = `${baseUrl}/billing/parental-plan-change?token=${approvalToken}`;
+    const returnUrl = `${baseUrl}/billing/parental-complete`;
 
-    // 16. DynamoDBに保留リクエストを保存
+    // 17. Customer Portalセッションを作成（Deep Link: subscription_update_confirm）
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: returnUrl,
+      flow_data: {
+        type: 'subscription_update_confirm',
+        after_completion: {
+          type: 'redirect',
+          redirect: {
+            return_url: returnUrl,
+          },
+        },
+        subscription_update_confirm: {
+          subscription: stripeSubscriptionId,
+          items: [
+            {
+              id: subscriptionItemId,
+              price: newPlan.platform_product_id!,
+            },
+          ],
+        },
+      },
+    });
+
+    console.log('Customer Portal session created:', {
+      sessionId: portalSession.id,
+      url: portalSession.url,
+    });
+
+    // 18. DynamoDBに履歴を保存（オプション）
+    const requestId = randomUUID();
     const nowTimestamp = Date.now();
     const expiresAt = nowTimestamp + EXPIRATION_HOURS * 60 * 60 * 1000;
     const ttl = Math.floor(
@@ -837,7 +899,7 @@ export const handler = async (
         TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
         Item: {
           requestId: { S: requestId },
-          approvalToken: { S: approvalToken },
+          portalSessionId: { S: portalSession.id },
           tenantId: { S: tenantId },
           userId: { S: userId },
           subscriptionId: { S: subscriptionId },
@@ -856,12 +918,12 @@ export const handler = async (
 
     console.log('Pending plan change request saved:', {
       requestId,
-      approvalToken,
+      portalSessionId: portalSession.id,
     });
 
-    // 17. 保護者にメール送信
+    // 19. 保護者にメール送信（Stripe Portal URLを直接含める）
     const emailContent = createPlanChangeApprovalEmail(
-      approvalUrl,
+      portalSession.url,
       currentPlan.display_name,
       formattedCurrentPrice,
       newPlan.display_name,
@@ -881,9 +943,10 @@ export const handler = async (
     console.log('Plan change approval email sent:', {
       requestId,
       parentEmail,
+      portalSessionId: portalSession.id,
     });
 
-    // 18. レスポンスを返す
+    // 20. レスポンスを返す
     return ok200Response({
       message: 'プラン変更の承認リンクを保護者のメールアドレスに送信しました',
       requestId,

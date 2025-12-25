@@ -35,6 +35,9 @@ export async function extractEventDetail(
     case 'customer.subscription.deleted':
       return extractFromSubscriptionDeleted(stripeEvent, tenantId);
 
+    case 'customer.subscription.updated':
+      return extractFromSubscriptionUpdated(stripeEvent, tenantId);
+
     case 'charge.refunded':
       return extractFromChargeRefunded(stripeEvent, tenantId);
 
@@ -215,6 +218,62 @@ function extractFromSubscriptionDeleted(
     subscriptionId,
     userId,
     planId,
+    eventData: stripeEvent,
+  };
+}
+
+/**
+ * customer.subscription.updated からの情報抽出
+ * プラン変更（アップグレード/ダウングレード）時に呼び出される
+ */
+function extractFromSubscriptionUpdated(
+  stripeEvent: Stripe.Event,
+  tenantId: string
+): Partial<EventDetail> {
+  const subscription = stripeEvent.data.object as Stripe.Subscription;
+  const previousAttributes = stripeEvent.data
+    .previous_attributes as Partial<Stripe.Subscription> | undefined;
+
+  const subscriptionId = subscription.id;
+
+  if (!subscriptionId) {
+    throw new Error(
+      'subscriptionId is required but not found in customer.subscription.updated event'
+    );
+  }
+
+  const userId = subscription.metadata?.userId || '';
+
+  if (!userId) {
+    console.warn(
+      `userId not found in subscription metadata. subscriptionId: ${subscriptionId}`
+    );
+  }
+
+  // 現在のPrice ID（変更後）
+  const newPriceId =
+    (typeof subscription.items.data[0]?.price === 'string'
+      ? subscription.items.data[0]?.price
+      : subscription.items.data[0]?.price?.id) || '';
+
+  // 以前のPrice ID（変更前）- previous_attributesから取得
+  let previousPriceId = '';
+  if (previousAttributes?.items?.data?.[0]?.price) {
+    const prevPrice = previousAttributes.items.data[0].price;
+    previousPriceId = typeof prevPrice === 'string' ? prevPrice : prevPrice.id;
+  }
+
+  return {
+    platform: 'stripe',
+    tenantId,
+    eventId: stripeEvent.id,
+    originalEventType: stripeEvent.type,
+    subscriptionId,
+    userId,
+    planId: newPriceId,
+    newPriceId,
+    previousPriceId,
+    platformSubscriptionId: subscriptionId,
     eventData: stripeEvent,
   };
 }
