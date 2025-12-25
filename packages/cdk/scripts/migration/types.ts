@@ -57,10 +57,10 @@ export interface V053Bot {
  * develop の Assistant 形式
  */
 export interface AssistantItem {
-  id: string; // userId - partition key
-  createdDate: string; // sort key
+  id: string; // duplicated userId (for backward compatibility)
+  createdDate: string; // sort key (Unix timestamp as string)
   assistantId: string;
-  userId: string;
+  userId: string; // partition key (user#uuid format)
   tenantId: string;
   name: string;
   description: string;

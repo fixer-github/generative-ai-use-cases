@@ -120,7 +120,7 @@ function transformBot(
 
   const userId = bot.PK;
   const botId = bot.BotId || bot.SK.replace('BOT#', '');
-  const now = new Date().toISOString();
+  const now = Date.now().toString();
   const assistantId = `assistant#${randomUUID()}`;
 
   const knowledgeSources = convertKnowledgeSources(
@@ -135,7 +135,7 @@ function transformBot(
   return {
     id: `user#${userId}`,
     createdDate: bot.CreateTime
-      ? new Date(bot.CreateTime).toISOString()
+      ? new Date(bot.CreateTime).getTime().toString()
       : now,
     assistantId,
     userId: `user#${userId}`,
