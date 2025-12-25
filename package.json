@@ -41,7 +41,10 @@
     "docs:build": "mkdocs build",
     "docs:gh-deploy": "mkdocs gh-deploy --",
     "pipeline:dev": "npm -w dagger run dev",
-    "pipeline:ci": "npm -w dagger run ci"
+    "pipeline:ci": "npm -w dagger run ci",
+    "migration:export": "npm -w packages/cdk run migration:export --",
+    "migration:transform": "npm -w packages/cdk run migration:transform --",
+    "migration:import": "npm -w packages/cdk run migration:import --"
   },
   "devDependencies": {
     "@shopify/eslint-plugin": "50.0.0",
