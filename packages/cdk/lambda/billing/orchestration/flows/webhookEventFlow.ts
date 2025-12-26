@@ -36,6 +36,11 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import {
+  DynamoDBClient,
+  QueryCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -57,6 +62,12 @@ import { Plan, UserPlanApplication } from '../../data-access/repositories/types'
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
+
+// DynamoDB client instance
+const dynamoDbClient = new DynamoDBClient({});
+
+// Pending plan changes table name
+const PENDING_PLAN_CHANGES_TABLE_NAME = process.env.PENDING_PLAN_CHANGES_TABLE_NAME || '';
 
 /**
  * デフォルトプランを取得
@@ -623,8 +634,12 @@ async function handleSubscriptionCanceled(
     platform,
     eventData,
     userId: eventUserId,
-    subscriptionId: platformSubscriptionId,
+    subscriptionId,
+    platformSubscriptionId: platformSubId,
   } = input;
+
+  // platformSubscriptionIdを優先し、なければsubscriptionIdを使用
+  const platformSubscriptionId = platformSubId || subscriptionId || '';
 
   console.log('Processing subscription.canceled event', {
     eventId,
@@ -632,6 +647,8 @@ async function handleSubscriptionCanceled(
     platform,
     eventUserId,
     platformSubscriptionId,
+    subscriptionId,
+    platformSubId,
   });
 
   // Note: subscriptionIdとuserIdはEventDetailから直接取得（eventExtractorで抽出済み）
@@ -909,6 +926,7 @@ async function handleSubscriptionUpdated(
     currentPriceId,
     previousPriceId,
     isPlanChange,
+    isParentalControlPlanChange,
   } = extracted;
 
   console.log('Extracted subscription update data', {
@@ -1106,6 +1124,158 @@ async function handleSubscriptionUpdated(
       },
       retryable: true,
       maxRetries: 3,
+    },
+
+    // ステップ4: ペアレンタルコントロール用メタデータをクリーンアップ
+    // プラン変更完了後、誤検出を防ぐためメタデータフラグを削除
+    {
+      stepName: 'cleanup_plan_change_metadata',
+      stepType: 'api_call',
+      targetService: 'Stripe',
+      executeFunction: async () => {
+        // ペアレンタルコントロールによるプラン変更の場合のみクリーンアップ
+        if (!isParentalControlPlanChange) {
+          console.log('Not a parental control plan change, skipping metadata cleanup');
+          return { skipped: true, reason: 'not_parental_control_flow' };
+        }
+
+        console.log('Cleaning up parental control plan change metadata', {
+          tenantId,
+          platformSubscriptionId,
+        });
+
+        const apiKey = await getStripeApiKey(tenantId);
+        const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+        // メタデータのプラン変更関連フラグを削除（空文字列で削除）
+        await stripe.subscriptions.update(platformSubscriptionId, {
+          metadata: {
+            pendingPlanChange: '',
+            originalPriceId: '',
+            targetPriceId: '',
+            parentalControlRequest: '',
+          },
+        });
+
+        console.log('Parental control metadata cleaned up successfully', {
+          platformSubscriptionId,
+        });
+
+        return { success: true };
+      },
+      retryable: true,
+      maxRetries: 2,
+    },
+
+    // ステップ5: ペアレンタルコントロール用の保留リクエストのステータスを更新
+    // フロントエンドがポーリングで承認完了を検知できるようにする
+    {
+      stepName: 'update_pending_request_status',
+      stepType: 'api_call',
+      targetService: 'DynamoDB',
+      executeFunction: async () => {
+        // ペアレンタルコントロールによるプラン変更の場合のみ更新
+        if (!isParentalControlPlanChange) {
+          console.log('Not a parental control plan change, skipping status update');
+          return { skipped: true, reason: 'not_parental_control_flow' };
+        }
+
+        if (!PENDING_PLAN_CHANGES_TABLE_NAME) {
+          console.warn('PENDING_PLAN_CHANGES_TABLE_NAME not configured, skipping status update');
+          return { skipped: true, reason: 'table_not_configured' };
+        }
+
+        console.log('Updating pending plan change request status to approved', {
+          tenantId,
+          platformSubscriptionId,
+          userId,
+        });
+
+        try {
+          // 内部サブスクリプションIDを取得
+          const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
+            tenantId,
+            'subscription',
+            'findByPlatformSubscriptionId',
+            { platformSubscriptionId }
+          );
+
+          if (!subscription) {
+            console.warn('No internal subscription found, cannot update pending request', {
+              platformSubscriptionId,
+            });
+            return { skipped: true, reason: 'no_internal_subscription_found' };
+          }
+
+          // 保留リクエストをsubscriptionIdで検索
+          const queryResult = await dynamoDbClient.send(
+            new QueryCommand({
+              TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
+              IndexName: 'subscriptionId-index',
+              KeyConditionExpression: 'subscriptionId = :subscriptionId',
+              FilterExpression: '#status = :pending',
+              ExpressionAttributeNames: {
+                '#status': 'status',
+              },
+              ExpressionAttributeValues: {
+                ':subscriptionId': { S: subscription.subscription_id },
+                ':pending': { S: 'pending' },
+              },
+            })
+          );
+
+          if (!queryResult.Items || queryResult.Items.length === 0) {
+            console.log('No pending plan change request found for subscription', {
+              subscriptionId: subscription.subscription_id,
+            });
+            return { skipped: true, reason: 'no_pending_request_found' };
+          }
+
+          // 見つかったリクエストのステータスを更新
+          const pendingRequest = queryResult.Items[0];
+          const requestId = pendingRequest.requestId?.S;
+
+          if (!requestId) {
+            console.warn('Pending request found but requestId is missing');
+            return { skipped: true, reason: 'invalid_pending_request' };
+          }
+
+          await dynamoDbClient.send(
+            new UpdateItemCommand({
+              TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
+              Key: {
+                requestId: { S: requestId },
+              },
+              UpdateExpression: 'SET #status = :approved, approvedAt = :approvedAt, effectiveDate = :effectiveDate',
+              ExpressionAttributeNames: {
+                '#status': 'status',
+              },
+              ExpressionAttributeValues: {
+                ':approved': { S: 'approved' },
+                ':approvedAt': { N: Date.now().toString() },
+                ':effectiveDate': { S: new Date().toISOString() },
+              },
+            })
+          );
+
+          console.log('Pending plan change request status updated to approved', {
+            requestId,
+            subscriptionId: subscription.subscription_id,
+          });
+
+          return { success: true, requestId };
+        } catch (error) {
+          // ステータス更新エラーはログに記録するが、処理全体は失敗させない
+          // （プラン変更自体は成功しているため）
+          console.error('Failed to update pending request status, but plan change succeeded', {
+            error: error instanceof Error ? error.message : String(error),
+            platformSubscriptionId,
+          });
+          return { skipped: true, reason: 'update_failed_but_plan_change_succeeded' };
+        }
+      },
+      retryable: true,
+      maxRetries: 2,
     },
   ];
 

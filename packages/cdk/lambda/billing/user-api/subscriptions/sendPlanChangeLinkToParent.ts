@@ -832,6 +832,10 @@ export const handler = async (
     // 15. Stripeサブスクリプションから customer ID と subscription item ID を取得
     const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const subscriptionItemId = stripeSubscription.items.data[0]?.id;
+    const currentStripePriceId =
+      typeof stripeSubscription.items.data[0]?.price === 'string'
+        ? stripeSubscription.items.data[0]?.price
+        : stripeSubscription.items.data[0]?.price?.id;
     const stripeCustomerId =
       typeof stripeSubscription.customer === 'string'
         ? stripeSubscription.customer
@@ -852,6 +856,27 @@ export const handler = async (
         code: 'MISSING_STRIPE_CUSTOMER',
       });
     }
+
+    // 15.5. サブスクリプションのメタデータに変更前のプラン情報を保存
+    // これにより、webhookで previous_attributes.items がない場合でもプラン変更を検出可能
+    // userId を必ず含めることで、webhook処理で子供のユーザーIDを正しく取得できる
+    await stripe.subscriptions.update(stripeSubscriptionId, {
+      metadata: {
+        ...stripeSubscription.metadata,
+        userId, // 子供のユーザーID（Cognito認証から取得）- webhook処理で必須
+        pendingPlanChange: 'true',
+        originalPriceId: currentStripePriceId || '',
+        targetPriceId: newPlan.platform_product_id || '',
+        parentalControlRequest: 'true',
+      },
+    });
+
+    console.log('Subscription metadata updated for plan change tracking:', {
+      subscriptionId: stripeSubscriptionId,
+      userId,
+      originalPriceId: currentStripePriceId,
+      targetPriceId: newPlan.platform_product_id,
+    });
 
     // 16. return URLを設定（決済フローと同様、フロントエンドのURL）
     const baseUrl = getBaseUrlFromRequest(event);

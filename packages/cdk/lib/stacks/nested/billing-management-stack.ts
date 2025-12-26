@@ -162,6 +162,15 @@ export class BillingManagementStack extends NestedStack {
       },
     });
 
+    // GSI for subscription lookup (webhookイベント処理時のサブスクリプションID検索用)
+    pendingPlanChangesTable.addGlobalSecondaryIndex({
+      indexName: 'subscriptionId-index',
+      partitionKey: {
+        name: 'subscriptionId',
+        type: AttributeType.STRING,
+      },
+    });
+
     // ========================================
     // Create Independent REST API for Billing
     // ========================================
@@ -249,6 +258,7 @@ export class BillingManagementStack extends NestedStack {
         cancelSubscription:
           paymentGatewayApi.cancelSubscriptionInternalFunction,
       },
+      pendingPlanChangesTable: pendingPlanChangesTable,
     });
 
     // User Billing API (ユーザ向けエンドポイント)

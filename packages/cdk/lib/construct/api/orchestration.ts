@@ -7,6 +7,7 @@ import { TenantManager } from '../../construct/tenant-manager';
 import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 
 export interface OrchestrationApiProps {
   /**
@@ -59,6 +60,12 @@ export interface OrchestrationApiProps {
     updateSubscription?: NodejsFunction;
     cancelSubscription?: NodejsFunction;
   };
+
+  /**
+   * DynamoDB table for pending plan change requests (parental approval)
+   * Used by webhookEventFlow to update request status after plan change
+   */
+  readonly pendingPlanChangesTable?: ITable;
 }
 
 /**
@@ -214,9 +221,16 @@ class OrchestrationApi extends Construct {
           EVENT_BUS_NAME: eventBus.eventBusName,
           // Purchase flow function for parental control activation
           PURCHASE_FLOW_FUNCTION_NAME: purchaseFlowFunction.functionName,
+          // Pending plan changes table for parental control status update
+          PENDING_PLAN_CHANGES_TABLE_NAME: props.pendingPlanChangesTable?.tableName || '',
         },
       }
     );
+
+    // Grant read/write permissions to pending plan changes table
+    if (props.pendingPlanChangesTable) {
+      props.pendingPlanChangesTable.grantReadWriteData(webhookEventFlowFunction);
+    }
 
     // ========================================
     // IAM Permissions (added to backgroundJobRole)
