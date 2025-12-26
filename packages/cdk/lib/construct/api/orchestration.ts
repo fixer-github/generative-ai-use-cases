@@ -228,8 +228,31 @@ class OrchestrationApi extends Construct {
     );
 
     // Grant read/write permissions to pending plan changes table
+    // NOTE: Using explicit policy with pattern-based ARN instead of grantReadWriteData()
+    // to avoid circular dependency between BackgroundJobRoleDefaultPolicy (parent stack),
+    // BillingManagementStack (nested), and WebStack (nested). The grantReadWriteData()
+    // method would add a policy referencing the table's ARN from the nested stack,
+    // creating a circular reference since webhookEventFlowFunction uses backgroundJobRole.
     if (props.pendingPlanChangesTable) {
-      props.pendingPlanChangesTable.grantReadWriteData(webhookEventFlowFunction);
+      backgroundJobRole.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:PutItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:DeleteItem',
+            'dynamodb:Query',
+            'dynamodb:Scan',
+            'dynamodb:BatchGetItem',
+            'dynamodb:BatchWriteItem',
+          ],
+          resources: [
+            `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`,
+            `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes/index/*`,
+          ],
+        })
+      );
     }
 
     // ========================================
