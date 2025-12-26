@@ -915,6 +915,7 @@ async function handleSubscriptionUpdated(
     currentPriceId,
     previousPriceId,
     isPlanChange,
+    isParentalControlPlanChange,
   } = extracted;
 
   console.log('Extracted subscription update data', {
@@ -1112,6 +1113,47 @@ async function handleSubscriptionUpdated(
       },
       retryable: true,
       maxRetries: 3,
+    },
+
+    // ステップ4: ペアレンタルコントロール用メタデータをクリーンアップ
+    // プラン変更完了後、誤検出を防ぐためメタデータフラグを削除
+    {
+      stepName: 'cleanup_plan_change_metadata',
+      stepType: 'api_call',
+      targetService: 'Stripe',
+      executeFunction: async () => {
+        // ペアレンタルコントロールによるプラン変更の場合のみクリーンアップ
+        if (!isParentalControlPlanChange) {
+          console.log('Not a parental control plan change, skipping metadata cleanup');
+          return { skipped: true, reason: 'not_parental_control_flow' };
+        }
+
+        console.log('Cleaning up parental control plan change metadata', {
+          tenantId,
+          platformSubscriptionId,
+        });
+
+        const apiKey = await getStripeApiKey(tenantId);
+        const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+        // メタデータのプラン変更関連フラグを削除（空文字列で削除）
+        await stripe.subscriptions.update(platformSubscriptionId, {
+          metadata: {
+            pendingPlanChange: '',
+            originalPriceId: '',
+            targetPriceId: '',
+            parentalControlRequest: '',
+          },
+        });
+
+        console.log('Parental control metadata cleaned up successfully', {
+          platformSubscriptionId,
+        });
+
+        return { success: true };
+      },
+      retryable: true,
+      maxRetries: 2,
     },
   ];
 

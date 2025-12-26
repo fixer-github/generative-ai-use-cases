@@ -241,6 +241,7 @@ function extractFromSubscriptionUpdated(
   const subscription = stripeEvent.data.object as Stripe.Subscription;
   // previous_attributes には変更前の値が含まれる
   const previousAttributes = (stripeEvent.data as any).previous_attributes ?? {};
+  const metadata = subscription.metadata ?? {};
 
   const subscriptionId = subscription.id;
 
@@ -250,7 +251,7 @@ function extractFromSubscriptionUpdated(
     );
   }
 
-  const userId = subscription.metadata?.userId || '';
+  const userId = metadata.userId || '';
 
   if (!userId) {
     console.warn(
@@ -272,8 +273,27 @@ function extractFromSubscriptionUpdated(
     previousPriceId = typeof prevPrice === 'string' ? prevPrice : prevPrice?.id || '';
   }
 
-  // プラン変更があったかどうかを判定
-  const isPlanChange = previousPriceId && previousPriceId !== currentPriceId;
+  // Method 1: 標準的なプラン変更検出（previous_attributesから）
+  let isPlanChange = !!(previousPriceId && previousPriceId !== currentPriceId);
+
+  // Method 2: ペアレンタルコントロールによるプラン変更検出（メタデータから）
+  // Customer Portalの subscription_update_confirm では previous_attributes.items が
+  // 含まれない場合があるため、メタデータでフォールバック検出
+  const isParentalControlPlanChange =
+    metadata.pendingPlanChange === 'true' &&
+    metadata.targetPriceId &&
+    currentPriceId === metadata.targetPriceId;
+
+  if (!isPlanChange && isParentalControlPlanChange) {
+    isPlanChange = true;
+    previousPriceId = metadata.originalPriceId || '';
+    console.log('Plan change detected via metadata fallback (parental control)', {
+      subscriptionId,
+      originalPriceId: metadata.originalPriceId,
+      targetPriceId: metadata.targetPriceId,
+      currentPriceId,
+    });
+  }
 
   console.log('Subscription updated event details', {
     subscriptionId,
@@ -281,6 +301,7 @@ function extractFromSubscriptionUpdated(
     currentPriceId,
     previousPriceId,
     isPlanChange,
+    isParentalControlPlanChange,
     previousAttributesKeys: Object.keys(previousAttributes),
   });
 
@@ -303,6 +324,7 @@ function extractFromSubscriptionUpdated(
         currentPriceId,
         previousPriceId,
         isPlanChange,
+        isParentalControlPlanChange,
         status: subscription.status,
       },
     },

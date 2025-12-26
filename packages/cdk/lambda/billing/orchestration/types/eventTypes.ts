@@ -112,6 +112,7 @@ export interface StripeEventData {
     currentPriceId?: string;
     previousPriceId?: string;
     isPlanChange?: boolean;
+    isParentalControlPlanChange?: boolean;
     status?: string;
     // Checkoutベースのプラン変更用フィールド
     newPlanId?: string;

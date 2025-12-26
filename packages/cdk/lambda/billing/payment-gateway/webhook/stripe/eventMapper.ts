@@ -36,16 +36,65 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   'invoice.paid': 'payment.succeeded', // 補助的なマッピング
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
-  'customer.subscription.updated': 'subscription.updated',
   'charge.refunded': 'payment.refunded',
   // customer.subscription.updatedは動的にマッピング（プラン変更時のみ処理）
   'customer.subscription.updated': (event: Stripe.Event): BusinessEventType | null => {
-    // previous_attributes に items が含まれている場合のみプラン変更として処理
     const previousAttributes = event.data.previous_attributes as Record<string, unknown> | undefined;
+
+    console.log('Processing customer.subscription.updated event', {
+      eventId: event.id,
+      previousAttributesKeys: previousAttributes ? Object.keys(previousAttributes) : [],
+      hasItems: previousAttributes ? 'items' in previousAttributes : false,
+    });
+
+    // Method 1: previous_attributes に items が含まれている場合（標準的なプラン変更）
     if (previousAttributes && 'items' in previousAttributes) {
+      console.log('Plan change detected via previous_attributes.items (standard flow)');
       return 'subscription.updated';
     }
-    // items の変更がない場合はスキップ（他の属性変更は無視）
+
+    // Method 2: ペアレンタルコントロールによるプラン変更検出
+    // Customer Portalの subscription_update_confirm では previous_attributes.items が
+    // 含まれない場合があるため、メタデータで検出
+    if (isSubscription(event.data.object)) {
+      const subscription = event.data.object;
+      const metadata = subscription.metadata;
+
+      const currentPriceId =
+        typeof subscription.items.data[0]?.price === 'string'
+          ? subscription.items.data[0]?.price
+          : subscription.items.data[0]?.price?.id;
+
+      console.log('Checking parental control metadata', {
+        subscriptionId: subscription.id,
+        pendingPlanChange: metadata?.pendingPlanChange,
+        originalPriceId: metadata?.originalPriceId,
+        targetPriceId: metadata?.targetPriceId,
+        currentPriceId,
+        metadataKeys: metadata ? Object.keys(metadata) : [],
+      });
+
+      // pendingPlanChange フラグがあり、現在のプライスがtargetPriceIdと一致する場合
+      if (metadata?.pendingPlanChange === 'true' && metadata?.targetPriceId) {
+        if (currentPriceId === metadata.targetPriceId) {
+          console.log('Plan change detected via metadata (parental control flow)', {
+            subscriptionId: subscription.id,
+            originalPriceId: metadata.originalPriceId,
+            targetPriceId: metadata.targetPriceId,
+            currentPriceId,
+          });
+          return 'subscription.updated';
+        } else {
+          console.log('Price mismatch - currentPriceId does not match targetPriceId', {
+            currentPriceId,
+            targetPriceId: metadata.targetPriceId,
+          });
+        }
+      }
+    }
+
+    // items の変更がなく、メタデータによる検出もできない場合はスキップ
+    console.log('No plan change detected, skipping event');
     return null;
   },
   // checkout.session.completedは動的にマッピング
