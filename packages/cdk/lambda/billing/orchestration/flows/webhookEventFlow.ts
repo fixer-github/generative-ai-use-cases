@@ -1169,26 +1169,23 @@ async function handleSubscriptionUpdated(
 
     // ステップ5: ペアレンタルコントロール用の保留リクエストのステータスを更新
     // フロントエンドがポーリングで承認完了を検知できるようにする
+    // NOTE: isParentalControlPlanChange フラグに依存せず、常に保留リクエストを検索・更新する
+    // これにより、メタデータ条件が完璧に一致しない場合でもステータス更新が行われる
     {
       stepName: 'update_pending_request_status',
       stepType: 'api_call',
       targetService: 'DynamoDB',
       executeFunction: async () => {
-        // ペアレンタルコントロールによるプラン変更の場合のみ更新
-        if (!isParentalControlPlanChange) {
-          console.log('Not a parental control plan change, skipping status update');
-          return { skipped: true, reason: 'not_parental_control_flow' };
-        }
-
         if (!PENDING_PLAN_CHANGES_TABLE_NAME) {
           console.warn('PENDING_PLAN_CHANGES_TABLE_NAME not configured, skipping status update');
           return { skipped: true, reason: 'table_not_configured' };
         }
 
-        console.log('Updating pending plan change request status to approved', {
+        console.log('Checking for pending plan change request to update status', {
           tenantId,
           platformSubscriptionId,
           userId,
+          isParentalControlPlanChange, // ログ用に残す
         });
 
         try {
