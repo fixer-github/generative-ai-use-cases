@@ -1,0 +1,118 @@
+/**
+ * プラン変更履歴取得API
+ * GET /admin/billing/plans/{plan_id}/history
+ *
+ * 指定されたプランに対して行われた変更の履歴を取得します。
+ */
+
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import {
+  verifyAdminAccess,
+  isAdminContext,
+} from '../../../utils/adminAuth';
+import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
+import { Plan } from '../../data-access/repositories/types';
+import {
+  ok200Response,
+  badRequest400Response,
+  notFound404Response,
+  internalServerError500Response,
+} from '../../../utils/apiResponse';
+
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  console.log('Event:', JSON.stringify(event, null, 2));
+
+  try {
+    // 管理者権限の検証
+    const adminResult = await verifyAdminAccess(event);
+    if (!isAdminContext(adminResult)) {
+      return adminResult;
+    }
+
+    // パスパラメータからplan_idを取得
+    const planId = event.pathParameters?.plan_id;
+    if (!planId) {
+      return badRequest400Response({
+        message: 'プランIDが指定されていません',
+        code: 'MISSING_PARAMETER',
+        details: {
+          field: 'plan_id',
+          reason: 'パスパラメータにplan_idを指定してください',
+        },
+      });
+    }
+
+    // クエリパラメータの取得
+    const page = Math.max(
+      1,
+      parseInt(event.queryStringParameters?.page || '1', 10)
+    );
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(event.queryStringParameters?.limit || '20', 10))
+    );
+
+    // プランの存在確認（データアクセス層Lambda関数を呼び出し）
+    const plan = await invokeDataAccessFunction<Plan | null>(
+      event,
+      'plan',
+      'findById',
+      { id: planId }
+    );
+    if (!plan) {
+      return notFound404Response({
+        message: '指定されたプランが見つかりません',
+        code: 'PLAN_NOT_FOUND',
+        details: {
+          plan_id: planId,
+        },
+      });
+    }
+
+    // TODO: プラン変更履歴テーブルから履歴を取得
+    // 現在は仮のデータを返す
+    const history = [
+      {
+        change_id: `hist_${Date.now()}`,
+        changed_at: new Date(plan.created_at).toISOString(),
+        changed_by: 'system',
+        change_type: 'PLAN_CREATED',
+        change_summary: 'プランを作成',
+        details: null,
+      },
+    ];
+
+    // ページネーション処理
+    const totalCount = history.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const offset = (page - 1) * limit;
+    const paginatedHistory = history.slice(offset, offset + limit);
+
+    // レスポンスの構築
+    const response = {
+      plan_id: planId,
+      history: paginatedHistory,
+      pagination: {
+        current_page: page,
+        total_pages: totalPages,
+        total_count: totalCount,
+        limit,
+        has_next: page < totalPages,
+        has_previous: page > 1,
+      },
+    };
+
+    return ok200Response(response);
+  } catch (error) {
+    console.error('Error getting plan history:', error);
+    return internalServerError500Response({
+      message: 'サーバー内部エラーが発生しました',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+  }
+};

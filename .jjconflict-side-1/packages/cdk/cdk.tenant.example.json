@@ -1,0 +1,76 @@
+{
+  "context": {
+    "tenantId": "YOUR_TENANT_ID",
+    "environment": "dev",
+    "tenantRegion": "us-east-1",
+    "controlPlane": {
+      "account": "111111111111",
+      "region": "us-east-1",
+      "registrationApiEndpoint": "https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/prod/tenant-registration",
+      "registrationApiKey": "YOUR-API-KEY-HERE",
+      "userPoolId": "us-east-1_EXAMPLE123",
+      "identityPoolId": "us-east-1:12345678-1234-1234-1234-123456789012",
+      "userPoolClientId": "1234567890abcdefghijklmnop",
+      "controlPlaneLambdaRoleArn": "arn:aws:iam::111111111111:role/YOUR_ENV-billing-background-job-role",
+      "tenantsTableName": "Tenants-dev",
+      "openSearchIndexName": "assistant-docs"
+    },
+    "enableAutoDelete": false,
+    "pptxEnabled": false,
+    "openSearchConfig": {
+      "capacity": {
+        "dataNodes": 2,
+        "dataNodeInstanceType": "t3.small.search",
+        "masterNodes": 1,
+        "masterNodeInstanceType": "t3.small.search"
+      },
+      "ebsVolumeSize": 100,
+      "ebsVolumeType": "GP3",
+      "availabilityZoneCount": 1,
+      "automatedSnapshotStartHour": 0
+    },
+    "networkConfig": {
+      "vpcCidr": "10.0.0.0/16",
+      "maxAzs": 2,
+      "natGateways": 1
+    },
+    "ipAccessControl": {
+      "enabled": false,
+      "allowedIpV4AddressRanges": ["203.0.113.0/24", "198.51.100.50/32"],
+      "allowedIpV6AddressRanges": ["2001:db8::/32"]
+    },
+    "openFgaConfig": {
+      "rds": {
+        "instanceClass": "T4G",
+        "instanceSize": "MICRO",
+        "allocatedStorage": 20,
+        "maxAllocatedStorage": 100,
+        "storageType": "GP3",
+        "backupRetentionDays": 7,
+        "preferredBackupWindow": "03:00-04:00",
+        "preferredMaintenanceWindow": "sun:04:00-sun:05:00",
+        "enablePerformanceInsights": true,
+        "deletionProtection": false
+      },
+      "ecs": {
+        "cpu": 256,
+        "memoryLimitMiB": 512,
+        "minCapacity": 1,
+        "maxCapacity": 10,
+        "cpuTargetUtilizationPercent": 70,
+        "memoryTargetUtilizationPercent": null,
+        "scaleOutCooldownSeconds": null,
+        "scaleInCooldownSeconds": null,
+        "scheduledScaling": [],
+        "imageVersion": "v1.8.0"
+      },
+      "logging": {
+        "retentionDays": 7
+      },
+      "apiGateway": {
+        "loggingLevel": "INFO",
+        "dataTraceEnabled": false
+      }
+    }
+  }
+}

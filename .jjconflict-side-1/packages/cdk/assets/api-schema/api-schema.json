@@ -1,0 +1,52 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Research Assisstant Agent API",
+    "version": "1.0.0",
+    "description": "API to search information from internet."
+  },
+  "paths": {
+    "/search": {
+      "get": {
+        "summary": "Get information from search engine",
+        "description": "Search for information from the keyword. This can be used for tasks such as research, research, teach about X, summarize, etc. Guess the search keyword from the conversation and execute multiple times.",
+        "operationId": "Search",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keyword": {
+                    "type": "string",
+                    "description": "Search keyword"
+                  }
+                },
+                "required": ["keyword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "string",
+                      "description": "Search results"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

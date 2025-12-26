@@ -1,0 +1,228 @@
+import {
+  Model,
+  RecordedMessage,
+  ToBeRecordedMessage,
+  UnrecordedMessage,
+  Metadata,
+} from './message';
+import { Chat } from './chat';
+import {
+  QueryCommandOutput,
+  RetrieveCommandOutput,
+} from '@aws-sdk/client-kendra';
+import { StopReason } from '@aws-sdk/client-bedrock-runtime';
+import {
+  FlowInputContent,
+  RetrieveCommandOutput as RetrieveCommandOutputKnowledgeBase,
+} from '@aws-sdk/client-bedrock-agent-runtime';
+import { GenerateImageParams } from './image';
+import { GenerateVideoParams, VideoJob } from './video';
+import { ShareId, UserIdAndChatId } from './share';
+
+/**
+ * エラー理由の型定義
+ * - no_permission: 権限がない
+ * - quota_exceeded: 利用回数制限超過
+ * - media_limit_exceeded: メディア入力制限超過
+ * - invalid_token: トークンが無効
+ */
+export type StreamingErrorReason =
+  | 'no_permission'
+  | 'quota_exceeded'
+  | 'media_limit_exceeded'
+  | 'invalid_token';
+
+export type StreamingChunk = {
+  text: string;
+  trace?: string;
+  metadata?: Metadata;
+  stopReason?: StopReason | 'error';
+  errorReason?: StreamingErrorReason;
+  sessionId?: string;
+  usage?: {
+    daily?: { current: number; limit: number; remaining: number };
+    monthly?: { current: number; limit: number; remaining: number };
+  };
+};
+
+export type Pagination<T> = {
+  data: T[];
+  lastEvaluatedKey?: string;
+};
+
+export type CreateChatResponse = {
+  chat: Chat;
+};
+
+export type CreateMessagesRequest = {
+  messages: ToBeRecordedMessage[];
+};
+
+export type CreateMessagesResponse = {
+  messages: RecordedMessage[];
+};
+
+export type ListChatsResponse = Pagination<Chat>;
+
+export type FindChatByIdResponse = {
+  chat: Chat;
+};
+
+export type ListMessagesResponse = {
+  messages: RecordedMessage[];
+};
+
+export type UpdateFeedbackRequest = {
+  createdDate: string;
+  feedback: string;
+  reasons?: string[];
+  detailedFeedback?: string;
+};
+
+export type UpdateFeedbackResponse = {
+  message: RecordedMessage;
+};
+
+export type UpdateTitleRequest = {
+  title: string;
+};
+
+export type UpdateTitleResponse = {
+  chat: Chat;
+};
+
+export type PredictRequest = {
+  model?: Model;
+  idToken?: string;
+  messages: UnrecordedMessage[];
+  id: string;
+};
+
+export type PredictResponse = string;
+
+export type FlowRequest = {
+  flowIdentifier: string;
+  flowAliasIdentifier: string;
+  document: FlowInputContent.DocumentMember['document'];
+};
+
+export type OptimizePromptRequest = {
+  prompt: string;
+  targetModelId: string;
+};
+
+export type PredictTitleRequest = {
+  model: Model;
+  chat: Chat;
+  prompt: string;
+  id: string;
+};
+
+export type PredictTitleResponse = string;
+
+export type QueryKendraRequest = {
+  query: string;
+};
+
+export type QueryKendraResponse = QueryCommandOutput;
+
+export type RetrieveKendraRequest = {
+  query: string;
+};
+
+export type RetrieveKendraResponse = RetrieveCommandOutput;
+
+export type RetrieveKnowledgeBaseRequest = {
+  query: string;
+};
+
+export type RetrieveKnowledgeBaseResponse = RetrieveCommandOutputKnowledgeBase;
+
+export type S3Type = 'default' | 'knowledgeBase';
+
+export type GetFileDownloadSignedUrlRequest = {
+  bucketName: string;
+  filePrefix: string;
+  region?: string;
+  contentType?: string;
+  s3Type?: S3Type;
+};
+
+export type GetFileDownloadSignedUrlResponse = string;
+
+export type GenerateImageRequest = {
+  model?: Model;
+  params: GenerateImageParams;
+};
+export type GenerateImageResponse = string;
+
+export type GenerateVideoRequest = {
+  model?: Model;
+  params: GenerateVideoParams;
+};
+
+export type GenerateVideoResponse = VideoJob;
+
+export type ListVideoJobsResponse = Pagination<VideoJob>;
+
+export type DeleteFileRequest = {
+  fileName: string;
+};
+export type DeleteFileResponse = null;
+
+export type StartTranscriptionRequest = {
+  audioUrl: string;
+  speakerLabel: boolean;
+  maxSpeakers: number;
+  languageCode?: string;
+};
+
+export type StartTranscriptionResponse = {
+  jobName: string;
+};
+
+export type Transcript = {
+  speakerLabel?: string;
+  transcript: string;
+};
+
+export type GetTranscriptionResponse = {
+  status: string;
+  languageCode: string;
+  transcripts?: Transcript[];
+};
+
+export type UploadAudioRequest = {
+  file: File;
+};
+
+export type WebTextRequest = {
+  url: string;
+};
+
+export type WebTextResponse = {
+  text: string;
+};
+
+export type CreateShareIdResponse = {
+  shareId: ShareId;
+  userIdAndChatId: UserIdAndChatId;
+};
+
+export type FindShareIdResponse = ShareId;
+
+export type GetSharedChatResponse = {
+  chat: Chat;
+  messages: RecordedMessage[];
+};
+
+export type GetFileUploadSignedUrlRequest = {
+  filename?: string;
+  mediaFormat: string;
+};
+
+export type GetFileUploadSignedUrlResponse = string;
+
+export type UploadFileRequest = {
+  file: File;
+};
