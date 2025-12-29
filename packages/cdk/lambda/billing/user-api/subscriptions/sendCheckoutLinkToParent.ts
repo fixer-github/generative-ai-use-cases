@@ -452,6 +452,16 @@ export const handler = async (
         childEmail: childEmail || '', // 子供のメールをメタデータに保存
         isParentalControl: 'true', // ペアレンタルコントロールフラグ
       },
+      // サブスクリプションにもmetadataを設定（領収書メールでplanIdを取得するため）
+      subscription_data: {
+        metadata: {
+          userId,
+          tenantId,
+          planId,
+          childEmail: childEmail || '',
+          isParentalControl: 'true',
+        },
+      },
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       payment_method_types: ['card'],

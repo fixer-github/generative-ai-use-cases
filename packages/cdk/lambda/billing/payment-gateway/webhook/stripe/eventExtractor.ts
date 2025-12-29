@@ -91,7 +91,8 @@ function extractFromInvoicePaymentSucceeded(
     invoice.lines?.data?.[0]?.price?.id ||
     '';
 
-  // expirationDateの抽出（Invoice Lineのperiod.endを使用）
+  // periodStart/periodEndの抽出（Invoice Lineのperiodを使用）
+  const periodStart = invoice.lines?.data?.[0]?.period?.start;
   const periodEnd = invoice.lines?.data?.[0]?.period?.end;
   const expirationDate = periodEnd
     ? new Date(periodEnd * 1000).toISOString()
@@ -117,6 +118,8 @@ function extractFromInvoicePaymentSucceeded(
     userId,
     planId,
     expirationDate,
+    periodStart,
+    periodEnd,
     amount,
     currency,
     platformPaymentId: platformPaymentId as string,

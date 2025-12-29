@@ -54,6 +54,14 @@ import {
 import { PlatformType, PurchaseFlowInput, PurchaseFlowOutput } from '../types/flowTypes';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
 import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
+import {
+  sendPaymentReceipt,
+  buildReceiptDataFromInvoice,
+  getReceiptRecipient,
+  getUserEmail,
+  ReceiptData,
+} from '../services/receiptEmailService';
+import { IdempotencyRepository } from '../repositories/idempotencyRepository';
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
@@ -380,9 +388,12 @@ async function handlePaymentSucceeded(
   console.log('Processing payment.succeeded event', { eventId, tenantId, platform });
 
   // イベントデータから必要な情報を抽出
-  const subscriptionId = extractSubscriptionId(platform, eventData);
-  const newExpiresAt = extractExpirationDate(platform, eventData);
-  const userId = extractUserId(platform, eventData);
+  // subscriptionIdはプラットフォームのサブスクリプションID（Stripeのsub_xxx形式）
+  const platformSubscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const userId = input.userId || extractUserId(platform, eventData);
+
+  // periodStart/periodEndの抽出（Stripeから取得）
+  const { periodStart, periodEnd } = extractPeriodDates(platform, eventData);
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -396,24 +407,56 @@ async function handlePaymentSucceeded(
       targetService: 'SubscriptionManagement',
       targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
       executeFunction: async () => {
+        // プラットフォームサブスクリプションIDから内部サブスクリプションIDを取得
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+          user_id: string;
+        } | null>(
+          tenantId,
+          'subscription',
+          'findByPlatformSubscriptionId',
+          { platformSubscriptionId }
+        );
+
+        if (!subscription) {
+          console.warn('No internal subscription found for platform subscription', {
+            platformSubscriptionId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_found',
+          };
+        }
+
+        const internalSubscriptionId = subscription.subscription_id;
+
         console.log('Extending subscription period', {
           tenantId,
-          subscriptionId,
-          newExpiresAt,
+          platformSubscriptionId,
+          internalSubscriptionId,
+          periodStart,
+          periodEnd,
         });
 
         const params: ExtendSubscriptionPeriodParams = {
           tenantId,
-          subscriptionId,
-          newExpiresAt,
+          subscriptionId: internalSubscriptionId,
+          newPeriodStart: periodStart,
+          newPeriodEnd: periodEnd,
         };
 
         const result = await subscriptionClient.extendSubscriptionPeriod(params);
 
         console.log('Subscription period extended successfully', {
-          subscriptionId,
+          internalSubscriptionId,
           success: result.success,
         });
+
+        // 次のステップで使用するために保存
+        previousStepResults['internal_subscription'] = {
+          subscriptionId: internalSubscriptionId,
+          userId: subscription.user_id,
+        };
 
         return result;
       },
@@ -428,23 +471,39 @@ async function handlePaymentSucceeded(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
+        // 前のステップから内部サブスクリプションIDを取得
+        const internalSubscription = previousStepResults['internal_subscription'] as {
+          subscriptionId: string;
+          userId: string;
+        } | undefined;
+
+        if (!internalSubscription) {
+          console.warn('No internal subscription from previous step, skipping plan application extension');
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_from_previous_step',
+          };
+        }
+
+        const internalSubscriptionId = internalSubscription.subscriptionId;
+
         console.log('Checking plan application status', {
           tenantId,
           userId,
-          subscriptionId,
+          internalSubscriptionId,
         });
 
-        // サブスクリプションIDをapplication_source_idとして、プラン適用を検索
+        // 内部サブスクリプションIDをapplication_source_idとして、プラン適用を検索
         const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
           tenantId,
           'user-plan-application',
           'findByApplicationSourceId',
-          { sourceId: subscriptionId }
+          { sourceId: internalSubscriptionId }
         );
 
         if (!planApplication) {
           console.warn('No plan application found for subscription, skipping', {
-            subscriptionId,
+            internalSubscriptionId,
           });
           return {
             skipped: true,
@@ -488,6 +547,127 @@ async function handlePaymentSucceeded(
     // ステップ3: 支払い履歴記録（サブスク管理内で実施）
     // 支払い履歴の記録はSubscriptionManagementClient.extendSubscriptionPeriod()内で
     // 自動的に実施される想定のため、統括責務では明示的なステップとしては実装しない
+
+    // ステップ4: 領収書メール送信（非ブロッキング）
+    {
+      stepName: 'send_payment_receipt',
+      stepType: 'api_call',
+      targetService: 'EmailService',
+      executeFunction: async () => {
+        try {
+          console.log('Sending payment receipt email', {
+            tenantId,
+            userId,
+            platformSubscriptionId,
+          });
+
+          // Stripe APIキーを取得
+          const apiKey = await getStripeApiKey(tenantId);
+          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+          // invoiceIdを抽出（StripeのeventDataから）
+          // eventDataはStripeの生イベントオブジェクト（stripeEvent）
+          // invoice.payment_succeededの場合、data.objectがinvoiceオブジェクト
+          const stripeData = eventData as StripeEventData;
+          const invoiceObject = (stripeData as any).data?.object;
+          const rawInvoiceId = invoiceObject?.id;
+
+          if (!rawInvoiceId || typeof rawInvoiceId !== 'string') {
+            console.warn('Invoice ID not found in event data, skipping receipt', {
+              eventId,
+              hasDataObject: !!invoiceObject,
+            });
+            return { success: true, emailSent: false, reason: 'no_invoice_id' };
+          }
+
+          const invoiceId: string = rawInvoiceId;
+
+          // インボイス番号を取得（重複チェック用）
+          const invoiceNumber = invoiceObject?.number as string | undefined;
+          if (!invoiceNumber) {
+            console.warn('Invoice number not found in event data, skipping deduplication', {
+              eventId,
+              invoiceId,
+            });
+          }
+
+          // 冪等性チェック: 同一インボイスへの重複送信を防止
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+
+            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            if (alreadySent) {
+              console.log('Receipt already sent for this invoice, skipping', {
+                invoiceNumber,
+                idempotencyKey,
+              });
+              return { success: true, emailSent: false, reason: 'already_sent' };
+            }
+          }
+
+          // platformSubscriptionIdは関数スコープで既に定義済み
+          if (!platformSubscriptionId) {
+            console.warn('Platform subscription ID not found, skipping receipt', { eventId });
+            return { success: true, emailSent: false, reason: 'no_subscription_id' };
+          }
+
+          // 領収書データを構築
+          const receiptDataBase = await buildReceiptDataFromInvoice(
+            stripe,
+            invoiceId,
+            tenantId,
+            stripeData._extracted?.planId
+          );
+
+          // 送信先を決定（ペアレンタルコントロール対応）
+          const userEmail = userId ? await getUserEmail(tenantId, userId) : null;
+          const recipient = await getReceiptRecipient(
+            stripe,
+            platformSubscriptionId,
+            userEmail || undefined
+          );
+
+          const receiptData: ReceiptData = {
+            ...receiptDataBase,
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            childEmail: recipient.childEmail,
+          };
+
+          // 領収書メール送信
+          await sendPaymentReceipt(receiptData);
+
+          // 送信完了を記録
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            await idempotencyRepo.markReceiptSent(idempotencyKey);
+          }
+
+          console.log('Payment receipt email sent successfully', {
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            invoiceNumber,
+          });
+
+          return { success: true, emailSent: true };
+        } catch (error) {
+          // 領収書送信失敗はフローをブロックしない
+          console.error('Failed to send payment receipt email', {
+            eventId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return {
+            success: true,
+            emailSent: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+      retryable: false,
+      maxRetries: 0,
+    },
   ];
 
   // フロー実行
@@ -524,8 +704,9 @@ async function handlePaymentFailed(
   console.log('Processing payment.failed event', { eventId, tenantId, platform });
 
   // イベントデータから必要な情報を抽出
-  const subscriptionId = extractSubscriptionId(platform, eventData);
-  const userId = extractUserId(platform, eventData);
+  // subscriptionIdはEventDetailPayloadのトップレベルにある（eventExtractorで抽出済み）
+  const subscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const userId = input.userId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -1155,6 +1336,112 @@ async function handleSubscriptionUpdated(
       retryable: true,
       maxRetries: 2,
     },
+
+    // ステップ5: プラン変更の領収書メール送信（非ブロッキング）
+    {
+      stepName: 'send_plan_change_receipt',
+      stepType: 'api_call',
+      targetService: 'EmailService',
+      executeFunction: async () => {
+        try {
+          console.log('Sending plan change receipt email', {
+            tenantId,
+            userId,
+            platformSubscriptionId,
+            currentPriceId,
+          });
+
+          // Stripe APIキーを取得
+          const apiKey = await getStripeApiKey(tenantId);
+          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+          // 最新のインボイスを取得
+          const invoices = await stripe.invoices.list({
+            subscription: platformSubscriptionId,
+            limit: 1,
+          });
+
+          if (invoices.data.length === 0) {
+            console.warn('No invoice found for plan change, skipping receipt', {
+              platformSubscriptionId,
+            });
+            return { success: true, emailSent: false, reason: 'no_invoice' };
+          }
+
+          const invoice = invoices.data[0];
+
+          // 冪等性チェック: 同一インボイスへの重複送信を防止
+          const invoiceNumber = invoice.number;
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+
+            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            if (alreadySent) {
+              console.log('Receipt already sent for this invoice, skipping', {
+                invoiceNumber,
+                idempotencyKey,
+              });
+              return { success: true, emailSent: false, reason: 'already_sent' };
+            }
+          }
+
+          // 領収書データを構築
+          const receiptDataBase = await buildReceiptDataFromInvoice(
+            stripe,
+            invoice.id,
+            tenantId,
+            currentPriceId as string
+          );
+
+          // 送信先を決定（ペアレンタルコントロール対応）
+          const userEmail = userId ? await getUserEmail(tenantId, userId as string) : null;
+          const recipient = await getReceiptRecipient(
+            stripe,
+            platformSubscriptionId,
+            userEmail || undefined
+          );
+
+          const receiptData: ReceiptData = {
+            ...receiptDataBase,
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            childEmail: recipient.childEmail,
+          };
+
+          // 領収書メール送信
+          await sendPaymentReceipt(receiptData);
+
+          // 送信完了を記録
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            await idempotencyRepo.markReceiptSent(idempotencyKey);
+          }
+
+          console.log('Plan change receipt email sent successfully', {
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            invoiceNumber,
+          });
+
+          return { success: true, emailSent: true };
+        } catch (error) {
+          // 領収書送信失敗はフローをブロックしない
+          console.error('Failed to send plan change receipt email', {
+            eventId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return {
+            success: true,
+            emailSent: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+      retryable: false,
+      maxRetries: 0,
+    },
   ];
 
   // フロー実行
@@ -1194,8 +1481,9 @@ async function handleRefundCreated(
   console.log('Processing refund.created event', { eventId, tenantId, platform });
 
   // イベントデータから必要な情報を抽出
-  const subscriptionId = extractSubscriptionId(platform, eventData);
-  const userId = extractUserId(platform, eventData);
+  // subscriptionIdはEventDetailPayloadのトップレベルにある（eventExtractorで抽出済み）
+  const subscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const userId = input.userId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -1502,6 +1790,50 @@ function extractExpirationDate(
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 30);
   return defaultDate.toISOString();
+}
+
+/**
+ * イベントデータから請求期間（periodStart/periodEnd）を抽出
+ *
+ * @param platform 決済プラットフォーム
+ * @param eventData イベントデータ
+ * @returns { periodStart, periodEnd } ISO 8601形式
+ */
+function extractPeriodDates(
+  platform: PlatformType,
+  eventData: Record<string, unknown>
+): { periodStart: string; periodEnd: string } {
+  const now = new Date();
+  const defaultEnd = new Date(now);
+  defaultEnd.setDate(defaultEnd.getDate() + 30);
+
+  if (platform === 'stripe') {
+    const stripeData = eventData as StripeEventData;
+
+    // periodStart/periodEndがeventDataのトップレベルにある場合（eventExtractorで抽出済み）
+    const rawPeriodStart = (eventData as Record<string, unknown>).periodStart as number | undefined;
+    const rawPeriodEnd = (eventData as Record<string, unknown>).periodEnd as number | undefined;
+
+    const periodStart = rawPeriodStart
+      ? new Date(rawPeriodStart * 1000).toISOString()
+      : stripeData.periodStart
+        ? new Date(stripeData.periodStart * 1000).toISOString()
+        : now.toISOString();
+
+    const periodEnd = rawPeriodEnd
+      ? new Date(rawPeriodEnd * 1000).toISOString()
+      : stripeData.periodEnd
+        ? new Date(stripeData.periodEnd * 1000).toISOString()
+        : defaultEnd.toISOString();
+
+    return { periodStart, periodEnd };
+  }
+
+  // Apple/Googleの場合はデフォルト値を使用
+  return {
+    periodStart: now.toISOString(),
+    periodEnd: defaultEnd.toISOString(),
+  };
 }
 
 /**
@@ -1828,6 +2160,106 @@ async function handleParentalControlActivation(
       retryable: true,
       maxRetries: 3,
     },
+
+    // ステップ2: 領収書メール送信（ペアレンタルコントロール：保護者に送信）
+    {
+      stepName: 'send_parental_control_receipt',
+      stepType: 'api_call',
+      targetService: 'EmailService',
+      executeFunction: async () => {
+        try {
+          console.log('Sending parental control receipt email', {
+            tenantId,
+            userId,
+            sessionId,
+            platformSubscriptionId,
+          });
+
+          // Stripe APIキーを取得
+          const apiKey = await getStripeApiKey(tenantId);
+          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+          // Checkout Sessionから最新のインボイスを取得
+          const session = await stripe.checkout.sessions.retrieve(sessionId as string, {
+            expand: ['invoice'],
+          });
+
+          const invoice = session.invoice;
+          if (!invoice || typeof invoice === 'string') {
+            console.warn('Invoice not found in checkout session, skipping receipt', { sessionId });
+            return { success: true, emailSent: false, reason: 'no_invoice' };
+          }
+
+          // 冪等性チェック: 同一インボイスへの重複送信を防止
+          const invoiceNumber = invoice.number;
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+
+            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            if (alreadySent) {
+              console.log('Receipt already sent for this invoice, skipping', {
+                invoiceNumber,
+                idempotencyKey,
+              });
+              return { success: true, emailSent: false, reason: 'already_sent' };
+            }
+          }
+
+          // 領収書データを構築
+          const receiptDataBase = await buildReceiptDataFromInvoice(
+            stripe,
+            invoice.id,
+            tenantId,
+            planId as string
+          );
+
+          // ペアレンタルコントロール：保護者のメールアドレスを取得
+          const recipient = await getReceiptRecipient(
+            stripe,
+            platformSubscriptionId as string
+          );
+
+          const receiptData: ReceiptData = {
+            ...receiptDataBase,
+            recipientEmail: recipient.email,
+            isParentalControl: true,
+            childEmail: childEmail as string,
+          };
+
+          // 領収書メール送信
+          await sendPaymentReceipt(receiptData);
+
+          // 送信完了を記録
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            await idempotencyRepo.markReceiptSent(idempotencyKey);
+          }
+
+          console.log('Parental control receipt email sent successfully', {
+            recipientEmail: recipient.email,
+            childEmail,
+            invoiceNumber,
+          });
+
+          return { success: true, emailSent: true };
+        } catch (error) {
+          // 領収書送信失敗はフローをブロックしない
+          console.error('Failed to send parental control receipt email', {
+            eventId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return {
+            success: true,
+            emailSent: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+      retryable: false,
+      maxRetries: 0,
+    },
   ];
 
   // フロー実行
@@ -1955,18 +2387,36 @@ async function handlePlanChangeCompleted(
         const apiKey = await getStripeApiKey(tenantId);
         const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-        await stripe.subscriptions.cancel(validatedPreviousPlatformSubscriptionId, {
-          prorate: true,
-        });
+        try {
+          await stripe.subscriptions.cancel(validatedPreviousPlatformSubscriptionId, {
+            prorate: true,
+          });
 
-        console.log('Previous Stripe subscription canceled', {
-          previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
-        });
+          console.log('Previous Stripe subscription canceled', {
+            previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+          });
 
-        return {
-          success: true,
-          canceledSubscriptionId: validatedPreviousPlatformSubscriptionId,
-        };
+          return {
+            success: true,
+            canceledSubscriptionId: validatedPreviousPlatformSubscriptionId,
+          };
+        } catch (error: any) {
+          // サブスクリプションが存在しない場合は成功として扱う
+          // （既にキャンセル済み、または別のwebhookで処理済み）
+          if (error?.code === 'resource_missing' || error?.message?.includes('No such subscription')) {
+            console.log('Previous Stripe subscription not found, treating as already canceled', {
+              previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+              error: error.message,
+            });
+            return {
+              success: true,
+              alreadyCanceled: true,
+              canceledSubscriptionId: validatedPreviousPlatformSubscriptionId,
+            };
+          }
+          // その他のエラーは再スロー
+          throw error;
+        }
       },
       retryable: true,
       maxRetries: 3,
@@ -2081,6 +2531,112 @@ async function handlePlanChangeCompleted(
       },
       retryable: true,
       maxRetries: 3,
+    },
+
+    // ステップ5: プラン変更Checkoutの領収書メール送信（非ブロッキング）
+    {
+      stepName: 'send_checkout_plan_change_receipt',
+      stepType: 'api_call',
+      targetService: 'EmailService',
+      executeFunction: async () => {
+        try {
+          console.log('Sending checkout plan change receipt email', {
+            tenantId,
+            userId: validatedUserId,
+            newPlatformSubscriptionId: validatedNewPlatformSubscriptionId,
+            newPlanId: validatedNewPlanId,
+          });
+
+          // Stripe APIキーを取得
+          const apiKey = await getStripeApiKey(tenantId);
+          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+          // 新しいサブスクリプションの最新インボイスを取得
+          const invoices = await stripe.invoices.list({
+            subscription: validatedNewPlatformSubscriptionId,
+            limit: 1,
+          });
+
+          if (invoices.data.length === 0) {
+            console.warn('No invoice found for checkout plan change, skipping receipt', {
+              newPlatformSubscriptionId: validatedNewPlatformSubscriptionId,
+            });
+            return { success: true, emailSent: false, reason: 'no_invoice' };
+          }
+
+          const invoice = invoices.data[0];
+
+          // 冪等性チェック: 同一インボイスへの重複送信を防止
+          const invoiceNumber = invoice.number;
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+
+            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            if (alreadySent) {
+              console.log('Receipt already sent for this invoice, skipping', {
+                invoiceNumber,
+                idempotencyKey,
+              });
+              return { success: true, emailSent: false, reason: 'already_sent' };
+            }
+          }
+
+          // 領収書データを構築
+          const receiptDataBase = await buildReceiptDataFromInvoice(
+            stripe,
+            invoice.id,
+            tenantId,
+            validatedNewPlanId
+          );
+
+          // 送信先を決定（ペアレンタルコントロール対応）
+          const userEmail = await getUserEmail(tenantId, validatedUserId);
+          const recipient = await getReceiptRecipient(
+            stripe,
+            validatedNewPlatformSubscriptionId,
+            userEmail || undefined
+          );
+
+          const receiptData: ReceiptData = {
+            ...receiptDataBase,
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            childEmail: recipient.childEmail,
+          };
+
+          // 領収書メール送信
+          await sendPaymentReceipt(receiptData);
+
+          // 送信完了を記録
+          if (invoiceNumber) {
+            const idempotencyRepo = new IdempotencyRepository(tenantId);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            await idempotencyRepo.markReceiptSent(idempotencyKey);
+          }
+
+          console.log('Checkout plan change receipt email sent successfully', {
+            recipientEmail: recipient.email,
+            isParentalControl: recipient.isParentalControl,
+            invoiceNumber,
+          });
+
+          return { success: true, emailSent: true };
+        } catch (error) {
+          // 領収書送信失敗はフローをブロックしない
+          console.error('Failed to send checkout plan change receipt email', {
+            eventId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return {
+            success: true,
+            emailSent: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+      retryable: false,
+      maxRetries: 0,
     },
   ];
 

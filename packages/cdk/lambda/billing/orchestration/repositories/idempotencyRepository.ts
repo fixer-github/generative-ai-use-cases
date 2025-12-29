@@ -119,6 +119,64 @@ export class IdempotencyRepository {
   }
 
   /**
+   * 領収書メール用の冪等性キーを生成
+   *
+   * @param tenantId - テナントID
+   * @param invoiceNumber - 請求書番号（Stripeのinvoice.number）
+   * @returns 冪等性キー
+   */
+  static generateReceiptKey(tenantId: string, invoiceNumber: string): string {
+    return `RECEIPT#${tenantId}#${invoiceNumber}`;
+  }
+
+  /**
+   * 領収書が既に送信済みかチェック（簡易版）
+   *
+   * 送信済みの場合はtrueを返し、未送信の場合はfalseを返してレコードを作成する。
+   *
+   * @param idempotencyKey - 冪等性キー（generateReceiptKeyで生成）
+   * @returns 既に送信済みかどうか
+   */
+  async isReceiptAlreadySent(idempotencyKey: string): Promise<boolean> {
+    const checkResult = await this.reserveOrGetExisting(idempotencyKey);
+    return checkResult.alreadyProcessed || checkResult.inProgress;
+  }
+
+  /**
+   * 領収書送信完了を記録
+   *
+   * @param idempotencyKey - 冪等性キー
+   */
+  async markReceiptSent(idempotencyKey: string): Promise<void> {
+    const docClient = await this.getDocClient();
+    const now = Date.now();
+
+    try {
+      const command = new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          idempotencyKey,
+        },
+        UpdateExpression: 'SET #status = :status, updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':status': 'completed',
+          ':updatedAt': now,
+        },
+      });
+
+      await docClient.send(command);
+
+      console.log(`Receipt idempotency record marked as completed: ${idempotencyKey}`);
+    } catch (error) {
+      console.error('Failed to mark receipt as sent:', error);
+      // 領収書送信自体は成功しているので、記録失敗はエラーにしない
+    }
+  }
+
+  /**
    * 処理を予約（冪等性チェック + レコード作成）
    *
    * 条件付き書き込みにより、同一キーでの重複予約を防止。

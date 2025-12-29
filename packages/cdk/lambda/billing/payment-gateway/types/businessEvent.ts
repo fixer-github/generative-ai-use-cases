@@ -41,6 +41,12 @@ export interface EventDetail {
   /** サブスクリプション有効期限（取得可能な場合、ISO 8601形式） */
   expirationDate?: string;
 
+  /** 請求期間開始日時（Unixタイムスタンプ、秒） */
+  periodStart?: number;
+
+  /** 請求期間終了日時（Unixタイムスタンプ、秒） */
+  periodEnd?: number;
+
   /** 支払い金額（payment.succeeded、payment.refunded時に含まれる） */
   amount?: number;
 

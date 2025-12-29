@@ -263,6 +263,14 @@ export const handler = async (
         tenantId,
         planId,
       },
+      // サブスクリプションにもmetadataを設定（領収書メールでplanIdを取得するため）
+      subscription_data: {
+        metadata: {
+          userId,
+          tenantId,
+          planId,
+        },
+      },
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       payment_method_types: ['card'],

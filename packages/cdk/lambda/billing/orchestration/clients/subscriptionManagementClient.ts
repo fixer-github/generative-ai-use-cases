@@ -86,8 +86,10 @@ export interface ExtendSubscriptionPeriodParams {
   tenantId: string;
   /** サブスクリプションID */
   subscriptionId: string;
-  /** 新しい有効期限（ISO 8601形式） */
-  newExpiresAt: string;
+  /** 新しい期間開始日時（ISO 8601形式） */
+  newPeriodStart: string;
+  /** 新しい期間終了日時（ISO 8601形式） */
+  newPeriodEnd: string;
 }
 
 /**
@@ -273,7 +275,8 @@ export class SubscriptionManagementClient {
       functionName,
       tenantId: params.tenantId,
       subscriptionId: params.subscriptionId,
-      newExpiresAt: params.newExpiresAt,
+      newPeriodStart: params.newPeriodStart,
+      newPeriodEnd: params.newPeriodEnd,
     });
 
     return this.invokeLambda<ExtendSubscriptionPeriodResponse>(

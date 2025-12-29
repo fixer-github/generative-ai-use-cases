@@ -249,6 +249,10 @@ export class BillingManagementStack extends NestedStack {
         cancelSubscription:
           paymentGatewayApi.cancelSubscriptionInternalFunction,
       },
+      // SendGrid configuration for receipt emails
+      sendgridApiKey: props.sendgridApiKey,
+      sendgridFromEmail: props.sendgridFromEmail,
+      serviceName: props.emailServiceName,
     });
 
     // User Billing API (ユーザ向けエンドポイント)

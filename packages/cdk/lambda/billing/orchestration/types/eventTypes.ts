@@ -81,6 +81,9 @@ export interface StripeEventData {
   /** 通貨コード */
   currency?: string;
 
+  /** 期間開始日時（Unixタイムスタンプ、秒） */
+  periodStart?: number;
+
   /** 期間終了日時（Unixタイムスタンプ、秒） */
   periodEnd?: number;
 

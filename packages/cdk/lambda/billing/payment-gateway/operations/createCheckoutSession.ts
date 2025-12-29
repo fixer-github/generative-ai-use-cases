@@ -204,7 +204,7 @@ export async function handler(
 
     // 7. Checkout Sessionを作成
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,  // customer_emailではなくcustomer_idを使用
+      customer: customerId, // customer_emailではなくcustomer_idを使用
       mode: 'subscription',
       line_items: [
         {
@@ -218,6 +218,14 @@ export async function handler(
         userId,
         tenantId,
         planId,
+      },
+      // サブスクリプションにもmetadataを設定（領収書メールでplanIdを取得するため）
+      subscription_data: {
+        metadata: {
+          userId,
+          tenantId,
+          planId,
+        },
       },
       allow_promotion_codes: true,
       billing_address_collection: 'auto',

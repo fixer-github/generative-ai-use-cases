@@ -59,6 +59,21 @@ export interface OrchestrationApiProps {
     updateSubscription?: NodejsFunction;
     cancelSubscription?: NodejsFunction;
   };
+
+  /**
+   * SendGrid API Key for receipt email sending
+   */
+  readonly sendgridApiKey?: string;
+
+  /**
+   * SendGrid From Email address
+   */
+  readonly sendgridFromEmail?: string;
+
+  /**
+   * Service name for email branding
+   */
+  readonly serviceName?: string;
 }
 
 /**
@@ -214,6 +229,10 @@ class OrchestrationApi extends Construct {
           EVENT_BUS_NAME: eventBus.eventBusName,
           // Purchase flow function for parental control activation
           PURCHASE_FLOW_FUNCTION_NAME: purchaseFlowFunction.functionName,
+          // SendGrid configuration for receipt emails
+          ...(props.sendgridApiKey && { SENDGRID_API_KEY: props.sendgridApiKey }),
+          ...(props.sendgridFromEmail && { SENDGRID_FROM_EMAIL: props.sendgridFromEmail }),
+          ...(props.serviceName && { SERVICE_NAME: props.serviceName }),
         },
       }
     );
