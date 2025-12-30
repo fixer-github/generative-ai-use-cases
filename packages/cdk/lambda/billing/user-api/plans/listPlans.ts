@@ -47,10 +47,7 @@ async function extractPricing(
   currency: string;
   interval: string;
 } | null> {
-  // Freeプランの場合は0円で固定
-  // TODO その場しのぎのフォールバック処理なので、後々適切な実装に移行する
-  // 適切な実装→ <TODO： より適切な実装方法について検討する>
-  if (plan.internal_name === 'Freeプラン' || !plan.platform_product_id) {
+  if (!plan.platform_product_id) {
     return {
       amount: 0,
       currency: 'JPY',
@@ -195,9 +192,7 @@ export const handler = async (
       plans.push(defaultPlan);
     }
 
-    console.log(
-      `Total plans including default: ${plans.length}`
-    );
+    console.log(`Total plans including default: ${plans.length}`);
 
     // 6. レスポンスの構築
     // プランが存在しない場合でも空配列を返す（エラーではない）

@@ -1232,20 +1232,8 @@ async function handleSubscriptionUpdated(
     throw new Error('Current price ID not found in event data');
   }
 
-  // 内部プランIDを解決するヘルパー（metadataから優先、なければPrice IDから逆引き）
+  // 内部プランIDを解決するヘルパー
   const resolvePlanId = async (): Promise<string> => {
-    const metadata = (
-      (stripeData as unknown as Stripe.Event).data?.object as
-        | Stripe.Subscription
-        | undefined
-    )?.metadata;
-    if (metadata?.planId) {
-      console.log('Plan ID resolved from metadata', {
-        planId: metadata.planId,
-      });
-      return metadata.planId;
-    }
-
     console.log('Resolving plan ID from price ID', { currentPriceId });
     const plan = await invokeDataAccessFunctionByTenantId<{
       plan_id: string;

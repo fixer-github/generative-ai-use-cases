@@ -278,6 +278,8 @@ class OrchestrationApi extends Construct {
           `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
           // Tenant User Plan Application Data Access functions (for webhook flow to manage plan applications)
           `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          // Tenant Plan Data Access functions (for webhook flow to resolve plan ID from price ID)
+          `arn:aws:lambda:*:*:function:${environment}-*-plan-data-access`,
         ],
       })
     );

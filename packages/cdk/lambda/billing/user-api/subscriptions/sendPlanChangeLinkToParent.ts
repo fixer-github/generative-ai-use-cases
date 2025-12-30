@@ -31,6 +31,7 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
+import { determineChangeType } from '../../utils/planChangeUtils';
 
 const SERVICE_NAME = process.env.SERVICE_NAME || 'GenU';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
@@ -97,17 +98,6 @@ interface SendPlanChangeLinkResponse {
 }
 
 /**
- * プランレベル定義（アップグレード/ダウングレード判定用）
- */
-const PLAN_LEVELS: Record<string, number> = {
-  free: 1,
-  basic: 2,
-  standard: 3,
-  premium: 4,
-  enterprise: 5,
-};
-
-/**
  * データ取得結果の型
  */
 type FetchResult<T> =
@@ -171,32 +161,6 @@ function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
   }
 
   throw new Error('Unable to determine frontend base URL from request headers');
-}
-
-/**
- * プランレベルを取得
- */
-function getPlanLevel(planInternalName: string): number {
-  // プラン名からレベルを取得（例: "basic", "premium"など）
-  const normalizedName = planInternalName.toLowerCase();
-  for (const [key, level] of Object.entries(PLAN_LEVELS)) {
-    if (normalizedName.includes(key)) {
-      return level;
-    }
-  }
-  return 0; // 不明なプランは最低レベル
-}
-
-/**
- * 変更タイプを判定
- */
-function determineChangeType(
-  currentPlanInternalName: string,
-  newPlanInternalName: string
-): 'upgrade' | 'downgrade' {
-  const currentLevel = getPlanLevel(currentPlanInternalName);
-  const newLevel = getPlanLevel(newPlanInternalName);
-  return newLevel > currentLevel ? 'upgrade' : 'downgrade';
 }
 
 /**
@@ -808,10 +772,7 @@ export const handler = async (
     const formattedNewPrice = formatPriceJpy(newPriceAmount);
 
     // 12. アップグレード/ダウングレード判定
-    const changeType = determineChangeType(
-      currentPlan.internal_name,
-      newPlan.internal_name
-    );
+    const changeType = determineChangeType(currentPriceAmount, newPriceAmount);
 
     // 13. 次回請求日を計算
     const nextBillingDate = new Date(subscription.current_period_end);
@@ -830,7 +791,8 @@ export const handler = async (
     }
 
     // 15. Stripeサブスクリプションから customer ID と subscription item ID を取得
-    const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const stripeSubscription =
+      await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const subscriptionItemId = stripeSubscription.items.data[0]?.id;
     const currentStripePriceId =
       typeof stripeSubscription.items.data[0]?.price === 'string'
@@ -850,7 +812,10 @@ export const handler = async (
     }
 
     if (!stripeCustomerId) {
-      console.error('Customer ID not found in Stripe subscription:', stripeSubscriptionId);
+      console.error(
+        'Customer ID not found in Stripe subscription:',
+        stripeSubscriptionId
+      );
       return internalServerError500Response({
         message: 'Stripe顧客情報が見つかりません',
         code: 'MISSING_STRIPE_CUSTOMER',
