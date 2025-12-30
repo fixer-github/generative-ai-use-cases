@@ -128,6 +128,16 @@ export const handler = async (
     }
 
     // ステータスを更新（データアクセス層Lambda関数を呼び出し）
+    // scheduled_cancellation への遷移時は cancel_at_period_end も true に設定
+    const updates: Partial<Subscription> = {
+      subscription_status:
+        input.newStatus as Subscription['subscription_status'],
+    };
+
+    if (input.newStatus === 'scheduled_cancellation') {
+      updates.cancel_at_period_end = true;
+    }
+
     const updatedSubscription =
       await invokeDataAccessFunctionByTenantId<Subscription | null>(
         input.tenantId,
@@ -135,10 +145,7 @@ export const handler = async (
         'update',
         {
           subscriptionId: input.subscriptionId,
-          updates: {
-            subscription_status:
-              input.newStatus as Subscription['subscription_status'],
-          },
+          updates,
         }
       );
 

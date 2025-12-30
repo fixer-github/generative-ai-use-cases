@@ -253,6 +253,8 @@ export class BillingManagementStack extends NestedStack {
       sendgridApiKey: props.sendgridApiKey,
       sendgridFromEmail: props.sendgridFromEmail,
       serviceName: props.emailServiceName,
+      // Pending Plan Changes Table for parental control status update
+      pendingPlanChangesTable: pendingPlanChangesTable,
     });
 
     // User Billing API (ユーザ向けエンドポイント)

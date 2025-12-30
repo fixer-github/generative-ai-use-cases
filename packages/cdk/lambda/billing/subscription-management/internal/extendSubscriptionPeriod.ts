@@ -124,7 +124,7 @@ export const handler = async (
 
       return {
         subscriptionId: existingSubscription.subscription_id,
-        currentPeriodEnd: existingSubscription.current_period_end.toISOString(),
+        currentPeriodEnd: new Date(existingSubscription.current_period_end).toISOString(),
       };
     }
 
@@ -153,13 +153,13 @@ export const handler = async (
 
     console.log('Subscription period extended successfully:', {
       subscriptionId: updatedSubscription.subscription_id,
-      previousPeriodEnd: existingSubscription.current_period_end.toISOString(),
-      newPeriodEnd: updatedSubscription.current_period_end.toISOString(),
+      previousPeriodEnd: new Date(existingSubscription.current_period_end).toISOString(),
+      newPeriodEnd: new Date(updatedSubscription.current_period_end).toISOString(),
     });
 
     return {
       subscriptionId: updatedSubscription.subscription_id,
-      currentPeriodEnd: updatedSubscription.current_period_end.toISOString(),
+      currentPeriodEnd: new Date(updatedSubscription.current_period_end).toISOString(),
     };
   } catch (error) {
     console.error('Error extending subscription period:', error);

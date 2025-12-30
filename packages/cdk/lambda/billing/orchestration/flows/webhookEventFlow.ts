@@ -36,6 +36,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -51,9 +52,16 @@ import {
   UpdateSubscriptionStatusParams,
   ExtendSubscriptionPeriodParams,
 } from '../clients/subscriptionManagementClient';
-import { PlatformType, PurchaseFlowInput, PurchaseFlowOutput } from '../types/flowTypes';
+import {
+  PlatformType,
+  PurchaseFlowInput,
+  PurchaseFlowOutput,
+} from '../types/flowTypes';
 import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient';
-import { Plan, UserPlanApplication } from '../../data-access/repositories/types';
+import {
+  Plan,
+  UserPlanApplication,
+} from '../../data-access/repositories/types';
 import {
   sendPaymentReceipt,
   buildReceiptDataFromInvoice,
@@ -65,6 +73,13 @@ import { IdempotencyRepository } from '../repositories/idempotencyRepository';
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
+
+// DynamoDB client instance
+const dynamoDbClient = new DynamoDBClient({});
+
+// ペアレンタルコントロール用プラン変更リクエストテーブル
+const PENDING_PLAN_CHANGES_TABLE_NAME =
+  process.env.PENDING_PLAN_CHANGES_TABLE_NAME || '';
 
 /**
  * デフォルトプランを取得
@@ -86,12 +101,14 @@ async function getDefaultPlanId(tenantId: string): Promise<string> {
     );
 
     if (!defaultPlan) {
-      throw new Error('Default plan is not configured. Please configure a default plan in the system.');
+      throw new Error(
+        'Default plan is not configured. Please configure a default plan in the system.'
+      );
     }
 
     console.log('Default plan found', {
       planId: defaultPlan.plan_id,
-      internalName: defaultPlan.internal_name
+      internalName: defaultPlan.internal_name,
     });
 
     return defaultPlan.plan_id;
@@ -183,7 +200,10 @@ export const handler = async (
   try {
     // EventBridgeのdetail-typeは既にビジネスイベントタイプに正規化されている
     // Stripeの場合: eventMapperで checkout.session.completed → payment_method.updated に変換済み
-    const normalizedEventType = normalizeEventType(platform, businessEventType as WebhookEventType);
+    const normalizedEventType = normalizeEventType(
+      platform,
+      businessEventType as WebhookEventType
+    );
 
     console.log('Normalized event type', {
       businessEventType,
@@ -235,11 +255,7 @@ export const handler = async (
         );
 
       case 'payment_method.updated':
-        return await handlePaymentMethodUpdated(
-          input,
-          orchestrator,
-          tenantId
-        );
+        return await handlePaymentMethodUpdated(input, orchestrator, tenantId);
 
       case 'subscription.parental_activated':
         return await handleParentalControlActivation(
@@ -288,10 +304,9 @@ export const handler = async (
     });
 
     // EventBridgeのDLQに送信するため、エラーをスロー
-    throw new Error(
-      `Webhook event processing failed: ${err.message}`,
-      { cause: err }
-    );
+    throw new Error(`Webhook event processing failed: ${err.message}`, {
+      cause: err,
+    });
   }
 };
 
@@ -385,11 +400,16 @@ async function handlePaymentSucceeded(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing payment.succeeded event', { eventId, tenantId, platform });
+  console.log('Processing payment.succeeded event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   // subscriptionIdはプラットフォームのサブスクリプションID（Stripeのsub_xxx形式）
-  const platformSubscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const platformSubscriptionId =
+    input.subscriptionId || extractSubscriptionId(platform, eventData);
   const userId = input.userId || extractUserId(platform, eventData);
 
   // periodStart/periodEndの抽出（Stripeから取得）
@@ -405,23 +425,24 @@ async function handlePaymentSucceeded(
       stepName: 'extend_subscription_period',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
       executeFunction: async () => {
         // プラットフォームサブスクリプションIDから内部サブスクリプションIDを取得
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
           user_id: string;
-        } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId,
+        });
 
         if (!subscription) {
-          console.warn('No internal subscription found for platform subscription', {
-            platformSubscriptionId,
-          });
+          console.warn(
+            'No internal subscription found for platform subscription',
+            {
+              platformSubscriptionId,
+            }
+          );
           return {
             skipped: true,
             reason: 'no_internal_subscription_found',
@@ -445,7 +466,8 @@ async function handlePaymentSucceeded(
           newPeriodEnd: periodEnd,
         };
 
-        const result = await subscriptionClient.extendSubscriptionPeriod(params);
+        const result =
+          await subscriptionClient.extendSubscriptionPeriod(params);
 
         console.log('Subscription period extended successfully', {
           internalSubscriptionId,
@@ -472,13 +494,19 @@ async function handlePaymentSucceeded(
       targetFunction: process.env.PLAN_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         // 前のステップから内部サブスクリプションIDを取得
-        const internalSubscription = previousStepResults['internal_subscription'] as {
-          subscriptionId: string;
-          userId: string;
-        } | undefined;
+        const internalSubscription = previousStepResults[
+          'internal_subscription'
+        ] as
+          | {
+              subscriptionId: string;
+              userId: string;
+            }
+          | undefined;
 
         if (!internalSubscription) {
-          console.warn('No internal subscription from previous step, skipping plan application extension');
+          console.warn(
+            'No internal subscription from previous step, skipping plan application extension'
+          );
           return {
             skipped: true,
             reason: 'no_internal_subscription_from_previous_step',
@@ -494,12 +522,13 @@ async function handlePaymentSucceeded(
         });
 
         // 内部サブスクリプションIDをapplication_source_idとして、プラン適用を検索
-        const planApplication = await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
-          tenantId,
-          'user-plan-application',
-          'findByApplicationSourceId',
-          { sourceId: internalSubscriptionId }
-        );
+        const planApplication =
+          await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+            tenantId,
+            'user-plan-application',
+            'findByApplicationSourceId',
+            { sourceId: internalSubscriptionId }
+          );
 
         if (!planApplication) {
           console.warn('No plan application found for subscription, skipping', {
@@ -512,14 +541,18 @@ async function handlePaymentSucceeded(
         }
 
         const planApplicationId = planApplication.application_id;
-        const isScheduledTermination = planApplication.application_status === 'scheduled_termination';
+        const isScheduledTermination =
+          planApplication.application_status === 'scheduled_termination';
 
         // ステータスがscheduled_terminationの場合はスキップ（解約予約済みなので延長しない）
         if (isScheduledTermination) {
-          console.log('Skipping plan application period extension (scheduled_termination)', {
-            planApplicationId,
-            currentStatus: planApplication.application_status,
-          });
+          console.log(
+            'Skipping plan application period extension (scheduled_termination)',
+            {
+              planApplicationId,
+              currentStatus: planApplication.application_status,
+            }
+          );
           return {
             skipped: true,
             reason: 'scheduled_termination',
@@ -563,7 +596,9 @@ async function handlePaymentSucceeded(
 
           // Stripe APIキーを取得
           const apiKey = await getStripeApiKey(tenantId);
-          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+          const stripe = new Stripe(apiKey, {
+            apiVersion: '2025-10-29.clover',
+          });
 
           // invoiceIdを抽出（StripeのeventDataから）
           // eventDataはStripeの生イベントオブジェクト（stripeEvent）
@@ -573,10 +608,13 @@ async function handlePaymentSucceeded(
           const rawInvoiceId = invoiceObject?.id;
 
           if (!rawInvoiceId || typeof rawInvoiceId !== 'string') {
-            console.warn('Invoice ID not found in event data, skipping receipt', {
-              eventId,
-              hasDataObject: !!invoiceObject,
-            });
+            console.warn(
+              'Invoice ID not found in event data, skipping receipt',
+              {
+                eventId,
+                hasDataObject: !!invoiceObject,
+              }
+            );
             return { success: true, emailSent: false, reason: 'no_invoice_id' };
           }
 
@@ -585,31 +623,49 @@ async function handlePaymentSucceeded(
           // インボイス番号を取得（重複チェック用）
           const invoiceNumber = invoiceObject?.number as string | undefined;
           if (!invoiceNumber) {
-            console.warn('Invoice number not found in event data, skipping deduplication', {
-              eventId,
-              invoiceId,
-            });
+            console.warn(
+              'Invoice number not found in event data, skipping deduplication',
+              {
+                eventId,
+                invoiceId,
+              }
+            );
           }
 
           // 冪等性チェック: 同一インボイスへの重複送信を防止
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
 
-            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            const alreadySent =
+              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
             if (alreadySent) {
               console.log('Receipt already sent for this invoice, skipping', {
                 invoiceNumber,
                 idempotencyKey,
               });
-              return { success: true, emailSent: false, reason: 'already_sent' };
+              return {
+                success: true,
+                emailSent: false,
+                reason: 'already_sent',
+              };
             }
           }
 
           // platformSubscriptionIdは関数スコープで既に定義済み
           if (!platformSubscriptionId) {
-            console.warn('Platform subscription ID not found, skipping receipt', { eventId });
-            return { success: true, emailSent: false, reason: 'no_subscription_id' };
+            console.warn(
+              'Platform subscription ID not found, skipping receipt',
+              { eventId }
+            );
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'no_subscription_id',
+            };
           }
 
           // 領収書データを構築
@@ -621,7 +677,9 @@ async function handlePaymentSucceeded(
           );
 
           // 送信先を決定（ペアレンタルコントロール対応）
-          const userEmail = userId ? await getUserEmail(tenantId, userId) : null;
+          const userEmail = userId
+            ? await getUserEmail(tenantId, userId)
+            : null;
           const recipient = await getReceiptRecipient(
             stripe,
             platformSubscriptionId,
@@ -641,7 +699,10 @@ async function handlePaymentSucceeded(
           // 送信完了を記録
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
             await idempotencyRepo.markReceiptSent(idempotencyKey);
           }
 
@@ -701,11 +762,16 @@ async function handlePaymentFailed(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing payment.failed event', { eventId, tenantId, platform });
+  console.log('Processing payment.failed event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   // subscriptionIdはEventDetailPayloadのトップレベルにある（eventExtractorで抽出済み）
-  const subscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const subscriptionId =
+    input.subscriptionId || extractSubscriptionId(platform, eventData);
   const userId = input.userId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
@@ -718,7 +784,8 @@ async function handlePaymentFailed(
       stepName: 'update_subscription_to_past_due',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Updating subscription status to past_due', {
           tenantId,
@@ -731,7 +798,8 @@ async function handlePaymentFailed(
           newStatus: 'past_due',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Subscription status updated to past_due', {
           subscriptionId,
@@ -835,24 +903,25 @@ async function handleSubscriptionCanceled(
       stepName: 'update_subscription_to_canceled',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         // platform_subscription_idから内部サブスクリプションIDを取得
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
           user_id: string;
-        } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId,
+        });
 
         if (!subscription) {
-          console.warn('No internal subscription found for platform subscription', {
-            platformSubscriptionId,
-            eventUserId: userId,
-          });
+          console.warn(
+            'No internal subscription found for platform subscription',
+            {
+              platformSubscriptionId,
+              eventUserId: userId,
+            }
+          );
           // 内部サブスクリプションが見つからなくても、userIdがあれば
           // デフォルトプラン適用は可能なのでsubscription_infoを設定
           if (userId) {
@@ -860,7 +929,10 @@ async function handleSubscriptionCanceled(
               internalSubscriptionId: undefined,
               userId: userId,
             };
-            console.log('Using userId from event data for default plan application', { userId });
+            console.log(
+              'Using userId from event data for default plan application',
+              { userId }
+            );
             return {
               skipped: true,
               reason: 'no_internal_subscription_found',
@@ -884,7 +956,8 @@ async function handleSubscriptionCanceled(
           newStatus: 'canceled',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Subscription status updated to canceled', {
           subscriptionId: subscription.subscription_id,
@@ -915,13 +988,17 @@ async function handleSubscriptionCanceled(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
-        const subscriptionInfo = previousStepResults['subscription_info'] as {
-          internalSubscriptionId: string | undefined;
-          userId: string;
-        } | undefined;
+        const subscriptionInfo = previousStepResults['subscription_info'] as
+          | {
+              internalSubscriptionId: string | undefined;
+              userId: string;
+            }
+          | undefined;
 
         if (!subscriptionInfo) {
-          console.log('Skipping plan termination (no subscription info from previous step)');
+          console.log(
+            'Skipping plan termination (no subscription info from previous step)'
+          );
           return {
             skipped: true,
             reason: 'no_subscription_info',
@@ -931,9 +1008,12 @@ async function handleSubscriptionCanceled(
         // 内部サブスクリプションIDがない場合はプラン終了をスキップ
         // （デフォルトプランへの遷移は次のステップで実行）
         if (!subscriptionInfo.internalSubscriptionId) {
-          console.log('Skipping plan termination (no internal subscription ID)', {
-            userId: subscriptionInfo.userId,
-          });
+          console.log(
+            'Skipping plan termination (no internal subscription ID)',
+            {
+              userId: subscriptionInfo.userId,
+            }
+          );
           return {
             skipped: true,
             reason: 'no_internal_subscription_id',
@@ -961,12 +1041,19 @@ async function handleSubscriptionCanceled(
           return result;
         } catch (error) {
           // プラン適用が見つからない場合（既に終了済みなど）はスキップ
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          if (errorMessage.includes('NO_ACTIVE_APPLICATION') || errorMessage.includes('not found')) {
-            console.warn('No active plan application found, skipping termination', {
-              userId: subscriptionInfo.userId,
-              applicationSourceId: subscriptionInfo.internalSubscriptionId,
-            });
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          if (
+            errorMessage.includes('NO_ACTIVE_APPLICATION') ||
+            errorMessage.includes('not found')
+          ) {
+            console.warn(
+              'No active plan application found, skipping termination',
+              {
+                userId: subscriptionInfo.userId,
+                applicationSourceId: subscriptionInfo.internalSubscriptionId,
+              }
+            );
             return {
               skipped: true,
               reason: 'no_active_application',
@@ -986,13 +1073,17 @@ async function handleSubscriptionCanceled(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        const subscriptionInfo = previousStepResults['subscription_info'] as {
-          internalSubscriptionId: string | undefined;
-          userId: string;
-        } | undefined;
+        const subscriptionInfo = previousStepResults['subscription_info'] as
+          | {
+              internalSubscriptionId: string | undefined;
+              userId: string;
+            }
+          | undefined;
 
         if (!subscriptionInfo || !subscriptionInfo.userId) {
-          console.log('Skipping default plan application (no subscription info or userId)');
+          console.log(
+            'Skipping default plan application (no subscription info or userId)'
+          );
           return {
             skipped: true,
             reason: 'no_subscription_info_or_user_id',
@@ -1085,7 +1176,11 @@ async function handleSubscriptionUpdated(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.updated event', { eventId, tenantId, platform });
+  console.log('Processing subscription.updated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得
   const stripeData = eventData as StripeEventData;
@@ -1137,6 +1232,21 @@ async function handleSubscriptionUpdated(
     throw new Error('Current price ID not found in event data');
   }
 
+  // 内部プランIDを解決するヘルパー
+  const resolvePlanId = async (): Promise<string> => {
+    console.log('Resolving plan ID from price ID', { currentPriceId });
+    const plan = await invokeDataAccessFunctionByTenantId<{
+      plan_id: string;
+    } | null>(tenantId, 'plan', 'findByPlatformProductId', {
+      platformProductId: currentPriceId,
+    });
+    if (plan?.plan_id) return plan.plan_id;
+
+    throw new Error(
+      `Could not resolve internal plan ID for price: ${currentPriceId}`
+    );
+  };
+
   // ステップ設定
   const steps: StepConfig[] = [
     // ステップ1: 現在のプラン適用を終了
@@ -1146,26 +1256,31 @@ async function handleSubscriptionUpdated(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
-        console.log('Terminating current plan application (plan change via portal)', {
-          tenantId,
-          userId,
-          platformSubscriptionId,
-        });
+        console.log(
+          'Terminating current plan application (plan change via portal)',
+          {
+            tenantId,
+            userId,
+            platformSubscriptionId,
+          }
+        );
 
         // platform_subscription_idをapplicationSourceIdとして渡し、
         // Lambda側で適用を検索して終了
         // 注: 内部サブスクリプションIDを取得するためにまず検索が必要
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId,
+        });
 
         if (!subscription) {
-          console.warn('No internal subscription found for platform subscription', {
-            platformSubscriptionId,
-          });
+          console.warn(
+            'No internal subscription found for platform subscription',
+            {
+              platformSubscriptionId,
+            }
+          );
           return {
             skipped: true,
             reason: 'no_internal_subscription_found',
@@ -1198,46 +1313,34 @@ async function handleSubscriptionUpdated(
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
       executeFunction: async () => {
-        console.log('Updating subscription plan ID', {
-          tenantId,
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
           platformSubscriptionId,
-          newPriceId: currentPriceId,
         });
-
-        // platform_subscription_idでサブスクリプションを検索
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
 
         if (!subscription) {
           console.warn('No internal subscription found, skipping plan update', {
             platformSubscriptionId,
           });
-          return {
-            skipped: true,
-            reason: 'no_internal_subscription_found',
-          };
+          return { skipped: true, reason: 'no_internal_subscription_found' };
         }
 
-        // サブスクリプションのplan_idを更新（既存のupdateオペレーションを使用）
-        const updateResult = await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
+        const planId = await resolvePlanId();
+
+        await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
           tenantId,
           'subscription',
           'update',
           {
             subscriptionId: subscription.subscription_id,
-            updates: {
-              plan_id: currentPriceId,
-            },
+            updates: { plan_id: planId },
           }
         );
 
         console.log('Subscription plan ID updated', {
           subscriptionId: subscription.subscription_id,
-          newPlanId: currentPriceId,
+          planId,
         });
 
         return {
@@ -1256,33 +1359,34 @@ async function handleSubscriptionUpdated(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        // platform_subscription_idでサブスクリプションを検索
-        const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-          tenantId,
-          'subscription',
-          'findByPlatformSubscriptionId',
-          { platformSubscriptionId }
-        );
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId,
+        });
 
         if (!subscription) {
-          throw new Error('Internal subscription not found for platform subscription');
+          throw new Error(
+            'Internal subscription not found for platform subscription'
+          );
         }
+
+        const planId = await resolvePlanId();
 
         console.log('Applying new plan to user (plan change via portal)', {
           tenantId,
           userId,
-          planId: currentPriceId,
+          planId,
           subscriptionId: subscription.subscription_id,
         });
 
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId: userId as string,
-          planId: currentPriceId as string,
+          planId,
           applicationSource: 'subscription',
           applicationSourceId: subscription.subscription_id,
           validFrom: new Date().toISOString(),
-          // validUntilはサブスクリプションの有効期限に合わせる
         });
 
         console.log('New plan applied successfully', {
@@ -1305,7 +1409,9 @@ async function handleSubscriptionUpdated(
       executeFunction: async () => {
         // ペアレンタルコントロールによるプラン変更の場合のみクリーンアップ
         if (!isParentalControlPlanChange) {
-          console.log('Not a parental control plan change, skipping metadata cleanup');
+          console.log(
+            'Not a parental control plan change, skipping metadata cleanup'
+          );
           return { skipped: true, reason: 'not_parental_control_flow' };
         }
 
@@ -1337,7 +1443,81 @@ async function handleSubscriptionUpdated(
       maxRetries: 2,
     },
 
-    // ステップ5: プラン変更の領収書メール送信（非ブロッキング）
+    // ステップ5: ペアレンタルコントロール用プラン変更リクエストのステータスを更新
+    // DynamoDBのPENDING_PLAN_CHANGES_TABLEのステータスを'approved'に更新し、
+    // クライアントがポーリングで完了を検知できるようにする
+    {
+      stepName: 'update_plan_change_request_status',
+      stepType: 'api_call',
+      targetService: 'DynamoDB',
+      executeFunction: async () => {
+        // ペアレンタルコントロールによるプラン変更の場合のみ処理
+        if (!isParentalControlPlanChange) {
+          console.log(
+            'Not a parental control plan change, skipping status update'
+          );
+          return { skipped: true, reason: 'not_parental_control_flow' };
+        }
+
+        // Stripeのmetadataからプラン変更リクエストIDを取得
+        const metadata = (
+          (stripeData as unknown as Stripe.Event).data?.object as
+            | Stripe.Subscription
+            | undefined
+        )?.metadata;
+        const planChangeRequestId = metadata?.planChangeRequestId;
+
+        if (!planChangeRequestId) {
+          console.warn(
+            'Plan change request ID not found in metadata, skipping status update',
+            {
+              platformSubscriptionId,
+              metadata,
+            }
+          );
+          return { skipped: true, reason: 'no_request_id_in_metadata' };
+        }
+
+        if (!PENDING_PLAN_CHANGES_TABLE_NAME) {
+          console.warn(
+            'PENDING_PLAN_CHANGES_TABLE_NAME not configured, skipping status update'
+          );
+          return { skipped: true, reason: 'table_not_configured' };
+        }
+
+        console.log('Updating plan change request status to approved', {
+          planChangeRequestId,
+          platformSubscriptionId,
+        });
+
+        await dynamoDbClient.send(
+          new UpdateItemCommand({
+            TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
+            Key: {
+              requestId: { S: planChangeRequestId },
+            },
+            UpdateExpression: 'SET #status = :status, approvedAt = :approvedAt',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': { S: 'approved' },
+              ':approvedAt': { N: Date.now().toString() },
+            },
+          })
+        );
+
+        console.log('Plan change request status updated to approved', {
+          planChangeRequestId,
+        });
+
+        return { success: true, planChangeRequestId };
+      },
+      retryable: true,
+      maxRetries: 2,
+    },
+
+    // ステップ6: プラン変更の領収書メール送信（非ブロッキング）
     {
       stepName: 'send_plan_change_receipt',
       stepType: 'api_call',
@@ -1353,7 +1533,9 @@ async function handleSubscriptionUpdated(
 
           // Stripe APIキーを取得
           const apiKey = await getStripeApiKey(tenantId);
-          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+          const stripe = new Stripe(apiKey, {
+            apiVersion: '2025-10-29.clover',
+          });
 
           // 最新のインボイスを取得
           const invoices = await stripe.invoices.list({
@@ -1374,15 +1556,23 @@ async function handleSubscriptionUpdated(
           const invoiceNumber = invoice.number;
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
 
-            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            const alreadySent =
+              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
             if (alreadySent) {
               console.log('Receipt already sent for this invoice, skipping', {
                 invoiceNumber,
                 idempotencyKey,
               });
-              return { success: true, emailSent: false, reason: 'already_sent' };
+              return {
+                success: true,
+                emailSent: false,
+                reason: 'already_sent',
+              };
             }
           }
 
@@ -1395,7 +1585,9 @@ async function handleSubscriptionUpdated(
           );
 
           // 送信先を決定（ペアレンタルコントロール対応）
-          const userEmail = userId ? await getUserEmail(tenantId, userId as string) : null;
+          const userEmail = userId
+            ? await getUserEmail(tenantId, userId as string)
+            : null;
           const recipient = await getReceiptRecipient(
             stripe,
             platformSubscriptionId,
@@ -1415,7 +1607,10 @@ async function handleSubscriptionUpdated(
           // 送信完了を記録
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
             await idempotencyRepo.markReceiptSent(idempotencyKey);
           }
 
@@ -1448,7 +1643,7 @@ async function handleSubscriptionUpdated(
   return await executeWebhookEventFlow(
     orchestrator,
     'webhook_event',
-    userId as string || 'unknown',
+    (userId as string) || 'unknown',
     `${platform}_webhook_plan_change`,
     input,
     steps,
@@ -1478,11 +1673,16 @@ async function handleRefundCreated(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
-  console.log('Processing refund.created event', { eventId, tenantId, platform });
+  console.log('Processing refund.created event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから必要な情報を抽出
   // subscriptionIdはEventDetailPayloadのトップレベルにある（eventExtractorで抽出済み）
-  const subscriptionId = input.subscriptionId || extractSubscriptionId(platform, eventData);
+  const subscriptionId =
+    input.subscriptionId || extractSubscriptionId(platform, eventData);
   const userId = input.userId || extractUserId(platform, eventData);
 
   // 前のステップの結果を保持する変数
@@ -1497,7 +1697,8 @@ async function handleRefundCreated(
       stepName: 'record_refund',
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
-      targetFunction: process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
+      targetFunction:
+        process.env.SUBSCRIPTION_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
       executeFunction: async () => {
         console.log('Recording refund', {
           tenantId,
@@ -1511,7 +1712,8 @@ async function handleRefundCreated(
           newStatus: 'canceled',
         };
 
-        const result = await subscriptionClient.updateSubscriptionStatus(params);
+        const result =
+          await subscriptionClient.updateSubscriptionStatus(params);
 
         console.log('Refund recorded successfully', {
           subscriptionId,
@@ -1654,7 +1856,10 @@ async function executeWebhookEventFlow(
       steps.length
     );
 
-    console.log('Webhook event flow execution started', { flowExecutionId, eventId });
+    console.log('Webhook event flow execution started', {
+      flowExecutionId,
+      eventId,
+    });
 
     // 各ステップを順次実行
     for (let i = 0; i < steps.length; i++) {
@@ -1662,12 +1867,9 @@ async function executeWebhookEventFlow(
 
       console.log(`Executing step ${i + 1}/${steps.length}: ${step.stepName}`);
 
-      const result = await orchestrator.executeStep(
-        flowExecutionId,
-        i,
-        step,
-        { previousStepResults }
-      );
+      const result = await orchestrator.executeStep(flowExecutionId, i, step, {
+        previousStepResults,
+      });
 
       if (!result.success) {
         console.error(`Step ${step.stepName} failed`);
@@ -1687,7 +1889,10 @@ async function executeWebhookEventFlow(
       eventId,
     };
 
-    await orchestrator.completeFlow(flowExecutionId, output as unknown as Record<string, unknown>);
+    await orchestrator.completeFlow(
+      flowExecutionId,
+      output as unknown as Record<string, unknown>
+    );
 
     console.log('Webhook event flow completed successfully', {
       flowExecutionId,
@@ -1715,10 +1920,9 @@ async function executeWebhookEventFlow(
     }
 
     // エラーレスポンスを返す（EventBridgeのDLQに送信するため、エラーをスロー）
-    throw new Error(
-      `Webhook event flow failed: ${err.message}`,
-      { cause: err }
-    );
+    throw new Error(`Webhook event flow failed: ${err.message}`, {
+      cause: err,
+    });
   }
 }
 
@@ -1811,8 +2015,11 @@ function extractPeriodDates(
     const stripeData = eventData as StripeEventData;
 
     // periodStart/periodEndがeventDataのトップレベルにある場合（eventExtractorで抽出済み）
-    const rawPeriodStart = (eventData as Record<string, unknown>).periodStart as number | undefined;
-    const rawPeriodEnd = (eventData as Record<string, unknown>).periodEnd as number | undefined;
+    const rawPeriodStart = (eventData as Record<string, unknown>)
+      .periodStart as number | undefined;
+    const rawPeriodEnd = (eventData as Record<string, unknown>).periodEnd as
+      | number
+      | undefined;
 
     const periodStart = rawPeriodStart
       ? new Date(rawPeriodStart * 1000).toISOString()
@@ -1920,7 +2127,11 @@ async function handlePaymentMethodUpdated(
   const { eventId, platform, eventData } = input;
   const userId = extractUserId(platform, eventData);
 
-  console.log('Processing payment_method.updated event', { eventId, tenantId, platform });
+  console.log('Processing payment_method.updated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得（Stripeプラットフォームのみ対応）
   const stripeData: StripeEventData = eventData;
@@ -2041,12 +2252,17 @@ async function handleParentalControlActivation(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.parental_activated event', { eventId, tenantId, platform });
+  console.log('Processing subscription.parental_activated event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得
   const stripeData = eventData as StripeEventData;
   const extracted = stripeData._extracted ?? {};
-  const { sessionId, platformSubscriptionId, userId, planId, childEmail } = extracted;
+  const { sessionId, platformSubscriptionId, userId, planId, childEmail } =
+    extracted;
 
   console.log('Extracted parental control data from event', {
     sessionId,
@@ -2089,7 +2305,8 @@ async function handleParentalControlActivation(
         });
 
         // purchaseFlowを呼び出す
-        const purchaseFlowFunctionName = process.env.PURCHASE_FLOW_FUNCTION_NAME;
+        const purchaseFlowFunctionName =
+          process.env.PURCHASE_FLOW_FUNCTION_NAME;
 
         if (!purchaseFlowFunctionName) {
           throw new Error('PURCHASE_FLOW_FUNCTION_NAME is not configured');
@@ -2127,7 +2344,9 @@ async function handleParentalControlActivation(
               : null,
           });
 
-          throw new Error(`Purchase flow failed: ${invokeResult.FunctionError}`);
+          throw new Error(
+            `Purchase flow failed: ${invokeResult.FunctionError}`
+          );
         }
 
         if (!invokeResult.Payload) {
@@ -2146,8 +2365,7 @@ async function handleParentalControlActivation(
 
         if (!flowOutput.success) {
           throw new Error(
-            flowOutput.errorDetails?.errorMessage ||
-            'Purchase flow failed'
+            flowOutput.errorDetails?.errorMessage || 'Purchase flow failed'
           );
         }
 
@@ -2177,16 +2395,24 @@ async function handleParentalControlActivation(
 
           // Stripe APIキーを取得
           const apiKey = await getStripeApiKey(tenantId);
-          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+          const stripe = new Stripe(apiKey, {
+            apiVersion: '2025-10-29.clover',
+          });
 
           // Checkout Sessionから最新のインボイスを取得
-          const session = await stripe.checkout.sessions.retrieve(sessionId as string, {
-            expand: ['invoice'],
-          });
+          const session = await stripe.checkout.sessions.retrieve(
+            sessionId as string,
+            {
+              expand: ['invoice'],
+            }
+          );
 
           const invoice = session.invoice;
           if (!invoice || typeof invoice === 'string') {
-            console.warn('Invoice not found in checkout session, skipping receipt', { sessionId });
+            console.warn(
+              'Invoice not found in checkout session, skipping receipt',
+              { sessionId }
+            );
             return { success: true, emailSent: false, reason: 'no_invoice' };
           }
 
@@ -2194,15 +2420,23 @@ async function handleParentalControlActivation(
           const invoiceNumber = invoice.number;
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
 
-            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            const alreadySent =
+              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
             if (alreadySent) {
               console.log('Receipt already sent for this invoice, skipping', {
                 invoiceNumber,
                 idempotencyKey,
               });
-              return { success: true, emailSent: false, reason: 'already_sent' };
+              return {
+                success: true,
+                emailSent: false,
+                reason: 'already_sent',
+              };
             }
           }
 
@@ -2233,7 +2467,10 @@ async function handleParentalControlActivation(
           // 送信完了を記録
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
             await idempotencyRepo.markReceiptSent(idempotencyKey);
           }
 
@@ -2266,7 +2503,7 @@ async function handleParentalControlActivation(
   return await executeWebhookEventFlow(
     orchestrator,
     'webhook_event',
-    userId as string || 'unknown',
+    (userId as string) || 'unknown',
     `${platform}_parental_control_webhook`,
     input,
     steps,
@@ -2302,7 +2539,11 @@ async function handlePlanChangeCompleted(
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, platform, eventData } = input;
 
-  console.log('Processing subscription.plan_change_completed event', { eventId, tenantId, platform });
+  console.log('Processing subscription.plan_change_completed event', {
+    eventId,
+    tenantId,
+    platform,
+  });
 
   // イベントデータから抽出情報を取得
   const stripeData: StripeEventData = eventData;
@@ -2333,7 +2574,9 @@ async function handlePlanChangeCompleted(
   }
 
   if (!previousPlatformSubscriptionId) {
-    throw new Error('Previous platform subscription ID not found in event data');
+    throw new Error(
+      'Previous platform subscription ID not found in event data'
+    );
   }
 
   if (!newPlatformSubscriptionId) {
@@ -2343,7 +2586,8 @@ async function handlePlanChangeCompleted(
   // 検証済みの値を定数として保持
   const validatedUserId = userId;
   const validatedNewPlanId = newPlanId;
-  const validatedPreviousPlatformSubscriptionId = previousPlatformSubscriptionId;
+  const validatedPreviousPlatformSubscriptionId =
+    previousPlatformSubscriptionId;
   const validatedNewPlatformSubscriptionId = newPlatformSubscriptionId;
   const validatedInternalSubscriptionId = internalSubscriptionId;
 
@@ -2357,15 +2601,16 @@ async function handlePlanChangeCompleted(
       return validatedInternalSubscriptionId;
     }
 
-    const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
-      tenantId,
-      'subscription',
-      'findByPlatformSubscriptionId',
-      { platformSubscriptionId }
-    );
+    const subscription = await invokeDataAccessFunctionByTenantId<{
+      subscription_id: string;
+    } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+      platformSubscriptionId,
+    });
 
     if (!subscription) {
-      throw new Error(`Internal subscription not found for platform subscription: ${platformSubscriptionId}`);
+      throw new Error(
+        `Internal subscription not found for platform subscription: ${platformSubscriptionId}`
+      );
     }
 
     return subscription.subscription_id;
@@ -2381,19 +2626,24 @@ async function handlePlanChangeCompleted(
       executeFunction: async () => {
         console.log('Canceling previous Stripe subscription', {
           tenantId,
-          previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+          previousPlatformSubscriptionId:
+            validatedPreviousPlatformSubscriptionId,
         });
 
         const apiKey = await getStripeApiKey(tenantId);
         const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
         try {
-          await stripe.subscriptions.cancel(validatedPreviousPlatformSubscriptionId, {
-            prorate: true,
-          });
+          await stripe.subscriptions.cancel(
+            validatedPreviousPlatformSubscriptionId,
+            {
+              prorate: true,
+            }
+          );
 
           console.log('Previous Stripe subscription canceled', {
-            previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
+            previousPlatformSubscriptionId:
+              validatedPreviousPlatformSubscriptionId,
           });
 
           return {
@@ -2403,11 +2653,18 @@ async function handlePlanChangeCompleted(
         } catch (error: any) {
           // サブスクリプションが存在しない場合は成功として扱う
           // （既にキャンセル済み、または別のwebhookで処理済み）
-          if (error?.code === 'resource_missing' || error?.message?.includes('No such subscription')) {
-            console.log('Previous Stripe subscription not found, treating as already canceled', {
-              previousPlatformSubscriptionId: validatedPreviousPlatformSubscriptionId,
-              error: error.message,
-            });
+          if (
+            error?.code === 'resource_missing' ||
+            error?.message?.includes('No such subscription')
+          ) {
+            console.log(
+              'Previous Stripe subscription not found, treating as already canceled',
+              {
+                previousPlatformSubscriptionId:
+                  validatedPreviousPlatformSubscriptionId,
+                error: error.message,
+              }
+            );
             return {
               success: true,
               alreadyCanceled: true,
@@ -2428,7 +2685,9 @@ async function handlePlanChangeCompleted(
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
       executeFunction: async () => {
-        const subscriptionId = await getInternalSubscriptionId(validatedPreviousPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedPreviousPlatformSubscriptionId
+        );
 
         console.log('Updating internal subscription', {
           subscriptionId,
@@ -2472,7 +2731,9 @@ async function handlePlanChangeCompleted(
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
         // ステップ2で更新済みなので新しいplatform_subscription_idで検索
-        const subscriptionId = await getInternalSubscriptionId(validatedNewPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedNewPlatformSubscriptionId
+        );
 
         console.log('Terminating previous plan application', {
           tenantId,
@@ -2504,7 +2765,9 @@ async function handlePlanChangeCompleted(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        const subscriptionId = await getInternalSubscriptionId(validatedNewPlatformSubscriptionId);
+        const subscriptionId = await getInternalSubscriptionId(
+          validatedNewPlatformSubscriptionId
+        );
 
         console.log('Applying new plan to user', {
           tenantId,
@@ -2549,7 +2812,9 @@ async function handlePlanChangeCompleted(
 
           // Stripe APIキーを取得
           const apiKey = await getStripeApiKey(tenantId);
-          const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+          const stripe = new Stripe(apiKey, {
+            apiVersion: '2025-10-29.clover',
+          });
 
           // 新しいサブスクリプションの最新インボイスを取得
           const invoices = await stripe.invoices.list({
@@ -2558,9 +2823,12 @@ async function handlePlanChangeCompleted(
           });
 
           if (invoices.data.length === 0) {
-            console.warn('No invoice found for checkout plan change, skipping receipt', {
-              newPlatformSubscriptionId: validatedNewPlatformSubscriptionId,
-            });
+            console.warn(
+              'No invoice found for checkout plan change, skipping receipt',
+              {
+                newPlatformSubscriptionId: validatedNewPlatformSubscriptionId,
+              }
+            );
             return { success: true, emailSent: false, reason: 'no_invoice' };
           }
 
@@ -2570,15 +2838,23 @@ async function handlePlanChangeCompleted(
           const invoiceNumber = invoice.number;
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
 
-            const alreadySent = await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+            const alreadySent =
+              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
             if (alreadySent) {
               console.log('Receipt already sent for this invoice, skipping', {
                 invoiceNumber,
                 idempotencyKey,
               });
-              return { success: true, emailSent: false, reason: 'already_sent' };
+              return {
+                success: true,
+                emailSent: false,
+                reason: 'already_sent',
+              };
             }
           }
 
@@ -2611,7 +2887,10 @@ async function handlePlanChangeCompleted(
           // 送信完了を記録
           if (invoiceNumber) {
             const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(tenantId, invoiceNumber);
+            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+              tenantId,
+              invoiceNumber
+            );
             await idempotencyRepo.markReceiptSent(idempotencyKey);
           }
 
@@ -2651,4 +2930,3 @@ async function handlePlanChangeCompleted(
     eventId
   );
 }
-

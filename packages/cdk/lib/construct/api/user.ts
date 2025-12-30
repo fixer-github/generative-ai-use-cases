@@ -100,6 +100,15 @@ class UserApi extends Construct {
       );
     }
 
+    // Grant Cognito permission to update user attributes (birthdate)
+    setBirthdateFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['cognito-idp:AdminUpdateUserAttributes'],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
     // PUT /user/birthdate - Set birthdate
     const birthdateResource = userResource.addResource('birthdate');
     birthdateResource.addMethod(

@@ -26,7 +26,11 @@ import {
   notFound404Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
-import { getTenantId, getUsername, getBirthdateFromClaims } from '../../../utils/tenantUtils';
+import {
+  getTenantId,
+  getUsername,
+  getBirthdateFromClaims,
+} from '../../../utils/tenantUtils';
 
 /**
  * 支払い方法（カード）の型
@@ -45,6 +49,23 @@ interface PaymentMethodCard {
 interface PaymentMethod {
   type: string;
   card?: PaymentMethodCard;
+}
+
+/**
+ * 価格情報の型
+ */
+interface PriceInfo {
+  amount: number;
+  currency: string;
+  interval: string;
+}
+
+/**
+ * サブスクリプション詳細情報（支払い方法と価格情報を含む）
+ */
+interface SubscriptionDetailInfo {
+  paymentMethod: PaymentMethod | null;
+  priceInfo: PriceInfo | null;
 }
 
 /**
@@ -184,7 +205,10 @@ async function retrieveCustomerPaymentMethod(
 ): Promise<Stripe.PaymentMethod | null> {
   try {
     console.log('Retrieving payment method:', { customerId, paymentMethodId });
-    return await stripe.customers.retrievePaymentMethod(customerId, paymentMethodId);
+    return await stripe.customers.retrievePaymentMethod(
+      customerId,
+      paymentMethodId
+    );
   } catch (error) {
     console.error('Failed to retrieve customer payment method:', error);
     return null;
@@ -203,26 +227,47 @@ async function retrieveCustomerPaymentMethod(
  * - インボイスのdefault_payment_methodがない場合、payments経由で取得
  * - それでもない場合、顧客の支払い方法一覧から取得
  */
-async function getPaymentMethodFromStripe(
+async function getSubscriptionDetailFromStripe(
   tenantId: string,
   platformSubscriptionId: string
-): Promise<PaymentMethod | null> {
+): Promise<SubscriptionDetailInfo> {
+  const emptyResult: SubscriptionDetailInfo = {
+    paymentMethod: null,
+    priceInfo: null,
+  };
+
   try {
     const apiKey = await getStripeApiKey(tenantId);
     if (!apiKey) {
       console.log('Stripe API key not available');
-      return null;
+      return emptyResult;
     }
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
 
-    // 1. サブスクリプション情報を取得
-    const subscription = await stripe.subscriptions.retrieve(platformSubscriptionId);
+    // 1. サブスクリプション情報を取得（価格情報も展開）
+    const subscription = await stripe.subscriptions.retrieve(
+      platformSubscriptionId,
+      { expand: ['items.data.price'] }
+    );
 
+    // 2. 価格情報を抽出
+    let priceInfo: PriceInfo | null = null;
+    const priceItem = subscription.items.data[0]?.price;
+    if (priceItem) {
+      priceInfo = {
+        amount: priceItem.unit_amount || 0,
+        currency: (priceItem.currency || 'jpy').toUpperCase(),
+        interval: priceItem.recurring?.interval || 'month',
+      };
+      console.log('Extracted price info from subscription:', priceInfo);
+    }
+
+    // 3. 支払い方法情報を取得
     const customerId = getCustomerId(subscription.customer);
     if (!customerId) {
       console.log('No customer ID found on subscription');
-      return null;
+      return { paymentMethod: null, priceInfo };
     }
 
     console.log('Subscription info:', {
@@ -231,18 +276,24 @@ async function getPaymentMethodFromStripe(
       defaultPaymentMethodId: extractId(subscription.default_payment_method),
     });
 
-    // 2. サブスクリプションのdefault_payment_methodを試す
-    const subscriptionPaymentMethodId = extractId(subscription.default_payment_method);
+    // 3a. サブスクリプションのdefault_payment_methodを試す
+    const subscriptionPaymentMethodId = extractId(
+      subscription.default_payment_method
+    );
     if (subscriptionPaymentMethodId) {
-      const pm = await retrieveCustomerPaymentMethod(stripe, customerId, subscriptionPaymentMethodId);
+      const pm = await retrieveCustomerPaymentMethod(
+        stripe,
+        customerId,
+        subscriptionPaymentMethodId
+      );
       if (pm) {
         console.log('Using subscription.default_payment_method');
         const result = extractCardFromPaymentMethod(pm);
-        if (result) return result;
+        if (result) return { paymentMethod: result, priceInfo };
       }
     }
 
-    // 3. インボイスから支払い方法を取得
+    // 3b. インボイスから支払い方法を取得
     const invoiceId = extractId(subscription.latest_invoice);
     if (invoiceId) {
       const invoice = await stripe.invoices.retrieve(invoiceId, {
@@ -255,30 +306,41 @@ async function getPaymentMethodFromStripe(
         paymentsCount: invoice.payments?.data?.length ?? 0,
       });
 
-      // 3a. インボイスのdefault_payment_methodを試す
+      // 3b-1. インボイスのdefault_payment_methodを試す
       const invoicePaymentMethodId = extractId(invoice.default_payment_method);
       if (invoicePaymentMethodId) {
-        const pm = await retrieveCustomerPaymentMethod(stripe, customerId, invoicePaymentMethodId);
+        const pm = await retrieveCustomerPaymentMethod(
+          stripe,
+          customerId,
+          invoicePaymentMethodId
+        );
         if (pm) {
           console.log('Using invoice.default_payment_method');
           const result = extractCardFromPaymentMethod(pm);
-          if (result) return result;
+          if (result) return { paymentMethod: result, priceInfo };
         }
       }
 
-      // 3b. インボイスのpayments経由でpayment_intent.payment_methodを取得
+      // 3b-2. インボイスのpayments経由でpayment_intent.payment_methodを取得
       const firstPayment = invoice.payments?.data?.[0];
       if (firstPayment?.payment?.payment_intent) {
         const paymentIntentId = extractId(firstPayment.payment.payment_intent);
         if (paymentIntentId) {
-          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const paymentIntent =
+            await stripe.paymentIntents.retrieve(paymentIntentId);
           const paymentMethodId = extractId(paymentIntent.payment_method);
           if (paymentMethodId) {
-            const pm = await retrieveCustomerPaymentMethod(stripe, customerId, paymentMethodId);
+            const pm = await retrieveCustomerPaymentMethod(
+              stripe,
+              customerId,
+              paymentMethodId
+            );
             if (pm) {
-              console.log('Using invoice.payments.payment.payment_intent.payment_method');
+              console.log(
+                'Using invoice.payments.payment.payment_intent.payment_method'
+              );
               const result = extractCardFromPaymentMethod(pm);
-              if (result) return result;
+              if (result) return { paymentMethod: result, priceInfo };
             }
           }
         }
@@ -296,14 +358,14 @@ async function getPaymentMethodFromStripe(
     if (paymentMethods.data.length > 0) {
       console.log('Using customer payment method from list');
       const result = extractCardFromPaymentMethod(paymentMethods.data[0]);
-      if (result) return result;
+      if (result) return { paymentMethod: result, priceInfo };
     }
 
     console.log('No payment method found from any source');
-    return null;
+    return { paymentMethod: null, priceInfo };
   } catch (error) {
-    console.error('Failed to fetch payment method from Stripe:', error);
-    return null;
+    console.error('Failed to fetch subscription detail from Stripe:', error);
+    return emptyResult;
   }
 }
 
@@ -502,12 +564,13 @@ export const handler = async (
           subscriptionId: selectedApplication.application_source_id,
         });
 
-        const fetchedSubscription = await invokeDataAccessFunction<Subscription | null>(
-          event,
-          'subscription',
-          'findById',
-          { subscriptionId: selectedApplication.application_source_id }
-        );
+        const fetchedSubscription =
+          await invokeDataAccessFunction<Subscription | null>(
+            event,
+            'subscription',
+            'findById',
+            { subscriptionId: selectedApplication.application_source_id }
+          );
 
         console.log('Subscription fetch result:', {
           found: !!fetchedSubscription,
@@ -531,14 +594,16 @@ export const handler = async (
             cancelAtPeriodEnd = true;
             // Lambda間のJSONシリアライゼーションで既に文字列になっている可能性があるため、
             // 文字列として扱うか、必要に応じてDate型に変換
-            serviceEndDate = typeof subscription.current_period_end === 'string'
-              ? subscription.current_period_end
-              : new Date(subscription.current_period_end).toISOString();
+            serviceEndDate =
+              typeof subscription.current_period_end === 'string'
+                ? subscription.current_period_end
+                : new Date(subscription.current_period_end).toISOString();
           } else {
             // 通常のサブスクリプションの場合
-            nextBillingDate = typeof subscription.current_period_end === 'string'
-              ? subscription.current_period_end
-              : new Date(subscription.current_period_end).toISOString();
+            nextBillingDate =
+              typeof subscription.current_period_end === 'string'
+                ? subscription.current_period_end
+                : new Date(subscription.current_period_end).toISOString();
           }
         } else {
           console.warn('No subscription found for application_source_id:', {
@@ -558,17 +623,20 @@ export const handler = async (
       });
     }
 
-    // 8. 支払い方法情報を取得（Stripeの場合のみ）
-    let paymentMethod: PaymentMethod | null = null;
+    // 8. 支払い方法情報と価格情報を取得（Stripeの場合のみ）
+    let subscriptionDetail: SubscriptionDetailInfo = {
+      paymentMethod: null,
+      priceInfo: null,
+    };
     if (
       subscription &&
       subscription.platform_type === 'stripe' &&
       subscription.platform_subscription_id
     ) {
-      console.log('Fetching payment method from Stripe:', {
+      console.log('Fetching subscription detail from Stripe:', {
         platformSubscriptionId: subscription.platform_subscription_id,
       });
-      paymentMethod = await getPaymentMethodFromStripe(
+      subscriptionDetail = await getSubscriptionDetailFromStripe(
         tenantId,
         subscription.platform_subscription_id
       );
@@ -577,7 +645,17 @@ export const handler = async (
     // 9. 生年月日を取得（Cognito ユーザー属性から直接取得）
     const birthdate = getBirthdateFromClaims(event);
 
-    // 10. レスポンスの構築
+    // 10. 価格情報の決定（internalプランは0円、Stripeの場合はサブスクリプションから取得）
+    let amount = 0;
+    let currency = 'JPY';
+    let interval = 'month';
+    if (plan.platform_type !== 'internal' && subscriptionDetail.priceInfo) {
+      amount = subscriptionDetail.priceInfo.amount;
+      currency = subscriptionDetail.priceInfo.currency;
+      interval = subscriptionDetail.priceInfo.interval;
+    }
+
+    // 11. レスポンスの構築
     const response: CurrentPlanResponse = {
       planId: plan.plan_id,
       planName: plan.internal_name,
@@ -586,28 +664,27 @@ export const handler = async (
       subscriptionId: subscription?.subscription_id || null,
       platformType: subscription?.platform_type || null,
       currentPeriodStart: subscription?.current_period_start
-        ? (typeof subscription.current_period_start === 'string'
-            ? subscription.current_period_start
-            : new Date(subscription.current_period_start).toISOString())
+        ? typeof subscription.current_period_start === 'string'
+          ? subscription.current_period_start
+          : new Date(subscription.current_period_start).toISOString()
         : null,
       currentPeriodEnd: subscription?.current_period_end
-        ? (typeof subscription.current_period_end === 'string'
-            ? subscription.current_period_end
-            : new Date(subscription.current_period_end).toISOString())
+        ? typeof subscription.current_period_end === 'string'
+          ? subscription.current_period_end
+          : new Date(subscription.current_period_end).toISOString()
         : null,
       nextBillingDate,
       cancelAtPeriodEnd,
       serviceEndDate,
       subscribedAt: subscription?.created_at
-        ? (typeof subscription.created_at === 'string'
-            ? subscription.created_at
-            : new Date(subscription.created_at).toISOString())
+        ? typeof subscription.created_at === 'string'
+          ? subscription.created_at
+          : new Date(subscription.created_at).toISOString()
         : null,
-      paymentMethod,
-      // 価格情報（Freeプランの場合は0円、それ以外は要件に応じて実装）
-      amount: plan.internal_name === 'Freeプラン' ? 0 : 1000, // TODO: 価格情報を動的に取得
-      currency: 'JPY',
-      interval: 'month',
+      paymentMethod: subscriptionDetail.paymentMethod,
+      amount,
+      currency,
+      interval,
       birthdate,
     };
 
