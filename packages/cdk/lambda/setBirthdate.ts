@@ -1,6 +1,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  CognitoIdentityProviderClient,
+  AdminUpdateUserAttributesCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { verifyToken } from './utils/auth';
 import {
   badRequest400Response,
@@ -14,8 +18,13 @@ const dynamoClient = new DynamoDBClient({
 });
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION!,
+});
+
 const USER_REGISTRATION_METADATA_TABLE_NAME =
   process.env.USER_REGISTRATION_METADATA_TABLE_NAME!;
+const USER_POOL_ID = process.env.USER_POOL_ID!;
 
 // リクエストの型定義
 interface SetBirthdateRequest {
@@ -117,6 +126,14 @@ export const handler = async (
       });
     }
 
+    // Cognitoユーザー名を取得（属性更新に必要）
+    const username = claims['cognito:username'];
+    if (!username) {
+      return unauthorized401Response({
+        message: 'Username not found in token',
+      });
+    }
+
     // リクエストボディの解析
     let requestBody: SetBirthdateRequest;
     try {
@@ -133,8 +150,24 @@ export const handler = async (
 
     const { birthdate } = requestBody;
 
-    // DynamoDBに生年月日を保存（既存レコードを更新、なければ新規作成）
+    // Cognitoユーザー属性に生年月日を保存
     try {
+      const updateCommand = new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+        UserAttributes: [
+          {
+            Name: 'birthdate',
+            Value: birthdate,
+          },
+        ],
+      });
+
+      await cognitoClient.send(updateCommand);
+
+      console.log(`Successfully set birthdate in Cognito for user: ${username}`);
+
+      // DynamoDBにも保存（バックアップ・参照用）
       await docClient.send(
         new UpdateCommand({
           TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
@@ -148,14 +181,14 @@ export const handler = async (
         })
       );
 
-      console.log(`Successfully set birthdate for user: ${userId}`);
+      console.log(`Successfully set birthdate in DynamoDB for user: ${userId}`);
 
       return ok200Response<SetBirthdateResponse>({
         message: 'Birthdate set successfully',
         birthdate,
       });
     } catch (error) {
-      console.error(`Failed to set birthdate for user ${userId}:`, error);
+      console.error(`Failed to set birthdate for user ${username}:`, error);
       throw error;
     }
   } catch (error) {
