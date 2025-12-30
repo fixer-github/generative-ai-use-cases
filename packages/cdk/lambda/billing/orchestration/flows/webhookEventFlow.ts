@@ -36,6 +36,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -65,6 +66,12 @@ import { IdempotencyRepository } from '../repositories/idempotencyRepository';
 
 // Lambda client instance
 const lambdaClient = new LambdaClient({});
+
+// DynamoDB client instance
+const dynamoDbClient = new DynamoDBClient({});
+
+// ペアレンタルコントロール用プラン変更リクエストテーブル
+const PENDING_PLAN_CHANGES_TABLE_NAME = process.env.PENDING_PLAN_CHANGES_TABLE_NAME || '';
 
 /**
  * デフォルトプランを取得
@@ -1137,6 +1144,26 @@ async function handleSubscriptionUpdated(
     throw new Error('Current price ID not found in event data');
   }
 
+  // 内部プランIDを解決するヘルパー（metadataから優先、なければPrice IDから逆引き）
+  const resolvePlanId = async (): Promise<string> => {
+    const metadata = ((stripeData as unknown as Stripe.Event).data?.object as Stripe.Subscription | undefined)?.metadata;
+    if (metadata?.planId) {
+      console.log('Plan ID resolved from metadata', { planId: metadata.planId });
+      return metadata.planId;
+    }
+
+    console.log('Resolving plan ID from price ID', { currentPriceId });
+    const plan = await invokeDataAccessFunctionByTenantId<{ plan_id: string } | null>(
+      tenantId,
+      'plan',
+      'findByPlatformProductId',
+      { platformProductId: currentPriceId }
+    );
+    if (plan?.plan_id) return plan.plan_id;
+
+    throw new Error(`Could not resolve internal plan ID for price: ${currentPriceId}`);
+  };
+
   // ステップ設定
   const steps: StepConfig[] = [
     // ステップ1: 現在のプラン適用を終了
@@ -1198,13 +1225,6 @@ async function handleSubscriptionUpdated(
       stepType: 'api_call',
       targetService: 'SubscriptionManagement',
       executeFunction: async () => {
-        console.log('Updating subscription plan ID', {
-          tenantId,
-          platformSubscriptionId,
-          newPriceId: currentPriceId,
-        });
-
-        // platform_subscription_idでサブスクリプションを検索
         const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
           tenantId,
           'subscription',
@@ -1213,31 +1233,25 @@ async function handleSubscriptionUpdated(
         );
 
         if (!subscription) {
-          console.warn('No internal subscription found, skipping plan update', {
-            platformSubscriptionId,
-          });
-          return {
-            skipped: true,
-            reason: 'no_internal_subscription_found',
-          };
+          console.warn('No internal subscription found, skipping plan update', { platformSubscriptionId });
+          return { skipped: true, reason: 'no_internal_subscription_found' };
         }
 
-        // サブスクリプションのplan_idを更新（既存のupdateオペレーションを使用）
-        const updateResult = await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
+        const planId = await resolvePlanId();
+
+        await invokeDataAccessFunctionByTenantId<{ subscription_id: string }>(
           tenantId,
           'subscription',
           'update',
           {
             subscriptionId: subscription.subscription_id,
-            updates: {
-              plan_id: currentPriceId,
-            },
+            updates: { plan_id: planId },
           }
         );
 
         console.log('Subscription plan ID updated', {
           subscriptionId: subscription.subscription_id,
-          newPlanId: currentPriceId,
+          planId,
         });
 
         return {
@@ -1256,7 +1270,6 @@ async function handleSubscriptionUpdated(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        // platform_subscription_idでサブスクリプションを検索
         const subscription = await invokeDataAccessFunctionByTenantId<{ subscription_id: string } | null>(
           tenantId,
           'subscription',
@@ -1268,21 +1281,22 @@ async function handleSubscriptionUpdated(
           throw new Error('Internal subscription not found for platform subscription');
         }
 
+        const planId = await resolvePlanId();
+
         console.log('Applying new plan to user (plan change via portal)', {
           tenantId,
           userId,
-          planId: currentPriceId,
+          planId,
           subscriptionId: subscription.subscription_id,
         });
 
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId: userId as string,
-          planId: currentPriceId as string,
+          planId,
           applicationSource: 'subscription',
           applicationSourceId: subscription.subscription_id,
           validFrom: new Date().toISOString(),
-          // validUntilはサブスクリプションの有効期限に合わせる
         });
 
         console.log('New plan applied successfully', {
@@ -1337,7 +1351,70 @@ async function handleSubscriptionUpdated(
       maxRetries: 2,
     },
 
-    // ステップ5: プラン変更の領収書メール送信（非ブロッキング）
+    // ステップ5: ペアレンタルコントロール用プラン変更リクエストのステータスを更新
+    // DynamoDBのPENDING_PLAN_CHANGES_TABLEのステータスを'approved'に更新し、
+    // クライアントがポーリングで完了を検知できるようにする
+    {
+      stepName: 'update_plan_change_request_status',
+      stepType: 'api_call',
+      targetService: 'DynamoDB',
+      executeFunction: async () => {
+        // ペアレンタルコントロールによるプラン変更の場合のみ処理
+        if (!isParentalControlPlanChange) {
+          console.log('Not a parental control plan change, skipping status update');
+          return { skipped: true, reason: 'not_parental_control_flow' };
+        }
+
+        // Stripeのmetadataからプラン変更リクエストIDを取得
+        const metadata = ((stripeData as unknown as Stripe.Event).data?.object as Stripe.Subscription | undefined)?.metadata;
+        const planChangeRequestId = metadata?.planChangeRequestId;
+
+        if (!planChangeRequestId) {
+          console.warn('Plan change request ID not found in metadata, skipping status update', {
+            platformSubscriptionId,
+            metadata,
+          });
+          return { skipped: true, reason: 'no_request_id_in_metadata' };
+        }
+
+        if (!PENDING_PLAN_CHANGES_TABLE_NAME) {
+          console.warn('PENDING_PLAN_CHANGES_TABLE_NAME not configured, skipping status update');
+          return { skipped: true, reason: 'table_not_configured' };
+        }
+
+        console.log('Updating plan change request status to approved', {
+          planChangeRequestId,
+          platformSubscriptionId,
+        });
+
+        await dynamoDbClient.send(
+          new UpdateItemCommand({
+            TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
+            Key: {
+              requestId: { S: planChangeRequestId },
+            },
+            UpdateExpression: 'SET #status = :status, approvedAt = :approvedAt',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': { S: 'approved' },
+              ':approvedAt': { N: Date.now().toString() },
+            },
+          })
+        );
+
+        console.log('Plan change request status updated to approved', {
+          planChangeRequestId,
+        });
+
+        return { success: true, planChangeRequestId };
+      },
+      retryable: true,
+      maxRetries: 2,
+    },
+
+    // ステップ6: プラン変更の領収書メール送信（非ブロッキング）
     {
       stepName: 'send_plan_change_receipt',
       stepType: 'api_call',

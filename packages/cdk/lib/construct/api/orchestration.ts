@@ -7,6 +7,7 @@ import { TenantManager } from '../../construct/tenant-manager';
 import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 
 export interface OrchestrationApiProps {
   /**
@@ -74,6 +75,11 @@ export interface OrchestrationApiProps {
    * Service name for email branding
    */
   readonly serviceName?: string;
+
+  /**
+   * Pending Plan Changes Table for parental control plan change requests
+   */
+  readonly pendingPlanChangesTable?: ITable;
 }
 
 /**
@@ -233,6 +239,10 @@ class OrchestrationApi extends Construct {
           ...(props.sendgridApiKey && { SENDGRID_API_KEY: props.sendgridApiKey }),
           ...(props.sendgridFromEmail && { SENDGRID_FROM_EMAIL: props.sendgridFromEmail }),
           ...(props.serviceName && { SERVICE_NAME: props.serviceName }),
+          // Pending Plan Changes Table for parental control status update
+          ...(props.pendingPlanChangesTable && {
+            PENDING_PLAN_CHANGES_TABLE_NAME: props.pendingPlanChangesTable.tableName,
+          }),
         },
       }
     );
@@ -264,6 +274,10 @@ class OrchestrationApi extends Construct {
           `arn:aws:lambda:*:*:function:${environment}-billing-payment-*`,
           // Orchestration functions (for webhook flow to invoke purchase flow)
           `arn:aws:lambda:*:*:function:${environment}-billing-orchestration-*`,
+          // Tenant Subscription Data Access functions (for webhook flow to update subscription data)
+          `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+          // Tenant User Plan Application Data Access functions (for webhook flow to manage plan applications)
+          `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
         ],
       })
     );
@@ -277,6 +291,22 @@ class OrchestrationApi extends Construct {
         effect: Effect.ALLOW,
         actions: ['events:PutEvents'],
         resources: [`arn:aws:events:*:*:event-bus/${environment}-billing-events`],
+      })
+    );
+
+    // Permission for Webhook Event Flow to update pending plan changes table
+    // Note: Using static ARN pattern instead of pendingPlanChangesTable.tableArn to avoid
+    // circular dependency between BackgroundJobRoleDefaultPolicy (parent stack),
+    // BillingManagementStack (nested), and WebStack (nested).
+    backgroundJobRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
+        ],
+        resources: [`arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`],
       })
     );
 

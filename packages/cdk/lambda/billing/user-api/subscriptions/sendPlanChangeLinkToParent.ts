@@ -857,8 +857,12 @@ export const handler = async (
       });
     }
 
-    // 15.5. サブスクリプションのメタデータに変更前のプラン情報を保存
+    // 15.5. リクエストIDを生成（metadataとDynamoDBで共有）
+    const requestId = randomUUID();
+
+    // 15.6. サブスクリプションのメタデータに変更前のプラン情報を保存
     // これにより、webhookで previous_attributes.items がない場合でもプラン変更を検出可能
+    // planChangeRequestIdを含めることで、webhookからDynamoDBのステータスを更新可能
     await stripe.subscriptions.update(stripeSubscriptionId, {
       metadata: {
         ...stripeSubscription.metadata,
@@ -866,6 +870,7 @@ export const handler = async (
         originalPriceId: currentStripePriceId || '',
         targetPriceId: newPlan.platform_product_id || '',
         parentalControlRequest: 'true',
+        planChangeRequestId: requestId,
       },
     });
 
@@ -908,8 +913,7 @@ export const handler = async (
       url: portalSession.url,
     });
 
-    // 18. DynamoDBに履歴を保存（オプション）
-    const requestId = randomUUID();
+    // 18. DynamoDBに履歴を保存（requestIdは15.5で生成済み）
     const nowTimestamp = Date.now();
     const expiresAt = nowTimestamp + EXPIRATION_HOURS * 60 * 60 * 1000;
     const ttl = Math.floor(
