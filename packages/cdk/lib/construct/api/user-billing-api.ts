@@ -96,7 +96,6 @@ class UserBillingApi extends Construct {
   public readonly sendCheckoutLinkToParentFunction: NodejsFunction;
   public readonly sendPlanChangeLinkToParentFunction?: NodejsFunction;
   public readonly getPlanChangeRequestStatusFunction?: NodejsFunction;
-  public readonly approvePlanChangeFunction?: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
@@ -504,60 +503,7 @@ class UserBillingApi extends Construct {
       );
 
       // ========================================
-      // API 3.7: プラン変更承認API（公開エンドポイント - 保護者用）
-      // POST /api/subscriptions/approve-plan-change
-      // ========================================
-
-      this.approvePlanChangeFunction = new NodejsFunction(
-        this,
-        'ApprovePlanChange',
-        {
-          runtime: LAMBDA_RUNTIME_NODEJS,
-          entry: './lambda/billing/user-api/subscriptions/approvePlanChange.ts',
-          timeout: Duration.seconds(60), // planChangeFlow呼び出しを含むため長めに設定
-          memorySize: 512,
-          environment: {
-            ...commonEnvironment,
-            PENDING_PLAN_CHANGES_TABLE_NAME:
-              props.pendingPlanChangesTable.tableName,
-            PLAN_CHANGE_FLOW_FUNCTION_NAME:
-              props.orchestrationFunctions.planChangeFlow.functionName,
-          },
-        }
-      );
-
-      // Grant Tenants table read access
-      tenantManager.tenantsTable.grantReadData(this.approvePlanChangeFunction);
-
-      // Grant DynamoDB read/write access for pending plan changes
-      props.pendingPlanChangesTable.grantReadWriteData(
-        this.approvePlanChangeFunction
-      );
-
-      // Lambda呼び出し権限（Orchestration planChangeFlow用）
-      this.approvePlanChangeFunction.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['lambda:InvokeFunction'],
-          resources: [props.orchestrationFunctions.planChangeFlow.functionArn],
-        })
-      );
-
-      // API Gatewayエンドポイント（認証なし - 公開）
-      const approvePlanChangeResource = subscriptionsResource.addResource(
-        'approve-plan-change'
-      );
-      approvePlanChangeResource.addMethod(
-        'POST',
-        new LambdaIntegration(this.approvePlanChangeFunction),
-        {
-          // 認証なし - 保護者はログインしていないため
-          authorizationType: AuthorizationType.NONE,
-        }
-      );
-
-      // ========================================
-      // API 3.8: プラン変更リクエストステータス確認API
+      // API 3.7: プラン変更リクエストステータス確認API
       // GET /api/subscriptions/plan-change-request/{requestId}/status
       // ========================================
 
@@ -1212,7 +1158,6 @@ class UserBillingApi extends Construct {
       props.orchestrationFunctions?.planChangeFlow
     ) {
       console.log('  - POST /api/subscriptions/send-plan-change-to-parent');
-      console.log('  - POST /api/subscriptions/approve-plan-change (public)');
       console.log(
         '  - GET /api/subscriptions/plan-change-request/{requestId}/status'
       );
