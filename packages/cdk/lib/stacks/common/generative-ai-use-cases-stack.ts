@@ -1,6 +1,4 @@
 import { Stack, StackProps, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import {
   Auth,
@@ -19,7 +17,6 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { Agent } from 'generative-ai-use-cases';
 import { UseCaseBuilderStack } from '../nested/use-case-builder-stack';
-import { BillingManagementStack } from '../nested/billing-management-stack';
 import { ProcessedStackInput } from '../../stack-input';
 import { allowS3AccessWithSourceIpCondition } from '../../utils/s3-access-policy';
 import { env } from 'process';
@@ -58,7 +55,6 @@ export class GenerativeAiUseCasesStack extends Stack {
   public readonly idPool: IdentityPool;
   public readonly restApi: RestApi;
   public readonly tenantManager: TenantManager;
-  public readonly backgroundJobRole: iam.Role;
 
   constructor(
     scope: Construct,
@@ -69,15 +65,6 @@ export class GenerativeAiUseCasesStack extends Stack {
     env.overrideWarningsEnabled = 'false';
 
     const params = props.params;
-
-    // Database
-    const database = new Database(this, 'Database');
-
-    // Tenant Management（Auth より先に作成：postConfirmHandler がテナント情報を参照するため）
-    const tenantManager = new TenantManager(this, 'TenantManager', {
-      environment: params.env,
-      enableAutoDelete: params.enableAutoDelete,
-    });
 
     // Auth
     const auth = new Auth(this, 'Auth', {
@@ -91,75 +78,16 @@ export class GenerativeAiUseCasesStack extends Stack {
       sendgridApiKey: params.sendgridApiKey,
       sendgridFromEmail: params.sendgridFromEmail,
       enableAutoDelete: params.enableAutoDelete,
-      environment: params.env, // 環境名を渡してLambda関数名の動的構築を可能にする
-      tenantsTableName: tenantManager.tenantsTable.tableName, // クロスアカウント呼び出し用
-      tenantsTableArn: tenantManager.tenantsTable.tableArn, // 権限付与用
     });
 
-    // ========================================
-    // Background Job Role (shared by Lambda functions that need cross-tenant access)
-    // ========================================
-    // This role is used by Lambda functions that need to AssumeRole to TenantRole-*
-    // for cross-account/cross-tenant access via createTenantDynamoDBClientForBackgroundJob
-    const backgroundJobRole = new iam.Role(this, 'BackgroundJobRole', {
-      roleName: `${params.env}-billing-background-job-role`,
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Shared IAM role for background job Lambda functions that need cross-tenant access',
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
-      ],
+    // Database
+    const database = new Database(this, 'Database');
+
+    // Tenant Management
+    const tenantManager = new TenantManager(this, 'TenantManager', {
+      environment: params.env,
+      enableAutoDelete: params.enableAutoDelete,
     });
-
-    // Base permission: STS AssumeRole for cross-account tenant access
-    // This is required for createTenantDynamoDBClientForBackgroundJob
-    backgroundJobRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['sts:AssumeRole'],
-        resources: ['arn:aws:iam::*:role/TenantRole-*'],
-      })
-    );
-
-    // Base permission: Tenants table read access
-    tenantManager.tenantsTable.grantReadData(backgroundJobRole);
-
-    // Authorization permission: OpenFGA API Gateway invoke
-    // Required for grantPermission Lambda to write tuples to OpenFGA
-    backgroundJobRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['execute-api:Invoke'],
-        resources: ['arn:aws:execute-api:*:*:*/prod/*'],
-      })
-    );
-
-    // Authorization permission: SSM Parameter Store read for OpenFGA config
-    // Required for grantPermission Lambda to get OpenFGA endpoint/storeId
-    backgroundJobRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['ssm:GetParameter'],
-        resources: [
-          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiEndpoint`,
-          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiRegion`,
-          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaStoreId`,
-        ],
-      })
-    );
-
-    // Billing permission: Secrets Manager read for tenant Stripe API keys
-    // Required for webhookEventFlow Lambda to call Stripe API
-    backgroundJobRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          `arn:aws:secretsmanager:${params.region}:${params.account}:secret:*/billing/stripe*`,
-        ],
-      })
-    );
 
     // PPTX resources moved to per-tenant stacks (TenantPptxStack and TenantS3Stack)
     // Each tenant now has their own isolated PPTX database and S3 buckets
@@ -202,6 +130,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClient: auth.client,
       table: database.table,
       statsTable: database.statsTable,
+      userSummaryTable: database.userSummaryTable,
       assistantTable: database.assistantTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: props.agents,
@@ -256,6 +185,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       auth: auth,
       assistantTable: database.assistantTable,
       chatHistoryTable: database.table,
+      userSummaryTable: database.userSummaryTable,
       fileBucket: api.fileBucket,
       tenantManager: tenantManager,
       videoBucketRegionMap: props.videoBucketRegionMap,
@@ -275,6 +205,22 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
 
       mcpEndpoint = mcpApiStack.mcpApi.endpoint;
+    }
+
+    // Web Frontend (only deploy if useWebUi is true)
+    if (params.useWebUi) {
+      new WebStack(this, 'Web', {
+        params: params,
+        auth: auth,
+        api: api,
+        speechToSpeech: speechToSpeech,
+        webAclId: props.webAclId,
+        mcpEndpoint: mcpEndpoint,
+        cert: props.cert,
+        assistantMessageStreamFunctionArn:
+          assistantApiStack.assistantApi.assistantMessageStreamFunction
+            .functionArn,
+      });
     }
 
     // RAG
@@ -348,59 +294,6 @@ export class GenerativeAiUseCasesStack extends Stack {
         idPool: auth.idPool,
         environment: params.env,
         tenantManager: tenantManager,
-      });
-    }
-
-    // Billing Management (as Nested Stack with independent API)
-    // Uses IAM authentication for RDS access via tenant-specific credentials
-    // Separated from main API to avoid CloudFormation 500 resource limit
-    const billingManagementStack = new BillingManagementStack(
-      this,
-      `BillingManagementStack${params.env}`,
-      {
-        userPool: auth.userPool,
-        userPoolClient: auth.client,
-        idPool: auth.idPool,
-        tenantManager: tenantManager,
-        environment: params.env,
-        backgroundJobRole: backgroundJobRole,
-        allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-        allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-        sendgridApiKey: params.sendgridApiKey,
-        sendgridFromEmail: params.sendgridFromEmail,
-        emailServiceName: params.emailServiceName,
-      }
-    );
-
-    // Output Billing API endpoint for frontend configuration
-    new CfnOutput(this, 'BillingApiEndpoint', {
-      value: billingManagementStack.billingApi.url,
-      description: 'Billing API endpoint URL (separate from main API)',
-    });
-
-    // Output Background Job Role ARN for tenant stack configuration
-    // This ARN should be set as controlPlaneLambdaRoleArn in cdk.tenant.json
-    new CfnOutput(this, 'BackgroundJobRoleArn', {
-      value: backgroundJobRole.roleArn,
-      description: 'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
-      exportName: `${this.stackName}-BackgroundJobRoleArn`,
-    });
-
-    // Web Frontend (must be after BillingManagementStack to use billingApi.url)
-    // Only deploy if useWebUi is true
-    if (params.useWebUi) {
-      new WebStack(this, 'Web', {
-        params: params,
-        auth: auth,
-        api: api,
-        billingApiEndpointUrl: billingManagementStack.billingApi.url,
-        speechToSpeech: speechToSpeech,
-        webAclId: props.webAclId,
-        mcpEndpoint: mcpEndpoint,
-        cert: props.cert,
-        assistantMessageStreamFunctionArn:
-          assistantApiStack.assistantApi.assistantMessageStreamFunction
-            .functionArn,
       });
     }
 
@@ -572,8 +465,6 @@ export class GenerativeAiUseCasesStack extends Stack {
 
     this.userPool = auth.userPool;
     this.userPoolClient = auth.client;
-    this.tenantManager = tenantManager;
-    this.backgroundJobRole = backgroundJobRole;
 
     this.exportValue(this.userPool.userPoolId);
     this.exportValue(this.userPoolClient.userPoolClientId);

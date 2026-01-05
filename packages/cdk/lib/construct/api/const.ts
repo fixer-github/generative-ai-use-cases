@@ -2,3 +2,4 @@
 export const TABLE_PREFIX = 'ChatHistory';
 export const STATS_TABLE_PREFIX = 'TokenUsageStats';
 export const ASSISTANT_TABLE_PREFIX = 'Assistant';
+export const USER_SUMMARY_TABLE_PREFIX = 'UserSummary';

@@ -19,6 +19,7 @@ interface AssistantApiStackProps extends StackProps {
   auth: Auth;
   assistantTable: Table;
   chatHistoryTable: Table;
+  userSummaryTable: Table;
   fileBucket: Bucket;
   tenantManager?: TenantManager;
   videoBucketRegionMap?: Record<string, string>;
@@ -40,6 +41,7 @@ class AssistantApiStack extends NestedStack {
       auth,
       assistantTable,
       chatHistoryTable,
+      userSummaryTable,
       fileBucket,
       tenantManager,
       videoBucketRegionMap,
@@ -92,6 +94,7 @@ class AssistantApiStack extends NestedStack {
       userPoolClient: auth.client,
       table: chatHistoryTable,
       statsTable: assistantTable, // Reuse for stats
+      userSummaryTable,
       assistantTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || undefined,
       agents: params.agents,

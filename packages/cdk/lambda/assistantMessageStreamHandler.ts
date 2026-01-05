@@ -24,6 +24,7 @@ import {
   getLatestUsage,
   AccessCheckResult,
 } from './utils/accessChecker';
+import { buildSummaryContext } from './utils/summaryContext';
 
 // Request type for streaming assistant messages
 interface AssistantMessageStreamRequest {
@@ -351,21 +352,23 @@ export const handler = awslambda.streamifyResponse(
         }
       }
 
-      // Build system message: assistant instruction + custom instructions + RAG context
-      const baseInstruction = customInstructions?.trim()
-        ? `<instructions>
-${assistant.instruction}
-</instructions>
-<user_custom_instructions>
-${customInstructions}
-</user_custom_instructions>`
-        : `<instructions>
-${assistant.instruction}
-</instructions>`;
+      // Fetch summary context for the user
+      const summaryContext = await buildSummaryContext(userId, requestContext);
 
-      const systemMessage = ragContext
-        ? `${baseInstruction}\n\nRelevant context from documents:\n${ragContext}`
-        : baseInstruction;
+      // Build system message: instruction + summary context + RAG context + custom instructions
+      let systemMessage = `<instructions>\n${assistant.instruction}\n</instructions>`;
+
+      if (summaryContext) {
+        systemMessage += `\n\n${summaryContext}`;
+      }
+
+      if (ragContext) {
+        systemMessage += `\n\nRelevant context from documents:\n${ragContext}`;
+      }
+
+      if (customInstructions?.trim()) {
+        systemMessage += `\n<user_custom_instructions>\n${customInstructions}\n</user_custom_instructions>`;
+      }
 
       // Determine model type:
       // - If modelId exists in modelMetadata → bedrock

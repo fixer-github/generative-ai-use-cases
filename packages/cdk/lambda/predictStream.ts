@@ -1,13 +1,8 @@
-import { Handler, Context } from 'aws-lambda';
+import { Handler, Context, APIGatewayProxyEvent } from 'aws-lambda';
 import { PredictRequest } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
-import {
-  checkAccessWithQuota,
-  incrementUsage,
-  getLatestUsage,
-  AccessCheckResult,
-} from './utils/accessChecker';
+import { buildSummaryContext } from './utils/summaryContext';
 
 declare global {
   namespace awslambda {
@@ -24,109 +19,103 @@ declare global {
 export const handler = awslambda.streamifyResponse(
   async (event, responseStream, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
+    const model = event.model || defaultModel;
 
-    let accessCheckResult: AccessCheckResult | null = null;
+    // Inject summary context if idToken is available
+    let messages = event.messages;
+    if (event.idToken) {
+      try {
+        // Extract userId and tenantId from idToken
+        const tokenPayload = JSON.parse(
+          Buffer.from(event.idToken.split('.')[1], 'base64').toString()
+        );
+        const userId = tokenPayload['cognito:username'];
+        const tenantId =
+          tokenPayload['custom:tenant_id'] ||
+          tokenPayload['custom:tenantId'] ||
+          '';
 
-    try {
-      const model = event.model || defaultModel;
+        // Create request context for repository functions
+        const requestContext = {
+          body: null,
+          headers: {
+            Authorization: event.idToken,
+          },
+          multiValueHeaders: {},
+          httpMethod: 'POST',
+          isBase64Encoded: false,
+          path: '',
+          pathParameters: null,
+          queryStringParameters: null,
+          multiValueQueryStringParameters: null,
+          stageVariables: null,
+          resource: '',
+          requestContext: {
+            accountId: '',
+            apiId: '',
+            authorizer: {
+              claims: {
+                'cognito:username': userId,
+                'custom:tenant_id': tenantId,
+              },
+            },
+            protocol: 'HTTP/1.1',
+            httpMethod: 'POST',
+            identity: {
+              accessKey: null,
+              accountId: null,
+              apiKey: null,
+              apiKeyId: null,
+              caller: null,
+              clientCert: null,
+              cognitoAuthenticationProvider: null,
+              cognitoAuthenticationType: null,
+              cognitoIdentityId: null,
+              cognitoIdentityPoolId: null,
+              principalOrgId: null,
+              sourceIp: '',
+              user: null,
+              userAgent: null,
+              userArn: null,
+            },
+            path: '',
+            stage: '',
+            requestId: '',
+            requestTimeEpoch: 0,
+            resourceId: '',
+            resourcePath: '',
+          },
+        } satisfies APIGatewayProxyEvent;
 
-      // Authorization check: Verify ID token and check LLM access with quota
-      if (!event.idToken) {
-        const errorMessage = JSON.stringify({
-          text: 'ID token is required for authorization',
-          stopReason: 'error',
-        });
-        responseStream.write(errorMessage);
-        responseStream.end();
-        return;
-      }
+        // Build summary context
+        const summaryContext = await buildSummaryContext(userId, requestContext);
 
-      // Check permission and quota using accessChecker
-      accessCheckResult = await checkAccessWithQuota(
-        event.idToken,
-        'llm',
-        model.modelId
-      );
-
-      if (!accessCheckResult.allowed) {
-        const userId = accessCheckResult.userContext?.userId || 'unknown';
-        let errorText: string;
-
-        switch (accessCheckResult.reason) {
-          case 'quota_exceeded':
-            console.warn(
-              `User ${userId} has exceeded quota for model ${model.modelId}`
-            );
-            errorText = `利用回数の上限に達しました: ${model.modelId}`;
-            break;
-          case 'no_permission':
-            console.warn(
-              `User ${userId} does not have access to model ${model.modelId}`
-            );
-            errorText = `このモデルを使用する権限がありません: ${model.modelId}`;
-            break;
-          case 'invalid_token':
-            errorText = 'Invalid or expired ID token';
-            break;
-          default:
-            errorText = `You do not have permission to use the model: ${model.modelId}`;
+        // Inject summary context into system message if available
+        if (summaryContext) {
+          messages = event.messages.map((msg, index) => {
+            if (msg.role === 'system') {
+              return {
+                ...msg,
+                content: `${msg.content}\n\n${summaryContext}`,
+              };
+            }
+            return msg;
+          });
         }
-
-        const errorMessage = JSON.stringify({
-          text: errorText,
-          stopReason: 'error',
-        });
-        responseStream.write(errorMessage);
-        responseStream.end();
-        return;
+      } catch (error) {
+        // Continue without summary context if injection fails
+        console.error('Failed to inject summary context:', error);
       }
-
-      // If authorized, proceed with streaming
-      for await (const token of api[model.type].invokeStream?.(
-        model,
-        event.messages,
-        event.id,
-        event.idToken
-      ) ?? []) {
-        responseStream.write(token);
-      }
-
-      // Increment usage count after successful streaming and return latest usage info
-      if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
-        try {
-          await incrementUsage(
-            event.idToken,
-            'llm',
-            model.modelId,
-            accessCheckResult.limitType
-          );
-
-          // Get latest usage info after incrementing
-          const latestUsage = await getLatestUsage(event.idToken, 'llm', model.modelId);
-
-          // Send final chunk with updated usage info
-          if (latestUsage) {
-            responseStream.write(
-              JSON.stringify({
-                text: '',
-                usage: latestUsage,
-              })
-            );
-          }
-        } catch (error) {
-          console.error('Failed to increment usage count:', error);
-        }
-      }
-
-      responseStream.end();
-    } catch (error) {
-      console.error('PredictStream error:', error);
-      const errorMessage = JSON.stringify({
-        text: 'Internal Server Error',
-        stopReason: 'error',
-      });
-      responseStream.write(errorMessage);
-      responseStream.end();
     }
+
+    for await (const token of api[model.type].invokeStream?.(
+      model,
+      messages,
+      event.id,
+      event.idToken
+    ) ?? []) {
+      responseStream.write(token);
+    }
+    responseStream.end();
   }
 );

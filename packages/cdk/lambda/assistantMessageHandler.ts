@@ -38,6 +38,7 @@ import {
   incrementUsage,
   AccessCheckResult,
 } from './utils/accessChecker';
+import { buildSummaryContext } from './utils/summaryContext';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -380,9 +381,19 @@ async function handleCreateMessage(
     console.log('Using system prompt without RAG context');
   }
 
-  const systemMessage = ragContext
-    ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
-    : assistant.instruction;
+  // Fetch summary context for the user
+  const summaryContext = await buildSummaryContext(userId, event);
+
+  // Build system message: instruction + summary context + RAG context
+  let systemMessage = `<instructions>\n${assistant.instruction}\n</instructions>`;
+
+  if (summaryContext) {
+    systemMessage += `\n\n${summaryContext}`;
+  }
+
+  if (ragContext) {
+    systemMessage += `\n\nRelevant context from documents:\n${ragContext}`;
+  }
 
   // Determine model type:
   // - If modelId exists in modelMetadata → bedrock
