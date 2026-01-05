@@ -439,6 +439,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: params.pptxEnabled.toString(),
     });
 
+    new CfnOutput(this, 'WebSearchInChatEnabled', {
+      value: params.webSearchInChatEnabled.toString(),
+    });
+
     new CfnOutput(this, 'LitellmProxyEnabled', {
       value: params.litellmProxyEnabled.toString(),
     });
