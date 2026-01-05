@@ -49,6 +49,8 @@ export type UnrecordedMessage = {
   extraData?: ExtraData[];
   llmType?: string;
   metadata?: Metadata;
+  // Web検索メタデータ（検索過程を保存するため）
+  webSearchMetadata?: WebSearchMetadata;
 };
 
 export type ExtraData = {
@@ -113,7 +115,6 @@ export type ShownMessage = Partial<PrimaryKey> &
   Partial<MessageAttributes> &
   UnrecordedMessage & {
     traceInlineMessage?: string;
-    webSearchMetadata?: WebSearchMetadata;
   };
 
 export type DocumentComment = {
