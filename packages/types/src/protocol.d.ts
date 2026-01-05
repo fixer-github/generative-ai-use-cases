@@ -4,6 +4,8 @@ import {
   ToBeRecordedMessage,
   UnrecordedMessage,
   Metadata,
+  ToolUseInfo,
+  WebSearchMetadata,
 } from './message';
 import { Chat } from './chat';
 import {
@@ -25,6 +27,8 @@ export type StreamingChunk = {
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
   sessionId?: string;
+  toolUse?: ToolUseInfo;
+  webSearchMetadata?: WebSearchMetadata;
 };
 
 export type Pagination<T> = {
@@ -78,6 +82,7 @@ export type PredictRequest = {
   idToken?: string;
   messages: UnrecordedMessage[];
   id: string;
+  webSearchEnabled?: boolean;
 };
 
 export type PredictResponse = string;

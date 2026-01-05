@@ -113,6 +113,11 @@ class AssistantApiStack extends NestedStack {
 
       // OpenAI
       openai: params.openai,
+
+      // Web Search in Chat
+      webSearchInChatEnabled: params.webSearchInChatEnabled,
+      searchApiKey: params.searchApiKey,
+      searchEngine: params.searchEngine,
     });
 
     this.assistantApi = assistantApi;

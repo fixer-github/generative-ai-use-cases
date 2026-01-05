@@ -222,6 +222,16 @@ chat:
   button:
     newChat: 新しいチャット
   create_link: リンクの作成
+  webSearch:
+    toggle_label: Web検索
+    trace_title: Web検索過程
+    query_label: 検索クエリ
+    results_label: 検索結果
+    referenced: 参照済み
+    searching: 検索中...
+    summary: '参照: {{referenced}}件 / 検索結果: {{total}}件'
+    no_results: 検索結果なし
+    fetching_url: URL取得中...
   create_link_message: リンクを作成することで、このアプリケーションにログイン可能な全ユーザーに対して会話履歴を公開します。
   create_system_prompt: システムプロンプトの作成
   delete_chat_confirmation: チャット「{{title}}」を削除しますか？

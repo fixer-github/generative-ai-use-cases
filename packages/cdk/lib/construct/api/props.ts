@@ -58,6 +58,11 @@ export type GenericApiProps = {
     readonly apiKey: string; // OPENAI_API_KEY
   };
 
+  // Web Search in Chat
+  readonly webSearchInChatEnabled: boolean;
+  readonly searchApiKey?: string | null;
+  readonly searchEngine: 'Brave' | 'Tavily';
+
   api: RestApi;
   fileBucket: Bucket;
 

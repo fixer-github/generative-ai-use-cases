@@ -225,6 +225,16 @@ chat:
   create_link_message: >-
     By creating a link, you will share the conversation history with all users
     who can log in to this application.
+  webSearch:
+    toggle_label: Web Search
+    trace_title: Web Search Process
+    query_label: Search Query
+    results_label: Search Results
+    referenced: Referenced
+    searching: Searching...
+    summary: 'Referenced: {{referenced}} / Total: {{total}}'
+    no_results: No results
+    fetching_url: Fetching URL...
   create_system_prompt: Create System Prompt
   delete_chat_confirmation: Are you sure you want to delete the chat "{{title}}"?
   delete_confirmation: Delete Confirmation

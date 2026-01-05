@@ -26,6 +26,7 @@ import useTyping from '../hooks/useTyping';
 import FileCard from './FileCard';
 import FeedbackForm from './FeedbackForm';
 import Textarea from './Textarea';
+import WebSearchTrace from './WebSearchTrace';
 import useFiles from '../hooks/useFiles';
 import { useTranslation } from 'react-i18next';
 
@@ -258,6 +259,13 @@ const ChatMessage: React.FC<Props> = (props) => {
                         </Markdown>
                       )}
                   </div>
+                )}
+
+                {chatContent?.webSearchMetadata && (
+                  <WebSearchTrace
+                    metadata={chatContent.webSearchMetadata}
+                    loading={props.loading}
+                  />
                 )}
 
                 {chatContent?.extraData && chatContent.extraData.length > 0 && (

@@ -41,6 +41,9 @@ class PredictApi extends Construct {
       logsPolicy,
       assumeRolePolicy,
       litellmProxy,
+      webSearchInChatEnabled,
+      searchApiKey,
+      searchEngine,
     } = props;
 
     const predictFunction = new NodejsFunction(this, 'Predict', {
@@ -104,6 +107,11 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // Web Search in Chat
+        WEB_SEARCH_IN_CHAT_ENABLED: JSON.stringify(webSearchInChatEnabled),
+        SEARCH_API_KEY: searchApiKey ?? '',
+        SEARCH_ENGINE: searchEngine,
 
         // Tenant Management Environment Variables
         ...(tenantManager

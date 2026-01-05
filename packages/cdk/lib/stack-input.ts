@@ -129,6 +129,7 @@ const baseStackInputSchema = z.object({
   // Agent
   agentEnabled: z.boolean().default(false),
   searchAgentEnabled: z.boolean().default(false),
+  webSearchInChatEnabled: z.boolean().default(false),
   searchApiKey: z.string().nullish(),
   searchEngine: z.enum(['Brave', 'Tavily']).default('Brave'),
   agents: z

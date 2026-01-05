@@ -113,10 +113,41 @@ export type ShownMessage = Partial<PrimaryKey> &
   Partial<MessageAttributes> &
   UnrecordedMessage & {
     traceInlineMessage?: string;
+    webSearchMetadata?: WebSearchMetadata;
   };
 
 export type DocumentComment = {
   excerpt: string;
   replace?: string;
   comment?: string;
+};
+
+// Web検索関連の型定義
+export type WebSearchResult = {
+  title: string;
+  url: string;
+  snippet: string;
+  content?: string;
+  isReferenced?: boolean;
+};
+
+export type WebSearchQuery = {
+  query: string;
+  timestamp?: string;
+  results: WebSearchResult[];
+};
+
+export type WebSearchMetadata = {
+  queries: WebSearchQuery[];
+  totalResultsCount: number;
+  referencedResultsCount: number;
+  searchEngineUsed?: string;
+};
+
+export type ToolUseInfo = {
+  toolName: string;
+  toolUseId: string;
+  status: 'invoking' | 'completed' | 'error';
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
 };

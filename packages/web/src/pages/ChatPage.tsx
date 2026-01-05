@@ -10,6 +10,7 @@ import ButtonCopy from '../components/ButtonCopy';
 import ModalDialog from '../components/ModalDialog';
 import ExpandableField from '../components/ExpandableField';
 import ModelSelector from '../components/ModelSelector';
+import Switch from '../components/Switch';
 import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
@@ -26,6 +27,7 @@ import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 import LoadingWave from '../components/LoadingWave';
 import { useSettings } from '../hooks/useSettings';
+import { PiGlobeSimple } from 'react-icons/pi';
 
 const fileLimit: FileLimit = {
   accept: AcceptedDotExtensions,
@@ -106,6 +108,7 @@ const ChatPage: React.FC = () => {
     AdditionalModelRequestFields | undefined
   >(undefined);
   const [showSetting, setShowSetting] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const { t } = useTranslation();
   const { settings } = useSettings();
 
@@ -230,7 +233,8 @@ ${baseContext}
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
     setContent('');
     clearFiles();
@@ -249,6 +253,7 @@ ${baseContext}
     postChatWithId,
     uploadedFiles,
     pathname,
+    webSearchEnabled,
   ]);
 
   const onRetry = useCallback(() => {
@@ -262,9 +267,10 @@ ${baseContext}
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
-  }, [retryGeneration, base64Cache, overrideModelParameters]);
+  }, [retryGeneration, base64Cache, overrideModelParameters, webSearchEnabled]);
 
   const onStop = useCallback(() => {
     forceToStop();
@@ -284,10 +290,11 @@ ${baseContext}
         undefined,
         undefined,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
-    [editChat, base64Cache, setFollowing, overrideModelParameters]
+    [editChat, base64Cache, setFollowing, overrideModelParameters, webSearchEnabled]
   );
 
   const [creatingShareId, setCreatingShareId] = useState(false);
@@ -384,6 +391,18 @@ ${baseContext}
             })}
             featuredModelIds={featuredModelIds}
           />
+
+          {/* Web Search Toggle */}
+          {import.meta.env.VITE_APP_WEB_SEARCH_IN_CHAT_ENABLED === 'true' && (
+            <div className="flex items-center gap-1">
+              <PiGlobeSimple className="size-4 text-gray-500" />
+              <Switch
+                checked={webSearchEnabled}
+                onSwitch={setWebSearchEnabled}
+                label={t('chat.webSearch.toggle_label')}
+              />
+            </div>
+          )}
 
           {/* Spacer */}
           <div className="flex-1" />
