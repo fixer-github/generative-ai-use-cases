@@ -52,6 +52,7 @@ import ShareApi from './share';
 import AdminApi from './admin';
 import UserApi from './user';
 import { CentralPptxApi } from './central-pptx';
+import SummaryApi from './summary';
 
 export interface BackendApiProps {
   // Context Params
@@ -80,6 +81,7 @@ export interface BackendApiProps {
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
+  readonly userSummaryTable: Table;
   readonly assistantTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
@@ -404,6 +406,10 @@ export class Api extends Construct {
     new WebTextApi(this, 'WebTextAPI', apiProps);
     new AdminApi(this, 'AdminAPI', apiProps);
     new UserApi(this, 'UserAPI', apiProps);
+    new SummaryApi(this, 'SummaryAPI', {
+      ...apiProps,
+      userSummaryTable: props.userSummaryTable,
+    });
 
     // Central PPTX API for multi-tenant architecture
     // Lambda functions dynamically access tenant-specific resources based on Cognito claims

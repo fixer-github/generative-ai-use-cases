@@ -5,6 +5,11 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
+import {
+  TABLE_PREFIX,
+  STATS_TABLE_PREFIX,
+  USER_SUMMARY_TABLE_PREFIX,
+} from './const';
 
 export type PredictApiProps = GenericApiProps;
 
@@ -30,6 +35,8 @@ class PredictApi extends Construct {
       api,
       commonAuthorizerProps,
       table,
+      statsTable,
+      userSummaryTable,
       fileBucket,
       knowledgeBaseId,
       queryDecompositionEnabled,
@@ -60,6 +67,10 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // User Summary table for summary context injection
+        USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+        DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
 
         // Tenant Management Environment Variables
         ...(tenantManager
@@ -105,6 +116,10 @@ class PredictApi extends Construct {
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
 
+        // User Summary table for summary context injection
+        USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+        DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
+
         // Tenant Management Environment Variables
         ...(tenantManager
           ? {
@@ -126,6 +141,8 @@ class PredictApi extends Construct {
       },
     });
     fileBucket.grantReadWrite(predictStreamFunction);
+    userSummaryTable.grantReadData(predictStreamFunction);
+    userSummaryTable.grantReadData(predictFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
 
     const predictTitleFunction = new NodejsFunction(this, 'PredictTitle', {

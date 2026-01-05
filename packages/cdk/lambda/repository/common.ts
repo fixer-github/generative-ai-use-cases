@@ -18,6 +18,10 @@ const ASSISTANT_TABLE_PREFIX: string =
   process.env.ASSISTANT_TABLE_NAME || 'Assistant';
 const DEFAULT_ASSISTANT_TABLE_NAME: string =
   process.env.DEFAULT_ASSISTANT_TABLE_NAME || '';
+const USER_SUMMARY_TABLE_PREFIX: string =
+  process.env.USER_SUMMARY_TABLE_NAME || 'UserSummary';
+const DEFAULT_USER_SUMMARY_TABLE_NAME: string =
+  process.env.DEFAULT_USER_SUMMARY_TABLE_NAME || '';
 
 /**
  * Get or create a tenant-specific DynamoDB document client
@@ -101,6 +105,19 @@ export function getAssistantTableName(event: APIGatewayProxyEvent): string {
   }
 
   return `${ASSISTANT_TABLE_PREFIX}-${ENVIRONMENT}-tenant-${tenantId}`;
+}
+
+/**
+ * Get tenant-specific user summary table name
+ */
+export function getUserSummaryTableName(event: APIGatewayProxyEvent): string {
+  const tenantId = getTenantId(event);
+
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_USER_SUMMARY_TABLE_NAME;
+  }
+
+  return `${USER_SUMMARY_TABLE_PREFIX}-${ENVIRONMENT}-tenant-${tenantId}`;
 }
 
 /**
