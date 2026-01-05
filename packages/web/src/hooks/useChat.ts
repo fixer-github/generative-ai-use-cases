@@ -142,6 +142,7 @@ const useChatState = create<{
     updateFeedback,
     predictStream,
     predictTitle,
+    updateTitle,
   } = useChatApi();
   const { getS3Uri } = useFileApi();
 
@@ -218,7 +219,8 @@ const useChatState = create<{
   };
 
   const setPredictedTitle = async (id: string) => {
-    const currentTitle = get().chats[id].chat?.title;
+    const chat = get().chats[id].chat;
+    const currentTitle = chat?.title;
     if (currentTitle && currentTitle.length > 0) return;
 
     // If the title is an empty string, predict the title and set it
@@ -227,13 +229,18 @@ const useChatState = create<{
     const prompter = getPrompter(modelId);
     const title = await predictTitle({
       model,
-      chat: get().chats[id].chat!,
+      chat: chat!,
       prompt: prompter.setTitlePrompt({
         messages: omitUnusedMessageProperties(get().chats[id].messages),
       }),
       id: '/title',
     });
     setTitle(id, title);
+
+    // Save the title to the server
+    if (chat?.chatId && title && title.trim() !== '') {
+      await updateTitle(chat.chatId, title);
+    }
   };
 
   const createChatIfNotExist = async (id: string): Promise<string> => {
@@ -373,12 +380,17 @@ const useChatState = create<{
   const omitUnusedMessageProperties = (
     messages: ShownMessage[]
   ): UnrecordedMessage[] => {
-    return messages.map((m) => {
-      return {
-        role: m.role,
-        content: m.content,
-      };
-    });
+    return messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => {
+        return {
+          role: m.role,
+          content: m.content
+            .replace(/\[\^0\]:[\s\S]*/s, '')
+            .replace(/\[\^(\d+)\]/g, '')
+            .trim(),
+        };
+      });
   };
 
   const isExactlyCodeBlock = (text: string): boolean => {

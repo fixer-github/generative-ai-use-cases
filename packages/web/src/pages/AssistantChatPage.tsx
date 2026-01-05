@@ -220,10 +220,14 @@ const AssistantChatPage: React.FC = () => {
       }
 
       // Convert assistant messages to the format needed for title generation
+      // Remove footnotes from content for cleaner title generation
       const messagesForTitle: UnrecordedMessage[] = response.messages.map(
         (msg) => ({
           role: msg.role,
-          content: msg.content,
+          content: msg.content
+            .replace(/\[\^0\]:[\s\S]*/s, '')
+            .replace(/\[\^(\d+)\]/g, '')
+            .trim(),
         })
       );
 
@@ -247,6 +251,7 @@ const AssistantChatPage: React.FC = () => {
       // Update the title
       if (title && title.trim() !== '') {
         await updateTitle(newChatId, title);
+        mutateChatList();
       }
     } catch (error) {
       console.error('Failed to generate chat title:', error);
