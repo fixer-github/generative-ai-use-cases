@@ -205,10 +205,19 @@ export async function* invokeStreamWithTools(
         inferenceConfig: modelConfig.defaultParams.inferenceConfig,
       };
 
+      console.log(
+        `Iteration ${iteration}: Calling Converse API with ${conversationMessages.length} messages`
+      );
+
       const command = new ConverseStreamCommand(input);
       const response = await client.send(command);
 
       if (!response.stream) {
+        console.error('No stream in response');
+        yield streamingChunk({
+          text: 'Error: No response stream received from the model.',
+          stopReason: 'error',
+        });
         return;
       }
 
@@ -253,13 +262,28 @@ export async function* invokeStreamWithTools(
               typeof currentToolUse.input === 'string'
                 ? JSON.parse(currentToolUse.input)
                 : currentToolUse.input;
+            console.log(
+              `Tool use block completed: ${currentToolUse.name}`,
+              JSON.stringify(parsedInput)
+            );
             toolUseBlocks.push({
               toolUseId: currentToolUse.toolUseId!,
               name: currentToolUse.name!,
               input: parsedInput,
             });
           } catch (e) {
-            console.error('Failed to parse tool input:', e);
+            console.error(
+              'Failed to parse tool input:',
+              e,
+              'Raw input:',
+              currentToolUse.input
+            );
+            // パース失敗時もツールブロックを追加（空の入力で）
+            toolUseBlocks.push({
+              toolUseId: currentToolUse.toolUseId!,
+              name: currentToolUse.name!,
+              input: {},
+            });
           }
           currentToolUse = null;
         } else if (event.contentBlockDelta?.delta?.text) {
@@ -286,6 +310,10 @@ export async function* invokeStreamWithTools(
         }
       }
 
+      console.log(
+        `Stream completed. stopReason: ${stopReason}, toolUseBlocks: ${toolUseBlocks.length}, assistantText length: ${assistantText.length}`
+      );
+
       // ツール使用がある場合
       if (stopReason === 'tool_use' && toolUseBlocks.length > 0) {
         // アシスタントメッセージを追加
@@ -305,16 +333,23 @@ export async function* invokeStreamWithTools(
         // 各ツールを実行
         const toolResults: ContentBlock[] = [];
         for (const toolUse of toolUseBlocks) {
+          console.log(`Executing tool: ${toolUse.name}`);
           const { content, updatedMetadata } = await executeToolUse(
             toolUse,
             webSearchMetadata
           );
           webSearchMetadata = updatedMetadata;
+          console.log(`Tool ${toolUse.name} completed, result count: ${content.length}`);
 
+          // ツール結果にstatusフィールドを追加
+          const isError = content.some(
+            (c) => 'text' in c && (c.text as string)?.startsWith('Error:')
+          );
           toolResults.push({
             toolResult: {
               toolUseId: toolUse.toolUseId,
               content,
+              status: isError ? 'error' : 'success',
             },
           });
 
@@ -338,7 +373,20 @@ export async function* invokeStreamWithTools(
         });
 
         // 次のイテレーションへ
+        console.log('Continuing to next iteration...');
         continue;
+      }
+
+      // stopReasonがtool_useだがtoolUseBlocksが空の場合（パースエラーなど）
+      if (stopReason === 'tool_use' && toolUseBlocks.length === 0) {
+        console.error(
+          'Tool use stop reason received but no tool use blocks were captured'
+        );
+        yield streamingChunk({
+          text: '\n\nError: Failed to process tool use request.',
+          stopReason: 'error',
+        });
+        break;
       }
 
       // 終了
