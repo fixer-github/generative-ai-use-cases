@@ -30,6 +30,14 @@ const findTenantId = (email: string): string | null => {
 exports.handler = async (event: PostConfirmationTriggerEvent) => {
   try {
     console.log('Received event:', JSON.stringify(event, null, 2));
+    // パスワードリセット時は以降の処理をスキップ
+    if (event.triggerSource === 'PostConfirmation_ConfirmForgotPassword') {
+      console.log(
+        'postConfirmHandler - Skipping processing for ConfirmForgotPassword (password reset)'
+      );
+      return event;
+    }
+
     const email = event.request.userAttributes.email;
     const tenantId = findTenantId(email);
     if (!tenantId) {
