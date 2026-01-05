@@ -8,11 +8,27 @@ import {
   modelMetadata as originalModelMetadata,
 } from '@generative-ai-use-cases/common';
 
+/**
+ * 環境変数から安全にJSONをパースする
+ * 空文字列やundefinedの場合はfallbackを返す
+ */
+const safeJsonParse = <T>(jsonString: string | undefined, fallback: T): T => {
+  if (!jsonString || jsonString.trim() === '') {
+    return fallback;
+  }
+  try {
+    return JSON.parse(jsonString) as T;
+  } catch {
+    return fallback;
+  }
+};
+
 const modelRegion = import.meta.env.VITE_APP_MODEL_REGION;
 
 // Get model names and other environment variables
-const bedrockModelConfigs = (
-  JSON.parse(import.meta.env.VITE_APP_MODEL_IDS) as ModelConfiguration[]
+const bedrockModelConfigs = safeJsonParse<ModelConfiguration[]>(
+  import.meta.env.VITE_APP_MODEL_IDS,
+  []
 )
   .map((model) => ({
     modelId: model.modelId.trim(),
@@ -38,14 +54,16 @@ const visionModelIds: string[] = bedrockModelIds.filter(
 );
 const visionEnabled: boolean = visionModelIds.length > 0;
 
-const endpointNames: string[] = JSON.parse(
-  import.meta.env.VITE_APP_ENDPOINT_NAMES
+const endpointNames: string[] = safeJsonParse<string[]>(
+  import.meta.env.VITE_APP_ENDPOINT_NAMES,
+  []
 )
   .map((name: string) => name.trim())
   .filter((name: string) => name);
 
-const imageModelConfigs = (
-  JSON.parse(import.meta.env.VITE_APP_IMAGE_MODEL_IDS) as ModelConfiguration[]
+const imageModelConfigs = safeJsonParse<ModelConfiguration[]>(
+  import.meta.env.VITE_APP_IMAGE_MODEL_IDS,
+  []
 )
   .map(
     (model: ModelConfiguration): ModelConfiguration => ({
@@ -58,8 +76,9 @@ const imageGenModelIds: string[] = imageModelConfigs.map(
   (model) => model.modelId
 );
 
-const videoModelConfigs = (
-  JSON.parse(import.meta.env.VITE_APP_VIDEO_MODEL_IDS) as ModelConfiguration[]
+const videoModelConfigs = safeJsonParse<ModelConfiguration[]>(
+  import.meta.env.VITE_APP_VIDEO_MODEL_IDS,
+  []
 )
   .map(
     (model: ModelConfiguration): ModelConfiguration => ({
@@ -71,10 +90,9 @@ const videoModelConfigs = (
 const videoGenModelIds: string[] = videoModelConfigs.map(
   (model) => model.modelId
 );
-const speechToSpeechModelConfigs = (
-  JSON.parse(
-    import.meta.env.VITE_APP_SPEECH_TO_SPEECH_MODEL_IDS
-  ) as ModelConfiguration[]
+const speechToSpeechModelConfigs = safeJsonParse<ModelConfiguration[]>(
+  import.meta.env.VITE_APP_SPEECH_TO_SPEECH_MODEL_IDS,
+  []
 )
   .map(
     (model: ModelConfiguration): ModelConfiguration => ({
@@ -87,7 +105,10 @@ const speechToSpeechModelIds: string[] = speechToSpeechModelConfigs.map(
   (model) => model.modelId
 );
 
-const agentNames: string[] = JSON.parse(import.meta.env.VITE_APP_AGENT_NAMES)
+const agentNames: string[] = safeJsonParse<string[]>(
+  import.meta.env.VITE_APP_AGENT_NAMES,
+  []
+)
   .map((name: string) => name.trim())
   .filter((name: string) => name);
 
