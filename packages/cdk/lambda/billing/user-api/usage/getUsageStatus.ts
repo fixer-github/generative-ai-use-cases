@@ -131,6 +131,7 @@ function getRelationForFeatureType(featureId: string): string {
   switch (type) {
     case 'llm':
     case 'assistant':
+    case 'prompt-media':
       return 'accessor';
     case 'feature':
       return 'enabled_user';
