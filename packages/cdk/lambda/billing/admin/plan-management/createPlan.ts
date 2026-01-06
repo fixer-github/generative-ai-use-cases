@@ -31,11 +31,11 @@ function generateEntitlementId(planId: string): string {
 
 /**
  * featureIdからリソースタイプとIDを抽出する
- * @param featureId 機能ID (例: "llm:gemini-2.5-flash", "assistant:chat", or "chat")
- * @returns { type: 'llm' | 'assistant' | 'feature', id: string }
+ * @param featureId 機能ID (例: "llm:gemini-2.5-flash", "assistant:chat", "prompt-media:image", or "chat")
+ * @returns { type: 'llm' | 'assistant' | 'prompt-media' | 'feature', id: string }
  */
 function parseFeatureId(featureId: string): {
-  type: 'llm' | 'assistant' | 'feature';
+  type: 'llm' | 'assistant' | 'prompt-media' | 'feature';
   id: string;
 } {
   if (featureId.startsWith('llm:')) {
@@ -43,6 +43,9 @@ function parseFeatureId(featureId: string): {
   }
   if (featureId.startsWith('assistant:')) {
     return { type: 'assistant', id: featureId.substring(10) };
+  }
+  if (featureId.startsWith('prompt-media:')) {
+    return { type: 'prompt-media', id: featureId.substring(13) };
   }
   return { type: 'feature', id: featureId };
 }
@@ -75,6 +78,12 @@ async function registerEntitlementToOpenFga(
         user: `entitlement:${entitlementId}`,
         relation: 'via_access',
         object: `assistant:${id}`,
+      };
+    } else if (type === 'prompt-media') {
+      return {
+        user: `entitlement:${entitlementId}`,
+        relation: 'via_access',
+        object: `prompt-media:${id}`,
       };
     } else {
       return {

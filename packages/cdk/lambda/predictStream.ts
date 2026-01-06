@@ -1,5 +1,5 @@
 import { Handler, Context } from 'aws-lambda';
-import { PredictRequest } from 'generative-ai-use-cases';
+import { PredictRequest, UnrecordedMessage } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 import {
@@ -21,11 +21,24 @@ declare global {
   }
 }
 
+/**
+ * メッセージ配列から画像ファイルの数をカウントする
+ * @param messages メッセージ配列
+ * @returns 画像ファイルの数
+ */
+function countImages(messages: UnrecordedMessage[]): number {
+  return messages
+    .flatMap((m) => m.extraData ?? [])
+    .filter((e) => e.type === 'image')
+    .length;
+}
+
 export const handler = awslambda.streamifyResponse(
   async (event, responseStream, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
 
     let accessCheckResult: AccessCheckResult | null = null;
+    let mediaCheckResult: AccessCheckResult | null = null;
 
     try {
       const model = event.model || defaultModel;
@@ -75,10 +88,40 @@ export const handler = awslambda.streamifyResponse(
         const errorMessage = JSON.stringify({
           text: errorText,
           stopReason: 'error',
+          errorReason: accessCheckResult.reason,
         });
         responseStream.write(errorMessage);
         responseStream.end();
         return;
+      }
+
+      // Count images in the request
+      const imageCount = countImages(event.messages);
+
+      // Check image input limit if there are images
+      if (imageCount > 0) {
+        mediaCheckResult = await checkAccessWithQuota(
+          event.idToken,
+          'prompt-media',
+          'image',
+          imageCount
+        );
+
+        if (!mediaCheckResult.allowed) {
+          const userId = mediaCheckResult.userContext?.userId || 'unknown';
+          console.warn(
+            `User ${userId} has exceeded image input limit - requested: ${imageCount}`
+          );
+
+          const errorMessage = JSON.stringify({
+            text: `画像入力の利用回数上限に達しました（リクエスト: ${imageCount}枚）`,
+            stopReason: 'error',
+            errorReason: 'media_limit_exceeded',
+          });
+          responseStream.write(errorMessage);
+          responseStream.end();
+          return;
+        }
       }
 
       // If authorized, proceed with streaming
@@ -115,6 +158,29 @@ export const handler = awslambda.streamifyResponse(
           }
         } catch (error) {
           console.error('Failed to increment usage count:', error);
+        }
+      }
+
+      // Increment image usage count after successful streaming
+      if (
+        mediaCheckResult &&
+        mediaCheckResult.limitType &&
+        mediaCheckResult.limitType !== 'unlimited'
+      ) {
+        const imageCount = countImages(event.messages);
+        try {
+          await incrementUsage(
+            event.idToken,
+            'prompt-media',
+            'image',
+            mediaCheckResult.limitType,
+            imageCount
+          );
+          console.log(
+            `[PredictStream] Image usage incremented - count: ${imageCount}`
+          );
+        } catch (error) {
+          console.error('Failed to increment image usage count:', error);
         }
       }
 
