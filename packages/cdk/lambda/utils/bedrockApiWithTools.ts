@@ -232,7 +232,7 @@ export async function* invokeStreamWithTools(
           currentToolUse = {
             toolUseId: event.contentBlockStart.start.toolUse.toolUseId,
             name: event.contentBlockStart.start.toolUse.name,
-            input: {},
+            input: '', // JSON文字列として累積するため空文字列で初期化
           };
 
           // ツール使用開始を通知
