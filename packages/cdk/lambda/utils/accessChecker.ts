@@ -43,8 +43,9 @@ export interface AccessCheckResult {
  * リソースタイプの定義
  * - llm: LLMモデル（例: gemini-2.5-flash）
  * - assistant: アシスタント機能（例: chat）
+ * - prompt-media: プロンプトに含めるメディア（例: image）
  */
-export type ResourceType = 'llm' | 'assistant';
+export type ResourceType = 'llm' | 'assistant' | 'prompt-media';
 
 /**
  * テーブル名を生成するヘルパー関数
@@ -105,12 +106,14 @@ export function buildFeatureId(
  * @param idToken - Cognito ID Token
  * @param resourceType - リソースの種別（例: 'llm'）
  * @param resourceId - リソースのID（例: 'gemini-2.5-flash'）
+ * @param requestedCount - 今回リクエストする利用回数（デフォルト: 1）
  * @returns AccessCheckResult - アクセス可否と使用状況
  */
 export async function checkAccessWithQuota(
   idToken: string,
   resourceType: ResourceType,
-  resourceId: string
+  resourceId: string,
+  requestedCount: number = 1
 ): Promise<AccessCheckResult> {
   // 1. トークン検証とユーザー情報の取得
   const payload = await verifyToken(idToken);
@@ -246,7 +249,7 @@ export async function checkAccessWithQuota(
       );
 
       console.log(
-        `[AccessCheck] Daily limit found - currentCount: ${dailyCount}, limitCount: ${dailyLimit}`
+        `[AccessCheck] Daily limit found - currentCount: ${dailyCount}, limitCount: ${dailyLimit}, requestedCount: ${requestedCount}`
       );
 
       const remaining = dailyLimit - dailyCount;
@@ -256,9 +259,9 @@ export async function checkAccessWithQuota(
         remaining: Math.max(0, remaining),
       };
 
-      if (dailyCount >= dailyLimit) {
+      if (dailyCount + requestedCount > dailyLimit) {
         console.log(
-          `[AccessCheck] Daily quota exceeded - User ${userId}, featureId: ${featureId}, current: ${dailyCount}, limit: ${dailyLimit}`
+          `[AccessCheck] Daily quota exceeded - User ${userId}, featureId: ${featureId}, current: ${dailyCount}, requested: ${requestedCount}, limit: ${dailyLimit}`
         );
         return {
           allowed: false,
@@ -269,7 +272,7 @@ export async function checkAccessWithQuota(
         };
       }
       console.log(
-        `[AccessCheck] Daily quota check passed - remaining: ${remaining}`
+        `[AccessCheck] Daily quota check passed - remaining: ${remaining}, requested: ${requestedCount}`
       );
     } else {
       console.log(`[AccessCheck] No daily limit configured for ${featureId}`);
@@ -286,7 +289,7 @@ export async function checkAccessWithQuota(
       );
 
       console.log(
-        `[AccessCheck] Monthly limit found - currentCount: ${monthlyCount}, limitCount: ${monthlyLimit}`
+        `[AccessCheck] Monthly limit found - currentCount: ${monthlyCount}, limitCount: ${monthlyLimit}, requestedCount: ${requestedCount}`
       );
 
       const remaining = monthlyLimit - monthlyCount;
@@ -296,9 +299,9 @@ export async function checkAccessWithQuota(
         remaining: Math.max(0, remaining),
       };
 
-      if (monthlyCount >= monthlyLimit) {
+      if (monthlyCount + requestedCount > monthlyLimit) {
         console.log(
-          `[AccessCheck] Monthly quota exceeded - User ${userId}, featureId: ${featureId}, current: ${monthlyCount}, limit: ${monthlyLimit}`
+          `[AccessCheck] Monthly quota exceeded - User ${userId}, featureId: ${featureId}, current: ${monthlyCount}, requested: ${requestedCount}, limit: ${monthlyLimit}`
         );
         return {
           allowed: false,
@@ -309,7 +312,7 @@ export async function checkAccessWithQuota(
         };
       }
       console.log(
-        `[AccessCheck] Monthly quota check passed - remaining: ${remaining}`
+        `[AccessCheck] Monthly quota check passed - remaining: ${remaining}, requested: ${requestedCount}`
       );
     } else {
       console.log(`[AccessCheck] No monthly limit configured for ${featureId}`);
@@ -479,23 +482,33 @@ export async function getLatestUsage(
  * @param resourceType - リソースの種別（例: 'llm'）
  * @param resourceId - リソースのID（例: 'gemini-2.5-flash'）
  * @param limitType - 回数制限のタイプ（checkAccessWithQuotaの結果から取得）
+ * @param count - 記録するイベント数（デフォルト: 1）
  */
 export async function incrementUsage(
   idToken: string,
   resourceType: ResourceType,
   resourceId: string,
-  limitType: 'unlimited' | 'daily' | 'monthly'
+  limitType: 'unlimited' | 'daily' | 'monthly',
+  count: number = 1
 ): Promise<void> {
   const featureId = buildFeatureId(resourceType, resourceId);
 
   console.log(
-    `[IncrementUsage] Start - featureId: ${featureId}, limitType: ${limitType}`
+    `[IncrementUsage] Start - featureId: ${featureId}, limitType: ${limitType}, count: ${count}`
   );
 
   // unlimitedの場合はイベント記録不要
   if (limitType === 'unlimited') {
     console.log(
       `[IncrementUsage] Skipping event recording for unlimited feature: ${featureId}`
+    );
+    return;
+  }
+
+  // countが0以下の場合は何もしない
+  if (count <= 0) {
+    console.log(
+      `[IncrementUsage] Skipping event recording for count: ${count}`
     );
     return;
   }
@@ -517,7 +530,7 @@ export async function incrementUsage(
   }
 
   console.log(
-    `[IncrementUsage] Parameters - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}, limitType: ${limitType}`
+    `[IncrementUsage] Parameters - tenantId: ${tenantId}, userId: ${userId}, featureId: ${featureId}, limitType: ${limitType}, count: ${count}`
   );
 
   try {
@@ -534,22 +547,25 @@ export async function incrementUsage(
       usageEventTableName
     );
 
-    const now = Date.now();
-    const ttl = Math.floor(now / 1000) + 120 * 24 * 60 * 60; // 120日後に自動削除
+    const ttl = Math.floor(Date.now() / 1000) + 120 * 24 * 60 * 60; // 120日後に自動削除
 
     console.log(
-      `[IncrementUsage] Recording usage event - tableName: ${usageEventTableName}, userId: ${userId}, featureId: ${featureId}, timestamp: ${now}`
+      `[IncrementUsage] Recording ${count} usage event(s) - tableName: ${usageEventTableName}, userId: ${userId}, featureId: ${featureId}`
     );
 
-    await usageEventRepository.recordEvent({
-      userId,
-      timestamp: now,
-      featureId,
-      ttl,
-    });
+    // count回分のイベントを記録する
+    for (let i = 0; i < count; i++) {
+      const now = Date.now();
+      await usageEventRepository.recordEvent({
+        userId,
+        timestamp: now,
+        featureId,
+        ttl,
+      });
+    }
 
     console.log(
-      `[IncrementUsage] Success - user: ${userId}, feature: ${featureId}, timestamp: ${now}`
+      `[IncrementUsage] Success - user: ${userId}, feature: ${featureId}, count: ${count}`
     );
   } catch (error) {
     // イベント記録に失敗しても処理を止めない（ログのみ）

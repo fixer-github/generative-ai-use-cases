@@ -1,5 +1,5 @@
 import { Handler, Context } from 'aws-lambda';
-import { PredictRequest } from 'generative-ai-use-cases';
+import { PredictRequest, UnrecordedMessage } from 'generative-ai-use-cases';
 import api from './utils/api';
 import { defaultModel } from './utils/models';
 import {
@@ -21,11 +21,23 @@ declare global {
   }
 }
 
+/**
+ * メッセージ配列から画像ファイルの数をカウントする
+ * @param messages メッセージ配列
+ * @returns 画像ファイルの数
+ */
+function countImages(messages: UnrecordedMessage[]): number {
+  return messages
+    .flatMap((m) => m.extraData ?? [])
+    .filter((e) => e.type === 'image').length;
+}
+
 export const handler = awslambda.streamifyResponse(
   async (event, responseStream, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
 
     let accessCheckResult: AccessCheckResult | null = null;
+    let mediaCheckResult: AccessCheckResult | null = null;
 
     try {
       const model = event.model || defaultModel;
@@ -75,10 +87,42 @@ export const handler = awslambda.streamifyResponse(
         const errorMessage = JSON.stringify({
           text: errorText,
           stopReason: 'error',
+          errorReason: accessCheckResult.reason,
         });
         responseStream.write(errorMessage);
         responseStream.end();
         return;
+      }
+
+      // Count images in the current user message only (last message)
+      // 過去のメッセージに含まれる画像は既にカウント済みなので、今回送信されたメッセージのみをカウント対象とする
+      const lastMessage = event.messages[event.messages.length - 1];
+      const imageCount = lastMessage ? countImages([lastMessage]) : 0;
+
+      // Check image input limit if there are images
+      if (imageCount > 0) {
+        mediaCheckResult = await checkAccessWithQuota(
+          event.idToken,
+          'prompt-media',
+          'image',
+          imageCount
+        );
+
+        if (!mediaCheckResult.allowed) {
+          const userId = mediaCheckResult.userContext?.userId || 'unknown';
+          console.warn(
+            `User ${userId} has exceeded image input limit - requested: ${imageCount}`
+          );
+
+          const errorMessage = JSON.stringify({
+            text: `画像入力の利用回数上限に達しました（リクエスト: ${imageCount}枚）`,
+            stopReason: 'error',
+            errorReason: 'media_limit_exceeded',
+          });
+          responseStream.write(errorMessage);
+          responseStream.end();
+          return;
+        }
       }
 
       // If authorized, proceed with streaming
@@ -92,7 +136,10 @@ export const handler = awslambda.streamifyResponse(
       }
 
       // Increment usage count after successful streaming and return latest usage info
-      if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
+      if (
+        accessCheckResult.limitType &&
+        accessCheckResult.limitType !== 'unlimited'
+      ) {
         try {
           await incrementUsage(
             event.idToken,
@@ -102,7 +149,11 @@ export const handler = awslambda.streamifyResponse(
           );
 
           // Get latest usage info after incrementing
-          const latestUsage = await getLatestUsage(event.idToken, 'llm', model.modelId);
+          const latestUsage = await getLatestUsage(
+            event.idToken,
+            'llm',
+            model.modelId
+          );
 
           // Send final chunk with updated usage info
           if (latestUsage) {
@@ -115,6 +166,31 @@ export const handler = awslambda.streamifyResponse(
           }
         } catch (error) {
           console.error('Failed to increment usage count:', error);
+        }
+      }
+
+      // Increment image usage count after successful streaming
+      if (
+        mediaCheckResult &&
+        mediaCheckResult.limitType &&
+        mediaCheckResult.limitType !== 'unlimited'
+      ) {
+        // チェック時と同じく、最後のメッセージのみを対象とする
+        const lastMsg = event.messages[event.messages.length - 1];
+        const imageCount = lastMsg ? countImages([lastMsg]) : 0;
+        try {
+          await incrementUsage(
+            event.idToken,
+            'prompt-media',
+            'image',
+            mediaCheckResult.limitType,
+            imageCount
+          );
+          console.log(
+            `[PredictStream] Image usage incremented - count: ${imageCount}`
+          );
+        } catch (error) {
+          console.error('Failed to increment image usage count:', error);
         }
       }
 

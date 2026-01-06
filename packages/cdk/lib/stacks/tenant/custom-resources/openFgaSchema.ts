@@ -16,6 +16,14 @@
  *   relations
  *     define via_access: [entitlement]
  *     define accessor: [user, group] or holder from via_access
+ * type assistant
+ *   relations
+ *     define via_access: [entitlement]
+ *     define accessor: [user, group] or holder from via_access
+ * type prompt-media
+ *   relations
+ *     define via_access: [entitlement]
+ *     define accessor: [user, group] or holder from via_access
  * type feature
  *   relations
  *     define via_enable: [entitlement]
@@ -98,6 +106,37 @@ export const AUTHORIZATION_MODEL_TYPE_DEFINITIONS = [
   },
   {
     type: 'assistant',
+    relations: {
+      via_access: {
+        this: {},
+      },
+      accessor: {
+        union: {
+          child: [
+            { this: {} },
+            { tupleToUserset: { tupleset: { relation: 'via_access' }, computedUserset: { relation: 'holder' } } },
+          ],
+        },
+      },
+    },
+    metadata: {
+      relations: {
+        via_access: {
+          directly_related_user_types: [
+            { type: 'entitlement' },
+          ],
+        },
+        accessor: {
+          directly_related_user_types: [
+            { type: 'user' },
+            { type: 'group', relation: 'member' },
+          ],
+        },
+      },
+    },
+  },
+  {
+    type: 'prompt-media',
     relations: {
       via_access: {
         this: {},
