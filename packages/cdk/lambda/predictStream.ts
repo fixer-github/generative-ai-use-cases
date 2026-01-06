@@ -29,8 +29,7 @@ declare global {
 function countImages(messages: UnrecordedMessage[]): number {
   return messages
     .flatMap((m) => m.extraData ?? [])
-    .filter((e) => e.type === 'image')
-    .length;
+    .filter((e) => e.type === 'image').length;
 }
 
 export const handler = awslambda.streamifyResponse(
@@ -95,8 +94,10 @@ export const handler = awslambda.streamifyResponse(
         return;
       }
 
-      // Count images in the request
-      const imageCount = countImages(event.messages);
+      // Count images in the current user message only (last message)
+      // 過去のメッセージに含まれる画像は既にカウント済みなので、今回送信されたメッセージのみをカウント対象とする
+      const lastMessage = event.messages[event.messages.length - 1];
+      const imageCount = lastMessage ? countImages([lastMessage]) : 0;
 
       // Check image input limit if there are images
       if (imageCount > 0) {
@@ -135,7 +136,10 @@ export const handler = awslambda.streamifyResponse(
       }
 
       // Increment usage count after successful streaming and return latest usage info
-      if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
+      if (
+        accessCheckResult.limitType &&
+        accessCheckResult.limitType !== 'unlimited'
+      ) {
         try {
           await incrementUsage(
             event.idToken,
@@ -145,7 +149,11 @@ export const handler = awslambda.streamifyResponse(
           );
 
           // Get latest usage info after incrementing
-          const latestUsage = await getLatestUsage(event.idToken, 'llm', model.modelId);
+          const latestUsage = await getLatestUsage(
+            event.idToken,
+            'llm',
+            model.modelId
+          );
 
           // Send final chunk with updated usage info
           if (latestUsage) {
@@ -167,7 +175,9 @@ export const handler = awslambda.streamifyResponse(
         mediaCheckResult.limitType &&
         mediaCheckResult.limitType !== 'unlimited'
       ) {
-        const imageCount = countImages(event.messages);
+        // チェック時と同じく、最後のメッセージのみを対象とする
+        const lastMsg = event.messages[event.messages.length - 1];
+        const imageCount = lastMsg ? countImages([lastMsg]) : 0;
         try {
           await incrementUsage(
             event.idToken,
