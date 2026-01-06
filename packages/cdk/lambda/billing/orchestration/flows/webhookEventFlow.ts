@@ -62,6 +62,8 @@ import {
   Plan,
   UserPlanApplication,
 } from '../../data-access/repositories/types';
+import { PermissionGrantRepository } from '../../../authorization/repositories/permissionGrantRepository';
+import { createTenantDynamoDBClientForBackgroundJob } from '../../../utils/tenantDynamoDBClient';
 import {
   sendPaymentReceipt,
   buildReceiptDataFromInvoice,
@@ -580,6 +582,108 @@ async function handlePaymentSucceeded(
     // ステップ3: 支払い履歴記録（サブスク管理内で実施）
     // 支払い履歴の記録はSubscriptionManagementClient.extendSubscriptionPeriod()内で
     // 自動的に実施される想定のため、統括責務では明示的なステップとしては実装しない
+
+    // ステップ3.5: PermissionGrant の請求期間を更新
+    {
+      stepName: 'update_permission_grant_period',
+      stepType: 'api_call',
+      targetService: 'Authorization',
+      executeFunction: async () => {
+        // 前のステップから内部サブスクリプションIDを取得
+        const internalSubscription = previousStepResults[
+          'internal_subscription'
+        ] as
+          | {
+              subscriptionId: string;
+              userId: string;
+            }
+          | undefined;
+
+        if (!internalSubscription) {
+          console.warn(
+            'No internal subscription from previous step, skipping permission grant period update'
+          );
+          return {
+            skipped: true,
+            reason: 'no_internal_subscription_from_previous_step',
+          };
+        }
+
+        const internalSubscriptionId = internalSubscription.subscriptionId;
+
+        console.log('Updating permission grant period', {
+          tenantId,
+          internalSubscriptionId,
+          periodStart,
+          periodEnd,
+        });
+
+        // 内部サブスクリプションIDをapplication_source_idとして、プラン適用を検索
+        const planApplication =
+          await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
+            tenantId,
+            'user-plan-application',
+            'findByApplicationSourceId',
+            { sourceId: internalSubscriptionId }
+          );
+
+        if (!planApplication) {
+          console.warn('No plan application found for subscription, skipping permission grant update', {
+            internalSubscriptionId,
+          });
+          return {
+            skipped: true,
+            reason: 'no_plan_application_found',
+          };
+        }
+
+        // application_id を sourceId として PermissionGrant を検索
+        const dynamoDBClient = await createTenantDynamoDBClientForBackgroundJob(tenantId);
+        const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
+        const permissionGrantTableName = `AuthPermissionGrant-${process.env.ENVIRONMENT || 'dev'}-tenant-${sanitizedTenantId}`;
+        const permissionGrantRepository = new PermissionGrantRepository(
+          dynamoDBClient,
+          permissionGrantTableName
+        );
+
+        const permissionGrant = await permissionGrantRepository.findBySourceId(
+          planApplication.application_id
+        );
+
+        if (!permissionGrant) {
+          console.warn('No permission grant found for application, skipping period update', {
+            applicationId: planApplication.application_id,
+          });
+          return {
+            skipped: true,
+            reason: 'no_permission_grant_found',
+          };
+        }
+
+        // PermissionGrant の期間を更新（ISO 8601文字列をミリ秒タイムスタンプに変換）
+        const periodStartMs = new Date(periodStart).getTime();
+        const periodEndMs = new Date(periodEnd).getTime();
+
+        await permissionGrantRepository.updatePeriod(
+          permissionGrant.grantId,
+          periodStartMs,
+          periodEndMs
+        );
+
+        console.log('Permission grant period updated successfully', {
+          grantId: permissionGrant.grantId,
+          periodStart: periodStartMs,
+          periodEnd: periodEndMs,
+        });
+
+        return {
+          success: true,
+          grantId: permissionGrant.grantId,
+        };
+      },
+      retryable: true,
+      maxRetries: 3,
+    },
 
     // ステップ4: 領収書メール送信（非ブロッキング）
     {
@@ -1361,6 +1465,8 @@ async function handleSubscriptionUpdated(
       executeFunction: async () => {
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
+          current_period_start: string | Date;
+          current_period_end: string | Date;
         } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
           platformSubscriptionId,
         });
@@ -1373,11 +1479,17 @@ async function handleSubscriptionUpdated(
 
         const planId = await resolvePlanId();
 
+        // サブスクリプションから請求期間を取得
+        const periodStart = new Date(subscription.current_period_start).getTime();
+        const periodEnd = new Date(subscription.current_period_end).getTime();
+
         console.log('Applying new plan to user (plan change via portal)', {
           tenantId,
           userId,
           planId,
           subscriptionId: subscription.subscription_id,
+          periodStart,
+          periodEnd,
         });
 
         const result = await planClient.applyPlanToUser({
@@ -1387,6 +1499,8 @@ async function handleSubscriptionUpdated(
           applicationSource: 'subscription',
           applicationSourceId: subscription.subscription_id,
           validFrom: new Date().toISOString(),
+          periodStart,
+          periodEnd,
         });
 
         console.log('New plan applied successfully', {
@@ -2765,15 +2879,32 @@ async function handlePlanChangeCompleted(
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        const subscriptionId = await getInternalSubscriptionId(
-          validatedNewPlatformSubscriptionId
-        );
+        // サブスクリプション情報を取得（期間情報含む）
+        const subscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+          current_period_start: string | Date;
+          current_period_end: string | Date;
+        } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+          platformSubscriptionId: validatedNewPlatformSubscriptionId,
+        });
+
+        if (!subscription) {
+          throw new Error(
+            `Internal subscription not found for platform subscription: ${validatedNewPlatformSubscriptionId}`
+          );
+        }
+
+        // サブスクリプションから請求期間を取得
+        const periodStart = new Date(subscription.current_period_start).getTime();
+        const periodEnd = new Date(subscription.current_period_end).getTime();
 
         console.log('Applying new plan to user', {
           tenantId,
           userId: validatedUserId,
           planId: validatedNewPlanId,
-          subscriptionId,
+          subscriptionId: subscription.subscription_id,
+          periodStart,
+          periodEnd,
         });
 
         const result = await planClient.applyPlanToUser({
@@ -2781,8 +2912,10 @@ async function handlePlanChangeCompleted(
           userId: validatedUserId,
           planId: validatedNewPlanId,
           applicationSource: 'subscription',
-          applicationSourceId: subscriptionId,
+          applicationSourceId: subscription.subscription_id,
           validFrom: new Date().toISOString(),
+          periodStart,
+          periodEnd,
         });
 
         console.log('New plan applied successfully', {

@@ -321,6 +321,15 @@ export const handler = async (
           throw new Error('Subscription ID not found in previous step result');
         }
 
+        // レシート検証結果から期間を取得
+        const receiptResult =
+          previousStepResults.verify_receipt as VerifyReceiptResponse;
+        const now = Date.now();
+        const periodStart = now;
+        const periodEnd = receiptResult?.expiresAt
+          ? new Date(receiptResult.expiresAt).getTime()
+          : now + 30 * 24 * 60 * 60 * 1000; // デフォルト30日後
+
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId,
@@ -329,6 +338,8 @@ export const handler = async (
           applicationSourceId: subscriptionData.subscriptionId,
           validFrom: new Date().toISOString(),
           // validUntilは指定しない（サブスクリプションの期限に従う）
+          periodStart,
+          periodEnd,
         });
 
         console.log('Plan applied successfully', {

@@ -61,6 +61,8 @@ export interface ApplyPlanToUserInput {
   validFrom: string; // ISO 8601
   validUntil?: string; // ISO 8601
   tenantId: string; // テナントID（RDS接続に必要）
+  periodStart?: number; // 請求期間開始（Unixタイムスタンプ、ミリ秒単位）- 月次利用回数のリセット基準
+  periodEnd?: number; // 請求期間終了（Unixタイムスタンプ、ミリ秒単位）
 }
 
 /**
@@ -324,6 +326,8 @@ export const handler = async (
           features, // DynamoDBの回数制限カウンター作成に使用
           sourceType: input.applicationSource,
           sourceId: createdApplication.application_id,
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
         };
 
         console.log('Invoking grantPermission:', {

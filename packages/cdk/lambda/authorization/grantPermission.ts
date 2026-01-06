@@ -107,7 +107,7 @@ export const handler = async (
 ): Promise<GrantPermissionResponse> => {
   console.log('Grant Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, userId, grantId, planId, features, sourceType, sourceId } =
+  const { tenantId, userId, grantId, planId, features, sourceType, sourceId, periodStart, periodEnd } =
     event;
 
   try {
@@ -250,6 +250,8 @@ export const handler = async (
         sourceType,
         sourceId,
         grantedAt: now,
+        periodStart,
+        periodEnd,
       });
 
       console.log(

@@ -31,6 +31,8 @@ export interface PermissionGrantItem {
   sourceId: string; // 付与元のID（サブスクリプションID、キャンペーンIDなど）
   grantedAt: number; // 付与日時（Unixタイムスタンプ、秒単位）
   revokedAt?: number; // 剥奪日時（Unixタイムスタンプ、秒単位）
+  periodStart?: number; // 請求期間開始（Unixタイムスタンプ、ミリ秒単位）- 月次利用回数のリセット基準
+  periodEnd?: number; // 請求期間終了（Unixタイムスタンプ、ミリ秒単位）
 }
 
 /**
@@ -48,6 +50,8 @@ export interface GrantPermissionRequest {
   }>; // DynamoDBへの回数制限カウンター作成に使用
   sourceType: string; // 付与元のタイプ（例: "subscription", "trial", "campaign", "manual"）
   sourceId: string; // 付与元のID（サブスクリプションID、キャンペーンIDなど）
+  periodStart?: number; // 請求期間開始（Unixタイムスタンプ、ミリ秒単位）
+  periodEnd?: number; // 請求期間終了（Unixタイムスタンプ、ミリ秒単位）
 }
 
 /**

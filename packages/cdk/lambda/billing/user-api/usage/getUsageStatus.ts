@@ -283,7 +283,7 @@ export const handler = async (
     // 各featureIdに対する制限情報をマップに格納
     const limitMap = new Map<
       string,
-      { dailyLimit: number | null; monthlyLimit: number | null }
+      { dailyLimit: number | null; monthlyLimit: number | null; billingPeriodStart?: number }
     >();
 
     for (const grant of activeGrants) {
@@ -297,6 +297,8 @@ export const handler = async (
           existing.dailyLimit = feature.limitCount;
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           existing.monthlyLimit = feature.limitCount;
+          // 月次制限の場合、請求期間開始を取得
+          existing.billingPeriodStart = grant.periodStart;
         }
 
         limitMap.set(feature.featureId, existing);
@@ -391,7 +393,8 @@ export const handler = async (
 
           // 月次制限のチェック
           if (limits.monthlyLimit !== null) {
-            const monthlyStartTime = getPeriodStartTime('monthly');
+            // 請求期間開始があればそれを使用、なければ暦月を使用（フォールバック）
+            const monthlyStartTime = limits.billingPeriodStart ?? getPeriodStartTime('monthly');
             const monthlyCount = await usageEventRepository.countUsageInPeriod(
               userId,
               featureId,

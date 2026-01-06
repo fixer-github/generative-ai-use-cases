@@ -543,6 +543,14 @@ export const handler = async (
           newPlanId,
         });
 
+        // サブスクリプションから請求期間を取得
+        const periodStart = fetchedSubscription
+          ? new Date(fetchedSubscription.current_period_start).getTime()
+          : Date.now();
+        const periodEnd = fetchedSubscription
+          ? new Date(fetchedSubscription.current_period_end).getTime()
+          : Date.now() + 30 * 24 * 60 * 60 * 1000;
+
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId,
@@ -554,6 +562,8 @@ export const handler = async (
               ? new Date().toISOString()
               : calculateEffectiveDate(changeType),
           // validUntilは指定しない（サブスクリプションの期限に従う）
+          periodStart,
+          periodEnd,
         });
 
         console.log('New plan applied successfully', {
@@ -569,6 +579,14 @@ export const handler = async (
         const planApplicationData = outputData as {
           applicationId?: string;
         };
+
+        // サブスクリプションから請求期間を取得（ロールバック用）
+        const periodStart = fetchedSubscription
+          ? new Date(fetchedSubscription.current_period_start).getTime()
+          : Date.now();
+        const periodEnd = fetchedSubscription
+          ? new Date(fetchedSubscription.current_period_end).getTime()
+          : Date.now() + 30 * 24 * 60 * 60 * 1000;
 
         try {
           // subscriptionIdをapplicationSourceIdとして渡し、新しいプラン適用を終了
@@ -592,6 +610,8 @@ export const handler = async (
             applicationSource: 'subscription',
             applicationSourceId: subscriptionId,
             validFrom: new Date().toISOString(),
+            periodStart,
+            periodEnd,
           });
 
           console.log('Old plan re-applied successfully', { currentPlanId });

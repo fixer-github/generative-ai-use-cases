@@ -215,6 +215,7 @@ export async function checkAccessWithQuota(
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
     let limitType: AccessCheckResult['limitType'] = 'unlimited';
+    let billingPeriodStart: number | undefined; // 請求期間開始（月次制限の基準日）
 
     for (const grant of activeGrants) {
       const feature = grant.features.find((f) => f.featureId === featureId);
@@ -225,6 +226,8 @@ export async function checkAccessWithQuota(
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
           limitType = 'monthly';
+          // 月次制限の場合、請求期間開始を取得
+          billingPeriodStart = grant.periodStart;
         } else if (feature.limitType === 'unlimited') {
           limitType = 'unlimited';
         }
@@ -280,7 +283,8 @@ export async function checkAccessWithQuota(
 
     // 月次制限のチェック
     if (monthlyLimit !== null) {
-      const monthlyStartTime = getPeriodStartTime('monthly');
+      // 請求期間開始があればそれを使用、なければ暦月を使用（フォールバック）
+      const monthlyStartTime = billingPeriodStart ?? getPeriodStartTime('monthly');
       const monthlyCount = await usageEventRepository.countUsageInPeriod(
         userId,
         featureId,
@@ -419,6 +423,7 @@ export async function getLatestUsage(
     // この機能に対する制限情報を探す
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
+    let billingPeriodStart: number | undefined; // 請求期間開始（月次制限の基準日）
 
     for (const grant of activeGrants) {
       const feature = grant.features.find((f) => f.featureId === featureId);
@@ -427,6 +432,8 @@ export async function getLatestUsage(
           dailyLimit = feature.limitCount;
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
+          // 月次制限の場合、請求期間開始を取得
+          billingPeriodStart = grant.periodStart;
         }
       }
     }
@@ -453,7 +460,8 @@ export async function getLatestUsage(
 
     // 月次使用回数を取得
     if (monthlyLimit !== null) {
-      const monthlyStartTime = getPeriodStartTime('monthly');
+      // 請求期間開始があればそれを使用、なければ暦月を使用（フォールバック）
+      const monthlyStartTime = billingPeriodStart ?? getPeriodStartTime('monthly');
       const monthlyCount = await usageEventRepository.countUsageInPeriod(
         userId,
         featureId,

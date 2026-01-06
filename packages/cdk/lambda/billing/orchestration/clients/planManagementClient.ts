@@ -27,6 +27,10 @@ export interface ApplyPlanToUserParams {
   validFrom: string;
   /** 有効終了日時（ISO 8601形式、オプション） */
   validUntil?: string;
+  /** 請求期間開始（Unixタイムスタンプ、ミリ秒単位）- 月次利用回数のリセット基準 */
+  periodStart?: number;
+  /** 請求期間終了（Unixタイムスタンプ、ミリ秒単位） */
+  periodEnd?: number;
 }
 
 /**
