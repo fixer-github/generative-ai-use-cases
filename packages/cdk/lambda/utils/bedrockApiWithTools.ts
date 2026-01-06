@@ -374,6 +374,9 @@ export async function* invokeStreamWithTools(
 
         // 次のイテレーションへ
         console.log('Continuing to next iteration...');
+        console.log(
+          `Message count: ${conversationMessages.length}, Last message role: ${conversationMessages[conversationMessages.length - 1]?.role}`
+        );
         continue;
       }
 

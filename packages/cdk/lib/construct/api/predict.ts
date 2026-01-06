@@ -85,7 +85,7 @@ class PredictApi extends Construct {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/predictStream.ts',
       timeout: Duration.minutes(15),
-      memorySize: 256,
+      memorySize: 512, // Tool Use処理のためメモリを増加
       environment: {
         USER_POOL_ID: userPool.userPoolId,
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
