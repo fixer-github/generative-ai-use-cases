@@ -32,7 +32,7 @@ import {
 import { fetchWebText, createFetchResultContent } from './webTextFetcher';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
-const MAX_TOOL_USE_ITERATIONS = 5;
+const MAX_TOOL_USE_ITERATIONS = 3; // パフォーマンスのため3回に制限
 
 // Web検索用のシステムプロンプト追加
 const WEB_SEARCH_SYSTEM_PROMPT = `

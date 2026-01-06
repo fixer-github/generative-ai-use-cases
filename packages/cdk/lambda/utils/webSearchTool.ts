@@ -188,6 +188,7 @@ export const executeWebSearch = async (
 };
 
 // ツール実行結果をToolResultContentBlockに変換
+// 注: contentは大きくなりがちなので、snippetのみを使用してモデルの処理負荷を軽減
 export const createToolResultContent = (
   results: WebSearchResult[]
 ): ToolResultContentBlock[] => {
@@ -198,7 +199,8 @@ export const createToolResultContent = (
           title: r.title,
           url: r.url,
           snippet: r.snippet,
-          content: r.content ?? '',
+          // contentは送信せず、snippetで十分な情報を提供
+          // 詳細が必要な場合はfetch_urlツールを使用
         })),
       },
     },
