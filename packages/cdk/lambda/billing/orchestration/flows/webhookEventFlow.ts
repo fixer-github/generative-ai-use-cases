@@ -1184,7 +1184,8 @@ async function handleSubscriptionUpdated(
 
   // イベントデータから抽出情報を取得
   // NOTE: _extracted はプラットフォーム固有のデータ構造（現在はStripeのみ対応）
-  const extracted = (eventData as any)?._extracted ?? {};
+  const stripeEventData = eventData as StripeEventData;
+  const extracted = stripeEventData._extracted ?? {};
   const {
     subscriptionId: platformSubscriptionId,
     userId,
