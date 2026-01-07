@@ -337,14 +337,13 @@ export const handler = async (
           throw new Error('Subscription ID not found in previous step result');
         }
 
-        // validFromパラメータは廃止。applyPlanToUser内部で現在時刻が自動設定される
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId,
           planId,
           applicationSource: 'subscription',
           applicationSourceId: subscriptionData.subscriptionId,
-          // validUntilは指定しない（サブスクリプションの期限に従う）
+          validFrom: new Date().toISOString(),
         });
 
         console.log('Plan applied successfully', {
