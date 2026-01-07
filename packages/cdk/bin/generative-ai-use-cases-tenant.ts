@@ -43,6 +43,7 @@ interface TenantConfig {
     identityPoolId: string;
     userPoolClientId: string;
     controlPlaneLambdaRoleArn?: string;
+    controlPlaneLambdaRoleArns?: string[];
     openSearchIndexName?: string;
   };
   ipAccessControl?: {
@@ -50,6 +51,7 @@ interface TenantConfig {
     allowedIpV4AddressRanges: string[];
     allowedIpV6AddressRanges: string[];
   };
+  summaryJobEnabled?: boolean;
 }
 
 let tenantConfig: TenantConfig = {};
@@ -133,6 +135,15 @@ if (tenantConfig.controlPlane) {
     );
   }
   if (
+    controlPlane.controlPlaneLambdaRoleArns &&
+    !app.node.getAllContext()['controlPlaneLambdaRoleArns']
+  ) {
+    app.node.setContext(
+      'controlPlaneLambdaRoleArns',
+      controlPlane.controlPlaneLambdaRoleArns
+    );
+  }
+  if (
     controlPlane.account &&
     !app.node.getAllContext()['controlPlaneAccount']
   ) {
@@ -210,6 +221,8 @@ const params = {
   openSearchIndexName: context.openSearchIndexName || 'assistant-docs',
   openFgaConfig: context.openFgaConfig,
   controlPlaneLambdaRoleArn: context.controlPlane?.controlPlaneLambdaRoleArn,
+  controlPlaneLambdaRoleArns: context.controlPlane?.controlPlaneLambdaRoleArns,
+  summaryJobEnabled: context.summaryJobEnabled ?? false,
 };
 
 createTenantStacks(app, params);

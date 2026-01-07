@@ -19,3 +19,4 @@ export * from './maintenance-mode';
 export * from './authorization-database';
 export * from './authorization-functions';
 export * from './orchestration-database';
+export * from './summary-generator';

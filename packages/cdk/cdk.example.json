@@ -78,6 +78,21 @@
     "domainName": null,
     "hostedZoneId": null,
     "dashboard": false,
+    "summaryJobEnabled": false,
+    "summaryJobConfig": {
+      "dailySummarySchedule": {
+        "minute": "0",
+        "hour": "19",
+        "month": "*",
+        "weekDay": "*"
+      },
+      "dailySummaryMaxChars": 200,
+      "userSummaryMaxChars": 500,
+      "userSummaryDefaultTermUnit": "month",
+      "userSummaryDefaultTermValue": 1,
+      "summaryModelId": "vertex_ai/gemini-2.5-flash",
+      "maxConcurrentUsers": 10
+    },
     "anonymousUsageTracking": true,
     "guardrailEnabled": false,
     "crossAccountBedrockRoleArn": "",

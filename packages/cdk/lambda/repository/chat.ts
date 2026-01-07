@@ -22,6 +22,8 @@ import {
   getTenantDynamoDBDocument,
   getTableName,
   executeDynamoDBOperation,
+  executeDynamoDBOperationForBatch,
+  getTableNameForBatch,
 } from './common';
 import { listMessages, deleteMessagesForChat } from './message';
 
@@ -430,4 +432,104 @@ export const deleteAllMessagesForAssistant = async (
     // chat.chatId already has the 'chat#' prefix from the database
     await deleteAssistantMessagesForChat(chat.chatId, event);
   }
+};
+
+/**
+ * List chats for batch processing (no JWT required)
+ * Uses STS AssumeRole for tenant access
+ */
+export const listChatsForBatch = async (
+  _userId: string,
+  tenantId: string,
+  _exclusiveStartKey?: string
+): Promise<ListChatsResponse> => {
+  return await executeDynamoDBOperationForBatch(
+    tenantId,
+    async (dynamoDbDocument, tableName) => {
+      const exclusiveStartKey = _exclusiveStartKey
+        ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
+        : undefined;
+      const userId = `user#${_userId}`;
+
+      const res = await dynamoDbDocument.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: '#id = :id',
+          ExpressionAttributeNames: {
+            '#id': 'id',
+          },
+          ExpressionAttributeValues: {
+            ':id': userId,
+          },
+          ScanIndexForward: false,
+          Limit: 100,
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+
+      return {
+        data: res.Items as Chat[],
+        lastEvaluatedKey: res.LastEvaluatedKey
+          ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+          : undefined,
+      };
+    }
+  );
+};
+
+/**
+ * Discover users who had conversations on a specific date (batch mode - no JWT)
+ * Uses table scan with filter since there's no date-based GSI
+ * @param date Date in YYYY-MM-DD format
+ * @param tenantId Tenant ID
+ * @returns Array of unique user IDs (without 'user#' prefix)
+ */
+export const discoverUsersWithConversationsOnDate = async (
+  date: string,
+  tenantId: string
+): Promise<string[]> => {
+  // Calculate timestamp range for the date (JST timezone)
+  const startOfDay = new Date(`${date}T00:00:00+09:00`).getTime();
+  const endOfDay = new Date(`${date}T23:59:59.999+09:00`).getTime();
+
+  const userIds = new Set<string>();
+
+  return await executeDynamoDBOperationForBatch(
+    tenantId,
+    async (dynamoDbDocument, tableName) => {
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+      do {
+        const res: ScanCommandOutput = await dynamoDbDocument.send(
+          new ScanCommand({
+            TableName: tableName,
+            FilterExpression:
+              'begins_with(#id, :userPrefix) AND #updatedDate >= :start AND #updatedDate <= :end',
+            ExpressionAttributeNames: {
+              '#id': 'id',
+              '#updatedDate': 'updatedDate',
+            },
+            ExpressionAttributeValues: {
+              ':userPrefix': 'user#',
+              ':start': `${startOfDay}`,
+              ':end': `${endOfDay}`,
+            },
+            ProjectionExpression: 'id',
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        if (res.Items) {
+          for (const item of res.Items) {
+            const userId = (item.id as string).replace('user#', '');
+            userIds.add(userId);
+          }
+        }
+
+        lastEvaluatedKey = res.LastEvaluatedKey;
+      } while (lastEvaluatedKey);
+
+      return Array.from(userIds);
+    }
+  );
 };

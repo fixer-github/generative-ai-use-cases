@@ -351,21 +351,16 @@ export const handler = awslambda.streamifyResponse(
         }
       }
 
-      // Build system message: assistant instruction + custom instructions + RAG context
-      const baseInstruction = customInstructions?.trim()
-        ? `<instructions>
-${assistant.instruction}
-</instructions>
-<user_custom_instructions>
-${customInstructions}
-</user_custom_instructions>`
-        : `<instructions>
-${assistant.instruction}
-</instructions>`;
+      // Build system message: instruction + RAG context + custom instructions
+      let systemMessage = `<instructions>\n${assistant.instruction}\n</instructions>`;
 
-      const systemMessage = ragContext
-        ? `${baseInstruction}\n\nRelevant context from documents:\n${ragContext}`
-        : baseInstruction;
+      if (ragContext) {
+        systemMessage += `\n\nRelevant context from documents:\n${ragContext}`;
+      }
+
+      if (customInstructions?.trim()) {
+        systemMessage += `\n<user_custom_instructions>\n${customInstructions}\n</user_custom_instructions>`;
+      }
 
       // Determine model type:
       // - If modelId exists in modelMetadata → bedrock

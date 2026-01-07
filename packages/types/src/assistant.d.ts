@@ -102,6 +102,7 @@ export type UpdateAssistantRequest = {
 
 export type CreateAssistantMessageRequest = {
   content: string;
+  customInstructions?: string;
 };
 
 export type ListAssistantsQueryParams = {

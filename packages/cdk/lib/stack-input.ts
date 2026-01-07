@@ -178,6 +178,30 @@ const baseStackInputSchema = z.object({
   // Dashboard
   dashboard: z.boolean().default(false),
 
+  // Summary Job
+  summaryJobEnabled: z.boolean().default(false),
+  summaryJobConfig: z
+    .object({
+      dailySummarySchedule: z
+        .object({
+          minute: z.string().default('0'),
+          hour: z.string().default('19'), // 19:00 UTC = 4:00 AM JST
+          month: z.string().default('*'),
+          weekDay: z.string().default('*'),
+        })
+        .default({}),
+      dailySummaryMaxChars: z.number().default(200),
+      userSummaryMaxChars: z.number().default(500),
+      userSummaryDefaultTermUnit: z.enum(['month', 'year']).default('month'),
+      userSummaryDefaultTermValue: z.number().default(1),
+      summaryModelId: z
+        .string()
+        .default('us.anthropic.claude-3-5-haiku-20241022-v1:0'),
+      maxConcurrentUsers: z.number().default(10),
+      enableExternalContext: z.boolean().default(false),
+    })
+    .default({}),
+
   // Email Service (SendGrid)
   emailServiceName: z.string().default('GenU'),
   sendgridApiKey: z.string(),

@@ -49,6 +49,13 @@ export interface TenantDynamoDBStackProps extends cdk.StackProps {
    * @default RemovalPolicy.RETAIN
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
+
+  /**
+   * Whether summary job feature is enabled
+   * When false, UserSummary table is not created
+   * @default false
+   */
+  readonly summaryJobEnabled?: boolean;
 }
 
 /**
@@ -86,6 +93,7 @@ export class TenantDynamoDBStack extends cdk.Stack {
       useCaseBuilderTableBaseName: props?.useCaseBuilderTableBaseName,
       billingMode: props?.billingMode,
       removalPolicy: props?.removalPolicy,
+      summaryJobEnabled: props?.summaryJobEnabled,
     });
 
     // Add stack-level outputs with export names

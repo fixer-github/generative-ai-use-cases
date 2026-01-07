@@ -51,6 +51,7 @@ import FileBucket from '../file-bucket';
 import ShareApi from './share';
 import AdminApi from './admin';
 import UserApi from './user';
+import SummaryApi from './summary';
 import { CentralPptxApi } from './central-pptx';
 
 export interface BackendApiProps {
@@ -80,6 +81,7 @@ export interface BackendApiProps {
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
+  readonly userSummaryTable?: Table;
   readonly assistantTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
@@ -93,6 +95,9 @@ export interface BackendApiProps {
   readonly openai?: {
     readonly apiKey: string; // OPENAI_API_KEY
   };
+
+  // Summary feature (environment-specific)
+  readonly summaryJobEnabled?: boolean;
 }
 
 export class Api extends Construct {
@@ -404,6 +409,14 @@ export class Api extends Construct {
     new WebTextApi(this, 'WebTextAPI', apiProps);
     new AdminApi(this, 'AdminAPI', apiProps);
     new UserApi(this, 'UserAPI', apiProps);
+
+    // Summary API (only when feature enabled)
+    if (props.summaryJobEnabled && props.userSummaryTable) {
+      new SummaryApi(this, 'SummaryAPI', {
+        ...apiProps,
+        userSummaryTable: props.userSummaryTable,
+      });
+    }
 
     // Central PPTX API for multi-tenant architecture
     // Lambda functions dynamically access tenant-specific resources based on Cognito claims

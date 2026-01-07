@@ -454,3 +454,80 @@ export async function getTenantCredentialsForInternalCall(
     );
   }
 }
+
+/**
+ * Get tenant credentials for batch processing (without JWT token)
+ * Uses direct STS AssumeRole instead of AssumeRoleWithWebIdentity
+ *
+ * This is designed for background jobs like summary generation where
+ * there is no user JWT token available.
+ */
+export async function getTenantCredentialsForBatch(
+  tenantId: string
+): Promise<TenantCredentialsWithInfo> {
+  const { region } = validateEnvironment();
+
+  // Check cache first (using a batch-specific key)
+  const cacheKey = `batch:${tenantId}`;
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    console.log(`Using cached batch credentials for tenant: ${tenantId}`);
+    return {
+      credentials: cached.credentials,
+      tenant: cached.tenant,
+      region: cached.tenant.region || region,
+    };
+  }
+
+  console.log(`Getting batch credentials for tenant: ${tenantId} using AssumeRole`);
+
+  try {
+    // Get tenant metadata
+    const tenant = await getTenant(tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant ${tenantId} not found in tenants table`);
+    }
+
+    if (!tenant.roleArn) {
+      throw new Error(`Tenant ${tenantId} is missing roleArn configuration`);
+    }
+
+    console.log(`Assuming role for batch tenant ${tenantId}: ${tenant.roleArn}`);
+
+    // Use direct STS AssumeRole (not AssumeRoleWithWebIdentity)
+    const stsClient = new STSClient({ region });
+
+    const assumeRoleResponse = await stsClient.send(
+      new AssumeRoleCommand({
+        RoleArn: tenant.roleArn,
+        RoleSessionName: `batch-summary-${tenantId}-${Date.now()}`,
+        DurationSeconds: 3600, // 1 hour
+      })
+    );
+
+    if (!assumeRoleResponse.Credentials) {
+      throw new Error('No credentials returned from AssumeRole');
+    }
+
+    const credentials: Credentials = {
+      AccessKeyId: assumeRoleResponse.Credentials.AccessKeyId,
+      SecretAccessKey: assumeRoleResponse.Credentials.SecretAccessKey,
+      SessionToken: assumeRoleResponse.Credentials.SessionToken,
+      Expiration: assumeRoleResponse.Credentials.Expiration,
+    };
+
+    // Save to cache
+    saveToCache(cacheKey, credentials, tenant);
+
+    console.log(`Successfully obtained batch credentials for tenant: ${tenantId}`);
+
+    return {
+      credentials,
+      tenant,
+      region: tenant.region || region,
+    };
+  } catch (error) {
+    console.error(`Failed to get batch credentials for tenant: ${tenantId}:`, error);
+    throw new Error(`Failed to get batch credentials: ${(error as Error).message}`);
+  }
+}
