@@ -150,6 +150,10 @@ interface EventDetailPayload {
   subscriptionId?: string;
   /** プラットフォームサブスクリプションID（Stripe等のサブスクリプションID） */
   platformSubscriptionId?: string;
+  /** 請求期間開始日時（Unixタイムスタンプ、秒） */
+  periodStart?: number;
+  /** 請求期間終了日時（Unixタイムスタンプ、秒） */
+  periodEnd?: number;
 }
 
 /**
@@ -413,7 +417,13 @@ async function handlePaymentSucceeded(
   const userId = input.userId || extractUserId(platform, eventData);
 
   // periodStart/periodEndの抽出（Stripeから取得）
-  const { periodStart, periodEnd } = extractPeriodDates(platform, eventData);
+  // NOTE: input.periodStart/periodEndはEventDetailPayloadで直接渡される（eventExtractorで抽出済み）
+  const { periodStart, periodEnd } = extractPeriodDates(
+    platform,
+    eventData,
+    input.periodStart,
+    input.periodEnd
+  );
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -2163,11 +2173,15 @@ function extractExpirationDate(
  *
  * @param platform 決済プラットフォーム
  * @param eventData イベントデータ
+ * @param inputPeriodStart EventDetailPayloadから直接取得した期間開始（優先）
+ * @param inputPeriodEnd EventDetailPayloadから直接取得した期間終了（優先）
  * @returns { periodStart, periodEnd } ISO 8601形式
  */
 function extractPeriodDates(
   platform: PlatformType,
-  eventData: Record<string, unknown>
+  eventData: Record<string, unknown>,
+  inputPeriodStart?: number,
+  inputPeriodEnd?: number
 ): { periodStart: string; periodEnd: string } {
   const now = new Date();
   const defaultEnd = new Date(now);
@@ -2176,12 +2190,14 @@ function extractPeriodDates(
   if (platform === 'stripe') {
     const stripeData = eventData as StripeEventData;
 
-    // periodStart/periodEndがeventDataのトップレベルにある場合（eventExtractorで抽出済み）
-    const rawPeriodStart = (eventData as Record<string, unknown>)
-      .periodStart as number | undefined;
-    const rawPeriodEnd = (eventData as Record<string, unknown>).periodEnd as
-      | number
-      | undefined;
+    // 優先順位: 1. input直接 → 2. eventData → 3. stripeData → 4. デフォルト
+    // NOTE: EventDetailPayloadのperiodStart/periodEndはeventExtractorで抽出済み
+    const rawPeriodStart =
+      inputPeriodStart ??
+      ((eventData as Record<string, unknown>).periodStart as number | undefined);
+    const rawPeriodEnd =
+      inputPeriodEnd ??
+      ((eventData as Record<string, unknown>).periodEnd as number | undefined);
 
     const periodStart = rawPeriodStart
       ? new Date(rawPeriodStart * 1000).toISOString()
