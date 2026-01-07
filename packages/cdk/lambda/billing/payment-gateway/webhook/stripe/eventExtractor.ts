@@ -298,6 +298,10 @@ function extractFromSubscriptionUpdated(
     });
   }
 
+  // 期間情報の抽出（Unixタイムスタンプ、秒）
+  const currentPeriodStart = subscription.current_period_start;
+  const currentPeriodEnd = subscription.current_period_end;
+
   console.log('Subscription updated event details', {
     subscriptionId,
     userId,
@@ -305,6 +309,9 @@ function extractFromSubscriptionUpdated(
     previousPriceId,
     isPlanChange,
     isParentalControlPlanChange,
+    status: subscription.status,
+    currentPeriodStart,
+    currentPeriodEnd,
     previousAttributesKeys: Object.keys(previousAttributes),
   });
 
@@ -329,6 +336,8 @@ function extractFromSubscriptionUpdated(
         isPlanChange,
         isParentalControlPlanChange,
         status: subscription.status,
+        currentPeriodStart,
+        currentPeriodEnd,
       },
     },
   };

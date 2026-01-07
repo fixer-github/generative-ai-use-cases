@@ -1198,6 +1198,8 @@ async function handleSubscriptionUpdated(
     isPlanChange,
     isParentalControlPlanChange,
     status: platformStatus,
+    currentPeriodStart,
+    currentPeriodEnd,
   } = extracted;
 
   console.log('Extracted subscription update data', {
@@ -1208,6 +1210,8 @@ async function handleSubscriptionUpdated(
     previousPriceId,
     isPlanChange,
     platformStatus,
+    currentPeriodStart,
+    currentPeriodEnd,
   });
 
   // プラットフォームステータスから内部ステータスへのマッピング
@@ -1296,12 +1300,75 @@ async function handleSubscriptionUpdated(
     }
   }
 
+  // 期間同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
+  // NOTE: 期間変更はStripeで手動調整や日割り計算などで発生する可能性がある
+  let periodSynced = false;
+  if (platform === 'stripe' && platformSubscriptionId && currentPeriodStart && currentPeriodEnd) {
+    try {
+      // 内部サブスクリプションを検索
+      const subscription = await invokeDataAccessFunctionByTenantId<{
+        subscription_id: string;
+        current_period_start: string;
+        current_period_end: string;
+      } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+        platformSubscriptionId,
+      });
+
+      if (subscription) {
+        // Stripeのタイムスタンプ（秒）をISO 8601形式に変換
+        const newPeriodStart = new Date(currentPeriodStart * 1000).toISOString();
+        const newPeriodEnd = new Date(currentPeriodEnd * 1000).toISOString();
+        const existingPeriodEnd = new Date(subscription.current_period_end).toISOString();
+
+        // 期間が変更されている場合のみ更新
+        if (existingPeriodEnd !== newPeriodEnd) {
+          console.log('Syncing subscription period from platform', {
+            platformSubscriptionId,
+            internalSubscriptionId: subscription.subscription_id,
+            existingPeriodEnd,
+            newPeriodStart,
+            newPeriodEnd,
+          });
+
+          const periodParams: ExtendSubscriptionPeriodParams = {
+            tenantId,
+            subscriptionId: subscription.subscription_id,
+            newPeriodStart,
+            newPeriodEnd,
+          };
+
+          await subscriptionClient.extendSubscriptionPeriod(periodParams);
+          periodSynced = true;
+
+          console.log('Subscription period synced successfully', {
+            subscriptionId: subscription.subscription_id,
+            newPeriodEnd,
+          });
+        } else {
+          console.log('Subscription period already in sync', {
+            platformSubscriptionId,
+            currentPeriodEnd: existingPeriodEnd,
+          });
+        }
+      }
+    } catch (error) {
+      // 期間同期エラーはログに記録するが、プラン変更処理は続行
+      console.error('Failed to sync subscription period', {
+        platformSubscriptionId,
+        currentPeriodStart,
+        currentPeriodEnd,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
   // プラン変更がない場合は処理をスキップ
   if (!isPlanChange) {
     console.log('No plan change detected, skipping plan change processing', {
       eventId,
       platformSubscriptionId,
       statusSynced: !!internalStatus,
+      periodSynced,
     });
 
     return {
@@ -1310,7 +1377,7 @@ async function handleSubscriptionUpdated(
       eventId,
       errorDetails: {
         errorCode: 'NO_PLAN_CHANGE',
-        errorMessage: 'Subscription updated but no plan change detected (status sync completed if applicable)',
+        errorMessage: 'Subscription updated but no plan change detected (status/period sync completed if applicable)',
       },
     };
   }
