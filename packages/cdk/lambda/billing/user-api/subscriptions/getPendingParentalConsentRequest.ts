@@ -3,16 +3,27 @@
  *
  * 現在のユーザーの保護者同意待ちリクエストを取得するAPI。
  * 新規購入・プラン変更の両方に対応し、重複購入を防止するために使用します。
+ *
+ * Stripe Checkout Sessionの状態を確認し、決済完了済みの場合は204を返します。
  */
 
+import Stripe from 'stripe';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { DynamoDBClient, QueryCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  QueryCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent } from '../../../utils/cognitoUtils';
 import {
   ok200Response,
   unauthorized401Response,
-  notFound404Response,
+  noContent204Response,
   internalServerError500Response,
 } from '../../../utils/apiResponse';
 
@@ -61,6 +72,99 @@ interface PendingParentalConsentResponse {
  * DynamoDB Client
  */
 const dynamoDbClient = new DynamoDBClient({});
+
+/**
+ * Secrets Manager Client
+ */
+const secretsManagerClient = new SecretsManagerClient({});
+
+/**
+ * シークレットのキャッシュ
+ */
+const stripeApiKeyCache: { [key: string]: string } = {};
+
+/**
+ * Secrets ManagerからStripe APIキーを取得する
+ */
+async function getStripeApiKey(tenantId: string): Promise<string> {
+  if (stripeApiKeyCache[tenantId]) {
+    return stripeApiKeyCache[tenantId];
+  }
+
+  const secretName = `${tenantId}/billing/stripe`;
+  const command = new GetSecretValueCommand({ SecretId: secretName });
+  const response = await secretsManagerClient.send(command);
+
+  if (!response.SecretString) {
+    throw new Error(`Secret ${secretName} is empty`);
+  }
+
+  const secret = JSON.parse(response.SecretString);
+  stripeApiKeyCache[tenantId] = secret.apiKey;
+
+  return secret.apiKey;
+}
+
+/**
+ * Stripe Checkout Sessionの決済完了状態を確認
+ * @returns true: 決済完了, false: 未完了
+ */
+async function isCheckoutSessionCompleted(
+  tenantId: string,
+  sessionId: string
+): Promise<boolean> {
+  try {
+    const apiKey = await getStripeApiKey(tenantId);
+    const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    return session.status === 'complete';
+  } catch (error) {
+    console.error('Error checking Stripe checkout session:', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // エラー時はfalseを返し、pendingとして扱う
+    return false;
+  }
+}
+
+/**
+ * DynamoDBのリクエストステータスをapprovedに更新（非同期）
+ */
+async function updateRequestStatusToApproved(
+  tableName: string,
+  requestId: string
+): Promise<void> {
+  try {
+    await dynamoDbClient.send(
+      new UpdateItemCommand({
+        TableName: tableName,
+        Key: {
+          requestId: { S: requestId },
+        },
+        UpdateExpression: 'SET #status = :status, approvedAt = :approvedAt',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':status': { S: 'approved' },
+          ':approvedAt': { N: Date.now().toString() },
+        },
+      })
+    );
+
+    console.log('Updated parental checkout request status to approved:', {
+      requestId,
+    });
+  } catch (error) {
+    // 更新失敗はログのみ（レスポンスには影響させない）
+    console.error('Error updating request status to approved:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * DynamoDBアイテムからpurchaseタイプのレスポンスを構築
@@ -160,46 +264,40 @@ export const handler = async (
 
     console.log('Request context:', { userId, tenantId });
 
-    // 2. 両方のテーブルからpendingリクエストを検索
+    // 2. 両方のテーブルから最新のリクエストを検索（statusフィルターなし、Limit外して全件取得）
+    // NOTE: DynamoDBのFilterExpressionはLimit適用後に評価されるため、Limitを外して
+    // 全件取得し、コード側でpendingを探す必要がある
     const [purchaseResult, changeResult] = await Promise.all([
-      // 新規購入テーブルを検索
+      // 新規購入テーブルを検索（最新順）
       PENDING_PARENTAL_CHECKOUTS_TABLE_NAME
         ? dynamoDbClient.send(
             new QueryCommand({
               TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
               IndexName: 'userId-index',
               KeyConditionExpression: 'userId = :userId',
-              FilterExpression: 'tenantId = :tenantId AND #status = :status',
-              ExpressionAttributeNames: {
-                '#status': 'status',
-              },
+              FilterExpression: 'tenantId = :tenantId',
               ExpressionAttributeValues: {
                 ':userId': { S: userId },
                 ':tenantId': { S: tenantId },
-                ':status': { S: 'pending' },
               },
-              Limit: 1,
+              ScanIndexForward: false, // 降順（最新が最初）
             })
           )
         : Promise.resolve({ Items: [] }),
 
-      // プラン変更テーブルを検索
+      // プラン変更テーブルを検索（最新順）
       PENDING_PLAN_CHANGES_TABLE_NAME
         ? dynamoDbClient.send(
             new QueryCommand({
               TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
               IndexName: 'userId-index',
               KeyConditionExpression: 'userId = :userId',
-              FilterExpression: 'tenantId = :tenantId AND #status = :status',
-              ExpressionAttributeNames: {
-                '#status': 'status',
-              },
+              FilterExpression: 'tenantId = :tenantId',
               ExpressionAttributeValues: {
                 ':userId': { S: userId },
                 ':tenantId': { S: tenantId },
-                ':status': { S: 'pending' },
               },
-              Limit: 1,
+              ScanIndexForward: false, // 降順（最新が最初）
             })
           )
         : Promise.resolve({ Items: [] }),
@@ -214,27 +312,53 @@ export const handler = async (
       changeCount: changeItems.length,
     });
 
-    // 購入リクエストが見つかった場合
-    if (purchaseItems.length > 0) {
-      const item = purchaseItems[0] as Record<string, { S?: string; N?: string }>;
+    // 全件の中から最新のpendingを探す（期限切れでないもの）
+    // DynamoDBは降順ソートされているので、最初に見つかったpendingが最新
+
+    // 購入リクエストからpendingを探す
+    for (const item of purchaseItems as Record<
+      string,
+      { S?: string; N?: string }
+    >[]) {
       const response = buildPurchaseResponse(item);
 
       // 期限切れチェック
       response.status = checkExpiredStatus(response.status, response.expiresAt);
 
-      // pending以外（期限切れ含む）は404を返す
+      // pendingでなければスキップ（次のレコードを確認）
       if (response.status !== 'pending') {
-        console.log('Purchase request is not pending (expired or approved):', {
-          requestId: response.requestId,
-          status: response.status,
-        });
-        return notFound404Response({
-          message: '保留中のリクエストはありません',
-          code: 'NO_PENDING_REQUEST',
-          details: undefined,
-        });
+        continue;
       }
 
+      // ステータスが pending の場合、Stripe Checkout Session の状態を確認
+      if (response.sessionId) {
+        const isCompleted = await isCheckoutSessionCompleted(
+          tenantId,
+          response.sessionId
+        );
+
+        if (isCompleted) {
+          console.log(
+            'Stripe checkout is complete, updating DynamoDB and returning 204:',
+            {
+              requestId: response.requestId,
+              sessionId: response.sessionId,
+            }
+          );
+
+          // DynamoDBのステータスを非同期で更新（awaitしない）
+          updateRequestStatusToApproved(
+            PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
+            response.requestId
+          ).catch((err) => {
+            console.error('Background DynamoDB update failed:', err);
+          });
+
+          return noContent204Response();
+        }
+      }
+
+      // Stripe未完了のpendingが見つかった
       console.log('Pending purchase request found:', {
         requestId: response.requestId,
         planId: response.planId,
@@ -243,27 +367,51 @@ export const handler = async (
       return ok200Response(response);
     }
 
-    // プラン変更リクエストが見つかった場合
-    if (changeItems.length > 0) {
-      const item = changeItems[0] as Record<string, { S?: string; N?: string }>;
+    // プラン変更リクエストからpendingを探す
+    for (const item of changeItems as Record<
+      string,
+      { S?: string; N?: string }
+    >[]) {
       const response = buildChangeResponse(item);
 
       // 期限切れチェック
       response.status = checkExpiredStatus(response.status, response.expiresAt);
 
-      // pending以外（期限切れ含む）は404を返す
+      // pendingでなければスキップ（次のレコードを確認）
       if (response.status !== 'pending') {
-        console.log('Change request is not pending (expired or approved):', {
-          requestId: response.requestId,
-          status: response.status,
-        });
-        return notFound404Response({
-          message: '保留中のリクエストはありません',
-          code: 'NO_PENDING_REQUEST',
-          details: undefined,
-        });
+        continue;
       }
 
+      // ステータスが pending の場合、Checkout Session があれば Stripe の状態を確認
+      const sessionId = item.checkoutSessionId?.S;
+      if (sessionId) {
+        const isCompleted = await isCheckoutSessionCompleted(
+          tenantId,
+          sessionId
+        );
+
+        if (isCompleted) {
+          console.log(
+            'Stripe checkout is complete, updating DynamoDB and returning 204:',
+            {
+              requestId: response.requestId,
+              sessionId,
+            }
+          );
+
+          // DynamoDBのステータスを非同期で更新（awaitしない）
+          updateRequestStatusToApproved(
+            PENDING_PLAN_CHANGES_TABLE_NAME,
+            response.requestId
+          ).catch((err) => {
+            console.error('Background DynamoDB update failed:', err);
+          });
+
+          return noContent204Response();
+        }
+      }
+
+      // Stripe未完了のpendingが見つかった
       console.log('Pending change request found:', {
         requestId: response.requestId,
         planId: response.planId,
@@ -274,14 +422,10 @@ export const handler = async (
       return ok200Response(response);
     }
 
-    // 4. 保留中のリクエストが見つからない場合
-    console.log('No pending parental consent request found for user:', userId);
+    // 4. 保留中のリクエストが見つからない場合は 204 No Content を返す
+    console.log('No parental consent request found for user:', userId);
 
-    return notFound404Response({
-      message: '保留中のリクエストはありません',
-      code: 'NO_PENDING_REQUEST',
-      details: undefined,
-    });
+    return noContent204Response();
   } catch (error) {
     console.error('Error getting pending parental consent request:', error);
 
