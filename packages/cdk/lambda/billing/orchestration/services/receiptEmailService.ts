@@ -56,11 +56,12 @@ function createReceiptBodyContent(data: ReceiptData): string {
   const serviceName = getServiceName();
   const safePlanName = escapeHtml(data.planName);
 
-  const parentalControlNote = data.isParentalControl && data.childEmail
-    ? `<p style="margin: 0 0 16px 0; color: ${COLORS.text}; font-size: 14px;">
+  const parentalControlNote =
+    data.isParentalControl && data.childEmail
+      ? `<p style="margin: 0 0 16px 0; color: ${COLORS.text}; font-size: 14px;">
         お子様（${escapeHtml(data.childEmail)}）のサブスクリプションに関する領収書です。
       </p>`
-    : '';
+      : '';
 
   return `
     <h2 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 20px;">お支払い完了のお知らせ</h2>
@@ -147,7 +148,9 @@ export async function buildReceiptDataFromInvoice(
   invoiceId: string,
   tenantId: string,
   planId?: string
-): Promise<Omit<ReceiptData, 'recipientEmail' | 'isParentalControl' | 'childEmail'>> {
+): Promise<
+  Omit<ReceiptData, 'recipientEmail' | 'isParentalControl' | 'childEmail'>
+> {
   // インボイスを取得（payments.data.payment.payment_intent と subscription を展開）
   const invoiceResponse = await stripe.invoices.retrieve(invoiceId, {
     expand: ['payments.data.payment.payment_intent', 'subscription'],
@@ -158,7 +161,8 @@ export async function buildReceiptDataFromInvoice(
   const amount = invoice.amount_paid ?? 0;
   const currency = invoice.currency || 'jpy';
   const paymentDate = new Date(invoice.created * 1000);
-  const invoiceNumber = invoice.number || `INV-${invoice.id.slice(-8).toUpperCase()}`;
+  const invoiceNumber =
+    invoice.number || `INV-${invoice.id.slice(-8).toUpperCase()}`;
 
   console.log('Building receipt data from invoice', {
     invoiceId,
@@ -172,22 +176,29 @@ export async function buildReceiptDataFromInvoice(
 
   // 請求期間
   const lineItem = invoice.lines?.data?.[0];
-  const billingPeriodStart = lineItem?.period?.start
-    ? new Date(lineItem.period.start * 1000)
-    : paymentDate;
-  const billingPeriodEnd = lineItem?.period?.end
-    ? new Date(lineItem.period.end * 1000)
-    : new Date(paymentDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  if (!lineItem?.period?.start || !lineItem?.period?.end) {
+    throw new Error(
+      `Unable to determine billing period from invoice ${invoice.id}. ` +
+        `Invoice must contain line item with period information.`
+    );
+  }
+  const billingPeriodStart = new Date(lineItem.period.start * 1000);
+  const billingPeriodEnd = new Date(lineItem.period.end * 1000);
   const nextBillingDate = billingPeriodEnd;
 
   // プラン名取得
   let planName = 'サブスクリプションプラン';
 
   // subscription が展開されている場合は直接メタデータを取得
-  const subscriptionObj = (invoice as unknown as Record<string, any>).subscription;
+  const subscriptionObj = (invoice as unknown as Record<string, any>)
+    .subscription;
   let effectivePlanId = planId;
 
-  if (!effectivePlanId && subscriptionObj && typeof subscriptionObj === 'object') {
+  if (
+    !effectivePlanId &&
+    subscriptionObj &&
+    typeof subscriptionObj === 'object'
+  ) {
     // 展開されたサブスクリプションから直接メタデータを取得
     const metadata = subscriptionObj.metadata;
     effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
@@ -227,7 +238,10 @@ export async function buildReceiptDataFromInvoice(
         planName = plan.display_name;
       }
     } catch (error) {
-      console.warn('Failed to fetch plan name', { planId: effectivePlanId, error });
+      console.warn('Failed to fetch plan name', {
+        planId: effectivePlanId,
+        error,
+      });
     }
   } else {
     console.warn('No plan ID available for receipt, using default plan name');
@@ -248,14 +262,21 @@ export async function buildReceiptDataFromInvoice(
   };
 
   // ヘルパー関数: 顧客の支払い方法を取得してlast4を返す
-  const getPaymentMethodLast4 = async (customerId: string, pmId: string): Promise<string | null> => {
+  const getPaymentMethodLast4 = async (
+    customerId: string,
+    pmId: string
+  ): Promise<string | null> => {
     try {
       const pm = await stripe.customers.retrievePaymentMethod(customerId, pmId);
       if (pm.card?.last4) {
         return pm.card.last4;
       }
     } catch (error) {
-      console.warn('Failed to retrieve customer payment method', { customerId, pmId, error });
+      console.warn('Failed to retrieve customer payment method', {
+        customerId,
+        pmId,
+        error,
+      });
     }
     return null;
   };
@@ -281,7 +302,9 @@ export async function buildReceiptDataFromInvoice(
         const last4 = await getPaymentMethodLast4(customerId, pmId);
         if (last4) {
           paymentMethodLast4 = `****${last4}`;
-          console.log('Got last4 from subscription.default_payment_method', { last4 });
+          console.log('Got last4 from subscription.default_payment_method', {
+            last4,
+          });
         }
       }
     }
@@ -293,29 +316,41 @@ export async function buildReceiptDataFromInvoice(
         const last4 = await getPaymentMethodLast4(customerId, pmId);
         if (last4) {
           paymentMethodLast4 = `****${last4}`;
-          console.log('Got last4 from invoice.default_payment_method', { last4 });
+          console.log('Got last4 from invoice.default_payment_method', {
+            last4,
+          });
         }
       }
     }
 
     // 方法3: invoice.payments.data[0].payment.payment_intent.payment_method から取得
-    if (paymentMethodLast4 === '****' && invoiceAny.payments?.data?.length > 0) {
+    if (
+      paymentMethodLast4 === '****' &&
+      invoiceAny.payments?.data?.length > 0
+    ) {
       const firstPayment = invoiceAny.payments.data[0];
       if (firstPayment?.payment?.payment_intent) {
         const paymentIntentId = extractId(firstPayment.payment.payment_intent);
         if (paymentIntentId) {
           try {
-            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            const paymentIntent =
+              await stripe.paymentIntents.retrieve(paymentIntentId);
             const pmId = extractId(paymentIntent.payment_method);
             if (pmId) {
               const last4 = await getPaymentMethodLast4(customerId, pmId);
               if (last4) {
                 paymentMethodLast4 = `****${last4}`;
-                console.log('Got last4 from invoice.payments.payment.payment_intent.payment_method', { last4 });
+                console.log(
+                  'Got last4 from invoice.payments.payment.payment_intent.payment_method',
+                  { last4 }
+                );
               }
             }
           } catch (error) {
-            console.warn('Failed to retrieve payment intent', { paymentIntentId, error });
+            console.warn('Failed to retrieve payment intent', {
+              paymentIntentId,
+              error,
+            });
           }
         }
       }
@@ -330,18 +365,29 @@ export async function buildReceiptDataFromInvoice(
           type: 'card',
           limit: 1,
         });
-        if (paymentMethods.data.length > 0 && paymentMethods.data[0].card?.last4) {
+        if (
+          paymentMethods.data.length > 0 &&
+          paymentMethods.data[0].card?.last4
+        ) {
           paymentMethodLast4 = `****${paymentMethods.data[0].card.last4}`;
-          console.log('Got last4 from customer payment method list', { last4: paymentMethods.data[0].card.last4 });
+          console.log('Got last4 from customer payment method list', {
+            last4: paymentMethods.data[0].card.last4,
+          });
         }
       } catch (error) {
-        console.warn('Failed to list customer payment methods', { customerId, error });
+        console.warn('Failed to list customer payment methods', {
+          customerId,
+          error,
+        });
       }
     }
   }
 
   if (paymentMethodLast4 === '****') {
-    console.warn('Could not extract payment method last4 from any source', { invoiceId, customerId });
+    console.warn('Could not extract payment method last4 from any source', {
+      invoiceId,
+      customerId,
+    });
   }
 
   return {
@@ -364,12 +410,17 @@ export async function buildReceiptDataFromInvoice(
  * 1. planId - 新規購入時に設定されるプランID
  * 2. newPlanId - プラン変更時に設定される新しいプランID
  */
-async function extractPlanIdFromInvoice(stripe: Stripe, invoice: Stripe.Invoice): Promise<string | null> {
+async function extractPlanIdFromInvoice(
+  stripe: Stripe,
+  invoice: Stripe.Invoice
+): Promise<string | null> {
   // サブスクリプションIDを取得してメタデータを確認
-  const subscriptionField = (invoice as unknown as Record<string, unknown>).subscription;
-  const subscriptionId = typeof subscriptionField === 'string'
-    ? subscriptionField
-    : (subscriptionField as { id: string } | null)?.id;
+  const subscriptionField = (invoice as unknown as Record<string, unknown>)
+    .subscription;
+  const subscriptionId =
+    typeof subscriptionField === 'string'
+      ? subscriptionField
+      : (subscriptionField as { id: string } | null)?.id;
 
   if (subscriptionId) {
     try {
@@ -389,7 +440,10 @@ async function extractPlanIdFromInvoice(stripe: Stripe, invoice: Stripe.Invoice)
         return subscription.metadata.newPlanId;
       }
     } catch (error) {
-      console.warn('Failed to fetch subscription for planId extraction', { subscriptionId, error });
+      console.warn('Failed to fetch subscription for planId extraction', {
+        subscriptionId,
+        error,
+      });
     }
   }
 
@@ -411,21 +465,26 @@ export async function getReceiptRecipient(
   childEmail?: string;
 }> {
   try {
-    const subscription = await stripe.subscriptions.retrieve(platformSubscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(
+      platformSubscriptionId
+    );
 
-    const isParentalControl = subscription.metadata?.isParentalControl === 'true';
+    const isParentalControl =
+      subscription.metadata?.isParentalControl === 'true';
     const childEmail = subscription.metadata?.childEmail;
 
     // カスタマーIDを取得
-    const customerId = typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer.id;
+    const customerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer.id;
 
     // Stripeカスタマーからメールアドレスを取得
     const customer = await stripe.customers.retrieve(customerId);
-    const customerEmail = (typeof customer !== 'string' && !customer.deleted && customer.email)
-      ? customer.email
-      : null;
+    const customerEmail =
+      typeof customer !== 'string' && !customer.deleted && customer.email
+        ? customer.email
+        : null;
 
     if (isParentalControl) {
       // ペアレンタルコントロール: Stripeカスタマーのメールアドレス（保護者）
@@ -449,7 +508,10 @@ export async function getReceiptRecipient(
 
     throw new Error('Unable to determine receipt recipient email');
   } catch (error) {
-    console.error('Failed to get receipt recipient', { platformSubscriptionId, error });
+    console.error('Failed to get receipt recipient', {
+      platformSubscriptionId,
+      error,
+    });
 
     // フォールバックメールがあれば使用
     if (fallbackEmail) {
@@ -474,6 +536,8 @@ export async function getUserEmail(
 ): Promise<string | null> {
   // Note: UserStripeMappingテーブルへのアクセスはAPI Gateway経由でのみ可能
   // orchestration flowでは直接アクセスできないため、nullを返してStripe Customerメールを使用
-  console.log('getUserEmail: Returning null, will use Stripe Customer email as fallback');
+  console.log(
+    'getUserEmail: Returning null, will use Stripe Customer email as fallback'
+  );
   return null;
 }
