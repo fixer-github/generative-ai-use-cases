@@ -1183,8 +1183,8 @@ async function handleSubscriptionUpdated(
   });
 
   // イベントデータから抽出情報を取得
-  const stripeData = eventData as StripeEventData;
-  const extracted = stripeData._extracted ?? {};
+  // NOTE: _extracted はプラットフォーム固有のデータ構造（現在はStripeのみ対応）
+  const extracted = (eventData as any)?._extracted ?? {};
   const {
     subscriptionId: platformSubscriptionId,
     userId,
@@ -1192,43 +1192,54 @@ async function handleSubscriptionUpdated(
     previousPriceId,
     isPlanChange,
     isParentalControlPlanChange,
-    status: stripeStatus,
+    status: platformStatus,
   } = extracted;
 
   console.log('Extracted subscription update data', {
+    platform,
     platformSubscriptionId,
     userId,
     currentPriceId,
     previousPriceId,
     isPlanChange,
-    stripeStatus,
+    platformStatus,
   });
 
-  // Stripeステータスから内部ステータスへのマッピング
+  // プラットフォームステータスから内部ステータスへのマッピング
+  // NOTE: 現在はStripeのみ対応。Apple/Googleは別のWebhookイベントでステータス管理される
   // TODO: 内部ステータスに 'trialing' を追加し、トライアル期間を明示的に管理する
-  const mapStripeStatusToInternal = (
+  const mapPlatformStatusToInternal = (
+    platformType: string,
     status: string | undefined
   ): 'active' | 'past_due' | 'canceled' | 'expired' | undefined => {
     if (!status) return undefined;
-    switch (status) {
-      case 'active':
-      case 'trialing': // TODO: 'trialing' 内部ステータス実装後は分離する
-        return 'active';
-      case 'past_due':
-      case 'unpaid': // unpaid: Smart Retriesが全て失敗した後の最終状態
-        return 'past_due';
-      case 'canceled':
-        return 'canceled';
-      case 'incomplete_expired':
-        return 'expired';
-      default:
-        // incomplete, paused などは変換しない（状態遷移が複雑なため）
-        return undefined;
+
+    // Stripeの場合のみステータスマッピングを行う
+    if (platformType === 'stripe') {
+      switch (status) {
+        case 'active':
+        case 'trialing': // TODO: 'trialing' 内部ステータス実装後は分離する
+          return 'active';
+        case 'past_due':
+        case 'unpaid': // unpaid: Smart Retriesが全て失敗した後の最終状態
+          return 'past_due';
+        case 'canceled':
+          return 'canceled';
+        case 'incomplete_expired':
+          return 'expired';
+        default:
+          // incomplete, paused などは変換しない（状態遷移が複雑なため）
+          return undefined;
+      }
     }
+
+    // Apple/Googleの場合は subscription.updated では同期しない
+    // （各プラットフォーム固有のWebhookで処理される）
+    return undefined;
   };
 
-  // ステータス同期処理（プラン変更の有無に関わらず実行）
-  const internalStatus = mapStripeStatusToInternal(stripeStatus as string);
+  // ステータス同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
+  const internalStatus = mapPlatformStatusToInternal(platform, platformStatus as string);
   if (platformSubscriptionId && internalStatus) {
     try {
       // 内部サブスクリプションを検索
@@ -1240,12 +1251,12 @@ async function handleSubscriptionUpdated(
       });
 
       if (subscription && subscription.subscription_status !== internalStatus) {
-        console.log('Syncing subscription status from Stripe', {
+        console.log('Syncing subscription status from platform', {
           platformSubscriptionId,
           internalSubscriptionId: subscription.subscription_id,
           currentStatus: subscription.subscription_status,
           newStatus: internalStatus,
-          stripeStatus,
+          platformStatus,
         });
 
         const statusUpdateParams: UpdateSubscriptionStatusParams = {
@@ -1266,14 +1277,14 @@ async function handleSubscriptionUpdated(
         console.log('Subscription status already in sync', {
           platformSubscriptionId,
           currentStatus: subscription.subscription_status,
-          stripeStatus,
+          platformStatus,
         });
       }
     } catch (error) {
       // ステータス同期エラーはログに記録するが、プラン変更処理は続行
       console.error('Failed to sync subscription status', {
         platformSubscriptionId,
-        stripeStatus,
+        platformStatus,
         internalStatus,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
