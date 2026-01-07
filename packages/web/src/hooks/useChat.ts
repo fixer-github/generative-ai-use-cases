@@ -304,7 +304,13 @@ const useChatState = create<{
             .indexOf(m.messageId);
 
           if (idx >= 0) {
-            draft[id].messages[idx] = m;
+            // 既存のメッセージのwebSearch情報を保持
+            const existingWebSearch = draft[id].messages[idx].webSearch;
+            draft[id].messages[idx] = {
+              ...m,
+              // webSearchはクライアントサイドのみの情報なので、既存の値を保持
+              webSearch: existingWebSearch,
+            };
           }
         }
       });
@@ -674,13 +680,15 @@ const useChatState = create<{
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
           const oldAssistantMessage = draft[id].messages.pop()!;
-          const newAssistantMessage: UnrecordedMessage = {
+          const newAssistantMessage: ShownMessage = {
             ...oldAssistantMessage,
             role: 'assistant',
             content: postProcessOutput(oldAssistantMessage.content),
             trace: oldAssistantMessage.trace,
             llmType: model?.modelId,
             metadata: oldAssistantMessage.metadata,
+            // webSearch情報を保持
+            webSearch: oldAssistantMessage.webSearch,
           };
           draft[id].messages.push(newAssistantMessage);
         });
