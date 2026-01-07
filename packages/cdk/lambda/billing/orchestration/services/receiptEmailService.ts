@@ -20,6 +20,43 @@ import { invokeDataAccessFunctionByTenantId } from '../../utils/dataAccessClient
 import { Plan } from '../../data-access/repositories/types';
 
 /**
+ * Cloverバージョン対応: インボイスからサブスクリプションIDを抽出するヘルパー関数
+ *
+ * Stripe API バージョン 2025-10-29.clover では invoice.subscription が
+ * 直接存在しない場合があるため、複数のパスからサブスクリプションIDを取得する
+ */
+function extractSubscriptionIdFromInvoice(invoice: Record<string, any>): string | null {
+  // 方法1: 従来の invoice.subscription（文字列またはオブジェクト）
+  if (invoice.subscription) {
+    if (typeof invoice.subscription === 'string') {
+      return invoice.subscription;
+    }
+    if (invoice.subscription?.id) {
+      return invoice.subscription.id;
+    }
+  }
+
+  // 方法2: Cloverバージョン - parent.subscription_details.subscription
+  if (invoice.parent?.subscription_details?.subscription) {
+    return invoice.parent.subscription_details.subscription;
+  }
+
+  // 方法3: Cloverバージョン - lines.data[].parent.subscription_item_details.subscription
+  const lineItemSubscription =
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription;
+  if (lineItemSubscription) {
+    return lineItemSubscription;
+  }
+
+  // 方法4: 従来のフォールバック - lines.data[].subscription
+  if (invoice.lines?.data?.[0]?.subscription) {
+    return invoice.lines.data[0].subscription;
+  }
+
+  return null;
+}
+
+/**
  * 領収書データ
  */
 export interface ReceiptData {
@@ -189,11 +226,12 @@ export async function buildReceiptDataFromInvoice(
   // プラン名取得
   let planName = 'サブスクリプションプラン';
 
-  // subscription が展開されている場合は直接メタデータを取得
-  const subscriptionObj = (invoice as unknown as Record<string, any>)
-    .subscription;
+  const invoiceAny = invoice as unknown as Record<string, any>;
   let effectivePlanId = planId;
 
+  // subscription が展開されている場合は直接メタデータを取得
+  // Cloverバージョン対応: invoice.subscription が存在しない場合も考慮
+  const subscriptionObj = invoiceAny.subscription;
   if (
     !effectivePlanId &&
     subscriptionObj &&
@@ -209,9 +247,20 @@ export async function buildReceiptDataFromInvoice(
     });
   }
 
-  // フォールバック: subscription が展開されていない場合
+  // Cloverバージョン対応: parent.subscription_details からメタデータを取得
+  if (!effectivePlanId && invoiceAny.parent?.subscription_details?.metadata) {
+    const metadata = invoiceAny.parent.subscription_details.metadata;
+    effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
+    console.log('Extracted planId from parent.subscription_details', {
+      hasPlanId: !!metadata?.planId,
+      hasNewPlanId: !!metadata?.newPlanId,
+      effectivePlanId,
+    });
+  }
+
+  // フォールバック: サブスクリプションを別途取得してメタデータを確認
   if (!effectivePlanId) {
-    effectivePlanId = await extractPlanIdFromInvoice(stripe, invoice);
+    effectivePlanId = await extractPlanIdFromInvoiceWithCloverSupport(stripe, invoiceAny) ?? undefined;
   }
 
   console.log('Plan ID for receipt', {
@@ -250,7 +299,6 @@ export async function buildReceiptDataFromInvoice(
   // 支払い方法（カード末尾4桁）
   // getCurrentSubscription.ts と同じロジックを使用
   let paymentMethodLast4 = '****';
-  const invoiceAny = invoice as unknown as Record<string, any>;
 
   // ヘルパー関数: IDまたはオブジェクトからIDを抽出
   const extractId = (value: unknown): string | null => {
@@ -404,23 +452,27 @@ export async function buildReceiptDataFromInvoice(
 }
 
 /**
- * インボイスからプランIDを抽出
+ * インボイスからプランIDを抽出（Cloverバージョン対応）
  *
  * サブスクリプションのmetadataから以下の優先順位でplanIdを取得:
  * 1. planId - 新規購入時に設定されるプランID
  * 2. newPlanId - プラン変更時に設定される新しいプランID
+ *
+ * Cloverバージョンでは invoice.subscription が存在しない場合があるため、
+ * extractSubscriptionIdFromInvoice を使用してサブスクリプションIDを取得する
  */
-async function extractPlanIdFromInvoice(
+async function extractPlanIdFromInvoiceWithCloverSupport(
   stripe: Stripe,
-  invoice: Stripe.Invoice
+  invoice: Record<string, any>
 ): Promise<string | null> {
-  // サブスクリプションIDを取得してメタデータを確認
-  const subscriptionField = (invoice as unknown as Record<string, unknown>)
-    .subscription;
-  const subscriptionId =
-    typeof subscriptionField === 'string'
-      ? subscriptionField
-      : (subscriptionField as { id: string } | null)?.id;
+  // Cloverバージョン対応: 複数のパスからサブスクリプションIDを取得
+  const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+
+  console.log('extractPlanIdFromInvoiceWithCloverSupport: Extracted subscription ID', {
+    subscriptionId,
+    hasInvoiceSubscription: !!invoice.subscription,
+    hasParentSubscriptionDetails: !!invoice.parent?.subscription_details,
+  });
 
   if (subscriptionId) {
     try {
@@ -430,6 +482,7 @@ async function extractPlanIdFromInvoice(
         subscriptionId,
         hasPlanId: !!subscription.metadata?.planId,
         hasNewPlanId: !!subscription.metadata?.newPlanId,
+        metadata: subscription.metadata,
       });
 
       // planId（新規購入）またはnewPlanId（プラン変更）のいずれかを返す
