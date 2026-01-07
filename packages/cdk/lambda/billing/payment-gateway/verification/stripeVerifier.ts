@@ -28,6 +28,10 @@ export class StripeVerifier {
       // Stripe API Clover系では、current_period_start/endはSubscriptionItemレベルに移行
       const subscriptionItem = subscription.items.data[0];
 
+      const periodEnd = new Date(
+        subscriptionItem.current_period_end * 1000
+      ).toISOString();
+
       return {
         success: isActive,
         data: {
@@ -40,9 +44,8 @@ export class StripeVerifier {
           currentPeriodStart: new Date(
             subscriptionItem.current_period_start * 1000
           ).toISOString(),
-          currentPeriodEnd: new Date(
-            subscriptionItem.current_period_end * 1000
-          ).toISOString(),
+          currentPeriodEnd: periodEnd,
+          expiresAt: periodEnd,
           productId: subscriptionItem?.price?.id,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           canceledAt: subscription.canceled_at
@@ -81,14 +84,31 @@ export class StripeVerifier {
 
       const isComplete = session.status === 'complete';
 
+      // サブスクリプション情報を取得
+      const subscription = session.subscription;
+      if (typeof subscription === 'string' || !subscription) {
+        throw new Error(
+          'Subscription not expanded or not available. Cannot retrieve expiration date.'
+        );
+      }
+
+      // Stripe API Clover系では、current_period_endはSubscriptionItemレベルに移行
+      const subscriptionItem = subscription.items.data[0];
+      if (!subscriptionItem?.current_period_end) {
+        throw new Error(
+          'Subscription period end not found. Cannot retrieve expiration date.'
+        );
+      }
+
+      const expiresAt = new Date(
+        subscriptionItem.current_period_end * 1000
+      ).toISOString();
+
       return {
         success: isComplete,
         data: {
           sessionId: session.id,
-          subscriptionId:
-            typeof session.subscription === 'string'
-              ? session.subscription
-              : session.subscription?.id,
+          subscriptionId: subscription.id,
           customerId:
             typeof session.customer === 'string'
               ? session.customer
@@ -97,6 +117,7 @@ export class StripeVerifier {
           amountTotal: session.amount_total,
           currency: session.currency,
           paymentStatus: session.payment_status,
+          expiresAt,
         },
       };
     } catch (error) {

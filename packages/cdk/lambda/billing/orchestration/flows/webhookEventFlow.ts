@@ -1956,61 +1956,20 @@ function extractSubscriptionId(
 }
 
 /**
- * イベントデータから有効期限を抽出
- *
- * @param platform 決済プラットフォーム
- * @param eventData イベントデータ
- * @returns 有効期限（ISO 8601形式）
- */
-function extractExpirationDate(
-  platform: PlatformType,
-  eventData: Record<string, unknown>
-): string {
-  if (platform === 'stripe') {
-    const stripeData = eventData as StripeEventData;
-    if (stripeData.periodEnd) {
-      // StripeはUnixタイムスタンプ（秒）なので、ミリ秒に変換してISO 8601形式にする
-      return new Date(stripeData.periodEnd * 1000).toISOString();
-    }
-  }
-
-  if (platform === 'apple') {
-    const appleData = eventData as AppleEventData;
-    if (appleData.expiresDate) {
-      // AppleはUnixタイムスタンプ（ミリ秒）なので、そのままISO 8601形式にする
-      return new Date(appleData.expiresDate).toISOString();
-    }
-  }
-
-  if (platform === 'google') {
-    const googleData = eventData as GoogleEventData;
-    if (googleData.expiryTimeMillis) {
-      // GoogleはUnixタイムスタンプ（ミリ秒）なので、そのままISO 8601形式にする
-      return new Date(googleData.expiryTimeMillis).toISOString();
-    }
-  }
-
-  // デフォルト: 30日後
-  const defaultDate = new Date();
-  defaultDate.setDate(defaultDate.getDate() + 30);
-  return defaultDate.toISOString();
-}
-
-/**
  * イベントデータから請求期間（periodStart/periodEnd）を抽出
+ *
+ * 決済プロバイダーから取得した正確な期間情報のみを使用します。
+ * フォールバック値は使用せず、必須データが存在しない場合はエラーをthrowします。
  *
  * @param platform 決済プラットフォーム
  * @param eventData イベントデータ
  * @returns { periodStart, periodEnd } ISO 8601形式
+ * @throws Error 必須の期間データが存在しない場合、または未実装のプラットフォームの場合
  */
 function extractPeriodDates(
   platform: PlatformType,
   eventData: Record<string, unknown>
 ): { periodStart: string; periodEnd: string } {
-  const now = new Date();
-  const defaultEnd = new Date(now);
-  defaultEnd.setDate(defaultEnd.getDate() + 30);
-
   if (platform === 'stripe') {
     const stripeData = eventData as StripeEventData;
 
@@ -2021,26 +1980,30 @@ function extractPeriodDates(
       | number
       | undefined;
 
-    const periodStart = rawPeriodStart
-      ? new Date(rawPeriodStart * 1000).toISOString()
-      : stripeData.periodStart
-        ? new Date(stripeData.periodStart * 1000).toISOString()
-        : now.toISOString();
+    // eventDataのトップレベル、またはstripeDataから取得
+    const periodStartValue = rawPeriodStart ?? stripeData.periodStart;
+    const periodEndValue = rawPeriodEnd ?? stripeData.periodEnd;
 
-    const periodEnd = rawPeriodEnd
-      ? new Date(rawPeriodEnd * 1000).toISOString()
-      : stripeData.periodEnd
-        ? new Date(stripeData.periodEnd * 1000).toISOString()
-        : defaultEnd.toISOString();
+    // 必須データの存在チェック
+    if (!periodStartValue || !periodEndValue) {
+      throw new Error(
+        `Required billing period data not found in Stripe event. ` +
+          `periodStart: ${periodStartValue}, periodEnd: ${periodEndValue}. ` +
+          `This may indicate a bug in event extraction or an unexpected event structure.`
+      );
+    }
 
-    return { periodStart, periodEnd };
+    return {
+      periodStart: new Date(periodStartValue * 1000).toISOString(),
+      periodEnd: new Date(periodEndValue * 1000).toISOString(),
+    };
   }
 
-  // Apple/Googleの場合はデフォルト値を使用
-  return {
-    periodStart: now.toISOString(),
-    periodEnd: defaultEnd.toISOString(),
-  };
+  // Apple/Googleは現時点で未実装
+  throw new Error(
+    `Platform '${platform}' is not implemented for billing period extraction. ` +
+      `Only Stripe is currently supported.`
+  );
 }
 
 /**

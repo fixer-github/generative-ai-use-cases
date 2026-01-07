@@ -45,7 +45,10 @@ import { IdempotencyRepository } from '../repositories/idempotencyRepository';
  * @param platformType - プラットフォーム種別
  * @returns セッションID（冪等性キーの一部として使用）
  */
-function extractSessionId(receiptData: unknown, platformType: PlatformType): string {
+function extractSessionId(
+  receiptData: unknown,
+  platformType: PlatformType
+): string {
   if (platformType === 'stripe') {
     // Stripeの場合
     if (typeof receiptData === 'string') {
@@ -72,9 +75,8 @@ function extractSessionId(receiptData: unknown, platformType: PlatformType): str
 
   // Apple/Googleの場合、またはStripeでsessionIdが見つからない場合
   // receiptData全体をJSON文字列化してハッシュ的に使用
-  const receiptString = typeof receiptData === 'string'
-    ? receiptData
-    : JSON.stringify(receiptData);
+  const receiptString =
+    typeof receiptData === 'string' ? receiptData : JSON.stringify(receiptData);
 
   // 長すぎる場合は先頭64文字を使用（実運用ではハッシュ関数を使うべき）
   return receiptString.length > 64
@@ -105,15 +107,22 @@ export const handler = async (
   // ========================================
   // IdempotencyRepositoryはtenantIdを使用してテナント固有のテーブルにアクセス
   const idempotencyRepo = new IdempotencyRepository(tenantId);
-  const sessionId = extractSessionId(receiptData, paymentPlatform as PlatformType);
+  const sessionId = extractSessionId(
+    receiptData,
+    paymentPlatform as PlatformType
+  );
   const idempotencyKey = IdempotencyRepository.generateKey(tenantId, sessionId);
 
   console.log('Checking idempotency', { idempotencyKey, sessionId });
 
-  const idempotencyResult = await idempotencyRepo.reserveOrGetExisting(idempotencyKey);
+  const idempotencyResult =
+    await idempotencyRepo.reserveOrGetExisting(idempotencyKey);
 
   // 既に処理済みの場合は既存の結果を返す
-  if (idempotencyResult.alreadyProcessed && idempotencyResult.existingRecord?.result) {
+  if (
+    idempotencyResult.alreadyProcessed &&
+    idempotencyResult.existingRecord?.result
+  ) {
     console.log('Request already processed, returning existing result', {
       idempotencyKey,
       existingStatus: idempotencyResult.existingRecord.status,
@@ -131,7 +140,8 @@ export const handler = async (
       flowExecutionId: '',
       errorDetails: {
         errorCode: 'CONCURRENT_REQUEST',
-        errorMessage: 'Another request is currently processing this session. Please wait and retry.',
+        errorMessage:
+          'Another request is currently processing this session. Please wait and retry.',
       },
     };
   }
@@ -251,6 +261,13 @@ export const handler = async (
           );
         }
 
+        if (!receiptResult?.expiresAt) {
+          throw new Error(
+            'Expiration date not found in receipt verification result. ' +
+              'Payment provider must return expiration date.'
+          );
+        }
+
         const params: CreateSubscriptionParams = {
           tenantId,
           userId,
@@ -259,8 +276,7 @@ export const handler = async (
           platformSubscriptionId: receiptResult.platformSubscriptionId,
           subscriptionStatus: 'active',
           currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd:
-            receiptResult.expiresAt || getDefaultExpirationDate(),
+          currentPeriodEnd: receiptResult.expiresAt,
         };
 
         const result = await subscriptionClient.createSubscription(params);
@@ -328,7 +344,6 @@ export const handler = async (
           applicationSource: 'subscription',
           applicationSourceId: subscriptionData.subscriptionId,
           validFrom: new Date().toISOString(),
-          // validUntilは指定しない（サブスクリプションの期限に従う）
         });
 
         console.log('Plan applied successfully', {
@@ -440,7 +455,11 @@ export const handler = async (
     await orchestrator.completeFlow(flowExecutionId, output);
 
     // 冪等性レコードを成功として記録
-    await idempotencyRepo.markCompleted(idempotencyKey, flowExecutionId, output);
+    await idempotencyRepo.markCompleted(
+      idempotencyKey,
+      flowExecutionId,
+      output
+    );
 
     console.log('Purchase flow completed successfully', {
       flowExecutionId,
@@ -500,19 +519,12 @@ export const handler = async (
 
     // 冪等性レコードを失敗として記録
     // 同じsessionIdで再度リクエストされた場合、同じエラーを返す（案B）
-    await idempotencyRepo.markFailed(idempotencyKey, flowExecutionId, errorOutput);
+    await idempotencyRepo.markFailed(
+      idempotencyKey,
+      flowExecutionId,
+      errorOutput
+    );
 
     return errorOutput;
   }
 };
-
-/**
- * デフォルトの有効期限を取得（30日後）
- *
- * @returns ISO 8601形式の日時文字列
- */
-function getDefaultExpirationDate(): string {
-  const expirationDate = new Date();
-  expirationDate.setDate(expirationDate.getDate() + 30);
-  return expirationDate.toISOString();
-}
