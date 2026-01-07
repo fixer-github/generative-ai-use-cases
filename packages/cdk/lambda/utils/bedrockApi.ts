@@ -42,13 +42,17 @@ const WEB_SEARCH_TOOL_CONFIG: ToolConfiguration = {
     {
       toolSpec: {
         name: 'web_search',
-        description: `Web検索ツール。以下の場合は必ずこのツールを使用してください：
+        description: `Web検索ツール。以下の場合に使用してください：
 - ユーザーが最新情報、ニュース、現在のデータを求めている場合
 - 「今日」「最新」「現在」「最近」「2024年」「2025年」などの時間に関する言葉が含まれる場合
 - 天気、為替、株価、スポーツの結果など、リアルタイムで変化する情報
 - あなたの学習データ以降に起きた可能性のある出来事
 - ユーザーが明示的に「調べて」「検索して」と依頼した場合
-このツールが利用可能な場合、不確実な情報を推測するよりも、まず検索することを優先してください。`,
+
+【重要】
+- 検索は1回のみ実行してください。同じ質問に対して複数回検索しないでください。
+- 検索結果を受け取ったら、その結果を基に詳細な回答を生成してください。
+- 検索結果に含まれる情報を整理・要約し、ユーザーの質問に対する回答を構成してください。`,
         inputSchema: {
           json: {
             type: 'object',
@@ -173,6 +177,7 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
 
       let continueLoop = true;
       let iteration = 0;
+      let hasSearched = false; // 検索実行済みフラグ
 
       while (continueLoop && iteration < maxToolUseIterations) {
         iteration++;
@@ -183,8 +188,10 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
           id
         );
 
-        // Tool Useが有効な場合はツール設定を追加
-        if (useWebSearch) {
+        // Tool Useが有効かつ検索がまだ実行されていない場合のみツール設定を追加
+        // 検索実行後はツールを無効化して、LLMに検索結果を使って回答を生成させる
+        // 注: 検索後は会話履歴を通常のテキストメッセージで再構成するため、toolConfigは不要
+        if (useWebSearch && !hasSearched) {
           converseStreamCommandInput.toolConfig = WEB_SEARCH_TOOL_CONFIG;
         }
 
@@ -274,12 +281,6 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
             const stopReason = response.messageStop.stopReason;
 
             if (stopReason === 'tool_use' && toolUseId && toolName === 'web_search' && useWebSearch) {
-              // アシスタントメッセージを会話履歴に追加
-              conversationHistory.push({
-                role: 'assistant',
-                content: assistantContentBlocks,
-              });
-
               // 検索を実行
               try {
                 const toolInput = JSON.parse(toolInputJson);
@@ -305,23 +306,38 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
                   },
                 });
 
-                // Tool結果を会話履歴に追加
+                // 検索結果を通常のテキストメッセージとして会話履歴に追加
+                // toolUse/toolResultを使わないことで、次のイテレーションでtoolConfigが不要になる
+                const searchResultText = searchResults
+                  .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}`)
+                  .join('\n\n');
+
+                // アシスタントメッセージを追加（テキスト部分のみ、toolUseは含めない）
+                const textOnlyBlocks = assistantContentBlocks.filter(block => 'text' in block);
+                if (textOnlyBlocks.length > 0) {
+                  conversationHistory.push({
+                    role: 'assistant',
+                    content: textOnlyBlocks,
+                  });
+                } else {
+                  conversationHistory.push({
+                    role: 'assistant',
+                    content: [{ text: '検索を実行しました。' }],
+                  });
+                }
+
+                // 検索結果をユーザーメッセージとして追加
                 conversationHistory.push({
                   role: 'user',
                   content: [
                     {
-                      toolResult: {
-                        toolUseId,
-                        content: [
-                          {
-                            text: JSON.stringify(searchResults),
-                          },
-                        ],
-                      },
+                      text: `以下のWeb検索結果を基に、ユーザーの元の質問に対して詳細に回答してください。検索結果の情報を整理・要約し、出典URLも含めて回答を構成してください。\n\n【検索結果】\n${searchResultText}`,
                     },
                   ],
                 });
 
+                // 検索実行済みフラグを設定（次のイテレーションでツールを無効化）
+                hasSearched = true;
                 // ループを継続して回答を生成
                 continueLoop = true;
               } catch (error) {
@@ -334,23 +350,21 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
                   },
                 });
 
-                // エラー時もtool_resultを返す（エラーメッセージ付き）
+                // エラー時は通常のメッセージとして会話履歴に追加
+                conversationHistory.push({
+                  role: 'assistant',
+                  content: [{ text: '検索を試みましたが、エラーが発生しました。' }],
+                });
                 conversationHistory.push({
                   role: 'user',
                   content: [
                     {
-                      toolResult: {
-                        toolUseId,
-                        content: [
-                          {
-                            text: 'Search failed. Please provide an answer based on your existing knowledge.',
-                          },
-                        ],
-                        status: 'error',
-                      },
+                      text: '検索に失敗しました。あなたの既存の知識を基に、できる限り回答してください。',
                     },
                   ],
                 });
+                // エラー時も検索済みフラグを設定（再検索を防ぐ）
+                hasSearched = true;
                 continueLoop = true;
               }
             } else {
