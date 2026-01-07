@@ -158,13 +158,6 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
     const useWebSearch = webSearchEnabled && SEARCH_API_KEY && SEARCH_ENGINE;
     const maxToolUseIterations = 3; // 無限ループ防止
 
-    // デバッグログ
-    console.log('[BedrockApi] invokeStream called');
-    console.log('[BedrockApi] webSearchEnabled:', webSearchEnabled);
-    console.log('[BedrockApi] SEARCH_API_KEY exists:', !!SEARCH_API_KEY);
-    console.log('[BedrockApi] SEARCH_ENGINE:', SEARCH_ENGINE);
-    console.log('[BedrockApi] useWebSearch:', useWebSearch);
-
     try {
       // メッセージ履歴をBedrockのMessage形式で保持
       const conversationHistory: Message[] = [];
@@ -204,6 +197,15 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
         const responseStream = await client.send(command);
 
         if (!responseStream.stream) {
+          console.error('No stream in response from Bedrock', {
+            modelId: model.modelId,
+            region,
+            iteration,
+          });
+          yield streamingChunk({
+            text: 'Failed to get response stream from AI model. Please try again.',
+            stopReason: 'error',
+          });
           return;
         }
 
@@ -260,8 +262,24 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
                     input: toolInput,
                   },
                 });
-              } catch {
-                console.error('Failed to parse tool input JSON:', toolInputJson);
+              } catch (parseError) {
+                console.error('Failed to parse tool input JSON:', {
+                  toolInputJson,
+                  toolUseId,
+                  toolName,
+                  error: parseError,
+                });
+                // JSON解析に失敗した場合、検索をスキップして通常の回答生成に移行
+                yield streamingChunk({
+                  text: '',
+                  webSearch: {
+                    status: 'error',
+                    error: 'Failed to process search request',
+                  },
+                });
+                // toolUseIdをリセットして検索をスキップ
+                toolUseId = undefined;
+                toolName = undefined;
               }
             }
           }

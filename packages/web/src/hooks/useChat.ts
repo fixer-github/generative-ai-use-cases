@@ -594,10 +594,6 @@ const useChatState = create<{
       base64Cache
     );
 
-    // デバッグログ
-    console.log('[useChat] Calling predictStream with webSearchEnabled:', webSearchEnabled);
-    console.log('[useChat] model:', model);
-
     const stream = predictStream({
       model: model,
       messages: formattedMessages,
