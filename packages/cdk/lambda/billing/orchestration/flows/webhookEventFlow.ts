@@ -669,12 +669,59 @@ async function handlePaymentSucceeded(
             };
           }
 
+          // サブスクリプションのメタデータからプラン変更情報を取得
+          let previousPlanId: string | undefined;
+          let planId = stripeData._extracted?.planId;
+          let isPlanChangeSubscription = false;
+          try {
+            const subscription = await stripe.subscriptions.retrieve(
+              platformSubscriptionId
+            );
+            const metadata = subscription.metadata;
+
+            // プラン変更のサブスクリプションかどうかを判定
+            // type: 'plan_change' またはpreviousPlanIdがある場合はプラン変更
+            if (metadata?.type === 'plan_change' || metadata?.previousPlanId) {
+              isPlanChangeSubscription = true;
+              previousPlanId = metadata.previousPlanId;
+              // newPlanIdがある場合は優先的に使用
+              if (metadata.newPlanId) {
+                planId = metadata.newPlanId;
+              }
+              console.log('Plan change detected from subscription metadata', {
+                platformSubscriptionId,
+                previousPlanId,
+                newPlanId: planId,
+                type: metadata?.type,
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to retrieve subscription metadata', {
+              platformSubscriptionId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          // プラン変更の場合は、handlePlanChangeCompletedで領収書を送信するためスキップ
+          if (isPlanChangeSubscription) {
+            console.log(
+              'Skipping receipt for plan change subscription (will be sent by handlePlanChangeCompleted)',
+              { platformSubscriptionId }
+            );
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'plan_change_subscription',
+            };
+          }
+
           // 領収書データを構築
           const receiptDataBase = await buildReceiptDataFromInvoice(
             stripe,
             invoiceId,
             tenantId,
-            stripeData._extracted?.planId
+            planId,
+            previousPlanId
           );
 
           // 送信先を決定（ペアレンタルコントロール対応）
@@ -1649,9 +1696,13 @@ async function handleSubscriptionUpdated(
         });
 
         if (!subscription) {
-          throw new Error(
-            'Internal subscription not found for platform subscription'
+          console.warn(
+            'No internal subscription found for apply_new_plan, skipping',
+            {
+              platformSubscriptionId,
+            }
           );
+          return { skipped: true, reason: 'no_internal_subscription_found' };
         }
 
         const planId = await resolvePlanId();
@@ -2875,6 +2926,7 @@ async function handlePlanChangeCompleted(
   const {
     userId,
     newPlanId,
+    previousPlanId,
     previousSubscriptionId: previousPlatformSubscriptionId,
     newPlatformSubscriptionId,
     internalSubscriptionId,
@@ -2883,6 +2935,7 @@ async function handlePlanChangeCompleted(
   console.log('Extracted plan change data from event', {
     userId,
     newPlanId,
+    previousPlanId,
     previousPlatformSubscriptionId,
     newPlatformSubscriptionId,
     internalSubscriptionId,
@@ -2910,6 +2963,7 @@ async function handlePlanChangeCompleted(
   // 検証済みの値を定数として保持
   const validatedUserId = userId;
   const validatedNewPlanId = newPlanId;
+  const validatedPreviousPlanId = previousPlanId;
   const validatedPreviousPlatformSubscriptionId =
     previousPlatformSubscriptionId;
   const validatedNewPlatformSubscriptionId = newPlatformSubscriptionId;
@@ -3187,7 +3241,8 @@ async function handlePlanChangeCompleted(
             stripe,
             invoice.id,
             tenantId,
-            validatedNewPlanId
+            validatedNewPlanId,
+            validatedPreviousPlanId
           );
 
           // 送信先を決定（ペアレンタルコントロール対応）

@@ -84,6 +84,14 @@ export interface ReceiptData {
   isParentalControl?: boolean;
   /** 子供のメールアドレス（ペアレンタルコントロールの場合） */
   childEmail?: string;
+  /** プラン変更かどうか */
+  isPlanChange?: boolean;
+  /** 旧プラン名（プラン変更時） */
+  previousPlanName?: string;
+  /** 旧プラン未使用分のクレジット額（負の値、プラン変更時） */
+  unusedCredit?: number;
+  /** 新プラン日割り料金（正の値、プラン変更時） */
+  newPlanProration?: number;
 }
 
 /**
@@ -115,6 +123,67 @@ function createReceiptBodyContent(data: ReceiptData): string {
             <span style="font-size: 24px; font-weight: bold; color: ${COLORS.accent};">${formatPrice(data.amount, data.currency)}</span>
           </td>
         </tr>
+        ${
+          data.isPlanChange &&
+          (data.unusedCredit !== undefined ||
+            data.newPlanProration !== undefined)
+            ? `
+        <tr>
+          <td style="padding: 12px 0; border-bottom: 1px solid ${COLORS.lightGray};">
+            <span style="font-size: 14px; color: #666;">プラン変更明細</span><br>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 8px;">
+              ${
+                data.previousPlanName && data.unusedCredit !== undefined
+                  ? `
+              <tr>
+                <td style="font-size: 14px; color: ${COLORS.text}; padding: 4px 0;">
+                  旧プラン（${escapeHtml(data.previousPlanName)}）未使用分
+                </td>
+                <td style="font-size: 14px; color: #28a745; text-align: right; padding: 4px 0;">
+                  -${formatPrice(Math.abs(data.unusedCredit), data.currency)}
+                </td>
+              </tr>
+              `
+                  : ''
+              }
+              ${
+                data.newPlanProration !== undefined
+                  ? `
+              <tr>
+                <td style="font-size: 14px; color: ${COLORS.text}; padding: 4px 0;">
+                  新プラン（${escapeHtml(data.planName)}）日割り
+                </td>
+                <td style="font-size: 14px; color: ${COLORS.text}; text-align: right; padding: 4px 0;">
+                  +${formatPrice(data.newPlanProration, data.currency)}
+                </td>
+              </tr>
+              `
+                  : ''
+              }
+              ${
+                data.unusedCredit !== undefined &&
+                data.newPlanProration !== undefined
+                  ? `
+              <tr>
+                <td colspan="2" style="border-top: 1px solid ${COLORS.lightGray}; padding-top: 8px;"></td>
+              </tr>
+              <tr>
+                <td style="font-size: 14px; font-weight: bold; color: ${COLORS.text}; padding: 4px 0;">
+                  差額
+                </td>
+                <td style="font-size: 14px; font-weight: bold; color: ${COLORS.accent}; text-align: right; padding: 4px 0;">
+                  ${formatPrice(data.newPlanProration + data.unusedCredit, data.currency)}
+                </td>
+              </tr>
+              `
+                  : ''
+              }
+            </table>
+          </td>
+        </tr>
+        `
+            : ''
+        }
         <tr>
           <td style="padding: 12px 0; border-bottom: 1px solid ${COLORS.lightGray};">
             <span style="font-size: 14px; color: #666;">お支払い日</span><br>
@@ -184,7 +253,8 @@ export async function buildReceiptDataFromInvoice(
   stripe: Stripe,
   invoiceId: string,
   tenantId: string,
-  planId?: string
+  planId?: string,
+  previousPlanId?: string
 ): Promise<
   Omit<ReceiptData, 'recipientEmail' | 'isParentalControl' | 'childEmail'>
 > {
@@ -201,6 +271,16 @@ export async function buildReceiptDataFromInvoice(
   const invoiceNumber =
     invoice.number || `INV-${invoice.id.slice(-8).toUpperCase()}`;
 
+  // サブスクリプション展開の状態を確認
+  const subscriptionField = (invoice as unknown as Record<string, unknown>)
+    .subscription;
+  const isSubscriptionExpanded =
+    subscriptionField && typeof subscriptionField === 'object';
+  const subscriptionId =
+    typeof subscriptionField === 'string'
+      ? subscriptionField
+      : (subscriptionField as { id: string } | null)?.id;
+
   console.log('Building receipt data from invoice', {
     invoiceId,
     amount,
@@ -209,6 +289,9 @@ export async function buildReceiptDataFromInvoice(
     amountPaid: invoice.amount_paid,
     total: invoice.total,
     inputPlanId: planId,
+    billingReason: invoice.billing_reason,
+    isSubscriptionExpanded,
+    subscriptionId,
   });
 
   // 請求期間
@@ -228,29 +311,91 @@ export async function buildReceiptDataFromInvoice(
 
   const invoiceAny = invoice as unknown as Record<string, any>;
   let effectivePlanId = planId;
+  let effectivePreviousPlanId = previousPlanId;
 
-  // subscription が展開されている場合は直接メタデータを取得
+  // サブスクリプションからメタデータを取得
   // Cloverバージョン対応: invoice.subscription が存在しない場合も考慮
-  const subscriptionObj = invoiceAny.subscription;
-  if (
-    !effectivePlanId &&
-    subscriptionObj &&
-    typeof subscriptionObj === 'object'
-  ) {
-    // 展開されたサブスクリプションから直接メタデータを取得
-    const metadata = subscriptionObj.metadata;
-    effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
+  const effectiveSubscriptionId = subscriptionId || extractSubscriptionIdFromInvoice(invoiceAny);
+
+  if (effectiveSubscriptionId) {
+    try {
+      // 展開されている場合は直接取得を試みる
+      let metadata: Record<string, string> | undefined;
+
+      if (isSubscriptionExpanded) {
+        metadata = (subscriptionField as { metadata?: Record<string, string> })
+          .metadata;
+        console.log('Using expanded subscription metadata', {
+          hasMetadata: !!metadata,
+          metadataKeys: metadata ? Object.keys(metadata) : [],
+        });
+      }
+
+      // Cloverバージョン対応: parent.subscription_details からメタデータを取得
+      if (!metadata && invoiceAny.parent?.subscription_details?.metadata) {
+        metadata = invoiceAny.parent.subscription_details.metadata;
+        console.log('Using Clover parent.subscription_details metadata', {
+          hasMetadata: !!metadata,
+          metadataKeys: metadata ? Object.keys(metadata) : [],
+        });
+      }
+
+      // 展開されていない場合、またはメタデータが空の場合はAPIで取得
+      if (!metadata || Object.keys(metadata).length === 0) {
+        console.log('Fetching subscription metadata via API', {
+          subscriptionId: effectiveSubscriptionId,
+        });
+        const subscription =
+          await stripe.subscriptions.retrieve(effectiveSubscriptionId);
+        metadata = subscription.metadata;
+        console.log('Fetched subscription metadata', {
+          subscriptionId: effectiveSubscriptionId,
+          hasMetadata: !!metadata,
+          metadataKeys: metadata ? Object.keys(metadata) : [],
+          planId: metadata?.planId,
+          newPlanId: metadata?.newPlanId,
+          previousPlanId: metadata?.previousPlanId,
+        });
+      }
+
+      // planId の取得（プラン変更の場合はnewPlanIdを優先）
+      if (!effectivePlanId) {
+        effectivePlanId = metadata?.newPlanId || metadata?.planId || undefined;
+        console.log('Extracted planId from subscription metadata', {
+          hasPlanId: !!metadata?.planId,
+          hasNewPlanId: !!metadata?.newPlanId,
+          effectivePlanId,
+        });
+      }
+
+      // previousPlanId の取得
+      if (!effectivePreviousPlanId && metadata?.previousPlanId) {
+        effectivePreviousPlanId = metadata.previousPlanId;
+        console.log('Extracted previousPlanId from subscription metadata', {
+          previousPlanId: effectivePreviousPlanId,
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch subscription metadata', {
+        subscriptionId: effectiveSubscriptionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
-  // Cloverバージョン対応: parent.subscription_details からメタデータを取得
-  if (!effectivePlanId && invoiceAny.parent?.subscription_details?.metadata) {
-    const metadata = invoiceAny.parent.subscription_details.metadata;
-    effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
-  }
-
-  // フォールバック: サブスクリプションを別途取得してメタデータを確認
-  if (!effectivePlanId) {
-    effectivePlanId = await extractPlanIdFromInvoiceWithCloverSupport(stripe, invoiceAny) ?? undefined;
+  // フォールバック: まだ planId が取得できなかった場合
+  if (!effectivePlanId || !effectivePreviousPlanId) {
+    const extractedIds = await extractPlanIdsFromInvoice(
+      stripe,
+      invoice,
+      effectiveSubscriptionId ?? undefined
+    );
+    if (!effectivePlanId && extractedIds.planId) {
+      effectivePlanId = extractedIds.planId;
+    }
+    if (!effectivePreviousPlanId && extractedIds.previousPlanId) {
+      effectivePreviousPlanId = extractedIds.previousPlanId;
+    }
   }
 
   if (effectivePlanId) {
@@ -278,6 +423,171 @@ export async function buildReceiptDataFromInvoice(
     }
   } else {
     console.warn('No plan ID available for receipt, using default plan name');
+  }
+
+  // プロレーション情報の抽出（プラン変更時）
+  const invoiceLines = invoice.lines?.data || [];
+  const prorationLines = invoiceLines.filter((line) => {
+    const desc = line.description?.toLowerCase() || '';
+    // プロレーション行を判定（Stripeのdescriptionに含まれるキーワードで判定）
+    // 英語・日本語の両方のキーワードをサポート
+    const lineAny = line as unknown as Record<string, unknown>;
+    return (
+      desc.includes('unused') ||
+      desc.includes('remaining') ||
+      desc.includes('proration') ||
+      desc.includes('未使用') ||
+      desc.includes('残り') ||
+      desc.includes('日割り') ||
+      lineAny.proration === true // Stripeのproration フラグも確認
+    );
+  });
+
+  // プラン変更かどうかを判定
+  const isPlanChange = prorationLines.length > 0 || !!effectivePreviousPlanId;
+
+  // 未使用クレジット（負の金額）と追加料金（正の金額）を分離
+  let unusedCredit: number | undefined;
+  let newPlanProration: number | undefined;
+
+  if (isPlanChange && prorationLines.length > 0) {
+    const creditAmount = prorationLines
+      .filter((line) => line.amount < 0)
+      .reduce((sum, line) => sum + line.amount, 0);
+    unusedCredit = creditAmount !== 0 ? creditAmount : undefined;
+
+    const prorationAmount = prorationLines
+      .filter((line) => line.amount > 0)
+      .reduce((sum, line) => sum + line.amount, 0);
+    newPlanProration = prorationAmount !== 0 ? prorationAmount : undefined;
+
+    console.log('Proration info extracted from invoice', {
+      invoiceId,
+      prorationLinesCount: prorationLines.length,
+      unusedCredit,
+      newPlanProration,
+    });
+  }
+
+  // 旧プラン名とプラン価格の取得
+  let previousPlanName: string | undefined;
+  let previousPlanPriceId: string | undefined;
+  let currentPlanPriceId: string | undefined;
+
+  if (effectivePreviousPlanId) {
+    try {
+      const previousPlan =
+        await invokeDataAccessFunctionByTenantId<Plan | null>(
+          tenantId,
+          'plan',
+          'findById',
+          { id: effectivePreviousPlanId }
+        );
+      previousPlanName = previousPlan?.display_name;
+      previousPlanPriceId = previousPlan?.platform_product_id;
+      console.log('Previous plan lookup result', {
+        previousPlanId: effectivePreviousPlanId,
+        previousPlanName,
+        previousPlanPriceId,
+      });
+    } catch (error) {
+      console.warn('Failed to fetch previous plan name', {
+        previousPlanId: effectivePreviousPlanId,
+        error,
+      });
+    }
+
+    // 新プランのStripe Price IDも取得
+    if (effectivePlanId) {
+      try {
+        const currentPlan =
+          await invokeDataAccessFunctionByTenantId<Plan | null>(
+            tenantId,
+            'plan',
+            'findById',
+            { id: effectivePlanId }
+          );
+        currentPlanPriceId = currentPlan?.platform_product_id;
+        console.log('Current plan lookup result for price comparison', {
+          effectivePlanId,
+          currentPlanPriceId,
+        });
+      } catch (error) {
+        console.warn('Failed to fetch current plan for price', {
+          effectivePlanId,
+          error,
+        });
+      }
+    }
+
+    // プロレーション行がない場合、Stripe Priceから価格を取得して日割り差額を計算
+    if (
+      prorationLines.length === 0 &&
+      previousPlanPriceId &&
+      currentPlanPriceId
+    ) {
+      try {
+        const [previousPrice, currentPrice] = await Promise.all([
+          stripe.prices.retrieve(previousPlanPriceId),
+          stripe.prices.retrieve(currentPlanPriceId),
+        ]);
+
+        const previousAmount = previousPrice.unit_amount || 0;
+        const currentAmount = currentPrice.unit_amount || 0;
+
+        // サブスクリプションの請求期間を取得して日割り計算
+        // 新しいサブスクリプションの請求期間から残り日数を計算
+        const periodStart = billingPeriodStart;
+        const periodEnd = billingPeriodEnd;
+        const totalDays = Math.ceil(
+          (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const daysRemaining = Math.ceil(
+          (periodEnd.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        // 日割り計算（残り日数 / 期間の総日数）
+        const prorationRatio =
+          totalDays > 0 ? Math.min(daysRemaining / totalDays, 1) : 1;
+
+        // 旧プランの未使用分（日割りクレジット）
+        const proratedPreviousAmount = Math.round(
+          previousAmount * prorationRatio
+        );
+        // 新プランの日割り料金
+        const proratedCurrentAmount = Math.round(
+          currentAmount * prorationRatio
+        );
+
+        // 差額を計算（新プラン日割り料金を表示、旧プラン日割り料金をクレジットとして表示）
+        newPlanProration = proratedCurrentAmount;
+        // 旧プランの未使用分は負の値として表示
+        unusedCredit = -proratedPreviousAmount;
+
+        console.log('Prorated price calculation from Stripe', {
+          previousPlanPriceId,
+          currentPlanPriceId,
+          previousAmount,
+          currentAmount,
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+          paymentDate: paymentDate.toISOString(),
+          totalDays,
+          daysRemaining,
+          prorationRatio,
+          proratedPreviousAmount,
+          proratedCurrentAmount,
+          calculatedNewPlanProration: newPlanProration,
+          calculatedUnusedCredit: unusedCredit,
+        });
+      } catch (error) {
+        console.warn('Failed to fetch Stripe prices for comparison', {
+          previousPlanPriceId,
+          currentPlanPriceId,
+          error,
+        });
+      }
+    }
   }
 
   // 支払い方法（カード末尾4桁）
@@ -432,37 +742,57 @@ export async function buildReceiptDataFromInvoice(
     billingPeriodStart,
     billingPeriodEnd,
     paymentMethodLast4,
+    isPlanChange,
+    previousPlanName,
+    unusedCredit,
+    newPlanProration,
   };
 }
 
 /**
  * インボイスからプランIDを抽出（Cloverバージョン対応）
  *
- * サブスクリプションのmetadataから以下の優先順位でplanIdを取得:
- * 1. planId - 新規購入時に設定されるプランID
- * 2. newPlanId - プラン変更時に設定される新しいプランID
+ * サブスクリプションのmetadataから以下の情報を取得:
+ * - planId: 新規購入時に設定されるプランID、またはnewPlanId（プラン変更時）
+ * - previousPlanId: プラン変更前のプランID
  *
  * Cloverバージョンでは invoice.subscription が存在しない場合があるため、
  * extractSubscriptionIdFromInvoice を使用してサブスクリプションIDを取得する
  */
-async function extractPlanIdFromInvoiceWithCloverSupport(
+async function extractPlanIdsFromInvoice(
   stripe: Stripe,
-  invoice: Record<string, any>
-): Promise<string | null> {
-  // Cloverバージョン対応: 複数のパスからサブスクリプションIDを取得
-  const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+  invoice: Stripe.Invoice,
+  subscriptionIdOverride?: string
+): Promise<{ planId: string | null; previousPlanId: string | null }> {
+  // サブスクリプションIDを取得（Cloverバージョン対応）
+  const invoiceAny = invoice as unknown as Record<string, unknown>;
+  const subscriptionField = invoiceAny.subscription;
+  const subscriptionId =
+    subscriptionIdOverride ||
+    (typeof subscriptionField === 'string'
+      ? subscriptionField
+      : (subscriptionField as { id: string } | null)?.id) ||
+    extractSubscriptionIdFromInvoice(invoiceAny);
 
   if (subscriptionId) {
     try {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-      // planId（新規購入）またはnewPlanId（プラン変更）のいずれかを返す
-      if (subscription.metadata?.planId) {
-        return subscription.metadata.planId;
-      }
-      if (subscription.metadata?.newPlanId) {
-        return subscription.metadata.newPlanId;
-      }
+      console.log('Extracting planIds from subscription metadata', {
+        subscriptionId,
+        hasPlanId: !!subscription.metadata?.planId,
+        hasNewPlanId: !!subscription.metadata?.newPlanId,
+        hasPreviousPlanId: !!subscription.metadata?.previousPlanId,
+      });
+
+      // planId（新規購入）またはnewPlanId（プラン変更）
+      const planId =
+        subscription.metadata?.planId ||
+        subscription.metadata?.newPlanId ||
+        null;
+      const previousPlanId = subscription.metadata?.previousPlanId || null;
+
+      return { planId, previousPlanId };
     } catch (error) {
       console.warn('Failed to fetch subscription for planId extraction', {
         subscriptionId,
@@ -471,7 +801,7 @@ async function extractPlanIdFromInvoiceWithCloverSupport(
     }
   }
 
-  return null;
+  return { planId: null, previousPlanId: null };
 }
 
 /**

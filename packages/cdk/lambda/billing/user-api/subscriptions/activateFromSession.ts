@@ -228,7 +228,57 @@ export const handler = async (
       });
     }
 
-    // 7. セッションからplanIdを取得
+    // 7. プラン変更セッションの場合は専用処理
+    // プラン変更はWebhookのsubscription.plan_change_completedで処理されるため、
+    // ここでは成功を返すだけ
+    if (session.metadata?.type === 'plan_change') {
+      console.log('Plan change session detected, returning success', {
+        sessionId,
+        newPlanId: session.metadata?.newPlanId,
+        previousPlanId: session.metadata?.previousPlanId,
+      });
+
+      // Stripeサブスクリプション情報を取得してレスポンスを構築
+      const stripeSubId =
+        typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription?.id;
+
+      // サブスクリプションから次回請求日を取得
+      let nextBillingDate: string | undefined;
+      if (session.subscription && typeof session.subscription !== 'string') {
+        const subscriptionData = session.subscription as unknown as {
+          current_period_end?: number;
+        };
+        if (subscriptionData.current_period_end) {
+          nextBillingDate = new Date(
+            subscriptionData.current_period_end * 1000
+          ).toISOString();
+        }
+      }
+
+      // プラン名を取得（line_itemsから）
+      const lineItem = session.line_items?.data[0];
+      const product = lineItem?.price?.product;
+      const planName =
+        typeof product === 'object' && product !== null
+          ? (product as Stripe.Product).name
+          : undefined;
+
+      const response: ActivateFromSessionResponse = {
+        success: true,
+        subscriptionId: stripeSubId,
+        planId: session.metadata?.newPlanId,
+        planName,
+        activatedAt: new Date().toISOString(),
+        nextBillingDate,
+        message: 'プランが正常に変更されました',
+      };
+
+      return ok200Response(response);
+    }
+
+    // 8. 新規サブスクリプションの場合：セッションからplanIdを取得
     const planId = session.metadata?.planId;
     if (!planId) {
       console.error('Plan ID not found in session metadata:', {
@@ -242,7 +292,7 @@ export const handler = async (
       });
     }
 
-    // 8. StripeのサブスクリプションIDを取得
+    // 9. StripeのサブスクリプションIDを取得
     const stripeSubscriptionId =
       typeof session.subscription === 'string'
         ? session.subscription
@@ -263,7 +313,7 @@ export const handler = async (
       stripeSubscriptionId,
     });
 
-    // 9. purchaseFlowを呼び出す
+    // 10. purchaseFlowを呼び出す
     const purchaseFlowFunctionName = process.env.PURCHASE_FLOW_FUNCTION_NAME;
 
     if (!purchaseFlowFunctionName) {
@@ -299,7 +349,7 @@ export const handler = async (
 
     const invokeResult = await lambdaClient.send(invokeCommand);
 
-    // 10. Lambda呼び出し結果の処理
+    // 11. Lambda呼び出し結果の処理
     if (invokeResult.FunctionError) {
       console.error('Purchase flow function error:', {
         functionError: invokeResult.FunctionError,
@@ -336,7 +386,7 @@ export const handler = async (
       subscriptionId: flowOutput.subscriptionId,
     });
 
-    // 11. フロー実行結果の確認
+    // 12. フロー実行結果の確認
     if (!flowOutput.success) {
       console.error('Purchase flow failed:', {
         flowExecutionId: flowOutput.flowExecutionId,
@@ -354,7 +404,7 @@ export const handler = async (
       });
     }
 
-    // 12. 成功レスポンスを返す
+    // 13. 成功レスポンスを返す
     // Stripeサブスクリプションから次回請求日を取得
     let nextBillingDate: string | undefined;
     if (session.subscription && typeof session.subscription !== 'string') {
