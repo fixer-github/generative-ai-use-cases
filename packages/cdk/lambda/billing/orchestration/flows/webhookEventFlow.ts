@@ -1192,6 +1192,7 @@ async function handleSubscriptionUpdated(
     previousPriceId,
     isPlanChange,
     isParentalControlPlanChange,
+    status: stripeStatus,
   } = extracted;
 
   console.log('Extracted subscription update data', {
@@ -1200,13 +1201,90 @@ async function handleSubscriptionUpdated(
     currentPriceId,
     previousPriceId,
     isPlanChange,
+    stripeStatus,
   });
+
+  // Stripeステータスから内部ステータスへのマッピング
+  const mapStripeStatusToInternal = (
+    status: string | undefined
+  ): 'active' | 'past_due' | 'canceled' | 'expired' | undefined => {
+    if (!status) return undefined;
+    switch (status) {
+      case 'active':
+      case 'trialing':
+        return 'active';
+      case 'past_due':
+      case 'unpaid':
+        return 'past_due';
+      case 'canceled':
+        return 'canceled';
+      case 'incomplete_expired':
+        return 'expired';
+      default:
+        // incomplete, paused などは変換しない（状態遷移が複雑なため）
+        return undefined;
+    }
+  };
+
+  // ステータス同期処理（プラン変更の有無に関わらず実行）
+  const internalStatus = mapStripeStatusToInternal(stripeStatus as string);
+  if (platformSubscriptionId && internalStatus) {
+    try {
+      // 内部サブスクリプションを検索
+      const subscription = await invokeDataAccessFunctionByTenantId<{
+        subscription_id: string;
+        subscription_status: string;
+      } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+        platformSubscriptionId,
+      });
+
+      if (subscription && subscription.subscription_status !== internalStatus) {
+        console.log('Syncing subscription status from Stripe', {
+          platformSubscriptionId,
+          internalSubscriptionId: subscription.subscription_id,
+          currentStatus: subscription.subscription_status,
+          newStatus: internalStatus,
+          stripeStatus,
+        });
+
+        const statusUpdateParams: UpdateSubscriptionStatusParams = {
+          tenantId,
+          subscriptionId: subscription.subscription_id,
+          newStatus: internalStatus,
+        };
+
+        const statusResult =
+          await subscriptionClient.updateSubscriptionStatus(statusUpdateParams);
+
+        console.log('Subscription status synced successfully', {
+          subscriptionId: subscription.subscription_id,
+          previousStatus: statusResult.previousStatus,
+          newStatus: statusResult.newStatus,
+        });
+      } else if (subscription) {
+        console.log('Subscription status already in sync', {
+          platformSubscriptionId,
+          currentStatus: subscription.subscription_status,
+          stripeStatus,
+        });
+      }
+    } catch (error) {
+      // ステータス同期エラーはログに記録するが、プラン変更処理は続行
+      console.error('Failed to sync subscription status', {
+        platformSubscriptionId,
+        stripeStatus,
+        internalStatus,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 
   // プラン変更がない場合は処理をスキップ
   if (!isPlanChange) {
-    console.log('No plan change detected, skipping processing', {
+    console.log('No plan change detected, skipping plan change processing', {
       eventId,
       platformSubscriptionId,
+      statusSynced: !!internalStatus,
     });
 
     return {
@@ -1215,7 +1293,7 @@ async function handleSubscriptionUpdated(
       eventId,
       errorDetails: {
         errorCode: 'NO_PLAN_CHANGE',
-        errorMessage: 'Subscription updated but no plan change detected',
+        errorMessage: 'Subscription updated but no plan change detected (status sync completed if applicable)',
       },
     };
   }
