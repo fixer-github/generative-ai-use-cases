@@ -2,28 +2,36 @@ import json
 
 def handler(event, context):
     """
-    Cognito Pre Token Generation trigger (V2) to add tenant ID to JWT claims.
+    Cognito Pre Token Generation trigger (V2) to add tenant ID and birthdate to JWT claims.
     This enables Cognito Identity Pool to map claims to principal tags for ABAC.
     """
     try:
         print(f"Pre Token Generation Event: {json.dumps(event, indent=2)}")
-        
+
         user_attributes = event["request"]["userAttributes"]
         tenant_id = user_attributes.get("custom:tenant_id", "default")
         tenant_admin = user_attributes.get("custom:tenantAdmin", "false")
-        
+        birthdate = user_attributes.get("birthdate", "")
+
         # For Identity Pool Enhanced Flow, we only need to ensure the custom:tenant_id
         # claim is present in the JWT. The Identity Pool will automatically map
         # this to the TenantID principal tag based on the principalTags configuration.
         # Also include tenantAdmin claim for application-level authorization.
+        # Include birthdate for age verification in frontend.
+        id_token_claims = {
+            # Add tenant ID as a claim - this will be mapped to principal tag by Identity Pool
+            "custom:tenant_id": tenant_id,
+            # Add tenant admin status for application-level authorization
+            "custom:tenantAdmin": tenant_admin
+        }
+
+        # Only add birthdate to ID token if it exists
+        if birthdate:
+            id_token_claims["birthdate"] = birthdate
+
         event["response"]["claimsAndScopeOverrideDetails"] = {
             "idTokenGeneration": {
-                "claimsToAddOrOverride": {
-                    # Add tenant ID as a claim - this will be mapped to principal tag by Identity Pool
-                    "custom:tenant_id": tenant_id,
-                    # Add tenant admin status for application-level authorization
-                    "custom:tenantAdmin": tenant_admin
-                }
+                "claimsToAddOrOverride": id_token_claims
             },
             "accessTokenGeneration": {
                 "claimsToAddOrOverride": {
