@@ -1184,6 +1184,10 @@ async function handleSubscriptionUpdated(
 
   // イベントデータから抽出情報を取得
   // NOTE: _extracted はプラットフォーム固有のデータ構造（現在はStripeのみ対応）
+  // TODO: プラットフォーム共通の抽出データ型（ExtractedEventData）を定義し、
+  //       各プラットフォーム（Stripe/Apple/Google）のEventDataに統一的な_extractedを持たせる
+  // TODO: platformに応じた型ガード関数を実装し、型安全にイベントデータを取得する
+  //       例: isStripeEvent(eventData) / isAppleEvent(eventData) / isGoogleEvent(eventData)
   const stripeEventData = eventData as StripeEventData;
   const extracted = stripeEventData._extracted ?? {};
   const {
