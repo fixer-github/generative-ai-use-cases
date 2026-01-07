@@ -99,6 +99,7 @@ class UserBillingApi extends Construct {
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
+  public readonly reactivateSubscriptionFunction?: NodejsFunction;
   public readonly changeSubscriptionPlanFunction?: NodejsFunction;
   public readonly previewPlanChangeFunction?: NodejsFunction;
   public readonly createCustomerPortalFunction: NodejsFunction;
@@ -751,6 +752,80 @@ class UserBillingApi extends Construct {
           authorizationType: AuthorizationType.COGNITO,
         }
       );
+
+      // ========================================
+      // API 6b: サブスクリプション再有効化API（解約予約取り消し）
+      // POST /api/subscriptions/reactivate
+      // ========================================
+
+      this.reactivateSubscriptionFunction = new NodejsFunction(
+        this,
+        'ReactivateSubscription',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/reactivateSubscription.ts',
+          timeout: Duration.seconds(30),
+          memorySize: 256,
+          environment: commonEnvironment,
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.reactivateSubscriptionFunction
+      );
+
+      // Secrets Manager読み取り権限（Stripe APIキー取得用）
+      this.reactivateSubscriptionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+        })
+      );
+
+      // Lambda呼び出し権限（データアクセス層用）
+      this.reactivateSubscriptionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+            `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+          ],
+        })
+      );
+
+      // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+      this.reactivateSubscriptionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
+        })
+      );
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      this.reactivateSubscriptionFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRoleWithWebIdentity'],
+          resources: ['*'],
+        })
+      );
+
+      // API Gatewayエンドポイント
+      const reactivateResource =
+        subscriptionsResource.addResource('reactivate');
+      reactivateResource.addMethod(
+        'POST',
+        new LambdaIntegration(this.reactivateSubscriptionFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
     }
 
     // ========================================
@@ -1166,6 +1241,7 @@ class UserBillingApi extends Construct {
     if (props.orchestrationFunctions) {
       console.log('  - POST /api/subscriptions/activate-from-session');
       console.log('  - POST /api/subscriptions/cancel');
+      console.log('  - POST /api/subscriptions/reactivate');
       console.log('  - POST /api/subscriptions/change-plan');
     }
     console.log('  - POST /api/subscriptions/customer-portal (deprecated)');
