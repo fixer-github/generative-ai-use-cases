@@ -1205,16 +1205,17 @@ async function handleSubscriptionUpdated(
   });
 
   // Stripeステータスから内部ステータスへのマッピング
+  // TODO: 内部ステータスに 'trialing' を追加し、トライアル期間を明示的に管理する
   const mapStripeStatusToInternal = (
     status: string | undefined
   ): 'active' | 'past_due' | 'canceled' | 'expired' | undefined => {
     if (!status) return undefined;
     switch (status) {
       case 'active':
-      case 'trialing':
+      case 'trialing': // TODO: 'trialing' 内部ステータス実装後は分離する
         return 'active';
       case 'past_due':
-      case 'unpaid':
+      case 'unpaid': // unpaid: Smart Retriesが全て失敗した後の最終状態
         return 'past_due';
       case 'canceled':
         return 'canceled';
