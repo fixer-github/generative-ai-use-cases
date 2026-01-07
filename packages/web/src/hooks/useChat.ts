@@ -565,11 +565,13 @@ const useChatState = create<{
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
           const oldAssistantMessage = draft[id].messages.pop()!;
-          const newAssistantMessage: UnrecordedMessage = {
+          const newAssistantMessage: ShownMessage = {
             ...oldAssistantMessage,
             content: ' ', // If it is empty, re-rendering is not performed, so blank
             trace: '',
             extraData: [],
+            // 再生成時は古いwebSearch情報をクリア（新しい検索結果で上書きされる）
+            webSearch: undefined,
           };
           draft[id].messages.push(newAssistantMessage);
         });
@@ -970,11 +972,13 @@ const useChatState = create<{
           const lastUserMessage = draft[id].messages.pop()!;
 
           // Clear the assistant message
-          const clearedAssistantMessage: UnrecordedMessage = {
+          const clearedAssistantMessage: ShownMessage = {
             ...lastAssistantMessage,
             content: '',
             trace: '',
             extraData: [],
+            // 編集時は古いwebSearch情報をクリア（新しい検索結果で上書きされる）
+            webSearch: undefined,
           };
 
           // Edit the user message
