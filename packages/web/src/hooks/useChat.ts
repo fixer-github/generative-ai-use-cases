@@ -15,6 +15,7 @@ import {
   ListChatsResponse,
   AdditionalModelRequestFields,
   Metadata,
+  WebSearchInfo,
 } from 'generative-ai-use-cases';
 import { useEffect, useMemo, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
@@ -71,7 +72,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled: boolean | undefined
   ) => void;
   edit: (
     id: string,
@@ -86,7 +88,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled: boolean | undefined
   ) => void;
   continueGeneration: (
     generationMode: GenerationMode,
@@ -101,7 +104,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled: boolean | undefined
   ) => void;
   retryGeneration: (
     generationMode: GenerationMode,
@@ -116,7 +120,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled: boolean | undefined
   ) => void;
   sendFeedback: (
     id: string,
@@ -453,6 +458,21 @@ const useChatState = create<{
     });
   };
 
+  const updateWebSearchInfo = (id: string, webSearch: WebSearchInfo) => {
+    set((state) => {
+      const newChats = produce(state.chats, (draft) => {
+        const messages = draft[id].messages;
+        if (messages.length > 0) {
+          const lastMessage = messages[messages.length - 1];
+          if (lastMessage.role === 'assistant') {
+            lastMessage.webSearch = webSearch;
+          }
+        }
+      });
+      return { chats: newChats };
+    });
+  };
+
   const generateMessage = async (
     generationMode: GenerationMode,
     id: string,
@@ -470,7 +490,8 @@ const useChatState = create<{
     base64Cache: Record<string, string> | undefined = undefined,
     overrideModelParameters:
       | AdditionalModelRequestFields
-      | undefined = undefined
+      | undefined = undefined,
+    webSearchEnabled: boolean | undefined = undefined
   ) => {
     const modelId = get().modelIds[id];
 
@@ -565,10 +586,15 @@ const useChatState = create<{
       base64Cache
     );
 
+    // デバッグログ
+    console.log('[useChat] Calling predictStream with webSearchEnabled:', webSearchEnabled);
+    console.log('[useChat] model:', model);
+
     const stream = predictStream({
       model: model,
       messages: formattedMessages,
       id: id,
+      webSearchEnabled: webSearchEnabled,
     });
 
     // Update the assistant's message
@@ -618,6 +644,11 @@ const useChatState = create<{
           // SessionId
           if (payload.sessionId) {
             setSessionId(payload.sessionId);
+          }
+
+          // WebSearch
+          if (payload.webSearch) {
+            updateWebSearchInfo(id, payload.webSearch);
           }
         }
       }
@@ -846,7 +877,8 @@ const useChatState = create<{
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       const unrecordedUserMessage: UnrecordedMessage = {
         role: 'user',
@@ -899,7 +931,8 @@ const useChatState = create<{
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
 
@@ -920,7 +953,8 @@ const useChatState = create<{
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
@@ -963,7 +997,8 @@ const useChatState = create<{
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
 
@@ -1173,7 +1208,8 @@ ${baseSystemContext}
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       post(
         id,
@@ -1188,7 +1224,8 @@ ${baseSystemContext}
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     postChatWithId: (
@@ -1207,7 +1244,8 @@ ${baseSystemContext}
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       post(
         targetId,
@@ -1222,7 +1260,8 @@ ${baseSystemContext}
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     editChat: (
@@ -1240,7 +1279,8 @@ ${baseSystemContext}
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       edit(
         id,
@@ -1255,7 +1295,8 @@ ${baseSystemContext}
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     continueGeneration: (
@@ -1272,7 +1313,8 @@ ${baseSystemContext}
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       continueGeneration(
         'continue',
@@ -1287,7 +1329,8 @@ ${baseSystemContext}
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     retryGeneration: (
@@ -1304,7 +1347,8 @@ ${baseSystemContext}
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean | undefined = undefined
     ) => {
       retryGeneration(
         'retry',
@@ -1319,7 +1363,8 @@ ${baseSystemContext}
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     sendFeedback: async (feedbackData: UpdateFeedbackRequest) => {

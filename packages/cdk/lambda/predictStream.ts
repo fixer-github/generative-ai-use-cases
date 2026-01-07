@@ -19,11 +19,18 @@ export const handler = awslambda.streamifyResponse(
   async (event, responseStream, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
     const model = event.model || defaultModel;
+
+    // デバッグログ
+    console.log('[PredictStream] webSearchEnabled:', event.webSearchEnabled);
+    console.log('[PredictStream] SEARCH_API_KEY set:', !!process.env.SEARCH_API_KEY);
+    console.log('[PredictStream] SEARCH_ENGINE:', process.env.SEARCH_ENGINE);
+
     for await (const token of api[model.type].invokeStream?.(
       model,
       event.messages,
       event.id,
-      event.idToken
+      event.idToken,
+      event.webSearchEnabled
     ) ?? []) {
       responseStream.write(token);
     }

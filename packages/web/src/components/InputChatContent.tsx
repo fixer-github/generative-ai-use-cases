@@ -11,11 +11,13 @@ import {
   PiPaperclip,
   PiSpinnerGap,
   PiSlidersHorizontal,
+  PiGlobe,
 } from 'react-icons/pi';
 import useFiles from '../hooks/useFiles';
 import FileCard from './FileCard';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
+import Switch from './Switch';
 
 type Props = {
   content: string;
@@ -47,6 +49,10 @@ type Props = {
 ) & {
     setting?: boolean;
     onSetting?: () => void;
+  } & {
+    webSearchEnabled?: boolean;
+    onWebSearchToggle?: (enabled: boolean) => void;
+    showWebSearchSwitch?: boolean;
   };
 
 const InputChatContent: React.FC<Props> = (props) => {
@@ -231,6 +237,16 @@ const InputChatContent: React.FC<Props> = (props) => {
                 onClick={props.onSetting ?? (() => {})}
                 icon={<PiSlidersHorizontal />}
               />
+            )}
+            {props.showWebSearchSwitch && (
+              <div className="flex items-center gap-1 px-2">
+                <PiGlobe className="text-gray-500" />
+                <Switch
+                  checked={props.webSearchEnabled ?? false}
+                  onSwitch={props.onWebSearchToggle ?? (() => {})}
+                  label={t('chat.web_search')}
+                />
+              </div>
             )}
           </div>
 

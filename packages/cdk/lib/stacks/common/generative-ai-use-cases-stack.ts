@@ -141,6 +141,10 @@ export class GenerativeAiUseCasesStack extends Stack {
 
       // LangChain Credentials
       openai: params.openai,
+
+      // Web Search
+      searchApiKey: params.searchApiKey ?? undefined,
+      searchEngine: params.searchEngine ?? undefined,
     });
 
     // WAF

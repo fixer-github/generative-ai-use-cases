@@ -106,6 +106,7 @@ const ChatPage: React.FC = () => {
     AdditionalModelRequestFields | undefined
   >(undefined);
   const [showSetting, setShowSetting] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const { t } = useTranslation();
   const { settings } = useSettings();
 
@@ -230,7 +231,8 @@ ${baseContext}
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
     setContent('');
     clearFiles();
@@ -249,6 +251,7 @@ ${baseContext}
     postChatWithId,
     uploadedFiles,
     pathname,
+    webSearchEnabled,
   ]);
 
   const onRetry = useCallback(() => {
@@ -262,9 +265,10 @@ ${baseContext}
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
-  }, [retryGeneration, base64Cache, overrideModelParameters]);
+  }, [retryGeneration, base64Cache, overrideModelParameters, webSearchEnabled]);
 
   const onStop = useCallback(() => {
     forceToStop();
@@ -284,10 +288,11 @@ ${baseContext}
         undefined,
         undefined,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
-    [editChat, base64Cache, setFollowing, overrideModelParameters]
+    [editChat, base64Cache, setFollowing, overrideModelParameters, webSearchEnabled]
   );
 
   const [creatingShareId, setCreatingShareId] = useState(false);
@@ -429,6 +434,9 @@ ${baseContext}
               }}
               canStop={writing}
               isCreatingChat={isCreatingChat}
+              showWebSearchSwitch={true}
+              webSearchEnabled={webSearchEnabled}
+              onWebSearchToggle={setWebSearchEnabled}
             />
           </div>
         ) : (
@@ -479,6 +487,9 @@ ${baseContext}
                 }}
                 canStop={writing}
                 isCreatingChat={isCreatingChat}
+                showWebSearchSwitch={true}
+                webSearchEnabled={webSearchEnabled}
+                onWebSearchToggle={setWebSearchEnabled}
               />
             </div>
           </>
