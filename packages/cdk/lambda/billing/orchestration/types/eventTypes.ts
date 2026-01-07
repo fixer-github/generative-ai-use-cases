@@ -110,6 +110,7 @@ export interface StripeEventData {
     planId?: string;
     childEmail?: string;
     parentEmail?: string;
+    parentalCheckoutRequestId?: string;
     // サブスクリプション更新（プラン変更）用フィールド
     subscriptionId?: string;
     currentPriceId?: string;

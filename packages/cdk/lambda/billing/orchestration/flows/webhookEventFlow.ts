@@ -81,6 +81,10 @@ const dynamoDbClient = new DynamoDBClient({});
 const PENDING_PLAN_CHANGES_TABLE_NAME =
   process.env.PENDING_PLAN_CHANGES_TABLE_NAME || '';
 
+// ペアレンタルコントロール用新規購入リクエストテーブル
+const PENDING_PARENTAL_CHECKOUTS_TABLE_NAME =
+  process.env.PENDING_PARENTAL_CHECKOUTS_TABLE_NAME || '';
+
 /**
  * デフォルトプランを取得
  * データベースからis_default=trueのプランを取得する
@@ -2261,8 +2265,14 @@ async function handleParentalControlActivation(
   // イベントデータから抽出情報を取得
   const stripeData = eventData as StripeEventData;
   const extracted = stripeData._extracted ?? {};
-  const { sessionId, platformSubscriptionId, userId, planId, childEmail } =
-    extracted;
+  const {
+    sessionId,
+    platformSubscriptionId,
+    userId,
+    planId,
+    childEmail,
+    parentalCheckoutRequestId,
+  } = extracted;
 
   console.log('Extracted parental control data from event', {
     sessionId,
@@ -2270,6 +2280,7 @@ async function handleParentalControlActivation(
     userId,
     planId,
     childEmail,
+    parentalCheckoutRequestId,
     hasExtracted: !!stripeData._extracted,
   });
 
@@ -2288,6 +2299,9 @@ async function handleParentalControlActivation(
   if (!planId) {
     throw new Error('Plan ID not found in event data');
   }
+
+  // ステップ間でデータを共有するための変数
+  let activatedSubscriptionId: string | undefined;
 
   // ステップ設定
   const steps: StepConfig[] = [
@@ -2369,6 +2383,9 @@ async function handleParentalControlActivation(
           );
         }
 
+        // 次のステップで使用するためにsubscriptionIdを保存
+        activatedSubscriptionId = flowOutput.subscriptionId;
+
         return {
           success: true,
           subscriptionId: flowOutput.subscriptionId,
@@ -2377,6 +2394,63 @@ async function handleParentalControlActivation(
       },
       retryable: true,
       maxRetries: 3,
+    },
+
+    // ステップ1.5: ペアレンタルチェックアウトリクエストのステータスを更新
+    {
+      stepName: 'update_parental_checkout_request_status',
+      stepType: 'api_call',
+      targetService: 'DynamoDB',
+      executeFunction: async () => {
+        if (!parentalCheckoutRequestId) {
+          console.warn(
+            'Parental checkout request ID not found in metadata, skipping status update'
+          );
+          return { skipped: true, reason: 'no_request_id_in_metadata' };
+        }
+
+        if (!PENDING_PARENTAL_CHECKOUTS_TABLE_NAME) {
+          console.warn(
+            'PENDING_PARENTAL_CHECKOUTS_TABLE_NAME not configured, skipping status update'
+          );
+          return { skipped: true, reason: 'table_not_configured' };
+        }
+
+        // クロージャ変数からsubscriptionIdを取得（ステップ1で設定）
+        const subscriptionId = activatedSubscriptionId || '';
+
+        console.log('Updating parental checkout request status to approved', {
+          parentalCheckoutRequestId,
+          subscriptionId,
+        });
+
+        await dynamoDbClient.send(
+          new UpdateItemCommand({
+            TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
+            Key: {
+              requestId: { S: parentalCheckoutRequestId as string },
+            },
+            UpdateExpression:
+              'SET #status = :status, approvedAt = :approvedAt, subscriptionId = :subscriptionId',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': { S: 'approved' },
+              ':approvedAt': { N: Date.now().toString() },
+              ':subscriptionId': { S: subscriptionId },
+            },
+          })
+        );
+
+        console.log('Parental checkout request status updated to approved', {
+          parentalCheckoutRequestId,
+        });
+
+        return { success: true, parentalCheckoutRequestId };
+      },
+      retryable: true,
+      maxRetries: 2,
     },
 
     // ステップ2: 領収書メール送信（ペアレンタルコントロール：保護者に送信）

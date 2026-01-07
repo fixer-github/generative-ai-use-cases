@@ -162,6 +162,46 @@ export class BillingManagementStack extends NestedStack {
       },
     });
 
+    // GSI for userId lookup (ユーザーの保留中リクエスト検索用)
+    // NOTE: 既存テーブルへのGSI追加はCloudFormationでサポートされていますが、
+    // データ量によっては追加に時間がかかる場合があります。
+    // 本番環境へのデプロイ前に、既存データへの影響を確認してください。
+    pendingPlanChangesTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: {
+        name: 'userId',
+        type: AttributeType.STRING,
+      },
+    });
+
+    // ========================================
+    // Create Pending Parental Checkouts Table
+    // ========================================
+    // 保護者承認待ちの新規購入リクエストを保存するテーブル
+    const pendingParentalCheckoutsTable = new Table(
+      this,
+      'PendingParentalCheckoutsTable',
+      {
+        tableName: `${props.environment}-pending-parental-checkouts`,
+        partitionKey: {
+          name: 'requestId',
+          type: AttributeType.STRING,
+        },
+        billingMode: BillingMode.PAY_PER_REQUEST,
+        removalPolicy: RemovalPolicy.DESTROY,
+        timeToLiveAttribute: 'ttl',
+      }
+    );
+
+    // GSI for userId lookup (ユーザーの保留中リクエスト検索用)
+    pendingParentalCheckoutsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: {
+        name: 'userId',
+        type: AttributeType.STRING,
+      },
+    });
+
     // ========================================
     // Create Independent REST API for Billing
     // ========================================
@@ -255,6 +295,8 @@ export class BillingManagementStack extends NestedStack {
       serviceName: props.emailServiceName,
       // Pending Plan Changes Table for parental control status update
       pendingPlanChangesTable: pendingPlanChangesTable,
+      // Pending Parental Checkouts Table for parental control new purchase status update
+      pendingParentalCheckoutsTable: pendingParentalCheckoutsTable,
     });
 
     // User Billing API (ユーザ向けエンドポイント)
@@ -271,6 +313,7 @@ export class BillingManagementStack extends NestedStack {
       sendgridFromEmail: props.sendgridFromEmail,
       emailServiceName: props.emailServiceName,
       pendingPlanChangesTable: pendingPlanChangesTable,
+      pendingParentalCheckoutsTable: pendingParentalCheckoutsTable,
     });
 
     // ========================================

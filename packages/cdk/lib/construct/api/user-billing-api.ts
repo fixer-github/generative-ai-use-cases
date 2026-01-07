@@ -86,6 +86,11 @@ export interface UserBillingApiProps {
    * DynamoDB table for pending plan change requests (parental approval)
    */
   readonly pendingPlanChangesTable?: ITable;
+
+  /**
+   * DynamoDB table for pending parental checkout requests (parental approval for new purchases)
+   */
+  readonly pendingParentalCheckoutsTable?: ITable;
 }
 
 class UserBillingApi extends Construct {
@@ -96,6 +101,8 @@ class UserBillingApi extends Construct {
   public readonly sendCheckoutLinkToParentFunction: NodejsFunction;
   public readonly sendPlanChangeLinkToParentFunction?: NodejsFunction;
   public readonly getPlanChangeRequestStatusFunction?: NodejsFunction;
+  public readonly getParentalCheckoutRequestStatusFunction?: NodejsFunction;
+  public readonly getPendingParentalConsentRequestFunction?: NodejsFunction;
   public readonly activateFromSessionFunction?: NodejsFunction;
   public readonly getCurrentSubscriptionFunction?: NodejsFunction;
   public readonly cancelSubscriptionFunction?: NodejsFunction;
@@ -350,6 +357,10 @@ class UserBillingApi extends Construct {
           SERVICE_NAME: props.emailServiceName,
           SENDGRID_API_KEY: props.sendgridApiKey,
           SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+          ...(props.pendingParentalCheckoutsTable && {
+            PENDING_PARENTAL_CHECKOUTS_TABLE_NAME:
+              props.pendingParentalCheckoutsTable.tableName,
+          }),
         },
       }
     );
@@ -358,6 +369,13 @@ class UserBillingApi extends Construct {
     tenantManager.tenantsTable.grantReadData(
       this.sendCheckoutLinkToParentFunction
     );
+
+    // Grant DynamoDB write access for pending parental checkouts
+    if (props.pendingParentalCheckoutsTable) {
+      props.pendingParentalCheckoutsTable.grantReadWriteData(
+        this.sendCheckoutLinkToParentFunction
+      );
+    }
 
     // Secrets Manager読み取り権限（Stripe APIキー取得用）
     this.sendCheckoutLinkToParentFunction.addToRolePolicy(
@@ -545,6 +563,116 @@ class UserBillingApi extends Construct {
       planChangeRequestStatusResource.addMethod(
         'GET',
         new LambdaIntegration(this.getPlanChangeRequestStatusFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+    }
+
+    // ========================================
+    // API 3.8: ペアレンタルチェックアウトリクエストステータス確認API
+    // GET /api/subscriptions/parental-checkout-request/{requestId}/status
+    // ========================================
+
+    if (props.pendingParentalCheckoutsTable) {
+      this.getParentalCheckoutRequestStatusFunction = new NodejsFunction(
+        this,
+        'GetParentalCheckoutRequestStatus',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/getParentalCheckoutRequestStatus.ts',
+          timeout: Duration.seconds(10),
+          memorySize: 256,
+          environment: {
+            ...commonEnvironment,
+            PENDING_PARENTAL_CHECKOUTS_TABLE_NAME:
+              props.pendingParentalCheckoutsTable.tableName,
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.getParentalCheckoutRequestStatusFunction
+      );
+
+      // Grant DynamoDB read access for pending parental checkouts
+      props.pendingParentalCheckoutsTable.grantReadData(
+        this.getParentalCheckoutRequestStatusFunction
+      );
+
+      // API Gatewayエンドポイント
+      const parentalCheckoutRequestResource = subscriptionsResource.addResource(
+        'parental-checkout-request'
+      );
+      const parentalCheckoutRequestIdResource =
+        parentalCheckoutRequestResource.addResource('{requestId}');
+      const parentalCheckoutRequestStatusResource =
+        parentalCheckoutRequestIdResource.addResource('status');
+      parentalCheckoutRequestStatusResource.addMethod(
+        'GET',
+        new LambdaIntegration(this.getParentalCheckoutRequestStatusFunction),
+        {
+          authorizer: authorizer,
+          authorizationType: AuthorizationType.COGNITO,
+        }
+      );
+    }
+
+    // ========================================
+    // API 3.9: 保留中の保護者同意リクエスト取得API
+    // GET /api/subscriptions/parental-consent-request/pending
+    // ========================================
+
+    // 両方のテーブルがある場合に有効化
+    if (props.pendingParentalCheckoutsTable || props.pendingPlanChangesTable) {
+      this.getPendingParentalConsentRequestFunction = new NodejsFunction(
+        this,
+        'GetPendingParentalConsentRequest',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry:
+            './lambda/billing/user-api/subscriptions/getPendingParentalConsentRequest.ts',
+          timeout: Duration.seconds(10),
+          memorySize: 256,
+          environment: {
+            ...commonEnvironment,
+            PENDING_PARENTAL_CHECKOUTS_TABLE_NAME:
+              props.pendingParentalCheckoutsTable?.tableName || '',
+            PENDING_PLAN_CHANGES_TABLE_NAME:
+              props.pendingPlanChangesTable?.tableName || '',
+          },
+        }
+      );
+
+      // Grant Tenants table read access
+      tenantManager.tenantsTable.grantReadData(
+        this.getPendingParentalConsentRequestFunction
+      );
+
+      // Grant DynamoDB read access for both tables
+      if (props.pendingParentalCheckoutsTable) {
+        props.pendingParentalCheckoutsTable.grantReadData(
+          this.getPendingParentalConsentRequestFunction
+        );
+      }
+      if (props.pendingPlanChangesTable) {
+        props.pendingPlanChangesTable.grantReadData(
+          this.getPendingParentalConsentRequestFunction
+        );
+      }
+
+      // API Gatewayエンドポイント
+      const parentalConsentRequestResource = subscriptionsResource.addResource(
+        'parental-consent-request'
+      );
+      const pendingResource =
+        parentalConsentRequestResource.addResource('pending');
+      pendingResource.addMethod(
+        'GET',
+        new LambdaIntegration(this.getPendingParentalConsentRequestFunction),
         {
           authorizer: authorizer,
           authorizationType: AuthorizationType.COGNITO,
@@ -1160,6 +1288,11 @@ class UserBillingApi extends Construct {
       console.log('  - POST /api/subscriptions/send-plan-change-to-parent');
       console.log(
         '  - GET /api/subscriptions/plan-change-request/{requestId}/status'
+      );
+    }
+    if (props.pendingParentalCheckoutsTable) {
+      console.log(
+        '  - GET /api/subscriptions/parental-checkout-request/{requestId}/status'
       );
     }
     console.log('  - GET /api/subscriptions/current');
