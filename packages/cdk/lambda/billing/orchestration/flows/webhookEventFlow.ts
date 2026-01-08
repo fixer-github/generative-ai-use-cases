@@ -158,6 +158,8 @@ interface EventDetailPayload {
   periodStart?: number;
   /** 請求期間終了日時（Unixタイムスタンプ、秒） */
   periodEnd?: number;
+  /** プランID（priceId、eventExtractorで抽出） */
+  planId?: string;
 }
 
 /**
@@ -404,7 +406,7 @@ async function handlePaymentSucceeded(
   input: EventDetailPayload,
   orchestrator: FlowOrchestrator,
   planClient: PlanManagementClient,
-  subscriptionClient: SubscriptionManagementClient
+  _subscriptionClient: SubscriptionManagementClient
 ): Promise<WebhookEventFlowOutput> {
   const { eventId, tenantId, platform, eventData } = input;
 
@@ -420,32 +422,48 @@ async function handlePaymentSucceeded(
     input.subscriptionId || extractSubscriptionId(platform, eventData);
   const userId = input.userId || extractUserId(platform, eventData);
 
-  // periodStart/periodEndの抽出（Stripeから取得）
-  // NOTE: input.periodStart/periodEndはEventDetailPayloadで直接渡される（eventExtractorで抽出済み）
-  const { periodStart, periodEnd } = extractPeriodDates(
-    platform,
-    eventData,
-    input.periodStart,
-    input.periodEnd
-  );
+  // 支払い対象のpriceId（eventExtractorで抽出済み）
+  // invoice.payment_succeededの場合、lines.data[0]?.price?.idから取得される
+  const paidPriceId = input.planId;
 
-  // 前のステップの結果を保持する変数
-  const previousStepResults: Record<string, unknown> = {};
+  console.log('Payment succeeded event details', {
+    eventId,
+    platformSubscriptionId,
+    userId,
+    paidPriceId,
+  });
 
   // ステップ設定
   const steps: StepConfig[] = [
-    // ステップ1: サブスクリプション有効期限延長
+    // ステップ1: ダウングレード時のプラン適用
+    // 支払い対象のプランと現在適用されているプランが異なる場合、プランを切り替える
+    // これにより、ダウングレード時は契約期間終了後（次回支払い時）にプラン適用が行われる
     {
-      stepName: 'extend_subscription_period',
+      stepName: 'apply_plan_if_changed',
       stepType: 'api_call',
-      targetService: 'SubscriptionManagement',
-      targetFunction:
-        process.env.SUBSCRIPTION_MANAGEMENT_EXTEND_PERIOD_FUNCTION_NAME,
+      targetService: 'PlanManagement',
+      targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
-        // プラットフォームサブスクリプションIDから内部サブスクリプションIDを取得
+        // priceIdが取得できない場合はスキップ
+        if (!paidPriceId) {
+          console.log(
+            'No price ID in payment event, skipping plan application check',
+            {
+              eventId,
+              platformSubscriptionId,
+            }
+          );
+          return {
+            skipped: true,
+            reason: 'no_price_id_in_event',
+          };
+        }
+
+        // プラットフォームサブスクリプションIDから内部サブスクリプションを取得
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
           user_id: string;
+          plan_id: string;
         } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
           platformSubscriptionId,
         });
@@ -464,79 +482,30 @@ async function handlePaymentSucceeded(
         }
 
         const internalSubscriptionId = subscription.subscription_id;
+        const subscriptionUserId = subscription.user_id;
 
-        console.log('Extending subscription period', {
-          tenantId,
-          platformSubscriptionId,
-          internalSubscriptionId,
-          periodStart,
-          periodEnd,
+        // priceIdから内部planIdを解決
+        const paidPlan = await invokeDataAccessFunctionByTenantId<{
+          plan_id: string;
+        } | null>(tenantId, 'plan', 'findByPlatformProductId', {
+          platformProductId: paidPriceId,
         });
 
-        const params: ExtendSubscriptionPeriodParams = {
-          tenantId,
-          subscriptionId: internalSubscriptionId,
-          newPeriodStart: periodStart,
-          newPeriodEnd: periodEnd,
-        };
-
-        const result =
-          await subscriptionClient.extendSubscriptionPeriod(params);
-
-        console.log('Subscription period extended successfully', {
-          internalSubscriptionId,
-          success: result.success,
-        });
-
-        // 次のステップで使用するために保存
-        previousStepResults['internal_subscription'] = {
-          subscriptionId: internalSubscriptionId,
-          userId: subscription.user_id,
-        };
-
-        return result;
-      },
-      retryable: true,
-      maxRetries: 3,
-    },
-
-    // ステップ2: プラン適用有効期限延長（scheduled_terminationの場合はスキップ）
-    {
-      stepName: 'extend_plan_application_period',
-      stepType: 'api_call',
-      targetService: 'PlanManagement',
-      targetFunction: process.env.PLAN_MANAGEMENT_UPDATE_STATUS_FUNCTION_NAME,
-      executeFunction: async () => {
-        // 前のステップから内部サブスクリプションIDを取得
-        const internalSubscription = previousStepResults[
-          'internal_subscription'
-        ] as
-          | {
-              subscriptionId: string;
-              userId: string;
-            }
-          | undefined;
-
-        if (!internalSubscription) {
-          console.warn(
-            'No internal subscription from previous step, skipping plan application extension'
-          );
+        if (!paidPlan) {
+          console.warn('Could not resolve plan ID from price ID', {
+            paidPriceId,
+            platformSubscriptionId,
+          });
           return {
             skipped: true,
-            reason: 'no_internal_subscription_from_previous_step',
+            reason: 'plan_not_found_for_price',
           };
         }
 
-        const internalSubscriptionId = internalSubscription.subscriptionId;
+        const paidPlanId = paidPlan.plan_id;
 
-        console.log('Checking plan application status', {
-          tenantId,
-          userId,
-          internalSubscriptionId,
-        });
-
-        // 内部サブスクリプションIDをapplication_source_idとして、プラン適用を検索
-        const planApplication =
+        // 現在適用されているプランを取得
+        const currentApplication =
           await invokeDataAccessFunctionByTenantId<UserPlanApplication | null>(
             tenantId,
             'user-plan-application',
@@ -544,45 +513,67 @@ async function handlePaymentSucceeded(
             { sourceId: internalSubscriptionId }
           );
 
-        if (!planApplication) {
-          console.warn('No plan application found for subscription, skipping', {
-            internalSubscriptionId,
-          });
-          return {
-            skipped: true,
-            reason: 'no_plan_application_found',
-          };
-        }
+        const currentAppliedPlanId = currentApplication?.plan_id;
 
-        const planApplicationId = planApplication.application_id;
-        const isScheduledTermination =
-          planApplication.application_status === 'scheduled_termination';
+        console.log('Checking plan change on payment', {
+          paidPriceId,
+          paidPlanId,
+          currentAppliedPlanId,
+          internalSubscriptionId,
+        });
 
-        // ステータスがscheduled_terminationの場合はスキップ（解約予約済みなので延長しない）
-        if (isScheduledTermination) {
+        // 現在適用されているプランと支払い対象のプランが同じ場合はスキップ
+        if (currentAppliedPlanId === paidPlanId) {
           console.log(
-            'Skipping plan application period extension (scheduled_termination)',
+            'Paid plan matches current applied plan, no action needed',
             {
-              planApplicationId,
-              currentStatus: planApplication.application_status,
+              paidPlanId,
+              currentAppliedPlanId,
             }
           );
           return {
             skipped: true,
-            reason: 'scheduled_termination',
+            reason: 'same_plan',
           };
         }
 
-        // プラン適用の有効期限を延長（activeステータスを維持）
-        const result = await planClient.updatePlanApplicationStatus({
-          tenantId,
-          applicationId: planApplicationId,
-          newStatus: 'active',
+        // プランが異なる場合（ダウングレードの場合）、プラン適用を実行
+        console.log('Plan change detected on payment - applying new plan', {
+          currentAppliedPlanId,
+          paidPlanId,
+          subscriptionUserId,
+          internalSubscriptionId,
         });
 
-        console.log('Plan application period extended successfully', {
-          planApplicationId,
-          success: result.success,
+        // 旧プランの適用を終了
+        if (currentApplication) {
+          console.log('Terminating current plan application', {
+            applicationId: currentApplication.application_id,
+            planId: currentAppliedPlanId,
+          });
+
+          await planClient.terminatePlanApplication({
+            tenantId,
+            userId: subscriptionUserId,
+            applicationSourceId: internalSubscriptionId,
+          });
+        }
+
+        // 新しいプランを適用
+        const result = await planClient.applyPlanToUser({
+          tenantId,
+          userId: subscriptionUserId,
+          planId: paidPlanId,
+          applicationSource: 'subscription',
+          applicationSourceId: internalSubscriptionId,
+          validFrom: new Date().toISOString(),
+        });
+
+        console.log('New plan applied successfully on payment', {
+          applicationId: result.applicationId,
+          applicationStatus: result.applicationStatus,
+          previousPlanId: currentAppliedPlanId,
+          newPlanId: paidPlanId,
         });
 
         return result;
@@ -591,11 +582,7 @@ async function handlePaymentSucceeded(
       maxRetries: 3,
     },
 
-    // ステップ3: 支払い履歴記録（サブスク管理内で実施）
-    // 支払い履歴の記録はSubscriptionManagementClient.extendSubscriptionPeriod()内で
-    // 自動的に実施される想定のため、統括責務では明示的なステップとしては実装しない
-
-    // ステップ4: 領収書メール送信（非ブロッキング）
+    // ステップ2: 領収書メール送信（非ブロッキング）
     {
       stepName: 'send_payment_receipt',
       stepType: 'api_call',
@@ -1262,7 +1249,10 @@ async function handleSubscriptionUpdated(
   };
 
   // ステータス同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
-  const internalStatus = mapPlatformStatusToInternal(platform, platformStatus as string);
+  const internalStatus = mapPlatformStatusToInternal(
+    platform,
+    platformStatus as string
+  );
   if (platformSubscriptionId && internalStatus) {
     try {
       // 内部サブスクリプションを検索
@@ -1317,7 +1307,12 @@ async function handleSubscriptionUpdated(
   // 期間同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
   // NOTE: 期間変更はStripeで手動調整や日割り計算などで発生する可能性がある
   let periodSynced = false;
-  if (platform === 'stripe' && platformSubscriptionId && currentPeriodStart && currentPeriodEnd) {
+  if (
+    platform === 'stripe' &&
+    platformSubscriptionId &&
+    currentPeriodStart &&
+    currentPeriodEnd
+  ) {
     try {
       // 内部サブスクリプションを検索
       const subscription = await invokeDataAccessFunctionByTenantId<{
@@ -1330,9 +1325,13 @@ async function handleSubscriptionUpdated(
 
       if (subscription) {
         // Stripeのタイムスタンプ（秒）をISO 8601形式に変換
-        const newPeriodStart = new Date(currentPeriodStart * 1000).toISOString();
+        const newPeriodStart = new Date(
+          currentPeriodStart * 1000
+        ).toISOString();
         const newPeriodEnd = new Date(currentPeriodEnd * 1000).toISOString();
-        const existingPeriodEnd = new Date(subscription.current_period_end).toISOString();
+        const existingPeriodEnd = new Date(
+          subscription.current_period_end
+        ).toISOString();
 
         // 期間が変更されている場合のみ更新
         if (existingPeriodEnd !== newPeriodEnd) {
@@ -1391,7 +1390,8 @@ async function handleSubscriptionUpdated(
       eventId,
       errorDetails: {
         errorCode: 'NO_PLAN_CHANGE',
-        errorMessage: 'Subscription updated but no plan change detected (status/period sync completed if applicable)',
+        errorMessage:
+          'Subscription updated but no plan change detected (status/period sync completed if applicable)',
       },
     };
   }
@@ -1406,6 +1406,75 @@ async function handleSubscriptionUpdated(
 
   if (!currentPriceId) {
     throw new Error('Current price ID not found in event data');
+  }
+
+  // アップグレード/ダウングレード判定
+  // previousPriceId が存在する場合は Stripe API で価格を取得して比較
+  // 価格情報が取得できない場合はエラーをthrow
+  let isDowngrade = false;
+  if (previousPriceId) {
+    console.log('Determining upgrade/downgrade for plan change', {
+      previousPriceId,
+      currentPriceId,
+    });
+
+    try {
+      const apiKey = await getStripeApiKey(tenantId);
+      const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+      const [previousPrice, currentPrice] = await Promise.all([
+        stripe.prices.retrieve(previousPriceId as string),
+        stripe.prices.retrieve(currentPriceId as string),
+      ]);
+
+      const previousAmount = previousPrice.unit_amount;
+      const currentAmount = currentPrice.unit_amount;
+
+      if (previousAmount === null || previousAmount === undefined) {
+        throw new Error(
+          `Failed to retrieve unit_amount for previous price: ${previousPriceId}`
+        );
+      }
+      if (currentAmount === null || currentAmount === undefined) {
+        throw new Error(
+          `Failed to retrieve unit_amount for current price: ${currentPriceId}`
+        );
+      }
+
+      isDowngrade = currentAmount < previousAmount;
+
+      console.log('Upgrade/downgrade determination completed', {
+        previousPriceId,
+        currentPriceId,
+        previousAmount,
+        currentAmount,
+        isDowngrade,
+        isUpgrade: currentAmount > previousAmount,
+      });
+    } catch (error) {
+      // 価格情報が取得できない場合はエラーをthrow
+      console.error('Failed to determine upgrade/downgrade', {
+        previousPriceId,
+        currentPriceId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new Error(
+        `Failed to determine upgrade/downgrade: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  // ダウングレードの場合のログ出力
+  if (isDowngrade) {
+    console.log(
+      'Downgrade detected - plan application will be deferred to payment.succeeded',
+      {
+        eventId,
+        platformSubscriptionId,
+        previousPriceId,
+        currentPriceId,
+      }
+    );
   }
 
   // 内部プランIDを解決するヘルパー
@@ -1425,13 +1494,32 @@ async function handleSubscriptionUpdated(
 
   // ステップ設定
   const steps: StepConfig[] = [
-    // ステップ1: 現在のプラン適用を終了
+    // ステップ1: 現在のプラン適用を終了（ダウングレードの場合はスキップ）
+    // ダウングレード時は契約期間終了まで旧プランを維持し、次回支払い時にプラン適用を行う
     {
       stepName: 'terminate_current_plan_application',
       stepType: 'api_call',
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_TERMINATE_FUNCTION_NAME,
       executeFunction: async () => {
+        // ダウングレードの場合は旧プランを維持するためスキップ
+        if (isDowngrade) {
+          console.log(
+            'Skipping plan termination for downgrade (will be processed on next payment)',
+            {
+              tenantId,
+              userId,
+              platformSubscriptionId,
+              previousPriceId,
+              currentPriceId,
+            }
+          );
+          return {
+            skipped: true,
+            reason: 'downgrade_deferred_to_payment_succeeded',
+          };
+        }
+
         console.log(
           'Terminating current plan application (plan change via portal)',
           {
@@ -1528,13 +1616,32 @@ async function handleSubscriptionUpdated(
       maxRetries: 3,
     },
 
-    // ステップ3: 新しいプランを適用
+    // ステップ3: 新しいプランを適用（ダウングレードの場合はスキップ）
+    // ダウングレード時は次回支払い時（payment.succeeded）にプラン適用を行う
     {
       stepName: 'apply_new_plan',
       stepType: 'api_call',
       targetService: 'PlanManagement',
       targetFunction: process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME,
       executeFunction: async () => {
+        // ダウングレードの場合は次回支払い時にプラン適用を行うためスキップ
+        if (isDowngrade) {
+          console.log(
+            'Skipping plan application for downgrade (will be processed on next payment)',
+            {
+              tenantId,
+              userId,
+              platformSubscriptionId,
+              previousPriceId,
+              currentPriceId,
+            }
+          );
+          return {
+            skipped: true,
+            reason: 'downgrade_deferred_to_payment_succeeded',
+          };
+        }
+
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
         } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
@@ -1637,7 +1744,7 @@ async function handleSubscriptionUpdated(
 
         // Stripeのmetadataからプラン変更リクエストIDを取得
         const metadata = (
-          (stripeData as unknown as Stripe.Event).data?.object as
+          (stripeEventData as unknown as Stripe.Event).data?.object as
             | Stripe.Subscription
             | undefined
         )?.metadata;
@@ -2157,7 +2264,9 @@ function extractPeriodDates(
     // NOTE: EventDetailPayloadのperiodStart/periodEndはeventExtractorで抽出済み
     const rawPeriodStart =
       inputPeriodStart ??
-      ((eventData as Record<string, unknown>).periodStart as number | undefined);
+      ((eventData as Record<string, unknown>).periodStart as
+        | number
+        | undefined);
     const rawPeriodEnd =
       inputPeriodEnd ??
       ((eventData as Record<string, unknown>).periodEnd as number | undefined);
