@@ -434,6 +434,10 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: mcpEndpoint ?? '',
     });
 
+    new CfnOutput(this, 'WebSearchEnabled', {
+      value: (!!params.searchApiKey && !!params.searchEngine).toString(),
+    });
+
     new CfnOutput(this, 'PptxEnabled', {
       value: params.pptxEnabled.toString(),
     });

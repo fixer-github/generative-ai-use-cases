@@ -251,6 +251,8 @@ chat:
   view_prompt_examples: View Prompt Examples
   web_search: Web Search
   web_search_error: 'Web search error: {{error}}'
+  web_search_model_not_supported: This model does not support web search
+  web_search_not_available: Web search is not available
   web_search_results: 'Web search results ({{count}})'
 common:
   ask_gaixr: Ask GaiXer

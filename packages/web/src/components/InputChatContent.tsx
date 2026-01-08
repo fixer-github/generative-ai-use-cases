@@ -52,6 +52,8 @@ type Props = {
     webSearchEnabled?: boolean;
     onWebSearchToggle?: (enabled: boolean) => void;
     showWebSearchSwitch?: boolean;
+    webSearchDisabled?: boolean;
+    webSearchDisabledReason?: string;
   };
 
 const InputChatContent: React.FC<Props> = (props) => {
@@ -239,11 +241,21 @@ const InputChatContent: React.FC<Props> = (props) => {
             )}
             {props.showWebSearchSwitch && (
               <button
-                className={`flex cursor-pointer items-center justify-center rounded-xl p-2 text-xl ${
-                  props.webSearchEnabled ? 'text-blue-500' : 'text-gray-600'
+                className={`flex items-center justify-center rounded-xl p-2 text-xl ${
+                  props.webSearchDisabled
+                    ? 'cursor-not-allowed text-gray-300'
+                    : props.webSearchEnabled
+                      ? 'cursor-pointer text-blue-500'
+                      : 'cursor-pointer text-gray-600'
                 }`}
-                title={t('chat.web_search')}
+                title={
+                  props.webSearchDisabled
+                    ? props.webSearchDisabledReason
+                    : t('chat.web_search')
+                }
+                disabled={props.webSearchDisabled}
                 onClick={() =>
+                  !props.webSearchDisabled &&
                   props.onWebSearchToggle?.(!props.webSearchEnabled)
                 }>
                 <PiGlobe />

@@ -13,7 +13,7 @@ import ModelSelector from '../components/ModelSelector';
 import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { MODELS, findModelByModelId } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 import useFiles from '../hooks/useFiles';
@@ -161,6 +161,19 @@ ${baseContext}
   const setting = useMemo(() => {
     return MODELS.modelMetadata[modelId]?.flags.reasoning ?? false;
   }, [modelId]);
+
+  const webSearchDisabled = useMemo(() => {
+    // Web検索機能が無効
+    if (!MODELS.webSearchEnabled) {
+      return { disabled: true, reason: t('chat.web_search_not_available') };
+    }
+    // モデルが非対応（Bedrock以外）
+    const model = findModelByModelId(modelId);
+    if (model && model.type !== 'bedrock') {
+      return { disabled: true, reason: t('chat.web_search_model_not_supported') };
+    }
+    return { disabled: false, reason: '' };
+  }, [modelId, t]);
 
   useEffect(() => {
     const _modelId = !modelId ? availableModels[0] : modelId;
@@ -469,6 +482,8 @@ ${baseContext}
               showWebSearchSwitch={true}
               webSearchEnabled={webSearchEnabled}
               onWebSearchToggle={setWebSearchEnabled}
+              webSearchDisabled={webSearchDisabled.disabled}
+              webSearchDisabledReason={webSearchDisabled.reason}
             />
           </div>
         ) : (
@@ -522,6 +537,8 @@ ${baseContext}
                 showWebSearchSwitch={true}
                 webSearchEnabled={webSearchEnabled}
                 onWebSearchToggle={setWebSearchEnabled}
+                webSearchDisabled={webSearchDisabled.disabled}
+                webSearchDisabledReason={webSearchDisabled.reason}
               />
             </div>
           </>

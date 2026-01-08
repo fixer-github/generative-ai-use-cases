@@ -249,6 +249,8 @@ chat:
   view_prompt_examples: プロンプト例を見る
   web_search: Web検索
   web_search_error: 'Web検索エラー: {{error}}'
+  web_search_model_not_supported: このモデルはWeb検索に対応していません
+  web_search_not_available: Web検索は利用できません
   web_search_results: 'Web検索結果 ({{count}}件)'
 common:
   ask_gaixr: GaiXerに聞く
