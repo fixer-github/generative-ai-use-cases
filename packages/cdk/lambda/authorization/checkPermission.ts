@@ -14,6 +14,10 @@ import {
 } from './repositories/types';
 import { UsageEventRepository } from './repositories/usageEventRepository';
 import { PermissionGrantRepository } from './repositories/permissionGrantRepository';
+import {
+  getPeriodStartTime,
+  getBillingPeriodStartTime,
+} from '../utils/periodUtils';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
@@ -32,34 +36,6 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
-}
-
-/**
- * 期間の開始時刻を計算する（日本時間基準）
- */
-function getPeriodStartTime(periodType: 'daily' | 'monthly'): number {
-  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
-  const now = new Date();
-
-  // 現在時刻をJSTに変換
-  const nowJST = new Date(now.getTime() + JST_OFFSET);
-
-  let startTimeJST: Date;
-
-  if (periodType === 'daily') {
-    // 今日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  } else {
-    // 今月1日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCDate(1);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  }
-
-  // JSTからUTCに戻してミリ秒単位で返す
-  const startTimeUTC = new Date(startTimeJST.getTime() - JST_OFFSET);
-  return startTimeUTC.getTime();
 }
 
 /**
@@ -248,6 +224,8 @@ export const handler = async (
     // この機能に対する制限情報を探す
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
+    let billingPeriodLimit: number | null = null;
+    let billingPeriodStart: number | null = null;
 
     for (const grant of activeGrants) {
       const feature = grant.features.find((f) => f.featureId === featureId);
@@ -256,6 +234,9 @@ export const handler = async (
           dailyLimit = feature.limitCount;
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
+        } else if (feature.limitType === 'billing_period' && feature.limitCount) {
+          billingPeriodLimit = feature.limitCount;
+          billingPeriodStart = grant.periodStart ?? null;
         }
       }
     }
@@ -321,7 +302,48 @@ export const handler = async (
       }
     }
 
-    // 7. 両方の結果が OK なら許可
+    // 請求期間制限のチェック
+    if (billingPeriodLimit !== null) {
+      if (billingPeriodStart === null) {
+        console.error(
+          `billing_period limit requires periodStart but it was not found - featureId: ${featureId}`
+        );
+        // periodStartがない場合はエラーとして拒否
+        return {
+          allowed: false,
+          reason: 'quota_exceeded',
+          usage,
+        };
+      }
+
+      const billingPeriodStartTime = getBillingPeriodStartTime(billingPeriodStart);
+      const billingPeriodCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        billingPeriodStartTime,
+        now
+      );
+
+      const remaining = billingPeriodLimit - billingPeriodCount;
+      usage.billing_period = {
+        current: billingPeriodCount,
+        limit: billingPeriodLimit,
+        remaining: Math.max(0, remaining),
+      };
+
+      if (billingPeriodCount >= billingPeriodLimit) {
+        console.log(
+          `User ${userId} has exceeded billing_period quota for feature ${featureId} (${billingPeriodCount}/${billingPeriodLimit})`
+        );
+        return {
+          allowed: false,
+          reason: 'quota_exceeded',
+          usage,
+        };
+      }
+    }
+
+    // 7. すべての制限チェックが OK なら許可
     console.log(`User ${userId} is allowed to access feature ${featureId}`);
 
     const response: CheckPermissionResponse = {

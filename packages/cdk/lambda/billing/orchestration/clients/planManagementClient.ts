@@ -27,6 +27,10 @@ export interface ApplyPlanToUserParams {
   validFrom: string;
   /** 有効終了日時（ISO 8601形式、オプション） */
   validUntil?: string;
+  /** 請求期間開始時刻（Unixタイムスタンプ、秒単位） */
+  periodStart?: number;
+  /** 請求期間終了時刻（Unixタイムスタンプ、秒単位） */
+  periodEnd?: number;
 }
 
 /**
@@ -47,6 +51,8 @@ export interface ApplyPlanToUserResponse {
   validUntil?: string;
   /** 以前の適用ID配列（置き換えられた適用のID） */
   previousApplicationIds: string[];
+  /** 同一プランで期間のみ更新された場合にtrue */
+  periodUpdatedOnly?: boolean;
 }
 
 /**

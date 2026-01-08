@@ -138,4 +138,28 @@ export class PermissionGrantRepository {
     // sourceIdは一意であることを想定しているため、最初の1件を返す
     return unmarshall(result.Items[0]) as PermissionGrantItem;
   }
+
+  /**
+   * 請求期間を更新
+   * 同一プラン・同一ソースで期間のみが変更された場合に使用
+   */
+  async updatePeriod(
+    grantId: string,
+    periodStart: number,
+    periodEnd: number
+  ): Promise<void> {
+    const command = new UpdateItemCommand({
+      TableName: this.tableName,
+      Key: marshall({
+        grantId,
+      }),
+      UpdateExpression: 'SET periodStart = :periodStart, periodEnd = :periodEnd',
+      ExpressionAttributeValues: marshall({
+        ':periodStart': periodStart,
+        ':periodEnd': periodEnd,
+      }),
+    });
+
+    await this.client.send(command);
+  }
 }

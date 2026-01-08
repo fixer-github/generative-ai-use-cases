@@ -11,6 +11,10 @@ import { createOpenFgaClientFromToken } from './openFgaClient';
 import { createTenantDynamoDBClientFromToken } from './tenantDynamoDBClient';
 import { UsageEventRepository } from '../authorization/repositories/usageEventRepository';
 import { PermissionGrantRepository } from '../authorization/repositories/permissionGrantRepository';
+import {
+  getPeriodStartTime,
+  getBillingPeriodStartTime,
+} from './periodUtils';
 
 /**
  * アクセスチェック結果の型定義
@@ -29,9 +33,14 @@ export interface AccessCheckResult {
       limit: number;
       remaining: number;
     };
+    billing_period?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
   };
   /** 回数制限のタイプ（incrementUsageで使用） */
-  limitType?: 'unlimited' | 'daily' | 'monthly';
+  limitType?: 'unlimited' | 'daily' | 'monthly' | 'billing_period';
   /** 検証済みのユーザー情報（後続処理で使用） */
   userContext?: {
     tenantId: string;
@@ -57,34 +66,6 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
-}
-
-/**
- * 期間の開始時刻を計算する（日本時間基準）
- */
-function getPeriodStartTime(periodType: 'daily' | 'monthly'): number {
-  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
-  const now = new Date();
-
-  // 現在時刻をJSTに変換
-  const nowJST = new Date(now.getTime() + JST_OFFSET);
-
-  let startTimeJST: Date;
-
-  if (periodType === 'daily') {
-    // 今日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  } else {
-    // 今月1日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCDate(1);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  }
-
-  // JSTからUTCに戻してミリ秒単位で返す
-  const startTimeUTC = new Date(startTimeJST.getTime() - JST_OFFSET);
-  return startTimeUTC.getTime();
 }
 
 /**
@@ -214,6 +195,8 @@ export async function checkAccessWithQuota(
     // この機能に対する制限情報を探す
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
+    let billingPeriodLimit: number | null = null;
+    let billingPeriodStart: number | null = null;
     let limitType: AccessCheckResult['limitType'] = 'unlimited';
 
     for (const grant of activeGrants) {
@@ -225,6 +208,10 @@ export async function checkAccessWithQuota(
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
           limitType = 'monthly';
+        } else if (feature.limitType === 'billing_period' && feature.limitCount) {
+          billingPeriodLimit = feature.limitCount;
+          billingPeriodStart = grant.periodStart ?? null;
+          limitType = 'billing_period';
         } else if (feature.limitType === 'unlimited') {
           limitType = 'unlimited';
         }
@@ -232,7 +219,7 @@ export async function checkAccessWithQuota(
     }
 
     console.log(
-      `[AccessCheck] Limit configuration - dailyLimit: ${dailyLimit}, monthlyLimit: ${monthlyLimit}, limitType: ${limitType}`
+      `[AccessCheck] Limit configuration - dailyLimit: ${dailyLimit}, monthlyLimit: ${monthlyLimit}, billingPeriodLimit: ${billingPeriodLimit}, limitType: ${limitType}`
     );
 
     const usage: AccessCheckResult['usage'] = {};
@@ -318,6 +305,60 @@ export async function checkAccessWithQuota(
       console.log(`[AccessCheck] No monthly limit configured for ${featureId}`);
     }
 
+    // 請求期間制限のチェック
+    if (billingPeriodLimit !== null) {
+      if (billingPeriodStart === null) {
+        console.error(
+          `[AccessCheck] billing_period limit requires periodStart but it was not found - featureId: ${featureId}`
+        );
+        // periodStartがない場合はエラーとして拒否
+        return {
+          allowed: false,
+          reason: 'quota_exceeded',
+          usage,
+          limitType: 'billing_period',
+          userContext: { tenantId, userId },
+        };
+      }
+
+      const billingPeriodStartTime = getBillingPeriodStartTime(billingPeriodStart);
+      const billingPeriodCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        billingPeriodStartTime,
+        now
+      );
+
+      console.log(
+        `[AccessCheck] Billing period limit found - currentCount: ${billingPeriodCount}, limitCount: ${billingPeriodLimit}, requestedCount: ${requestedCount}, periodStart: ${billingPeriodStart}`
+      );
+
+      const remaining = billingPeriodLimit - billingPeriodCount;
+      usage.billing_period = {
+        current: billingPeriodCount,
+        limit: billingPeriodLimit,
+        remaining: Math.max(0, remaining),
+      };
+
+      if (billingPeriodCount + requestedCount > billingPeriodLimit) {
+        console.log(
+          `[AccessCheck] Billing period quota exceeded - User ${userId}, featureId: ${featureId}, current: ${billingPeriodCount}, requested: ${requestedCount}, limit: ${billingPeriodLimit}`
+        );
+        return {
+          allowed: false,
+          reason: 'quota_exceeded',
+          usage,
+          limitType: 'billing_period',
+          userContext: { tenantId, userId },
+        };
+      }
+      console.log(
+        `[AccessCheck] Billing period quota check passed - remaining: ${remaining}, requested: ${requestedCount}`
+      );
+    } else {
+      console.log(`[AccessCheck] No billing_period limit configured for ${featureId}`);
+    }
+
     // 回数制限がない（unlimitedまたは制限なしプラン）
     console.log(
       `[AccessCheck] Access granted - User ${userId}, featureId: ${featureId}, limitType: ${limitType}`
@@ -352,6 +393,11 @@ export type UsageInfo = {
     remaining: number;
   };
   monthly?: {
+    current: number;
+    limit: number;
+    remaining: number;
+  };
+  billing_period?: {
     current: number;
     limit: number;
     remaining: number;
@@ -419,6 +465,8 @@ export async function getLatestUsage(
     // この機能に対する制限情報を探す
     let dailyLimit: number | null = null;
     let monthlyLimit: number | null = null;
+    let billingPeriodLimit: number | null = null;
+    let billingPeriodStart: number | null = null;
 
     for (const grant of activeGrants) {
       const feature = grant.features.find((f) => f.featureId === featureId);
@@ -427,6 +475,9 @@ export async function getLatestUsage(
           dailyLimit = feature.limitCount;
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           monthlyLimit = feature.limitCount;
+        } else if (feature.limitType === 'billing_period' && feature.limitCount) {
+          billingPeriodLimit = feature.limitCount;
+          billingPeriodStart = grant.periodStart ?? null;
         }
       }
     }
@@ -468,6 +519,23 @@ export async function getLatestUsage(
       };
     }
 
+    // 請求期間使用回数を取得
+    if (billingPeriodLimit !== null && billingPeriodStart !== null) {
+      const billingPeriodStartTime = getBillingPeriodStartTime(billingPeriodStart);
+      const billingPeriodCount = await usageEventRepository.countUsageInPeriod(
+        userId,
+        featureId,
+        billingPeriodStartTime,
+        now
+      );
+
+      usage.billing_period = {
+        current: billingPeriodCount,
+        limit: billingPeriodLimit,
+        remaining: Math.max(0, billingPeriodLimit - billingPeriodCount),
+      };
+    }
+
     return Object.keys(usage).length > 0 ? usage : undefined;
   } catch (error) {
     console.error('[GetLatestUsage] Failed to get usage info:', error);
@@ -488,7 +556,7 @@ export async function incrementUsage(
   idToken: string,
   resourceType: ResourceType,
   resourceId: string,
-  limitType: 'unlimited' | 'daily' | 'monthly',
+  limitType: 'unlimited' | 'daily' | 'monthly' | 'billing_period',
   count: number = 1
 ): Promise<void> {
   const featureId = buildFeatureId(resourceType, resourceId);

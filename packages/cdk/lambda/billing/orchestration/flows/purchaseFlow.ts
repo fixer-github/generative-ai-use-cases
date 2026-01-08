@@ -331,11 +331,27 @@ export const handler = async (
 
         const subscriptionData = previousStepResults.create_subscription as {
           subscriptionId: string;
+          currentPeriodStart?: string;
+          currentPeriodEnd?: string;
         };
 
         if (!subscriptionData?.subscriptionId) {
           throw new Error('Subscription ID not found in previous step result');
         }
+
+        // 期間情報を秒単位のUnixタイムスタンプに変換
+        const periodStart = subscriptionData.currentPeriodStart
+          ? Math.floor(new Date(subscriptionData.currentPeriodStart).getTime() / 1000)
+          : Math.floor(Date.now() / 1000);
+        const periodEnd = subscriptionData.currentPeriodEnd
+          ? Math.floor(new Date(subscriptionData.currentPeriodEnd).getTime() / 1000)
+          : undefined;
+
+        console.log('Period information for plan application', {
+          periodStart,
+          periodEnd,
+          subscriptionId: subscriptionData.subscriptionId,
+        });
 
         const result = await planClient.applyPlanToUser({
           tenantId,
@@ -344,11 +360,15 @@ export const handler = async (
           applicationSource: 'subscription',
           applicationSourceId: subscriptionData.subscriptionId,
           validFrom: new Date().toISOString(),
+          periodStart,
+          periodEnd,
         });
 
         console.log('Plan applied successfully', {
           applicationId: result.applicationId,
           applicationStatus: result.applicationStatus,
+          periodStart,
+          periodEnd,
         });
 
         return result;

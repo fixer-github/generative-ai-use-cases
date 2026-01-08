@@ -23,7 +23,7 @@ export interface PermissionGrantItem {
   features: Array<{
     // 付与された機能のリスト
     featureId: string;
-    limitType: 'unlimited' | 'daily' | 'monthly';
+    limitType: 'unlimited' | 'daily' | 'monthly' | 'billing_period'; // monthlyは廃止予定
     limitCount?: number;
   }>;
   status: 'active' | 'revoked'; // 状態
@@ -31,6 +31,8 @@ export interface PermissionGrantItem {
   sourceId: string; // 付与元のID（サブスクリプションID、キャンペーンIDなど）
   grantedAt: number; // 付与日時（Unixタイムスタンプ、秒単位）
   revokedAt?: number; // 剥奪日時（Unixタイムスタンプ、秒単位）
+  periodStart?: number; // 請求期間開始時刻（Unixタイムスタンプ、秒単位）billing_periodタイプの場合に必須
+  periodEnd?: number; // 請求期間終了時刻（Unixタイムスタンプ、秒単位）billing_periodタイプの場合に必須
 }
 
 /**
@@ -43,11 +45,13 @@ export interface GrantPermissionRequest {
   planId: string; // プランID（Entitlement IDの生成に使用）
   features: Array<{
     featureId: string; // 機能ID（例: "llm:gemini-2.5-flash"）
-    limitType: 'unlimited' | 'daily' | 'monthly';
+    limitType: 'unlimited' | 'daily' | 'monthly' | 'billing_period'; // monthlyは廃止予定
     limitCount?: number; // limitTypeが'unlimited'以外の場合に必須
   }>; // DynamoDBへの回数制限カウンター作成に使用
   sourceType: string; // 付与元のタイプ（例: "subscription", "trial", "campaign", "manual"）
   sourceId: string; // 付与元のID（サブスクリプションID、キャンペーンIDなど）
+  periodStart?: number; // 請求期間開始時刻（Unixタイムスタンプ、秒単位）billing_periodタイプの場合に必須
+  periodEnd?: number; // 請求期間終了時刻（Unixタイムスタンプ、秒単位）billing_periodタイプの場合に必須
 }
 
 /**
@@ -103,6 +107,11 @@ export interface CheckPermissionResponse {
       limit: number;
       remaining: number;
     };
+    billing_period?: {
+      current: number;
+      limit: number;
+      remaining: number;
+    };
   };
 }
 
@@ -140,7 +149,7 @@ export interface GetUsageStatusResponse {
       hasLimit: boolean;
       remaining?: number;
       limit?: number;
-      periodType?: 'daily' | 'monthly';
+      periodType?: 'daily' | 'monthly' | 'billing_period';
       usage?: {
         daily?: {
           current: number;
@@ -148,6 +157,11 @@ export interface GetUsageStatusResponse {
           remaining: number;
         };
         monthly?: {
+          current: number;
+          limit: number;
+          remaining: number;
+        };
+        billing_period?: {
           current: number;
           limit: number;
           remaining: number;

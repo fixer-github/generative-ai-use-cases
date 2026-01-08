@@ -515,26 +515,59 @@ async function handlePaymentSucceeded(
 
         const currentAppliedPlanId = currentApplication?.plan_id;
 
+        // 請求期間情報を取得（eventDataから抽出）
+        const stripeData = eventData as StripeEventData;
+        const currentPeriodStart =
+          input.periodStart ??
+          stripeData._extracted?.currentPeriodStart ??
+          stripeData.periodStart;
+        const currentPeriodEnd =
+          input.periodEnd ??
+          stripeData._extracted?.currentPeriodEnd ??
+          stripeData.periodEnd;
+
         console.log('Checking plan change on payment', {
           paidPriceId,
           paidPlanId,
           currentAppliedPlanId,
           internalSubscriptionId,
+          currentPeriodStart,
+          currentPeriodEnd,
         });
 
-        // 現在適用されているプランと支払い対象のプランが同じ場合はスキップ
+        // 同一プランの場合も期間更新のためにapplyPlanToUserを実行
+        // applyPlanToUser内部で同一プラン・同一ソースの場合は期間更新のみ行われる
         if (currentAppliedPlanId === paidPlanId) {
           console.log(
-            'Paid plan matches current applied plan, no action needed',
+            'Same plan detected - updating period via applyPlanToUser',
             {
               paidPlanId,
               currentAppliedPlanId,
+              currentPeriodStart,
+              currentPeriodEnd,
             }
           );
-          return {
-            skipped: true,
-            reason: 'same_plan',
-          };
+
+          // 期間更新のためにapplyPlanToUserを呼び出し
+          const result = await planClient.applyPlanToUser({
+            tenantId,
+            userId: subscriptionUserId,
+            planId: paidPlanId,
+            applicationSource: 'subscription',
+            applicationSourceId: internalSubscriptionId,
+            validFrom: new Date().toISOString(),
+            periodStart: currentPeriodStart,
+            periodEnd: currentPeriodEnd,
+          });
+
+          console.log('Period updated successfully on payment', {
+            applicationId: result.applicationId,
+            periodUpdatedOnly: result.periodUpdatedOnly,
+            currentPeriodStart,
+            currentPeriodEnd,
+          });
+
+          return result;
         }
 
         // プランが異なる場合（ダウングレードの場合）、プラン適用を実行
@@ -559,7 +592,7 @@ async function handlePaymentSucceeded(
           });
         }
 
-        // 新しいプランを適用
+        // 新しいプランを適用（期間情報付き）
         const result = await planClient.applyPlanToUser({
           tenantId,
           userId: subscriptionUserId,
@@ -567,6 +600,8 @@ async function handlePaymentSucceeded(
           applicationSource: 'subscription',
           applicationSourceId: internalSubscriptionId,
           validFrom: new Date().toISOString(),
+          periodStart: currentPeriodStart,
+          periodEnd: currentPeriodEnd,
         });
 
         console.log('New plan applied successfully on payment', {
@@ -574,6 +609,8 @@ async function handlePaymentSucceeded(
           applicationStatus: result.applicationStatus,
           previousPlanId: currentAppliedPlanId,
           newPlanId: paidPlanId,
+          currentPeriodStart,
+          currentPeriodEnd,
         });
 
         return result;
@@ -1670,6 +1707,8 @@ async function handleSubscriptionUpdated(
           applicationSource: 'subscription',
           applicationSourceId: subscription.subscription_id,
           validFrom: new Date().toISOString(),
+          periodStart: currentPeriodStart,
+          periodEnd: currentPeriodEnd,
         });
 
         console.log('New plan applied successfully', {
