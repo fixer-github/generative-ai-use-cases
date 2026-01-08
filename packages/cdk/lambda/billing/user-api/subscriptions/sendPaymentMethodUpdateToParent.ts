@@ -352,6 +352,36 @@ export const handler = async (
     'User API: Send Payment Method Update Link to Parent request received'
   );
 
+  // 必須環境変数のバリデーション
+  if (!SENDGRID_API_KEY) {
+    console.error('SENDGRID_API_KEY environment variable is not configured');
+    return internalServerError500Response({
+      message: 'メール送信の設定が正しく構成されていません',
+      code: 'CONFIGURATION_ERROR',
+      details: 'SENDGRID_API_KEY is missing',
+    });
+  }
+
+  if (!SENDGRID_FROM_EMAIL) {
+    console.error('SENDGRID_FROM_EMAIL environment variable is not configured');
+    return internalServerError500Response({
+      message: 'メール送信の設定が正しく構成されていません',
+      code: 'CONFIGURATION_ERROR',
+      details: 'SENDGRID_FROM_EMAIL is missing',
+    });
+  }
+
+  if (!FRONTEND_URL && ALLOWED_ORIGINS.length === 0) {
+    console.error(
+      'Neither FRONTEND_URL nor ALLOWED_ORIGINS environment variable is configured'
+    );
+    return internalServerError500Response({
+      message: 'フロントエンドURLの設定が正しく構成されていません',
+      code: 'CONFIGURATION_ERROR',
+      details: 'FRONTEND_URL or ALLOWED_ORIGINS is required',
+    });
+  }
+
   try {
     // 1. 認証情報からユーザID、テナントID、子供のメールを取得
     const userId = getUserIdFromCognitoEvent(event);
