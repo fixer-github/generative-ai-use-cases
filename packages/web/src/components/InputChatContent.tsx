@@ -17,7 +17,6 @@ import useFiles from '../hooks/useFiles';
 import FileCard from './FileCard';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
-import Switch from './Switch';
 
 type Props = {
   content: string;
@@ -239,14 +238,14 @@ const InputChatContent: React.FC<Props> = (props) => {
               />
             )}
             {props.showWebSearchSwitch && (
-              <div className="flex items-center gap-1 px-2">
-                <PiGlobe className="text-gray-500" />
-                <Switch
-                  checked={props.webSearchEnabled ?? false}
-                  onSwitch={props.onWebSearchToggle ?? (() => {})}
-                  label={t('chat.web_search')}
-                />
-              </div>
+              <button
+                className={`flex cursor-pointer items-center justify-center rounded-xl p-2 text-xl ${
+                  props.webSearchEnabled ? 'text-blue-500' : 'text-gray-600'
+                }`}
+                title={t('chat.web_search')}
+                onClick={() => props.onWebSearchToggle?.(!props.webSearchEnabled)}>
+                <PiGlobe />
+              </button>
             )}
           </div>
 
