@@ -11,6 +11,7 @@ import {
   CommonWebAcl,
   LitellmProxyServer,
   TenantManager,
+  SummaryGenerator,
 } from '../../construct';
 import { PptxDb } from '../../construct/pptx-db';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -71,7 +72,9 @@ export class GenerativeAiUseCasesStack extends Stack {
     const params = props.params;
 
     // Database
-    const database = new Database(this, 'Database');
+    const database = new Database(this, 'Database', {
+      summaryJobEnabled: params.summaryJobEnabled,
+    });
 
     // Tenant Management（Auth より先に作成：postConfirmHandler がテナント情報を参照するため）
     const tenantManager = new TenantManager(this, 'TenantManager', {
@@ -202,6 +205,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClient: auth.client,
       table: database.table,
       statsTable: database.statsTable,
+      userSummaryTable: database.userSummaryTable,
       assistantTable: database.assistantTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: props.agents,
@@ -213,6 +217,9 @@ export class GenerativeAiUseCasesStack extends Stack {
 
       // LangChain Credentials
       openai: params.openai,
+
+      // Summary feature (environment-specific)
+      summaryJobEnabled: params.summaryJobEnabled,
     });
 
     // WAF
@@ -385,6 +392,20 @@ export class GenerativeAiUseCasesStack extends Stack {
       description: 'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
       exportName: `${this.stackName}-BackgroundJobRoleArn`,
     });
+
+    // Summary Generator (Step Functions for batch summary generation)
+    if (params.summaryJobEnabled && database.userSummaryTable) {
+      new SummaryGenerator(this, 'SummaryGenerator', {
+        environment: params.env,
+        modelRegion: params.modelRegion,
+        chatHistoryTable: database.table,
+        userSummaryTable: database.userSummaryTable,
+        statsTable: database.statsTable,
+        tenantManager: tenantManager,
+        litellmEndpoint: litellmEndpoint,
+        summaryJobConfig: params.summaryJobConfig,
+      });
+    }
 
     // Web Frontend (must be after BillingManagementStack to use billingApi.url)
     // Only deploy if useWebUi is true

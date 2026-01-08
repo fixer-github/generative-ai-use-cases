@@ -102,6 +102,13 @@ export interface TenantStackInput {
   openSearchIndexName?: string;
   openFgaConfig: OpenFgaConfig;
   controlPlaneLambdaRoleArn?: string;
+  controlPlaneLambdaRoleArns?: string[];
+  /**
+   * Whether summary job feature is enabled for this tenant
+   * When false, UserSummary table is not created
+   * @default false
+   */
+  summaryJobEnabled?: boolean;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -132,6 +139,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
+      summaryJobEnabled: params.summaryJobEnabled,
     }
   );
 

@@ -6,6 +6,11 @@ import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration, Stack } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import {
+  TABLE_PREFIX,
+  STATS_TABLE_PREFIX,
+  USER_SUMMARY_TABLE_PREFIX,
+} from './const';
 
 export type PredictApiProps = GenericApiProps;
 
@@ -43,6 +48,8 @@ class PredictApi extends Construct {
       assumeRolePolicy,
       litellmProxy,
       environment,
+      summaryJobEnabled,
+      userSummaryTable,
     } = props;
 
     const predictFunction = new NodejsFunction(this, 'Predict', {
@@ -62,6 +69,15 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // User Summary table for summary context injection (only when enabled)
+        ...(summaryJobEnabled && userSummaryTable
+          ? {
+              USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+              DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
+              SUMMARY_JOB_ENABLED: 'true',
+            }
+          : {}),
 
         // Tenant Management Environment Variables
         ...(tenantManager
@@ -112,6 +128,15 @@ class PredictApi extends Construct {
         // Environment
         ENVIRONMENT: environment,
 
+        // User Summary table for summary context injection (only when enabled)
+        ...(summaryJobEnabled && userSummaryTable
+          ? {
+              USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+              DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
+              SUMMARY_JOB_ENABLED: 'true',
+            }
+          : {}),
+
         // Tenant Management Environment Variables
         ...(tenantManager
           ? {
@@ -133,6 +158,10 @@ class PredictApi extends Construct {
       },
     });
     fileBucket.grantReadWrite(predictStreamFunction);
+    if (userSummaryTable) {
+      userSummaryTable.grantReadData(predictStreamFunction);
+      userSummaryTable.grantReadData(predictFunction);
+    }
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
 
     const predictTitleFunction = new NodejsFunction(this, 'PredictTitle', {

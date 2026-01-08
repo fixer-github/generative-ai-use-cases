@@ -380,9 +380,16 @@ async function handleCreateMessage(
     console.log('Using system prompt without RAG context');
   }
 
-  const systemMessage = ragContext
-    ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
-    : assistant.instruction;
+  // Build system message: instruction + RAG context
+  let systemMessage = `<instructions>\n${assistant.instruction}\n</instructions>`;
+
+  if (ragContext) {
+    systemMessage += `\n\nRelevant context from documents:\n${ragContext}`;
+  }
+
+  if (body.customInstructions?.trim()) {
+    systemMessage += `\n<user_custom_instructions>\n${body.customInstructions}\n</user_custom_instructions>`;
+  }
 
   // Determine model type:
   // - If modelId exists in modelMetadata → bedrock

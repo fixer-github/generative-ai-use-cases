@@ -2,7 +2,12 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getTenantId } from '../utils/tenantUtils';
-import { createTenantDynamoDBClient } from '../utils/tenantDynamoDBClient';
+import {
+  createTenantDynamoDBClient,
+  createTenantDynamoDBClientForBackgroundJob,
+} from '../utils/tenantDynamoDBClient';
+// Re-export for use by other repository modules
+export { createTenantDynamoDBClientForBackgroundJob };
 import {
   TooManyRequestsError,
   ServiceUnavailableError,
@@ -18,6 +23,10 @@ const ASSISTANT_TABLE_PREFIX: string =
   process.env.ASSISTANT_TABLE_NAME || 'Assistant';
 const DEFAULT_ASSISTANT_TABLE_NAME: string =
   process.env.DEFAULT_ASSISTANT_TABLE_NAME || '';
+const USER_SUMMARY_TABLE_PREFIX: string =
+  process.env.USER_SUMMARY_TABLE_NAME || 'UserSummary';
+const DEFAULT_USER_SUMMARY_TABLE_NAME: string =
+  process.env.DEFAULT_USER_SUMMARY_TABLE_NAME || '';
 
 /**
  * Get or create a tenant-specific DynamoDB document client
@@ -104,6 +113,19 @@ export function getAssistantTableName(event: APIGatewayProxyEvent): string {
 }
 
 /**
+ * Get tenant-specific user summary table name
+ */
+export function getUserSummaryTableName(event: APIGatewayProxyEvent): string {
+  const tenantId = getTenantId(event);
+
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_USER_SUMMARY_TABLE_NAME;
+  }
+
+  return `${USER_SUMMARY_TABLE_PREFIX}-${ENVIRONMENT}-tenant-${tenantId}`;
+}
+
+/**
  * Execute DynamoDB operation with proper tenant table selection
  */
 export async function executeDynamoDBOperation<T>(
@@ -114,4 +136,39 @@ export async function executeDynamoDBOperation<T>(
   const tableName = getTableName(event);
 
   return await operation(dynamoDbDocument, tableName);
+}
+
+/**
+ * Execute DynamoDB operation for batch/background jobs (no JWT required)
+ * Uses STS AssumeRole for tenant access instead of AssumeRoleWithWebIdentity
+ */
+export async function executeDynamoDBOperationForBatch<T>(
+  tenantId: string,
+  operation: (client: DynamoDBDocumentClient, tableName: string) => Promise<T>
+): Promise<T> {
+  const dynamoDb = await createTenantDynamoDBClientForBackgroundJob(tenantId);
+  const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
+  const tableName = getTableNameForBatch(tenantId);
+
+  return await operation(dynamoDbDocument, tableName);
+}
+
+/**
+ * Get table name for batch operations (without APIGatewayProxyEvent)
+ */
+export function getTableNameForBatch(tenantId: string): string {
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_TABLE_NAME;
+  }
+  return `${TABLE_PREFIX}-${ENVIRONMENT}-tenant-${tenantId}`;
+}
+
+/**
+ * Get user summary table name for batch operations
+ */
+export function getUserSummaryTableNameForBatch(tenantId: string): string {
+  if (!tenantId || tenantId === 'default') {
+    return DEFAULT_USER_SUMMARY_TABLE_NAME;
+  }
+  return `${USER_SUMMARY_TABLE_PREFIX}-${ENVIRONMENT}-tenant-${tenantId}`;
 }

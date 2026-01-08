@@ -44,12 +44,71 @@ describe('TenantDynamoDB Tests', () => {
         BillingMode: 'PAY_PER_REQUEST',
       });
 
-      // Check that all three tables are created
+      // Check that all four tables are created (ChatHistory, TokenUsageStats, UseCaseBuilder, Assistant)
+      // UserSummary table is not created when summaryJobEnabled is false (default)
       const resources = template.toJSON().Resources;
       const tables = Object.values(resources).filter(
         (r: any) => r.Type === 'AWS::DynamoDB::Table'
       );
-      expect(tables.length).toBe(3);
+      expect(tables.length).toBe(4);
+    });
+
+    test('Should create UserSummary table when summaryJobEnabled is true', () => {
+      // Arrange
+      const tenantId = 'test-tenant-summary';
+
+      // Act
+      new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
+        tenantId,
+        environment: 'dev',
+        summaryJobEnabled: true,
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+
+      // Check UserSummary table is created
+      template.hasResourceProperties('AWS::DynamoDB::Table', {
+        TableName: 'UserSummary-dev-tenant-test-tenant-summary',
+        BillingMode: 'PAY_PER_REQUEST',
+      });
+
+      // Check that all five tables are created
+      const resources = template.toJSON().Resources;
+      const tables = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::DynamoDB::Table'
+      );
+      expect(tables.length).toBe(5);
+    });
+
+    test('Should NOT create UserSummary table when summaryJobEnabled is false', () => {
+      // Arrange
+      const tenantId = 'test-tenant-no-summary';
+
+      // Act
+      new TenantDynamoDB(stack, 'TestTenantDynamoDB', {
+        tenantId,
+        environment: 'dev',
+        summaryJobEnabled: false,
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      const resources = template.toJSON().Resources;
+
+      // Check UserSummary table is NOT created
+      const userSummaryTable = Object.values(resources).find(
+        (r: any) =>
+          r.Type === 'AWS::DynamoDB::Table' &&
+          r.Properties.TableName?.includes('UserSummary')
+      );
+      expect(userSummaryTable).toBeUndefined();
+
+      // Check that only four tables are created
+      const tables = Object.values(resources).filter(
+        (r: any) => r.Type === 'AWS::DynamoDB::Table'
+      );
+      expect(tables.length).toBe(4);
     });
 
     test('Should sanitize tenant ID for resource names', () => {

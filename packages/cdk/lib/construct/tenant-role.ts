@@ -22,8 +22,9 @@ export interface TenantRoleProps {
   readonly account: string;
   readonly env: string;
   /**
-   * Optional: ARN of the control plane Lambda execution role
+   * Optional: ARN of the control plane Lambda execution role (single)
    * Required for cross-account background job access
+   * @deprecated Use controlPlaneLambdaRoleArns instead for multiple roles
    */
   readonly controlPlaneLambdaRoleArn?: string;
   /**
@@ -34,6 +35,11 @@ export interface TenantRoleProps {
    * functions (billing, orchestration, etc.) need to access tenant resources.
    */
   readonly controlPlaneAccountId?: string;
+  /**
+   * Optional: ARNs of control plane Lambda execution roles (array)
+   * Required for cross-account background job access (e.g., PPTX, Summary generation)
+   */
+  readonly controlPlaneLambdaRoleArns?: string[];
 }
 
 /**
@@ -68,11 +74,18 @@ export class TenantRole extends Construct {
     // Build cross-account trust principals
     const crossAccountPrincipals: (ArnPrincipal | AccountPrincipal)[] = [];
 
-    // Add specific Lambda role ARN if provided
+    // Add specific Lambda role ARN if provided (single, deprecated)
     if (props.controlPlaneLambdaRoleArn) {
       crossAccountPrincipals.push(
         new ArnPrincipal(props.controlPlaneLambdaRoleArn)
       );
+    }
+
+    // Add all Lambda role ARNs from the array if provided
+    if (props.controlPlaneLambdaRoleArns) {
+      for (const arn of props.controlPlaneLambdaRoleArns) {
+        crossAccountPrincipals.push(new ArnPrincipal(arn));
+      }
     }
 
     // Add control plane account trust if provided

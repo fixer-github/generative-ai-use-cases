@@ -46,8 +46,15 @@ export interface TenantOpenFgaStackProps extends cdk.StackProps {
 
   /**
    * Control plane Lambda role ARN for cross-account access
+   * @deprecated Use controlPlaneLambdaRoleArns instead for multiple roles
    */
   readonly controlPlaneLambdaRoleArn?: string;
+
+  /**
+   * Control plane Lambda role ARNs for cross-account access (array)
+   * Required for cross-account background job access (e.g., PPTX, Summary generation)
+   */
+  readonly controlPlaneLambdaRoleArns?: string[];
 
   /**
    * Tenant role ARN for authorization checks
@@ -681,11 +688,17 @@ export class TenantOpenFgaStack extends cdk.Stack {
       new iam.ArnPrincipal(props.tenantRoleArn),
     ];
 
-    // Add control plane Lambda role if provided (for cross-account scenarios)
+    // Add control plane Lambda roles for cross-account scenarios
+    // Support both deprecated single ARN and new array pattern
     if (props.controlPlaneLambdaRoleArn) {
       allowedPrincipals.push(
         new iam.ArnPrincipal(props.controlPlaneLambdaRoleArn)
       );
+    }
+    if (props.controlPlaneLambdaRoleArns) {
+      for (const arn of props.controlPlaneLambdaRoleArns) {
+        allowedPrincipals.push(new iam.ArnPrincipal(arn));
+      }
     }
 
     api.addToResourcePolicy(

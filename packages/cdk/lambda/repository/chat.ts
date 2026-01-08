@@ -22,6 +22,8 @@ import {
   getTenantDynamoDBDocument,
   getTableName,
   executeDynamoDBOperation,
+  executeDynamoDBOperationForBatch,
+  getTableNameForBatch,
 } from './common';
 import { listMessages, deleteMessagesForChat } from './message';
 
@@ -430,4 +432,114 @@ export const deleteAllMessagesForAssistant = async (
     // chat.chatId already has the 'chat#' prefix from the database
     await deleteAssistantMessagesForChat(chat.chatId, event);
   }
+};
+
+/**
+ * List chats for batch processing (no JWT required)
+ * Uses STS AssumeRole for tenant access
+ */
+export const listChatsForBatch = async (
+  _userId: string,
+  tenantId: string,
+  _exclusiveStartKey?: string
+): Promise<ListChatsResponse> => {
+  return await executeDynamoDBOperationForBatch(
+    tenantId,
+    async (dynamoDbDocument, tableName) => {
+      const exclusiveStartKey = _exclusiveStartKey
+        ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
+        : undefined;
+      const userId = `user#${_userId}`;
+
+      const res = await dynamoDbDocument.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: '#id = :id',
+          ExpressionAttributeNames: {
+            '#id': 'id',
+          },
+          ExpressionAttributeValues: {
+            ':id': userId,
+          },
+          ScanIndexForward: false,
+          Limit: 100,
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+
+      return {
+        data: res.Items as Chat[],
+        lastEvaluatedKey: res.LastEvaluatedKey
+          ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+          : undefined,
+      };
+    }
+  );
+};
+
+/**
+ * Discover users who had conversations on a specific date (batch mode - no JWT)
+ * Scans message records (id starts with 'chat#') and extracts unique userIds
+ * Uses createdDate range since message records have createdDate in format 'timestamp#suffix'
+ * @param date Date in YYYY-MM-DD format
+ * @param tenantId Tenant ID
+ * @returns Array of unique user IDs (without 'user#' prefix)
+ */
+export const discoverUsersWithConversationsOnDate = async (
+  date: string,
+  tenantId: string
+): Promise<string[]> => {
+  // Calculate timestamp range for the date (JST timezone)
+  // Use exclusive end to handle createdDate format 'timestamp#suffix'
+  const startOfDay = new Date(`${date}T00:00:00+09:00`).getTime();
+  const startOfNextDay = new Date(`${date}T00:00:00+09:00`);
+  startOfNextDay.setDate(startOfNextDay.getDate() + 1);
+  const endExclusive = startOfNextDay.getTime();
+
+  const userIds = new Set<string>();
+
+  return await executeDynamoDBOperationForBatch(
+    tenantId,
+    async (dynamoDbDocument, tableName) => {
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+      do {
+        const res: ScanCommandOutput = await dynamoDbDocument.send(
+          new ScanCommand({
+            TableName: tableName,
+            FilterExpression:
+              'begins_with(#id, :chatPrefix) AND #createdDate >= :start AND #createdDate < :endExclusive',
+            ExpressionAttributeNames: {
+              '#id': 'id',
+              '#createdDate': 'createdDate',
+            },
+            ExpressionAttributeValues: {
+              ':chatPrefix': 'chat#',
+              ':start': `${startOfDay}`,
+              ':endExclusive': `${endExclusive}`,
+            },
+            ProjectionExpression: 'userId',
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        if (res.Items) {
+          for (const item of res.Items) {
+            if (item.userId) {
+              // Handle both 'user#xxx' and 'xxx' formats
+              const rawUserId = item.userId as string;
+              const userId = rawUserId.replace(/^user#/, '');
+              if (userId) {
+                userIds.add(userId);
+              }
+            }
+          }
+        }
+
+        lastEvaluatedKey = res.LastEvaluatedKey;
+      } while (lastEvaluatedKey);
+
+      return Array.from(userIds);
+    }
+  );
 };
