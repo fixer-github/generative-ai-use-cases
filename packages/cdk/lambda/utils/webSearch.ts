@@ -1,7 +1,4 @@
-import {
-  BraveSearchResult,
-  TavilySearchResult,
-} from 'generative-ai-use-cases';
+import { BraveSearchResult, TavilySearchResult } from 'generative-ai-use-cases';
 
 export type SearchResult = {
   title: string;
@@ -34,20 +31,31 @@ export const searchUsingBrave = async (
   });
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => 'Unable to read error body');
-    console.error(`Brave Search API error: ${response.status} ${response.statusText}`, {
-      statusCode: response.status,
-      errorBody,
-      keyword,
-    });
+    const errorBody = await response
+      .text()
+      .catch(() => 'Unable to read error body');
+    console.error(
+      `Brave Search API error: ${response.status} ${response.statusText}`,
+      {
+        statusCode: response.status,
+        errorBody,
+        keyword,
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Search API authentication failed. Please check your API key.');
+      throw new Error(
+        'Search API authentication failed. Please check your API key.'
+      );
     }
     if (response.status === 429) {
-      throw new Error('Search API rate limit exceeded. Please try again later.');
+      throw new Error(
+        'Search API rate limit exceeded. Please try again later.'
+      );
     }
-    throw new Error(`Search API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Search API error: ${response.status} ${response.statusText}`
+    );
   }
 
   const data = await response.json();
@@ -105,20 +113,31 @@ export const searchUsingTavily = async (
   });
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => 'Unable to read error body');
-    console.error(`Tavily Search API error: ${response.status} ${response.statusText}`, {
-      statusCode: response.status,
-      errorBody,
-      keyword,
-    });
+    const errorBody = await response
+      .text()
+      .catch(() => 'Unable to read error body');
+    console.error(
+      `Tavily Search API error: ${response.status} ${response.statusText}`,
+      {
+        statusCode: response.status,
+        errorBody,
+        keyword,
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Search API authentication failed. Please check your API key.');
+      throw new Error(
+        'Search API authentication failed. Please check your API key.'
+      );
     }
     if (response.status === 429) {
-      throw new Error('Search API rate limit exceeded. Please try again later.');
+      throw new Error(
+        'Search API rate limit exceeded. Please try again later.'
+      );
     }
-    throw new Error(`Search API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Search API error: ${response.status} ${response.statusText}`
+    );
   }
 
   const data = await response.json();

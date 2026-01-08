@@ -34,7 +34,10 @@ import { search } from './webSearch';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
 const SEARCH_API_KEY = process.env.SEARCH_API_KEY;
-const SEARCH_ENGINE = process.env.SEARCH_ENGINE as 'Brave' | 'Tavily' | undefined;
+const SEARCH_ENGINE = process.env.SEARCH_ENGINE as
+  | 'Brave'
+  | 'Tavily'
+  | undefined;
 
 // Web検索ツールの定義
 const WEB_SEARCH_TOOL_CONFIG: ToolConfiguration = {
@@ -150,7 +153,13 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
 
     return extractConverseOutput(model, output).text;
   },
-  invokeStream: async function* (model, messages, id, _idToken, webSearchEnabled) {
+  invokeStream: async function* (
+    model,
+    messages,
+    id,
+    _idToken,
+    webSearchEnabled
+  ) {
     const region = model.region || MODEL_REGION;
     const client = await initBedrockRuntimeClient({ region });
 
@@ -163,7 +172,11 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
       const conversationHistory: Message[] = [];
 
       // 初期メッセージを設定
-      const initialInput = createConverseStreamCommandInput(model, messages, id);
+      const initialInput = createConverseStreamCommandInput(
+        model,
+        messages,
+        id
+      );
       if (initialInput.messages) {
         conversationHistory.push(...(initialInput.messages as Message[]));
       }
@@ -298,7 +311,12 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
           if (response.messageStop) {
             const stopReason = response.messageStop.stopReason;
 
-            if (stopReason === 'tool_use' && toolUseId && toolName === 'web_search' && useWebSearch) {
+            if (
+              stopReason === 'tool_use' &&
+              toolUseId &&
+              toolName === 'web_search' &&
+              useWebSearch
+            ) {
               // 検索を実行
               try {
                 const toolInput = JSON.parse(toolInputJson);
@@ -327,11 +345,16 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
                 // 検索結果を通常のテキストメッセージとして会話履歴に追加
                 // toolUse/toolResultを使わないことで、次のイテレーションでtoolConfigが不要になる
                 const searchResultText = searchResults
-                  .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}`)
+                  .map(
+                    (r, i) =>
+                      `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}`
+                  )
                   .join('\n\n');
 
                 // アシスタントメッセージを追加（テキスト部分のみ、toolUseは含めない）
-                const textOnlyBlocks = assistantContentBlocks.filter(block => 'text' in block);
+                const textOnlyBlocks = assistantContentBlocks.filter(
+                  (block) => 'text' in block
+                );
                 if (textOnlyBlocks.length > 0) {
                   conversationHistory.push({
                     role: 'assistant',
@@ -364,14 +387,17 @@ const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
                   text: '',
                   webSearch: {
                     status: 'error',
-                    error: error instanceof Error ? error.message : 'Unknown error',
+                    error:
+                      error instanceof Error ? error.message : 'Unknown error',
                   },
                 });
 
                 // エラー時は通常のメッセージとして会話履歴に追加
                 conversationHistory.push({
                   role: 'assistant',
-                  content: [{ text: '検索を試みましたが、エラーが発生しました。' }],
+                  content: [
+                    { text: '検索を試みましたが、エラーが発生しました。' },
+                  ],
                 });
                 conversationHistory.push({
                   role: 'user',

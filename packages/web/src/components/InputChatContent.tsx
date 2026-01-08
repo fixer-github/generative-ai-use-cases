@@ -243,7 +243,9 @@ const InputChatContent: React.FC<Props> = (props) => {
                   props.webSearchEnabled ? 'text-blue-500' : 'text-gray-600'
                 }`}
                 title={t('chat.web_search')}
-                onClick={() => props.onWebSearchToggle?.(!props.webSearchEnabled)}>
+                onClick={() =>
+                  props.onWebSearchToggle?.(!props.webSearchEnabled)
+                }>
                 <PiGlobe />
               </button>
             )}

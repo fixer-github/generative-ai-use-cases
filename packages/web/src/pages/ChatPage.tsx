@@ -196,7 +196,12 @@ ${baseContext}
 
   // チャット復元時にWeb検索状態を復元（一度だけ）
   useEffect(() => {
-    if (chatId && !loadingMessages && messages.length > 0 && !hasRestoredWebSearch) {
+    if (
+      chatId &&
+      !loadingMessages &&
+      messages.length > 0 &&
+      !hasRestoredWebSearch
+    ) {
       const lastAssistantMessage = [...messages]
         .reverse()
         .find((m) => m.role === 'assistant');
@@ -313,7 +318,13 @@ ${baseContext}
         webSearchEnabled
       );
     },
-    [editChat, base64Cache, setFollowing, overrideModelParameters, webSearchEnabled]
+    [
+      editChat,
+      base64Cache,
+      setFollowing,
+      overrideModelParameters,
+      webSearchEnabled,
+    ]
   );
 
   const [creatingShareId, setCreatingShareId] = useState(false);
