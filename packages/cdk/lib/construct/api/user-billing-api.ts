@@ -1389,6 +1389,14 @@ class UserBillingApi extends Construct {
     // API Gatewayエンドポイント
     const userResource = apiResource.addResource('user');
     const profileResource = userResource.addResource('profile');
+
+    // CORS プリフライトリクエスト（OPTIONS）を明示的に追加
+    profileResource.addCorsPreflight({
+      allowOrigins: ['*'],
+      allowMethods: ['PUT', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization'],
+    });
+
     profileResource.addMethod(
       'PUT',
       new LambdaIntegration(this.updateUserProfileFunction),
