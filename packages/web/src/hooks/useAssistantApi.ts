@@ -62,7 +62,7 @@ const useAssistantApi = () => {
         if (pageIndex === 0) return `assistant?limit=${limit}`;
         return `assistant?limit=${limit}&nextToken=${previousPageData.nextToken}`;
       };
-       
+
       return http.getPagination<ListAssistantsResponse>(getKey, {
         revalidateIfStale: false,
       });
