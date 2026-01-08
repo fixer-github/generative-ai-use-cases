@@ -107,6 +107,7 @@ const ChatPage: React.FC = () => {
   >(undefined);
   const [showSetting, setShowSetting] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [hasRestoredWebSearch, setHasRestoredWebSearch] = useState(false);
   const { t } = useTranslation();
   const { settings } = useSettings();
 
@@ -184,6 +185,26 @@ ${baseContext}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, setContent, availableModels, pathname, chatId]);
+
+  // chatIdが変わったらWeb検索復元フラグをリセット
+  useEffect(() => {
+    setHasRestoredWebSearch(false);
+    if (!chatId) {
+      setWebSearchEnabled(false);
+    }
+  }, [chatId]);
+
+  // チャット復元時にWeb検索状態を復元（一度だけ）
+  useEffect(() => {
+    if (chatId && !loadingMessages && messages.length > 0 && !hasRestoredWebSearch) {
+      const lastAssistantMessage = [...messages]
+        .reverse()
+        .find((m) => m.role === 'assistant');
+
+      setWebSearchEnabled(!!lastAssistantMessage?.webSearch);
+      setHasRestoredWebSearch(true);
+    }
+  }, [chatId, loadingMessages, messages, hasRestoredWebSearch]);
 
   const onSend = useCallback(async () => {
     setFollowing(true);
