@@ -48,6 +48,7 @@ export interface SummaryGeneratorProps {
 export class SummaryGenerator extends Construct {
   public readonly dailySummaryFunction: NodejsFunction;
   public readonly userSummaryFunction: NodejsFunction;
+  public readonly tenantDiscoveryFunction: NodejsFunction;
   public readonly stateMachine: stepfunctions.StateMachine;
 
   constructor(scope: Construct, id: string, props: SummaryGeneratorProps) {
@@ -119,6 +120,27 @@ export class SummaryGenerator extends Construct {
       tenantManager.tenantsTable.grantReadData(this.userSummaryFunction);
     }
 
+    // Tenant Discovery Lambda (for multi-tenant fan-out)
+    this.tenantDiscoveryFunction = new NodejsFunction(
+      this,
+      'TenantDiscovery',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/summary/summaryTenantDiscovery.ts',
+        handler: 'handler',
+        timeout: Duration.minutes(5),
+        memorySize: 256,
+        environment: {
+          ENVIRONMENT: environment,
+          DEFAULT_TENANT_ID: DEFAULT_TENANT_ID,
+          ...(tenantManager
+            ? { TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName }
+            : {}),
+          // STATE_MACHINE_ARN will be set after state machine is created
+        },
+      }
+    );
+
     // Grant Bedrock access
     const bedrockPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -128,6 +150,11 @@ export class SummaryGenerator extends Construct {
 
     this.dailySummaryFunction.addToRolePolicy(bedrockPolicy);
     this.userSummaryFunction.addToRolePolicy(bedrockPolicy);
+
+    // Grant tenant discovery Lambda access to tenants table
+    if (tenantManager) {
+      tenantManager.tenantsTable.grantReadData(this.tenantDiscoveryFunction);
+    }
 
     // Grant STS AssumeRole for tenant cross-account access (batch mode)
     const stsAssumeRolePolicy = new iam.PolicyStatement({
@@ -197,7 +224,17 @@ export class SummaryGenerator extends Construct {
       }
     );
 
+    // Add state machine ARN to tenant discovery Lambda environment
+    this.tenantDiscoveryFunction.addEnvironment(
+      'STATE_MACHINE_ARN',
+      this.stateMachine.stateMachineArn
+    );
+
+    // Grant tenant discovery Lambda permission to start Step Functions executions
+    this.stateMachine.grantStartExecution(this.tenantDiscoveryFunction);
+
     // EventBridge Rule for scheduled execution
+    // Triggers tenant discovery Lambda which fans out to all tenants
     const { dailySummarySchedule } = summaryJobConfig;
 
     new events.Rule(this, 'SummaryScheduleRule', {
@@ -207,15 +244,7 @@ export class SummaryGenerator extends Construct {
         month: dailySummarySchedule.month,
         weekDay: dailySummarySchedule.weekDay,
       }),
-      targets: [
-        new targets.SfnStateMachine(this.stateMachine, {
-          input: events.RuleTargetInput.fromObject({
-            tenantId: 'default', // Will be overridden per tenant
-            date: events.EventField.time, // Current time for date calculation
-            users: [], // Will be populated by the Lambda
-          }),
-        }),
-      ],
+      targets: [new targets.LambdaFunction(this.tenantDiscoveryFunction)],
     });
 
     // Outputs
@@ -232,6 +261,11 @@ export class SummaryGenerator extends Construct {
     new cdk.CfnOutput(this, 'UserSummaryFunctionArn', {
       value: this.userSummaryFunction.functionArn,
       description: 'ARN of the user summary Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'TenantDiscoveryFunctionArn', {
+      value: this.tenantDiscoveryFunction.functionArn,
+      description: 'ARN of the tenant discovery Lambda function',
     });
 
     // Export Lambda role ARN for cross-account tenant trust
