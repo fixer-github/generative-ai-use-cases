@@ -180,6 +180,11 @@ export class SubscriptionRepository extends BaseRepository {
       params.push(updates.plan_id);
     }
 
+    if (updates.platform_subscription_id !== undefined) {
+      fields.push(`platform_subscription_id = $${paramIndex++}`);
+      params.push(updates.platform_subscription_id);
+    }
+
     if (fields.length === 0) {
       return this.findById(subscriptionId);
     }

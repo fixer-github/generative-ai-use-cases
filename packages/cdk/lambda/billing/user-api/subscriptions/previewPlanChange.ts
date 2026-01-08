@@ -344,6 +344,82 @@ export const handler = async (
       ? stripeSubscription.customer
       : stripeSubscription.customer.id;
 
+    // 残り日数を計算（subscription objectから期間終了日を取得）
+    const subscriptionData = stripeSubscription as unknown as {
+      current_period_end: number;
+      items: { data: Array<{ current_period_end?: number }> };
+    };
+    const currentPeriodEnd = subscriptionData.items.data[0]?.current_period_end
+      ?? subscriptionData.current_period_end;
+    const periodEnd = new Date(currentPeriodEnd * 1000);
+    const daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Stripeサブスクリプションの状態をログ出力（デバッグ用）
+    console.log('Stripe subscription state:', {
+      subscriptionId: subscription.subscription_id,
+      platformSubscriptionId: subscription.platform_subscription_id,
+      stripeStatus: stripeSubscription.status,
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+    });
+
+    // サブスクリプションが完全にキャンセル済みの場合はエラー
+    // （完全キャンセル済みの場合は新規サブスクリプション作成が必要）
+    if (stripeSubscription.status === 'canceled') {
+      return badRequest400Response({
+        message: 'サブスクリプションは既にキャンセル済みです。新規でサブスクリプションを作成してください。',
+        code: 'SUBSCRIPTION_CANCELED',
+      });
+    }
+
+    // キャンセル予定のサブスクリプションの場合、まずStripeで解約予定を解除する
+    // （ユーザーがプラン変更を検討している＝継続する意思がある）
+    // これにより、invoices.createPreviewが正常に動作するようになる
+    if (stripeSubscription.cancel_at_period_end) {
+      console.log('Subscription is scheduled for cancellation, reactivating on Stripe before preview', {
+        subscriptionId: subscription.subscription_id,
+        platformSubscriptionId: subscription.platform_subscription_id,
+      });
+
+      // Stripeで解約予定を解除
+      await stripe.subscriptions.update(subscription.platform_subscription_id, {
+        cancel_at_period_end: false,
+      });
+
+      // 内部DBも同期更新（Stripeと整合性を保つ）
+      await invokeDataAccessFunction(
+        event,
+        'subscription',
+        'update',
+        {
+          subscriptionId: subscription.subscription_id,
+          updates: {
+            subscription_status: 'active',
+            cancel_at_period_end: false,
+          },
+        }
+      );
+
+      // プラン適用のステータスも更新（scheduled_termination → active）
+      if (highestPriorityApplication.application_status === 'scheduled_termination') {
+        await invokeDataAccessFunction(
+          event,
+          'user-plan-application',
+          'update',
+          {
+            applicationId: highestPriorityApplication.application_id,
+            updates: {
+              application_status: 'active',
+            },
+          }
+        );
+      }
+
+      console.log('Subscription reactivated on Stripe and internal DB', {
+        subscriptionId: subscription.subscription_id,
+        platformSubscriptionId: subscription.platform_subscription_id,
+      });
+    }
+
     // Stripeで次回インボイスをプレビュー
     const upcomingInvoice = await stripe.invoices.createPreview({
       customer: customerId,
@@ -369,16 +445,6 @@ export const handler = async (
           line.description?.toLowerCase().includes('remaining');
       })
       .reduce((sum: number, line: Stripe.InvoiceLineItem) => sum + line.amount, 0);
-
-    // 残り日数を計算（subscription objectから期間終了日を取得）
-    const subscriptionData = stripeSubscription as unknown as {
-      current_period_end: number;
-      items: { data: Array<{ current_period_end?: number }> };
-    };
-    const currentPeriodEnd = subscriptionData.items.data[0]?.current_period_end
-      ?? subscriptionData.current_period_end;
-    const periodEnd = new Date(currentPeriodEnd * 1000);
-    const daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     // アップグレードかダウングレードかを判定
     const currentAmount = currentPrice.unit_amount || 0;
@@ -419,7 +485,7 @@ export const handler = async (
       },
       proration: {
         amount: prorationAmount,
-        currency: upcomingInvoice.currency || 'jpy',
+        currency: newPrice.currency || 'jpy',
         daysRemaining,
         periodEnd: periodEnd.toISOString(),
       },

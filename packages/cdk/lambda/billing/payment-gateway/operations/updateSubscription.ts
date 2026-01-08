@@ -230,6 +230,8 @@ async function updateStripeSubscription(
       // アップグレードの場合は即座に変更し、日割り請求
       // ダウングレードの場合は次回更新時に変更
       proration_behavior: isUpgrade ? 'always_invoice' : 'none',
+      // プラン変更時は解約予定をキャンセル（ユーザーが継続を選択したことを意味する）
+      cancel_at_period_end: false,
     }
   );
 

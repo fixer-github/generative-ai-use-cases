@@ -129,6 +129,7 @@ export const handler = async (
 
     // ステータスを更新（データアクセス層Lambda関数を呼び出し）
     // scheduled_cancellation への遷移時は cancel_at_period_end も true に設定
+    // active への遷移時は cancel_at_period_end を false にリセット
     const updates: Partial<Subscription> = {
       subscription_status:
         input.newStatus as Subscription['subscription_status'],
@@ -136,6 +137,9 @@ export const handler = async (
 
     if (input.newStatus === 'scheduled_cancellation') {
       updates.cancel_at_period_end = true;
+    } else if (input.newStatus === 'active') {
+      // activeに戻る場合は解約予定フラグをリセット
+      updates.cancel_at_period_end = false;
     }
 
     const updatedSubscription =

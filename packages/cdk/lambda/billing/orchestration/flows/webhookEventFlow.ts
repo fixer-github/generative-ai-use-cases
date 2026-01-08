@@ -911,6 +911,7 @@ async function handleSubscriptionCanceled(
         const subscription = await invokeDataAccessFunctionByTenantId<{
           subscription_id: string;
           user_id: string;
+          platform_subscription_id: string;
         } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
           platformSubscriptionId,
         });
@@ -943,6 +944,44 @@ async function handleSubscriptionCanceled(
           return {
             skipped: true,
             reason: 'no_internal_subscription_found_and_no_user_id',
+          };
+        }
+
+        // Race condition guard: 更新前にサブスクリプションを再取得して
+        // platform_subscription_idが変更されていないか確認
+        // （プラン変更フローで新しいサブスクリプションIDに切り替わっている可能性がある）
+        const currentSubscription = await invokeDataAccessFunctionByTenantId<{
+          subscription_id: string;
+          platform_subscription_id: string;
+        } | null>(tenantId, 'subscription', 'findById', {
+          subscriptionId: subscription.subscription_id,
+        });
+
+        if (
+          currentSubscription &&
+          currentSubscription.platform_subscription_id !== platformSubscriptionId
+        ) {
+          console.log(
+            'Skipping cancellation: subscription platform_subscription_id has changed (likely plan change)',
+            {
+              subscriptionId: subscription.subscription_id,
+              originalPlatformSubscriptionId: platformSubscriptionId,
+              currentPlatformSubscriptionId:
+                currentSubscription.platform_subscription_id,
+            }
+          );
+          // サブスクリプションが別のプラットフォームIDに切り替わっている場合は
+          // キャンセル処理をスキップ（プラン変更で新しいサブスクリプションが作成された）
+          previousStepResults['subscription_info'] = {
+            internalSubscriptionId: subscription.subscription_id,
+            userId: subscription.user_id,
+            skippedDueToPlanChange: true,
+          };
+          return {
+            skipped: true,
+            reason: 'platform_subscription_id_changed',
+            subscriptionId: subscription.subscription_id,
+            userId: subscription.user_id,
           };
         }
 
@@ -993,6 +1032,7 @@ async function handleSubscriptionCanceled(
           | {
               internalSubscriptionId: string | undefined;
               userId: string;
+              skippedDueToPlanChange?: boolean;
             }
           | undefined;
 
@@ -1003,6 +1043,18 @@ async function handleSubscriptionCanceled(
           return {
             skipped: true,
             reason: 'no_subscription_info',
+          };
+        }
+
+        // プラン変更によりキャンセルがスキップされた場合は、プラン終了もスキップ
+        // （プラン変更フローで新しいプランが適用される）
+        if (subscriptionInfo.skippedDueToPlanChange) {
+          console.log(
+            'Skipping plan termination (cancellation was skipped due to plan change)'
+          );
+          return {
+            skipped: true,
+            reason: 'skipped_due_to_plan_change',
           };
         }
 
@@ -1078,6 +1130,7 @@ async function handleSubscriptionCanceled(
           | {
               internalSubscriptionId: string | undefined;
               userId: string;
+              skippedDueToPlanChange?: boolean;
             }
           | undefined;
 
@@ -1088,6 +1141,18 @@ async function handleSubscriptionCanceled(
           return {
             skipped: true,
             reason: 'no_subscription_info_or_user_id',
+          };
+        }
+
+        // プラン変更によりキャンセルがスキップされた場合は、デフォルトプラン適用もスキップ
+        // （プラン変更フローで新しいプランが適用される）
+        if (subscriptionInfo.skippedDueToPlanChange) {
+          console.log(
+            'Skipping default plan application (cancellation was skipped due to plan change)'
+          );
+          return {
+            skipped: true,
+            reason: 'skipped_due_to_plan_change',
           };
         }
 
@@ -3004,6 +3069,8 @@ async function handlePlanChangeCompleted(
     },
 
     // ステップ2: 内部DBサブスクリプションを更新
+    // プラン変更時は新しいサブスクリプションが作成されるため、
+    // subscription_statusをactiveに、cancel_at_period_endをfalseにリセット
     {
       stepName: 'update_internal_subscription',
       stepType: 'api_call',
@@ -3028,6 +3095,10 @@ async function handlePlanChangeCompleted(
             updates: {
               platform_subscription_id: validatedNewPlatformSubscriptionId,
               plan_id: validatedNewPlanId,
+              // プラン変更により新しいサブスクリプションが作成されるため、
+              // ステータスをactiveに更新し、解約予定フラグをリセット
+              subscription_status: 'active',
+              cancel_at_period_end: false,
             },
           }
         );
