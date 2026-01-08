@@ -91,6 +91,19 @@ export interface UserBillingApiProps {
    * DynamoDB table for pending parental checkout requests (parental approval for new purchases)
    */
   readonly pendingParentalCheckoutsTable?: ITable;
+
+  /**
+   * Frontend URL for secure redirects (required for parental control APIs)
+   * This is used as the default redirect URL to prevent open redirect attacks.
+   */
+  readonly frontendUrl: string;
+
+  /**
+   * Allowed origins for redirect URLs (optional, comma-separated)
+   * If provided, Origin header will be validated against this list.
+   * Use for development/staging environments with multiple frontend URLs.
+   */
+  readonly allowedOrigins?: string;
 }
 
 class UserBillingApi extends Construct {
@@ -110,6 +123,7 @@ class UserBillingApi extends Construct {
   public readonly previewPlanChangeFunction?: NodejsFunction;
   public readonly createCustomerPortalFunction: NodejsFunction;
   public readonly createPaymentMethodUpdateSessionFunction: NodejsFunction;
+  public readonly sendPaymentMethodUpdateToParentFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
   public readonly getUsageStatusFunction: NodejsFunction;
 
@@ -1271,6 +1285,90 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 12: 保護者向け支払い方法更新リンク送信API
+    // POST /api/subscriptions/send-payment-method-update-to-parent
+    //
+    // ペアレンタルコントロール用：未成年ユーザーからのリクエストで
+    // 保護者のメールアドレスにCustomer Portalリンクを送信します。
+    // ========================================
+
+    this.sendPaymentMethodUpdateToParentFunction = new NodejsFunction(
+      this,
+      'SendPaymentMethodUpdateToParent',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry:
+          './lambda/billing/user-api/subscriptions/sendPaymentMethodUpdateToParent.ts',
+        timeout: Duration.seconds(30),
+        memorySize: 256,
+        environment: {
+          ...commonEnvironment,
+          SERVICE_NAME: props.emailServiceName,
+          SENDGRID_API_KEY: props.sendgridApiKey,
+          SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+          FRONTEND_URL: props.frontendUrl,
+          ...(props.allowedOrigins && { ALLOWED_ORIGINS: props.allowedOrigins }),
+        },
+      }
+    );
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(
+      this.sendPaymentMethodUpdateToParentFunction
+    );
+
+    // Secrets Manager読み取り権限（Stripe APIキー取得用）
+    this.sendPaymentMethodUpdateToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: ['arn:aws:secretsmanager:*:*:secret:*/billing/stripe*'],
+      })
+    );
+
+    // Lambda呼び出し権限（データアクセス層用）
+    this.sendPaymentMethodUpdateToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:*:*:function:${environment}-*-subscription-data-access`,
+          `arn:aws:lambda:*:*:function:${environment}-*-user-plan-application-data-access`,
+        ],
+      })
+    );
+
+    // IAM Role Assume権限（テナント専用クレデンシャル取得用）
+    this.sendPaymentMethodUpdateToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/TenantRole-*'],
+      })
+    );
+
+    // Grant STS AssumeRoleWithWebIdentity permission
+    this.sendPaymentMethodUpdateToParentFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      })
+    );
+
+    // API Gatewayエンドポイント
+    const sendPaymentMethodUpdateToParentResource =
+      subscriptionsResource.addResource('send-payment-method-update-to-parent');
+    sendPaymentMethodUpdateToParentResource.addMethod(
+      'POST',
+      new LambdaIntegration(this.sendPaymentMethodUpdateToParentFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
     // ログ出力
     // ========================================
 
@@ -1303,6 +1401,9 @@ class UserBillingApi extends Construct {
     }
     console.log('  - POST /api/subscriptions/customer-portal (deprecated)');
     console.log('  - POST /api/subscriptions/update-payment-method');
+    console.log(
+      '  - POST /api/subscriptions/send-payment-method-update-to-parent'
+    );
     console.log('  - GET /api/store-info');
     console.log('  - POST /api/usage/status');
   }
