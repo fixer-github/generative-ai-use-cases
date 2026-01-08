@@ -63,7 +63,6 @@ export const handler = async (
     console.error('Error getting user metadata:', error);
     return internalServerError500Response({
       message: 'Failed to get user metadata',
-      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

@@ -1,4 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
@@ -8,6 +9,7 @@ import {
 import { verifyToken } from './utils/auth';
 import {
   badRequest400Response,
+  conflict409Response,
   internalServerError500Response,
   ok200Response,
   unauthorized401Response,
@@ -98,6 +100,15 @@ export const handler = async (
       return badRequest400Response({ message: validationError });
     }
 
+    if (
+      requestBody.mode !== undefined &&
+      !['merge', 'replace'].includes(requestBody.mode)
+    ) {
+      return badRequest400Response({
+        message: 'mode must be merge or replace',
+      });
+    }
+
     const mode = requestBody.mode || 'merge';
     const newMetadata = requestBody.metadata;
 
@@ -122,12 +133,14 @@ export const handler = async (
         new GetCommand({
           TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
           Key: { userId },
-          ProjectionExpression: 'metadata',
+          ProjectionExpression: 'metadata, metadataUpdatedAt',
         })
       );
 
       const existingMetadata =
         (existingResult.Item?.metadata as Record<string, string>) || {};
+      const prevUpdatedAt =
+        (existingResult.Item?.metadataUpdatedAt as string | undefined) ?? null;
       finalMetadata = { ...existingMetadata, ...newMetadata };
 
       const mergedSize = Buffer.byteLength(
@@ -140,18 +153,31 @@ export const handler = async (
         });
       }
 
-      await docClient.send(
-        new UpdateCommand({
-          TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
-          Key: { userId },
-          UpdateExpression:
-            'SET metadata = :metadata, metadataUpdatedAt = :updatedAt',
-          ExpressionAttributeValues: {
-            ':metadata': finalMetadata,
-            ':updatedAt': new Date().toISOString(),
-          },
-        })
-      );
+      try {
+        await docClient.send(
+          new UpdateCommand({
+            TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
+            Key: { userId },
+            UpdateExpression:
+              'SET metadata = :metadata, metadataUpdatedAt = :updatedAt',
+            ConditionExpression:
+              'attribute_not_exists(metadataUpdatedAt) OR metadataUpdatedAt = :prevUpdatedAt',
+            ExpressionAttributeValues: {
+              ':metadata': finalMetadata,
+              ':updatedAt': new Date().toISOString(),
+              ':prevUpdatedAt': prevUpdatedAt,
+            },
+          })
+        );
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) {
+          return conflict409Response({
+            message:
+              'Metadata was modified by another request. Please retry the operation.',
+          });
+        }
+        throw error;
+      }
     }
 
     return ok200Response<PutUserMetadataResponse>({
@@ -162,7 +188,6 @@ export const handler = async (
     console.error('Error updating user metadata:', error);
     return internalServerError500Response({
       message: 'Failed to update user metadata',
-      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
