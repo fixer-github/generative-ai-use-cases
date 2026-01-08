@@ -35,17 +35,6 @@ const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '';
 const SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
 
 /**
- * フロントエンドURL設定
- * FRONTEND_URL: 本番用フロントエンドURL（必須）
- * ALLOWED_ORIGINS: 許可されたOriginのカンマ区切りリスト（オプション、開発環境用）
- */
-const FRONTEND_URL = process.env.FRONTEND_URL || '';
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-/**
  * カラーテーマ（既存のメールテンプレートと統一）
  */
 const COLORS = {
@@ -111,31 +100,26 @@ async function getStripeApiKey(tenantId: string): Promise<string> {
 
 /**
  * リクエストヘッダーからフロントエンドのベースURLを取得する
- *
- * セキュリティ対策：
- * - Originヘッダーは許可リスト（ALLOWED_ORIGINS）に含まれている場合のみ使用
- * - 許可リストに含まれていない場合はFRONTEND_URL（環境変数）を使用
- * - これにより、攻撃者がOriginヘッダーを偽装しても悪意のあるURLにリダイレクトされない
  */
 function getBaseUrlFromRequest(event: APIGatewayProxyEvent): string {
   const headers = event.headers;
-  const origin = headers['origin'] || headers['Origin'];
 
-  // Originが許可リストに含まれている場合は使用
-  if (origin && ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin)) {
+  const origin = headers['origin'] || headers['Origin'];
+  if (origin) {
     return origin;
   }
 
-  // 許可リストにない場合は環境変数のFRONTEND_URLを使用
-  if (FRONTEND_URL) {
-    return FRONTEND_URL;
+  const referer = headers['referer'] || headers['Referer'];
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      // パース失敗時は続行
+    }
   }
 
-  // FRONTEND_URLが設定されていない場合はエラー
-  throw new Error(
-    'FRONTEND_URL environment variable is not configured. ' +
-      'This is required for security to prevent open redirect attacks.'
-  );
+  throw new Error('Unable to determine frontend base URL from request headers');
 }
 
 /**
