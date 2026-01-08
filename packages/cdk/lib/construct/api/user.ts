@@ -57,28 +57,26 @@ class UserApi extends Construct {
 
     // Lambda function for setting birthdate
     // テーブル名を環境変数から構築（auth.tsと同じ命名規則）
-    const userRegistrationMetadataTableName = props.userRegistrationMetadataTable
-      ? props.userRegistrationMetadataTable.tableName
-      : props.environment
-        ? `UserRegistrationMetadata-${props.environment}`
-        : 'UserRegistrationMetadata';
+    const userRegistrationMetadataTableName =
+      props.userRegistrationMetadataTable
+        ? props.userRegistrationMetadataTable.tableName
+        : props.environment
+          ? `UserRegistrationMetadata-${props.environment}`
+          : 'UserRegistrationMetadata';
 
-    const setBirthdateFunction = new NodejsFunction(
-      this,
-      'SetBirthdate',
-      {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/setBirthdate.ts',
-        timeout: Duration.minutes(1),
-        bundling: {
-          nodeModules: ['aws-jwt-verify'],
-        },
-        environment: getBaseEnvironment(this, props, {
-          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-          USER_REGISTRATION_METADATA_TABLE_NAME: userRegistrationMetadataTableName,
-        }),
-      }
-    );
+    const setBirthdateFunction = new NodejsFunction(this, 'SetBirthdate', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/setBirthdate.ts',
+      timeout: Duration.minutes(1),
+      bundling: {
+        nodeModules: ['aws-jwt-verify'],
+      },
+      environment: getBaseEnvironment(this, props, {
+        USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        USER_REGISTRATION_METADATA_TABLE_NAME:
+          userRegistrationMetadataTableName,
+      }),
+    });
 
     // Grant DynamoDB write permission
     if (props.userRegistrationMetadataTable) {
@@ -89,10 +87,7 @@ class UserApi extends Construct {
       setBirthdateFunction.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: [
-            'dynamodb:UpdateItem',
-            'dynamodb:PutItem',
-          ],
+          actions: ['dynamodb:UpdateItem', 'dynamodb:PutItem'],
           resources: [
             `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${userRegistrationMetadataTableName}`,
           ],
@@ -114,6 +109,101 @@ class UserApi extends Construct {
     birthdateResource.addMethod(
       'PUT',
       new LambdaIntegration(setBirthdateFunction),
+      commonAuthorizerProps
+    );
+
+    // Lambda function for getting user metadata
+    const getUserMetadataFunction = new NodejsFunction(
+      this,
+      'GetUserMetadata',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/getUserMetadata.ts',
+        timeout: Duration.minutes(1),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment(this, props, {
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          USER_REGISTRATION_METADATA_TABLE_NAME:
+            userRegistrationMetadataTableName,
+        }),
+      }
+    );
+
+    // Grant DynamoDB read permission for getUserMetadata
+    if (props.userRegistrationMetadataTable) {
+      props.userRegistrationMetadataTable.grantReadData(
+        getUserMetadataFunction
+      );
+    } else {
+      const stack = Stack.of(this);
+      getUserMetadataFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['dynamodb:GetItem'],
+          resources: [
+            `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${userRegistrationMetadataTableName}`,
+          ],
+        })
+      );
+    }
+
+    // Lambda function for updating user metadata
+    const putUserMetadataFunction = new NodejsFunction(
+      this,
+      'PutUserMetadata',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/putUserMetadata.ts',
+        timeout: Duration.minutes(1),
+        bundling: {
+          nodeModules: ['aws-jwt-verify'],
+        },
+        environment: getBaseEnvironment(this, props, {
+          USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+          USER_REGISTRATION_METADATA_TABLE_NAME:
+            userRegistrationMetadataTableName,
+        }),
+      }
+    );
+
+    // Grant DynamoDB read/write permission for putUserMetadata
+    if (props.userRegistrationMetadataTable) {
+      props.userRegistrationMetadataTable.grantReadWriteData(
+        putUserMetadataFunction
+      );
+    } else {
+      const stack = Stack.of(this);
+      putUserMetadataFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:PutItem',
+          ],
+          resources: [
+            `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${userRegistrationMetadataTableName}`,
+          ],
+        })
+      );
+    }
+
+    // API routes for metadata
+    const metadataResource = userResource.addResource('metadata');
+
+    // GET /user/metadata - Get user metadata
+    metadataResource.addMethod(
+      'GET',
+      new LambdaIntegration(getUserMetadataFunction),
+      commonAuthorizerProps
+    );
+
+    // PUT /user/metadata - Update user metadata
+    metadataResource.addMethod(
+      'PUT',
+      new LambdaIntegration(putUserMetadataFunction),
       commonAuthorizerProps
     );
   }
