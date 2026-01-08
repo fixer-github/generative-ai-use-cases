@@ -304,12 +304,10 @@ const useChatState = create<{
             .indexOf(m.messageId);
 
           if (idx >= 0) {
-            // 既存のメッセージのwebSearch情報を保持
-            const existingWebSearch = draft[id].messages[idx].webSearch;
             draft[id].messages[idx] = {
               ...m,
-              // webSearchはクライアントサイドのみの情報なので、既存の値を保持
-              webSearch: existingWebSearch,
+              // サーバーからのwebSearch情報を優先し、なければ既存のクライアント側情報を保持
+              webSearch: m.webSearch ?? draft[id].messages[idx].webSearch,
             };
           }
         }

@@ -50,6 +50,7 @@ export type UnrecordedMessage = {
   extraData?: ExtraData[];
   llmType?: string;
   metadata?: Metadata;
+  webSearch?: WebSearchInfo;
 };
 
 export type ExtraData = {
