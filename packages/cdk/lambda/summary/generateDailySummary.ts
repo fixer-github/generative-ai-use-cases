@@ -76,23 +76,17 @@ export async function generateDailySummaryForUser(
     const chatsResponse = await listChatsForBatch(userId, tenantId);
     const chats = chatsResponse.data || [];
 
-    // Filter chats that were updated on the target date
-    const relevantChats = chats.filter((chat: Chat) => {
-      const updatedDate = parseInt(chat.updatedDate);
-      return updatedDate >= start && updatedDate <= end;
-    });
-
-    if (relevantChats.length === 0) {
+    if (chats.length === 0) {
       return { success: true, summary: undefined };
     }
 
-    // Collect messages from relevant chats
+    // Collect messages from all chats, filtering by message timestamp
+    // Don't filter chats by updatedDate as it may be empty for some chat types
     const allMessages: Array<{ role: string; content: string }> = [];
     const chatIds: string[] = [];
 
-    for (const chat of relevantChats) {
+    for (const chat of chats) {
       const chatId = chat.chatId.replace('chat#', '');
-      chatIds.push(chatId);
 
       // Use batch mode - no JWT required
       const messages = await listMessagesForBatch(chatId, tenantId);
@@ -103,12 +97,16 @@ export async function generateDailySummaryForUser(
         return msgTimestamp >= start && msgTimestamp <= end;
       });
 
-      allMessages.push(
-        ...dayMessages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }))
-      );
+      // Only include chat if it has messages on the target date
+      if (dayMessages.length > 0) {
+        chatIds.push(chatId);
+        allMessages.push(
+          ...dayMessages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          }))
+        );
+      }
     }
 
     if (allMessages.length === 0) {

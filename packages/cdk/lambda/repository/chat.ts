@@ -479,7 +479,8 @@ export const listChatsForBatch = async (
 
 /**
  * Discover users who had conversations on a specific date (batch mode - no JWT)
- * Uses table scan with filter since there's no date-based GSI
+ * Scans message records (id starts with 'chat#') and extracts unique userIds
+ * Uses createdDate range since message records have createdDate in format 'timestamp#suffix'
  * @param date Date in YYYY-MM-DD format
  * @param tenantId Tenant ID
  * @returns Array of unique user IDs (without 'user#' prefix)
@@ -489,8 +490,11 @@ export const discoverUsersWithConversationsOnDate = async (
   tenantId: string
 ): Promise<string[]> => {
   // Calculate timestamp range for the date (JST timezone)
+  // Use exclusive end to handle createdDate format 'timestamp#suffix'
   const startOfDay = new Date(`${date}T00:00:00+09:00`).getTime();
-  const endOfDay = new Date(`${date}T23:59:59.999+09:00`).getTime();
+  const startOfNextDay = new Date(`${date}T00:00:00+09:00`);
+  startOfNextDay.setDate(startOfNextDay.getDate() + 1);
+  const endExclusive = startOfNextDay.getTime();
 
   const userIds = new Set<string>();
 
@@ -504,25 +508,31 @@ export const discoverUsersWithConversationsOnDate = async (
           new ScanCommand({
             TableName: tableName,
             FilterExpression:
-              'begins_with(#id, :userPrefix) AND #updatedDate >= :start AND #updatedDate <= :end',
+              'begins_with(#id, :chatPrefix) AND #createdDate >= :start AND #createdDate < :endExclusive',
             ExpressionAttributeNames: {
               '#id': 'id',
-              '#updatedDate': 'updatedDate',
+              '#createdDate': 'createdDate',
             },
             ExpressionAttributeValues: {
-              ':userPrefix': 'user#',
+              ':chatPrefix': 'chat#',
               ':start': `${startOfDay}`,
-              ':end': `${endOfDay}`,
+              ':endExclusive': `${endExclusive}`,
             },
-            ProjectionExpression: 'id',
+            ProjectionExpression: 'userId',
             ExclusiveStartKey: lastEvaluatedKey,
           })
         );
 
         if (res.Items) {
           for (const item of res.Items) {
-            const userId = (item.id as string).replace('user#', '');
-            userIds.add(userId);
+            if (item.userId) {
+              // Handle both 'user#xxx' and 'xxx' formats
+              const rawUserId = item.userId as string;
+              const userId = rawUserId.replace(/^user#/, '');
+              if (userId) {
+                userIds.add(userId);
+              }
+            }
           }
         }
 
