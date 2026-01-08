@@ -91,6 +91,19 @@ export interface UserBillingApiProps {
    * DynamoDB table for pending parental checkout requests (parental approval for new purchases)
    */
   readonly pendingParentalCheckoutsTable?: ITable;
+
+  /**
+   * Frontend URL for secure redirects (required for parental control APIs)
+   * This is used as the default redirect URL to prevent open redirect attacks.
+   */
+  readonly frontendUrl: string;
+
+  /**
+   * Allowed origins for redirect URLs (optional, comma-separated)
+   * If provided, Origin header will be validated against this list.
+   * Use for development/staging environments with multiple frontend URLs.
+   */
+  readonly allowedOrigins?: string;
 }
 
 class UserBillingApi extends Construct {
@@ -1293,6 +1306,8 @@ class UserBillingApi extends Construct {
           SERVICE_NAME: props.emailServiceName,
           SENDGRID_API_KEY: props.sendgridApiKey,
           SENDGRID_FROM_EMAIL: props.sendgridFromEmail,
+          FRONTEND_URL: props.frontendUrl,
+          ...(props.allowedOrigins && { ALLOWED_ORIGINS: props.allowedOrigins }),
         },
       }
     );
