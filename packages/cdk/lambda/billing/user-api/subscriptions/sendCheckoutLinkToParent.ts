@@ -11,6 +11,8 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { randomUUID } from 'crypto';
 import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent, getUserEmailFromCognitoEvent } from '../../../utils/cognitoUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
@@ -27,6 +29,13 @@ const SERVICE_NAME = process.env.SERVICE_NAME || 'GenU';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '';
 const SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
+const PENDING_PARENTAL_CHECKOUTS_TABLE_NAME =
+  process.env.PENDING_PARENTAL_CHECKOUTS_TABLE_NAME || '';
+
+// Expiration time: 24 hours
+const EXPIRATION_HOURS = 24;
+// TTL: 7 days (for DynamoDB cleanup)
+const TTL_DAYS = 7;
 
 /**
  * カラーテーマ（既存のメールテンプレートと統一）
@@ -69,6 +78,11 @@ interface SendCheckoutLinkRequest {
  * シークレットのキャッシュ
  */
 const stripeApiKeyCache: { [key: string]: string } = {};
+
+/**
+ * DynamoDB Client
+ */
+const dynamoDbClient = new DynamoDBClient({});
 
 /**
  * Secrets ManagerからStripe APIキーを取得する
@@ -431,6 +445,9 @@ export const handler = async (
     const successUrl = `${baseUrl}/billing/parental-complete`;
     const cancelUrl = `${baseUrl}/billing/cancel`;
 
+    // 9.5. requestIdを生成（状態管理用）
+    const requestId = randomUUID();
+
     // 10. Checkout Sessionを作成（リダイレクトモード）
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -451,6 +468,7 @@ export const handler = async (
         childName: childName || '',
         childEmail: childEmail || '', // 子供のメールをメタデータに保存
         isParentalControl: 'true', // ペアレンタルコントロールフラグ
+        parentalCheckoutRequestId: requestId, // 状態管理用リクエストID
       },
       // サブスクリプションにもmetadataを設定（領収書メールでplanIdを取得するため）
       subscription_data: {
@@ -460,6 +478,7 @@ export const handler = async (
           planId,
           childEmail: childEmail || '',
           isParentalControl: 'true',
+          parentalCheckoutRequestId: requestId, // 状態管理用リクエストID
         },
       },
       allow_promotion_codes: true,
@@ -470,6 +489,39 @@ export const handler = async (
     });
 
     console.log('Checkout Session created for parental control:', session.id);
+
+    // 10.5. DynamoDBに状態を保存
+    if (PENDING_PARENTAL_CHECKOUTS_TABLE_NAME) {
+      const nowTimestamp = Date.now();
+      const expiresAt = nowTimestamp + EXPIRATION_HOURS * 60 * 60 * 1000;
+      const ttl = Math.floor(
+        (nowTimestamp + TTL_DAYS * 24 * 60 * 60 * 1000) / 1000
+      );
+
+      await dynamoDbClient.send(
+        new PutItemCommand({
+          TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
+          Item: {
+            requestId: { S: requestId },
+            checkoutSessionId: { S: session.id },
+            tenantId: { S: tenantId },
+            userId: { S: userId },
+            planId: { S: planId },
+            parentEmail: { S: parentEmail },
+            childEmail: { S: childEmail || '' },
+            status: { S: 'pending' },
+            createdAt: { N: nowTimestamp.toString() },
+            expiresAt: { N: expiresAt.toString() },
+            ttl: { N: ttl.toString() },
+          },
+        })
+      );
+
+      console.log('Pending parental checkout request saved:', {
+        requestId,
+        checkoutSessionId: session.id,
+      });
+    }
 
     // 11. 保護者にメール送信（子供のメールアドレスを使用）
     const emailContent = createParentPaymentRequestEmail(
@@ -490,6 +542,7 @@ export const handler = async (
     return ok200Response({
       message: '決済リンクを保護者のメールアドレスに送信しました',
       sessionId: session.id,
+      requestId,
       expiresAt: session.expires_at,
     });
   } catch (error) {

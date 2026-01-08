@@ -80,6 +80,11 @@ export interface OrchestrationApiProps {
    * Pending Plan Changes Table for parental control plan change requests
    */
   readonly pendingPlanChangesTable?: ITable;
+
+  /**
+   * Pending Parental Checkouts Table for parental control new purchase requests
+   */
+  readonly pendingParentalCheckoutsTable?: ITable;
 }
 
 /**
@@ -243,6 +248,10 @@ class OrchestrationApi extends Construct {
           ...(props.pendingPlanChangesTable && {
             PENDING_PLAN_CHANGES_TABLE_NAME: props.pendingPlanChangesTable.tableName,
           }),
+          // Pending Parental Checkouts Table for parental control new purchase status update
+          ...(props.pendingParentalCheckoutsTable && {
+            PENDING_PARENTAL_CHECKOUTS_TABLE_NAME: props.pendingParentalCheckoutsTable.tableName,
+          }),
         },
       }
     );
@@ -308,7 +317,10 @@ class OrchestrationApi extends Construct {
           'dynamodb:UpdateItem',
           'dynamodb:DeleteItem',
         ],
-        resources: [`arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`],
+        resources: [
+          `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`,
+          `arn:aws:dynamodb:*:*:table/${environment}-pending-parental-checkouts`,
+        ],
       })
     );
 

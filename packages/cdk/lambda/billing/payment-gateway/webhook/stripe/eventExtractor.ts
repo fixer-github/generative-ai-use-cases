@@ -505,6 +505,7 @@ function extractFromParentalControlCheckout(
   const userId = metadata.userId ?? '';
   const planId = metadata.planId ?? '';
   const childEmail = metadata.childEmail ?? '';
+  const parentalCheckoutRequestId = metadata.parentalCheckoutRequestId ?? '';
 
   // StripeのサブスクリプションIDを取得
   const platformSubscriptionId =
@@ -545,6 +546,7 @@ function extractFromParentalControlCheckout(
         planId,
         childEmail,
         parentEmail: metadata.parentEmail ?? '',
+        parentalCheckoutRequestId,
       },
     },
   };
