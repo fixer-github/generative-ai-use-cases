@@ -118,6 +118,9 @@ export interface StripeEventData {
     isPlanChange?: boolean;
     isParentalControlPlanChange?: boolean;
     status?: string;
+    // 期間情報（Unixタイムスタンプ、秒）
+    currentPeriodStart?: number;
+    currentPeriodEnd?: number;
     // Checkoutベースのプラン変更用フィールド
     newPlanId?: string;
     previousPlanId?: string;

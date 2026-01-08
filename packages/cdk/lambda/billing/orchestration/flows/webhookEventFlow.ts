@@ -154,6 +154,10 @@ interface EventDetailPayload {
   subscriptionId?: string;
   /** プラットフォームサブスクリプションID（Stripe等のサブスクリプションID） */
   platformSubscriptionId?: string;
+  /** 請求期間開始日時（Unixタイムスタンプ、秒） */
+  periodStart?: number;
+  /** 請求期間終了日時（Unixタイムスタンプ、秒） */
+  periodEnd?: number;
 }
 
 /**
@@ -417,7 +421,13 @@ async function handlePaymentSucceeded(
   const userId = input.userId || extractUserId(platform, eventData);
 
   // periodStart/periodEndの抽出（Stripeから取得）
-  const { periodStart, periodEnd } = extractPeriodDates(platform, eventData);
+  // NOTE: input.periodStart/periodEndはEventDetailPayloadで直接渡される（eventExtractorで抽出済み）
+  const { periodStart, periodEnd } = extractPeriodDates(
+    platform,
+    eventData,
+    input.periodStart,
+    input.periodEnd
+  );
 
   // 前のステップの結果を保持する変数
   const previousStepResults: Record<string, unknown> = {};
@@ -1187,8 +1197,13 @@ async function handleSubscriptionUpdated(
   });
 
   // イベントデータから抽出情報を取得
-  const stripeData = eventData as StripeEventData;
-  const extracted = stripeData._extracted ?? {};
+  // NOTE: _extracted はプラットフォーム固有のデータ構造（現在はStripeのみ対応）
+  // TODO: プラットフォーム共通の抽出データ型（ExtractedEventData）を定義し、
+  //       各プラットフォーム（Stripe/Apple/Google）のEventDataに統一的な_extractedを持たせる
+  // TODO: platformに応じた型ガード関数を実装し、型安全にイベントデータを取得する
+  //       例: isStripeEvent(eventData) / isAppleEvent(eventData) / isGoogleEvent(eventData)
+  const stripeEventData = eventData as StripeEventData;
+  const extracted = stripeEventData._extracted ?? {};
   const {
     subscriptionId: platformSubscriptionId,
     userId,
@@ -1196,21 +1211,178 @@ async function handleSubscriptionUpdated(
     previousPriceId,
     isPlanChange,
     isParentalControlPlanChange,
+    status: platformStatus,
+    currentPeriodStart,
+    currentPeriodEnd,
   } = extracted;
 
   console.log('Extracted subscription update data', {
+    platform,
     platformSubscriptionId,
     userId,
     currentPriceId,
     previousPriceId,
     isPlanChange,
+    platformStatus,
+    currentPeriodStart,
+    currentPeriodEnd,
   });
+
+  // プラットフォームステータスから内部ステータスへのマッピング
+  // NOTE: 現在はStripeのみ対応。Apple/Googleは別のWebhookイベントでステータス管理される
+  // TODO: 内部ステータスに 'trialing' を追加し、トライアル期間を明示的に管理する
+  const mapPlatformStatusToInternal = (
+    platformType: string,
+    status: string | undefined
+  ): 'active' | 'past_due' | 'canceled' | 'expired' | undefined => {
+    if (!status) return undefined;
+
+    // Stripeの場合のみステータスマッピングを行う
+    if (platformType === 'stripe') {
+      switch (status) {
+        case 'active':
+        case 'trialing': // TODO: 'trialing' 内部ステータス実装後は分離する
+          return 'active';
+        case 'past_due':
+        case 'unpaid': // unpaid: Smart Retriesが全て失敗した後の最終状態
+          return 'past_due';
+        case 'canceled':
+          return 'canceled';
+        case 'incomplete_expired':
+          return 'expired';
+        default:
+          // incomplete, paused などは変換しない（状態遷移が複雑なため）
+          return undefined;
+      }
+    }
+
+    // Apple/Googleの場合は subscription.updated では同期しない
+    // （各プラットフォーム固有のWebhookで処理される）
+    return undefined;
+  };
+
+  // ステータス同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
+  const internalStatus = mapPlatformStatusToInternal(platform, platformStatus as string);
+  if (platformSubscriptionId && internalStatus) {
+    try {
+      // 内部サブスクリプションを検索
+      const subscription = await invokeDataAccessFunctionByTenantId<{
+        subscription_id: string;
+        subscription_status: string;
+      } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+        platformSubscriptionId,
+      });
+
+      if (subscription && subscription.subscription_status !== internalStatus) {
+        console.log('Syncing subscription status from platform', {
+          platformSubscriptionId,
+          internalSubscriptionId: subscription.subscription_id,
+          currentStatus: subscription.subscription_status,
+          newStatus: internalStatus,
+          platformStatus,
+        });
+
+        const statusUpdateParams: UpdateSubscriptionStatusParams = {
+          tenantId,
+          subscriptionId: subscription.subscription_id,
+          newStatus: internalStatus,
+        };
+
+        const statusResult =
+          await subscriptionClient.updateSubscriptionStatus(statusUpdateParams);
+
+        console.log('Subscription status synced successfully', {
+          subscriptionId: subscription.subscription_id,
+          previousStatus: statusResult.previousStatus,
+          newStatus: statusResult.newStatus,
+        });
+      } else if (subscription) {
+        console.log('Subscription status already in sync', {
+          platformSubscriptionId,
+          currentStatus: subscription.subscription_status,
+          platformStatus,
+        });
+      }
+    } catch (error) {
+      // ステータス同期エラーはログに記録するが、プラン変更処理は続行
+      console.error('Failed to sync subscription status', {
+        platformSubscriptionId,
+        platformStatus,
+        internalStatus,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // 期間同期処理（Stripeのみ、プラン変更の有無に関わらず実行）
+  // NOTE: 期間変更はStripeで手動調整や日割り計算などで発生する可能性がある
+  let periodSynced = false;
+  if (platform === 'stripe' && platformSubscriptionId && currentPeriodStart && currentPeriodEnd) {
+    try {
+      // 内部サブスクリプションを検索
+      const subscription = await invokeDataAccessFunctionByTenantId<{
+        subscription_id: string;
+        current_period_start: string;
+        current_period_end: string;
+      } | null>(tenantId, 'subscription', 'findByPlatformSubscriptionId', {
+        platformSubscriptionId,
+      });
+
+      if (subscription) {
+        // Stripeのタイムスタンプ（秒）をISO 8601形式に変換
+        const newPeriodStart = new Date(currentPeriodStart * 1000).toISOString();
+        const newPeriodEnd = new Date(currentPeriodEnd * 1000).toISOString();
+        const existingPeriodEnd = new Date(subscription.current_period_end).toISOString();
+
+        // 期間が変更されている場合のみ更新
+        if (existingPeriodEnd !== newPeriodEnd) {
+          console.log('Syncing subscription period from platform', {
+            platformSubscriptionId,
+            internalSubscriptionId: subscription.subscription_id,
+            existingPeriodEnd,
+            newPeriodStart,
+            newPeriodEnd,
+          });
+
+          const periodParams: ExtendSubscriptionPeriodParams = {
+            tenantId,
+            subscriptionId: subscription.subscription_id,
+            newPeriodStart,
+            newPeriodEnd,
+          };
+
+          await subscriptionClient.extendSubscriptionPeriod(periodParams);
+          periodSynced = true;
+
+          console.log('Subscription period synced successfully', {
+            subscriptionId: subscription.subscription_id,
+            newPeriodEnd,
+          });
+        } else {
+          console.log('Subscription period already in sync', {
+            platformSubscriptionId,
+            currentPeriodEnd: existingPeriodEnd,
+          });
+        }
+      }
+    } catch (error) {
+      // 期間同期エラーはログに記録するが、プラン変更処理は続行
+      console.error('Failed to sync subscription period', {
+        platformSubscriptionId,
+        currentPeriodStart,
+        currentPeriodEnd,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 
   // プラン変更がない場合は処理をスキップ
   if (!isPlanChange) {
-    console.log('No plan change detected, skipping processing', {
+    console.log('No plan change detected, skipping plan change processing', {
       eventId,
       platformSubscriptionId,
+      statusSynced: !!internalStatus,
+      periodSynced,
     });
 
     return {
@@ -1219,7 +1391,7 @@ async function handleSubscriptionUpdated(
       eventId,
       errorDetails: {
         errorCode: 'NO_PLAN_CHANGE',
-        errorMessage: 'Subscription updated but no plan change detected',
+        errorMessage: 'Subscription updated but no plan change detected (status/period sync completed if applicable)',
       },
     };
   }
@@ -1967,22 +2139,28 @@ function extractSubscriptionId(
  *
  * @param platform 決済プラットフォーム
  * @param eventData イベントデータ
+ * @param inputPeriodStart EventDetailPayloadから直接取得した期間開始（優先）
+ * @param inputPeriodEnd EventDetailPayloadから直接取得した期間終了（優先）
  * @returns { periodStart, periodEnd } ISO 8601形式
  * @throws Error 必須の期間データが存在しない場合、または未実装のプラットフォームの場合
  */
 function extractPeriodDates(
   platform: PlatformType,
-  eventData: Record<string, unknown>
+  eventData: Record<string, unknown>,
+  inputPeriodStart?: number,
+  inputPeriodEnd?: number
 ): { periodStart: string; periodEnd: string } {
   if (platform === 'stripe') {
     const stripeData = eventData as StripeEventData;
 
-    // periodStart/periodEndがeventDataのトップレベルにある場合（eventExtractorで抽出済み）
-    const rawPeriodStart = (eventData as Record<string, unknown>)
-      .periodStart as number | undefined;
-    const rawPeriodEnd = (eventData as Record<string, unknown>).periodEnd as
-      | number
-      | undefined;
+    // 優先順位: 1. input直接 → 2. eventData → 3. stripeData → 4. デフォルト
+    // NOTE: EventDetailPayloadのperiodStart/periodEndはeventExtractorで抽出済み
+    const rawPeriodStart =
+      inputPeriodStart ??
+      ((eventData as Record<string, unknown>).periodStart as number | undefined);
+    const rawPeriodEnd =
+      inputPeriodEnd ??
+      ((eventData as Record<string, unknown>).periodEnd as number | undefined);
 
     // eventDataのトップレベル、またはstripeDataから取得
     const periodStartValue = rawPeriodStart ?? stripeData.periodStart;
