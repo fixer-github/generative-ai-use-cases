@@ -116,3 +116,18 @@ export const getBirthdateFromClaims = (event: APIGatewayProxyEvent): string | nu
 
   return birthdate;
 };
+
+/**
+ * Extract parent email from the API Gateway event authorizer context (Cognito claims)
+ * Returns the parent email string if available, null otherwise
+ */
+export const getParentEmailFromClaims = (event: APIGatewayProxyEvent): string | null => {
+  // Try to get parent_email from authorizer context (Lambda Request Authorizer - flat structure)
+  const parentEmail =
+    event.requestContext?.authorizer?.['custom:parent_email'] ||
+    // Try to get from parsed claims object (Lambda Request Authorizer - nested structure or Cognito User Pools)
+    parseClaims(event)?.['custom:parent_email'] ||
+    null;
+
+  return parentEmail;
+};
