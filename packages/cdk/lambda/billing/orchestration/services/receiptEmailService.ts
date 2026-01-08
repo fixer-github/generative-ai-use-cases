@@ -240,34 +240,18 @@ export async function buildReceiptDataFromInvoice(
     // 展開されたサブスクリプションから直接メタデータを取得
     const metadata = subscriptionObj.metadata;
     effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
-    console.log('Extracted planId from expanded subscription', {
-      hasPlanId: !!metadata?.planId,
-      hasNewPlanId: !!metadata?.newPlanId,
-      effectivePlanId,
-    });
   }
 
   // Cloverバージョン対応: parent.subscription_details からメタデータを取得
   if (!effectivePlanId && invoiceAny.parent?.subscription_details?.metadata) {
     const metadata = invoiceAny.parent.subscription_details.metadata;
     effectivePlanId = metadata?.planId || metadata?.newPlanId || null;
-    console.log('Extracted planId from parent.subscription_details', {
-      hasPlanId: !!metadata?.planId,
-      hasNewPlanId: !!metadata?.newPlanId,
-      effectivePlanId,
-    });
   }
 
   // フォールバック: サブスクリプションを別途取得してメタデータを確認
   if (!effectivePlanId) {
     effectivePlanId = await extractPlanIdFromInvoiceWithCloverSupport(stripe, invoiceAny) ?? undefined;
   }
-
-  console.log('Plan ID for receipt', {
-    inputPlanId: planId,
-    effectivePlanId,
-    tenantId,
-  });
 
   if (effectivePlanId) {
     try {
@@ -468,22 +452,9 @@ async function extractPlanIdFromInvoiceWithCloverSupport(
   // Cloverバージョン対応: 複数のパスからサブスクリプションIDを取得
   const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
 
-  console.log('extractPlanIdFromInvoiceWithCloverSupport: Extracted subscription ID', {
-    subscriptionId,
-    hasInvoiceSubscription: !!invoice.subscription,
-    hasParentSubscriptionDetails: !!invoice.parent?.subscription_details,
-  });
-
   if (subscriptionId) {
     try {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-      console.log('Extracting planId from subscription metadata', {
-        subscriptionId,
-        hasPlanId: !!subscription.metadata?.planId,
-        hasNewPlanId: !!subscription.metadata?.newPlanId,
-        metadata: subscription.metadata,
-      });
 
       // planId（新規購入）またはnewPlanId（プラン変更）のいずれかを返す
       if (subscription.metadata?.planId) {
