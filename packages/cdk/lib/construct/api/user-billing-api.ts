@@ -1390,12 +1390,7 @@ class UserBillingApi extends Construct {
     const userResource = apiResource.addResource('user');
     const profileResource = userResource.addResource('profile');
 
-    // CORS プリフライトリクエスト（OPTIONS）を明示的に追加
-    profileResource.addCorsPreflight({
-      allowOrigins: ['*'],
-      allowMethods: ['PUT', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization'],
-    });
+    // Note: CORS preflight is automatically configured via defaultCorsPreflightOptions in BillingManagementStack
 
     profileResource.addMethod(
       'PUT',
