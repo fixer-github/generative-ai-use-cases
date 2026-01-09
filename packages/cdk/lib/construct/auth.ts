@@ -84,6 +84,11 @@ export class Auth extends Construct {
           maxLen: 5,
           mutable: true, // Allows updating admin status
         }),
+        parent_email: new StringAttribute({
+          minLen: 0,
+          maxLen: 256, // メールアドレスの最大長
+          mutable: true,
+        }),
       },
     });
 

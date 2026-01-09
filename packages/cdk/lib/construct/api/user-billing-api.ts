@@ -91,6 +91,11 @@ export interface UserBillingApiProps {
    * DynamoDB table for pending parental checkout requests (parental approval for new purchases)
    */
   readonly pendingParentalCheckoutsTable?: ITable;
+
+  /**
+   * DynamoDB table for user registration metadata (birthdate, parental consent, etc.)
+   */
+  readonly userRegistrationMetadataTable?: ITable;
 }
 
 class UserBillingApi extends Construct {
@@ -113,6 +118,7 @@ class UserBillingApi extends Construct {
   public readonly sendPaymentMethodUpdateToParentFunction: NodejsFunction;
   public readonly getStoreInfoFunction: NodejsFunction;
   public readonly getUsageStatusFunction: NodejsFunction;
+  public readonly updateUserProfileFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: UserBillingApiProps) {
     super(scope, id);
@@ -1354,6 +1360,66 @@ class UserBillingApi extends Construct {
     );
 
     // ========================================
+    // API 13: ユーザープロファイル更新API
+    // PUT /api/user/profile
+    //
+    // ユーザーのCognitoカスタム属性（保護者メールアドレス）と
+    // DynamoDB（保護者同意情報）を更新します。
+    // ========================================
+
+    this.updateUserProfileFunction = new NodejsFunction(
+      this,
+      'UpdateUserProfile',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/billing/user-api/profile/updateUserProfile.ts',
+        timeout: Duration.seconds(10),
+        memorySize: 256,
+        environment: {
+          ...commonEnvironment,
+          ...(props.userRegistrationMetadataTable && {
+            USER_REGISTRATION_METADATA_TABLE_NAME:
+              props.userRegistrationMetadataTable.tableName,
+          }),
+        },
+      }
+    );
+
+    // Grant Tenants table read access
+    tenantManager.tenantsTable.grantReadData(this.updateUserProfileFunction);
+
+    // Cognito AdminUpdateUserAttributes権限
+    this.updateUserProfileFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['cognito-idp:AdminUpdateUserAttributes'],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // DynamoDB UserRegistrationMetadataテーブルへの書き込み権限
+    if (props.userRegistrationMetadataTable) {
+      props.userRegistrationMetadataTable.grantReadWriteData(
+        this.updateUserProfileFunction
+      );
+    }
+
+    // API Gatewayエンドポイント
+    const userResource = apiResource.addResource('user');
+    const profileResource = userResource.addResource('profile');
+
+    // Note: CORS preflight is automatically configured via defaultCorsPreflightOptions in BillingManagementStack
+
+    profileResource.addMethod(
+      'PUT',
+      new LambdaIntegration(this.updateUserProfileFunction),
+      {
+        authorizer: authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      }
+    );
+
+    // ========================================
     // ログ出力
     // ========================================
 
@@ -1391,6 +1457,7 @@ class UserBillingApi extends Construct {
     );
     console.log('  - GET /api/store-info');
     console.log('  - POST /api/usage/status');
+    console.log('  - PUT /api/user/profile');
   }
 }
 

@@ -10,7 +10,12 @@ import { IRole, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { EventBus } from 'aws-cdk-lib/aws-events';
-import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
+import {
+  Table,
+  AttributeType,
+  BillingMode,
+  ITable,
+} from 'aws-cdk-lib/aws-dynamodb';
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
@@ -74,6 +79,11 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * Email service name (displayed in emails)
    */
   readonly emailServiceName: string;
+
+  /**
+   * DynamoDB table for user registration metadata (birthdate, parental consent, etc.)
+   */
+  readonly userRegistrationMetadataTable?: ITable;
 }
 
 /**
@@ -314,6 +324,7 @@ export class BillingManagementStack extends NestedStack {
       emailServiceName: props.emailServiceName,
       pendingPlanChangesTable: pendingPlanChangesTable,
       pendingParentalCheckoutsTable: pendingParentalCheckoutsTable,
+      userRegistrationMetadataTable: props.userRegistrationMetadataTable,
     });
 
     // ========================================
