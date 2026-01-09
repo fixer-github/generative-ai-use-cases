@@ -347,17 +347,23 @@ export const handler = async (
           ? Math.floor(new Date(subscriptionData.currentPeriodEnd).getTime() / 1000)
           : undefined;
 
+        // 期間終了情報が取得できない場合はエラー
+        if (periodEnd === undefined) {
+          throw new Error(
+            'Period end information is required for subscription plan but not available'
+          );
+        }
+
         console.log('Period information for plan application', {
           periodStart,
           periodEnd,
           subscriptionId: subscriptionData.subscriptionId,
         });
 
-        const result = await planClient.applyPlanToUser({
+        const result = await planClient.applySubscriptionPlanToUser({
           tenantId,
           userId,
           planId,
-          applicationSource: 'subscription',
           applicationSourceId: subscriptionData.subscriptionId,
           validFrom: new Date().toISOString(),
           periodStart,

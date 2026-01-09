@@ -128,6 +128,7 @@ interface CreatePlanRequest {
       | { type: 'unlimited' }
       | { type: 'daily'; count: number }
       | { type: 'monthly'; count: number }
+      | { type: 'billing_period'; count: number }
     >;
   };
 }
@@ -292,7 +293,7 @@ export const handler = async (
     for (const [key, limit] of Object.entries(requestBody.permissions.limits)) {
       if (
         !limit.type ||
-        !['unlimited', 'daily', 'monthly'].includes(limit.type)
+        !['unlimited', 'daily', 'monthly', 'billing_period'].includes(limit.type)
       ) {
         return badRequest400Response({
           message: 'permissions フィールドのJSON形式が不正です',
@@ -300,14 +301,26 @@ export const handler = async (
           details: {
             field: `permissions.limits.${key}`,
             reason:
-              "typeには 'unlimited', 'daily', 'monthly' のいずれかを指定してください",
+              "typeには 'unlimited', 'daily', 'monthly', 'billing_period' のいずれかを指定してください",
+          },
+        });
+      }
+
+      // Internalプラン × billing_periodの組み合わせを禁止
+      if (requestBody.platform_type === 'internal' && limit.type === 'billing_period') {
+        return badRequest400Response({
+          message: 'InternalプランでBilling Period制限は使用できません',
+          code: 'INVALID_LIMIT_TYPE_FOR_INTERNAL',
+          details: {
+            field: `permissions.limits.${key}`,
+            reason: 'Internalプランにはunlimited, daily, monthlyのみ指定可能です。billing_periodはサブスクリプションプラン専用です。',
           },
         });
       }
 
       if (limit.type !== 'unlimited') {
         const limitWithCount = limit as {
-          type: 'daily' | 'monthly';
+          type: 'daily' | 'monthly' | 'billing_period';
           count: number;
         };
         if (

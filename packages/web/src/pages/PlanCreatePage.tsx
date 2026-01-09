@@ -10,7 +10,7 @@ type InputMode = 'form' | 'json';
 
 interface LimitConfig {
   model: string;
-  type: 'unlimited' | 'daily' | 'monthly';
+  type: 'unlimited' | 'daily' | 'monthly' | 'billing_period';
   count?: number;
 }
 
@@ -127,7 +127,7 @@ const PlanCreatePage: React.FC = () => {
 
       // Validate limits structure
       for (const [model, limit] of Object.entries(permissions.limits) as [string, any][]) {
-        if (!limit.type || !['unlimited', 'daily', 'monthly'].includes(limit.type)) {
+        if (!limit.type || !['unlimited', 'daily', 'monthly', 'billing_period'].includes(limit.type)) {
           return `${model}の制限タイプが不正です`;
         }
         if (limit.type !== 'unlimited' && (!limit.count || limit.count <= 0)) {
@@ -434,7 +434,8 @@ const PlanCreatePage: React.FC = () => {
                             className="w-full rounded border border-gray-300 px-3 py-2">
                             <option value="unlimited">無制限</option>
                             <option value="daily">日次制限</option>
-                            <option value="monthly">月次制限</option>
+                            <option value="monthly">月次制限（暦月）</option>
+                            <option value="billing_period">請求期間制限</option>
                           </select>
                         </div>
                         {limit.type !== 'unlimited' && (

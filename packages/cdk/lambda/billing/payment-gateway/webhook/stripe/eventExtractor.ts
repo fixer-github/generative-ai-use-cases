@@ -243,7 +243,8 @@ function extractFromSubscriptionUpdated(
 ): Partial<EventDetail> {
   const subscription = stripeEvent.data.object as Stripe.Subscription;
   // previous_attributes には変更前の値が含まれる
-  const previousAttributes = (stripeEvent.data as any).previous_attributes ?? {};
+  const previousAttributes =
+    (stripeEvent.data as any).previous_attributes ?? {};
   const metadata = subscription.metadata ?? {};
 
   const subscriptionId = subscription.id;
@@ -273,7 +274,8 @@ function extractFromSubscriptionUpdated(
   let previousPriceId = '';
   if (previousAttributes.items?.data?.[0]?.price) {
     const prevPrice = previousAttributes.items.data[0].price;
-    previousPriceId = typeof prevPrice === 'string' ? prevPrice : prevPrice?.id || '';
+    previousPriceId =
+      typeof prevPrice === 'string' ? prevPrice : prevPrice?.id || '';
   }
 
   // Method 1: 標準的なプラン変更検出（previous_attributesから）
@@ -290,17 +292,27 @@ function extractFromSubscriptionUpdated(
   if (!isPlanChange && isParentalControlPlanChange) {
     isPlanChange = true;
     previousPriceId = metadata.originalPriceId || '';
-    console.log('Plan change detected via metadata fallback (parental control)', {
-      subscriptionId,
-      originalPriceId: metadata.originalPriceId,
-      targetPriceId: metadata.targetPriceId,
-      currentPriceId,
-    });
+    console.log(
+      'Plan change detected via metadata fallback (parental control)',
+      {
+        subscriptionId,
+        originalPriceId: metadata.originalPriceId,
+        targetPriceId: metadata.targetPriceId,
+        currentPriceId,
+      }
+    );
   }
 
   // 期間情報の抽出（Unixタイムスタンプ、秒）
-  const currentPeriodStart = subscription.current_period_start;
-  const currentPeriodEnd = subscription.current_period_end;
+  // トップレベルになければ items.data[0] からフォールバック
+  // Note: Stripe APIバージョンによってはトップレベルにない場合がある
+  const subscriptionAny = subscription as any;
+  const currentPeriodStart =
+    subscriptionAny.current_period_start ??
+    (subscription.items?.data?.[0] as any)?.current_period_start;
+  const currentPeriodEnd =
+    subscriptionAny.current_period_end ??
+    (subscription.items?.data?.[0] as any)?.current_period_end;
 
   console.log('Subscription updated event details', {
     subscriptionId,
@@ -398,11 +410,13 @@ function extractFromCheckoutSessionCompleted(
   const metadata = eventObject.metadata ?? {};
 
   // subscription mode かつ プラン変更の場合
-  if (
-    eventObject.mode === 'subscription' &&
-    metadata.type === 'plan_change'
-  ) {
-    return extractFromPlanChangeCheckout(stripeEvent, eventObject, tenantId, metadata);
+  if (eventObject.mode === 'subscription' && metadata.type === 'plan_change') {
+    return extractFromPlanChangeCheckout(
+      stripeEvent,
+      eventObject,
+      tenantId,
+      metadata
+    );
   }
 
   // subscription mode かつ ペアレンタルコントロールの場合
@@ -410,12 +424,22 @@ function extractFromCheckoutSessionCompleted(
     eventObject.mode === 'subscription' &&
     metadata.isParentalControl === 'true'
   ) {
-    return extractFromParentalControlCheckout(stripeEvent, eventObject, tenantId, metadata);
+    return extractFromParentalControlCheckout(
+      stripeEvent,
+      eventObject,
+      tenantId,
+      metadata
+    );
   }
 
   // setup modeの場合（既存の処理）
   if (eventObject.mode === 'setup') {
-    return extractFromSetupModeCheckout(stripeEvent, eventObject, tenantId, metadata);
+    return extractFromSetupModeCheckout(
+      stripeEvent,
+      eventObject,
+      tenantId,
+      metadata
+    );
   }
 
   throw new Error(`Unsupported checkout session mode: ${eventObject.mode}`);
@@ -444,7 +468,7 @@ function extractFromPlanChangeCheckout(
   const newPlatformSubscriptionId =
     typeof session.subscription === 'string'
       ? session.subscription
-      : session.subscription?.id ?? '';
+      : (session.subscription?.id ?? '');
 
   if (!userId) {
     console.warn('userId not found in plan change session metadata');
@@ -455,7 +479,9 @@ function extractFromPlanChangeCheckout(
   }
 
   if (!previousSubscriptionId) {
-    console.warn('previousSubscriptionId not found in plan change session metadata');
+    console.warn(
+      'previousSubscriptionId not found in plan change session metadata'
+    );
   }
 
   if (!newPlatformSubscriptionId) {
@@ -520,7 +546,7 @@ function extractFromParentalControlCheckout(
   const platformSubscriptionId =
     typeof session.subscription === 'string'
       ? session.subscription
-      : session.subscription?.id ?? '';
+      : (session.subscription?.id ?? '');
 
   if (!userId) {
     console.warn('userId not found in parental control session metadata');

@@ -116,6 +116,32 @@ export const handler = async (
       );
     }
 
+    // applicationSourceに応じた期間情報のバリデーション
+    // subscription: periodStart/periodEndが必須
+    // default/trial/campaign/manual: periodStart/periodEndは不要（指定されてもエラーにはしないが警告）
+    if (input.applicationSource === 'subscription') {
+      if (input.periodStart === undefined || input.periodEnd === undefined) {
+        throw new ApplyPlanToUserError(
+          'INVALID_INPUT',
+          'サブスクリプションプランの適用にはperiodStartとperiodEndが必須です',
+          {
+            applicationSource: input.applicationSource,
+            periodStart: input.periodStart,
+            periodEnd: input.periodEnd,
+          }
+        );
+      }
+    } else {
+      // Internal系（default/trial/campaign/manual）でperiodStart/periodEndが指定されている場合は警告
+      if (input.periodStart !== undefined || input.periodEnd !== undefined) {
+        console.warn('Non-subscription application source should not have periodStart/periodEnd', {
+          applicationSource: input.applicationSource,
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+        });
+      }
+    }
+
     // 日付の検証とパース
     let validFrom: Date;
     let validUntil: Date | undefined;

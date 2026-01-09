@@ -467,7 +467,9 @@ const PlanDetailPage: React.FC = () => {
                               ? '無制限'
                               : limit.type === 'daily'
                                 ? '日次制限'
-                                : '月次制限'}
+                                : limit.type === 'billing_period'
+                                  ? '請求期間制限'
+                                  : '月次制限（暦月）'}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                             {limit.type === 'unlimited' ? '-' : `${limit.count}回`}

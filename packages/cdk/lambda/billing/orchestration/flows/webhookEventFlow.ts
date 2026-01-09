@@ -548,12 +548,21 @@ async function handlePaymentSucceeded(
             }
           );
 
-          // 期間更新のためにapplyPlanToUserを呼び出し
-          const result = await planClient.applyPlanToUser({
+          // 期間情報が取得できない場合はエラー
+          if (
+            currentPeriodStart === undefined ||
+            currentPeriodEnd === undefined
+          ) {
+            throw new Error(
+              'Period information is required for subscription plan but not available'
+            );
+          }
+
+          // 期間更新のためにapplySubscriptionPlanToUserを呼び出し
+          const result = await planClient.applySubscriptionPlanToUser({
             tenantId,
             userId: subscriptionUserId,
             planId: paidPlanId,
-            applicationSource: 'subscription',
             applicationSourceId: internalSubscriptionId,
             validFrom: new Date().toISOString(),
             periodStart: currentPeriodStart,
@@ -592,12 +601,21 @@ async function handlePaymentSucceeded(
           });
         }
 
+        // 期間情報が取得できない場合はエラー
+        if (
+          currentPeriodStart === undefined ||
+          currentPeriodEnd === undefined
+        ) {
+          throw new Error(
+            'Period information is required for subscription plan but not available'
+          );
+        }
+
         // 新しいプランを適用（期間情報付き）
-        const result = await planClient.applyPlanToUser({
+        const result = await planClient.applySubscriptionPlanToUser({
           tenantId,
           userId: subscriptionUserId,
           planId: paidPlanId,
-          applicationSource: 'subscription',
           applicationSourceId: internalSubscriptionId,
           validFrom: new Date().toISOString(),
           periodStart: currentPeriodStart,

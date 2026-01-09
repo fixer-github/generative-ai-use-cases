@@ -677,12 +677,11 @@ function buildImmediateCancellationSteps(
           planId: defaultPlanId,
         });
 
-        const result = await planClient.applyPlanToUser({
+        const result = await planClient.applyInternalPlanToUser({
           tenantId,
           userId,
           planId: defaultPlanId,
           applicationSource: 'default',
-          applicationSourceId: undefined,
           validFrom: new Date().toISOString(),
           // validUntilは指定しない（無期限の無料プラン）
         });
