@@ -15,6 +15,7 @@ module.exports = defineConfig([
   baseConfig,
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
+    ignores: ['node_modules', 'dist', 'dist-ssr', 'dev-dist'],
     plugins: {
       ...typescriptConfig.plugins,
       'react-hooks': reactHooksPlugin,
@@ -37,6 +38,10 @@ module.exports = defineConfig([
       },
     },
     settings: {
+      'import/resolver': {
+        typescript: true,
+        node: true,
+      },
       tailwindcss: {
         whitelist: ['w-', 'h-'],
       },
