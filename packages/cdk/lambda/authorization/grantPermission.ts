@@ -107,8 +107,17 @@ export const handler = async (
 ): Promise<GrantPermissionResponse> => {
   console.log('Grant Permission Request:', JSON.stringify(event, null, 2));
 
-  const { tenantId, userId, grantId, planId, features, sourceType, sourceId } =
-    event;
+  const {
+    tenantId,
+    userId,
+    grantId,
+    planId,
+    features,
+    sourceType,
+    sourceId,
+    periodStart,
+    periodEnd,
+  } = event;
 
   try {
     // 1. バリデーション
@@ -127,6 +136,7 @@ export const handler = async (
     }
 
     // 各featureのバリデーション
+    let hasBillingPeriodFeature = false;
     for (const feature of features) {
       if (!feature.featureId || !feature.limitType) {
         throw new Error('Each feature must have featureId and limitType');
@@ -138,6 +148,24 @@ export const handler = async (
       ) {
         throw new Error(
           `Feature ${feature.featureId}: limitCount is required and must be > 0 for limitType ${feature.limitType}`
+        );
+      }
+
+      if (feature.limitType === 'billing_period') {
+        hasBillingPeriodFeature = true;
+      }
+    }
+
+    // billing_periodタイプがある場合、periodStart/periodEndは必須
+    if (hasBillingPeriodFeature) {
+      if (periodStart === undefined || periodStart === null) {
+        throw new Error(
+          'periodStart is required when features contain billing_period limitType'
+        );
+      }
+      if (periodEnd === undefined || periodEnd === null) {
+        throw new Error(
+          'periodEnd is required when features contain billing_period limitType'
         );
       }
     }
@@ -238,7 +266,7 @@ export const handler = async (
 
     try {
       console.log(
-        `[GrantPermission] Recording permission grant - grantId: ${grantId}, userId: ${userId}, features: ${features.length}`
+        `[GrantPermission] Recording permission grant - grantId: ${grantId}, userId: ${userId}, features: ${features.length}, periodStart: ${periodStart}, periodEnd: ${periodEnd}`
       );
 
       // 権限付与履歴をDynamoDBに記録
@@ -250,6 +278,8 @@ export const handler = async (
         sourceType,
         sourceId,
         grantedAt: now,
+        ...(periodStart !== undefined && { periodStart }),
+        ...(periodEnd !== undefined && { periodEnd }),
       });
 
       console.log(

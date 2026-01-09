@@ -40,6 +40,10 @@ export interface CreateSubscriptionResponse {
   subscriptionId: string;
   /** ステータス */
   status: 'active' | 'pending_verification';
+  /** 現在の期間開始日時（ISO 8601形式） */
+  currentPeriodStart: string;
+  /** 現在の期間終了日時（ISO 8601形式） */
+  currentPeriodEnd: string;
 }
 
 /**

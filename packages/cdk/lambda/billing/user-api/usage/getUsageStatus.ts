@@ -17,6 +17,10 @@ import {
 } from '../../../authorization/repositories/types';
 import { UsageEventRepository } from '../../../authorization/repositories/usageEventRepository';
 import { PermissionGrantRepository } from '../../../authorization/repositories/permissionGrantRepository';
+import {
+  getPeriodStartTime,
+  getBillingPeriodStartTime,
+} from '../../../utils/periodUtils';
 import { HttpRequest } from '@smithy/protocol-http';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
@@ -33,34 +37,6 @@ function getTableName(
 ): string {
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-]/g, '-');
   return `${baseTableName}-${environment}-tenant-${sanitizedTenantId}`;
-}
-
-/**
- * 期間の開始時刻を計算する（日本時間基準）
- */
-function getPeriodStartTime(periodType: 'daily' | 'monthly'): number {
-  const JST_OFFSET = 9 * 60 * 60 * 1000; // 9時間のミリ秒
-  const now = new Date();
-
-  // 現在時刻をJSTに変換
-  const nowJST = new Date(now.getTime() + JST_OFFSET);
-
-  let startTimeJST: Date;
-
-  if (periodType === 'daily') {
-    // 今日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  } else {
-    // 今月1日の午前0時（JST）
-    startTimeJST = new Date(nowJST);
-    startTimeJST.setUTCDate(1);
-    startTimeJST.setUTCHours(0, 0, 0, 0);
-  }
-
-  // JSTからUTCに戻してミリ秒単位で返す
-  const startTimeUTC = new Date(startTimeJST.getTime() - JST_OFFSET);
-  return startTimeUTC.getTime();
 }
 
 /**
@@ -283,7 +259,12 @@ export const handler = async (
     // 各featureIdに対する制限情報をマップに格納
     const limitMap = new Map<
       string,
-      { dailyLimit: number | null; monthlyLimit: number | null }
+      {
+        dailyLimit: number | null;
+        monthlyLimit: number | null;
+        billingPeriodLimit: number | null;
+        billingPeriodStart: number | null;
+      }
     >();
 
     for (const grant of activeGrants) {
@@ -291,12 +272,17 @@ export const handler = async (
         const existing = limitMap.get(feature.featureId) || {
           dailyLimit: null,
           monthlyLimit: null,
+          billingPeriodLimit: null,
+          billingPeriodStart: null,
         };
 
         if (feature.limitType === 'daily' && feature.limitCount) {
           existing.dailyLimit = feature.limitCount;
         } else if (feature.limitType === 'monthly' && feature.limitCount) {
           existing.monthlyLimit = feature.limitCount;
+        } else if (feature.limitType === 'billing_period' && feature.limitCount) {
+          existing.billingPeriodLimit = feature.limitCount;
+          existing.billingPeriodStart = grant.periodStart ?? null;
         }
 
         limitMap.set(feature.featureId, existing);
@@ -335,7 +321,9 @@ export const handler = async (
           // 回数制限がない場合（無制限）
           if (
             !limits ||
-            (limits.dailyLimit === null && limits.monthlyLimit === null)
+            (limits.dailyLimit === null &&
+              limits.monthlyLimit === null &&
+              limits.billingPeriodLimit === null)
           ) {
             results[featureId] = {
               status: 'available',
@@ -352,6 +340,11 @@ export const handler = async (
               remaining: number;
             };
             monthly?: {
+              current: number;
+              limit: number;
+              remaining: number;
+            };
+            billing_period?: {
               current: number;
               limit: number;
               remaining: number;
@@ -420,30 +413,95 @@ export const handler = async (
             }
           }
 
+          // 請求期間制限のチェック
+          if (limits.billingPeriodLimit !== null) {
+            if (limits.billingPeriodStart === null) {
+              console.error(
+                `billing_period limit requires periodStart but it was not found - featureId: ${featureId}`
+              );
+              // periodStartがない場合はエラーとして権限なしとする
+              results[featureId] = {
+                status: 'no_permission',
+                hasLimit: false,
+              };
+              return;
+            }
+
+            const billingPeriodStartTime = getBillingPeriodStartTime(
+              limits.billingPeriodStart
+            );
+            const billingPeriodCount =
+              await usageEventRepository.countUsageInPeriod(
+                userId,
+                featureId,
+                billingPeriodStartTime,
+                now
+              );
+
+            const remaining = limits.billingPeriodLimit - billingPeriodCount;
+            usage.billing_period = {
+              current: billingPeriodCount,
+              limit: limits.billingPeriodLimit,
+              remaining: Math.max(0, remaining),
+            };
+
+            if (billingPeriodCount >= limits.billingPeriodLimit) {
+              // 請求期間制限超過
+              results[featureId] = {
+                status: 'quota_exceeded',
+                hasLimit: true,
+                remaining: 0,
+                limit: limits.billingPeriodLimit,
+                periodType: 'billing_period',
+                usage,
+              };
+              return;
+            }
+          }
+
           // 制限内で利用可能
           // 最も制約が厳しい（残数が少ない）方の情報を使用
           let minRemaining: number | undefined;
-          let limitPeriodType: 'daily' | 'monthly' | undefined;
+          let limitPeriodType: 'daily' | 'monthly' | 'billing_period' | undefined;
           let limitCount: number | undefined;
 
-          if (usage.daily && usage.monthly) {
-            if (usage.daily.remaining < usage.monthly.remaining) {
-              minRemaining = usage.daily.remaining;
-              limitPeriodType = 'daily';
-              limitCount = usage.daily.limit;
-            } else {
-              minRemaining = usage.monthly.remaining;
-              limitPeriodType = 'monthly';
-              limitCount = usage.monthly.limit;
-            }
-          } else if (usage.daily) {
-            minRemaining = usage.daily.remaining;
-            limitPeriodType = 'daily';
-            limitCount = usage.daily.limit;
-          } else if (usage.monthly) {
-            minRemaining = usage.monthly.remaining;
-            limitPeriodType = 'monthly';
-            limitCount = usage.monthly.limit;
+          // 各制限タイプの残数を配列に集めて最小を見つける
+          const limitInfos: Array<{
+            remaining: number;
+            periodType: 'daily' | 'monthly' | 'billing_period';
+            limit: number;
+          }> = [];
+
+          if (usage.daily) {
+            limitInfos.push({
+              remaining: usage.daily.remaining,
+              periodType: 'daily',
+              limit: usage.daily.limit,
+            });
+          }
+          if (usage.monthly) {
+            limitInfos.push({
+              remaining: usage.monthly.remaining,
+              periodType: 'monthly',
+              limit: usage.monthly.limit,
+            });
+          }
+          if (usage.billing_period) {
+            limitInfos.push({
+              remaining: usage.billing_period.remaining,
+              periodType: 'billing_period',
+              limit: usage.billing_period.limit,
+            });
+          }
+
+          if (limitInfos.length > 0) {
+            // 残数が最小のものを選択
+            const minInfo = limitInfos.reduce((min, curr) =>
+              curr.remaining < min.remaining ? curr : min
+            );
+            minRemaining = minInfo.remaining;
+            limitPeriodType = minInfo.periodType;
+            limitCount = minInfo.limit;
           }
 
           results[featureId] = {

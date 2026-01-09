@@ -61,6 +61,8 @@ export interface ApplyPlanToUserInput {
   validFrom: string; // ISO 8601
   validUntil?: string; // ISO 8601
   tenantId: string; // テナントID（RDS接続に必要）
+  periodStart?: number; // 請求期間開始時刻（Unixタイムスタンプ、秒単位）
+  periodEnd?: number; // 請求期間終了時刻（Unixタイムスタンプ、秒単位）
 }
 
 /**
@@ -75,6 +77,7 @@ export interface ApplyPlanToUserOutput {
   validUntil?: string; // ISO 8601
   previousApplicationIds: string[]; // 終了させた既存のプラン適用ID一覧
   grantId?: string; // 権限付与ID（権限付与が実行された場合）
+  periodUpdatedOnly?: boolean; // 同一プランで期間のみ更新された場合にtrue
 }
 
 /**
@@ -111,6 +114,32 @@ export const handler = async (
           validFrom: !!input.validFrom,
         }
       );
+    }
+
+    // applicationSourceに応じた期間情報のバリデーション
+    // subscription: periodStart/periodEndが必須
+    // default/trial/campaign/manual: periodStart/periodEndは不要（指定されてもエラーにはしないが警告）
+    if (input.applicationSource === 'subscription') {
+      if (input.periodStart === undefined || input.periodEnd === undefined) {
+        throw new ApplyPlanToUserError(
+          'INVALID_INPUT',
+          'サブスクリプションプランの適用にはperiodStartとperiodEndが必須です',
+          {
+            applicationSource: input.applicationSource,
+            periodStart: input.periodStart,
+            periodEnd: input.periodEnd,
+          }
+        );
+      }
+    } else {
+      // Internal系（default/trial/campaign/manual）でperiodStart/periodEndが指定されている場合は警告
+      if (input.periodStart !== undefined || input.periodEnd !== undefined) {
+        console.warn('Non-subscription application source should not have periodStart/periodEnd', {
+          applicationSource: input.applicationSource,
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+        });
+      }
     }
 
     // 日付の検証とパース
@@ -169,13 +198,95 @@ export const handler = async (
       );
     }
 
-    // 2. 既存の有効なプラン適用を終了（データアクセス層Lambda関数を呼び出し）
+    // 2. 既存の有効なプラン適用を取得
     const activeApplications = await invokeDataAccessFunctionByTenantId<
       UserPlanApplication[]
     >(input.tenantId, 'user-plan-application', 'findActiveByUserId', {
       userId: input.userId,
     });
 
+    // 同一プラン・同一ソースのアプリケーションがあるかチェック
+    // applicationSourceIdが指定されている場合のみチェック
+    if (input.applicationSourceId) {
+      const sameSourceApplication = activeApplications.find(
+        (app) =>
+          app.application_source_id === input.applicationSourceId &&
+          app.plan_id === input.planId
+      );
+
+      // 同一プラン・同一ソースの場合は期間更新のみ
+      if (sameSourceApplication && input.periodStart !== undefined && input.periodEnd !== undefined) {
+        console.log('Same plan and source detected, updating period only', {
+          applicationId: sameSourceApplication.application_id,
+          planId: input.planId,
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+        });
+
+        // PermissionGrantの期間を更新（updatePermissionPeriod Lambda関数を呼び出し）
+        const updatePermissionPeriodFunctionName = process.env.UPDATE_PERMISSION_PERIOD_FUNCTION_NAME;
+        if (updatePermissionPeriodFunctionName) {
+          try {
+            const updatePeriodRequest = {
+              tenantId: input.tenantId,
+              sourceId: sameSourceApplication.application_id,
+              periodStart: input.periodStart,
+              periodEnd: input.periodEnd,
+            };
+
+            console.log('Invoking updatePermissionPeriod:', {
+              functionName: updatePermissionPeriodFunctionName,
+              sourceId: sameSourceApplication.application_id,
+              periodStart: input.periodStart,
+              periodEnd: input.periodEnd,
+            });
+
+            const updateResponse = await lambdaClient.send(
+              new InvokeCommand({
+                FunctionName: updatePermissionPeriodFunctionName,
+                Payload: JSON.stringify(updatePeriodRequest),
+              })
+            );
+
+            const updateResult = JSON.parse(
+              new TextDecoder().decode(updateResponse.Payload)
+            );
+
+            if (!updateResult.success) {
+              console.error('updatePermissionPeriod failed:', updateResult);
+              // 期間更新に失敗した場合でも処理は続行（ログ記録のみ）
+            } else {
+              console.log('Permission period updated successfully:', {
+                grantId: updateResult.grantId,
+                periodStart: input.periodStart,
+                periodEnd: input.periodEnd,
+              });
+            }
+          } catch (updateError) {
+            console.error('Error invoking updatePermissionPeriod:', updateError);
+            // 期間更新に失敗した場合でも処理は続行（ログ記録のみ）
+          }
+        } else {
+          console.log('UPDATE_PERMISSION_PERIOD_FUNCTION_NAME not configured, skipping period update');
+        }
+
+        // 期間更新のみで完了
+        return {
+          applicationId: sameSourceApplication.application_id,
+          userId: sameSourceApplication.user_id,
+          planId: sameSourceApplication.plan_id,
+          applicationStatus: sameSourceApplication.application_status,
+          validFrom: new Date(sameSourceApplication.valid_from).toISOString(),
+          validUntil: sameSourceApplication.valid_until
+            ? new Date(sameSourceApplication.valid_until).toISOString()
+            : undefined,
+          previousApplicationIds: [],
+          periodUpdatedOnly: true,
+        };
+      }
+    }
+
+    // 3. 既存の有効なプラン適用を終了（データアクセス層Lambda関数を呼び出し）
     const terminatedApplicationIds: string[] = [];
     const revokePermissionFunctionName = process.env.REVOKE_PERMISSION_FUNCTION_NAME;
 
@@ -302,6 +413,12 @@ export const handler = async (
                   limitType: 'monthly',
                   limitCount: limit.count,
                 });
+              } else if (limit.type === 'billing_period') {
+                features.push({
+                  featureId,
+                  limitType: 'billing_period',
+                  limitCount: limit.count,
+                });
               }
             } else {
               // limitsに設定がない場合はunlimitedとして扱う
@@ -324,6 +441,8 @@ export const handler = async (
           features, // DynamoDBの回数制限カウンター作成に使用
           sourceType: input.applicationSource,
           sourceId: createdApplication.application_id,
+          ...(input.periodStart !== undefined && { periodStart: input.periodStart }),
+          ...(input.periodEnd !== undefined && { periodEnd: input.periodEnd }),
         };
 
         console.log('Invoking grantPermission:', {

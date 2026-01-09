@@ -28,6 +28,8 @@ export interface CreateSubscriptionInput {
 export interface CreateSubscriptionOutput {
   subscriptionId: string;
   status: 'active' | 'pending_verification';
+  currentPeriodStart: string; // ISO 8601形式
+  currentPeriodEnd: string; // ISO 8601形式
 }
 
 /**
@@ -143,6 +145,8 @@ export const handler = async (
       status: createdSubscription.subscription_status as
         | 'active'
         | 'pending_verification',
+      currentPeriodStart: periodStart.toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
     };
   } catch (error) {
     console.error('Error creating subscription:', error);

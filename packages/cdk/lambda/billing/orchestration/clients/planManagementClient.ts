@@ -10,7 +10,7 @@
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 /**
- * プラン適用リクエストパラメータ
+ * プラン適用リクエストパラメータ（汎用）
  */
 export interface ApplyPlanToUserParams {
   /** テナントID */
@@ -22,6 +22,52 @@ export interface ApplyPlanToUserParams {
   /** 適用元（subscription: サブスクリプション、default: デフォルト、trial: トライアル、campaign: キャンペーン、manual: 手動） */
   applicationSource: 'subscription' | 'default' | 'trial' | 'campaign' | 'manual';
   /** 適用元ID（オプション、サブスクリプションIDなど） */
+  applicationSourceId?: string;
+  /** 有効開始日時（ISO 8601形式） */
+  validFrom: string;
+  /** 有効終了日時（ISO 8601形式、オプション） */
+  validUntil?: string;
+  /** 請求期間開始時刻（Unixタイムスタンプ、秒単位） */
+  periodStart?: number;
+  /** 請求期間終了時刻（Unixタイムスタンプ、秒単位） */
+  periodEnd?: number;
+}
+
+/**
+ * サブスクリプションプラン適用リクエストパラメータ（periodStart/periodEndが必須）
+ */
+export interface ApplySubscriptionPlanToUserParams {
+  /** テナントID */
+  tenantId: string;
+  /** ユーザID */
+  userId: string;
+  /** プランID */
+  planId: string;
+  /** 適用元ID（サブスクリプションID） */
+  applicationSourceId: string;
+  /** 有効開始日時（ISO 8601形式） */
+  validFrom: string;
+  /** 有効終了日時（ISO 8601形式、オプション） */
+  validUntil?: string;
+  /** 請求期間開始時刻（Unixタイムスタンプ、秒単位）- 必須 */
+  periodStart: number;
+  /** 請求期間終了時刻（Unixタイムスタンプ、秒単位）- 必須 */
+  periodEnd: number;
+}
+
+/**
+ * Internalプラン適用リクエストパラメータ（periodStart/periodEndを受け取らない）
+ */
+export interface ApplyInternalPlanToUserParams {
+  /** テナントID */
+  tenantId: string;
+  /** ユーザID */
+  userId: string;
+  /** プランID */
+  planId: string;
+  /** 適用元（default: デフォルト、trial: トライアル、campaign: キャンペーン、manual: 手動） */
+  applicationSource: 'default' | 'trial' | 'campaign' | 'manual';
+  /** 適用元ID（オプション） */
   applicationSourceId?: string;
   /** 有効開始日時（ISO 8601形式） */
   validFrom: string;
@@ -47,6 +93,8 @@ export interface ApplyPlanToUserResponse {
   validUntil?: string;
   /** 以前の適用ID配列（置き換えられた適用のID） */
   previousApplicationIds: string[];
+  /** 同一プランで期間のみ更新された場合にtrue */
+  periodUpdatedOnly?: boolean;
 }
 
 /**
@@ -124,10 +172,11 @@ export class PlanManagementClient {
   }
 
   /**
-   * プランをユーザに適用
+   * プランをユーザに適用（汎用メソッド）
    *
    * 指定されたプランをユーザに適用します。同一ユーザの既存の有効なプラン適用は自動的に終了されます。
    *
+   * @deprecated サブスクリプションプランにはapplySubscriptionPlanToUser、InternalプランにはapplyInternalPlanToUserを使用してください
    * @param params プラン適用パラメータ
    * @returns プラン適用結果
    * @throws PlanManagementClientError 呼び出しエラーまたはビジネスロジックエラー
@@ -151,6 +200,80 @@ export class PlanManagementClient {
       planId: params.planId,
     });
 
+    return this.invokeLambda<ApplyPlanToUserResponse>(functionName, params);
+  }
+
+  /**
+   * サブスクリプションプランをユーザに適用
+   *
+   * Stripeなどの課金基盤を通じて購入されるサブスクリプションプランを適用します。
+   * periodStart/periodEndは必須で、請求期間ベースの利用回数制限に使用されます。
+   *
+   * @param params サブスクリプションプラン適用パラメータ
+   * @returns プラン適用結果
+   * @throws PlanManagementClientError 呼び出しエラーまたはビジネスロジックエラー
+   */
+  async applySubscriptionPlanToUser(
+    params: ApplySubscriptionPlanToUserParams
+  ): Promise<ApplyPlanToUserResponse> {
+    const functionName = process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME;
+
+    if (!functionName) {
+      throw new PlanManagementClientError(
+        'CONFIGURATION_ERROR',
+        'PLAN_MANAGEMENT_APPLY_FUNCTION_NAME environment variable is not set'
+      );
+    }
+
+    console.log('Applying subscription plan to user', {
+      functionName,
+      tenantId: params.tenantId,
+      userId: params.userId,
+      planId: params.planId,
+      periodStart: params.periodStart,
+      periodEnd: params.periodEnd,
+    });
+
+    // applicationSourceをsubscriptionに固定
+    const lambdaParams: ApplyPlanToUserParams = {
+      ...params,
+      applicationSource: 'subscription',
+    };
+
+    return this.invokeLambda<ApplyPlanToUserResponse>(functionName, lambdaParams);
+  }
+
+  /**
+   * Internalプランをユーザに適用
+   *
+   * Free、トライアル、キャンペーンなどの課金基盤を通さないプランを適用します。
+   * periodStart/periodEndは使用せず、月次制限は暦月ベースで計算されます。
+   *
+   * @param params Internalプラン適用パラメータ
+   * @returns プラン適用結果
+   * @throws PlanManagementClientError 呼び出しエラーまたはビジネスロジックエラー
+   */
+  async applyInternalPlanToUser(
+    params: ApplyInternalPlanToUserParams
+  ): Promise<ApplyPlanToUserResponse> {
+    const functionName = process.env.PLAN_MANAGEMENT_APPLY_FUNCTION_NAME;
+
+    if (!functionName) {
+      throw new PlanManagementClientError(
+        'CONFIGURATION_ERROR',
+        'PLAN_MANAGEMENT_APPLY_FUNCTION_NAME environment variable is not set'
+      );
+    }
+
+    console.log('Applying internal plan to user', {
+      functionName,
+      tenantId: params.tenantId,
+      userId: params.userId,
+      planId: params.planId,
+      applicationSource: params.applicationSource,
+    });
+
+    // periodStart/periodEndなしで呼び出し
     return this.invokeLambda<ApplyPlanToUserResponse>(functionName, params);
   }
 

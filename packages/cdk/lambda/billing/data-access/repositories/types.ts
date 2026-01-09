@@ -18,7 +18,8 @@ export interface Plan {
       string,
       | { type: 'unlimited' }
       | { type: 'daily'; count: number }
-      | { type: 'monthly'; count: number }
+      | { type: 'monthly'; count: number } // 廃止予定、後方互換性のため残す
+      | { type: 'billing_period'; count: number }
     >;
   };
   status: 'active' | 'closed_to_new' | 'deprecated';

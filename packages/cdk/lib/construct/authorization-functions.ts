@@ -56,6 +56,11 @@ export class AuthorizationFunctions extends Construct {
    */
   public readonly incrementUsageCountFunction: lambda.Function;
 
+  /**
+   * Update permission period Lambda function
+   */
+  public readonly updatePermissionPeriodFunction: lambda.Function;
+
   constructor(
     scope: Construct,
     id: string,
@@ -164,6 +169,26 @@ export class AuthorizationFunctions extends Construct {
       }
     );
 
+    // Update Permission Period Function
+    // Use backgroundJobRole if provided (for cross-tenant access via AssumeRole)
+    this.updatePermissionPeriodFunction = new NodejsFunction(
+      this,
+      'UpdatePermissionPeriodFunction',
+      {
+        ...commonLambdaProps,
+        functionName: `${environment}-authorization-update-permission-period`,
+        entry: path.join(
+          __dirname,
+          '../../lambda/authorization/updatePermissionPeriod.ts'
+        ),
+        handler: 'handler',
+        environment: commonEnvironment,
+        description:
+          'Update permission period for billing_period type (shared across all tenants)',
+        ...(props.backgroundJobRole ? { role: props.backgroundJobRole } : {}),
+      }
+    );
+
     // ========================================
     // 2. IAM Permissions (AssumeRole pattern)
     // ========================================
@@ -173,7 +198,7 @@ export class AuthorizationFunctions extends Construct {
 
     const useBackgroundJobRole = !!props.backgroundJobRole;
 
-    // Functions that need their own policies (excludes grantPermissionFunction and revokePermissionFunction if using backgroundJobRole)
+    // Functions that need their own policies (excludes grantPermissionFunction, revokePermissionFunction, and updatePermissionPeriodFunction if using backgroundJobRole)
     const functionsNeedingAssumeRole = useBackgroundJobRole
       ? [
           this.checkPermissionFunction,
@@ -184,6 +209,7 @@ export class AuthorizationFunctions extends Construct {
           this.revokePermissionFunction,
           this.checkPermissionFunction,
           this.incrementUsageCountFunction,
+          this.updatePermissionPeriodFunction,
         ];
 
     const functionsNeedingOpenFga = useBackgroundJobRole
@@ -269,6 +295,11 @@ export class AuthorizationFunctions extends Construct {
     new cdk.CfnOutput(this, 'IncrementUsageCountFunctionArn', {
       value: this.incrementUsageCountFunction.functionArn,
       description: 'Record usage event Lambda function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'UpdatePermissionPeriodFunctionArn', {
+      value: this.updatePermissionPeriodFunction.functionArn,
+      description: 'Update permission period Lambda function ARN',
     });
   }
 }
