@@ -1,24 +1,17 @@
-name: Update Package Version
-
-on:
-  workflow_run:
-    workflows: ['Release Drafter']
-    types:
-      - completed
 
 jobs:
   update-version:
     if: github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
 
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Get draft release version and URL
-        id: get-version
+      - id: get-version
+        name: Get draft release version and URL
         uses: actions/github-script@v6
         with:
           script: |
@@ -45,9 +38,9 @@ jobs:
               html_url: draftRelease.html_url
             };
 
-      - name: Check current version
-        id: check-version
+      - id: check-version
         if: fromJSON(steps.get-version.outputs.result).version != ''
+        name: Check current version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           NEW_VERSION="${{ fromJSON(steps.get-version.outputs.result).version }}"
@@ -58,23 +51,31 @@ jobs:
             echo "versions_match=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update package.json version
-        if: fromJSON(steps.get-version.outputs.result).version != '' && steps.check-version.outputs.versions_match != 'true'
+      - if: fromJSON(steps.get-version.outputs.result).version != '' && steps.check-version.outputs.versions_match != 'true'
+        name: Update package.json version
         run: |
           VERSION="${{ fromJSON(steps.get-version.outputs.result).version }}"
           npm version $VERSION --no-git-tag-version
 
-      - name: Create Pull Request
-        if: fromJSON(steps.get-version.outputs.result).version != '' && steps.check-version.outputs.versions_match != 'true'
+      - if: fromJSON(steps.get-version.outputs.result).version != '' && steps.check-version.outputs.versions_match != 'true'
+        name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
-          commit-message: 'v${{ fromJSON(steps.get-version.outputs.result).version }}'
-          title: 'v${{ fromJSON(steps.get-version.outputs.result).version }}'
+          base: main
           body: |
             New release: ${{ fromJSON(steps.get-version.outputs.result).html_url }}
             Merge this PR to publish the release. (Do NOT manually publish the release.)
-          branch: 'new-release'
-          base: 'main'
+          branch: new-release
+          commit-message: 'v${{ fromJSON(steps.get-version.outputs.result).version }}'
           delete-branch: true
           labels: |
             new release
+          title: 'v${{ fromJSON(steps.get-version.outputs.result).version }}'
+name: Update Package Version
+
+on:
+  workflow_run:
+    types:
+      - completed
+    workflows: [Release Drafter]
+

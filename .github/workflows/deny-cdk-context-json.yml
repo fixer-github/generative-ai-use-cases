@@ -1,8 +1,3 @@
-name: Deny cdk.context.json
-
-on:
-  pull_request:
-    branches: [main]
 
 jobs:
   check-cdk-context:
@@ -15,3 +10,9 @@ jobs:
             echo "cdk.context.json file found in the PR. This is not allowed."
             exit 1
           fi
+name: Deny cdk.context.json
+
+on:
+  pull_request:
+    branches: [main]
+

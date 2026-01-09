@@ -1,14 +1,3 @@
-name: Release Drafter
-
-on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
-
-permissions:
-  contents: read
 
 jobs:
   update_release_draft:
@@ -18,6 +7,18 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v6
-        env:
+      - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: release-drafter/release-drafter@v6
+name: Release Drafter
+
+on:
+  pull_request:
+    branches:
+      - main
+
+    types:
+      - closed
+permissions:
+  contents: read
+

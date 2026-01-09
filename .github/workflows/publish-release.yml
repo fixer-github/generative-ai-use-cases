@@ -1,11 +1,3 @@
-name: Publish Release
-
-on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
 
 jobs:
   publish-release:
@@ -20,9 +12,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get and publish latest draft release
-        env:
+      - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: Get and publish latest draft release
         uses: actions/github-script@v6
         with:
           script: |
@@ -51,3 +43,12 @@ jobs:
               console.error('Error publishing release:', error);
               core.setFailed(error.message);
             }
+name: Publish Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
