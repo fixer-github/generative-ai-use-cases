@@ -65,6 +65,8 @@ async function getActiveOrLimitReachedUserCount() {
   let llmUsageCountMonthly = 0;
   let llmUsageCountDaily = 0;
 
+  console.log(`timestamp BETWEEN ${startTimeMonthly} AND ${endTime}`);
+
   // QueryCommand のパラメータ設定
   let scanParams = {
     TableName: AUTH_USAGE_EVENTS_TABLE_NAME,
@@ -74,7 +76,11 @@ async function getActiveOrLimitReachedUserCount() {
       "#ts": "timestamp" // "#ts" という別名で "timestamp" という予約語をマッピング
     },
     // timestampが今月のものでフィルタリング
-    FilterConditionExpression: `timestamp BETWEEN ${startTimeMonthly} AND ${endTime}`,
+    FilterExpression: `#ts BETWEEN :startTimeMonthly AND :endTime`,
+    ExpressionAttributeValues: {
+      ":startTimeMonthly": { N: startTimeMonthly.toString() },
+      ":endTime": { N: endTime.toString() }
+    },
     Limit: 1000 // 1回のScanで取得する最大件数
   };
 
@@ -94,7 +100,6 @@ async function getActiveOrLimitReachedUserCount() {
       console.log('Scanning with params:', scanParams);
       const queryCommand = new ScanCommand(scanParams);
       const response = await client.send(queryCommand);
-      console.log('Scan response:', response);
 
       const items = response.Items || [];
       for (const item of items) {
