@@ -91,6 +91,11 @@ export interface UserBillingApiProps {
    * DynamoDB table for pending parental checkout requests (parental approval for new purchases)
    */
   readonly pendingParentalCheckoutsTable?: ITable;
+
+  /**
+   * DynamoDB table for user registration metadata (birthdate, parental consent, etc.)
+   */
+  readonly userRegistrationMetadataTable?: ITable;
 }
 
 class UserBillingApi extends Construct {
@@ -1358,8 +1363,8 @@ class UserBillingApi extends Construct {
     // API 13: ユーザープロファイル更新API
     // PUT /api/user/profile
     //
-    // ユーザーのCognitoカスタム属性を更新します。
-    // birthdate, parentEmail の更新が可能です。
+    // ユーザーのCognitoカスタム属性（保護者メールアドレス）と
+    // DynamoDB（保護者同意情報）を更新します。
     // ========================================
 
     this.updateUserProfileFunction = new NodejsFunction(
@@ -1370,7 +1375,13 @@ class UserBillingApi extends Construct {
         entry: './lambda/billing/user-api/profile/updateUserProfile.ts',
         timeout: Duration.seconds(10),
         memorySize: 256,
-        environment: commonEnvironment,
+        environment: {
+          ...commonEnvironment,
+          ...(props.userRegistrationMetadataTable && {
+            USER_REGISTRATION_METADATA_TABLE_NAME:
+              props.userRegistrationMetadataTable.tableName,
+          }),
+        },
       }
     );
 
@@ -1385,6 +1396,13 @@ class UserBillingApi extends Construct {
         resources: [userPool.userPoolArn],
       })
     );
+
+    // DynamoDB UserRegistrationMetadataテーブルへの書き込み権限
+    if (props.userRegistrationMetadataTable) {
+      props.userRegistrationMetadataTable.grantReadWriteData(
+        this.updateUserProfileFunction
+      );
+    }
 
     // API Gatewayエンドポイント
     const userResource = apiResource.addResource('user');

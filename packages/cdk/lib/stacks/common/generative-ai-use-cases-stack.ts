@@ -376,6 +376,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         sendgridApiKey: params.sendgridApiKey,
         sendgridFromEmail: params.sendgridFromEmail,
         emailServiceName: params.emailServiceName,
+        userRegistrationMetadataTable: auth.userRegistrationMetadataTable,
       }
     );
 
