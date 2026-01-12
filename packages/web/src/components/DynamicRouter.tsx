@@ -45,6 +45,8 @@ import PlanDetailPage from '../pages/PlanDetailPage';
 import PlanCreatePage from '../pages/PlanCreatePage';
 import PlanMigratePage from '../pages/PlanMigratePage';
 import UserPlanManagementPage from '../pages/UserPlanManagementPage';
+import FlowExecutionManagementPage from '../pages/FlowExecutionManagementPage';
+import FlowExecutionDetailPage from '../pages/FlowExecutionDetailPage';
 import PaymentCompletePage from '../pages/PaymentCompletePage';
 import ParentalPaymentCompletePage from '../pages/ParentalPaymentCompletePage';
 
@@ -277,6 +279,14 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
     {
       path: '/admin/billing/users',
       element: <UserPlanManagementPage />,
+    },
+    {
+      path: '/admin/billing/flow-executions',
+      element: <FlowExecutionManagementPage />,
+    },
+    {
+      path: '/admin/billing/flow-executions/:flowExecutionId',
+      element: <FlowExecutionDetailPage />,
     },
     {
       path: '/billing/complete',
