@@ -19,6 +19,7 @@ import {
 import { TenantManager } from '../../construct/tenant-manager';
 import PlanManagementApi from '../../construct/api/plan-management';
 import SubscriptionManagementApi from '../../construct/api/subscription-management';
+import FlowExecutionManagementApi from '../../construct/api/flow-execution-management';
 import PaymentGatewayApi from '../../construct/api/payment-gateway';
 import OrchestrationApi from '../../construct/api/orchestration';
 import UserBillingApi from '../../construct/api/user-billing-api';
@@ -272,6 +273,16 @@ export class BillingManagementStack extends NestedStack {
         environment: props.environment,
       }
     );
+
+    // Flow Execution Management API
+    new FlowExecutionManagementApi(this, 'FlowExecutionManagement', {
+      api: billingApi,
+      userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
+      idPool: props.idPool,
+      tenantManager: props.tenantManager,
+      environment: props.environment,
+    });
 
     // Payment Gateway API
     const paymentGatewayApi = new PaymentGatewayApi(this, 'PaymentGateway', {
