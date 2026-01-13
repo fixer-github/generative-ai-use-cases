@@ -271,7 +271,7 @@ const featuredModelIds: string[] = [
   // Find Claude Sonnet 4 model (pattern: anthropic.claude-sonnet-4*)
   bedrockModelIds.find((id) => id.includes('claude-sonnet-4')) || '',
   'openai:gpt-5',
-  'gemini-2.5-pro',
+  ...(litellmProxyEnabled ? ['gemini-2.5-pro'] : []),
 ].filter((id) => id !== '');
 
 export const MODELS = {
