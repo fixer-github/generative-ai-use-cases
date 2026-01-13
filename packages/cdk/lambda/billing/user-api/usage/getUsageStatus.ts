@@ -28,6 +28,14 @@ import { getOpenFgaConfig } from '../../../utils/tenantSsmParameters';
 import { Credentials } from '@aws-sdk/client-sts';
 
 /**
+ * モデルIDに含まれる%3Aをコロンにアンエスケープする
+ * フロントエンドから送信されたエスケープ済みfeatureIdを元の形式に戻す
+ */
+function unescapeFeatureId(featureId: string): string {
+  return decodeURIComponent(featureId);
+}
+
+/**
  * テーブル名を生成するヘルパー関数
  */
 function getTableName(
@@ -294,7 +302,14 @@ export const handler = async (
     const now = Date.now();
 
     await Promise.all(
-      featureIds.map(async (featureId) => {
+      featureIds.map(async (escapedFeatureId) => {
+        // フロントエンドからエスケープされたfeatureIdをアンエスケープ
+        const featureId = unescapeFeatureId(escapedFeatureId);
+        console.log('Processing featureId:', {
+          escapedFeatureId,
+          featureId,
+          hasColon: featureId.includes(':'),
+        });
         try {
           // OpenFGAで権限チェック
           const hasPermission = await checkOpenFgaPermission(
@@ -306,9 +321,14 @@ export const handler = async (
             credentials
           );
 
+          console.log('OpenFGA permission check result:', {
+            featureId,
+            hasPermission,
+          });
+
           if (!hasPermission) {
             // 権限がない場合
-            results[featureId] = {
+            results[escapedFeatureId] = {
               status: 'no_permission',
               hasLimit: false,
             };
@@ -325,7 +345,7 @@ export const handler = async (
               limits.monthlyLimit === null &&
               limits.billingPeriodLimit === null)
           ) {
-            results[featureId] = {
+            results[escapedFeatureId] = {
               status: 'available',
               hasLimit: false,
             };
@@ -370,7 +390,7 @@ export const handler = async (
 
             if (dailyCount >= limits.dailyLimit) {
               // 日次制限超過
-              results[featureId] = {
+              results[escapedFeatureId] = {
                 status: 'quota_exceeded',
                 hasLimit: true,
                 remaining: 0,
@@ -401,7 +421,7 @@ export const handler = async (
 
             if (monthlyCount >= limits.monthlyLimit) {
               // 月次制限超過
-              results[featureId] = {
+              results[escapedFeatureId] = {
                 status: 'quota_exceeded',
                 hasLimit: true,
                 remaining: 0,
@@ -420,7 +440,7 @@ export const handler = async (
                 `billing_period limit requires periodStart but it was not found - featureId: ${featureId}`
               );
               // periodStartがない場合はエラーとして権限なしとする
-              results[featureId] = {
+              results[escapedFeatureId] = {
                 status: 'no_permission',
                 hasLimit: false,
               };
@@ -447,7 +467,7 @@ export const handler = async (
 
             if (billingPeriodCount >= limits.billingPeriodLimit) {
               // 請求期間制限超過
-              results[featureId] = {
+              results[escapedFeatureId] = {
                 status: 'quota_exceeded',
                 hasLimit: true,
                 remaining: 0,
@@ -504,7 +524,7 @@ export const handler = async (
             limitCount = minInfo.limit;
           }
 
-          results[featureId] = {
+          results[escapedFeatureId] = {
             status: 'limited',
             hasLimit: true,
             remaining: minRemaining,
@@ -515,7 +535,7 @@ export const handler = async (
         } catch (error) {
           console.error(`Error processing feature ${featureId}:`, error);
           // エラーが発生した場合は安全側に倒して権限なしとする
-          results[featureId] = {
+          results[escapedFeatureId] = {
             status: 'no_permission',
             hasLimit: false,
           };
