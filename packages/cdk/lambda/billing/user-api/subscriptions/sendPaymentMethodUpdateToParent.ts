@@ -356,7 +356,10 @@ export const handler = async (
     // 2. 現在のプラン適用情報を取得
     const applicationsResult = await fetchUserPlanApplications(event, userId);
     if (!applicationsResult.success) {
-      const errorResult = applicationsResult as { success: false; error: Error };
+      const errorResult = applicationsResult as {
+        success: false;
+        error: Error;
+      };
       console.error(
         'Error fetching user plan applications:',
         errorResult.error
@@ -368,7 +371,10 @@ export const handler = async (
       });
     }
 
-    const successResult = applicationsResult as { success: true; data: UserPlanApplication[] };
+    const successResult = applicationsResult as {
+      success: true;
+      data: UserPlanApplication[];
+    };
     const applications = successResult.data;
 
     // 有効なプラン適用をフィルタリング
@@ -422,7 +428,10 @@ export const handler = async (
     // 4. サブスクリプション情報を取得
     const subscriptionResult = await fetchSubscription(event, subscriptionId);
     if (!subscriptionResult.success) {
-      const errorResult = subscriptionResult as { success: false; error: Error };
+      const errorResult = subscriptionResult as {
+        success: false;
+        error: Error;
+      };
       console.error('Error fetching subscription:', errorResult.error);
       return internalServerError500Response({
         message: 'サブスクリプション情報の取得に失敗しました',
@@ -430,7 +439,10 @@ export const handler = async (
         details: errorResult.error.message,
       });
     }
-    const subscriptionSuccessResult = subscriptionResult as { success: true; data: Subscription | null };
+    const subscriptionSuccessResult = subscriptionResult as {
+      success: true;
+      data: Subscription | null;
+    };
     const subscription = subscriptionSuccessResult.data;
 
     if (!subscription) {
@@ -507,7 +519,7 @@ export const handler = async (
 
     // 9. return URLを設定
     const baseUrl = getBaseUrlFromRequest(event);
-    const returnUrl = `${baseUrl}/billing/parental-complete`;
+    const returnUrl = `${baseUrl}/billing/parental-payment-update-complete`;
 
     // 10. Customer Portalセッションを作成
     const portalSession = await stripe.billingPortal.sessions.create({
