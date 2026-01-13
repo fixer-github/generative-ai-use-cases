@@ -433,6 +433,7 @@ ${baseContext}
                 value: m,
                 label: modelDisplayName(m),
                 description: modelMetadata[m]?.description,
+                flags: modelMetadata[m]?.flags,
               };
             })}
             featuredModelIds={featuredModelIds}

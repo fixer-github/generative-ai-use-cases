@@ -1,11 +1,20 @@
 import React, { Fragment, useState, useMemo } from 'react';
 import { Menu, Transition } from '@headlessui/react';
-import { PiCaretDown, PiCheck, PiCaretRight } from 'react-icons/pi';
+import {
+  PiCaretDown,
+  PiCheck,
+  PiCaretRight,
+  PiFile,
+  PiImage,
+  PiVideo,
+} from 'react-icons/pi';
+import { FeatureFlags } from 'generative-ai-use-cases-jp';
 
 export type ModelOption = {
   value: string;
   label: string;
   description?: string;
+  flags?: FeatureFlags;
 };
 
 type Props = {
@@ -14,6 +23,26 @@ type Props = {
   models: ModelOption[];
   featuredModelIds: string[];
   className?: string;
+};
+
+const AttachmentIcons: React.FC<{ flags?: FeatureFlags }> = ({ flags }) => {
+  if (!flags) return null;
+  const hasAny = flags.doc || flags.image || flags.video;
+  if (!hasAny) return null;
+
+  return (
+    <span className="ml-2 flex items-center gap-1">
+      {flags.doc && (
+        <PiFile className="h-4 w-4 text-blue-500" title="ドキュメント対応" />
+      )}
+      {flags.image && (
+        <PiImage className="h-4 w-4 text-green-500" title="画像対応" />
+      )}
+      {flags.video && (
+        <PiVideo className="h-4 w-4 text-purple-500" title="動画対応" />
+      )}
+    </span>
+  );
 };
 
 const ModelSelector: React.FC<Props> = ({
@@ -74,10 +103,11 @@ const ModelSelector: React.FC<Props> = ({
         <>
           <Menu.Button className="relative h-10 w-full cursor-pointer rounded-lg px-4 py-2 text-left focus:outline-none">
             <span className="flex items-center justify-between">
-              <span className="block truncate font-medium">
+              <span className="flex items-center truncate font-medium">
                 {currentModel?.label || value}
+                <AttachmentIcons flags={currentModel?.flags} />
               </span>
-              <PiCaretDown className="ml-2 h-5 w-5 text-gray-400" />
+              <PiCaretDown className="ml-2 h-5 w-5 shrink-0 text-gray-400" />
             </span>
           </Menu.Button>
 
@@ -112,8 +142,9 @@ const ModelSelector: React.FC<Props> = ({
                           )}
                         </span>
                         <div className="ml-3 flex-1">
-                          <div className="font-medium text-gray-900">
+                          <div className="flex items-center font-medium text-gray-900">
                             {model.label}
+                            <AttachmentIcons flags={model.flags} />
                           </div>
                           {model.description && (
                             <div className="mt-0.5 text-sm text-gray-500">
@@ -170,8 +201,9 @@ const ModelSelector: React.FC<Props> = ({
                                 )}
                               </span>
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-gray-900">
+                                <div className="flex items-center font-medium text-gray-900">
                                   {model.label}
+                                  <AttachmentIcons flags={model.flags} />
                                 </div>
                                 {model.description && (
                                   <div className="mt-0.5 text-sm text-gray-500">
