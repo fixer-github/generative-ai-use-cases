@@ -16,7 +16,6 @@ import {
   UpdateCommand,
   GetCommand,
   QueryCommand,
-  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { FlowExecution, FlowExecutionStatus, FlowType } from '../types';
 import { createTenantDynamoDBClientForBackgroundJob } from '../../../utils/tenantDynamoDBClient';
@@ -31,6 +30,7 @@ import { createTenantDynamoDBClientForBackgroundJob } from '../../../utils/tenan
  * - userId-startedAt-index: Query by userId
  * - status-startedAt-index: Query by status
  * - tenantId-flowType-index: Query by tenantId and flowType
+ * - tenantId-startedAt-index: Query by tenantId with startedAt sort (管理者向け時系列取得)
  */
 export class FlowExecutionRepository {
   private docClient: DynamoDBDocumentClient | null = null;
@@ -584,33 +584,54 @@ export class FlowExecutionRepository {
         };
       }
 
-      // Strategy 4: Fall back to Scan when no efficient index can be used
+      // Strategy 4: Use tenantId-startedAt-index for default query (no specific filter)
+      // This ensures proper startedAt ordering and efficient date range filtering
       const { filterExpression, expressionAttributeNames, expressionAttributeValues } =
         buildFilterExpression();
 
-      const command = new ScanCommand({
+      expressionAttributeValues[':tenantId'] = this.tenantId;
+
+      // Build KeyConditionExpression with date range if available
+      let keyConditionExpression = 'tenantId = :tenantId';
+      if (hasDateRange) {
+        if (params.fromDate !== undefined && params.toDate !== undefined) {
+          keyConditionExpression += ' AND startedAt BETWEEN :fromDate AND :toDate';
+          expressionAttributeValues[':fromDate'] = params.fromDate;
+          expressionAttributeValues[':toDate'] = params.toDate;
+        } else if (params.fromDate !== undefined) {
+          keyConditionExpression += ' AND startedAt >= :fromDate';
+          expressionAttributeValues[':fromDate'] = params.fromDate;
+        } else if (params.toDate !== undefined) {
+          keyConditionExpression += ' AND startedAt <= :toDate';
+          expressionAttributeValues[':toDate'] = params.toDate;
+        }
+      }
+
+      // Remove date conditions from filter since they're in key condition
+      const filteredConditions = filterExpression
+        ?.split(' AND ')
+        .filter(c => !c.includes('startedAt'))
+        .join(' AND ') || undefined;
+
+      const command = new QueryCommand({
         TableName: this.getTableName(),
-        FilterExpression: filterExpression || undefined,
+        IndexName: 'tenantId-startedAt-index',
+        KeyConditionExpression: keyConditionExpression,
+        FilterExpression: filteredConditions || undefined,
         ExpressionAttributeNames:
           Object.keys(expressionAttributeNames).length > 0
             ? expressionAttributeNames
             : undefined,
-        ExpressionAttributeValues:
-          Object.keys(expressionAttributeValues).length > 0
-            ? expressionAttributeValues
-            : undefined,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ScanIndexForward: false, // Sort by startedAt DESC
         Limit: limit,
         ExclusiveStartKey: params.lastEvaluatedKey,
       });
 
       const response = await docClient.send(command);
 
-      // Sort by startedAt DESC (Scan doesn't guarantee order)
-      const items = (response.Items || []) as FlowExecution[];
-      items.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-
       return {
-        items,
+        items: (response.Items || []) as FlowExecution[],
         lastEvaluatedKey: response.LastEvaluatedKey,
       };
     } catch (error) {
