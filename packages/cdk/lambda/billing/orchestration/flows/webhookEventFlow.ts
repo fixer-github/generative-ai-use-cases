@@ -677,38 +677,31 @@ async function handlePaymentSucceeded(
           const invoiceId: string = rawInvoiceId;
 
           // インボイス番号を取得（重複チェック用）
+          // invoiceNumberがない場合はinvoiceIdをフォールバックとして使用
           const invoiceNumber = invoiceObject?.number as string | undefined;
-          if (!invoiceNumber) {
-            console.warn(
-              'Invoice number not found in event data, skipping deduplication',
-              {
-                eventId,
-                invoiceId,
-              }
-            );
-          }
+          const idempotencyIdentifier = invoiceNumber || invoiceId;
 
           // 冪等性チェック: 同一インボイスへの重複送信を防止
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
+          // invoiceNumberがなくてもinvoiceIdで重複チェックを行う
+          const idempotencyRepo = new IdempotencyRepository(tenantId);
+          const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+            tenantId,
+            idempotencyIdentifier
+          );
 
-            const alreadySent =
-              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
-            if (alreadySent) {
-              console.log('Receipt already sent for this invoice, skipping', {
-                invoiceNumber,
-                idempotencyKey,
-              });
-              return {
-                success: true,
-                emailSent: false,
-                reason: 'already_sent',
-              };
-            }
+          const alreadySent =
+            await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+          if (alreadySent) {
+            console.log('Receipt already sent for this invoice, skipping', {
+              invoiceNumber,
+              invoiceId,
+              idempotencyKey,
+            });
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'already_sent',
+            };
           }
 
           // platformSubscriptionIdは関数スコープで既に定義済み
@@ -752,20 +745,14 @@ async function handlePaymentSucceeded(
           // 領収書メール送信
           await sendPaymentReceipt(receiptData);
 
-          // 送信完了を記録
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
-            await idempotencyRepo.markReceiptSent(idempotencyKey);
-          }
+          // 送信完了を記録（idempotencyRepoとidempotencyKeyは上で定義済み）
+          await idempotencyRepo.markReceiptSent(idempotencyKey);
 
           console.log('Payment receipt email sent successfully', {
             recipientEmail: recipient.email,
             isParentalControl: recipient.isParentalControl,
             invoiceNumber,
+            idempotencyKey,
           });
 
           return { success: true, emailSent: true };
@@ -1893,27 +1880,28 @@ async function handleSubscriptionUpdated(
           const invoice = invoices.data[0];
 
           // 冪等性チェック: 同一インボイスへの重複送信を防止
+          // invoiceNumberがない場合はinvoice.idをフォールバックとして使用
           const invoiceNumber = invoice.number;
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
+          const idempotencyIdentifier = invoiceNumber || invoice.id;
+          const idempotencyRepo = new IdempotencyRepository(tenantId);
+          const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+            tenantId,
+            idempotencyIdentifier
+          );
 
-            const alreadySent =
-              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
-            if (alreadySent) {
-              console.log('Receipt already sent for this invoice, skipping', {
-                invoiceNumber,
-                idempotencyKey,
-              });
-              return {
-                success: true,
-                emailSent: false,
-                reason: 'already_sent',
-              };
-            }
+          const alreadySent =
+            await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+          if (alreadySent) {
+            console.log('Receipt already sent for this invoice, skipping', {
+              invoiceNumber,
+              invoiceId: invoice.id,
+              idempotencyKey,
+            });
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'already_sent',
+            };
           }
 
           // 領収書データを構築
@@ -1945,19 +1933,13 @@ async function handleSubscriptionUpdated(
           await sendPaymentReceipt(receiptData);
 
           // 送信完了を記録
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
-            await idempotencyRepo.markReceiptSent(idempotencyKey);
-          }
+          await idempotencyRepo.markReceiptSent(idempotencyKey);
 
           console.log('Plan change receipt email sent successfully', {
             recipientEmail: recipient.email,
             isParentalControl: recipient.isParentalControl,
             invoiceNumber,
+            idempotencyKey,
           });
 
           return { success: true, emailSent: true };
@@ -2798,27 +2780,28 @@ async function handleParentalControlActivation(
           }
 
           // 冪等性チェック: 同一インボイスへの重複送信を防止
+          // invoiceNumberがない場合はinvoice.idをフォールバックとして使用
           const invoiceNumber = invoice.number;
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
+          const idempotencyIdentifier = invoiceNumber || invoice.id;
+          const idempotencyRepo = new IdempotencyRepository(tenantId);
+          const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+            tenantId,
+            idempotencyIdentifier
+          );
 
-            const alreadySent =
-              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
-            if (alreadySent) {
-              console.log('Receipt already sent for this invoice, skipping', {
-                invoiceNumber,
-                idempotencyKey,
-              });
-              return {
-                success: true,
-                emailSent: false,
-                reason: 'already_sent',
-              };
-            }
+          const alreadySent =
+            await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+          if (alreadySent) {
+            console.log('Receipt already sent for this invoice, skipping', {
+              invoiceNumber,
+              invoiceId: invoice.id,
+              idempotencyKey,
+            });
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'already_sent',
+            };
           }
 
           // 領収書データを構築
@@ -2846,19 +2829,13 @@ async function handleParentalControlActivation(
           await sendPaymentReceipt(receiptData);
 
           // 送信完了を記録
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
-            await idempotencyRepo.markReceiptSent(idempotencyKey);
-          }
+          await idempotencyRepo.markReceiptSent(idempotencyKey);
 
           console.log('Parental control receipt email sent successfully', {
             recipientEmail: recipient.email,
             childEmail,
             invoiceNumber,
+            idempotencyKey,
           });
 
           return { success: true, emailSent: true };
@@ -3216,27 +3193,28 @@ async function handlePlanChangeCompleted(
           const invoice = invoices.data[0];
 
           // 冪等性チェック: 同一インボイスへの重複送信を防止
+          // invoiceNumberがない場合はinvoice.idをフォールバックとして使用
           const invoiceNumber = invoice.number;
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
+          const idempotencyIdentifier = invoiceNumber || invoice.id;
+          const idempotencyRepo = new IdempotencyRepository(tenantId);
+          const idempotencyKey = IdempotencyRepository.generateReceiptKey(
+            tenantId,
+            idempotencyIdentifier
+          );
 
-            const alreadySent =
-              await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
-            if (alreadySent) {
-              console.log('Receipt already sent for this invoice, skipping', {
-                invoiceNumber,
-                idempotencyKey,
-              });
-              return {
-                success: true,
-                emailSent: false,
-                reason: 'already_sent',
-              };
-            }
+          const alreadySent =
+            await idempotencyRepo.isReceiptAlreadySent(idempotencyKey);
+          if (alreadySent) {
+            console.log('Receipt already sent for this invoice, skipping', {
+              invoiceNumber,
+              invoiceId: invoice.id,
+              idempotencyKey,
+            });
+            return {
+              success: true,
+              emailSent: false,
+              reason: 'already_sent',
+            };
           }
 
           // 領収書データを構築
@@ -3266,19 +3244,13 @@ async function handlePlanChangeCompleted(
           await sendPaymentReceipt(receiptData);
 
           // 送信完了を記録
-          if (invoiceNumber) {
-            const idempotencyRepo = new IdempotencyRepository(tenantId);
-            const idempotencyKey = IdempotencyRepository.generateReceiptKey(
-              tenantId,
-              invoiceNumber
-            );
-            await idempotencyRepo.markReceiptSent(idempotencyKey);
-          }
+          await idempotencyRepo.markReceiptSent(idempotencyKey);
 
           console.log('Checkout plan change receipt email sent successfully', {
             recipientEmail: recipient.email,
             isParentalControl: recipient.isParentalControl,
             invoiceNumber,
+            idempotencyKey,
           });
 
           return { success: true, emailSent: true };

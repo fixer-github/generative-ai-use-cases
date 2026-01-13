@@ -33,7 +33,8 @@ const STRIPE_TO_BUSINESS_EVENT_MAP: Record<
   BusinessEventType | EventMapper
 > = {
   'invoice.payment_succeeded': 'payment.succeeded',
-  'invoice.paid': 'payment.succeeded', // 補助的なマッピング
+  // Note: 'invoice.paid' は削除。invoice.payment_succeeded と重複して
+  // 同一決済に対して複数回のビジネスイベントが発火し、重複メール送信の原因となるため。
   'invoice.payment_failed': 'payment.failed',
   'customer.subscription.deleted': 'subscription.canceled',
   'charge.refunded': 'payment.refunded',
