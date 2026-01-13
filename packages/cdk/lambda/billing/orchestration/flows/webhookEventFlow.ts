@@ -37,6 +37,10 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  CognitoIdentityProviderClient,
+  AdminUpdateUserAttributesCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { FlowOrchestrator } from '../services/flowOrchestrator';
 import {
   WebhookEventFlowInput,
@@ -84,6 +88,12 @@ const PENDING_PLAN_CHANGES_TABLE_NAME =
 // ペアレンタルコントロール用新規購入リクエストテーブル
 const PENDING_PARENTAL_CHECKOUTS_TABLE_NAME =
   process.env.PENDING_PARENTAL_CHECKOUTS_TABLE_NAME || '';
+
+// Cognito User Pool ID (for storing parent email after payment success)
+const USER_POOL_ID = process.env.USER_POOL_ID || '';
+
+// Cognito client instance
+const cognitoClient = new CognitoIdentityProviderClient({});
 
 /**
  * デフォルトプランを取得
@@ -2578,6 +2588,7 @@ async function handleParentalControlActivation(
     userId,
     planId,
     childEmail,
+    parentEmail,
     parentalCheckoutRequestId,
   } = extracted;
 
@@ -2587,6 +2598,7 @@ async function handleParentalControlActivation(
     userId,
     planId,
     childEmail,
+    parentEmail: parentEmail ? '(set)' : '(not set)',
     parentalCheckoutRequestId,
     hasExtracted: !!stripeData._extracted,
   });
@@ -2755,6 +2767,51 @@ async function handleParentalControlActivation(
         });
 
         return { success: true, parentalCheckoutRequestId };
+      },
+      retryable: true,
+      maxRetries: 2,
+    },
+
+    // ステップ1.6: 保護者メールアドレスをCognitoに保存
+    {
+      stepName: 'store_parent_email_to_cognito',
+      stepType: 'api_call',
+      targetService: 'Cognito',
+      executeFunction: async () => {
+        if (!parentEmail) {
+          console.log(
+            'No parent email to store, skipping Cognito attribute update'
+          );
+          return { skipped: true, reason: 'no_parent_email' };
+        }
+
+        if (!USER_POOL_ID) {
+          console.warn(
+            'USER_POOL_ID not configured, skipping parent email storage'
+          );
+          return { skipped: true, reason: 'user_pool_not_configured' };
+        }
+
+        console.log('Storing parent email to Cognito', {
+          userId,
+          parentEmail: '(set)',
+        });
+
+        const command = new AdminUpdateUserAttributesCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: userId as string,
+          UserAttributes: [
+            { Name: 'custom:parent_email', Value: parentEmail as string },
+          ],
+        });
+
+        await cognitoClient.send(command);
+
+        console.log('Parent email stored to Cognito successfully', {
+          userId,
+        });
+
+        return { success: true, parentEmail: '(stored)' };
       },
       retryable: true,
       maxRetries: 2,

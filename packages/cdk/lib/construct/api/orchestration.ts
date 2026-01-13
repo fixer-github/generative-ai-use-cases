@@ -8,6 +8,7 @@ import { Rule, EventPattern, IEventBus } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { IUserPool } from 'aws-cdk-lib/aws-cognito';
 
 export interface OrchestrationApiProps {
   /**
@@ -85,6 +86,11 @@ export interface OrchestrationApiProps {
    * Pending Parental Checkouts Table for parental control new purchase requests
    */
   readonly pendingParentalCheckoutsTable?: ITable;
+
+  /**
+   * User Pool for storing parent email after payment success
+   */
+  readonly userPool: IUserPool;
 }
 
 /**
@@ -252,6 +258,8 @@ class OrchestrationApi extends Construct {
           ...(props.pendingParentalCheckoutsTable && {
             PENDING_PARENTAL_CHECKOUTS_TABLE_NAME: props.pendingParentalCheckoutsTable.tableName,
           }),
+          // User Pool ID for storing parent email after payment success
+          USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -321,6 +329,15 @@ class OrchestrationApi extends Construct {
           `arn:aws:dynamodb:*:*:table/${environment}-pending-plan-changes`,
           `arn:aws:dynamodb:*:*:table/${environment}-pending-parental-checkouts`,
         ],
+      })
+    );
+
+    // Permission for Webhook Event Flow to update Cognito user attributes (parent email)
+    backgroundJobRole.addToPrincipalPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['cognito-idp:AdminUpdateUserAttributes'],
+        resources: [props.userPool.userPoolArn],
       })
     );
 
