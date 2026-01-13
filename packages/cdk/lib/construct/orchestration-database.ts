@@ -173,6 +173,22 @@ export class OrchestrationDatabase extends Construct {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // Add GSI for tenantId-startedAt (管理者向け時系列取得用)
+    // 管理者がテナント全体のデータをstartedAt順で取得するために使用
+    // 日付範囲フィルターをKeyConditionExpressionで処理可能
+    this.flowExecutionHistoryTable.addGlobalSecondaryIndex({
+      indexName: 'tenantId-startedAt-index',
+      partitionKey: {
+        name: 'tenantId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'startedAt',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ========================================
     // 3. Flow Step Execution History Table
     // ========================================
