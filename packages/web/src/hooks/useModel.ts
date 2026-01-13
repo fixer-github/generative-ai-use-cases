@@ -101,8 +101,14 @@ const getFlows = () => {
 
 const flows = getFlows();
 
-// List of LangChain model IDs (configured to match config.yaml)
-const liteLlmModelIds = ['gemini-2.5-flash', 'gemini-2.5-pro'];
+// LiteLLM proxy enabled flag from CDK configuration
+const litellmProxyEnabled =
+  import.meta.env.VITE_APP_LITELLM_PROXY_ENABLED === 'true';
+
+// List of LiteLLM model IDs (only available when litellmProxyEnabled is true)
+const liteLlmModelIds = litellmProxyEnabled
+  ? ['gemini-2.5-flash', 'gemini-2.5-pro']
+  : [];
 
 // List of LangChain model IDs
 const langchainModelIds = [
