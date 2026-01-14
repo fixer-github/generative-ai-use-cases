@@ -187,8 +187,7 @@ export const useMeetingMinutes = (
             {
               role: 'user',
               content:
-                // eslint-disable-next-line i18nhelper/no-jp-string
-                '続きを出力してください。前回の出力の続きから始めてください。',
+                'Please continue from where you left off. Start from the end of the previous output.',
             },
           ];
 
