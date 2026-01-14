@@ -61,8 +61,11 @@ export const handler = async (
     );
     console.log(`Using upload bucket for validation: ${uploadBucketName}`);
 
-    if (req.messages) {
-      for (const message of req.messages) {
+    // Filter out system messages - they should not be stored in database
+    const messagesToStore = req.messages?.filter((m) => m.role !== 'system') || [];
+
+    if (messagesToStore.length > 0) {
+      for (const message of messagesToStore) {
         if (message.extraData && message.extraData.length > 0) {
           for (const extra of message.extraData) {
             if (!isValidExtraData(extra, uploadBucketName)) {
@@ -76,7 +79,7 @@ export const handler = async (
     }
 
     const messages = await batchCreateMessages(
-      req.messages,
+      messagesToStore,
       userId,
       chatId,
       event

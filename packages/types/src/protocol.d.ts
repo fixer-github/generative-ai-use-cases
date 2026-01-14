@@ -91,11 +91,18 @@ export type UpdateTitleResponse = {
   chat: Chat;
 };
 
+export type SystemContextParams = {
+  promptVariant?: string;
+  interests?: string;
+  goals?: string;
+};
+
 export type PredictRequest = {
   model?: Model;
   idToken?: string;
   messages: UnrecordedMessage[];
   id: string;
+  systemContextParams?: SystemContextParams;
 };
 
 export type PredictResponse = string;

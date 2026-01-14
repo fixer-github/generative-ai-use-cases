@@ -18,8 +18,11 @@ export const handler = async (
 
     const messages = await listMessages(chatId, event);
 
+    // Filter out system messages to prevent exposure in API responses
+    const filteredMessages = messages.filter((m) => m.role !== 'system');
+
     return ok200Response({
-      messages,
+      messages: filteredMessages,
     });
   } catch (error) {
     return handleLambdaError(error);
