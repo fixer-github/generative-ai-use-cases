@@ -1215,6 +1215,7 @@ writer:
   tutorial_success: Đã tải hướng dẫn
   useAsTextEditor: Sử dụng như editor văn bản
 settings:
+  deleteAccountDeletePlaceholder: DELETE
   labels:
     customInstructions: Hướng dẫn tùy chỉnh
     enableCustomize: Bật tùy chỉnh

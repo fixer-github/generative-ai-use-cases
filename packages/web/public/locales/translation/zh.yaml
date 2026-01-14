@@ -1071,6 +1071,7 @@ writer:
   tutorial_success: 已加载教程
   useAsTextEditor: 作为文本编辑器使用
 settings:
+  deleteAccountDeletePlaceholder: DELETE
   labels:
     customInstructions: 自定义指令
     enableCustomize: 启用自定义

@@ -1254,6 +1254,7 @@ writer:
   tutorial_success: โหลดบทเรียนแล้ว
   useAsTextEditor: ใช้เป็นเครื่องมือแก้ไขข้อความ
 settings:
+  deleteAccountDeletePlaceholder: DELETE
   labels:
     customInstructions: คำสั่งที่กำหนดเอง
     enableCustomize: เปิดใช้งานการปรับแต่ง
