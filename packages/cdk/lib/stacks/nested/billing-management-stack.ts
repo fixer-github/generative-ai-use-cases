@@ -318,6 +318,8 @@ export class BillingManagementStack extends NestedStack {
       pendingPlanChangesTable: pendingPlanChangesTable,
       // Pending Parental Checkouts Table for parental control new purchase status update
       pendingParentalCheckoutsTable: pendingParentalCheckoutsTable,
+      // User Pool for storing parent email after payment success
+      userPool: props.userPool,
     });
 
     // User Billing API (ユーザ向けエンドポイント)

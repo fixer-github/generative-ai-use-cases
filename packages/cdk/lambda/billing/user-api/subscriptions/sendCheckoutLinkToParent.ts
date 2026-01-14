@@ -11,7 +11,12 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  PutItemCommand,
+  QueryCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import { randomUUID } from 'crypto';
 import { getTenantId } from '../../../utils/tenantUtils';
 import { getUserIdFromCognitoEvent, getUserEmailFromCognitoEvent } from '../../../utils/cognitoUtils';
@@ -305,6 +310,90 @@ function formatPriceJpy(amount: number): string {
 }
 
 /**
+ * 既存の保留中チェックアウトリクエストを無効化する
+ * 新しいリクエスト作成前に呼び出し、同一ユーザーの古いリクエストをキャンセル
+ */
+async function invalidatePendingCheckoutRequests(
+  userId: string,
+  stripe: Stripe
+): Promise<void> {
+  if (!PENDING_PARENTAL_CHECKOUTS_TABLE_NAME) {
+    console.log('Skipping invalidation: table name not configured');
+    return;
+  }
+
+  try {
+    // userId-indexを使用して保留中のリクエストを取得
+    const queryResult = await dynamoDbClient.send(
+      new QueryCommand({
+        TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
+        IndexName: 'userId-index',
+        KeyConditionExpression: 'userId = :userId',
+        FilterExpression: '#status = :pending',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':userId': { S: userId },
+          ':pending': { S: 'pending' },
+        },
+      })
+    );
+
+    const pendingRequests = queryResult.Items || [];
+
+    if (pendingRequests.length === 0) {
+      console.log('No pending checkout requests to invalidate for user:', userId);
+      return;
+    }
+
+    console.log(`Found ${pendingRequests.length} pending checkout request(s) to invalidate`);
+
+    // 各保留中リクエストを無効化
+    for (const item of pendingRequests) {
+      const requestId = item.requestId?.S;
+      const checkoutSessionId = item.checkoutSessionId?.S;
+
+      if (!requestId) continue;
+
+      // DynamoDBのステータスを'cancelled'に更新
+      await dynamoDbClient.send(
+        new UpdateItemCommand({
+          TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
+          Key: { requestId: { S: requestId } },
+          UpdateExpression: 'SET #status = :cancelled, cancelledAt = :cancelledAt',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+          },
+          ExpressionAttributeValues: {
+            ':cancelled': { S: 'cancelled' },
+            ':cancelledAt': { N: Date.now().toString() },
+          },
+        })
+      );
+
+      console.log('Cancelled pending checkout request:', requestId);
+
+      // Stripeチェックアウトセッションを期限切れにする
+      if (checkoutSessionId) {
+        try {
+          await stripe.checkout.sessions.expire(checkoutSessionId);
+          console.log('Expired Stripe checkout session:', checkoutSessionId);
+        } catch (stripeError) {
+          // セッションが既に期限切れの場合などはエラーを無視
+          console.log('Could not expire Stripe session (may already be expired):', checkoutSessionId, stripeError);
+        }
+      }
+    }
+
+    console.log(`Successfully invalidated ${pendingRequests.length} pending checkout request(s)`);
+  } catch (error) {
+    // 無効化の失敗は致命的ではないため、ログに記録して続行
+    console.error('Error invalidating pending checkout requests:', error);
+  }
+}
+
+/**
  * Lambda関数のメインハンドラー
  */
 export const handler = async (
@@ -433,6 +522,10 @@ export const handler = async (
     // 7. Stripe APIキーを取得
     const apiKey = await getStripeApiKey(tenantId);
     const stripe = new Stripe(apiKey, { apiVersion: '2025-10-29.clover' });
+
+    // 7.5. 既存の保留中リクエストを無効化
+    // 同一ユーザーの古いリクエストをキャンセルし、Stripeセッションも期限切れにする
+    await invalidatePendingCheckoutRequests(userId, stripe);
 
     // 8. 価格情報を取得（JPYのみサポート）
     const price = await stripe.prices.retrieve(priceId);
