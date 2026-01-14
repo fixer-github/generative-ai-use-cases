@@ -35,7 +35,6 @@ module.exports = defineConfig([
       globals: {
         ...typescriptConfig.languageOptions.globals,
         ...globals.browser,
-        ...globals.es2020,
       },
     },
     settings: {
