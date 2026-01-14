@@ -91,6 +91,16 @@ async function extractPricing(
 }
 
 /**
+ * 機能キーに応じたカウント単位を返す
+ */
+function getCountUnit(key: string): string {
+  if (key.startsWith('prompt-media:image') || key === 'image-generation') {
+    return '枚';
+  }
+  return '回';
+}
+
+/**
  * プラン情報からfeatures情報を抽出する
  */
 function extractFeatures(permissions: Plan['permissions']): string[] {
@@ -104,12 +114,13 @@ function extractFeatures(permissions: Plan['permissions']): string[] {
   // limitsから特徴的な機能制限を文字列化して追加
   if (permissions.limits) {
     Object.entries(permissions.limits).forEach(([key, limit]) => {
+      const unit = getCountUnit(key);
       if (limit.type === 'unlimited') {
         features.push(`${key}: 無制限`);
       } else if (limit.type === 'daily') {
-        features.push(`${key}: 1日${limit.count}回まで`);
-      } else if (limit.type === 'monthly') {
-        features.push(`${key}: 1ヶ月${limit.count}回まで`);
+        features.push(`${key}: ${limit.count} ${unit} / 日`);
+      } else if (limit.type === 'monthly' || limit.type === 'billing_period') {
+        features.push(`${key}: ${limit.count} ${unit} / 月`);
       }
     });
   }
