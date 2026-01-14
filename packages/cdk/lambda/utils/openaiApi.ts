@@ -18,10 +18,20 @@ import { sdkStreamMixin } from '@smithy/util-stream-node';
 
 /**
  * OpenAI クライアントを取得する
+ * @throws APIキーが設定されていない場合にエラーをスロー
  */
 const getOpenAIClient = (): OpenAI => {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey || apiKey.trim() === '') {
+    console.error('OPENAI_API_KEY environment variable is not set');
+    throw new Error(
+      'OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.'
+    );
+  }
+
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey,
   });
 };
 
@@ -196,20 +206,70 @@ const openaiApi: ApiInterface = {
     messages: UnrecordedMessage[],
     id: string
   ): Promise<string> {
-    const openai = getOpenAIClient();
-    const openAIMessages = await convertMessages(messages);
-
     // modelId形式: "openai:gpt-4o" -> "gpt-4o"
     const modelId = model.modelId.replace('openai:', '');
 
-    console.debug(JSON.stringify(messages));
+    try {
+      const openai = getOpenAIClient();
+      const openAIMessages = await convertMessages(messages);
 
-    const response = await openai.chat.completions.create({
-      model: modelId,
-      messages: openAIMessages,
-    });
+      console.debug(JSON.stringify(messages));
 
-    return response.choices[0]?.message?.content ?? '';
+      const response = await openai.chat.completions.create({
+        model: modelId,
+        messages: openAIMessages,
+      });
+
+      if (!response.choices || response.choices.length === 0) {
+        console.error('OpenAI API returned no choices', { modelId });
+        throw new Error('OpenAI API returned no response choices');
+      }
+
+      const choice = response.choices[0];
+      const content = choice.message?.content;
+
+      if (content === null || content === undefined) {
+        if (choice.finish_reason === 'content_filter') {
+          console.warn('OpenAI content filter triggered', { modelId });
+          throw new Error(
+            'The response was blocked by content filtering. Please rephrase your request.'
+          );
+        }
+        console.error('OpenAI API returned null content', {
+          modelId,
+          finishReason: choice.finish_reason,
+        });
+        throw new Error('OpenAI API returned empty response');
+      }
+
+      return content;
+    } catch (e) {
+      if (e instanceof OpenAI.APIError) {
+        console.error('OpenAI API Error:', {
+          status: e.status,
+          message: e.message,
+          code: e.code,
+          modelId,
+        });
+
+        if (e.status === 401) {
+          throw new Error(
+            'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.'
+          );
+        } else if (e.status === 429) {
+          throw new Error(
+            'OpenAI API rate limit exceeded. Please try again later.'
+          );
+        } else if (e.status === 404) {
+          throw new Error(
+            `Model '${modelId}' is not available. Please select a different model.`
+          );
+        } else {
+          throw new Error(`OpenAI API error: ${e.message}`);
+        }
+      }
+      throw e;
+    }
   },
 
   invokeStream: async function* (
@@ -218,45 +278,87 @@ const openaiApi: ApiInterface = {
     id: string,
     idToken?: string | undefined
   ): AsyncIterable<string> {
-    const openai = getOpenAIClient();
-    const openAIMessages = await convertMessages(messages);
-
     // modelId形式: "openai:gpt-4o" -> "gpt-4o"
     const modelId = model.modelId.replace('openai:', '');
 
-    console.debug(JSON.stringify(messages));
+    try {
+      const openai = getOpenAIClient();
+      const openAIMessages = await convertMessages(messages);
 
-    const stream = await openai.chat.completions.create({
-      model: modelId,
-      messages: openAIMessages,
-      stream: true,
-    });
+      console.debug(JSON.stringify(messages));
 
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        yield streamingChunk({
-          text: content,
-        });
-      }
+      const stream = await openai.chat.completions.create({
+        model: modelId,
+        messages: openAIMessages,
+        stream: true,
+      });
 
-      const finishReason = chunk.choices[0]?.finish_reason;
-      if (finishReason) {
-        const stopReason = convertFinishReason(finishReason);
-        if (stopReason) {
+      let stopReasonSent = false;
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
           yield streamingChunk({
-            text: '',
-            stopReason: stopReason,
+            text: content,
           });
         }
+
+        const finishReason = chunk.choices[0]?.finish_reason;
+        if (finishReason) {
+          const stopReason = convertFinishReason(finishReason);
+          if (stopReason) {
+            yield streamingChunk({
+              text: '',
+              stopReason: stopReason,
+            });
+            stopReasonSent = true;
+          }
+        }
+      }
+
+      // finish_reasonが送信されなかった場合のみ終了を通知
+      if (!stopReasonSent) {
+        yield streamingChunk({
+          text: '',
+          stopReason: StopReason.END_TURN,
+        });
+      }
+    } catch (e) {
+      if (e instanceof OpenAI.APIError) {
+        console.error('OpenAI API Error:', {
+          status: e.status,
+          message: e.message,
+          code: e.code,
+          modelId,
+        });
+
+        let errorMessage: string;
+        if (e.status === 401) {
+          errorMessage =
+            'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.';
+        } else if (e.status === 429) {
+          errorMessage =
+            'OpenAI API rate limit exceeded. Please try again later.';
+        } else if (e.status === 404) {
+          errorMessage = `Model '${modelId}' is not available. Please select a different model.`;
+        } else {
+          errorMessage = `OpenAI API error: ${e.message}`;
+        }
+
+        yield streamingChunk({
+          text: errorMessage,
+          stopReason: StopReason.END_TURN,
+        });
+      } else {
+        console.error('Unexpected error in OpenAI API call:', e);
+        yield streamingChunk({
+          text:
+            'An unexpected error occurred. Please try again later.\n' +
+            (e instanceof Error ? e.message : String(e)),
+          stopReason: StopReason.END_TURN,
+        });
       }
     }
-
-    // ストリーム終了を通知
-    yield streamingChunk({
-      text: '',
-      stopReason: StopReason.END_TURN,
-    });
   },
 
   generateImage: function (
