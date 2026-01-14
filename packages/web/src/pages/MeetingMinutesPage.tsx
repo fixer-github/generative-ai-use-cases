@@ -962,8 +962,7 @@ const MeetingMinutesPage: React.FC = () => {
                     {autoGenerate && countdownSeconds > 0 && (
                       <div className="text-sm text-gray-600">
                         {t('meetingMinutes.next_generation_in')}
-                        {Math.floor(countdownSeconds / 60)}
-                        {t('common.colon')}
+                        {Math.floor(countdownSeconds / 60)}:
                         {(countdownSeconds % 60).toString().padStart(2, '0')}
                       </div>
                     )}
