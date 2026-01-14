@@ -61,6 +61,7 @@ export type GenericApiProps = {
 
   api: RestApi;
   fileBucket: Bucket;
+  promptTemplatesBucket?: Bucket;
 
   commonAuthorizerProps: {
     authorizationType: AuthorizationType;

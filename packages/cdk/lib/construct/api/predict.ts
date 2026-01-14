@@ -37,6 +37,7 @@ class PredictApi extends Construct {
       commonAuthorizerProps,
       table,
       fileBucket,
+      promptTemplatesBucket,
       knowledgeBaseId,
       queryDecompositionEnabled,
       rerankingModelId,
@@ -143,6 +144,13 @@ class PredictApi extends Construct {
               TENANTS_TABLE_NAME: tenantManager.tenantsTable.tableName,
             }
           : {}),
+
+        // Prompt Templates Bucket for system prompt placeholder replacement
+        ...(promptTemplatesBucket
+          ? {
+              PROMPT_TEMPLATES_BUCKET_NAME: promptTemplatesBucket.bucketName,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
@@ -151,6 +159,8 @@ class PredictApi extends Construct {
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
           '@aws-sdk/client-sagemaker-runtime',
+          // For prompt template placeholder replacement from S3
+          '@aws-sdk/client-s3',
 
           '@langchain/core',
           '@langchain/openai',
@@ -158,6 +168,11 @@ class PredictApi extends Construct {
       },
     });
     fileBucket.grantReadWrite(predictStreamFunction);
+
+    // Grant read permission to prompt templates bucket
+    if (promptTemplatesBucket) {
+      promptTemplatesBucket.grantRead(predictStreamFunction);
+    }
     if (userSummaryTable) {
       userSummaryTable.grantReadData(predictStreamFunction);
       userSummaryTable.grantReadData(predictFunction);

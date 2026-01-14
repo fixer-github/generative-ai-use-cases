@@ -9,6 +9,10 @@ import {
   AccessCheckResult,
 } from './utils/accessChecker';
 import { buildSummaryContext } from './utils/summaryContext';
+import {
+  replacePromptTemplatePlaceholders,
+  getPromptTemplateBucketName,
+} from './utils/promptTemplate';
 
 declare global {
   namespace awslambda {
@@ -209,6 +213,25 @@ export const handler = awslambda.streamifyResponse(
       } catch (error) {
         // Continue without summary context if injection fails
         console.error('Failed to inject summary context:', error);
+      }
+
+      // Replace {{UUID}} placeholders in system message with actual prompt templates from S3
+      const promptTemplateBucketName = getPromptTemplateBucketName();
+      if (promptTemplateBucketName) {
+        messages = await Promise.all(
+          messages.map(async (msg) => {
+            if (msg.role === 'system' && typeof msg.content === 'string') {
+              return {
+                ...msg,
+                content: await replacePromptTemplatePlaceholders(
+                  msg.content,
+                  promptTemplateBucketName
+                ),
+              };
+            }
+            return msg;
+          })
+        );
       }
 
       // If authorized, proceed with streaming

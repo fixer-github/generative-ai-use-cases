@@ -112,6 +112,7 @@ export class Api extends Construct {
   readonly endpointNames: string[];
   readonly agentNames: string[];
   readonly fileBucket: Bucket;
+  readonly promptTemplatesBucket: Bucket;
   readonly getFileDownloadSignedUrlFunction: IFunction;
   readonly centralPptxApi?: CentralPptxApi;
 
@@ -199,6 +200,13 @@ export class Api extends Construct {
 
     const fileBucket = new FileBucket(this, 'FileBucket', {});
 
+    // Prompt Templates Bucket for system prompt placeholder replacement
+    // This is a temporary solution for hiding sensitive prompts from frontend
+    const promptTemplatesBucket = new Bucket(this, 'PromptTemplatesBucket', {
+      bucketName: `prompt-templates-${Stack.of(this).account}-${props.environment}`,
+      enforceSSL: true,
+    });
+
     // Agent Map
     const agentMap: AgentMap = {};
     for (const agent of agents) {
@@ -212,6 +220,7 @@ export class Api extends Construct {
       ...props,
       api: api,
       fileBucket: fileBucket.fileBucket,
+      promptTemplatesBucket: promptTemplatesBucket,
       commonAuthorizerProps: commonAuthorizerProps,
       agentMap: agentMap,
     };
@@ -443,6 +452,7 @@ export class Api extends Construct {
     this.endpointNames = endpointNames;
     this.agentNames = Object.keys(agentMap);
     this.fileBucket = fileBucket.fileBucket;
+    this.promptTemplatesBucket = promptTemplatesBucket;
     this.getFileDownloadSignedUrlFunction =
       fileApi.getFileDownloadSignedUrlFunction;
   }
