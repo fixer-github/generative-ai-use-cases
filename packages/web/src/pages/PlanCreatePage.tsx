@@ -8,6 +8,30 @@ import usePlanApi, { CreatePlanRequest } from '../hooks/usePlanApi';
 
 type InputMode = 'form' | 'json';
 
+/**
+ * モデルID内のコロンをエスケープする
+ * OpenFGAはtype:id形式を期待するため、モデルID内のコロンは%3Aにエンコードする必要がある
+ */
+function escapeModelIdColon(modelId: string): string {
+  return modelId.replace(/:/g, '%3A');
+}
+
+/**
+ * featureId内のresourceId部分のコロンをエスケープする
+ * featureIdは「resourceType:resourceId」形式で、最初のコロンより後ろの部分のみエスケープする
+ * 例: llm:openai:gpt-4o → llm:openai%3Agpt-4o
+ */
+function escapeFeatureId(featureId: string): string {
+  const colonIndex = featureId.indexOf(':');
+  if (colonIndex === -1) {
+    return featureId;
+  }
+  const resourceType = featureId.substring(0, colonIndex);
+  const resourceId = featureId.substring(colonIndex + 1);
+  const escapedResourceId = escapeModelIdColon(resourceId);
+  return `${resourceType}:${escapedResourceId}`;
+}
+
 interface LimitConfig {
   model: string;
   type: 'unlimited' | 'daily' | 'monthly' | 'billing_period';
@@ -86,7 +110,9 @@ const PlanCreatePage: React.FC = () => {
     const limitsObj: any = {};
     limits.forEach((limit) => {
       if (limit.model) {
-        limitsObj[limit.model] = {
+        // モデルID内のコロンをエスケープしてキーとして使用
+        const escapedModel = escapeModelIdColon(limit.model);
+        limitsObj[escapedModel] = {
           type: limit.type,
           ...(limit.type !== 'unlimited' && { count: limit.count || 0 }),
         };
@@ -94,7 +120,7 @@ const PlanCreatePage: React.FC = () => {
     });
 
     return {
-      features,
+      features: features.map(escapeFeatureId),
       limits: limitsObj,
     };
   };
