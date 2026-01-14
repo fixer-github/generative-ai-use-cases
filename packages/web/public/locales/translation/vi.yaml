@@ -148,6 +148,7 @@ common:
   title: Tiêu đề
   trace: Trace
   try: Thử
+  unitMB: MB
 demo:
   inter_use_cases: Liên kết use case
 diagram:
@@ -728,6 +729,7 @@ pptx:
     blank: Mẫu trắng
     blankDescription: Bắt đầu với mẫu sạch và tối giản
     label: Lựa chọn mẫu
+    moreTags: '+{{count}}'
     noTemplates: Không có mẫu tùy chỉnh nào
     private: Mẫu riêng tư
     public: Mẫu công khai

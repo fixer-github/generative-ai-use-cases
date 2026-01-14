@@ -48,6 +48,7 @@ adminPortal:
   messages:
     failedToCheckAdminStatus: 管理者ステータスの確認に失敗しました
     failedToLoadUsers: ユーザーの読み込みに失敗しました
+    verifyingAdminPrivileges: 管理者権限を確認中...
     failedToRefreshSession: 認証セッションの更新に失敗しました
     failedToRemoveUser: ユーザーの削除に失敗しました
     failedToUpdateUserRole: ユーザーの役割更新に失敗しました
@@ -87,6 +88,10 @@ assistant:
     confirmClear: 会話履歴をクリアしてもよろしいですか？
     copy: コピー
     createChatError: チャットの作成に失敗しました
+    model: モデル
+    ragEnabled: RAG 有効
+    sources: ソース
+    view: 表示
     failedAlertTitle: 同期失敗
     inputPlaceholder: メッセージを入力...
     instruction: 指示
@@ -135,6 +140,7 @@ assistant:
     sourceUrls: ソースURL
     title: 名前
     uploadFiles: ファイルをアップロード
+    uploadingFiles: ファイルをアップロード中...
   editTitle: 編集
   filterAll: すべて
   filterPrivate: プライベート
@@ -144,11 +150,13 @@ assistant:
     back: 戻る
     confirmBulkDelete: '{{count}}件の会話を削除してもよろしいですか？'
     confirmDelete: この会話を削除してもよろしいですか？
+    createdWithDate: '作成日: {{date}}'
     daysAgo: '{{days}}日前'
     deleteSelected: 選択した項目を削除
     deselectAll: 選択解除
     hoursAgo: '{{hours}}時間前'
     lastMessage: 最終メッセージ
+    lastMessageWithDate: '最終メッセージ: {{date}}'
     messageCount: 'メッセージ数: {{count}}'
     minutesAgo: '{{minutes}}分前'
     noConversations: 会話履歴がありません
@@ -207,8 +215,10 @@ assistant:
     makeItPublic: パブリックにする
     private: プライベート
     privateDescription: 自分だけが利用できます
+    privateDescriptionWithParens: (自分だけが利用できます)
     public: パブリック
     publicDescription: 組織内のメンバーが利用できます
+    publicDescriptionWithParens: (組織内のメンバーが利用できます)
     publicWarning: アシスタントをパブリックにすると、組織内の全メンバーが利用できるようになります。指示やナレッジベースに機密情報が含まれていないことを確認してください。
     toggleTitle: 公開設定を変更
     updating: 更新中...
@@ -260,11 +270,16 @@ chatList:
   oneDayAgo: 1日前
   rename: 名前を変更
   today: 今日
+chatSidebar:
+  assistants: アシスタント
+  chatHistory: チャット履歴
+  searchAssistants: アシスタントを探す
 common:
   ask_gaixr: GaiXerに聞く
   cancel: キャンセル
   clear: クリア
   close: 閉じる
+  ellipsis: '...'
   complete: 完了
   create: 作成
   delete: 削除
@@ -294,6 +309,7 @@ common:
   title: タイトル
   trace: トレース
   try: 試す
+  unitMB: MB
   yesterday: 昨日
 demo:
   inter_use_cases: ユースケース連携
@@ -503,6 +519,7 @@ files:
     mimeMismatch: '{{fileName}} のファイル形式が不正です。'
     modelNotSupported: モデルが対応していません。
     videoCountExceeded: 動画数は {{maxCount}} 個以下にしてください。
+  uploadFiles: ファイルをアップロード
 flow:
   title: Flow チャット
 generateImage:
@@ -828,6 +845,9 @@ optimizePrompt:
 pptx:
   description: AI の支援を使って専門的なプレゼンテーションを自動作成
   download: ダウンロード
+  model:
+    help: プレゼンテーションコンテンツを生成するAIモデルを選択してください
+    label: AI モデル
   examples:
     business:
       content: 四半期ビジネスレビューに関するプレゼンテーションを作成します。市場分析、財務実績、次四半期の戦略的取り組みを含みます。
@@ -852,10 +872,12 @@ pptx:
     titleSlide: タイトルスライドを含める
   slideCount:
     label: スライド数
+    labelWithCount: 'スライド数: {{count}}'
   template:
     blank: 空白テンプレート
     blankDescription: クリーンで最小限のテンプレートから開始
     label: テンプレート選択
+    moreTags: '+{{count}}'
     noTemplates: カスタムテンプレートがありません
     private: プライベートテンプレート
     public: パブリックテンプレート
@@ -983,6 +1005,10 @@ transcribe:
   stop_recording: 録音を停止する
   supported_files: mp3, mp4, wav, flac, ogg, amr, webm, m4a ファイルが利用可能です
   title: 音声認識
+userMenu:
+  ariaLabel: ユーザーメニュー
+  logout: ログアウト
+  settings: 設定
 translate:
   additional_context: 追加コンテキスト
   additional_context_placeholder: 追加で考慮してほしい点を入力することができます（カジュアルさ等）

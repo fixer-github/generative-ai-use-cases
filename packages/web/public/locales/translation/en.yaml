@@ -49,6 +49,7 @@ adminPortal:
     failedToCheckAdminStatus: Failed to verify admin status
     failedToLoadUsers: Failed to load users
     failedToRefreshSession: Failed to refresh authentication session
+    verifyingAdminPrivileges: Verifying admin privileges...
     failedToRemoveUser: Failed to remove user
     failedToUpdateUserRole: Failed to update user role
     loading: Loading...
@@ -88,6 +89,10 @@ assistant:
     copy: Copy
     createChatError: Failed to create chat
     failedAlertTitle: Sync Failed
+    model: Model
+    ragEnabled: RAG Enabled
+    sources: Sources
+    view: View
     inputPlaceholder: Type a message...
     instruction: Instruction
     noMessages: No messages
@@ -135,6 +140,7 @@ assistant:
     sourceUrls: Source URLs
     title: Name
     uploadFiles: Upload Files
+    uploadingFiles: Uploading files...
   editTitle: Edit
   filterAll: All
   filterPrivate: Private
@@ -144,11 +150,13 @@ assistant:
     back: Back
     confirmBulkDelete: 'Are you sure you want to delete {{count}} conversations?'
     confirmDelete: Are you sure you want to delete this conversation?
+    createdWithDate: 'Created: {{date}}'
     daysAgo: '{{days}} days ago'
     deleteSelected: Delete Selected
     deselectAll: Deselect All
     hoursAgo: '{{hours}} hours ago'
     lastMessage: Last message
+    lastMessageWithDate: 'Last message: {{date}}'
     messageCount: 'Messages: {{count}}'
     minutesAgo: '{{minutes}} minutes ago'
     noConversations: No conversations found
@@ -207,8 +215,10 @@ assistant:
     makeItPublic: Make it Public
     private: Private
     privateDescription: Only you can use this assistant
+    privateDescriptionWithParens: (Only you can use this assistant)
     public: Public
     publicDescription: Members of your organization can use this assistant
+    publicDescriptionWithParens: (Members of your organization can use this assistant)
     publicWarning: Making an assistant public will allow all organization members to use it. Make sure the instructions and knowledge base don't contain sensitive information.
     toggleTitle: Change Visibility
     updating: Updating...
@@ -262,12 +272,17 @@ chatList:
   oneDayAgo: 1 day ago
   rename: Rename
   today: Today
+chatSidebar:
+  assistants: Assistants
+  chatHistory: Chat History
+  searchAssistants: Search Assistants
 common:
   ask_gaixr: Ask GaiXer
   cancel: Cancel
   clear: Clear
   close: Close
   complete: Complete
+  ellipsis: '...'
   create: Create
   delete: Delete
   enter_text: Enter text
@@ -296,6 +311,7 @@ common:
   title: Title
   trace: Trace
   try: Try
+  unitMB: MB
   yesterday: Yesterday
 demo:
   inter_use_cases: Use Case Integration
@@ -558,6 +574,7 @@ files:
     mimeMismatch: "{{fileName}} has a file type that doesn't match its extension."
     modelNotSupported: This model does not support files.
     videoCountExceeded: Please limit video files to {{maxCount}} or fewer
+  uploadFiles: Upload Files
 flow:
   title: Flow Chat
 generateImage:
@@ -969,6 +986,9 @@ optimizePrompt:
 pptx:
   description: Create professional presentations automatically with AI assistance
   download: Download
+  model:
+    help: Select the AI model to generate presentation content
+    label: AI Model
   examples:
     business:
       content: Create a presentation about quarterly business review, including market analysis, financial performance, and strategic initiatives for the next quarter.
@@ -993,10 +1013,12 @@ pptx:
     titleSlide: Include Title Slide
   slideCount:
     label: Number of Slides
+    labelWithCount: 'Number of Slides: {{count}}'
   template:
     blank: Blank Template
     blankDescription: Start with a clean, minimal template
     label: Template Selection
+    moreTags: '+{{count}}'
     noTemplates: No custom templates available
     private: Private template
     public: Public template
@@ -1143,6 +1165,10 @@ transcribe:
   stop_recording: Stop Recording
   supported_files: mp3, mp4, wav, flac, ogg, amr, webm, m4a files are available
   title: Speech Recognition
+userMenu:
+  ariaLabel: User menu
+  logout: Log out
+  settings: Settings
 translate:
   additional_context: Additional context
   additional_context_placeholder: You can enter additional points to consider (e.g., casualness, etc.)

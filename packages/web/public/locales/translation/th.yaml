@@ -149,6 +149,7 @@ common:
   title: ชื่อเรื่อง
   trace: ติดตาม
   try: ลอง
+  unitMB: MB
 demo:
   inter_use_cases: การบูรณาการ Use Case
 diagram:
@@ -746,6 +747,7 @@ pptx:
     blank: เทมเพลตว่าง
     blankDescription: เริ่มต้นด้วยเทมเพลตที่สะอาดและอย่างง่าย
     label: การเลือกเทมเพลต
+    moreTags: '+{{count}}'
     noTemplates: ไม่มีเทมเพลตกำหนดเอง
     private: เทมเพลตส่วนตัว
     public: เทมเพลตสาธารณะ

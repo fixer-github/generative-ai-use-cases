@@ -76,6 +76,7 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
+          {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
           <p className="mt-2 text-gray-600">Loading...</p>
         </div>
       </div>

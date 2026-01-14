@@ -148,6 +148,7 @@ common:
   title: 标题
   trace: 跟踪
   try: 尝试
+  unitMB: MB
 demo:
   inter_use_cases: 用例集成
 diagram:
@@ -635,6 +636,7 @@ pptx:
     blank: 空白模板
     blankDescription: 从简洁的最少模板开始
     label: 模板选择
+    moreTags: '+{{count}}'
     noTemplates: 没有可用的自定义模板
     private: 私人模板
     public: 公共模板
