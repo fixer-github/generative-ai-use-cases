@@ -213,6 +213,24 @@ const baseStackInputSchema = z.object({
       apiKey: z.string(),
     })
     .optional(),
+
+  // Redirect URL Security
+  // Allowed domains for redirect URLs (e.g., payment method update emails)
+  // Must be in origin format: protocol + host (e.g., "https://example.com")
+  // If not specified, custom domain (hostName + domainName) will be used if available
+  // WARNING: If no custom domain and no allowedRedirectDomains, open redirect vulnerability may exist
+  allowedRedirectDomains: z
+    .array(
+      z
+        .string()
+        .url('allowedRedirectDomains must contain valid URLs')
+        .transform((u) => {
+          // Normalize to origin format (protocol + host only, remove path/query)
+          const url = new URL(u);
+          return `${url.protocol}//${url.host}`;
+        })
+    )
+    .nullish(),
 });
 
 // Common Validator with refine
@@ -243,7 +261,21 @@ export const stackInputSchema = baseStackInputSchema
         'AWS account ID is required. Set CDK_DEFAULT_ACCOUNT environment variable.',
       path: ['account'],
     }
-  );
+  )
+  .superRefine((data, ctx) => {
+    // SECURITY WARNING: When no custom domain is configured and allowedRedirectDomains is empty,
+    // there's a risk of open redirect vulnerability
+    const hasCustomDomain = !!(data.hostName && data.domainName);
+    const hasAllowedDomains = (data.allowedRedirectDomains ?? []).length > 0;
+    if (!hasCustomDomain && !hasAllowedDomains) {
+      // eslint-disable-next-line no-undef
+      console.warn(
+        '\x1b[33m⚠️  WARNING: allowedRedirectDomains is empty and no custom domain is configured.\n' +
+          '   This may allow open redirect vulnerabilities in billing redirect URLs.\n' +
+          '   Please configure allowedRedirectDomains in cdk.json.\x1b[0m'
+      );
+    }
+  });
 
 // schema after conversion
 export const processedStackInputSchema = baseStackInputSchema.extend({

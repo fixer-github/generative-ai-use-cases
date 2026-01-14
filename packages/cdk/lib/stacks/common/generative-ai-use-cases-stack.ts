@@ -107,7 +107,8 @@ export class GenerativeAiUseCasesStack extends Stack {
     const backgroundJobRole = new iam.Role(this, 'BackgroundJobRole', {
       roleName: `${params.env}-billing-background-job-role`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Shared IAM role for background job Lambda functions that need cross-tenant access',
+      description:
+        'Shared IAM role for background job Lambda functions that need cross-tenant access',
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName(
           'service-role/AWSLambdaBasicExecutionRole'
@@ -361,6 +362,22 @@ export class GenerativeAiUseCasesStack extends Stack {
     // Billing Management (as Nested Stack with independent API)
     // Uses IAM authentication for RDS access via tenant-specific credentials
     // Separated from main API to avoid CloudFormation 500 resource limit
+
+    // Build redirect URL security settings
+    // Custom domain takes priority if configured
+    const customDomain =
+      params.hostName && params.domainName
+        ? `${params.hostName}.${params.domainName}`
+        : undefined;
+    const frontendUrl = customDomain ? `https://${customDomain}` : undefined;
+
+    // Build allowed redirect domains list
+    // Include custom domain (if configured) and any additional domains from cdk.json
+    const allowedRedirectDomains = [
+      ...(customDomain ? [`https://${customDomain}`] : []),
+      ...(params.allowedRedirectDomains || []),
+    ].filter(Boolean);
+
     const billingManagementStack = new BillingManagementStack(
       this,
       `BillingManagementStack${params.env}`,
@@ -377,6 +394,12 @@ export class GenerativeAiUseCasesStack extends Stack {
         sendgridFromEmail: params.sendgridFromEmail,
         emailServiceName: params.emailServiceName,
         userRegistrationMetadataTable: auth.userRegistrationMetadataTable,
+        // Redirect URL security settings
+        frontendUrl: frontendUrl,
+        allowedRedirectDomains:
+          allowedRedirectDomains.length > 0
+            ? allowedRedirectDomains
+            : undefined,
       }
     );
 
@@ -390,7 +413,8 @@ export class GenerativeAiUseCasesStack extends Stack {
     // This ARN should be set as controlPlaneLambdaRoleArn in cdk.tenant.json
     new CfnOutput(this, 'BackgroundJobRoleArn', {
       value: backgroundJobRole.roleArn,
-      description: 'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
+      description:
+        'ARN of the shared background job IAM role. Set this as controlPlaneLambdaRoleArn in cdk.tenant.json for cross-tenant access.',
       exportName: `${this.stackName}-BackgroundJobRoleArn`,
     });
 

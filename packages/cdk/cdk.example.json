@@ -102,6 +102,7 @@
     "emailServiceName": "GenU",
     "sendgridApiKey": "SG.xxxxxxxxxx",
     "sendgridFromEmail": "noreply@example.com",
+    "allowedRedirectDomains": ["https://your-app.example.com"],
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
