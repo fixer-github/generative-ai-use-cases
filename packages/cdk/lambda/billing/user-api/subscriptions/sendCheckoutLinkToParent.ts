@@ -19,7 +19,10 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { randomUUID } from 'crypto';
 import { getTenantId } from '../../../utils/tenantUtils';
-import { getUserIdFromCognitoEvent, getUserEmailFromCognitoEvent } from '../../../utils/cognitoUtils';
+import {
+  getUserIdFromCognitoEvent,
+  getUserEmailFromCognitoEvent,
+} from '../../../utils/cognitoUtils';
 import { invokeDataAccessFunction } from '../../utils/dataAccessClient';
 import { Plan } from '../../data-access/repositories/types';
 import {
@@ -343,11 +346,16 @@ async function invalidatePendingCheckoutRequests(
     const pendingRequests = queryResult.Items || [];
 
     if (pendingRequests.length === 0) {
-      console.log('No pending checkout requests to invalidate for user:', userId);
+      console.log(
+        'No pending checkout requests to invalidate for user:',
+        userId
+      );
       return;
     }
 
-    console.log(`Found ${pendingRequests.length} pending checkout request(s) to invalidate`);
+    console.log(
+      `Found ${pendingRequests.length} pending checkout request(s) to invalidate`
+    );
 
     // 各保留中リクエストを無効化
     for (const item of pendingRequests) {
@@ -361,7 +369,8 @@ async function invalidatePendingCheckoutRequests(
         new UpdateItemCommand({
           TableName: PENDING_PARENTAL_CHECKOUTS_TABLE_NAME,
           Key: { requestId: { S: requestId } },
-          UpdateExpression: 'SET #status = :cancelled, cancelledAt = :cancelledAt',
+          UpdateExpression:
+            'SET #status = :cancelled, cancelledAt = :cancelledAt',
           ExpressionAttributeNames: {
             '#status': 'status',
           },
@@ -381,12 +390,18 @@ async function invalidatePendingCheckoutRequests(
           console.log('Expired Stripe checkout session:', checkoutSessionId);
         } catch (stripeError) {
           // セッションが既に期限切れの場合などはエラーを無視
-          console.log('Could not expire Stripe session (may already be expired):', checkoutSessionId, stripeError);
+          console.log(
+            'Could not expire Stripe session (may already be expired):',
+            checkoutSessionId,
+            stripeError
+          );
         }
       }
     }
 
-    console.log(`Successfully invalidated ${pendingRequests.length} pending checkout request(s)`);
+    console.log(
+      `Successfully invalidated ${pendingRequests.length} pending checkout request(s)`
+    );
   } catch (error) {
     // 無効化の失敗は致命的ではないため、ログに記録して続行
     console.error('Error invalidating pending checkout requests:', error);
@@ -456,6 +471,17 @@ export const handler = async (
       return badRequest400Response({
         message: '有効なメールアドレスを入力してください',
         code: 'INVALID_EMAIL',
+        details: {
+          field: 'parentEmail',
+        },
+      });
+    }
+
+    // アカウントメールアドレスと同一でないかチェック
+    if (childEmail && parentEmail.toLowerCase() === childEmail.toLowerCase()) {
+      return badRequest400Response({
+        message: 'ご自身のアカウントとは異なるメールアドレスを入力してください',
+        code: 'SAME_AS_USER_EMAIL',
         details: {
           field: 'parentEmail',
         },
@@ -624,7 +650,11 @@ export const handler = async (
       childEmail
     );
 
-    await sendEmail(parentEmail, emailContent.subject, emailContent.htmlContent);
+    await sendEmail(
+      parentEmail,
+      emailContent.subject,
+      emailContent.htmlContent
+    );
 
     console.log('Parent payment request email sent:', {
       sessionId: session.id,
