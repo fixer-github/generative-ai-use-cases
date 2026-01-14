@@ -23,7 +23,7 @@ export interface UserRegistrationMetadata {
   userId: string;
   registeredAt: string;
   birthdate?: string;
-  clientMetadata?: Record<string, string>;
+  metadata?: Record<string, string>;
 }
 
 /**
@@ -61,11 +61,11 @@ export async function saveUserRegistrationMetadata(
   const { birthdate: _, ...restClientMetadata } = clientMetadata || {};
   const hasRestClientMetadata = Object.keys(restClientMetadata).length > 0;
 
-  const metadata: UserRegistrationMetadata = {
+  const userRegistrationMetadata: UserRegistrationMetadata = {
     userId,
     registeredAt,
     birthdate: birthdate || undefined,
-    clientMetadata: hasRestClientMetadata ? restClientMetadata : undefined,
+    metadata: hasRestClientMetadata ? restClientMetadata : undefined,
   };
 
   try {
@@ -74,15 +74,15 @@ export async function saveUserRegistrationMetadata(
     );
     // PIIをマスクしてログ出力（birthdateは個人情報のため）
     const maskedMetadata = {
-      ...metadata,
-      birthdate: metadata.birthdate ? '****-**-**' : undefined,
+      ...userRegistrationMetadata,
+      birthdate: userRegistrationMetadata.birthdate ? '****-**-**' : undefined,
     };
     console.log('Metadata:', JSON.stringify(maskedMetadata, null, 2));
 
     await docClient.send(
       new PutCommand({
         TableName: USER_REGISTRATION_METADATA_TABLE_NAME,
-        Item: metadata,
+        Item: userRegistrationMetadata,
         ConditionExpression: 'attribute_not_exists(userId)',
       })
     );
