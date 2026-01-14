@@ -110,9 +110,8 @@ const liteLlmModelIds = litellmProxyEnabled
   ? ['gemini-2.5-flash', 'gemini-2.5-pro']
   : [];
 
-// List of LangChain model IDs
-const langchainModelIds = [
-  // OpenAI
+// List of OpenAI model IDs
+const openaiModelIds = [
   'openai:gpt-4o',
   'openai:gpt-4o-mini',
   'openai:o3',
@@ -133,11 +132,9 @@ const textModels = [
   ...endpointNames.map(
     (name) => ({ modelId: name, type: 'sagemaker' }) as Model
   ),
-  // Temporary hardcoded addition of LiteLLM and LangChain models
+  // Temporary hardcoded addition of LiteLLM and OpenAI models
   ...liteLlmModelIds.map((modelId) => ({ modelId, type: 'liteLlm' }) as Model),
-  ...langchainModelIds.map(
-    (modelId) => ({ modelId, type: 'langchain' }) as Model
-  ),
+  ...openaiModelIds.map((modelId) => ({ modelId, type: 'openai' }) as Model),
 ];
 const imageGenModels = [
   ...imageModelConfigs.map(
@@ -210,7 +207,7 @@ const liteLlmModelMetadata: Record<string, ModelMetadata> = {
 };
 
 // Note: description values are translation keys - translate them at display time
-const langchainModelMetadata: Record<string, ModelMetadata> = {
+const openaiModelMetadata: Record<string, ModelMetadata> = {
   'openai:gpt-4o': {
     flags: { text: true, doc: false, image: true, video: false },
     displayName: 'GPT 4o',
@@ -238,10 +235,10 @@ const langchainModelMetadata: Record<string, ModelMetadata> = {
   },
 };
 
-// Merge LangChain metadata with original modelMetadata
+// Merge OpenAI metadata with original modelMetadata
 const modelMetadata: Record<string, ModelMetadata> = {
   ...liteLlmModelMetadata,
-  ...langchainModelMetadata,
+  ...openaiModelMetadata,
   ...originalModelMetadata,
 };
 
@@ -250,9 +247,9 @@ const modelDisplayName = (modelId: string): string => {
     return liteLlmModelMetadata[modelId].displayName;
   }
 
-  // Get display name from metadata for LangChain models
-  if (langchainModelMetadata[modelId]) {
-    return langchainModelMetadata[modelId].displayName;
+  // Get display name from metadata for OpenAI models
+  if (openaiModelMetadata[modelId]) {
+    return openaiModelMetadata[modelId].displayName;
   }
 
   // If there are multiple instances of the same model, add CRI suffix to the display name
@@ -281,7 +278,7 @@ export const MODELS = {
   modelIds: [
     ...bedrockModelIds,
     ...endpointNames,
-    ...langchainModelIds,
+    ...openaiModelIds,
     ...liteLlmModelIds,
   ],
   modelIdsInModelRegion,

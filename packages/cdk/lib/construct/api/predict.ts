@@ -60,7 +60,7 @@ class PredictApi extends Construct {
           : {}),
         ...(guardrailVersion ? { GUARDRAIL_VERSION: guardrailVersion } : {}),
 
-        // LangChain Credentials
+        // OpenAI Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
 
         // Tenant Management Environment Variables
@@ -73,9 +73,7 @@ class PredictApi extends Construct {
       bundling: {
         nodeModules: [
           '@aws-sdk/client-bedrock-runtime',
-
-          '@langchain/core',
-          '@langchain/openai',
+          'openai',
         ],
       },
     });
@@ -104,7 +102,7 @@ class PredictApi extends Construct {
         RERANKING_MODEL_ID: rerankingModelId ?? '',
         LITELLM_ENDPOINT: litellmEndpoint ?? '',
 
-        // LangChain Credentials
+        // OpenAI Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
 
         // Tenant Management Environment Variables
@@ -125,9 +123,7 @@ class PredictApi extends Construct {
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
           '@aws-sdk/client-sagemaker-runtime',
-
-          '@langchain/core',
-          '@langchain/openai',
+          'openai',
         ],
       },
     });

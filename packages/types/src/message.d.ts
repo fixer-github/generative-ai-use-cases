@@ -12,7 +12,7 @@ export type Model = {
     | 'bedrockKb'
     | 'sagemaker'
     | 'liteLlm'
-    | 'langchain';
+    | 'openai';
   modelId: string;
   modelParameters?: AdditionalModelRequestFields;
   sessionId?: string;
