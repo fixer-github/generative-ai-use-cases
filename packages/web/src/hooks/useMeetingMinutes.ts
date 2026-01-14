@@ -13,6 +13,9 @@ export type MeetingMinutesStyle =
 // Maximum number of continuation attempts to prevent infinite loops
 const MAX_CONTINUATION_ATTEMPTS = 5;
 
+// Maximum consecutive parse errors before considering the stream corrupted
+const MAX_CONSECUTIVE_PARSE_ERRORS = 10;
+
 export const useMeetingMinutes = (
   minutesStyle: MeetingMinutesStyle,
   customPrompt: string,
@@ -68,11 +71,14 @@ export const useMeetingMinutes = (
         let continuationCount = 0;
         setGeneratedMinutes('');
 
-        // Helper function to process stream and return stopReason
+        // Helper function to process stream chunks, accumulate response text,
+        // update UI via setGeneratedMinutes, and return the final stopReason
         const processStream = async (
           stream: AsyncGenerator<string, void, unknown>
         ): Promise<string> => {
           let stopReason = '';
+          let consecutiveParseErrors = 0;
+          let successfulParses = 0;
 
           for await (const chunk of stream) {
             if (chunk) {
@@ -82,20 +88,52 @@ export const useMeetingMinutes = (
                 if (c && c.length > 0) {
                   try {
                     const payload = JSON.parse(c) as StreamingChunk;
+                    consecutiveParseErrors = 0; // Reset on successful parse
+                    successfulParses++;
+
                     if (payload.text && payload.text.length > 0) {
                       fullResponse += payload.text;
                       setGeneratedMinutes(fullResponse);
                     }
                     if (payload.stopReason) {
                       stopReason = payload.stopReason;
+
+                      // Handle explicit error responses from backend
+                      if (payload.stopReason === 'error') {
+                        throw new Error(
+                          payload.text || 'API returned an error during streaming'
+                        );
+                      }
                     }
                   } catch (error) {
-                    // Skip invalid JSON chunks
-                    console.debug('Skipping invalid JSON chunk:', c);
+                    // Re-throw if it's our explicit error
+                    if (
+                      error instanceof Error &&
+                      error.message.includes('API returned an error')
+                    ) {
+                      throw error;
+                    }
+
+                    // Track consecutive parse errors to detect stream corruption
+                    consecutiveParseErrors++;
+                    console.warn('Failed to parse JSON chunk:', c);
+
+                    if (consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS) {
+                      throw new Error(
+                        'Stream processing failed: too many consecutive parse errors'
+                      );
+                    }
                   }
                 }
               }
             }
+          }
+
+          // Warn if we received no successful parses (possible complete stream failure)
+          if (successfulParses === 0 && consecutiveParseErrors > 0) {
+            console.error(
+              'No chunks were successfully parsed from stream, possible stream corruption'
+            );
           }
 
           return stopReason;
