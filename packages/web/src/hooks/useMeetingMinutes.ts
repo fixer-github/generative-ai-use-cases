@@ -2,7 +2,11 @@ import { useState, useCallback } from 'react';
 import useChatApi from './useChatApi';
 import { MODELS } from './useModel';
 import { getPrompter } from '../prompts';
-import { UnrecordedMessage, Model, StreamingChunk } from 'generative-ai-use-cases';
+import {
+  UnrecordedMessage,
+  Model,
+  StreamingChunk,
+} from 'generative-ai-use-cases';
 
 export type MeetingMinutesStyle =
   | 'faq'
@@ -101,7 +105,8 @@ export const useMeetingMinutes = (
                       // Handle explicit error responses from backend
                       if (payload.stopReason === 'error') {
                         throw new Error(
-                          payload.text || 'API returned an error during streaming'
+                          payload.text ||
+                            'API returned an error during streaming'
                         );
                       }
                     }
@@ -118,7 +123,9 @@ export const useMeetingMinutes = (
                     consecutiveParseErrors++;
                     console.warn('Failed to parse JSON chunk:', c);
 
-                    if (consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS) {
+                    if (
+                      consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS
+                    ) {
                       throw new Error(
                         'Stream processing failed: too many consecutive parse errors'
                       );
