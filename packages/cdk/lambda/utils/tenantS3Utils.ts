@@ -2,14 +2,16 @@ import * as crypto from 'crypto';
 
 // Constants at file level
 const ENVIRONMENT = process.env.ENVIRONMENT!;
-const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID!;
+const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || 'default';
 const AWS_REGION = process.env.AWS_REGION!;
 
 /**
  * Check if the tenant is the default tenant
+ * Handles both configured DEFAULT_TENANT_ID and hardcoded 'default' string
+ * for single account deployments where Tenants table may not be configured
  */
 export function isDefaultTenant(tenantId: string): boolean {
-  return tenantId === DEFAULT_TENANT_ID;
+  return tenantId === DEFAULT_TENANT_ID || tenantId === 'default';
 }
 
 /**

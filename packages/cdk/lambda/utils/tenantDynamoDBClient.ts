@@ -63,21 +63,39 @@ export async function createTenantDynamoDBClient(
 export async function createTenantDynamoDBClientForBackgroundJob(
   tenantId: string
 ): Promise<DynamoDBClient> {
-  // Use default credentials for default tenant
+  // Use default credentials for default tenant (single account deployment)
   if (isDefaultTenant(tenantId)) {
+    console.log(
+      `Using local credentials for default tenant: ${tenantId}`
+    );
     return new DynamoDBClient({ region: process.env.AWS_REGION! });
   }
 
   // Get tenant info to get role ARN and region
   const tenant = await getTenant(tenantId);
   if (!tenant) {
-    throw new Error(`Tenant ${tenantId} not found`);
+    // For single account deployment, tenant might not be in the table
+    // Check if this looks like the default tenant (shouldn't reach here due to isDefaultTenant check above)
+    console.warn(
+      `Tenant ${tenantId} not found in Tenants table. ` +
+        `For single account deployment, ensure DEFAULT_TENANT_ID env var is set correctly.`
+    );
+    throw new Error(
+      `Tenant ${tenantId} not found in Tenants table. ` +
+        `For single account deployment, use the default tenant ID.`
+    );
   }
   if (!tenant.roleArn) {
-    throw new Error(`Tenant ${tenantId} missing roleArn`);
+    throw new Error(
+      `Tenant ${tenantId} is missing roleArn configuration. ` +
+        `Cross-account tenant access requires roleArn to be set in the Tenants table.`
+    );
   }
   if (!tenant.region) {
-    throw new Error(`Tenant ${tenantId} missing region`);
+    throw new Error(
+      `Tenant ${tenantId} is missing region configuration. ` +
+        `Cross-account tenant access requires region to be set in the Tenants table.`
+    );
   }
 
   console.log(`Assuming role for tenant ${tenantId}: ${tenant.roleArn}`);
