@@ -149,20 +149,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex-1 py-2">
               <button
                 onClick={() => setActiveTab('general')}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${activeTab === 'general'
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-100'
-                  }`}>
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'general'
+                    ? 'bg-white text-gray-900'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}>
                 <PiGear className="h-5 w-5 shrink-0 text-gray-500" />
                 <span>一般</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('ai-customize')}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${activeTab === 'ai-customize'
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-100'
-                  }`}>
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'ai-customize'
+                    ? 'bg-white text-gray-900'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}>
                 <PiPencilSimple className="h-5 w-5 shrink-0 text-gray-500" />
                 <span>AIのカスタマイズ</span>
               </button>
