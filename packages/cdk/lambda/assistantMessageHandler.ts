@@ -33,6 +33,11 @@ import {
 } from './utils/apiResponse';
 import api from './utils/api';
 import { modelMetadata } from '@generative-ai-use-cases/common';
+import {
+  checkAccessWithQuota,
+  incrementUsage,
+  AccessCheckResult,
+} from './utils/accessChecker';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.MODEL_REGION || process.env.AWS_REGION,
@@ -153,6 +158,58 @@ async function handleCreateMessage(
 
   if (!body.content) {
     return badRequest400Response({ message: 'Missing content' });
+  }
+
+  // Authorization check: Verify ID token and check assistant access with quota
+  const idToken = event.headers.Authorization || event.headers.authorization;
+  if (!idToken) {
+    return forbidden403Response({
+      message: 'ID token is required for authorization',
+      code: 'MISSING_ID_TOKEN',
+    });
+  }
+
+  // Check permission and quota using accessChecker
+  let accessCheckResult: AccessCheckResult;
+  try {
+    accessCheckResult = await checkAccessWithQuota(idToken, 'assistant', 'chat');
+  } catch (error) {
+    console.error('Access check failed:', error);
+    return forbidden403Response({
+      message: 'Authorization check failed',
+      code: 'AUTH_CHECK_FAILED',
+    });
+  }
+
+  if (!accessCheckResult.allowed) {
+    switch (accessCheckResult.reason) {
+      case 'quota_exceeded':
+        console.warn(
+          `User ${userId} has exceeded quota for assistant:chat`
+        );
+        return forbidden403Response({
+          message: 'アシスタントの利用回数の上限に達しました',
+          code: 'QUOTA_EXCEEDED',
+        });
+      case 'no_permission':
+        console.warn(
+          `User ${userId} does not have access to assistant:chat`
+        );
+        return forbidden403Response({
+          message: 'アシスタントを使用する権限がありません',
+          code: 'NO_PERMISSION',
+        });
+      case 'invalid_token':
+        return forbidden403Response({
+          message: 'Invalid or expired ID token',
+          code: 'INVALID_TOKEN',
+        });
+      default:
+        return forbidden403Response({
+          message: 'You do not have permission to use the assistant',
+          code: 'ACCESS_DENIED',
+        });
+    }
   }
 
   // Get or create chatId for this conversation
@@ -323,9 +380,16 @@ async function handleCreateMessage(
     console.log('Using system prompt without RAG context');
   }
 
-  const systemMessage = ragContext
-    ? `${assistant.instruction}\n\nRelevant context from documents:\n${ragContext}`
-    : assistant.instruction;
+  // Build system message: instruction + RAG context
+  let systemMessage = `<instructions>\n${assistant.instruction}\n</instructions>`;
+
+  if (ragContext) {
+    systemMessage += `\n\nRelevant context from documents:\n${ragContext}`;
+  }
+
+  if (body.customInstructions?.trim()) {
+    systemMessage += `\n<user_custom_instructions>\n${body.customInstructions}\n</user_custom_instructions>`;
+  }
 
   // Determine model type:
   // - If modelId exists in modelMetadata → bedrock
@@ -466,6 +530,15 @@ async function handleCreateMessage(
   const chatRecord = await findChatById(userId, cleanChatId, event);
   if (chatRecord) {
     await updateChatUpdatedDate(chatRecord.id, chatRecord.createdDate, event);
+  }
+
+  // Increment usage count after successful message creation (fire-and-forget)
+  if (accessCheckResult.limitType && accessCheckResult.limitType !== 'unlimited') {
+    incrementUsage(idToken, 'assistant', 'chat', accessCheckResult.limitType).catch(
+      (error) => {
+        console.error('Failed to increment usage count:', error);
+      }
+    );
   }
 
   return ok200Response({

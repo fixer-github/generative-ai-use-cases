@@ -25,6 +25,7 @@ import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
 
 export interface WebProps {
   readonly apiEndpointUrl: string;
+  readonly billingApiEndpointUrl: string;
   readonly userPoolId: string;
   readonly userPoolClientId: string;
   readonly idPoolId: string;
@@ -71,7 +72,7 @@ export class Web extends Construct {
     const cspSaml = props.samlCognitoDomainName
       ? ` https://${props.samlCognitoDomainName}`
       : '';
-    const csp = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.amazonaws.com; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com wss://*.amazonaws.com:* https://*.on.aws https://raw.githubusercontent.com https://api.github.com${cspSaml}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.youtube.com/; form-action 'self'; base-uri 'self';`;
+    const csp = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.amazonaws.com; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com wss://*.amazonaws.com:* https://*.on.aws https://raw.githubusercontent.com https://api.github.com https://api.stripe.com${cspSaml}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.youtube.com/ https://js.stripe.com; form-action 'self'; base-uri 'self';`;
 
     // Create Response Headers Policy for security headers
     const responseHeadersPolicy = new ResponseHeadersPolicy(
@@ -231,6 +232,7 @@ export class Web extends Construct {
       buildEnvironment: {
         NODE_OPTIONS: '--max-old-space-size=4096', // Memory for CodeBuild at deployment
         VITE_APP_API_ENDPOINT: props.apiEndpointUrl,
+        VITE_APP_BILLING_API_ENDPOINT: props.billingApiEndpointUrl,
         VITE_APP_REGION: Stack.of(this).region,
         VITE_APP_USER_POOL_ID: props.userPoolId,
         VITE_APP_USER_POOL_CLIENT_ID: props.userPoolClientId,

@@ -32,6 +32,12 @@ export interface TenantDynamoDBProps {
   readonly useCaseBuilderTableBaseName?: string;
 
   /**
+   * Base name for the user-stripe mapping table
+   * @default 'UserStripeMapping'
+   */
+  readonly userStripeMappingTableBaseName?: string;
+
+  /**
    * Billing mode for the tables
    * @default BillingMode.PAY_PER_REQUEST
    */
@@ -42,6 +48,13 @@ export interface TenantDynamoDBProps {
    * @default RemovalPolicy.RETAIN
    */
   readonly removalPolicy?: cdk.RemovalPolicy;
+
+  /**
+   * Whether summary job feature is enabled
+   * When false, UserSummary table is not created
+   * @default false
+   */
+  readonly summaryJobEnabled?: boolean;
 }
 
 export class TenantDynamoDB extends Construct {
@@ -64,6 +77,17 @@ export class TenantDynamoDB extends Construct {
    * The assistant table for the tenant
    */
   public readonly assistantTable: dynamodb.Table;
+
+  /**
+   * The user-stripe mapping table for the tenant
+   */
+  public readonly userStripeMappingTable: dynamodb.Table;
+
+  /**
+   * The user summary table for the tenant
+   * Only created when summaryJobEnabled is true
+   */
+  public readonly userSummaryTable?: dynamodb.Table;
 
   /**
    * The tenant ID
@@ -90,6 +114,17 @@ export class TenantDynamoDB extends Construct {
    */
   public readonly assistantTableName: string;
 
+  /**
+   * User-Stripe mapping table name
+   */
+  public readonly userStripeMappingTableName: string;
+
+  /**
+   * User summary table name
+   * Only set when summaryJobEnabled is true
+   */
+  public readonly userSummaryTableName?: string;
+
   constructor(scope: Construct, id: string, props: TenantDynamoDBProps) {
     super(scope, id);
 
@@ -112,11 +147,17 @@ export class TenantDynamoDB extends Construct {
       props.tokenUsageStatsTableBaseName || 'TokenUsageStats';
     const useCaseBuilderBaseName =
       props.useCaseBuilderTableBaseName || 'UseCaseBuilder';
+    const userStripeMappingBaseName =
+      props.userStripeMappingTableBaseName || 'UserStripeMapping';
 
     this.chatHistoryTableName = `${chatHistoryBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.tokenUsageStatsTableName = `${tokenUsageStatsBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.useCaseBuilderTableName = `${useCaseBuilderBaseName}-${environment}-tenant-${sanitizedTenantId}`;
     this.assistantTableName = `Assistant-${environment}-tenant-${sanitizedTenantId}`;
+    this.userStripeMappingTableName = `${userStripeMappingBaseName}-${environment}-tenant-${sanitizedTenantId}`;
+    if (props.summaryJobEnabled) {
+      this.userSummaryTableName = `UserSummary-${environment}-tenant-${sanitizedTenantId}`;
+    }
 
     // Determine removal policy based on environment
     const removalPolicy =
@@ -270,6 +311,63 @@ export class TenantDynamoDB extends Construct {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // User-Stripe Mapping Table
+    this.userStripeMappingTable = new dynamodb.Table(
+      this,
+      'UserStripeMappingTable',
+      {
+        tableName: this.userStripeMappingTableName,
+        partitionKey: {
+          name: 'user_id',
+          type: dynamodb.AttributeType.STRING,
+        },
+        billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: removalPolicy,
+      }
+    );
+
+    // Add tags to User-Stripe Mapping table
+    cdk.Tags.of(this.userStripeMappingTable).add('TenantId', this.tenantId);
+    cdk.Tags.of(this.userStripeMappingTable).add('Environment', environment);
+
+    // User Summary Table (only when summary feature is enabled)
+    // PK: user#{userId}, SK: DAILY#{YYYY-MM-DD} or USER_SUMMARY or CONFIG
+    if (props.summaryJobEnabled && this.userSummaryTableName) {
+      this.userSummaryTable = new dynamodb.Table(this, 'UserSummaryTable', {
+        tableName: this.userSummaryTableName,
+        partitionKey: {
+          name: 'id',
+          type: dynamodb.AttributeType.STRING,
+        },
+        sortKey: {
+          name: 'createdDate',
+          type: dynamodb.AttributeType.STRING,
+        },
+        billingMode: props.billingMode || dynamodb.BillingMode.PAY_PER_REQUEST,
+        encryption: dynamodb.TableEncryption.AWS_MANAGED,
+        removalPolicy: removalPolicy,
+      });
+
+      // Add tags to User Summary table
+      cdk.Tags.of(this.userSummaryTable).add('TenantId', this.tenantId);
+      cdk.Tags.of(this.userSummaryTable).add('Environment', environment);
+
+      // Add DateIndex for querying all users who have summaries for a specific date
+      // Used by batch job to find users with activity on a date
+      this.userSummaryTable.addGlobalSecondaryIndex({
+        indexName: 'DateIndex',
+        partitionKey: {
+          name: 'date',
+          type: dynamodb.AttributeType.STRING,
+        },
+        sortKey: {
+          name: 'userId',
+          type: dynamodb.AttributeType.STRING,
+        },
+        projectionType: dynamodb.ProjectionType.ALL,
+      });
+    }
+
     // Output table ARNs
     new cdk.CfnOutput(this, 'ChatHistoryTableArn', {
       value: this.chatHistoryTable.tableArn,
@@ -313,6 +411,30 @@ export class TenantDynamoDB extends Construct {
       value: this.assistantTable.tableName,
       description: `Name of the assistant table for tenant ${this.tenantId}`,
     });
+
+    // Output user-stripe mapping table ARNs and names
+    new cdk.CfnOutput(this, 'UserStripeMappingTableArn', {
+      value: this.userStripeMappingTable.tableArn,
+      description: `ARN of the user-stripe mapping table for tenant ${this.tenantId}`,
+    });
+
+    new cdk.CfnOutput(this, 'UserStripeMappingTableName', {
+      value: this.userStripeMappingTable.tableName,
+      description: `Name of the user-stripe mapping table for tenant ${this.tenantId}`,
+    });
+
+    // Output user summary table ARNs and names (only when feature enabled)
+    if (this.userSummaryTable) {
+      new cdk.CfnOutput(this, 'UserSummaryTableArn', {
+        value: this.userSummaryTable.tableArn,
+        description: `ARN of the user summary table for tenant ${this.tenantId}`,
+      });
+
+      new cdk.CfnOutput(this, 'UserSummaryTableName', {
+        value: this.userSummaryTable.tableName,
+        description: `Name of the user summary table for tenant ${this.tenantId}`,
+      });
+    }
   }
 
   /**

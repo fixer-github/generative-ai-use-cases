@@ -4,7 +4,7 @@ import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
 import { Duration } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
-import { ASSISTANT_TABLE_PREFIX } from './const';
+import { ASSISTANT_TABLE_PREFIX, USER_SUMMARY_TABLE_PREFIX } from './const';
 import { GenericApiProps } from './props';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -106,6 +106,14 @@ class AssistantApi extends Construct {
           OPENSEARCH_INDEX: 'assistant-docs',
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
           LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
+          // User Summary table for summary context injection (only when enabled)
+          ...(props.summaryJobEnabled && props.userSummaryTable
+            ? {
+                USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+                DEFAULT_USER_SUMMARY_TABLE_NAME: props.userSummaryTable.tableName,
+                SUMMARY_JOB_ENABLED: 'true',
+              }
+            : {}),
           ...(props.openai?.apiKey
             ? { OPENAI_API_KEY: props.openai.apiKey }
             : {}),
@@ -116,6 +124,9 @@ class AssistantApi extends Construct {
     // Grant permissions for message operations
     assistantTable.grantReadData(assistantMessageHandler);
     table.grantReadWriteData(assistantMessageHandler);
+    if (props.userSummaryTable) {
+      props.userSummaryTable.grantReadData(assistantMessageHandler);
+    }
 
     // Grant Bedrock permissions for LLM calls
     if (props.bedrockPolicy) {
@@ -156,6 +167,14 @@ class AssistantApi extends Construct {
           USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
           TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
           LITELLM_ENDPOINT: props.litellmEndpoint ?? '',
+          // User Summary table for summary context injection (only when enabled)
+          ...(props.summaryJobEnabled && props.userSummaryTable
+            ? {
+                USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+                DEFAULT_USER_SUMMARY_TABLE_NAME: props.userSummaryTable.tableName,
+                SUMMARY_JOB_ENABLED: 'true',
+              }
+            : {}),
         }),
       }
     );
@@ -163,6 +182,9 @@ class AssistantApi extends Construct {
     // Grant permissions for streaming handler
     assistantTable.grantReadData(assistantMessageStreamFunction);
     table.grantReadWriteData(assistantMessageStreamFunction);
+    if (props.userSummaryTable) {
+      props.userSummaryTable.grantReadData(assistantMessageStreamFunction);
+    }
 
     // Grant Bedrock permissions for LLM streaming calls
     if (props.bedrockPolicy) {

@@ -1,0 +1,309 @@
+import { APIGatewayProxyEvent } from 'aws-lambda';
+import { STSClient, AssumeRoleCommand, Credentials } from '@aws-sdk/client-sts';
+import { HttpRequest } from '@smithy/protocol-http';
+import { SignatureV4 } from '@smithy/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-js';
+import { extractTenantId } from './assumeRoleWithWebIdentity';
+import {
+  getTenantCredentials,
+  getTenantCredentialsFromToken,
+} from './tenantCredentials';
+import { verifyToken } from './auth';
+import { getOpenFgaConfig } from './tenantSsmParameters';
+
+// Cache for authorization results (short TTL)
+const authCache = new Map<
+  string,
+  { result: boolean; timestamp: number; ttl: number }
+>();
+const DEFAULT_CACHE_TTL = 5000; // 5 seconds
+
+// OpenFGA API request/response types
+interface OpenFgaCheckRequest {
+  tuple_key: {
+    user: string;
+    relation: string;
+    object: string;
+  };
+  contextual_tuples?: {
+    tuple_keys: Array<{
+      user: string;
+      relation: string;
+      object: string;
+    }>;
+  };
+}
+
+interface OpenFgaCheckResponse {
+  allowed: boolean;
+}
+
+/**
+ * OpenFGA client for authorization checks
+ */
+export class OpenFgaClient {
+  private tenantId: string;
+  private apiEndpoint: string;
+  private apiRegion: string;
+  private credentials: Credentials;
+  private storeId: string;
+
+  constructor(
+    tenantId: string,
+    apiEndpoint: string,
+    apiRegion: string,
+    credentials: Credentials,
+    storeId: string
+  ) {
+    this.tenantId = tenantId;
+    this.apiEndpoint = apiEndpoint;
+    this.apiRegion = apiRegion;
+    this.credentials = credentials;
+    this.storeId = storeId;
+  }
+
+  /**
+   * Check if a user has permission to access a resource
+   */
+  async check(
+    userId: string,
+    relation: string,
+    objectType: string,
+    objectId: string
+  ): Promise<boolean> {
+    const cacheKey = `${this.tenantId}:${userId}:${relation}:${objectType}:${objectId}`;
+    const cached = authCache.get(cacheKey);
+
+    // Check cache
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      console.log(`Authorization check cache hit: ${cacheKey}`);
+      return cached.result;
+    }
+
+    try {
+      const requestBody: OpenFgaCheckRequest = {
+        tuple_key: {
+          user: `user:${userId}`,
+          relation: relation,
+          object: `${objectType}:${objectId}`,
+        },
+      };
+
+      // Make signed request to OpenFGA API
+      const response = await this.makeSignedRequest(
+        'POST',
+        `/stores/${this.storeId}/check`,
+        JSON.stringify(requestBody)
+      );
+
+      const result: OpenFgaCheckResponse = JSON.parse(response);
+
+      // Cache the result
+      authCache.set(cacheKey, {
+        result: result.allowed,
+        timestamp: Date.now(),
+        ttl: DEFAULT_CACHE_TTL,
+      });
+
+      console.log(
+        `Authorization check for ${userId} -> ${objectType}:${objectId} (${relation}): ${result.allowed}`
+      );
+
+      return result.allowed;
+    } catch (error) {
+      console.error('OpenFGA authorization check failed:', error);
+      // Fail closed - deny access on error
+      return false;
+    }
+  }
+
+  /**
+   * Write tuples to OpenFGA (for creating relationships)
+   */
+  async writeTuples(tupleKeys: Array<{
+    user: string;
+    relation: string;
+    object: string;
+  }>): Promise<void> {
+    try {
+      const requestBody = {
+        writes: {
+          tuple_keys: tupleKeys,
+        },
+      };
+
+      const response = await this.makeSignedRequest(
+        'POST',
+        `/stores/${this.storeId}/write`,
+        JSON.stringify(requestBody)
+      );
+
+      console.log(
+        `Successfully wrote ${tupleKeys.length} tuples to OpenFGA`
+      );
+    } catch (error) {
+      console.error('Failed to write tuples to OpenFGA:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Make a signed request to OpenFGA API Gateway
+   */
+  private async makeSignedRequest(
+    method: string,
+    path: string,
+    body?: string
+  ): Promise<string> {
+    const url = new URL(this.apiEndpoint);
+    const hostname = url.hostname;
+    const protocol = url.protocol.replace(':', '');
+
+    // Create HTTP request
+    const request = new HttpRequest({
+      method,
+      protocol,
+      hostname,
+      path: `${url.pathname}${path}`.replace(/\/\//g, '/'),
+      headers: {
+        'Content-Type': 'application/json',
+        host: hostname,
+      },
+      body,
+    });
+
+    // Sign the request with SigV4
+    const signer = new SignatureV4({
+      credentials: {
+        accessKeyId: this.credentials.AccessKeyId!,
+        secretAccessKey: this.credentials.SecretAccessKey!,
+        sessionToken: this.credentials.SessionToken,
+      },
+      region: this.apiRegion,
+      service: 'execute-api',
+      sha256: Sha256,
+    });
+
+    const signedRequest = await signer.sign(request);
+
+    // Make the HTTP request
+    const response = await fetch(
+      `${protocol}://${hostname}${signedRequest.path}`,
+      {
+        method: signedRequest.method,
+        headers: signedRequest.headers as HeadersInit,
+        body: signedRequest.body,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `OpenFGA API request failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.text();
+  }
+}
+
+/**
+ * Create an OpenFGA client for the current tenant (from API Gateway event)
+ */
+export async function createOpenFgaClient(
+  event: APIGatewayProxyEvent
+): Promise<OpenFgaClient> {
+  const tenantId = extractTenantId(event);
+
+  // Get tenant credentials and tenant info in one call
+  const { credentials, tenant } = await getTenantCredentials(event);
+
+  // Get OpenFGA configuration from SSM Parameter Store
+  const openFgaConfig = await getOpenFgaConfig(
+    tenantId,
+    credentials,
+    tenant.region
+  );
+
+  return new OpenFgaClient(
+    tenantId,
+    openFgaConfig.apiEndpoint,
+    openFgaConfig.apiRegion,
+    credentials,
+    openFgaConfig.storeId
+  );
+}
+
+/**
+ * Create an OpenFGA client from ID token (for use with PredictStream and similar functions)
+ * Verifies the JWT token and extracts tenant information to create the client
+ *
+ * @param idToken - Cognito User Pool ID token (JWT)
+ * @returns OpenFGA client instance for authorization checks
+ */
+export async function createOpenFgaClientFromToken(
+  idToken: string
+): Promise<OpenFgaClient> {
+  // Verify token and extract tenant ID
+  const payload = await verifyToken(idToken);
+  if (!payload) {
+    throw new Error('Invalid or expired ID token');
+  }
+
+  const tenantId = payload['custom:tenant_id'];
+  if (!tenantId) {
+    throw new Error('Tenant ID not found in ID token claims');
+  }
+
+  // Get tenant credentials and tenant info in one call
+  const { credentials, tenant } = await getTenantCredentialsFromToken(idToken);
+
+  // Get OpenFGA configuration from SSM Parameter Store
+  const openFgaConfig = await getOpenFgaConfig(
+    tenantId,
+    credentials,
+    tenant.region
+  );
+
+  return new OpenFgaClient(
+    tenantId,
+    openFgaConfig.apiEndpoint,
+    openFgaConfig.apiRegion,
+    credentials,
+    openFgaConfig.storeId
+  );
+}
+
+/**
+ * Check if a user has permission to use a specific LLM model
+ */
+export async function checkLlmAccess(
+  openFgaClient: OpenFgaClient,
+  userId: string,
+  modelId: string
+): Promise<boolean> {
+  return await openFgaClient.check(userId, 'accessor', 'llm', modelId);
+}
+
+/**
+ * Check if a user has permission to use a specific feature
+ */
+export async function checkFeatureAccess(
+  openFgaClient: OpenFgaClient,
+  userId: string,
+  featureName: string
+): Promise<boolean> {
+  return await openFgaClient.check(
+    userId,
+    'enabled_user',
+    'feature',
+    featureName
+  );
+}
+
+/**
+ * Clear authorization cache (useful for testing or when permissions change)
+ */
+export function clearAuthCache(): void {
+  authCache.clear();
+  console.log('Authorization cache cleared');
+}

@@ -3,6 +3,7 @@ import {
   GetItemCommand,
   PutItemCommand,
   UpdateItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { HiddenUseCases, IpAccessControl } from 'generative-ai-use-cases';
@@ -270,7 +271,6 @@ export async function updateTenant(
           'openSearchIndexName';
       }
     }
-
     // Always update updatedAt
     updateExpression.push('#updatedAt = :updatedAt');
     expressionAttributeNames['#updatedAt'] = 'updatedAt';
@@ -334,5 +334,41 @@ export async function getTenantUseCaseConfiguration(
     );
     // Return global configuration as fallback on error
     return globalHiddenUseCases;
+  }
+}
+
+/**
+ * List all tenants
+ */
+export async function listTenants(): Promise<Tenant[]> {
+  try {
+    const tenants: Tenant[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined;
+
+    do {
+      const response = await dynamoClient.send(
+        new ScanCommand({
+          TableName: TENANTS_TABLE_NAME,
+          ExclusiveStartKey: lastEvaluatedKey
+            ? marshall(lastEvaluatedKey)
+            : undefined,
+        })
+      );
+
+      if (response.Items) {
+        tenants.push(
+          ...response.Items.map((item) => unmarshall(item) as Tenant)
+        );
+      }
+
+      lastEvaluatedKey = response.LastEvaluatedKey
+        ? unmarshall(response.LastEvaluatedKey)
+        : undefined;
+    } while (lastEvaluatedKey);
+
+    return tenants;
+  } catch (error) {
+    console.error('Failed to list tenants:', error);
+    throw new Error(`Failed to list tenants: ${error}`);
   }
 }

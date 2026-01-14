@@ -7,6 +7,7 @@ import {
   PolicyDocument,
   CompositePrincipal,
   ArnPrincipal,
+  AccountPrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Tags } from 'aws-cdk-lib';
 import { IUserPool } from 'aws-cdk-lib/aws-cognito';
@@ -21,10 +22,24 @@ export interface TenantRoleProps {
   readonly account: string;
   readonly env: string;
   /**
-   * Optional: ARN of the control plane Lambda execution role
+   * Optional: ARN of the control plane Lambda execution role (single)
    * Required for cross-account background job access
+   * @deprecated Use controlPlaneLambdaRoleArns instead for multiple roles
    */
   readonly controlPlaneLambdaRoleArn?: string;
+  /**
+   * Optional: AWS Account ID of the control plane (main stack)
+   * When provided, allows all Lambda roles from this account matching
+   * the naming pattern to assume this tenant role.
+   * This is useful for cross-account deployments where multiple Lambda
+   * functions (billing, orchestration, etc.) need to access tenant resources.
+   */
+  readonly controlPlaneAccountId?: string;
+  /**
+   * Optional: ARNs of control plane Lambda execution roles (array)
+   * Required for cross-account background job access (e.g., PPTX, Summary generation)
+   */
+  readonly controlPlaneLambdaRoleArns?: string[];
 }
 
 /**
@@ -56,13 +71,39 @@ export class TenantRole extends Construct {
       'sts:AssumeRoleWithWebIdentity'
     );
 
-    // For cross-account deployments, also trust control plane Lambda role for background jobs
-    const assumedBy = props.controlPlaneLambdaRoleArn
-      ? new CompositePrincipal(
-          cognitoFederatedPrincipal,
-          new ArnPrincipal(props.controlPlaneLambdaRoleArn)
-        )
-      : cognitoFederatedPrincipal;
+    // Build cross-account trust principals
+    const crossAccountPrincipals: (ArnPrincipal | AccountPrincipal)[] = [];
+
+    // Add specific Lambda role ARN if provided (single, deprecated)
+    if (props.controlPlaneLambdaRoleArn) {
+      crossAccountPrincipals.push(
+        new ArnPrincipal(props.controlPlaneLambdaRoleArn)
+      );
+    }
+
+    // Add all Lambda role ARNs from the array if provided
+    if (props.controlPlaneLambdaRoleArns) {
+      for (const arn of props.controlPlaneLambdaRoleArns) {
+        crossAccountPrincipals.push(new ArnPrincipal(arn));
+      }
+    }
+
+    // Add control plane account trust if provided
+    // This allows Lambda roles from the control plane account to assume this role
+    if (props.controlPlaneAccountId) {
+      crossAccountPrincipals.push(
+        new AccountPrincipal(props.controlPlaneAccountId)
+      );
+    }
+
+    // For cross-account deployments, also trust control plane Lambda roles for background jobs
+    const assumedBy =
+      crossAccountPrincipals.length > 0
+        ? new CompositePrincipal(
+            cognitoFederatedPrincipal,
+            ...crossAccountPrincipals
+          )
+        : cognitoFederatedPrincipal;
 
     // Create tenant-specific IAM role
     this.role = new Role(this, `TenantRole`, {
@@ -119,6 +160,19 @@ export class TenantRole extends Construct {
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-templates-${props.env}-${props.tenantId}/index/*`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}`,
                 `arn:aws:dynamodb:${props.region}:${props.account}:table/pptx-generations-${props.env}-${props.tenantId}/index/*`,
+                // Orchestration tables pattern ({tenantId}-orchestration-*, {tenantId}-flow-*)
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-orchestration-idempotency`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-execution-history`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-execution-history/index/*`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/${props.tenantId}-flow-step-execution-history`,
+                // UserStripeMapping table pattern (UserStripeMapping-{env}-tenant-{tenantId})
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/UserStripeMapping-${props.env}-tenant-${props.tenantId}/index/*`,
+                // Authorization tables pattern (AuthUsageEvent-{env}-tenant-{tenantId}, AuthPermissionGrant-{env}-tenant-{tenantId})
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageEvent-${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthUsageEvent-${props.env}-tenant-${props.tenantId}/index/*`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthPermissionGrant-${props.env}-tenant-${props.tenantId}`,
+                `arn:aws:dynamodb:${props.region}:${props.account}:table/AuthPermissionGrant-${props.env}-tenant-${props.tenantId}/index/*`,
               ],
             }),
 
@@ -156,14 +210,30 @@ export class TenantRole extends Construct {
               resources: ['*'], // Polly doesn't have tenant-specific resources
             }),
 
-            // Lambda invoke access for tenant-specific Bedrock Chat functions
+            // Lambda invoke access for tenant-specific functions
             new PolicyStatement({
               sid: 'LambdaInvokeTenantFunctions',
               effect: Effect.ALLOW,
               actions: ['lambda:InvokeFunction', 'lambda:InvokeAsync'],
               resources: [
-                // Allow invoking only Lambda functions for this specific tenant
+                // Allow invoking tenant-specific Lambda functions
                 `arn:aws:lambda:${props.region}:${props.account}:function:*`,
+              ],
+            }),
+
+            // Lambda invoke access for VPC-internal data access functions
+            // These functions provide data access to tenant-specific RDS databases
+            new PolicyStatement({
+              sid: 'LambdaInvokeDataAccessFunctions',
+              effect: Effect.ALLOW,
+              actions: ['lambda:InvokeFunction'],
+              resources: [
+                // Plan data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-plan-data-access`,
+                // Subscription data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-subscription-data-access`,
+                // User plan application data access function (VPC内)
+                `arn:aws:lambda:${props.region}:${props.account}:function:${props.env}-${props.tenantId}-user-plan-application-data-access`,
               ],
             }),
 
@@ -179,6 +249,51 @@ export class TenantRole extends Construct {
                 'transcribe:TagResource',
               ],
               resources: ['*'], // Transcribe doesn't have tenant-specific resources
+            }),
+
+            // API Gateway access for OpenFGA authorization system
+            new PolicyStatement({
+              sid: 'ApiGatewayInvokeAccess',
+              effect: Effect.ALLOW,
+              actions: ['execute-api:Invoke'],
+              resources: [
+                // Allow invoking API Gateway endpoints in this tenant account
+                // This is required for OpenFGA authorization checks via API Gateway
+                `arn:aws:execute-api:${props.region}:${props.account}:*`,
+              ],
+            }),
+
+            // SSM Parameter Store access for tenant configuration (RDS, OpenFGA, etc.)
+            new PolicyStatement({
+              sid: 'SSMParameterAccess',
+              effect: Effect.ALLOW,
+              actions: ['ssm:GetParameter'],
+              resources: [
+                // Allow reading tenant-specific configuration parameters
+                `arn:aws:ssm:${props.region}:${props.account}:parameter/genu-gaixer/tenants/${props.tenantId}/*`,
+              ],
+            }),
+
+            // RDS IAM authentication for tenant-specific databases
+            new PolicyStatement({
+              sid: 'RDSIAMAuth',
+              effect: Effect.ALLOW,
+              actions: ['rds-db:connect'],
+              resources: [
+                // Allow RDS IAM authentication for tenant-specific database users
+                `arn:aws:rds-db:${props.region}:${props.account}:dbuser:*/*`,
+              ],
+            }),
+
+            // Secrets Manager access for tenant-specific secrets (e.g., Stripe API keys)
+            new PolicyStatement({
+              sid: 'SecretsManagerTenantAccess',
+              effect: Effect.ALLOW,
+              actions: ['secretsmanager:GetSecretValue'],
+              resources: [
+                // Allow reading tenant-specific billing secrets
+                `arn:aws:secretsmanager:${props.region}:${props.account}:secret:${props.tenantId}/billing/*`,
+              ],
             }),
           ],
         }),

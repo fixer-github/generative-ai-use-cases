@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import {
   CfnUserPool,
   LambdaVersion,
@@ -20,6 +20,12 @@ import {
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { Key } from 'aws-cdk-lib/aws-kms';
+import {
+  Table,
+  AttributeType,
+  BillingMode,
+  TableEncryption,
+} from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
@@ -37,12 +43,16 @@ export interface AuthProps {
   readonly sendgridApiKey: string;
   readonly sendgridFromEmail: string;
   readonly enableAutoDelete?: boolean;
+  readonly environment?: string; // 環境名（Lambda関数名を動的に構築するために使用）
+  readonly tenantsTableName?: string; // テナント情報テーブル名（クロスアカウント呼び出しに使用）
+  readonly tenantsTableArn?: string; // テナント情報テーブルARN（権限付与に使用）
 }
 
 export class Auth extends Construct {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
+  readonly userRegistrationMetadataTable: Table;
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
@@ -73,6 +83,11 @@ export class Auth extends Construct {
           minLen: 4, // "true" or "false"
           maxLen: 5,
           mutable: true, // Allows updating admin status
+        }),
+        parent_email: new StringAttribute({
+          minLen: 0,
+          maxLen: 256, // メールアドレスの最大長
+          mutable: true,
         }),
       },
     });
@@ -169,6 +184,29 @@ export class Auth extends Construct {
       })
     );
 
+    // UserRegistrationMetadata DynamoDB Table
+    // ユーザー登録時のclientMetadata（生年月日、規約同意など）を保存するテーブル
+    // Cognitoと同様に共通リソースとして配置
+    const userRegistrationMetadataTable = new Table(
+      this,
+      'UserRegistrationMetadataTable',
+      {
+        tableName: props.environment
+          ? `UserRegistrationMetadata-${props.environment}`
+          : 'UserRegistrationMetadata',
+        partitionKey: {
+          name: 'userId',
+          type: AttributeType.STRING,
+        },
+        billingMode: BillingMode.PAY_PER_REQUEST,
+        encryption: TableEncryption.AWS_MANAGED,
+        pointInTimeRecovery: true,
+        removalPolicy: props.enableAutoDelete
+          ? RemovalPolicy.DESTROY
+          : RemovalPolicy.RETAIN,
+      }
+    );
+
     // Lambda
     if (props.selfSignUpTenantMap && props.selfSignUpTenantMap.length > 0) {
       const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
@@ -182,25 +220,85 @@ export class Auth extends Construct {
 
       userPool.addTrigger(UserPoolOperation.PRE_SIGN_UP, checkTenantFunction);
 
-      const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/assignTenant.ts',
-        timeout: Duration.seconds(30),
-        environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
-        },
-      });
+      // 新しい統合POST_CONFIRMATIONハンドラー
+      const postConfirmHandlerFunction = new NodejsFunction(
+        this,
+        'PostConfirmHandler',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/postConfirmHandler.ts',
+          timeout: Duration.seconds(60), // タイムアウトを延長（プラン適用処理を含むため）
+          environment: {
+            SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
+            // 環境名がある場合はLambda関数名を動的に構築、ない場合は空文字列
+            PLAN_DATA_ACCESS_FUNCTION_NAME: props.environment
+              ? `${props.environment}-*-plan-data-access`
+              : '',
+            APPLY_PLAN_TO_USER_FUNCTION_NAME: props.environment
+              ? `${props.environment}-billing-plan-internal-apply`
+              : '',
+            // ユーザー登録メタデータ保存用テーブル名
+            USER_REGISTRATION_METADATA_TABLE_NAME:
+              userRegistrationMetadataTable.tableName,
+            // テナント情報テーブル名（クロスアカウント呼び出しに必要）
+            TENANTS_TABLE_NAME: props.tenantsTableName || '',
+            // 現在のAWSアカウントID（クロスアカウント判定に必要）
+            AWS_ACCOUNT_ID: Stack.of(this).account,
+          },
+        }
+      );
 
-      assignTenantFunction.addToRolePolicy(
+      // UserRegistrationMetadataテーブルへの書き込み権限
+      userRegistrationMetadataTable.grantWriteData(postConfirmHandlerFunction);
+
+      // Cognitoユーザー属性更新権限
+      postConfirmHandlerFunction.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ['cognito-idp:AdminUpdateUserAttributes'],
           resources: ['*'],
         })
       );
+
+      // テナント情報テーブルへの読み取り権限（クロスアカウント呼び出しのためのテナント情報取得）
+      if (props.tenantsTableArn) {
+        postConfirmHandlerFunction.addToRolePolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['dynamodb:GetItem'],
+            resources: [props.tenantsTableArn],
+          })
+        );
+      }
+
+      // STS AssumeRole権限（クロスアカウントのテナントロールを引き受けるため）
+      postConfirmHandlerFunction.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::*:role/TenantRole-*'],
+        })
+      );
+
+      // プラン関連Lambda関数を呼び出す権限（環境名がある場合のみ）
+      if (props.environment) {
+        postConfirmHandlerFunction.addToRolePolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['lambda:InvokeFunction'],
+            resources: [
+              // 複数テナントのplan-data-access関数を呼び出す可能性があるため、ワイルドカードを使用
+              `arn:aws:lambda:*:*:function:${props.environment}-*-plan-data-access`,
+              // applyPlanToUser関数
+              `arn:aws:lambda:*:*:function:${props.environment}-billing-plan-internal-apply`,
+            ],
+          })
+        );
+      }
+
       userPool.addTrigger(
         UserPoolOperation.POST_CONFIRMATION,
-        assignTenantFunction
+        postConfirmHandlerFunction
       );
     }
 
@@ -281,5 +379,6 @@ export class Auth extends Construct {
     this.client = client;
     this.userPool = userPool;
     this.idPool = idPool;
+    this.userRegistrationMetadataTable = userRegistrationMetadataTable;
   }
 }

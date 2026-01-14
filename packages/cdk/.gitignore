@@ -12,3 +12,10 @@ cdk.out
 
 # Tenant-specific CDK configuration (use cdk.tenant.example.json as template)
 cdk.tenant.json
+
+# E2E test environment variables (use .env.e2e.example as template)
+.env.e2e
+
+# Summary external context prompts (use *.example.md as templates)
+prompts/daily-summary-context.md
+prompts/user-summary-context.md

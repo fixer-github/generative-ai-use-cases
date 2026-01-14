@@ -592,14 +592,14 @@ export async function loadDocuments(
 ): Promise<Document[]> {
   const loadPromises = sources.map(async (source) => {
     try {
-      if (source.type === 'file' && source.storageKey) {
+      if (source.type === 'file' && source.storageKey && source.id) {
         return await loadDocumentFromFile(
           source.storageKey,
           source.id,
           userId,
           event
         );
-      } else if (source.type === 'web' && source.sourceUrl) {
+      } else if (source.type === 'web' && source.sourceUrl && source.id) {
         return await loadDocumentFromWeb(source.sourceUrl, source.id);
       } else {
         throw new Error(

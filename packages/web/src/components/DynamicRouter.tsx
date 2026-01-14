@@ -40,6 +40,15 @@ import PptxGenerationPage from '../pages/PptxGenerationPage';
 import WriterPage from '../pages/WriterPage';
 import AssistantChatPage from '../pages/AssistantChatPage';
 import AdminPortal from '../pages/AdminPortal';
+import PlanManagementPage from '../pages/PlanManagementPage';
+import PlanDetailPage from '../pages/PlanDetailPage';
+import PlanCreatePage from '../pages/PlanCreatePage';
+import PlanMigratePage from '../pages/PlanMigratePage';
+import UserPlanManagementPage from '../pages/UserPlanManagementPage';
+import FlowExecutionManagementPage from '../pages/FlowExecutionManagementPage';
+import FlowExecutionDetailPage from '../pages/FlowExecutionDetailPage';
+import PaymentCompletePage from '../pages/PaymentCompletePage';
+import ParentalPaymentCompletePage from '../pages/ParentalPaymentCompletePage';
 
 interface DynamicRouterProps {
   ragEnabled: boolean;
@@ -252,12 +261,50 @@ const DynamicRouter: React.FC<DynamicRouterProps> = ({
       element: <AdminPortal />,
     },
     {
+      path: '/admin/billing/plans',
+      element: <PlanManagementPage />,
+    },
+    {
+      path: '/admin/billing/plans/create',
+      element: <PlanCreatePage />,
+    },
+    {
+      path: '/admin/billing/plans/:planId',
+      element: <PlanDetailPage />,
+    },
+    {
+      path: '/admin/billing/plans/:planId/migrate',
+      element: <PlanMigratePage />,
+    },
+    {
+      path: '/admin/billing/users',
+      element: <UserPlanManagementPage />,
+    },
+    {
+      path: '/admin/billing/flow-executions',
+      element: <FlowExecutionManagementPage />,
+    },
+    {
+      path: '/admin/billing/flow-executions/:flowExecutionId',
+      element: <FlowExecutionDetailPage />,
+    },
+    {
+      path: '/billing/complete',
+      element: <PaymentCompletePage />,
+    },
+    {
       path: '*',
       element: <NotFound />,
     },
   ].flatMap((r) => (r !== null ? [r] : []));
 
   const router = createBrowserRouter([
+    // Public route for parental payment completion (no auth required)
+    {
+      path: '/billing/parental-complete',
+      element: <ParentalPaymentCompletePage />,
+    },
+    // All other routes require authentication
     {
       path: '/',
       element: samlAuthEnabled ? (

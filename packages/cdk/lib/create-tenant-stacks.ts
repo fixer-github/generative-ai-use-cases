@@ -5,6 +5,11 @@ import { TenantIAMStack } from './stacks/tenant/tenant-iam-stack';
 import { TenantPptxStack } from './stacks/tenant/tenant-pptx-stack';
 import { TenantVpcStack } from './stacks/tenant/tenant-vpc-stack';
 import { TenantOpenSearchStack } from './stacks/tenant/tenant-opensearch-stack';
+import { TenantOpenFgaStack } from './stacks/tenant/tenant-openfga-stack';
+import { TenantPaymentGatewayStack } from './stacks/tenant/tenant-payment-gateway-stack';
+import { TenantRdsStack } from './stacks/tenant/tenant-rds-stack';
+import { TenantAuthorizationDbStack } from './stacks/tenant/tenant-authorization-db-stack';
+import { TenantOrchestrationDbStack } from './stacks/tenant/tenant-orchestration-db-stack';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
@@ -27,6 +32,55 @@ export interface IpAccessControlConfig {
   allowedIpV6AddressRanges: string[];
 }
 
+export interface OpenFgaConfig {
+  rds: {
+    instanceClass: string;
+    instanceSize: string;
+    allocatedStorage: number;
+    maxAllocatedStorage: number;
+    storageType: string;
+    backupRetentionDays: number;
+    preferredBackupWindow: string;
+    preferredMaintenanceWindow: string;
+    enablePerformanceInsights: boolean;
+    deletionProtection: boolean;
+  };
+  ecs: {
+    cpu: number;
+    memoryLimitMiB: number;
+    minCapacity: number;
+    maxCapacity: number;
+    cpuTargetUtilizationPercent?: number;
+    memoryTargetUtilizationPercent?: number;
+    scaleOutCooldownSeconds?: number;
+    scaleInCooldownSeconds?: number;
+    /**
+     * Schedule-based scaling configurations.
+     * @example
+     * scheduledScaling: [
+     *   { scheduleName: "ScaleUpMorning", schedule: "cron(0 9 * * ? *)", minCapacity: 2 },
+     *   { scheduleName: "ScaleDownNight", schedule: "cron(0 21 * * ? *)", maxCapacity: 1 }
+     * ]
+     */
+    scheduledScaling?: Array<{
+      /** Unique identifier for this schedule. Must be alphanumeric (used as CloudFormation logical ID). */
+      scheduleName: string;
+      /** Cron or rate expression. e.g., "cron(0 9 * * ? *)" or "rate(1 hour)" */
+      schedule: string;
+      minCapacity?: number;
+      maxCapacity?: number;
+    }>;
+    imageVersion: string;
+  };
+  logging: {
+    retentionDays: number;
+  };
+  apiGateway: {
+    loggingLevel: string;
+    dataTraceEnabled: boolean;
+  };
+}
+
 export interface TenantStackInput {
   account?: string;
   region: string;
@@ -35,6 +89,7 @@ export interface TenantStackInput {
   removalPolicy: boolean;
   bedrockRegion?: string;
   pptxEnabled?: boolean;
+  paymentGatewayEnabled?: boolean;
   userPoolId?: string;
   identityPoolId?: string;
   userPoolClientId?: string;
@@ -45,6 +100,15 @@ export interface TenantStackInput {
   controlPlaneAccount?: string;
   tenantsTableName?: string;
   openSearchIndexName?: string;
+  openFgaConfig: OpenFgaConfig;
+  controlPlaneLambdaRoleArn?: string;
+  controlPlaneLambdaRoleArns?: string[];
+  /**
+   * Whether summary job feature is enabled for this tenant
+   * When false, UserSummary table is not created
+   * @default false
+   */
+  summaryJobEnabled?: boolean;
 }
 
 export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
@@ -75,6 +139,7 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
       },
       tenantId: params.tenantId,
       environment: params.environment,
+      summaryJobEnabled: params.summaryJobEnabled,
     }
   );
 
@@ -161,6 +226,109 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     );
   }
 
+  // Tenant OpenFGA Stack (required)
+  const tenantOpenFgaStack = new TenantOpenFgaStack(
+    app,
+    `TenantOpenFgaStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      vpc: tenantVpcStack.vpc,
+      subnets: tenantVpcStack.privateSubnets,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+      controlPlaneLambdaRoleArn: params.controlPlaneLambdaRoleArn,
+      tenantRoleArn: tenantIAMStack.getRoleArn(),
+      openFgaConfig: params.openFgaConfig,
+    }
+  );
+  tenantOpenFgaStack.addDependency(tenantVpcStack);
+  tenantOpenFgaStack.addDependency(tenantIAMStack);
+
+  // Tenant RDS Stack (for plan and subscription management)
+  const tenantRdsStack = new TenantRdsStack(
+    app,
+    `TenantRdsStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      vpc: tenantVpcStack.vpc,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.SNAPSHOT,
+      // deletionProtection is the inverse of enableAutoDelete (removalPolicy)
+      deletionProtection: !params.removalPolicy,
+    }
+  );
+  tenantRdsStack.addDependency(tenantVpcStack);
+
+  // Tenant Authorization DB Stack (DynamoDB tables only)
+  // Lambda functions and EventBridge are managed in the common AuthorizationFunctionsStack
+  const tenantAuthorizationDbStack = new TenantAuthorizationDbStack(
+    app,
+    `TenantAuthorizationDbStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    }
+  );
+  tenantAuthorizationDbStack.addDependency(tenantIAMStack);
+
+  // Tenant Orchestration DB Stack (DynamoDB tables for idempotency and flow execution history)
+  // Lambda functions are managed in the common OrchestrationApi construct
+  const tenantOrchestrationDbStack = new TenantOrchestrationDbStack(
+    app,
+    `TenantOrchestrationDbStack${params.environment}-${params.tenantId}`,
+    {
+      env: {
+        account: params.account,
+        region: params.region,
+      },
+      tenantId: params.tenantId,
+      environment: params.environment,
+      removalPolicy: params.removalPolicy
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    }
+  );
+  tenantOrchestrationDbStack.addDependency(tenantIAMStack);
+
+  // Tenant Payment Gateway Stack (optional)
+  let tenantPaymentGatewayStack;
+  if (params.paymentGatewayEnabled) {
+    tenantPaymentGatewayStack = new TenantPaymentGatewayStack(
+      app,
+      `TenantPaymentGatewayStack${params.environment}-${params.tenantId}`,
+      {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        tenantId: params.tenantId,
+        environment: params.environment,
+        removalPolicy: params.removalPolicy
+          ? cdk.RemovalPolicy.DESTROY
+          : cdk.RemovalPolicy.RETAIN,
+      }
+    );
+  }
+
   return {
     tenantIAMStack,
     tenantDynamoDBStack,
@@ -168,5 +336,10 @@ export const createTenantStacks = (app: cdk.App, params: TenantStackInput) => {
     tenantVpcStack,
     tenantOpenSearchStack,
     tenantPptxStack,
+    tenantOpenFgaStack,
+    tenantRdsStack,
+    tenantAuthorizationDbStack,
+    tenantOrchestrationDbStack,
+    tenantPaymentGatewayStack,
   };
 };

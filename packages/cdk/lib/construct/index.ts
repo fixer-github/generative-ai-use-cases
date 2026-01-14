@@ -16,3 +16,7 @@ export * from './tenant-dynamodb';
 export * from './tenant-manager';
 export * from './tenant-role';
 export * from './maintenance-mode';
+export * from './authorization-database';
+export * from './authorization-functions';
+export * from './orchestration-database';
+export * from './summary-generator';

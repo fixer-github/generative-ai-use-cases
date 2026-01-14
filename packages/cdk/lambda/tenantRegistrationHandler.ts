@@ -20,13 +20,21 @@ const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
 
 // Request interface
+// Note: OpenFGA configuration is managed via AWS AppConfig, not stored in tenant registration
 interface TenantRegistrationRequest {
   tenantId: string;
   accountId: string;
   region: string;
   environment: string;
   roleArn?: string;
+  /**
+   * @deprecated Use controlPlaneLambdaRoleArns instead
+   */
   controlPlaneLambdaRoleArn?: string;
+  /**
+   * Array of control plane Lambda role ARNs for cross-account access
+   */
+  controlPlaneLambdaRoleArns?: string[];
   openSearchDomainArn?: string;
   openSearchEndpoint?: string;
   openSearchIndexName?: string;
@@ -56,6 +64,7 @@ export const handler = async (
       environment,
       roleArn,
       controlPlaneLambdaRoleArn,
+      controlPlaneLambdaRoleArns,
       openSearchDomainArn,
       openSearchEndpoint,
       openSearchIndexName,
@@ -136,7 +145,9 @@ export const handler = async (
       region,
       environment,
       roleArn,
-      controlPlaneLambdaRoleArn,
+      // Store both for backwards compatibility, prefer array
+      ...(controlPlaneLambdaRoleArn && { controlPlaneLambdaRoleArn }),
+      ...(controlPlaneLambdaRoleArns && { controlPlaneLambdaRoleArns }),
       createdAt: now,
       updatedAt: now,
       metadata: {

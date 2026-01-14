@@ -15,6 +15,7 @@ import {
   getTenantDynamoDBDocument,
   getTableName,
   getStatsTableName,
+  executeDynamoDBOperationForBatch,
 } from './common';
 
 // Update token usage helper function
@@ -324,4 +325,47 @@ export const deleteMessagesForChat = async (
 
     await Promise.all(batchPromises);
   }
+};
+
+/**
+ * List messages for batch processing (no JWT required)
+ * Uses STS AssumeRole for tenant access
+ */
+export const listMessagesForBatch = async (
+  _chatId: string,
+  tenantId: string
+): Promise<RecordedMessage[]> => {
+  return await executeDynamoDBOperationForBatch(
+    tenantId,
+    async (dynamoDbDocument, tableName) => {
+      const chatId = `chat#${_chatId}`;
+
+      let allItems: RecordedMessage[] = [];
+      let exclusiveStartKey: Record<string, string> | undefined = undefined;
+
+      do {
+        const res: QueryCommandOutput = await dynamoDbDocument.send(
+          new QueryCommand({
+            TableName: tableName,
+            KeyConditionExpression: '#id = :id',
+            ExpressionAttributeNames: {
+              '#id': 'id',
+            },
+            ExpressionAttributeValues: {
+              ':id': chatId,
+            },
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+
+        if (res.Items && res.Items.length > 0) {
+          allItems = allItems.concat(res.Items as RecordedMessage[]);
+        }
+
+        exclusiveStartKey = res.LastEvaluatedKey;
+      } while (exclusiveStartKey);
+
+      return allItems as RecordedMessage[];
+    }
+  );
 };

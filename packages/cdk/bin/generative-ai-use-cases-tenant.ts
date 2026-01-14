@@ -25,6 +25,7 @@ interface TenantConfig {
   environment?: string;
   tenantRegion?: string;
   enableAutoDelete?: boolean;
+  paymentGatewayEnabled?: boolean;
   openSearchCapacity?: any; // Will be parsed as JSON string or object
   networkConfig?: {
     vpcCidr?: string;
@@ -42,6 +43,7 @@ interface TenantConfig {
     identityPoolId: string;
     userPoolClientId: string;
     controlPlaneLambdaRoleArn?: string;
+    controlPlaneLambdaRoleArns?: string[];
     openSearchIndexName?: string;
   };
   ipAccessControl?: {
@@ -49,6 +51,7 @@ interface TenantConfig {
     allowedIpV4AddressRanges: string[];
     allowedIpV6AddressRanges: string[];
   };
+  summaryJobEnabled?: boolean;
 }
 
 let tenantConfig: TenantConfig = {};
@@ -132,6 +135,15 @@ if (tenantConfig.controlPlane) {
     );
   }
   if (
+    controlPlane.controlPlaneLambdaRoleArns &&
+    !app.node.getAllContext()['controlPlaneLambdaRoleArns']
+  ) {
+    app.node.setContext(
+      'controlPlaneLambdaRoleArns',
+      controlPlane.controlPlaneLambdaRoleArns
+    );
+  }
+  if (
     controlPlane.account &&
     !app.node.getAllContext()['controlPlaneAccount']
   ) {
@@ -157,6 +169,21 @@ if (context.ipAccessControl) {
   }
 }
 
+// Validate required configurations
+if (!context.openSearchConfig) {
+  throw new Error('openSearchConfig is required in cdk.tenant.json');
+}
+
+if (!context.networkConfig) {
+  throw new Error('networkConfig is required in cdk.tenant.json');
+}
+
+if (!context.openFgaConfig) {
+  throw new Error(
+    'openFgaConfig is required in cdk.tenant.json. Please add the complete openFgaConfig section with rds, ecs, logging, and apiGateway settings.'
+  );
+}
+
 const params = {
   account: context.account || process.env.CDK_DEFAULT_ACCOUNT,
   region: context.tenantRegion || process.env.CDK_DEFAULT_REGION || 'us-east-1',
@@ -167,6 +194,7 @@ const params = {
   identityPoolId: context.controlPlane?.identityPoolId!,
   userPoolClientId: context.controlPlane?.userPoolClientId!,
   pptxEnabled: context.pptxEnabled ?? false,
+  paymentGatewayEnabled: context.paymentGatewayEnabled ?? true, // Default to true to include in tenant deployment
   bedrockRegion:
     context.bedrockRegion ||
     context.tenantRegion ||
@@ -191,6 +219,10 @@ const params = {
     context.controlPlane?.tenantsTableName ||
     `Tenants-${context.environment || 'dev'}`,
   openSearchIndexName: context.openSearchIndexName || 'assistant-docs',
+  openFgaConfig: context.openFgaConfig,
+  controlPlaneLambdaRoleArn: context.controlPlane?.controlPlaneLambdaRoleArn,
+  controlPlaneLambdaRoleArns: context.controlPlane?.controlPlaneLambdaRoleArns,
+  summaryJobEnabled: context.summaryJobEnabled ?? false,
 };
 
 createTenantStacks(app, params);

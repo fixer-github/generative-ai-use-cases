@@ -3,8 +3,14 @@ import { GenericApiProps } from './props';
 import { LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../../consts';
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Stack } from 'aws-cdk-lib';
 import { getBaseEnvironment } from './util';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import {
+  TABLE_PREFIX,
+  STATS_TABLE_PREFIX,
+  USER_SUMMARY_TABLE_PREFIX,
+} from './const';
 
 export type PredictApiProps = GenericApiProps;
 
@@ -41,6 +47,9 @@ class PredictApi extends Construct {
       logsPolicy,
       assumeRolePolicy,
       litellmProxy,
+      environment,
+      summaryJobEnabled,
+      userSummaryTable,
     } = props;
 
     const predictFunction = new NodejsFunction(this, 'Predict', {
@@ -60,6 +69,15 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // User Summary table for summary context injection (only when enabled)
+        ...(summaryJobEnabled && userSummaryTable
+          ? {
+              USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+              DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
+              SUMMARY_JOB_ENABLED: 'true',
+            }
+          : {}),
 
         // Tenant Management Environment Variables
         ...(tenantManager
@@ -86,6 +104,8 @@ class PredictApi extends Construct {
       environment: {
         USER_POOL_ID: userPool.userPoolId,
         USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        IDENTITY_POOL_ID: idPool.identityPoolId,
+        AWS_ACCOUNT_ID: Stack.of(this).account!,
         MODEL_REGION: modelRegion,
         MODEL_IDS: JSON.stringify(modelIds),
         IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
@@ -104,6 +124,18 @@ class PredictApi extends Construct {
 
         // LangChain Credentials
         OPENAI_API_KEY: openai?.apiKey ?? '',
+
+        // Environment
+        ENVIRONMENT: environment,
+
+        // User Summary table for summary context injection (only when enabled)
+        ...(summaryJobEnabled && userSummaryTable
+          ? {
+              USER_SUMMARY_TABLE_NAME: USER_SUMMARY_TABLE_PREFIX,
+              DEFAULT_USER_SUMMARY_TABLE_NAME: userSummaryTable.tableName,
+              SUMMARY_JOB_ENABLED: 'true',
+            }
+          : {}),
 
         // Tenant Management Environment Variables
         ...(tenantManager
@@ -126,6 +158,10 @@ class PredictApi extends Construct {
       },
     });
     fileBucket.grantReadWrite(predictStreamFunction);
+    if (userSummaryTable) {
+      userSummaryTable.grantReadData(predictStreamFunction);
+      userSummaryTable.grantReadData(predictFunction);
+    }
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
 
     const predictTitleFunction = new NodejsFunction(this, 'PredictTitle', {
@@ -169,6 +205,40 @@ class PredictApi extends Construct {
     if (tenantManager) {
       tenantManager.tenantsTable.grantReadData(predictStreamFunction);
       tenantManager.tenantsTable.grantReadData(predictFunction);
+
+      // Grant SSM Parameter Store read permissions for OpenFGA configuration
+      // This allows Lambda functions to retrieve OpenFGA configuration from SSM after assuming tenant role
+      const ssmParameterReadPolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiEndpoint`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaApiRegion`,
+          `arn:aws:ssm:*:*:parameter/genu-gaixer/tenants/*/openFgaStoreId`,
+        ],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
+      predictFunction.role?.addToPrincipalPolicy(ssmParameterReadPolicy);
+
+      // Grant Cognito Identity Pool access for AssumeRoleWithWebIdentity
+      // This allows predictStreamFunction to exchange Cognito tokens for tenant credentials
+      const cognitoIdentityPolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['cognito-identity:GetId', 'cognito-identity:GetOpenIdToken'],
+        resources: ['*'],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(cognitoIdentityPolicy);
+
+      // Grant STS AssumeRoleWithWebIdentity permission
+      const stsAssumeRolePolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['sts:AssumeRoleWithWebIdentity'],
+        resources: ['*'],
+      });
+
+      predictStreamFunction.role?.addToPrincipalPolicy(stsAssumeRolePolicy);
     }
     if (sagemakerPolicy) {
       predictFunction.role?.addToPrincipalPolicy(sagemakerPolicy);

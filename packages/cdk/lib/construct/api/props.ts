@@ -44,6 +44,7 @@ export type GenericApiProps = {
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
+  readonly userSummaryTable?: Table;
   readonly assistantTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: Agent[];
@@ -75,4 +76,7 @@ export type GenericApiProps = {
   assumeRolePolicy?: PolicyStatement;
 
   selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
+
+  // Summary feature (environment-specific)
+  summaryJobEnabled?: boolean;
 };

@@ -74,6 +74,12 @@ export class TenantIAMStack extends cdk.Stack {
     const controlPlaneLambdaRoleArn = this.node.tryGetContext(
       'controlPlaneLambdaRoleArn'
     );
+    const controlPlaneAccountId = this.node.tryGetContext(
+      'controlPlaneAccount'
+    );
+    const controlPlaneLambdaRoleArns = this.node.tryGetContext(
+      'controlPlaneLambdaRoleArns'
+    ) as string[] | undefined;
 
     if (!userPoolId) {
       throw new Error(
@@ -131,6 +137,8 @@ export class TenantIAMStack extends cdk.Stack {
       account: this.account,
       env: environment,
       controlPlaneLambdaRoleArn: controlPlaneLambdaRoleArn,
+      controlPlaneAccountId: controlPlaneAccountId,
+      controlPlaneLambdaRoleArns: controlPlaneLambdaRoleArns,
     });
 
     // Create a Lambda to call the registration API

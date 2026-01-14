@@ -19,12 +19,30 @@ import { GenerateImageParams } from './image';
 import { GenerateVideoParams, VideoJob } from './video';
 import { ShareId, UserIdAndChatId } from './share';
 
+/**
+ * エラー理由の型定義
+ * - no_permission: 権限がない
+ * - quota_exceeded: 利用回数制限超過
+ * - media_limit_exceeded: メディア入力制限超過
+ * - invalid_token: トークンが無効
+ */
+export type StreamingErrorReason =
+  | 'no_permission'
+  | 'quota_exceeded'
+  | 'media_limit_exceeded'
+  | 'invalid_token';
+
 export type StreamingChunk = {
   text: string;
   trace?: string;
   metadata?: Metadata;
   stopReason?: StopReason | 'error';
+  errorReason?: StreamingErrorReason;
   sessionId?: string;
+  usage?: {
+    daily?: { current: number; limit: number; remaining: number };
+    monthly?: { current: number; limit: number; remaining: number };
+  };
 };
 
 export type Pagination<T> = {
@@ -73,11 +91,18 @@ export type UpdateTitleResponse = {
   chat: Chat;
 };
 
+export type SystemContextParams = {
+  promptVariant?: string;  // The ninetype variant like "type1", "type2", etc.
+  interests?: string;      // User interests
+  goals?: string;          // User goals/aspirations
+};
+
 export type PredictRequest = {
   model?: Model;
   idToken?: string;
   messages: UnrecordedMessage[];
   id: string;
+  systemContextParams?: SystemContextParams;
 };
 
 export type PredictResponse = string;
