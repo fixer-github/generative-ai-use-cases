@@ -176,7 +176,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Content Header */}
             <div className="flex h-14 items-center border-b border-gray-200 px-6">
               <Dialog.Title className="text-lg font-medium text-gray-900">
-                {activeTab === 'general' ? t('settings.tabs.general') : t('settings.tabs.aiCustomize')}
+                {activeTab === 'general'
+                  ? t('settings.tabs.general')
+                  : t('settings.tabs.aiCustomize')}
               </Dialog.Title>
             </div>
 
@@ -273,7 +275,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={(e) =>
                         updateSettings({ customInstructions: e.target.value })
                       }
-                      placeholder={t('settings.placeholders.customInstructions')}
+                      placeholder={t(
+                        'settings.placeholders.customInstructions'
+                      )}
                       className="h-32 w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={!settings.customizeEnabled}
                     />

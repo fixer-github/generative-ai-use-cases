@@ -131,26 +131,31 @@ const ChatListItem: React.FC<Props> = (props) => {
   }, [showMenu]);
 
   // 日付のフォーマット
-  const formatDate = useCallback((dateString: string) => {
-    // Parse as timestamp (numeric string) or ISO date string
-    const timestamp = parseInt(dateString, 10);
-    const date = isNaN(timestamp) ? new Date(dateString) : new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
-    const diffInDays = Math.floor(diffInHours / 24);
+  const formatDate = useCallback(
+    (dateString: string) => {
+      // Parse as timestamp (numeric string) or ISO date string
+      const timestamp = parseInt(dateString, 10);
+      const date = isNaN(timestamp)
+        ? new Date(dateString)
+        : new Date(timestamp);
+      const now = new Date();
+      const diffInHours = Math.floor(
+        (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+      );
+      const diffInDays = Math.floor(diffInHours / 24);
 
-    if (diffInHours < 24) {
-      return t('chatList.today');
-    } else if (diffInDays === 1) {
-      return t('chatList.oneDayAgo');
-    } else if (diffInDays < 7) {
-      return t('chatList.daysAgo', { days: diffInDays });
-    } else {
-      return `${date.getMonth() + 1}/${date.getDate()}`;
-    }
-  }, [t]);
+      if (diffInHours < 24) {
+        return t('chatList.today');
+      } else if (diffInDays === 1) {
+        return t('chatList.oneDayAgo');
+      } else if (diffInDays < 7) {
+        return t('chatList.daysAgo', { days: diffInDays });
+      } else {
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      }
+    },
+    [t]
+  );
 
   return (
     <>
