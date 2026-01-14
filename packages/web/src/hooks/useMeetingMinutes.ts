@@ -111,7 +111,7 @@ export const useMeetingMinutes = (
                       }
                     }
                   } catch (error) {
-                    // Re-throw if it's our explicit error
+                    // Re-throw explicit API errors
                     if (
                       error instanceof Error &&
                       error.message.includes('API returned an error')
@@ -119,16 +119,25 @@ export const useMeetingMinutes = (
                       throw error;
                     }
 
-                    // Track consecutive parse errors to detect stream corruption
-                    consecutiveParseErrors++;
-                    console.warn('Failed to parse JSON chunk:', c);
+                    // Only treat SyntaxError as JSON parse error
+                    if (error instanceof SyntaxError) {
+                      consecutiveParseErrors++;
+                      console.warn('Failed to parse JSON chunk:', c, error);
 
-                    if (
-                      consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS
-                    ) {
-                      throw new Error(
-                        'Stream processing failed: too many consecutive parse errors'
+                      if (
+                        consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS
+                      ) {
+                        throw new Error(
+                          'Stream processing failed: too many consecutive parse errors'
+                        );
+                      }
+                    } else {
+                      // Re-throw unexpected errors (TypeError, RangeError, etc.)
+                      console.error(
+                        'Unexpected error during stream processing:',
+                        error
                       );
+                      throw error;
                     }
                   }
                 }
@@ -137,7 +146,7 @@ export const useMeetingMinutes = (
           }
 
           // Throw error if we received no successful parses (complete stream failure)
-          if (successfulParses === 0 && consecutiveParseErrors > 0) {
+          if (successfulParses === 0) {
             throw new Error(
               'Stream processing failed: no data received from server'
             );
@@ -209,7 +218,23 @@ export const useMeetingMinutes = (
 
         setLastProcessedTranscript(transcript);
         setLastGeneratedTime(new Date());
-        onGenerate?.('success', { minutes: fullResponse });
+
+        // Check if we reached max continuation attempts with incomplete output
+        if (
+          lastStopReason === 'max_tokens' &&
+          continuationCount >= MAX_CONTINUATION_ATTEMPTS
+        ) {
+          console.warn(
+            `Meeting minutes generation reached maximum continuation attempts (${MAX_CONTINUATION_ATTEMPTS}). Output may be incomplete.`
+          );
+          onGenerate?.('success', {
+            minutes: fullResponse,
+            message:
+              'Output may be incomplete due to length limits. Consider splitting the transcript.',
+          });
+        } else {
+          onGenerate?.('success', { minutes: fullResponse });
+        }
       } catch (error) {
         console.error('Meeting minutes generation failed:', error);
         onGenerate?.('error', {

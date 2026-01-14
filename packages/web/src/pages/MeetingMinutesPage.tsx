@@ -317,12 +317,24 @@ const MeetingMinutesPage: React.FC = () => {
       }
     ) => {
       switch (status) {
+        case 'generating':
+          // Generation started - UI already shows loading state via minutesLoading
+          break;
         case 'success':
           setContinuationInfo(null);
-          toast.success(t('meetingMinutes.generation_success'));
+          // Show warning if output may be incomplete (max continuation attempts reached)
+          if (data?.message) {
+            toast.warning(data.message);
+          } else {
+            toast.success(t('meetingMinutes.generation_success'));
+          }
           break;
         case 'error':
           setContinuationInfo(null);
+          // Show detailed error message if available for debugging
+          if (data?.message) {
+            console.error('Generation error details:', data.message);
+          }
           toast.error(t('meetingMinutes.generation_error'));
           break;
         case 'continuing':
