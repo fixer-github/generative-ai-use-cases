@@ -136,10 +136,10 @@ export const useMeetingMinutes = (
             }
           }
 
-          // Warn if we received no successful parses (possible complete stream failure)
+          // Throw error if we received no successful parses (complete stream failure)
           if (successfulParses === 0 && consecutiveParseErrors > 0) {
-            console.error(
-              'No chunks were successfully parsed from stream, possible stream corruption'
+            throw new Error(
+              'Stream processing failed: no data received from server'
             );
           }
 

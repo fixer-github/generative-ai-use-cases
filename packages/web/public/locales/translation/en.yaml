@@ -1095,6 +1095,7 @@ transcribe:
   result_placeholder: Speech recognition results will be displayed here
   screen_audio: Screen Audio
   screen_audio_error: 'Screen Audio Error:'
+  screen_audio_failed_fallback_mic: Failed to capture screen audio. Starting recording with microphone only.
   screen_audio_notice: 'For Windows: Select "Entire Screen" tab and turn ON "Share system audio".<br/>For Mac: Select "Chrome Tab" and turn ON "Also share tab audio".<br/>Chrome and Edge work. Firefox does not work.'
   select_input_method: Please select from microphone input or file upload
   speaker_names: Speaker names (comma separated)

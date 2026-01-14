@@ -305,6 +305,37 @@ const MeetingMinutesPage: React.FC = () => {
     setLastGeneratedTime
   );
 
+  // Common callback handler for generation status updates
+  const handleGenerationStatus = useCallback(
+    (
+      status: 'generating' | 'continuing' | 'success' | 'error',
+      data?: {
+        message?: string;
+        minutes?: string;
+        continuationAttempt?: number;
+        maxContinuationAttempts?: number;
+      }
+    ) => {
+      switch (status) {
+        case 'success':
+          setContinuationInfo(null);
+          toast.success(t('meetingMinutes.generation_success'));
+          break;
+        case 'error':
+          setContinuationInfo(null);
+          toast.error(t('meetingMinutes.generation_error'));
+          break;
+        case 'continuing':
+          setContinuationInfo({
+            attempt: data?.continuationAttempt || 0,
+            maxAttempts: data?.maxContinuationAttempts || 5,
+          });
+          break;
+      }
+    },
+    [t]
+  );
+
   const speakerMapping = useMemo(() => {
     return Object.fromEntries(
       speakers.split(',').map((speaker, idx) => [`spk_${idx}`, speaker.trim()])
@@ -470,20 +501,7 @@ const MeetingMinutesPage: React.FC = () => {
       if (realtimeText !== lastProcessedTranscript && !minutesLoading) {
         shouldGenerateRef.current = false; // Reset the flag
         setContinuationInfo(null);
-        generateMinutes(realtimeText, modelId, (status, data) => {
-          if (status === 'success') {
-            setContinuationInfo(null);
-            toast.success(t('meetingMinutes.generation_success'));
-          } else if (status === 'error') {
-            setContinuationInfo(null);
-            toast.error(t('meetingMinutes.generation_error'));
-          } else if (status === 'continuing') {
-            setContinuationInfo({
-              attempt: data?.continuationAttempt || 0,
-              maxAttempts: data?.maxContinuationAttempts || 5,
-            });
-          }
-        });
+        generateMinutes(realtimeText, modelId, handleGenerationStatus);
       } else {
         shouldGenerateRef.current = false; // Reset even if we don't generate
       }
@@ -496,7 +514,7 @@ const MeetingMinutesPage: React.FC = () => {
     minutesLoading,
     generateMinutes,
     modelId,
-    t,
+    handleGenerationStatus,
   ]);
 
   // Auto-generation countdown setup
@@ -612,6 +630,8 @@ const MeetingMinutesPage: React.FC = () => {
       startMicTranscription(langCode, speakerLabel);
     } catch (error) {
       console.error('Failed to start synchronized recording:', error);
+      // Notify user about the fallback
+      toast.warning(t('transcribe.screen_audio_failed_fallback_mic'));
       // Fallback to microphone only if screen preparation fails
       startMicTranscription(langCode, speakerLabel);
     }
@@ -625,6 +645,7 @@ const MeetingMinutesPage: React.FC = () => {
     startTranscriptionWithStream,
     clearMicTranscripts,
     clearScreenTranscripts,
+    t,
   ]);
 
   // Manual generation handler
@@ -641,21 +662,7 @@ const MeetingMinutesPage: React.FC = () => {
     if (hasTranscriptText && !minutesLoading) {
       // Reset continuation info at the start
       setContinuationInfo(null);
-
-      generateMinutes(currentTranscriptText, modelId, (status, data) => {
-        if (status === 'success') {
-          setContinuationInfo(null);
-          toast.success(t('meetingMinutes.generation_success'));
-        } else if (status === 'error') {
-          setContinuationInfo(null);
-          toast.error(t('meetingMinutes.generation_error'));
-        } else if (status === 'continuing') {
-          setContinuationInfo({
-            attempt: data?.continuationAttempt || 0,
-            maxAttempts: data?.maxContinuationAttempts || 5,
-          });
-        }
-      });
+      generateMinutes(currentTranscriptText, modelId, handleGenerationStatus);
     }
   }, [
     hasTranscriptText,
@@ -663,9 +670,10 @@ const MeetingMinutesPage: React.FC = () => {
     minutesLoading,
     modelId,
     generateMinutes,
-    t,
+    handleGenerationStatus,
     minutesStyle,
     customPrompt,
+    t,
   ]);
 
   // Clear minutes only handler

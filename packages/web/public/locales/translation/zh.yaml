@@ -672,6 +672,7 @@ transcribe:
   result_placeholder: 语音识别结果将显示在这里
   screen_audio: 屏幕音频
   screen_audio_error: 屏幕音频错误：
+  screen_audio_failed_fallback_mic: 屏幕音频捕获失败。仅使用麦克风开始录音。
   screen_audio_notice: 'Windows 的情况:选择「整个屏幕」选项卡，并启用「共享系统音频」。<br/>Mac 的情况:选择「Chrome Tab」，并启用「Also share tab audio」。<br/>Chrome 和 Edge 可以使用。Firefox 无法使用。'
   select_input_method: 请选择麦克风输入或文件上传
   speaker_names: 发言人姓名（逗号分隔）

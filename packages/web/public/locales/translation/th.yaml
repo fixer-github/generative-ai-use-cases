@@ -798,6 +798,7 @@ transcribe:
   result_placeholder: ข้อความที่แปลงจากเสียงของคุณ
   screen_audio: เสียงหน้าจอ
   screen_audio_error: 'ข้อผิดพลาดเสียงหน้าจอ:'
+  screen_audio_failed_fallback_mic: การจับเสียงหน้าจอล้มเหลว เริ่มบันทึกด้วยไมโครโฟนเท่านั้น
   screen_audio_notice: 'สำหรับ Windows: เลือกแท็บ "หน้าจอทั้งหมด" และเปิด "แชร์เสียงระบบด้วย"<br/>สำหรับ Mac: เลือก "Chrome Tab" และเปิด "Also share tab audio"<br/>Chrome และ Edge ใช้งานได้ Firefox ใช้งานไม่ได้'
   select_input_method: โปรดเลือกจากอินพุตไมโครโฟนหรืออัปโหลดไฟล์
   speaker_names: ชื่อผู้พูด (คั่นด้วยเครื่องหมายจุลภาค)
