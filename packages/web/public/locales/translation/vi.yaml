@@ -666,6 +666,7 @@ model:
     gpt4oMini: Mô hình nhẹ có khả năng xử lý nhanh
     gpt5: Mô hình có khả năng suy luận tốc độ cao
     o3: Sử dụng suy luận nâng cao
+  otherModels: Các mô hình khác
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget

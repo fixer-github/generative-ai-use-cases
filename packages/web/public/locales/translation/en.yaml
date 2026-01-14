@@ -928,6 +928,7 @@ model:
     gpt4oMini: Lightweight model capable of fast processing
     gpt5: High-speed reasoning capability model
     o3: Uses advanced reasoning
+  otherModels: Other Models
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget

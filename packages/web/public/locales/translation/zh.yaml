@@ -572,6 +572,7 @@ model:
     gpt4oMini: 可快速处理的轻量级模型
     gpt5: 高速推理能力模型
     o3: 使用高级推理
+  otherModels: 其他模型
   parameters:
     reasoning: 推理
     reasoning_budget: 推理预算

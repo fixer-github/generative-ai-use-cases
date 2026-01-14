@@ -789,6 +789,7 @@ model:
     gpt4oMini: 高速な処理が可能な軽量モデル
     gpt5: 高速な推論能力モデル
     o3: 高度な推論を使用する
+  otherModels: その他モデル
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget
