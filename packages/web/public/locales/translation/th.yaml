@@ -54,6 +54,7 @@ adminPortal:
     noUsersFound: ไม่พบผู้ใช้
     refreshingSession: กำลังรีเฟรชเซสชัน...
     removeUserConfirmation: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ {{username}}? การดำเนินการนี้ไม่สามารถยกเลิกได้'
+    verifyingAdminPrivileges: กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
   roles:
     admin: ผู้ดูแลระบบ
     regularUser: ผู้ใช้ทั่วไป
@@ -116,6 +117,10 @@ chatList:
   oneDayAgo: 1 วันที่แล้ว
   rename: เปลี่ยนชื่อ
   today: วันนี้
+chatSidebar:
+  assistants: ผู้ช่วย
+  chatHistory: ประวัติการสนทนา
+  searchAssistants: ค้นหาผู้ช่วย
 common:
   cancel: ยกเลิก
   clear: ล้าง
@@ -123,6 +128,7 @@ common:
   complete: เสร็จสิ้น
   create: สร้าง
   delete: ลบ
+  ellipsis: '...'
   enter_text: ป้อนข้อความ
   error: เกิดข้อผิดพลาด
   errorNoSuggestions: ไม่พบคำแนะนำ
@@ -415,6 +421,7 @@ files:
     mimeMismatch: '{{fileName}} มีประเภทไฟล์ที่ไม่ตรงกับนามสกุล'
     modelNotSupported: โมเดลนี้ไม่รองรับไฟล์
     videoCountExceeded: 'โปรดจำกัดไฟล์วิดีโอไม่เกิน {{maxCount}} ไฟล์'
+  uploadFiles: อัปโหลดไฟล์
 flow:
   title: Flow Chat
 generateImage:
@@ -738,11 +745,15 @@ pptx:
     help: อธิบายสิ่งที่คุณต้องการในงานนำเสนอ ระบุเฉพาะเจาะจงเกี่ยวกับหัวข้อ โครงสร้าง และข้อกำหนดพิเศษใดๆ
     label: คำแนะนำสำหรับงานนำเสนอ
     placeholder: ป้อนหัวข้องานนำเสนอและข้อกำหนดของคุณที่นี่...
+  model:
+    help: เลือกโมเดล AI เพื่อสร้างเนื้อหางานนำเสนอ
+    label: โมเดล AI
   options:
     summarySlide: รวมสลายด์สรุป
     titleSlide: รวมสลายด์หัวข้อ
   slideCount:
     label: จำนวนสลายด์
+    labelWithCount: 'จำนวนสลายด์: {{count}}'
   template:
     blank: เทมเพลตว่าง
     blankDescription: เริ่มต้นด้วยเทมเพลตที่สะอาดและอย่างง่าย
@@ -837,6 +848,10 @@ translate:
   result_placeholder: ผลการแปลจะแสดงที่นี่
   text_to_translate: ข้อความที่จะแปล
   title: แปล
+userMenu:
+  ariaLabel: เมนูผู้ใช้
+  logout: ออกจากระบบ
+  settings: ตั้งค่า
 useCaseBuilder:
   accessError: ข้อผิดพลาดในการเข้าถึง
   addInputExample: เพิ่มตัวอย่างอินพุต

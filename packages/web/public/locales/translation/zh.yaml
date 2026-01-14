@@ -54,6 +54,7 @@ adminPortal:
     noUsersFound: 未找到用户
     refreshingSession: 刷新会话中...
     removeUserConfirmation: '确定要删除用户 {{username}} 吗？此操作无法撤销。'
+    verifyingAdminPrivileges: 正在验证管理员权限...
   roles:
     admin: 管理员
     regularUser: 普通用户
@@ -115,6 +116,10 @@ chatList:
   oneDayAgo: 1天前
   rename: 重命名
   today: 今天
+chatSidebar:
+  assistants: 助手
+  chatHistory: 聊天记录
+  searchAssistants: 搜索助手
 common:
   cancel: 取消
   clear: 清除
@@ -122,6 +127,7 @@ common:
   complete: 完成
   create: 创建
   delete: 删除
+  ellipsis: '...'
   enter_text: 请输入
   error: 错误
   errorNoSuggestions: 未找到建议。
@@ -338,6 +344,7 @@ files:
     mimeMismatch: '{{fileName}} 的文件格式不正确。'
     modelNotSupported: 模型不支持。
     videoCountExceeded: 视频数量不能超过 {{maxCount}} 个。
+  uploadFiles: 上传文件
 flow:
   title: Flow 聊天
 generateImage:
@@ -627,11 +634,15 @@ pptx:
     help: 描述您想要的演示文稿内容。请具体说明主题、结构和任何特殊要求。
     label: 演示文稿说明
     placeholder: 在此输入您的演示文稿主题和要求...
+  model:
+    help: 选择用于生成演示文稿内容的 AI 模型
+    label: AI 模型
   options:
     summarySlide: 包含总结幻灯片
     titleSlide: 包含标题幻灯片
   slideCount:
     label: 幻灯片数量
+    labelWithCount: '幻灯片数量: {{count}}'
   template:
     blank: 空白模板
     blankDescription: 从简洁的最少模板开始
@@ -711,6 +722,10 @@ translate:
   result_placeholder: 翻译结果将显示在这里
   text_to_translate: 要翻译的文本
   title: 翻译
+userMenu:
+  ariaLabel: 用户菜单
+  logout: 退出登录
+  settings: 设置
 useCaseBuilder:
   accessError: 访问错误
   addInputExample: 添加输入示例

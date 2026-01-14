@@ -54,6 +54,7 @@ adminPortal:
     noUsersFound: Không tìm thấy người dùng
     refreshingSession: Đang làm mới phiên...
     removeUserConfirmation: 'Bạn có chắc chắn muốn xóa người dùng {{username}}? Hành động này không thể hoàn tác.'
+    verifyingAdminPrivileges: Đang xác minh quyền quản trị viên...
   roles:
     admin: Quản Trị Viên
     regularUser: Người Dùng Thường
@@ -116,6 +117,10 @@ chatList:
   oneDayAgo: 1 ngày trước
   rename: Đổi tên
   today: Hôm nay
+chatSidebar:
+  assistants: Trợ lý
+  chatHistory: Lịch sử trò chuyện
+  searchAssistants: Tìm kiếm trợ lý
 common:
   cancel: Hủy
   clear: Xóa
@@ -123,6 +128,7 @@ common:
   complete: Hoàn thành
   create: Tạo
   delete: Xóa
+  ellipsis: '...'
   enter_text: Vui lòng nhập
   error: Lỗi
   errorNoSuggestions: Không tìm thấy gợi ý.
@@ -411,6 +417,7 @@ files:
     mimeMismatch: 'Định dạng file của {{fileName}} không đúng.'
     modelNotSupported: Mô hình không hỗ trợ.
     videoCountExceeded: Số lượng video phải không quá {{maxCount}} video.
+  uploadFiles: Tải lên tập tin
 flow:
   title: Flow Chat
 generateImage:
@@ -720,11 +727,15 @@ pptx:
     help: Mô tả những gì bạn muốn trong bản trình bày. Hãy cụ thể về chủ đề, cấu trúc và bất kỳ yêu cầu đặc biệt nào.
     label: Hướng dẫn bản trình bày
     placeholder: Nhập chủ đề và yêu cầu bản trình bày của bạn tại đây...
+  model:
+    help: Chọn mô hình AI để tạo nội dung bản trình bày
+    label: Mô hình AI
   options:
     summarySlide: Bao gồm slide tóm tắt
     titleSlide: Bao gồm slide tiêu đề
   slideCount:
     label: Số slide
+    labelWithCount: 'Số slide: {{count}}'
   template:
     blank: Mẫu trắng
     blankDescription: Bắt đầu với mẫu sạch và tối giản
@@ -811,6 +822,10 @@ translate:
   result_placeholder: Kết quả dịch thuật sẽ được hiển thị ở đây
   text_to_translate: Văn bản muốn dịch
   title: Dịch thuậ
+userMenu:
+  ariaLabel: Menu người dùng
+  logout: Đăng xuất
+  settings: Cài đặt
 useCaseBuilder:
   accessError: Lỗi truy cập
   addInputExample: Thêm ví dụ đầu vào
