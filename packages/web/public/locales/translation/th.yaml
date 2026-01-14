@@ -76,6 +76,20 @@ adminPortal:
 agent:
   drop_files: วางไฟล์เพื่ออัปโหลด
   title: Agent Chat
+assistant:
+  chatPage:
+    model: โมเดล
+    ragEnabled: RAG เปิดใช้งาน
+    sources: แหล่งที่มา
+    view: ดู
+  edit:
+    uploadingFiles: กำลังอัปโหลดไฟล์...
+  history:
+    createdWithDate: 'สร้างเมื่อ: {{date}}'
+    lastMessageWithDate: 'ข้อความล่าสุด: {{date}}'
+  visibility:
+    privateDescriptionWithParens: (เฉพาะคุณเท่านั้นที่สามารถใช้ได้)
+    publicDescriptionWithParens: (สมาชิกในองค์กรสามารถใช้ได้)
 auth:
   loading: กำลังโหลด...
   login: เข้าสู่ระบบ

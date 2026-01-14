@@ -76,6 +76,20 @@ adminPortal:
 agent:
   drop_files: Thả file để tải lên
   title: Chat Agent
+assistant:
+  chatPage:
+    model: Mô hình
+    ragEnabled: RAG Đã bật
+    sources: Nguồn
+    view: Xem
+  edit:
+    uploadingFiles: Đang tải lên tập tin...
+  history:
+    createdWithDate: 'Ngày tạo: {{date}}'
+    lastMessageWithDate: 'Tin nhắn cuối: {{date}}'
+  visibility:
+    privateDescriptionWithParens: (Chỉ bạn mới có thể sử dụng)
+    publicDescriptionWithParens: (Thành viên trong tổ chức có thể sử dụng)
 auth:
   loading: Đang tải...
   login: Đăng nhập

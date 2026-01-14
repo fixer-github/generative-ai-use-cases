@@ -76,6 +76,20 @@ adminPortal:
 agent:
   drop_files: 拖放文件上传
   title: Agent 聊天
+assistant:
+  chatPage:
+    model: 模型
+    ragEnabled: RAG 已启用
+    sources: 来源
+    view: 查看
+  edit:
+    uploadingFiles: 正在上传文件...
+  history:
+    createdWithDate: '创建日期: {{date}}'
+    lastMessageWithDate: '最后消息: {{date}}'
+  visibility:
+    privateDescriptionWithParens: (仅您可以使用)
+    publicDescriptionWithParens: (组织成员可以使用)
 auth:
   loading: 加载中...
   login: 登录
