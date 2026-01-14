@@ -626,6 +626,7 @@ meetingMinutes:
   generate_minutes_header: Tạo biên bản
   generated_minutes: Biên bản đã được tạo
   generating: Đang tạo biên bản...
+  generating_continuation: Đang tạo biên bản (tiếp tục {{current}}/{{max}})...
   generation_error: Không thể tạo biên bản cuộc họp. Vui lòng thử lại.
   generation_success: Tạo biên bản cuộc họp thành công
   language: Ngôn ngữ

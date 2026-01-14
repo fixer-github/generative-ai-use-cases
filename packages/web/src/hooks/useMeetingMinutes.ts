@@ -2,13 +2,16 @@ import { useState, useCallback } from 'react';
 import useChatApi from './useChatApi';
 import { MODELS } from './useModel';
 import { getPrompter } from '../prompts';
-import { UnrecordedMessage, Model } from 'generative-ai-use-cases';
+import { UnrecordedMessage, Model, StreamingChunk } from 'generative-ai-use-cases';
 
 export type MeetingMinutesStyle =
   | 'faq'
   | 'newspaper'
   | 'transcription'
   | 'custom';
+
+// Maximum number of continuation attempts to prevent infinite loops
+const MAX_CONTINUATION_ATTEMPTS = 5;
 
 export const useMeetingMinutes = (
   minutesStyle: MeetingMinutesStyle,
@@ -29,8 +32,13 @@ export const useMeetingMinutes = (
       transcript: string,
       modelId: string,
       onGenerate?: (
-        status: 'generating' | 'success' | 'error',
-        data?: { message?: string; minutes?: string }
+        status: 'generating' | 'continuing' | 'success' | 'error',
+        data?: {
+          message?: string;
+          minutes?: string;
+          continuationAttempt?: number;
+          maxContinuationAttempts?: number;
+        }
       ) => void
     ) => {
       if (!transcript || transcript.trim() === '') return;
@@ -55,7 +63,46 @@ export const useMeetingMinutes = (
                 customPrompt,
               });
 
-        const messages: UnrecordedMessage[] = [
+        let fullResponse = '';
+        let lastStopReason = '';
+        let continuationCount = 0;
+        setGeneratedMinutes('');
+
+        // Helper function to process stream and return stopReason
+        const processStream = async (
+          stream: AsyncGenerator<string, void, unknown>
+        ): Promise<string> => {
+          let stopReason = '';
+
+          for await (const chunk of stream) {
+            if (chunk) {
+              const chunks = chunk.split('\n');
+
+              for (const c of chunks) {
+                if (c && c.length > 0) {
+                  try {
+                    const payload = JSON.parse(c) as StreamingChunk;
+                    if (payload.text && payload.text.length > 0) {
+                      fullResponse += payload.text;
+                      setGeneratedMinutes(fullResponse);
+                    }
+                    if (payload.stopReason) {
+                      stopReason = payload.stopReason;
+                    }
+                  } catch (error) {
+                    // Skip invalid JSON chunks
+                    console.debug('Skipping invalid JSON chunk:', c);
+                  }
+                }
+              }
+            }
+          }
+
+          return stopReason;
+        };
+
+        // Initial generation
+        const initialMessages: UnrecordedMessage[] = [
           {
             role: 'system',
             content: promptContent,
@@ -66,34 +113,54 @@ export const useMeetingMinutes = (
           },
         ];
 
-        const stream = predictStream({
+        const initialStream = predictStream({
           model: model as Model,
-          messages,
+          messages: initialMessages,
           id: `meeting-minutes-${autoGenerateSessionTimestamp || Date.now()}`,
         });
 
-        let fullResponse = '';
-        setGeneratedMinutes('');
+        lastStopReason = await processStream(initialStream);
 
-        for await (const chunk of stream) {
-          if (chunk) {
-            const chunks = chunk.split('\n');
+        // Continuation loop for max_tokens
+        while (
+          lastStopReason === 'max_tokens' &&
+          continuationCount < MAX_CONTINUATION_ATTEMPTS
+        ) {
+          continuationCount++;
+          onGenerate?.('continuing', {
+            continuationAttempt: continuationCount,
+            maxContinuationAttempts: MAX_CONTINUATION_ATTEMPTS,
+          });
 
-            for (const c of chunks) {
-              if (c && c.length > 0) {
-                try {
-                  const payload = JSON.parse(c) as { text: string };
-                  if (payload.text && payload.text.length > 0) {
-                    fullResponse += payload.text;
-                    setGeneratedMinutes(fullResponse);
-                  }
-                } catch (error) {
-                  // Skip invalid JSON chunks
-                  console.debug('Skipping invalid JSON chunk:', c);
-                }
-              }
-            }
-          }
+          // Build continuation messages with previous response
+          const continueMessages: UnrecordedMessage[] = [
+            {
+              role: 'system',
+              content: promptContent,
+            },
+            {
+              role: 'user',
+              content: transcript,
+            },
+            {
+              role: 'assistant',
+              content: fullResponse,
+            },
+            {
+              role: 'user',
+              content:
+                // eslint-disable-next-line i18nhelper/no-jp-string
+                '続きを出力してください。前回の出力の続きから始めてください。',
+            },
+          ];
+
+          const continueStream = predictStream({
+            model: model as Model,
+            messages: continueMessages,
+            id: `meeting-minutes-continue-${continuationCount}-${autoGenerateSessionTimestamp || Date.now()}`,
+          });
+
+          lastStopReason = await processStream(continueStream);
         }
 
         setLastProcessedTranscript(transcript);

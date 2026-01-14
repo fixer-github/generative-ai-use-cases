@@ -532,6 +532,7 @@ meetingMinutes:
   generate_minutes_header: 生成会议纪要
   generated_minutes: 已生成的会议纪要
   generating: 正在生成会议纪要...
+  generating_continuation: 正在生成会议纪要（继续 {{current}}/{{max}} 次）...
   generation_error: 会议纪要生成失败。请重试。
   generation_success: 会议纪要生成成功
   language: 语言

@@ -749,6 +749,7 @@ meetingMinutes:
   generate_minutes_header: 議事録を生成
   generated_minutes: 生成された議事録
   generating: 議事録生成中...
+  generating_continuation: 議事録生成中（継続 {{current}}/{{max}} 回目）...
   generation_error: 議事録の生成に失敗しました。再試行してください。
   generation_success: 議事録が正常に生成されました
   language: 言語

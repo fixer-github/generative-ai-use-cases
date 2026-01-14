@@ -642,6 +642,7 @@ meetingMinutes:
   generate_minutes_header: สร้างรายงานการประชุม
   generated_minutes: รายงานการประชุมที่สร้างแล้ว
   generating: กำลังสร้างรายงานการประชุม...
+  generating_continuation: กำลังสร้างรายงานการประชุม (ต่อเนื่อง {{current}}/{{max}})...
   generation_error: ไม่สามารถสร้างรายงานการประชุมได้ กรุณาลองอีกครั้ง
   generation_success: สร้างรายงานการประชุมสำเร็จ
   language: ภาษา

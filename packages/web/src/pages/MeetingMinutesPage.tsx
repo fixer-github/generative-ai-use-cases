@@ -285,6 +285,12 @@ const MeetingMinutesPage: React.FC = () => {
   const { modelIds: availableModels, modelDisplayName } = MODELS;
   const [modelId, setModelId] = useState(availableModels[0] || '');
 
+  // Continuation state for long text generation
+  const [continuationInfo, setContinuationInfo] = useState<{
+    attempt: number;
+    maxAttempts: number;
+  } | null>(null);
+
   // Meeting minutes specific hook with external state
   const {
     loading: minutesLoading,
@@ -463,11 +469,19 @@ const MeetingMinutesPage: React.FC = () => {
     ) {
       if (realtimeText !== lastProcessedTranscript && !minutesLoading) {
         shouldGenerateRef.current = false; // Reset the flag
-        generateMinutes(realtimeText, modelId, (status) => {
+        setContinuationInfo(null);
+        generateMinutes(realtimeText, modelId, (status, data) => {
           if (status === 'success') {
+            setContinuationInfo(null);
             toast.success(t('meetingMinutes.generation_success'));
           } else if (status === 'error') {
+            setContinuationInfo(null);
             toast.error(t('meetingMinutes.generation_error'));
+          } else if (status === 'continuing') {
+            setContinuationInfo({
+              attempt: data?.continuationAttempt || 0,
+              maxAttempts: data?.maxContinuationAttempts || 5,
+            });
           }
         });
       } else {
@@ -625,11 +639,21 @@ const MeetingMinutesPage: React.FC = () => {
     }
 
     if (hasTranscriptText && !minutesLoading) {
-      generateMinutes(currentTranscriptText, modelId, (status) => {
+      // Reset continuation info at the start
+      setContinuationInfo(null);
+
+      generateMinutes(currentTranscriptText, modelId, (status, data) => {
         if (status === 'success') {
+          setContinuationInfo(null);
           toast.success(t('meetingMinutes.generation_success'));
         } else if (status === 'error') {
+          setContinuationInfo(null);
           toast.error(t('meetingMinutes.generation_error'));
+        } else if (status === 'continuing') {
+          setContinuationInfo({
+            attempt: data?.continuationAttempt || 0,
+            maxAttempts: data?.maxContinuationAttempts || 5,
+          });
         }
       });
     }
@@ -1085,7 +1109,12 @@ const MeetingMinutesPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
                   <span className="text-sm text-gray-600">
-                    {t('meetingMinutes.generating')}
+                    {continuationInfo
+                      ? t('meetingMinutes.generating_continuation', {
+                          current: continuationInfo.attempt,
+                          max: continuationInfo.maxAttempts,
+                        })
+                      : t('meetingMinutes.generating')}
                   </span>
                 </div>
               )}
