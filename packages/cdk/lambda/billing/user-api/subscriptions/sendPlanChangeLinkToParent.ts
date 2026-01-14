@@ -551,11 +551,16 @@ async function invalidatePendingPlanChangeRequests(
     const pendingRequests = queryResult.Items || [];
 
     if (pendingRequests.length === 0) {
-      console.log('No pending plan change requests to invalidate for user:', userId);
+      console.log(
+        'No pending plan change requests to invalidate for user:',
+        userId
+      );
       return;
     }
 
-    console.log(`Found ${pendingRequests.length} pending plan change request(s) to invalidate`);
+    console.log(
+      `Found ${pendingRequests.length} pending plan change request(s) to invalidate`
+    );
 
     // StripeサブスクリプションIDを収集（重複排除）
     const stripeSubscriptionIds = new Set<string>();
@@ -572,7 +577,8 @@ async function invalidatePendingPlanChangeRequests(
         new UpdateItemCommand({
           TableName: PENDING_PLAN_CHANGES_TABLE_NAME,
           Key: { requestId: { S: requestId } },
-          UpdateExpression: 'SET #status = :cancelled, cancelledAt = :cancelledAt',
+          UpdateExpression:
+            'SET #status = :cancelled, cancelledAt = :cancelledAt',
           ExpressionAttributeNames: {
             '#status': 'status',
           },
@@ -600,7 +606,9 @@ async function invalidatePendingPlanChangeRequests(
       console.log('Marked subscription for metadata cleanup:', subscriptionId);
     });
 
-    console.log(`Successfully invalidated ${pendingRequests.length} pending plan change request(s)`);
+    console.log(
+      `Successfully invalidated ${pendingRequests.length} pending plan change request(s)`
+    );
   } catch (error) {
     // 無効化の失敗は致命的ではないため、ログに記録して続行
     console.error('Error invalidating pending plan change requests:', error);
@@ -679,6 +687,18 @@ export const handler = async (
       return badRequest400Response({
         message: '有効なメールアドレスを入力してください',
         code: 'INVALID_EMAIL',
+        details: {
+          field: 'parentEmail',
+        },
+      });
+    }
+
+    // アカウントメールアドレスと同一でないかチェック
+    if (childEmail && parentEmail.toLowerCase() === childEmail.toLowerCase()) {
+      return badRequest400Response({
+        message:
+          '保護者のメールアドレスにはご自身のアカウントとは異なるメールアドレスを入力してください',
+        code: 'SAME_AS_USER_EMAIL',
         details: {
           field: 'parentEmail',
         },
