@@ -295,6 +295,7 @@ export const handler = async (
 
     await Promise.all(
       featureIds.map(async (featureId) => {
+        console.log('Processing featureId:', { featureId });
         try {
           // OpenFGAで権限チェック
           const hasPermission = await checkOpenFgaPermission(
@@ -305,6 +306,11 @@ export const handler = async (
             openFgaConfig.apiRegion,
             credentials
           );
+
+          console.log('OpenFGA permission check result:', {
+            featureId,
+            hasPermission,
+          });
 
           if (!hasPermission) {
             // 権限がない場合
