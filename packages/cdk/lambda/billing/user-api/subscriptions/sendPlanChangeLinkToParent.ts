@@ -696,8 +696,7 @@ export const handler = async (
     // アカウントメールアドレスと同一でないかチェック
     if (childEmail && parentEmail.toLowerCase() === childEmail.toLowerCase()) {
       return badRequest400Response({
-        message:
-          '保護者のメールアドレスにはご自身のアカウントとは異なるメールアドレスを入力してください',
+        message: 'ご自身のアカウントとは異なるメールアドレスを入力してください',
         code: 'SAME_AS_USER_EMAIL',
         details: {
           field: 'parentEmail',
