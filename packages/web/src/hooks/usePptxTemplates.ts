@@ -31,6 +31,8 @@ export const usePptxTemplates = () => {
     } catch (err: unknown) {
       if (isAxiosError<{ detail?: string }>(err)) {
         setError(err.response?.data?.detail || 'Failed to load templates');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Failed to load templates');
       } else {
         setError('Failed to load templates');
       }
@@ -100,6 +102,8 @@ export const usePptxTemplates = () => {
     } catch (err: unknown) {
       if (isAxiosError<{ detail?: string }>(err)) {
         setError(err.response?.data?.detail || 'Failed to upload template');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Failed to upload template');
       } else {
         setError('Failed to upload template');
       }
@@ -120,6 +124,8 @@ export const usePptxTemplates = () => {
     } catch (err: unknown) {
       if (isAxiosError<{ detail?: string }>(err)) {
         setError(err.response?.data?.detail || 'Failed to delete template');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Failed to delete template');
       } else {
         setError('Failed to delete template');
       }
