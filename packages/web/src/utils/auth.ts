@@ -21,17 +21,29 @@ export const performLogoutAndReload = async (
   }
 };
 
+interface ErrorWithResponse {
+  response?: {
+    status?: number;
+    data?: {
+      roleChanged?: boolean;
+      refreshRequired?: boolean;
+      message?: string;
+    };
+  };
+}
+
 /**
  * Checks if an error response indicates role mismatch or permission issues
  */
-export const isRoleMismatchError = (error: any): boolean => {
-  if (error?.response?.status === 409) {
-    const responseData = error.response.data;
-    return responseData?.roleChanged && responseData?.refreshRequired;
+export const isRoleMismatchError = (error: unknown): boolean => {
+  const err = error as ErrorWithResponse;
+  if (err?.response?.status === 409) {
+    const responseData = err.response.data;
+    return !!(responseData?.roleChanged && responseData?.refreshRequired);
   }
 
-  if (error?.response?.status === 403) {
-    const errorMessage = error.response.data?.message || '';
+  if (err?.response?.status === 403) {
+    const errorMessage = err.response.data?.message || '';
     return (
       errorMessage.includes('admin') ||
       errorMessage.includes('privilege') ||
