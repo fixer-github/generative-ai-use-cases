@@ -211,6 +211,7 @@ export const useMeetingMinutes = (
         setLastGeneratedTime(new Date());
         onGenerate?.('success', { minutes: fullResponse });
       } catch (error) {
+        console.error('Meeting minutes generation failed:', error);
         onGenerate?.('error', {
           message: error instanceof Error ? error.message : 'Unknown error',
         });
