@@ -9,6 +9,7 @@ import {
   AccessCheckResult,
 } from './utils/accessChecker';
 import { buildSummaryContext } from './utils/summaryContext';
+import { buildSystemPrompt } from './utils/systemPromptBuilder';
 
 declare global {
   namespace awslambda {
@@ -194,8 +195,19 @@ export const handler = awslambda.streamifyResponse(
         // Build summary context
         const summaryContext = await buildSummaryContext(userId, requestContext);
 
-        // Inject summary context into system message if available
-        if (summaryContext) {
+        // Build system prompt from params if provided (hides prompt from frontend)
+        if (event.systemContextParams) {
+          const systemPrompt = await buildSystemPrompt(event.systemContextParams);
+          const systemContent = summaryContext
+            ? `${systemPrompt}\n\n${summaryContext}`
+            : systemPrompt;
+
+          messages = [
+            { role: 'system' as const, content: systemContent },
+            ...event.messages.filter((m) => m.role !== 'system'),
+          ];
+        } else if (summaryContext) {
+          // Backward compatibility: inject summary context into existing system message
           messages = event.messages.map((msg) => {
             if (msg.role === 'system') {
               return {

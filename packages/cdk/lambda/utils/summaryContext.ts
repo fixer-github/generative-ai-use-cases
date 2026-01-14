@@ -72,23 +72,21 @@ export function formatSummaryContext(
     return '';
   }
 
-  let context = '<context_summaries>\n';
+  let context = '<user_conversation_context>\n';
 
   if (dailySummary) {
-    context += `<daily_summary date="${dailySummary.date}">\n`;
-    context += dailySummary.summary;
-    context += '\n</daily_summary>\n';
+    context += '  <recent_session_summary>\n';
+    context += `  ${dailySummary.summary}\n`;
+    context += '  </recent_session_summary>\n';
   }
 
   if (userSummary) {
-    context += `<user_profile term="${userSummary.termValue} ${userSummary.termUnit}(s)">\n`;
-    context += '<user_summary>\n';
-    context += userSummary.summary;
-    context += '\n</user_summary>\n';
-    context += '</user_profile>\n';
+    context += '  <user_coaching_profile>\n';
+    context += `  ${userSummary.summary}\n`;
+    context += '  </user_coaching_profile>\n';
   }
 
-  context += '</context_summaries>';
+  context += '</user_conversation_context>';
 
   return context;
 }
