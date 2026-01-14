@@ -72,7 +72,7 @@ export function formatSummaryContext(
     return '';
   }
 
-  let context = '<context_summaries>\n';
+  let context = '<user_conversation_context>\n';
 
   if (dailySummary) {
     context += `<daily_summary date="${dailySummary.date}">\n`;
@@ -88,7 +88,7 @@ export function formatSummaryContext(
     context += '</user_profile>\n';
   }
 
-  context += '</context_summaries>';
+  context += '</user_conversation_context>';
 
   return context;
 }

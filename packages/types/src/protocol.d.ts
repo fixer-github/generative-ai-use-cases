@@ -91,11 +91,17 @@ export type UpdateTitleResponse = {
   chat: Chat;
 };
 
+export type SystemContextParams = {
+  includeFromSsm?: boolean;
+  parameterPath?: string;
+};
+
 export type PredictRequest = {
   model?: Model;
   idToken?: string;
   messages: UnrecordedMessage[];
   id: string;
+  systemContextParams?: SystemContextParams;
 };
 
 export type PredictResponse = string;

@@ -9,6 +9,7 @@ import {
   AccessCheckResult,
 } from './utils/accessChecker';
 import { buildSummaryContext } from './utils/summaryContext';
+import { buildSystemPromptFromSsmWithCache } from './utils/systemPromptBuilder';
 
 declare global {
   namespace awslambda {
@@ -194,21 +195,44 @@ export const handler = awslambda.streamifyResponse(
         // Build summary context
         const summaryContext = await buildSummaryContext(userId, requestContext);
 
-        // Inject summary context into system message if available
-        if (summaryContext) {
+        // Handle system context from SSM if requested
+        let systemPromptFromSsm: string | null = null;
+        if (event.systemContextParams?.includeFromSsm && event.systemContextParams?.parameterPath) {
+          try {
+            systemPromptFromSsm = await buildSystemPromptFromSsmWithCache(event.systemContextParams.parameterPath);
+            console.log('Successfully loaded system prompt from SSM');
+          } catch (error) {
+            console.error('Failed to load system prompt from SSM:', error);
+          }
+        }
+
+        // Inject context into system message if available
+        if (summaryContext || systemPromptFromSsm) {
           messages = event.messages.map((msg) => {
             if (msg.role === 'system') {
+              let updatedContent = msg.content;
+
+              // Add SSM system prompt if available
+              if (systemPromptFromSsm) {
+                updatedContent = systemPromptFromSsm;
+              }
+
+              // Add summary context
+              if (summaryContext) {
+                updatedContent = `${updatedContent}\n\n${summaryContext}`;
+              }
+
               return {
                 ...msg,
-                content: `${msg.content}\n\n${summaryContext}`,
+                content: updatedContent,
               };
             }
             return msg;
           });
         }
       } catch (error) {
-        // Continue without summary context if injection fails
-        console.error('Failed to inject summary context:', error);
+        // Continue without context injection if it fails
+        console.error('Failed to inject context:', error);
       }
 
       // If authorized, proceed with streaming
