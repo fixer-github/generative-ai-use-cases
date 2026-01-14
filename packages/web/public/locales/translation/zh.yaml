@@ -535,6 +535,7 @@ meetingMinutes:
   generating_continuation: 正在生成会议纪要（继续 {{current}}/{{max}} 次）...
   generation_error: 会议纪要生成失败。请重试。
   generation_success: 会议纪要生成成功
+  output_may_be_incomplete: 由于长度限制，输出可能不完整。请考虑分割转录文本。
   language: 语言
   language_auto: 自动检测
   language_chinese: 中文

@@ -752,6 +752,7 @@ meetingMinutes:
   generating_continuation: 議事録生成中（継続 {{current}}/{{max}} 回目）...
   generation_error: 議事録の生成に失敗しました。再試行してください。
   generation_success: 議事録が正常に生成されました
+  output_may_be_incomplete: 出力が長さの制限により不完全な可能性があります。文字起こしを分割することを検討してください。
   language: 言語
   language_auto: 自動検出
   language_chinese: 中国語

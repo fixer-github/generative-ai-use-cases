@@ -891,6 +891,7 @@ meetingMinutes:
   generating_continuation: Generating minutes (continuation {{current}}/{{max}})...
   generation_error: Failed to generate meeting minutes. Please try again.
   generation_success: Meeting minutes generated successfully
+  output_may_be_incomplete: Output may be incomplete due to length limits. Consider splitting the transcript.
   language: Language
   language_auto: Auto Detect
   language_chinese: Chinese

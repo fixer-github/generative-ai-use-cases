@@ -324,7 +324,7 @@ const MeetingMinutesPage: React.FC = () => {
           setContinuationInfo(null);
           // Show warning if output may be incomplete (max continuation attempts reached)
           if (data?.message) {
-            toast.warning(data.message);
+            toast.warning(t('meetingMinutes.output_may_be_incomplete'));
           } else {
             toast.success(t('meetingMinutes.generation_success'));
           }

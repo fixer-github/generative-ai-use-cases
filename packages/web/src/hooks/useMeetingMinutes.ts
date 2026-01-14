@@ -122,7 +122,12 @@ export const useMeetingMinutes = (
                     // Only treat SyntaxError as JSON parse error
                     if (error instanceof SyntaxError) {
                       consecutiveParseErrors++;
-                      console.warn('Failed to parse JSON chunk:', c, error);
+                      // Avoid logging raw chunk data to prevent exposing sensitive content
+                      console.warn('Failed to parse JSON chunk:', {
+                        chunkLength: c.length,
+                        chunkPreview: c.substring(0, 50) + (c.length > 50 ? '...' : ''),
+                        error: error.message,
+                      });
 
                       if (
                         consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS
