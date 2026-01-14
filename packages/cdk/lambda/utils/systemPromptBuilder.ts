@@ -5,7 +5,10 @@ const ssm = new SSMClient({});
 const promptCache: Map<string, { value: string; timestamp: number }> = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const ENV = process.env.ENVIRONMENT || '';
-const SSM_PREFIX = process.env.SYSTEM_PROMPT_SSM_PREFIX || '/prompts/system';
+const SSM_PREFIX = process.env.SYSTEM_PROMPT_SSM_PREFIX || 'prompts/system';
+
+// Build the base path with proper slash handling
+const basePath = ENV ? `/${ENV}/${SSM_PREFIX}` : `/${SSM_PREFIX}`;
 
 async function getFromSSM(path: string): Promise<string> {
   const now = Date.now();
@@ -30,11 +33,11 @@ async function getFromSSM(path: string): Promise<string> {
 
 export async function buildSystemPrompt(params: SystemContextParams): Promise<string> {
   // Fetch base prompt
-  const basePrompt = await getFromSSM(`${ENV}${SSM_PREFIX}/base`);
+  const basePrompt = await getFromSSM(`${basePath}/base`);
 
   // Fetch variant prompt if specified
   const variantPrompt = params.promptVariant
-    ? await getFromSSM(`${ENV}${SSM_PREFIX}/variants/${params.promptVariant}`)
+    ? await getFromSSM(`${basePath}/variants/${params.promptVariant}`)
     : '';
 
   // Build user context section
