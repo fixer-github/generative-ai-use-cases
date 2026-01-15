@@ -556,6 +556,7 @@ meetingMinutes:
   title: 会议纪要生成器
   transcript: 转录文本
 model:
+  otherModels: 其他模型
   parameters:
     reasoning: 推理
     reasoning_budget: 推理预算

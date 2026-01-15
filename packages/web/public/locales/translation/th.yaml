@@ -666,6 +666,7 @@ meetingMinutes:
   title: ตัวสร้างรายงานการประชุม
   transcript: บันทึกการถอดความ
 model:
+  otherModels: โมเดลอื่นๆ
   parameters:
     reasoning: การให้เหตุผล
     reasoning_budget: งบประมาณการให้เหตุผล

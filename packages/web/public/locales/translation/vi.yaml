@@ -650,6 +650,7 @@ meetingMinutes:
   title: Trình tạo biên bản cuộc họp
   transcript: Bản chuyển đổi
 model:
+  otherModels: Các mô hình khác
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget

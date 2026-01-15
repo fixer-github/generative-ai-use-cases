@@ -773,6 +773,7 @@ meetingMinutes:
   title: 議事録生成
   transcript: 文字起こし
 model:
+  otherModels: その他モデル
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget

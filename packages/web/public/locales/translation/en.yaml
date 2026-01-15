@@ -912,6 +912,7 @@ meetingMinutes:
   title: Meeting Minutes Generator
   transcript: Transcript
 model:
+  otherModels: Other Models
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget
