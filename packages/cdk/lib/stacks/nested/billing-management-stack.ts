@@ -85,6 +85,18 @@ export interface BillingManagementStackProps extends NestedStackProps {
    * DynamoDB table for user registration metadata (birthdate, parental consent, etc.)
    */
   readonly userRegistrationMetadataTable?: ITable;
+
+  /**
+   * Frontend URL for secure redirects (e.g., custom domain or CloudFront URL)
+   * Used as the default redirect URL to prevent open redirect attacks.
+   */
+  readonly frontendUrl?: string;
+
+  /**
+   * Allowed domains for redirect URLs (comma-separated or array)
+   * Used for validating Origin header in redirect URL generation.
+   */
+  readonly allowedRedirectDomains?: string[];
 }
 
 /**
@@ -338,6 +350,9 @@ export class BillingManagementStack extends NestedStack {
       pendingPlanChangesTable: pendingPlanChangesTable,
       pendingParentalCheckoutsTable: pendingParentalCheckoutsTable,
       userRegistrationMetadataTable: props.userRegistrationMetadataTable,
+      // Redirect URL security settings
+      frontendUrl: props.frontendUrl,
+      allowedOrigins: props.allowedRedirectDomains?.join(','),
     });
 
     // ========================================
