@@ -8,7 +8,7 @@ import {
   PiImage,
   PiVideo,
 } from 'react-icons/pi';
-import { FeatureFlags } from 'generative-ai-use-cases-jp';
+import { FeatureFlags } from 'generative-ai-use-cases';
 
 export type ModelOption = {
   value: string;
