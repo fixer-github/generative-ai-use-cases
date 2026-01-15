@@ -669,6 +669,9 @@ model:
   parameters:
     reasoning: การให้เหตุผล
     reasoning_budget: งบประมาณการให้เหตุผล
+  supports_document: รองรับเอกสาร
+  supports_image: รองรับรูปภาพ
+  supports_video: รองรับวิดีโอ
 navigation:
   agentChat: Agent Chat
   chat: Chat

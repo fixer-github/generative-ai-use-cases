@@ -915,6 +915,9 @@ model:
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget
+  supports_document: Supports documents
+  supports_image: Supports images
+  supports_video: Supports videos
 navigation:
   agentChat: Agent Chat
   chat: Chat

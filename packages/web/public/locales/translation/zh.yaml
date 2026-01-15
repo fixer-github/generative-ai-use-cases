@@ -559,6 +559,9 @@ model:
   parameters:
     reasoning: 推理
     reasoning_budget: 推理预算
+  supports_document: 支持文档
+  supports_image: 支持图像
+  supports_video: 支持视频
 navigation:
   agentChat: Agent聊天
   chat: 聊天

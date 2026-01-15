@@ -8,6 +8,7 @@ import {
   PiImage,
   PiVideo,
 } from 'react-icons/pi';
+import { useTranslation } from 'react-i18next';
 import { FeatureFlags } from 'generative-ai-use-cases';
 
 export type ModelOption = {
@@ -26,6 +27,7 @@ type Props = {
 };
 
 const AttachmentIcons: React.FC<{ flags?: FeatureFlags }> = ({ flags }) => {
+  const { t } = useTranslation();
   if (!flags) return null;
   const hasAny = flags.doc || flags.image || flags.video;
   if (!hasAny) return null;
@@ -33,13 +35,22 @@ const AttachmentIcons: React.FC<{ flags?: FeatureFlags }> = ({ flags }) => {
   return (
     <span className="ml-2 flex items-center gap-1">
       {flags.doc && (
-        <PiFile className="h-4 w-4 text-blue-500" title="ドキュメント対応" />
+        <PiFile
+          className="h-4 w-4 text-blue-500"
+          title={t('model.supports_document')}
+        />
       )}
       {flags.image && (
-        <PiImage className="h-4 w-4 text-green-500" title="画像対応" />
+        <PiImage
+          className="h-4 w-4 text-green-500"
+          title={t('model.supports_image')}
+        />
       )}
       {flags.video && (
-        <PiVideo className="h-4 w-4 text-purple-500" title="動画対応" />
+        <PiVideo
+          className="h-4 w-4 text-purple-500"
+          title={t('model.supports_video')}
+        />
       )}
     </span>
   );

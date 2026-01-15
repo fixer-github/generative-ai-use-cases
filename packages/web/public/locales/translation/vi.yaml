@@ -653,6 +653,9 @@ model:
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget
+  supports_document: Hỗ trợ tài liệu
+  supports_image: Hỗ trợ hình ảnh
+  supports_video: Hỗ trợ video
 navigation:
   agentChat: Agent Chat
   chat: Chat

@@ -776,6 +776,9 @@ model:
   parameters:
     reasoning: Reasoning
     reasoning_budget: Reasoning Budget
+  supports_document: ドキュメント対応
+  supports_image: 画像対応
+  supports_video: 動画対応
 navigation:
   agentChat: Agent チャット
   chat: チャット
