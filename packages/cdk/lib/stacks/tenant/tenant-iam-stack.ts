@@ -134,8 +134,9 @@ export class TenantIAMStack extends cdk.Stack {
     });
 
     // Create a Lambda to call the registration API
+    // Note: functionName is intentionally omitted to let CDK generate a unique name
+    // This prevents "resource already exists" errors when redeploying
     const registerTenantLambda = new NodejsFunction(this, 'RegisterTenant', {
-      functionName: `tenant-registration-caller-${this.tenantId}`,
       runtime: Runtime.NODEJS_18_X,
       handler: 'index.handler',
       timeout: cdk.Duration.seconds(30),
