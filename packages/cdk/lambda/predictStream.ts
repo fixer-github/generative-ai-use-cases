@@ -21,14 +21,43 @@ export const handler = awslambda.streamifyResponse(
     context.callbackWaitsForEmptyEventLoop = false;
     const model = event.model || defaultModel;
 
+    // model.typeの検証
+    const apiHandler = api[model.type];
+    if (!apiHandler) {
+      console.error('Unknown model type:', {
+        modelType: model.type,
+        modelId: model.modelId,
+      });
+      responseStream.write(
+        streamingChunk({
+          text: `Unknown model type: ${model.type}. Please select a valid model.`,
+          stopReason: 'error',
+        })
+      );
+      responseStream.end();
+      return;
+    }
+
+    if (!apiHandler.invokeStream) {
+      console.error('Streaming not supported:', { modelType: model.type });
+      responseStream.write(
+        streamingChunk({
+          text: 'This model does not support streaming responses.',
+          stopReason: 'error',
+        })
+      );
+      responseStream.end();
+      return;
+    }
+
     try {
-      for await (const token of api[model.type].invokeStream?.(
+      for await (const token of apiHandler.invokeStream(
         model,
         event.messages,
         event.id,
         event.idToken,
         event.webSearchEnabled
-      ) ?? []) {
+      )) {
         responseStream.write(token);
       }
     } catch (e) {

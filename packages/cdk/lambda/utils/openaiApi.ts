@@ -269,7 +269,25 @@ const openaiApi: ApiInterface = {
         });
         throw new Error(getApiErrorMessage(e, modelId));
       }
-      throw e;
+      // 既知のユーザーフレンドリーエラーはそのまま再スロー
+      if (
+        e instanceof Error &&
+        (e.message.includes('file') ||
+          e.message.includes('Video input') ||
+          e.message.includes('OpenAI API key') ||
+          e.message.includes('File storage'))
+      ) {
+        throw e;
+      }
+      // 予期しないエラーはログを残してから再スロー
+      console.error('Unexpected error in OpenAI invoke:', {
+        modelId,
+        errorType: e?.constructor?.name,
+        errorMessage: e instanceof Error ? e.message : String(e),
+      });
+      throw new Error(
+        'An unexpected error occurred while processing your request.'
+      );
     }
   },
 
