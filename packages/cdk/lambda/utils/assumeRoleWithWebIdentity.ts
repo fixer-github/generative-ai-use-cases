@@ -231,12 +231,16 @@ export async function assumeRoleWithWebIdentity(
 /**
  * Build tenant-specific role ARN for same account
  * For cross-account scenarios, role ARNs are retrieved from tenant metadata
+ * @param accountId - AWS account ID
+ * @param env - Environment (e.g., 'dev', 'staging', 'prod')
+ * @param tenantId - Tenant identifier
  */
 export function buildTenantRoleArn(
   accountId: string,
+  env: string,
   tenantId: string
 ): string {
-  return `arn:aws:iam::${accountId}:role/TenantRole-${tenantId}`;
+  return `arn:aws:iam::${accountId}:role/TenantRole-${env}-${tenantId}`;
 }
 
 /**

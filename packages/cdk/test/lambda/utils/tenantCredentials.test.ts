@@ -6,6 +6,7 @@ import { extractTenantId } from '../../../lambda/utils/assumeRoleWithWebIdentity
 const mockEnv = {
   AWS_REGION: 'us-east-1',
   AWS_ACCOUNT_ID: '123456789012',
+  ENVIRONMENT: 'dev',
 };
 
 // Setup environment
@@ -117,8 +118,9 @@ describe('Tenant Authentication', () => {
 
     it('should build correct tenant role ARN', () => {
       const event = createMockEvent('test-tenant-123');
+      // Role ARN now includes environment: TenantRole-{env}-{tenantId}
       const expectedRoleArn =
-        'arn:aws:iam::123456789012:role/TenantRole-test-tenant-123';
+        'arn:aws:iam::123456789012:role/TenantRole-dev-test-tenant-123';
 
       // We can't easily test the full flow without mocking STS, but we can validate the ARN construction
       // This would be tested by checking the console logs or by mocking the STS client
@@ -146,9 +148,11 @@ export const testHelpers = {
       console.log(`2. Environment variables check...`);
       console.log(`   ✓ AWS_REGION: ${mockEnv.AWS_REGION}`);
       console.log(`   ✓ AWS_ACCOUNT_ID: ${mockEnv.AWS_ACCOUNT_ID}`);
+      console.log(`   ✓ ENVIRONMENT: ${mockEnv.ENVIRONMENT}`);
 
       console.log(`3. Building tenant role ARN...`);
-      const expectedRoleArn = `arn:aws:iam::${mockEnv.AWS_ACCOUNT_ID}:role/TenantRole-${tenantId}`;
+      // Role ARN now includes environment: TenantRole-{env}-{tenantId}
+      const expectedRoleArn = `arn:aws:iam::${mockEnv.AWS_ACCOUNT_ID}:role/TenantRole-${mockEnv.ENVIRONMENT}-${tenantId}`;
       console.log(`   ✓ Role ARN: ${expectedRoleArn}`);
 
       console.log(
