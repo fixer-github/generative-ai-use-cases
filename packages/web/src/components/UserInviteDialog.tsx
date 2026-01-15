@@ -229,25 +229,21 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
         return;
       }
 
-      try {
-        // First, validate domains
-        const domainValidation = await validateDomains(emails);
+      // First, validate domains
+      const domainValidation = await validateDomains(emails);
 
-        // Store pending invitation
-        setPendingInvitation({ emails, sendEmail });
+      // Store pending invitation
+      setPendingInvitation({ emails, sendEmail });
 
-        if (domainValidation.hasAnyUnconfiguredDomains) {
-          // Show warning before proceeding
-          setUnconfiguredEmails(domainValidation.unconfiguredEmails);
-          setShowUnconfiguredWarning(true);
-          // Don't resume monitoring yet - wait for user decision
-        } else {
-          // No unconfigured domains, proceed directly
-          await performInvitation(emails, sendEmail);
-          // performInvitation will handle resuming
-        }
-      } catch (validationError: unknown) {
-        throw validationError;
+      if (domainValidation.hasAnyUnconfiguredDomains) {
+        // Show warning before proceeding
+        setUnconfiguredEmails(domainValidation.unconfiguredEmails);
+        setShowUnconfiguredWarning(true);
+        // Don't resume monitoring yet - wait for user decision
+      } else {
+        // No unconfigured domains, proceed directly
+        await performInvitation(emails, sendEmail);
+        // performInvitation will handle resuming
       }
     } catch (error: unknown) {
       console.error('Failed to prepare invitation:', error);
@@ -263,12 +259,12 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({
 
       // Use the specific error message if available, otherwise use generic message
       let errorMessage = t('adminPortal.invite.errors.invitationFailed');
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (isAxiosError<{ message?: string }>(error)) {
+      if (isAxiosError<{ message?: string }>(error)) {
         errorMessage =
           error.response?.data?.message ||
           t('adminPortal.invite.errors.invitationFailed');
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
 
       setError(errorMessage);
