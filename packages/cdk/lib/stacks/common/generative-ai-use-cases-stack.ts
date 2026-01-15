@@ -264,6 +264,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       assistantTable: database.assistantTable,
       chatHistoryTable: database.table,
       fileBucket: api.fileBucket,
+      promptTemplatesBucket: api.promptTemplatesBucket,
       tenantManager: tenantManager,
       videoBucketRegionMap: props.videoBucketRegionMap,
       guardrailIdentifier: props.guardrailIdentifier,

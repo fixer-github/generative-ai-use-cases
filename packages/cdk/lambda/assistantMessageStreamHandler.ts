@@ -24,6 +24,10 @@ import {
   getLatestUsage,
   AccessCheckResult,
 } from './utils/accessChecker';
+import {
+  replacePromptTemplatePlaceholders,
+  getPromptTemplateBucketName,
+} from './utils/promptTemplate';
 
 // Request type for streaming assistant messages
 interface AssistantMessageStreamRequest {
@@ -360,6 +364,15 @@ export const handler = awslambda.streamifyResponse(
 
       if (customInstructions?.trim()) {
         systemMessage += `\n<user_custom_instructions>\n${customInstructions}\n</user_custom_instructions>`;
+      }
+
+      // Replace {{UUID}} placeholders in system message with actual prompt templates from S3
+      const promptTemplateBucketName = getPromptTemplateBucketName();
+      if (promptTemplateBucketName) {
+        systemMessage = await replacePromptTemplatePlaceholders(
+          systemMessage,
+          promptTemplateBucketName
+        );
       }
 
       // Determine model type:

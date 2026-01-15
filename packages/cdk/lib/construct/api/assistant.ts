@@ -29,6 +29,7 @@ class AssistantApi extends Construct {
       table,
       tenantManager,
       fileBucket,
+      promptTemplatesBucket,
       idPool,
       userPool,
       userPoolClient,
@@ -175,7 +176,20 @@ class AssistantApi extends Construct {
                 SUMMARY_JOB_ENABLED: 'true',
               }
             : {}),
+
+          // Prompt Templates Bucket for system prompt placeholder replacement
+          ...(promptTemplatesBucket
+            ? {
+                PROMPT_TEMPLATES_BUCKET_NAME: promptTemplatesBucket.bucketName,
+              }
+            : {}),
         }),
+        bundling: {
+          nodeModules: [
+            // For prompt template placeholder replacement from S3
+            '@aws-sdk/client-s3',
+          ],
+        },
       }
     );
 
@@ -184,6 +198,11 @@ class AssistantApi extends Construct {
     table.grantReadWriteData(assistantMessageStreamFunction);
     if (props.userSummaryTable) {
       props.userSummaryTable.grantReadData(assistantMessageStreamFunction);
+    }
+
+    // Grant read permission to prompt templates bucket
+    if (promptTemplatesBucket) {
+      promptTemplatesBucket.grantRead(assistantMessageStreamFunction);
     }
 
     // Grant Bedrock permissions for LLM streaming calls

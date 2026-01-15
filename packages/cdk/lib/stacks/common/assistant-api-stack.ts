@@ -21,6 +21,7 @@ interface AssistantApiStackProps extends StackProps {
   chatHistoryTable: Table;
   userSummaryTable?: Table;
   fileBucket: Bucket;
+  promptTemplatesBucket?: Bucket;
   tenantManager?: TenantManager;
   videoBucketRegionMap?: Record<string, string>;
   guardrailIdentifier?: string;
@@ -43,6 +44,7 @@ class AssistantApiStack extends NestedStack {
       chatHistoryTable,
       userSummaryTable,
       fileBucket,
+      promptTemplatesBucket,
       tenantManager,
       videoBucketRegionMap,
       guardrailIdentifier,
@@ -105,6 +107,7 @@ class AssistantApiStack extends NestedStack {
       // API Gateway
       api: api.restApi,
       fileBucket,
+      promptTemplatesBucket,
       commonAuthorizerProps,
       agentMap: api.agentNames.reduce(
         (acc, name) => ({ ...acc, [name]: { agentId: '', aliasId: '' } }),
