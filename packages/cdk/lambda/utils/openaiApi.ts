@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { APIError } from 'openai';
 import type {
   ChatCompletionMessageParam,
   ChatCompletionContentPart,
@@ -20,7 +20,7 @@ import { sdkStreamMixin } from '@smithy/util-stream-node';
  * OpenAI クライアントを取得する
  * @throws APIキーが設定されていない場合にエラーをスロー
  */
-const getOpenAIClient = (): OpenAI => {
+function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey || apiKey.trim() === '') {
@@ -30,28 +30,24 @@ const getOpenAIClient = (): OpenAI => {
     );
   }
 
-  return new OpenAI({
-    apiKey,
-  });
-};
+  return new OpenAI({ apiKey });
+}
 
 /**
  * S3からファイルを取得してBase64形式で返す
  * @param extraData 対象のデータ
  * @returns Base64形式のデータ
  */
-const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
+async function getS3FileAsBase64(extraData: ExtraData): Promise<string> {
   console.debug('Get data from S3');
 
   const s3Client = new S3Client();
-
   const command = new GetObjectCommand({
     Bucket: process.env.BUCKET_NAME,
     Key: extraData.source.data,
   });
 
   const response = await s3Client.send(command);
-
   if (!response.Body) {
     throw new Error('No body in response');
   }
@@ -59,70 +55,48 @@ const getS3FileAsBase64 = async (extraData: ExtraData): Promise<string> => {
   const sdkStream = sdkStreamMixin(response.Body);
   const data = await sdkStream.transformToByteArray();
 
-  const base64String = Buffer.from(data).toString('base64');
-
-  return base64String;
-};
+  return Buffer.from(data).toString('base64');
+}
 
 /**
  * ExtraDataがS3のURLを指していたときにBase64形式に変換するヘルパー
  * @param extraData 対象のデータ
  * @returns Base64あるいはText形式のデータ
  */
-const getTextDataFromExtraData = async (
-  extraData: ExtraData
-): Promise<string> => {
+function getTextDataFromExtraData(extraData: ExtraData): Promise<string> {
   if (extraData.source.type === 's3') {
-    return await getS3FileAsBase64(extraData);
+    return getS3FileAsBase64(extraData);
   }
-
-  return extraData.source.data;
-};
+  return Promise.resolve(extraData.source.data);
+}
 
 /**
  * ExtraDataをOpenAI用のコンテンツブロックに変換する
  * @param extraData 対象のデータ
  * @returns OpenAI用のコンテンツブロック
  */
-const convertExtraData = async (
+async function convertExtraData(
   extraData: ExtraData
-): Promise<ChatCompletionContentPart> => {
+): Promise<ChatCompletionContentPart> {
   const { type: dataType, source } = extraData;
-  const { type: sourceType, mediaType } = source;
+  const { mediaType } = source;
 
   const data = await getTextDataFromExtraData(extraData);
 
-  if (sourceType === 'json') {
-    return {
-      type: 'text',
-      text: data,
-    };
+  if (source.type === 'json' || dataType === 'json') {
+    return { type: 'text', text: data };
   }
 
-  switch (dataType) {
-    case 'image':
-      return {
-        type: 'image_url',
-        image_url: {
-          url: `data:${mediaType};base64,${data}`,
-        },
-      };
-    case 'file':
-      return {
-        type: 'image_url',
-        image_url: {
-          url: `data:${mediaType};base64,${data}`,
-        },
-      };
-    case 'json':
-      return {
-        type: 'text',
-        text: data,
-      };
-    case 'video':
-      throw new Error('Video input is not supported currently.');
+  if (dataType === 'video') {
+    throw new Error('Video input is not supported currently.');
   }
-};
+
+  // image, file の場合は image_url として返す
+  return {
+    type: 'image_url',
+    image_url: { url: `data:${mediaType};base64,${data}` },
+  };
+}
 
 /**
  * UnrecordedMessageをOpenAI用のメッセージに変換する
@@ -130,64 +104,45 @@ const convertExtraData = async (
  * @param message 変換元のメッセージ
  * @returns OpenAI用のメッセージ
  */
-const convertToOpenAIMessage = async (
+async function convertToOpenAIMessage(
   message: UnrecordedMessage
-): Promise<ChatCompletionMessageParam> => {
+): Promise<ChatCompletionMessageParam> {
   const { role, content, extraData } = message;
 
   // userメッセージで追加データがある場合のみ配列形式を使用
   if (role === 'user' && extraData && extraData.length > 0) {
+    const extraParts = await Promise.all(extraData.map(convertExtraData));
     const contentParts: ChatCompletionContentPart[] = [
-      {
-        type: 'text',
-        text: content,
-      },
+      { type: 'text', text: content },
+      ...extraParts,
     ];
 
-    for (const data of extraData) {
-      const convertedData = await convertExtraData(data);
-      contentParts.push(convertedData);
-    }
-
-    return {
-      role: 'user',
-      content: contentParts,
-    };
+    return { role: 'user', content: contentParts };
   }
 
   // system, assistant, または追加データのないuserメッセージは文字列形式
-  switch (role) {
-    case 'system':
-      return { role: 'system', content };
-    case 'assistant':
-      return { role: 'assistant', content };
-    case 'user':
-    default:
-      return { role: 'user', content };
-  }
-};
+  return { role, content } as ChatCompletionMessageParam;
+}
 
 /**
  * 会話履歴をOpenAI用の形式に変換する
  * @param messages 変換元の会話履歴
  * @returns OpenAI用の会話履歴
  */
-const convertMessages = async (
+function convertMessages(
   messages: UnrecordedMessage[]
-): Promise<ChatCompletionMessageParam[]> => {
-  return Promise.all(
-    messages.map(async (message) => await convertToOpenAIMessage(message))
-  );
-};
+): Promise<ChatCompletionMessageParam[]> {
+  return Promise.all(messages.map(convertToOpenAIMessage));
+}
 
 /**
  * OpenAIのfinish_reasonをStopReasonに変換する
  * @param reason OpenAIのfinish_reason
  * @returns StopReason
  */
-const convertFinishReason = (
+function convertFinishReason(
   reason: string | null | undefined
-): StopReason | undefined => {
+): StopReason | undefined {
   switch (reason) {
     case 'stop':
       return StopReason.END_TURN;
@@ -198,7 +153,26 @@ const convertFinishReason = (
     default:
       return undefined;
   }
-};
+}
+
+/**
+ * OpenAI APIエラーをユーザー向けメッセージに変換する
+ * @param error OpenAI APIエラー
+ * @param modelId モデルID
+ * @returns ユーザー向けエラーメッセージ
+ */
+function getApiErrorMessage(error: APIError, modelId: string): string {
+  switch (error.status) {
+    case 401:
+      return 'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.';
+    case 429:
+      return 'OpenAI API rate limit exceeded. Please try again later.';
+    case 404:
+      return `Model '${modelId}' is not available. Please select a different model.`;
+    default:
+      return `OpenAI API error: ${error.message}`;
+  }
+}
 
 const openaiApi: ApiInterface = {
   invoke: async function (
@@ -244,29 +218,14 @@ const openaiApi: ApiInterface = {
 
       return content;
     } catch (e) {
-      if (e instanceof OpenAI.APIError) {
+      if (e instanceof APIError) {
         console.error('OpenAI API Error:', {
           status: e.status,
           message: e.message,
           code: e.code,
           modelId,
         });
-
-        if (e.status === 401) {
-          throw new Error(
-            'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.'
-          );
-        } else if (e.status === 429) {
-          throw new Error(
-            'OpenAI API rate limit exceeded. Please try again later.'
-          );
-        } else if (e.status === 404) {
-          throw new Error(
-            `Model '${modelId}' is not available. Please select a different model.`
-          );
-        } else {
-          throw new Error(`OpenAI API error: ${e.message}`);
-        }
+        throw new Error(getApiErrorMessage(e, modelId));
       }
       throw e;
     }
@@ -298,21 +257,16 @@ const openaiApi: ApiInterface = {
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
-          yield streamingChunk({
-            text: content,
-          });
+          yield streamingChunk({ text: content });
         }
 
         const finishReason = chunk.choices[0]?.finish_reason;
-        if (finishReason) {
-          const stopReason = convertFinishReason(finishReason);
-          if (stopReason) {
-            yield streamingChunk({
-              text: '',
-              stopReason: stopReason,
-            });
-            stopReasonSent = true;
-          }
+        const stopReason = finishReason
+          ? convertFinishReason(finishReason)
+          : undefined;
+        if (stopReason) {
+          yield streamingChunk({ text: '', stopReason });
+          stopReasonSent = true;
         }
       }
 
@@ -324,40 +278,16 @@ const openaiApi: ApiInterface = {
         });
       }
     } catch (e) {
-      if (e instanceof OpenAI.APIError) {
-        console.error('OpenAI API Error:', {
-          status: e.status,
-          message: e.message,
-          code: e.code,
-          modelId,
-        });
+      const errorMessage =
+        e instanceof APIError
+          ? getApiErrorMessage(e, modelId)
+          : `An unexpected error occurred. Please try again later.\n${e instanceof Error ? e.message : String(e)}`;
 
-        let errorMessage: string;
-        if (e.status === 401) {
-          errorMessage =
-            'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.';
-        } else if (e.status === 429) {
-          errorMessage =
-            'OpenAI API rate limit exceeded. Please try again later.';
-        } else if (e.status === 404) {
-          errorMessage = `Model '${modelId}' is not available. Please select a different model.`;
-        } else {
-          errorMessage = `OpenAI API error: ${e.message}`;
-        }
-
-        yield streamingChunk({
-          text: errorMessage,
-          stopReason: StopReason.END_TURN,
-        });
-      } else {
-        console.error('Unexpected error in OpenAI API call:', e);
-        yield streamingChunk({
-          text:
-            'An unexpected error occurred. Please try again later.\n' +
-            (e instanceof Error ? e.message : String(e)),
-          stopReason: StopReason.END_TURN,
-        });
-      }
+      console.error('OpenAI API call error:', e);
+      yield streamingChunk({
+        text: errorMessage,
+        stopReason: 'error',
+      });
     }
   },
 
