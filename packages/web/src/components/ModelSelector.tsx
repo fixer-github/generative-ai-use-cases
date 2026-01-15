@@ -101,7 +101,7 @@ const ModelSelector: React.FC<Props> = ({
     <Menu as="div" className={`relative ${className}`}>
       {({ open, close }) => (
         <>
-          <Menu.Button className="relative h-10 w-full cursor-pointer rounded-lg px-4 py-2 text-left focus:outline-none">
+          <Menu.Button className="relative h-10 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-left hover:border-gray-400 focus:outline-none">
             <span className="flex items-center justify-between">
               <span className="flex items-center truncate font-medium">
                 {currentModel?.label || value}
