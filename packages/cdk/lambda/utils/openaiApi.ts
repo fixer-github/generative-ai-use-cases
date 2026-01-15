@@ -199,6 +199,7 @@ function convertFinishReason(
 
 /**
  * OpenAI APIエラーをユーザー向けメッセージに変換する
+ * 詳細なエラー情報はログにのみ記録し、ユーザーには汎用的なメッセージを返す
  * @param error OpenAI APIエラー
  * @param modelId モデルID
  * @returns ユーザー向けエラーメッセージ
@@ -206,13 +207,17 @@ function convertFinishReason(
 function getApiErrorMessage(error: APIError, modelId: string): string {
   switch (error.status) {
     case 401:
-      return 'OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY environment variable.';
-    case 429:
-      return 'OpenAI API rate limit exceeded. Please try again later.';
+      return 'Authentication failed. Please contact the administrator.';
     case 404:
       return `Model '${modelId}' is not available. Please select a different model.`;
+    case 429:
+      return 'Rate limit exceeded. Please try again later.';
+    case 500:
+    case 502:
+    case 503:
+      return 'The service is temporarily unavailable. Please try again later.';
     default:
-      return `OpenAI API error: ${error.message}`;
+      return 'An error occurred while communicating with OpenAI. Please try again.';
   }
 }
 
@@ -341,6 +346,13 @@ const openaiApi: ApiInterface = {
       let errorMessage: string;
 
       if (e instanceof APIError) {
+        // APIエラーの詳細はログにのみ記録
+        console.error('OpenAI API Error:', {
+          status: e.status,
+          message: e.message,
+          code: e.code,
+          modelId,
+        });
         errorMessage = getApiErrorMessage(e, modelId);
       } else {
         // 内部エラーの詳細はログにのみ記録し、ユーザーには汎用メッセージを表示
@@ -353,7 +365,6 @@ const openaiApi: ApiInterface = {
           'An unexpected error occurred. Please try again later.';
       }
 
-      console.error('OpenAI API call error:', e);
       yield streamingChunk({
         text: errorMessage,
         stopReason: 'error',
