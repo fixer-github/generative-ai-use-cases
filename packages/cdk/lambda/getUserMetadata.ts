@@ -16,8 +16,11 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const USER_REGISTRATION_METADATA_TABLE_NAME =
   process.env.USER_REGISTRATION_METADATA_TABLE_NAME!;
 
+type MetadataValue = string | boolean;
+type UserMetadata = Record<string, MetadataValue>;
+
 interface GetUserMetadataResponse {
-  metadata: Record<string, string>;
+  metadata: UserMetadata;
 }
 
 export const handler = async (
@@ -56,7 +59,7 @@ export const handler = async (
       })
     );
 
-    const metadata = (result.Item?.metadata as Record<string, string>) || {};
+    const metadata = (result.Item?.metadata as UserMetadata) || {};
 
     return ok200Response<GetUserMetadataResponse>({ metadata });
   } catch (error) {

@@ -25,14 +25,17 @@ const USER_REGISTRATION_METADATA_TABLE_NAME =
 
 const MAX_METADATA_SIZE_BYTES = 100 * 1024; // 100KB
 
+type MetadataValue = string | boolean;
+type UserMetadata = Record<string, MetadataValue>;
+
 interface PutUserMetadataRequest {
-  metadata: Record<string, string>;
+  metadata: UserMetadata;
   mode?: 'merge' | 'replace';
 }
 
 interface PutUserMetadataResponse {
   message: string;
-  metadata: Record<string, string>;
+  metadata: UserMetadata;
 }
 
 function validateMetadata(metadata: unknown): string | null {
@@ -47,8 +50,8 @@ function validateMetadata(metadata: unknown): string | null {
     if (typeof key !== 'string' || key.length === 0) {
       return 'metadata keys must be non-empty strings';
     }
-    if (typeof value !== 'string') {
-      return `metadata value for key "${key}" must be a string`;
+    if (typeof value !== 'string' && typeof value !== 'boolean') {
+      return `metadata value for key "${key}" must be a string or boolean`;
     }
   }
 
@@ -112,7 +115,7 @@ export const handler = async (
     const mode = requestBody.mode || 'merge';
     const newMetadata = requestBody.metadata;
 
-    let finalMetadata: Record<string, string>;
+    let finalMetadata: UserMetadata;
 
     if (mode === 'replace') {
       await docClient.send(
@@ -138,7 +141,7 @@ export const handler = async (
       );
 
       const existingMetadata =
-        (existingResult.Item?.metadata as Record<string, string>) || {};
+        (existingResult.Item?.metadata as UserMetadata) || {};
       const prevUpdatedAt =
         (existingResult.Item?.metadataUpdatedAt as string | undefined) ?? null;
       finalMetadata = { ...existingMetadata, ...newMetadata };
