@@ -219,13 +219,13 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高度なオプション
-  createChatError: チャットの作成に失敗しました。もう一度お試しください。
-  defaultSystemPrompt: あなたは親切で知識豊富なAIアシスタントです。ユーザーの質問に対して、正確で分かりやすい回答を提供してください。
   button:
     newChat: 新しいチャット
+  createChatError: チャットの作成に失敗しました。もう一度お試しください。
   create_link: リンクの作成
   create_link_message: リンクを作成することで、このアプリケーションにログイン可能な全ユーザーに対して会話履歴を公開します。
   create_system_prompt: システムプロンプトの作成
+  defaultSystemPrompt: あなたは親切で知識豊富なAIアシスタントです。ユーザーの質問に対して、正確で分かりやすい回答を提供してください。
   delete_chat_confirmation: チャット「{{title}}」を削除しますか？
   delete_confirmation: 削除確認
   delete_link: リンクの削除
@@ -760,7 +760,6 @@ meetingMinutes:
   generating_continuation: 議事録生成中（継続 {{current}}/{{max}} 回目）...
   generation_error: 議事録の生成に失敗しました。再試行してください。
   generation_success: 議事録が正常に生成されました
-  output_may_be_incomplete: 出力が長さの制限により不完全な可能性があります。文字起こしを分割することを検討してください。
   language: 言語
   language_auto: 自動検出
   language_chinese: 中国語
@@ -771,6 +770,7 @@ meetingMinutes:
   language_vietnamese: ベトナム語
   last_generated: 最後の生成時刻 {{time}}
   minutes_placeholder: 生成後にここに議事録が表示されます
+  output_may_be_incomplete: 出力が長さの制限により不完全な可能性があります。文字起こしを分割することを検討してください。
   model: モデル
   next_generation_in: '次回生成まで : '
   record_transcribe: 音声認識
@@ -906,6 +906,15 @@ rag:
   retrieving: Kendra から参考ドキュメントを取得しています...
   title: RAG チャット
 settings:
+  deleteAccount: アカウント削除
+  deleteAccountButton: アカウントを削除
+  deleteAccountCancel: キャンセル
+  deleteAccountConfirm: 削除する
+  deleteAccountConfirmDescription: この操作は取り消せません。確認のため、以下の情報を入力してください。
+  deleteAccountConfirmTitle: アカウント削除の確認
+  deleteAccountDeleteLabel: 「DELETE」と入力
+  deleteAccountDescription: アカウントを削除すると、すべてのデータが失われます。この操作は取り消せません。
+  deleteAccountEmailLabel: メールアドレスを入力
   labels:
     customInstructions: カスタム指示
     enableCustomize: カスタマイズを有効にする
@@ -927,15 +936,6 @@ settings:
     dark: ダーク
     light: ライト
     system: システム設定に従う
-  deleteAccount: アカウント削除
-  deleteAccountButton: アカウントを削除
-  deleteAccountCancel: キャンセル
-  deleteAccountConfirm: 削除する
-  deleteAccountConfirmDescription: この操作は取り消せません。確認のため、以下の情報を入力してください。
-  deleteAccountConfirmTitle: アカウント削除の確認
-  deleteAccountDeleteLabel: 「DELETE」と入力
-  deleteAccountDescription: アカウントを削除すると、すべてのデータが失われます。この操作は取り消せません。
-  deleteAccountEmailLabel: メールアドレスを入力
 shared:
   contact_admin: 管理者に問い合わせてください。
   error: エラー

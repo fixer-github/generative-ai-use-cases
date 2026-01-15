@@ -82,13 +82,13 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高级选项
-  createChatError: 创建聊天失败。请重试。
-  defaultSystemPrompt: 你是一个乐于助人且知识渊博的AI助手。请为用户的问题提供准确且易于理解的回答。
   button:
     newChat: 新聊天
+  createChatError: 创建聊天失败。请重试。
   create_link: 创建链接
   create_link_message: 通过创建链接，您将向所有可以登录此应用程序的用户公开对话历史。
   create_system_prompt: 创建系统提示
+  defaultSystemPrompt: 你是一个乐于助人且知识渊博的AI助手。请为用户的问题提供准确且易于理解的回答。
   delete_chat_confirmation: 是否删除聊天"{{title}}"？
   delete_confirmation: 删除确认
   delete_link: 删除链接
@@ -543,7 +543,6 @@ meetingMinutes:
   generating_continuation: 正在生成会议纪要（继续 {{current}}/{{max}} 次）...
   generation_error: 会议纪要生成失败。请重试。
   generation_success: 会议纪要生成成功
-  output_may_be_incomplete: 由于长度限制，输出可能不完整。请考虑分割转录文本。
   language: 语言
   language_auto: 自动检测
   language_chinese: 中文
@@ -554,6 +553,7 @@ meetingMinutes:
   language_vietnamese: 越南语
   last_generated: 最后生成时间 {{time}}
   minutes_placeholder: 生成后会议纪要将显示在这里
+  output_may_be_incomplete: 由于长度限制，输出可能不完整。请考虑分割转录文本。
   model: 模型
   next_generation_in: '下次生成时间 :'
   record_transcribe: 录音和转录
@@ -663,6 +663,28 @@ rag:
   please_refer: 请参考。
   retrieving: 正在从Kendra获取参考文档...
   title: RAG聊天
+settings:
+  labels:
+    customInstructions: 自定义指令
+    enableCustomize: 启用自定义
+    language: 语言
+    sendMessage: 发送消息
+    theme: 主题
+  language:
+    auto: 自动检测
+    ja: 日本語
+  placeholders:
+    customInstructions: 行为、风格和语调的附加设置
+  sendMessage:
+    ctrlCmdEnter: Ctrl/⌘+Enter发送
+    enter: Enter发送
+  tabs:
+    aiCustomize: AI自定义
+    general: 通用
+  theme:
+    dark: 深色
+    light: 浅色
+    system: 跟随系统设置
 shared:
   contact_admin: 请联系管理员。
   error: 错误
@@ -1068,25 +1090,3 @@ writer:
   tutorial: 教程
   tutorial_success: 已加载教程
   useAsTextEditor: 作为文本编辑器使用
-settings:
-  labels:
-    customInstructions: 自定义指令
-    enableCustomize: 启用自定义
-    language: 语言
-    sendMessage: 发送消息
-    theme: 主题
-  language:
-    auto: 自动检测
-    ja: 日本語
-  placeholders:
-    customInstructions: 行为、风格和语调的附加设置
-  sendMessage:
-    ctrlCmdEnter: Ctrl/⌘+Enter发送
-    enter: Enter发送
-  tabs:
-    aiCustomize: AI自定义
-    general: 通用
-  theme:
-    dark: 深色
-    light: 浅色
-    system: 跟随系统设置

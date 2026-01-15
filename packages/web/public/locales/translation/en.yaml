@@ -219,15 +219,15 @@ auth:
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Advanced Options
-  createChatError: Failed to create chat. Please try again.
-  defaultSystemPrompt: You are a helpful and knowledgeable AI assistant. Please provide accurate and easy-to-understand answers to user questions.
   button:
     newChat: New Chat
+  createChatError: Failed to create chat. Please try again.
   create_link: Create Link
   create_link_message: >-
     By creating a link, you will share the conversation history with all users
     who can log in to this application.
   create_system_prompt: Create System Prompt
+  defaultSystemPrompt: You are a helpful and knowledgeable AI assistant. Please provide accurate and easy-to-understand answers to user questions.
   delete_chat_confirmation: Are you sure you want to delete the chat "{{title}}"?
   delete_confirmation: Delete Confirmation
   delete_link: Delete Link
@@ -899,7 +899,6 @@ meetingMinutes:
   generating_continuation: Generating minutes (continuation {{current}}/{{max}})...
   generation_error: Failed to generate meeting minutes. Please try again.
   generation_success: Meeting minutes generated successfully
-  output_may_be_incomplete: Output may be incomplete due to length limits. Consider splitting the transcript.
   language: Language
   language_auto: Auto Detect
   language_chinese: Chinese
@@ -910,6 +909,7 @@ meetingMinutes:
   language_vietnamese: Vietnamese
   last_generated: Last generated {{time}}
   minutes_placeholder: Minutes will appear here after generation
+  output_may_be_incomplete: Output may be incomplete due to length limits. Consider splitting the transcript.
   model: Model
   next_generation_in: 'Next generation in : '
   record_transcribe: Record & Transcribe
@@ -1064,6 +1064,15 @@ rag:
   retrieving: Retrieving reference documents from Kendra...
   title: RAG Chat
 settings:
+  deleteAccount: Delete Account
+  deleteAccountButton: Delete Account
+  deleteAccountCancel: Cancel
+  deleteAccountConfirm: Delete
+  deleteAccountConfirmDescription: This action cannot be undone. Please enter the following to confirm.
+  deleteAccountConfirmTitle: Confirm Account Deletion
+  deleteAccountDeleteLabel: Type "DELETE" to confirm
+  deleteAccountDescription: Deleting your account will permanently remove all your data. This action cannot be undone.
+  deleteAccountEmailLabel: Enter your email address
   labels:
     customInstructions: Custom Instructions
     enableCustomize: Enable customization
@@ -1085,15 +1094,6 @@ settings:
     dark: Dark
     light: Light
     system: Follow system settings
-  deleteAccount: Delete Account
-  deleteAccountButton: Delete Account
-  deleteAccountCancel: Cancel
-  deleteAccountConfirm: Delete
-  deleteAccountConfirmDescription: This action cannot be undone. Please enter the following to confirm.
-  deleteAccountConfirmTitle: Confirm Account Deletion
-  deleteAccountDeleteLabel: Type "DELETE" to confirm
-  deleteAccountDescription: Deleting your account will permanently remove all your data. This action cannot be undone.
-  deleteAccountEmailLabel: Enter your email address
 shared:
   contact_admin: Please contact the administrator.
   error: Error
