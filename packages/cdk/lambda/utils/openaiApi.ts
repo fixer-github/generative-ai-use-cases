@@ -37,25 +37,67 @@ function getOpenAIClient(): OpenAI {
  * S3からファイルを取得してBase64形式で返す
  * @param extraData 対象のデータ
  * @returns Base64形式のデータ
+ * @throws ファイル取得に失敗した場合にユーザー向けエラーをスロー
  */
 async function getS3FileAsBase64(extraData: ExtraData): Promise<string> {
   console.debug('Get data from S3');
 
+  const bucketName = process.env.BUCKET_NAME;
+  if (!bucketName) {
+    console.error('BUCKET_NAME environment variable is not set');
+    throw new Error(
+      'File storage is not configured. Please contact the administrator.'
+    );
+  }
+
   const s3Client = new S3Client();
   const command = new GetObjectCommand({
-    Bucket: process.env.BUCKET_NAME,
+    Bucket: bucketName,
     Key: extraData.source.data,
   });
 
-  const response = await s3Client.send(command);
-  if (!response.Body) {
-    throw new Error('No body in response');
+  try {
+    const response = await s3Client.send(command);
+    if (!response.Body) {
+      console.error('S3 GetObject returned empty body', {
+        bucket: bucketName,
+        key: extraData.source.data,
+      });
+      throw new Error('Failed to retrieve file content.');
+    }
+
+    const sdkStream = sdkStreamMixin(response.Body);
+    const data = await sdkStream.transformToByteArray();
+
+    return Buffer.from(data).toString('base64');
+  } catch (e) {
+    const errorName = (e as Error)?.name;
+    console.error('S3 GetObject failed:', {
+      bucket: bucketName,
+      key: extraData.source.data,
+      errorName,
+      errorMessage: e instanceof Error ? e.message : String(e),
+    });
+
+    if (errorName === 'NoSuchKey') {
+      throw new Error(
+        'The attached file could not be found. Please try uploading it again.'
+      );
+    }
+    if (errorName === 'AccessDenied') {
+      throw new Error(
+        'Access to the file was denied. Please contact the administrator.'
+      );
+    }
+    // 既にユーザー向けにスローされたエラーはそのまま再スロー
+    if (
+      e instanceof Error &&
+      e.message.includes('Failed to retrieve file content')
+    ) {
+      throw e;
+    }
+    throw new Error('Failed to retrieve the attached file. Please try again.');
   }
-
-  const sdkStream = sdkStreamMixin(response.Body);
-  const data = await sdkStream.transformToByteArray();
-
-  return Buffer.from(data).toString('base64');
 }
 
 /**
@@ -187,7 +229,7 @@ const openaiApi: ApiInterface = {
       const openai = getOpenAIClient();
       const openAIMessages = await convertMessages(messages);
 
-      console.debug(JSON.stringify(messages));
+      console.debug('Processing messages', { count: messages.length, modelId });
 
       const response = await openai.chat.completions.create({
         model: modelId,
@@ -244,7 +286,7 @@ const openaiApi: ApiInterface = {
       const openai = getOpenAIClient();
       const openAIMessages = await convertMessages(messages);
 
-      console.debug(JSON.stringify(messages));
+      console.debug('Processing messages', { count: messages.length, modelId });
 
       const stream = await openai.chat.completions.create({
         model: modelId,
@@ -278,10 +320,20 @@ const openaiApi: ApiInterface = {
         });
       }
     } catch (e) {
-      const errorMessage =
-        e instanceof APIError
-          ? getApiErrorMessage(e, modelId)
-          : `An unexpected error occurred. Please try again later.\n${e instanceof Error ? e.message : String(e)}`;
+      let errorMessage: string;
+
+      if (e instanceof APIError) {
+        errorMessage = getApiErrorMessage(e, modelId);
+      } else {
+        // 内部エラーの詳細はログにのみ記録し、ユーザーには汎用メッセージを表示
+        console.error('Unexpected error in OpenAI invokeStream:', {
+          modelId,
+          errorType: e?.constructor?.name,
+          errorMessage: e instanceof Error ? e.message : String(e),
+        });
+        errorMessage =
+          'An unexpected error occurred. Please try again later.';
+      }
 
       console.error('OpenAI API call error:', e);
       yield streamingChunk({
