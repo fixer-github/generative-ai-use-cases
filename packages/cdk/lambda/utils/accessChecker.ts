@@ -69,16 +69,28 @@ function getTableName(
 }
 
 /**
+ * resourceId内のコロンをOpenFGA互換形式にエスケープする
+ * OpenFGAはオブジェクトを「type:id」形式（最初のコロンで区切る）で解釈するため、
+ * resourceId内にコロンが含まれる場合（例: openai:gpt-4o）は%3Aにエスケープする必要がある
+ * @param resourceId リソースのID（例: 'openai:gpt-4o'）
+ * @returns エスケープされたresourceId（例: 'openai%3Agpt-4o'）
+ */
+function escapeResourceId(resourceId: string): string {
+  return resourceId.replace(/:/g, '%3A');
+}
+
+/**
  * featureIdを生成する
  * @param resourceType リソースの種別（例: 'llm'）
  * @param resourceId リソースのID（例: 'gemini-2.5-flash'）
- * @returns featureId（例: 'llm:gemini-2.5-flash'）
+ * @returns featureId（例: 'llm:gemini-2.5-flash'、コロンを含む場合は 'llm:openai%3Agpt-4o'）
  */
 export function buildFeatureId(
   resourceType: ResourceType,
   resourceId: string
 ): string {
-  return `${resourceType}:${resourceId}`;
+  const escapedResourceId = escapeResourceId(resourceId);
+  return `${resourceType}:${escapedResourceId}`;
 }
 
 /**
@@ -116,6 +128,7 @@ export async function checkAccessWithQuota(
     };
   }
 
+  const escapedResourceId = escapeResourceId(resourceId);
   const featureId = buildFeatureId(resourceType, resourceId);
 
   console.log(
@@ -125,14 +138,14 @@ export async function checkAccessWithQuota(
   // 2. OpenFGAで権限チェック
   try {
     console.log(
-      `[AccessCheck] Checking OpenFGA permission - userId: ${userId}, resourceType: ${resourceType}, resourceId: ${resourceId}`
+      `[AccessCheck] Checking OpenFGA permission - userId: ${userId}, resourceType: ${resourceType}, resourceId: ${escapedResourceId}`
     );
     const openFgaClient = await createOpenFgaClientFromToken(idToken);
     const hasPermission = await openFgaClient.check(
       userId,
       'accessor',
       resourceType,
-      resourceId
+      escapedResourceId
     );
 
     console.log(
