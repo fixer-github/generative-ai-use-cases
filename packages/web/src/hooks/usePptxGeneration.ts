@@ -27,6 +27,8 @@ export const usePptxGeneration = () => {
       } catch (err: unknown) {
         if (isAxiosError<{ detail?: string }>(err)) {
           setError(err.response?.data?.detail || 'Failed to generate PPTX');
+        } else if (err instanceof Error) {
+          setError(err.message || 'Failed to generate PPTX');
         } else {
           setError('Failed to generate PPTX');
         }
@@ -50,6 +52,8 @@ export const usePptxGeneration = () => {
           setError(
             err.response?.data?.detail || 'Failed to check generation status'
           );
+        } else if (err instanceof Error) {
+          setError(err.message || 'Failed to check generation status');
         } else {
           setError('Failed to check generation status');
         }
@@ -73,6 +77,8 @@ export const usePptxGeneration = () => {
       } catch (err: unknown) {
         if (isAxiosError<{ detail?: string }>(err)) {
           setError(err.response?.data?.detail || 'Failed to download PPTX');
+        } else if (err instanceof Error) {
+          setError(err.message || 'Failed to download PPTX');
         } else {
           setError('Failed to download PPTX');
         }
@@ -94,6 +100,8 @@ export const usePptxGeneration = () => {
       } catch (err: unknown) {
         if (isAxiosError<{ detail?: string }>(err)) {
           setError(err.response?.data?.detail || 'Failed to list generations');
+        } else if (err instanceof Error) {
+          setError(err.message || 'Failed to list generations');
         } else {
           setError('Failed to list generations');
         }
