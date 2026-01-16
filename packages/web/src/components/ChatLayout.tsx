@@ -15,7 +15,7 @@ const ChatLayout: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="ml-64 min-h-screen">
+      <div className="ml-64">
         <Outlet />
       </div>
     </>
