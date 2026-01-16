@@ -3,12 +3,11 @@ import {
   APIGatewayProxyResult,
   Context,
 } from 'aws-lambda';
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { TenantStatus } from './tenantManager';
 import {
   badRequest400Response,
-  conflict409Response,
   internalServerError500Response,
   ok200Response,
 } from './utils/apiResponse';
@@ -127,41 +126,70 @@ export const handler = async (
       }
     }
 
-    // Create tenant record with default use case configuration
+    // UPSERT tenant record using UpdateItem
+    // - Always update: accountId, region, environment, roleArn, controlPlaneLambdaRoleArn, updatedAt
+    // - Only set if not exists: createdAt, status, metadata, useCaseConfiguration
+    // - OpenSearch config: only update if provided in request
     const now = new Date().toISOString();
-    const tenant: Record<string, any> = {
-      tenantId,
-      status: TenantStatus.PROVISIONING,
-      accountId,
-      region,
-      environment,
-      roleArn,
-      controlPlaneLambdaRoleArn,
-      createdAt: now,
-      updatedAt: now,
-      metadata: {
+
+    // Build UpdateExpression dynamically based on OpenSearch config
+    let updateExpression = `
+      SET accountId = :accountId,
+          #region = :region,
+          environment = :environment,
+          roleArn = :roleArn,
+          controlPlaneLambdaRoleArn = :controlPlaneLambdaRoleArn,
+          updatedAt = :updatedAt,
+          createdAt = if_not_exists(createdAt, :createdAt),
+          #status = if_not_exists(#status, :status),
+          metadata = if_not_exists(metadata, :metadata),
+          useCaseConfiguration = if_not_exists(useCaseConfiguration, :useCaseConfiguration)
+    `;
+
+    const expressionAttributeNames: Record<string, string> = {
+      '#region': 'region',
+      '#status': 'status',
+    };
+
+    const expressionAttributeValues: Record<string, any> = {
+      ':accountId': accountId,
+      ':region': region,
+      ':environment': environment,
+      ':roleArn': roleArn ?? null,
+      ':controlPlaneLambdaRoleArn': controlPlaneLambdaRoleArn ?? null,
+      ':updatedAt': now,
+      ':createdAt': now,
+      ':status': TenantStatus.PROVISIONING,
+      ':metadata': {
         source: 'api-registration',
         registeredVia: 'tenant-stack',
       },
-      useCaseConfiguration: {
-        hiddenUseCases: {}, // All use cases enabled by default
+      ':useCaseConfiguration': {
+        hiddenUseCases: {},
         updatedAt: now,
         updatedBy: 'system',
       },
     };
 
-    // Add OpenSearch configuration if provided
+    // Add OpenSearch configuration to UpdateExpression if provided
     if (hasOpenSearchConfig) {
-      tenant.openSearchDomainArn = openSearchDomainArn;
-      tenant.openSearchEndpoint = openSearchEndpoint;
-      tenant.openSearchIndexName = openSearchIndexName;
+      updateExpression += `,
+          openSearchDomainArn = :openSearchDomainArn,
+          openSearchEndpoint = :openSearchEndpoint,
+          openSearchIndexName = :openSearchIndexName
+      `;
+      expressionAttributeValues[':openSearchDomainArn'] = openSearchDomainArn;
+      expressionAttributeValues[':openSearchEndpoint'] = openSearchEndpoint;
+      expressionAttributeValues[':openSearchIndexName'] = openSearchIndexName;
     }
 
     await dynamoClient.send(
-      new PutItemCommand({
+      new UpdateItemCommand({
         TableName: TENANTS_TABLE_NAME,
-        Item: marshall(tenant),
-        ConditionExpression: 'attribute_not_exists(tenantId)',
+        Key: marshall({ tenantId }),
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: marshall(expressionAttributeValues),
       })
     );
 
@@ -174,17 +202,6 @@ export const handler = async (
     });
   } catch (error) {
     console.error('Error registering tenant:', error);
-
-    // Handle duplicate tenant
-    if (
-      error instanceof Error &&
-      error.name === 'ConditionalCheckFailedException'
-    ) {
-      return conflict409Response({
-        message: 'Tenant already exists',
-        error: 'Tenant already exists',
-      });
-    }
 
     return internalServerError500Response({
       message: error instanceof Error ? error.message : 'Unknown error',
