@@ -203,13 +203,9 @@ export class TenantIAMStack extends cdk.Stack {
               return;
             }
             
-            if (event.RequestType === 'Update') {
-              // For updates, we could re-register or just return success
-              await sendResponse(event, 'SUCCESS', 'Update completed successfully', physicalResourceId);
-              return;
-            }
-            
-            // Handle Create request
+            // Handle Create and Update requests
+            // Update also calls registration API to ensure roleArn stays in sync
+            // (e.g., when role name changes due to environment prefix addition)
             const endpoint = '${registrationApiEndpoint}';
             const apiKey = '${registrationApiKey}';
 
