@@ -10,13 +10,31 @@ import {
   badRequest400Response,
   internalServerError500Response,
   ok200Response,
+  serviceUnavailable503Response,
+  tooManyRequests429Response,
 } from './utils/apiResponse';
 
-// Environment variables
-const TENANTS_TABLE_NAME = process.env.TENANTS_TABLE_NAME!;
+// Environment variables with validation
+const TENANTS_TABLE_NAME = (() => {
+  const tableName = process.env.TENANTS_TABLE_NAME;
+  if (!tableName) {
+    throw new Error(
+      '[CRITICAL] TENANTS_TABLE_NAME environment variable is required'
+    );
+  }
+  return tableName;
+})();
+
+const AWS_REGION = (() => {
+  const region = process.env.AWS_REGION;
+  if (!region) {
+    throw new Error('[CRITICAL] AWS_REGION environment variable is required');
+  }
+  return region;
+})();
 
 // DynamoDB client
-const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION! });
+const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
 
 // Request interface
 interface TenantRegistrationRequest {
@@ -38,6 +56,9 @@ export const handler = async (
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> => {
+  // Declare request outside try block for error context
+  let parsedRequest: TenantRegistrationRequest | undefined;
+
   try {
     // Parse and validate request
     if (!event.body) {
@@ -47,7 +68,22 @@ export const handler = async (
       });
     }
 
-    const request: TenantRegistrationRequest = JSON.parse(event.body);
+    try {
+      parsedRequest = JSON.parse(event.body);
+    } catch (parseError) {
+      console.warn('[WARN] Malformed JSON in request body', {
+        error:
+          parseError instanceof Error ? parseError.message : String(parseError),
+        awsRequestId: context.awsRequestId,
+      });
+      return badRequest400Response({
+        message: 'Invalid JSON in request body',
+        error: 'Request body must be valid JSON',
+      });
+    }
+
+    // At this point parsedRequest is guaranteed to be defined (JSON.parse succeeded)
+    const request = parsedRequest as TenantRegistrationRequest;
     const {
       tenantId,
       accountId,
@@ -201,10 +237,68 @@ export const handler = async (
       status: TenantStatus.PROVISIONING,
     });
   } catch (error) {
-    console.error('Error registering tenant:', error);
+    // Build error context for logging
+    const errorContext = {
+      operation: 'tenantRegistration',
+      tenantId: parsedRequest?.tenantId ?? 'unknown',
+      region: parsedRequest?.region ?? 'unknown',
+      environment: parsedRequest?.environment ?? 'unknown',
+      awsRequestId: context.awsRequestId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
 
+    console.error('[ERROR] Failed to register tenant:', errorContext);
+
+    // Handle specific DynamoDB errors
+    if (error instanceof Error) {
+      switch (error.name) {
+        case 'ProvisionedThroughputExceededException':
+        case 'RequestLimitExceeded':
+          return tooManyRequests429Response({
+            message:
+              'Service is temporarily overloaded. Please retry after a few seconds.',
+            error: 'Rate limit exceeded',
+          });
+
+        case 'ResourceNotFoundException':
+          console.error(
+            '[CRITICAL] Tenants table not found - check deployment configuration'
+          );
+          return internalServerError500Response({
+            message: 'Service configuration error. Please contact support.',
+            error: 'Resource not found',
+          });
+
+        case 'AccessDeniedException':
+          console.error('[CRITICAL] IAM permission denied for DynamoDB');
+          return internalServerError500Response({
+            message: 'Service authorization error. Please contact support.',
+            error: 'Access denied',
+          });
+
+        case 'ValidationException':
+          console.error(
+            '[CRITICAL] DynamoDB ValidationException - possible code bug'
+          );
+          return internalServerError500Response({
+            message: 'Internal validation error. Please contact support.',
+            error: error.message,
+          });
+
+        case 'InternalServerError':
+        case 'ServiceUnavailable':
+          return serviceUnavailable503Response({
+            message:
+              'AWS service is temporarily unavailable. Please retry later.',
+            error: 'Service unavailable',
+          });
+      }
+    }
+
+    // Generic fallback for unknown errors
     return internalServerError500Response({
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to register tenant. Please try again or contact support.',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
