@@ -14,7 +14,9 @@ module.exports = defineConfig([
     languageOptions: {
       ...typescriptConfig.languageOptions,
       globals: {
+        ...typescriptConfig.languageOptions.globals, // 共有設定のglobalsを継承
         ...globals.node,
+        awslambda: 'readonly', // AWS Lambda Response Streaming用
       },
     },
     rules: {
