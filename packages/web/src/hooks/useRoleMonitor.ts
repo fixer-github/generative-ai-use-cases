@@ -161,6 +161,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
         isCheckingRef.current = false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkRoleStatus is intentionally excluded to avoid circular dependency
     [
       api,
       enabled,
