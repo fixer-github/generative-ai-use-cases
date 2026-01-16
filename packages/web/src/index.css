@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent double scrollbars - app manages its own scrolling */
+html,
+body {
+  overflow: hidden;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
 /* Tailwind's settings override this, so we set important */
 .amplify-button--primary {
   background-color: var(
