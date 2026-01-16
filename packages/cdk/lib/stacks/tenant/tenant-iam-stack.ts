@@ -64,7 +64,11 @@ export class TenantIAMStack extends cdk.Stack {
       })();
 
     // Get environment (required parameter)
-    const environment = props?.environment!;
+    const environment =
+      props?.environment ||
+      (() => {
+        throw new Error('environment must be provided in stack props');
+      })();
 
     // For tenant stacks, use CDK context variables to import from main stack
     // Since main stack and tenant stacks are separate deployments
