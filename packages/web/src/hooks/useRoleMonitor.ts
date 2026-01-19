@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
+import { isAxiosError } from 'axios';
 import useHttp from './useHttp';
 import { performLogoutAndReload, isRoleMismatchError } from '../utils/auth';
 
@@ -74,7 +75,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
 
       // Small delay to allow toast to show
       setTimeout(() => {
-        performLogoutAndReload(reason);
+        performLogoutAndReload(reason, 'role_mismatch');
       }, 100);
     },
     [state.isRoleChangeDetected]
@@ -128,7 +129,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Handle role mismatch errors
         if (isRoleMismatchError(error)) {
           if (lastKnownAdminStatusRef.current === true) {
@@ -140,14 +141,12 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
         }
 
         // For non-admin users, 403 is expected
+        const status = isAxiosError(error) ? error.response?.status : undefined;
         setState((prev) => ({
           ...prev,
           isAdmin: false,
           isLoading: false,
-          error:
-            error.response?.status === 403
-              ? null
-              : 'Failed to verify admin status',
+          error: status === 403 ? null : 'Failed to verify admin status',
           tenantId: null,
           username: null,
         }));
@@ -162,6 +161,7 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
         isCheckingRef.current = false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkRoleStatus is used inside setInterval callback and doesn't need to trigger checkAdminStatus re-creation
     [
       api,
       enabled,
@@ -228,9 +228,10 @@ const useRoleMonitor = (config: RoleMonitorConfig = {}) => {
           window.location.reload();
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle 403/409 errors indicating role revocation
-      if (error?.response?.status === 403 || error?.response?.status === 409) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 403 || status === 409) {
         if (lastKnownAdminStatusRef.current === true) {
           await handleRoleMismatch(
             'Admin privileges likely revoked (403/409 error)'
