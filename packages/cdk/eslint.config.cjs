@@ -39,6 +39,14 @@ module.exports = defineConfig([
       'cdk.out/**',
       'cloudfront-functions/**',
       'custom-resources/**',
+      // TypeScriptビルドで生成されるJSファイルを除外（.gitignoreと同期）
+      'lambda/**/*.js',
+      'lib/**/*.js',
+      'bin/**/*.js',
+      'test/**/*.js',
+      '*.js',
+      '*.d.ts',
+      '**/*.d.ts',
     ],
   },
 ]);
