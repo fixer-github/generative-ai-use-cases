@@ -54,19 +54,46 @@ class AssistantApi extends Construct {
       }),
     });
 
+    // Background handler for knowledge sync (async indexing)
+    const knowledgeSyncHandler = new NodejsFunction(
+      this,
+      'AssistantKnowledgeSyncHandler',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/assistantKnowledgeSync.ts',
+        timeout: Duration.minutes(15),
+        environment: getBaseEnvironment(this, props, {
+          ASSISTANT_TABLE_NAME: ASSISTANT_TABLE_PREFIX,
+          DEFAULT_ASSISTANT_TABLE_NAME: assistantTable.tableName,
+          OPENSEARCH_INDEX: 'assistant-docs',
+          ASSISTANT_FILES_BUCKET_NAME: fileBucket?.bucketName || '',
+          TENANTS_TABLE_NAME: tenantManager?.tenantsTable.tableName || '',
+        }),
+      }
+    );
+
+    assistantHandler.addEnvironment(
+      'ASSISTANT_KNOWLEDGE_SYNC_FUNCTION_NAME',
+      knowledgeSyncHandler.functionName
+    );
+    knowledgeSyncHandler.grantInvoke(assistantHandler);
+
     // Grant permissions for all CRUD operations
     assistantTable.grantReadWriteData(assistantHandler);
     table.grantReadWriteData(assistantHandler);
+    assistantTable.grantReadWriteData(knowledgeSyncHandler);
 
     // Grant S3 read permissions for document loading (create/update operations)
     // Used for both legacy S3 URLs and new assistant file uploads
     if (fileBucket) {
       fileBucket.grantRead(assistantHandler);
+      fileBucket.grantRead(knowledgeSyncHandler);
     }
 
     // Grant Bedrock permissions for document embeddings (RAG indexing)
     if (props.bedrockPolicy) {
       assistantHandler.addToRolePolicy(props.bedrockPolicy);
+      knowledgeSyncHandler.addToRolePolicy(props.bedrockPolicy);
     }
 
     // Grant OpenSearch permissions for tenant OpenSearch domains (cross-account)
@@ -81,6 +108,19 @@ class AssistantApi extends Construct {
           'es:ESHttpHead',
         ],
         resources: ['*'], // Wildcard needed for multi-tenant cross-account access
+      })
+    );
+    knowledgeSyncHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'es:ESHttpGet',
+          'es:ESHttpPost',
+          'es:ESHttpPut',
+          'es:ESHttpDelete',
+          'es:ESHttpHead',
+        ],
+        resources: ['*'],
       })
     );
 
@@ -321,6 +361,7 @@ class AssistantApi extends Construct {
     if (tenantManager) {
       tenantManager.tenantsTable.grantReadData(assistantHandler);
       tenantManager.tenantsTable.grantReadData(assistantMessageHandler);
+      tenantManager.tenantsTable.grantReadData(knowledgeSyncHandler);
     }
 
     // Grant LiteLLM proxy invocation permissions
