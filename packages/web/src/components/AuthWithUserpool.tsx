@@ -14,6 +14,16 @@ const AuthWithUserpool: React.FC<Props> = (props) => {
 
   useEffect(() => {
     I18n.putVocabularies(translations);
+    /* eslint-disable i18nhelper/no-jp-string -- Amplify UI translation override */
+    I18n.putVocabularies({
+      ja: {
+        Username: 'メールアドレス',
+        'Enter your username': 'メールアドレスを入力',
+        'Enter your Username': 'メールアドレスを入力',
+        'Username cannot be empty': 'メールアドレスは入力必須です',
+      },
+    });
+    /* eslint-enable i18nhelper/no-jp-string */
     I18n.setLanguage(i18n.language === 'ja' ? 'ja' : 'en');
   }, [i18n.language]);
 
