@@ -24,6 +24,15 @@ module.exports = defineConfig([
       '@typescript-eslint/no-namespace': 'off',
     },
   },
+  // テストファイル専用の設定（Jestグローバル）
+  {
+    files: ['test/**/*.test.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest, // Jestグローバル (describe, test, expect, jest, beforeEach, afterAll, etc.)
+      },
+    },
+  },
   {
     ignores: [
       ...commonIgnores.ignores,
