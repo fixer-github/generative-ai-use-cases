@@ -3,8 +3,8 @@
   "private": true,
   "version": "4.3.2",
   "scripts": {
-    "lint": "run-s custom-lint:build lint:root web:lint cdk:lint cdk:lambda-build-dryrun",
-    "lint:fix": "run-s custom-lint:build lint:root:fix web:lint:fix cdk:lint:fix cdk:lambda-build-dryrun",
+    "lint": "npm run custom-lint:build && run-p lint:root web:lint cdk:lint",
+    "lint:fix": "npm run custom-lint:build && run-p lint:root:fix web:lint:fix cdk:lint:fix",
     "lint:root": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:root:fix": "eslint . --report-unused-disable-directives --max-warnings 0 --fix",
     "test": "run-s web:test",

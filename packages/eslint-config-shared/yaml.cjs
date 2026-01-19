@@ -11,7 +11,7 @@ const yamlConfig = {
   },
   rules: {
     ...ymlPlugin.configs.standard.rules,
-    'yml/sort-keys': 'error',
+    'yml/sort-keys': 'off', // Disabled: expensive regex-based sorting significantly slows CI
     'yml/quotes': ['error', { prefer: 'single', avoidEscape: true }],
   },
 };

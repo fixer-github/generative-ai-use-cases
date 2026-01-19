@@ -14,9 +14,14 @@ export async function buildWeb(container: Container): Promise<Container> {
 export async function buildCDK(container: Container): Promise<Container> {
   console.log('🏗️  Building CDK application...');
 
-  const result = container
-    .withExec(['npm', 'run', 'cdk:lambda-build-dryrun'])
-    .withExec(['npm', '-w', 'packages/cdk', 'run', 'build']);
+  // Note: lambda-build-dryrun (tsc --noEmit) is redundant since build (tsc) does full compilation
+  const result = container.withExec([
+    'npm',
+    '-w',
+    'packages/cdk',
+    'run',
+    'build',
+  ]);
 
   await result.sync();
   return result;
@@ -52,14 +57,18 @@ export async function buildExtension(container: Container): Promise<Container> {
 export async function runBuild(container: Container): Promise<Container> {
   console.log('🚀 Running complete build pipeline...');
 
-  let buildContainer = container;
+  // Run CDK and Web builds in parallel - they have no dependencies on each other
+  const [cdkContainer, webContainer] = await Promise.all([
+    buildCDK(container),
+    buildWeb(container),
+  ]);
 
-  // Run builds in sequence to avoid conflicts
-  buildContainer = await buildCDK(buildContainer);
-  buildContainer = await buildWeb(buildContainer);
+  // Use the web container as the final result (both containers are from same base)
+  // The actual build artifacts are validated within each build function
+  void cdkContainer; // Suppress unused variable warning
   // buildContainer = await buildExtension(buildContainer); // Skipped: not needed currently
   // buildContainer = await synthCDK(buildContainer); // Skipped: requires AWS account config
 
   console.log('✅ Build completed successfully');
-  return buildContainer;
+  return webContainer;
 }
