@@ -1,23 +1,39 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { IoIosClose, IoMdDownload } from 'react-icons/io';
 import { VscCode } from 'react-icons/vsc';
 import { LuNetwork } from 'react-icons/lu';
 import EditableMarkdown from './EditableMarkdown';
 import Button from './Button';
-import mermaid, { MermaidConfig } from 'mermaid';
+import type { MermaidConfig, Mermaid as MermaidType } from 'mermaid';
 import { TbSvg, TbPng } from 'react-icons/tb';
 import { useTranslation } from 'react-i18next';
 
 const defaultConfig: MermaidConfig = {
-  // Prevent syntax error from being added to the dom node
-  // https://github.com/mermaid-js/mermaid/pull/4359
   suppressErrorRendering: true,
-  securityLevel: 'loose', // Allow SVG rendering
-  fontFamily: 'monospace', // Specify the font family
-  fontSize: 16, // Specify the font size
-  htmlLabels: true, // Allow HTML labels
+  securityLevel: 'loose',
+  fontFamily: 'monospace',
+  fontSize: 16,
+  htmlLabels: true,
 };
-mermaid.initialize(defaultConfig);
+
+let mermaidInstance: MermaidType | null = null;
+let mermaidLoadPromise: Promise<MermaidType> | null = null;
+
+const loadMermaid = async (): Promise<MermaidType> => {
+  if (mermaidInstance) {
+    return mermaidInstance;
+  }
+  if (mermaidLoadPromise) {
+    return mermaidLoadPromise;
+  }
+  mermaidLoadPromise = import('mermaid').then((m) => {
+    mermaidInstance = m.default;
+    mermaidInstance.initialize(defaultConfig);
+    return mermaidInstance;
+  });
+  return mermaidLoadPromise;
+};
+
 interface MermaidProps {
   code: string;
   handler?: () => void;
@@ -27,19 +43,19 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
   const { t } = useTranslation();
   const { code } = props;
   const [svgContent, setSvgContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
   const render = useCallback(async () => {
     if (code) {
       try {
-        // It is necessary to specify a unique ID
+        setIsLoading(true);
+        const mermaid = await loadMermaid();
         const { svg } = await mermaid.render(`m${crypto.randomUUID()}`, code);
-        // Parse the SVG string to convert it to a DOM object
         const parser = new DOMParser();
         const doc = parser.parseFromString(svg, 'image/svg+xml');
         const svgElement = doc.querySelector('svg');
 
         if (svgElement) {
-          // Set the necessary attributes to the SVG element
           svgElement.setAttribute('width', '100%');
           svgElement.setAttribute('height', '100%');
           setSvgContent(svgElement.outerHTML);
@@ -47,6 +63,8 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
       } catch (error) {
         console.error(error);
         setSvgContent(`<div>${t('diagram.invalid_syntax')}</div>`);
+      } finally {
+        setIsLoading(false);
       }
     }
   }, [code, t]);
@@ -55,16 +73,22 @@ export const Mermaid: React.FC<MermaidProps> = (props) => {
     render();
   }, [code, render]);
 
-  return code ? (
+  if (!code) return null;
+
+  return (
     <div
       onClick={props.handler}
       className="flex h-full w-full cursor-pointer content-center items-center justify-center rounded-lg bg-white p-8 duration-700 hover:shadow-lg">
-      <div
-        className="flex h-full w-full items-center justify-center"
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
+      {isLoading ? (
+        <div className="text-gray-500">{t('common.loading')}</div>
+      ) : (
+        <div
+          className="flex h-full w-full items-center justify-center"
+          dangerouslySetInnerHTML={{ __html: svgContent }}
+        />
+      )}
     </div>
-  ) : null;
+  );
 };
 
 interface DiagramRendererProps {
@@ -79,6 +103,13 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
   const { t } = useTranslation();
   const [zoom, setZoom] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'code'>('diagram');
+  const mermaidRef = useRef<MermaidType | null>(null);
+
+  useEffect(() => {
+    loadMermaid().then((m) => {
+      mermaidRef.current = m;
+    });
+  }, []);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -95,6 +126,7 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
 
   const downloadAsSVG = async () => {
     try {
+      const mermaid = await loadMermaid();
       const { svg } = await mermaid.render('download-svg', code);
       const blob = new Blob([svg], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
@@ -112,6 +144,7 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
 
   const downloadAsPNG = async () => {
     try {
+      const mermaid = await loadMermaid();
       const { svg } = await mermaid.render('download-png', code);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');

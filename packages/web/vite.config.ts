@@ -10,6 +10,12 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
+      output: {
+        manualChunks: {
+          mermaid: ['mermaid'],
+          'md-editor': ['@uiw/react-md-editor'],
+        },
+      },
       plugins: [
         mode === 'analyze' &&
           visualizer({

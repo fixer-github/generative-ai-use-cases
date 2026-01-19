@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { PiPencilLine, PiCheck } from 'react-icons/pi';
 import Markdown from './Markdown';
-import MDEditor from '@uiw/react-md-editor';
 import Button from './Button';
 import { Trans, useTranslation } from 'react-i18next';
+
+const MDEditor = React.lazy(() => import('@uiw/react-md-editor'));
 
 interface EditableMarkdownProps {
   code: string;
@@ -32,13 +33,20 @@ const EditableMarkdown: React.FC<EditableMarkdownProps> = ({
       {isEditing ? (
         <div>
           <div data-color-mode="dark">
-            <MDEditor
-              value={editedCode}
-              onChange={(newValue) => setEditedCode(newValue || '')}
-              hideToolbar={true}
-              preview="edit"
-              height="100%"
-            />
+            <Suspense
+              fallback={
+                <div className="flex h-48 items-center justify-center bg-gray-800 text-gray-400">
+                  {t('common.loading')}
+                </div>
+              }>
+              <MDEditor
+                value={editedCode}
+                onChange={(newValue) => setEditedCode(newValue || '')}
+                hideToolbar={true}
+                preview="edit"
+                height="100%"
+              />
+            </Suspense>
           </div>
           <div className="mt-2 flex justify-end">
             <Button onClick={handleSaveClick} disabled={editedCode === ''}>
