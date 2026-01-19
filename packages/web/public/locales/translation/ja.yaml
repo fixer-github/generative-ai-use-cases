@@ -129,6 +129,13 @@ assistant:
     enableRAG: RAGを有効化（ナレッジベース）
     instruction: カスタム指示
     knowledge: ナレッジベース
+    knowledgeSourcesCount: 'ナレッジソース: {{current}} / {{max}}'
+    knowledgeSourcesLimitReached: '上限: {{max}}件'
+    knowledgeSourcesOverLimit: 'ナレッジソース数が上限（{{max}}件）を超えています。不要なソースを削除してください。'
+    uploadErrorSizeExceeded: 'サイズ上限（{{maxSize}} MB）超過'
+    uploadErrorLimitExceeded: '件数上限（{{max}}件）超過'
+    uploadErrorCombined: '{{sizeMessage}} / {{limitMessage}}'
+    uploadFailed: アップロードに失敗しました
     modelId: モデル
     readOnlyDescription: このアシスタントを読み取り専用モードで表示しています。編集は所有者のみが可能です。
     readOnlyMode: 読み取り専用モード
@@ -136,6 +143,7 @@ assistant:
     save: 保存
     saveBeforeUpload: ファイルをアップロードする前にアシスタントを保存してください
     saveFailed: 保存に失敗しました
+    saveTimeout: 保存処理がタイムアウトしました。知識ソースの数を減らして再度お試しください。
     saving: 保存中...
     sourceUrls: ソースURL
     title: 名前

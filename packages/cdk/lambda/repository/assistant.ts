@@ -49,6 +49,18 @@ function removeUndefinedValues(obj: any): any {
 }
 
 /**
+ * Truncate a string to avoid exceeding DynamoDB item size limits when storing
+ * large error messages (e.g., nested OpenSearch/IAM errors).
+ */
+function truncateString(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  // Keep it ASCII to avoid encoding surprises in logs/clients.
+  return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+const KNOWLEDGE_SOURCE_ERROR_MAX_LENGTH = 2048;
+
+/**
  * Normalize knowledge sources by initializing status to QUEUED and clearing error field
  * This ensures consistent state for new or updated knowledge sources
  */
@@ -505,7 +517,10 @@ export const updateKnowledgeSourceStatus = async (
     if (source.id === sourceId) {
       const updated: any = { ...source, status };
       if (error !== undefined) {
-        updated.error = error;
+        updated.error = truncateString(
+          error,
+          KNOWLEDGE_SOURCE_ERROR_MAX_LENGTH
+        );
       } else {
         // Clear error field when no error is provided (e.g., when transitioning to SYNCING/SUCCEEDED)
         delete updated.error;

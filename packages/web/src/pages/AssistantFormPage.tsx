@@ -25,6 +25,7 @@ import LoadingWave from '../components/LoadingWave';
 import BasicInfoFields from '../components/assistants/BasicInfoFields';
 import KnowledgeSection from '../components/assistants/KnowledgeSection';
 import ModalDialogDeleteAssistant from '../components/assistants/ModalDialogDeleteAssistant';
+import { ASSISTANT_LIMITS } from '../constants/assistant';
 
 // Helper function to normalize user IDs for comparison
 const normalizeUserId = (id?: string): string => {
@@ -61,6 +62,7 @@ const AssistantFormPage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [isOwner, setIsOwner] = useState(!assistantId); // True for create mode, false for edit until verified
   const [assistant, setAssistant] = useState<Assistant | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [abortController, setAbortController] =
     useState<AbortController | null>(null);
 
@@ -70,6 +72,8 @@ const AssistantFormPage: React.FC = () => {
     newUrl,
     setNewUrl,
     uploadingFiles,
+    uploadError,
+    clearUploadError,
     addKnowledgeUrl,
     removeKnowledgeSource,
     handleFileUpload,
@@ -183,8 +187,21 @@ const AssistantFormPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     if (!isValid()) {
       alert(t('assistant.edit.requiredFields'));
+      return;
+    }
+
+    if (
+      formData.ragEnabled &&
+      formData.knowledgeSources.length > ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES
+    ) {
+      alert(
+        t('assistant.edit.knowledgeSourcesOverLimit', {
+          max: ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES,
+        })
+      );
       return;
     }
 
@@ -232,6 +249,16 @@ const AssistantFormPage: React.FC = () => {
         `Failed to ${assistantId ? 'update' : 'create'} assistant:`,
         error
       );
+
+      // 504タイムアウトエラーの検出
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError.response?.status === 504) {
+          setSaveError(t('assistant.edit.saveTimeout'));
+          return;
+        }
+      }
+
       alert(t('assistant.edit.saveFailed'));
     } finally {
       setSaving(false);
@@ -389,6 +416,10 @@ const AssistantFormPage: React.FC = () => {
             knowledgeSources={formData.knowledgeSources}
             newUrl={newUrl}
             uploadingFiles={uploadingFiles}
+            uploadError={uploadError}
+            saveError={saveError}
+            onClearUploadError={clearUploadError}
+            onClearSaveError={() => setSaveError(null)}
             onNewUrlChange={setNewUrl}
             onAddUrl={addKnowledgeUrl}
             onRemoveSource={removeKnowledgeSource}

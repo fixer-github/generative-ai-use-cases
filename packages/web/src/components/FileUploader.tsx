@@ -8,6 +8,7 @@ type Props = BaseProps & {
   multiple?: boolean;
   onFileSelect?: (files: FileList) => void;
   label?: string;
+  disabled?: boolean;
 };
 
 const FileUploader: React.FC<Props> = (props) => {
@@ -15,12 +16,18 @@ const FileUploader: React.FC<Props> = (props) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
-    inputRef.current?.click();
+    if (!props.disabled) {
+      inputRef.current?.click();
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && props.onFileSelect) {
       props.onFileSelect(e.target.files);
+    }
+    // 同じファイルを再選択できるようにリセット
+    if (inputRef.current) {
+      inputRef.current.value = '';
     }
   };
 
@@ -37,7 +44,12 @@ const FileUploader: React.FC<Props> = (props) => {
       />
       <button
         onClick={handleClick}
-        className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">
+        disabled={props.disabled}
+        className={`flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 ${
+          props.disabled
+            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+            : 'hover:bg-gray-50'
+        }`}>
         <PiUploadSimple />
         <span>{t('files.uploadFiles')}</span>
       </button>

@@ -83,6 +83,13 @@ assistant:
     sources: Nguồn
     view: Xem
   edit:
+    knowledgeSourcesCount: 'Nguồn kiến thức: {{current}} / {{max}}'
+    knowledgeSourcesLimitReached: 'Giới hạn: {{max}}'
+    knowledgeSourcesOverLimit: 'Quá nhiều nguồn kiến thức (tối đa {{max}}). Vui lòng xóa bớt nguồn.'
+    uploadErrorSizeExceeded: 'Vượt quá giới hạn kích thước ({{maxSize}} MB)'
+    uploadErrorLimitExceeded: 'Vượt quá giới hạn số lượng ({{max}})'
+    uploadErrorCombined: '{{sizeMessage}} / {{limitMessage}}'
+    uploadFailed: Tải lên thất bại
     uploadingFiles: Đang tải lên tập tin...
   history:
     createdWithDate: 'Ngày tạo: {{date}}'

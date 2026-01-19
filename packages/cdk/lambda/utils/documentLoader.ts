@@ -606,15 +606,20 @@ export async function loadDocuments(
 ): Promise<Document[]> {
   const loadPromises = sources.map(async (source) => {
     try {
+      const sourceId = source.id ?? source.storageKey ?? source.sourceUrl;
+      if (!sourceId) {
+        throw new Error('Knowledge source id is required.');
+      }
+
       if (source.type === 'file' && source.storageKey) {
         return await loadDocumentFromFile(
           source.storageKey,
-          source.id,
+          sourceId,
           userId,
           event
         );
       } else if (source.type === 'web' && source.sourceUrl) {
-        return await loadDocumentFromWeb(source.sourceUrl, source.id);
+        return await loadDocumentFromWeb(source.sourceUrl, sourceId);
       } else {
         throw new Error(
           `Invalid source configuration: type=${source.type}, storageKey=${source.storageKey}, sourceUrl=${source.sourceUrl}`

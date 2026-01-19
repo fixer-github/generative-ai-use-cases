@@ -83,6 +83,13 @@ assistant:
     sources: 来源
     view: 查看
   edit:
+    knowledgeSourcesCount: '知识来源：{{current}} / {{max}}'
+    knowledgeSourcesLimitReached: '上限：{{max}}'
+    knowledgeSourcesOverLimit: '知识来源数量超过上限（最多 {{max}}）。请删除一些来源。'
+    uploadErrorSizeExceeded: '超过大小限制（{{maxSize}} MB）'
+    uploadErrorLimitExceeded: '超过数量限制（{{max}}）'
+    uploadErrorCombined: '{{sizeMessage}} / {{limitMessage}}'
+    uploadFailed: 上传失败
     uploadingFiles: 正在上传文件...
   history:
     createdWithDate: '创建日期: {{date}}'

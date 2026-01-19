@@ -36,6 +36,7 @@ import {
   notFound404Response,
   ok200Response,
 } from './utils/apiResponse';
+import { ASSISTANT_LIMITS } from './utils/assistantLimits';
 
 /**
  * Helper function to normalize assistant data for API responses
@@ -138,6 +139,17 @@ async function handleCreate(
   console.log(
     `Creating assistant: ragEnabled=${body.ragEnabled}, knowledgeSources=${body.knowledgeSources?.length || 0}`
   );
+
+  // Knowledge sources limit (files + URLs)
+  const knowledgeSourceCount = body.knowledgeSources?.length ?? 0;
+  if (knowledgeSourceCount > ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES) {
+    return badRequest400Response({
+      message: `Too many knowledge sources: ${knowledgeSourceCount} (max ${ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES})`,
+      code: 'KNOWLEDGE_SOURCES_LIMIT_EXCEEDED',
+      max: ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES,
+      current: knowledgeSourceCount,
+    });
+  }
 
   // Basic validation
   if (!body.name || !body.instruction || !body.modelId) {
@@ -348,6 +360,20 @@ async function handleUpdate(
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
   const body: UpdateAssistantRequest = JSON.parse(event.body || '{}');
+
+  // Knowledge sources limit (files + URLs)
+  const knowledgeSourceCount = body.knowledgeSources?.length;
+  if (
+    knowledgeSourceCount !== undefined &&
+    knowledgeSourceCount > ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES
+  ) {
+    return badRequest400Response({
+      message: `Too many knowledge sources: ${knowledgeSourceCount} (max ${ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES})`,
+      code: 'KNOWLEDGE_SOURCES_LIMIT_EXCEEDED',
+      max: ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES,
+      current: knowledgeSourceCount,
+    });
+  }
 
   try {
     const assistant = await updateAssistant(assistantId, userId, body, event);

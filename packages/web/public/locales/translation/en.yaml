@@ -129,6 +129,13 @@ assistant:
     enableRAG: Enable RAG (Knowledge Base)
     instruction: Custom Instructions
     knowledge: Knowledge Base
+    knowledgeSourcesCount: 'Knowledge sources: {{current}} / {{max}}'
+    knowledgeSourcesLimitReached: 'Limit: {{max}}'
+    knowledgeSourcesOverLimit: 'Too many knowledge sources (max {{max}}). Please remove some sources.'
+    uploadErrorSizeExceeded: 'Exceeds size limit ({{maxSize}} MB)'
+    uploadErrorLimitExceeded: 'Exceeds count limit ({{max}})'
+    uploadErrorCombined: '{{sizeMessage}} / {{limitMessage}}'
+    uploadFailed: Upload failed
     modelId: Model
     readOnlyDescription: You are viewing this assistant in read-only mode. Only the owner can edit this assistant.
     readOnlyMode: Read-Only Mode
@@ -136,6 +143,7 @@ assistant:
     save: Save
     saveBeforeUpload: Please save the assistant before uploading files
     saveFailed: Failed to save
+    saveTimeout: Save operation timed out. Please reduce the number of knowledge sources and try again.
     saving: Saving...
     sourceUrls: Source URLs
     title: Name

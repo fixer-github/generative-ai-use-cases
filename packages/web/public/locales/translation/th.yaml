@@ -83,6 +83,13 @@ assistant:
     sources: แหล่งที่มา
     view: ดู
   edit:
+    knowledgeSourcesCount: 'แหล่งความรู้: {{current}} / {{max}}'
+    knowledgeSourcesLimitReached: 'ขีดจำกัด: {{max}}'
+    knowledgeSourcesOverLimit: 'มีแหล่งความรู้มากเกินไป (สูงสุด {{max}}) กรุณาลบบางรายการออก'
+    uploadErrorSizeExceeded: 'เกินขนาดสูงสุด ({{maxSize}} MB)'
+    uploadErrorLimitExceeded: 'เกินจำนวนสูงสุด ({{max}})'
+    uploadErrorCombined: '{{sizeMessage}} / {{limitMessage}}'
+    uploadFailed: อัปโหลดล้มเหลว
     uploadingFiles: กำลังอัปโหลดไฟล์...
   history:
     createdWithDate: 'สร้างเมื่อ: {{date}}'

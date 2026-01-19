@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { KnowledgeSource } from 'generative-ai-use-cases';
 import useAssistantApi from './useAssistantApi';
 import { MODELS } from './useModel';
+import { ASSISTANT_LIMITS } from '../constants/assistant';
 
 export type AssistantFormData = {
   name: string;
@@ -17,12 +18,26 @@ export type UseAssistantFormOptions = {
   initialData?: Partial<AssistantFormData>;
 };
 
+export type UploadErrorFile = {
+  name: string;
+  size: string;
+};
+
+export type UploadError = {
+  type: 'size_exceeded' | 'limit_exceeded' | 'upload_failed';
+  messageKey: string;
+  messageParams?: Record<string, string | number>;
+  files?: UploadErrorFile[];
+} | null;
+
 export type UseAssistantFormReturn = {
   formData: AssistantFormData;
   setFormData: React.Dispatch<React.SetStateAction<AssistantFormData>>;
   newUrl: string;
   setNewUrl: React.Dispatch<React.SetStateAction<string>>;
   uploadingFiles: boolean;
+  uploadError: UploadError;
+  clearUploadError: () => void;
   addKnowledgeUrl: () => void;
   removeKnowledgeSource: (index: number) => void;
   handleFileUpload: (files: FileList) => Promise<void>;
@@ -51,18 +66,23 @@ const getInitialFormData = (
  * Browsers don't always correctly detect MIME types for text files like .md
  */
 const getContentType = (file: File): string => {
-  if (file.type) return file.type;
-
   const extension = file.name.split('.').pop()?.toLowerCase();
   const mimeTypes: Record<string, string> = {
     md: 'text/markdown',
     txt: 'text/plain',
     pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    html: 'text/html',
+    json: 'application/json',
+    csv: 'text/csv',
   };
 
-  return mimeTypes[extension || ''] || 'application/octet-stream';
+  if (extension && mimeTypes[extension]) {
+    return mimeTypes[extension];
+  }
+
+  if (file.type) return file.type;
+
+  return 'application/octet-stream';
 };
 
 const useAssistantForm = (
@@ -74,9 +94,24 @@ const useAssistantForm = (
   );
   const [newUrl, setNewUrl] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadError, setUploadError] = useState<UploadError>(null);
+
+  const clearUploadError = useCallback(() => {
+    setUploadError(null);
+  }, []);
 
   const addKnowledgeUrl = useCallback(() => {
     if (newUrl.trim()) {
+      const maxSources = ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES;
+      if (formData.knowledgeSources.length >= maxSources) {
+        setUploadError({
+          type: 'limit_exceeded',
+          messageKey: 'assistant.edit.knowledgeSourcesOverLimit',
+          messageParams: { max: maxSources },
+        });
+        return;
+      }
+
       const newSource: KnowledgeSource = {
         id: crypto.randomUUID(),
         type: 'web',
@@ -90,8 +125,9 @@ const useAssistantForm = (
         knowledgeSources: [...prev.knowledgeSources, newSource],
       }));
       setNewUrl('');
+      setUploadError(null);
     }
-  }, [newUrl]);
+  }, [newUrl, formData.knowledgeSources.length]);
 
   const removeKnowledgeSource = useCallback((index: number) => {
     setFormData((prev) => ({
@@ -102,10 +138,69 @@ const useAssistantForm = (
 
   const handleFileUpload = useCallback(
     async (files: FileList) => {
+      // エラーをクリア
+      setUploadError(null);
+
+      // ファイルサイズの上限チェック（サイズ超過ファイルとアップロード可能ファイルを分類）
+      const maxSizeMB = ASSISTANT_LIMITS.MAX_FILE_SIZE / (1024 * 1024);
+      const maxSources = ASSISTANT_LIMITS.MAX_KNOWLEDGE_SOURCES;
+      const currentSources = formData.knowledgeSources.length;
+      const availableSlots = Math.max(0, maxSources - currentSources);
+
+      if (availableSlots === 0) {
+        setUploadError({
+          type: 'limit_exceeded',
+          messageKey: 'assistant.edit.knowledgeSourcesOverLimit',
+          messageParams: { max: maxSources },
+        });
+        return;
+      }
+
+      const oversizedFiles: UploadErrorFile[] = [];
+      const exceededFiles: UploadErrorFile[] = [];
+      const validFiles: File[] = [];
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].size > ASSISTANT_LIMITS.MAX_FILE_SIZE) {
+          oversizedFiles.push({
+            name: files[i].name,
+            size: `${(files[i].size / (1024 * 1024)).toFixed(1)}MB`,
+          });
+        } else if (validFiles.length < availableSlots) {
+          validFiles.push(files[i]);
+        } else {
+          exceededFiles.push({
+            name: files[i].name,
+            size: '件数上限超過',
+          });
+        }
+      }
+
+      // サイズ超過ファイルがある場合はエラーを設定
+      if (oversizedFiles.length > 0 || exceededFiles.length > 0) {
+        setUploadError({
+          type: exceededFiles.length > 0 ? 'limit_exceeded' : 'size_exceeded',
+          messageKey:
+            oversizedFiles.length > 0 && exceededFiles.length > 0
+              ? 'assistant.edit.uploadErrorCombined'
+              : oversizedFiles.length > 0
+                ? 'assistant.edit.uploadErrorSizeExceeded'
+                : 'assistant.edit.uploadErrorLimitExceeded',
+          messageParams: {
+            maxSize: maxSizeMB,
+            max: maxSources,
+          },
+          files: [...oversizedFiles, ...exceededFiles],
+        });
+      }
+
+      // アップロード可能なファイルがない場合は終了
+      if (validFiles.length === 0) {
+        return;
+      }
+
       setUploadingFiles(true);
       try {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
+        for (const file of validFiles) {
           try {
             const contentType = getContentType(file);
 
@@ -141,14 +236,18 @@ const useAssistantForm = (
             }));
           } catch (error) {
             console.error('Failed to upload file:', error);
-            alert(`Failed to upload ${file.name}`);
+            setUploadError({
+              type: 'upload_failed',
+              messageKey: 'assistant.edit.uploadFailed',
+              files: [{ name: file.name, size: '' }],
+            });
           }
         }
       } finally {
         setUploadingFiles(false);
       }
     },
-    [requestUploadUrl]
+    [requestUploadUrl, formData.knowledgeSources.length]
   );
 
   const deleteFile = useCallback((sourceId: string) => {
@@ -175,6 +274,8 @@ const useAssistantForm = (
     newUrl,
     setNewUrl,
     uploadingFiles,
+    uploadError,
+    clearUploadError,
     addKnowledgeUrl,
     removeKnowledgeSource,
     handleFileUpload,
