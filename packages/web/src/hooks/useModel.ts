@@ -101,24 +101,13 @@ const getFlows = () => {
 
 const flows = getFlows();
 
-// LiteLLM proxy enabled flag from CDK configuration
-const litellmProxyEnabled =
-  import.meta.env.VITE_APP_LITELLM_PROXY_ENABLED === 'true';
-
-// List of LiteLLM model IDs (only available when litellmProxyEnabled is true)
-const liteLlmModelIds = litellmProxyEnabled
-  ? ['gemini-2.5-flash', 'gemini-2.5-pro']
-  : [];
+// List of LiteLLM model IDs
+// Vertex AI (Gemini) models are temporarily disabled
+const liteLlmModelIds: string[] = [];
 
 // List of LangChain model IDs
-const langchainModelIds = [
-  // OpenAI
-  'openai:gpt-4o',
-  'openai:gpt-4o-mini',
-  'openai:o3',
-  'openai:gpt-4.1',
-  'openai:gpt-5',
-];
+// OpenAI models are temporarily disabled
+const langchainModelIds: string[] = [];
 
 // Define model objects
 const textModels = [
@@ -272,8 +261,6 @@ const modelDisplayName = (modelId: string): string => {
 const featuredModelIds: string[] = [
   // Find Claude Sonnet 4 model (pattern: anthropic.claude-sonnet-4*)
   bedrockModelIds.find((id) => id.includes('claude-sonnet-4')) || '',
-  'openai:gpt-5',
-  ...(litellmProxyEnabled ? ['gemini-2.5-pro'] : []),
 ].filter((id) => id !== '');
 
 export const MODELS = {
