@@ -1,84 +1,9 @@
-adminPortal:
-  actions:
-    remove: Xóa
-  invite:
-    actions:
-      cancel: Hủy
-      close: Đóng
-      inviting: Đang mời...
-      sendInvitations: Gửi Lời Mời
-    bulkMode:
-      csvFormat: 'Định dạng CSV: Email ở cột đầu. Ví dụ: john@example.com,John Doe,Kinh doanh'
-      csvSelected: 'Đã chọn: {{filename}}'
-      csvUpload: Tải Lên File CSV
-      manualEntry: Nhập Thủ Công (một email mỗi dòng)
-      manualPlaceholder: user1@example.com
-      or: hoặc
-    errors:
-      invalidFile: Vui lòng chọn file CSV hợp lệ
-      invitationFailed: Không thể mời người dùng
-      noEmailsProvided: Vui lòng cung cấp ít nhất một địa chỉ email
-      tooManyEmails: Tối đa 100 người dùng có thể được mời cùng một lúc
-    mode:
-      bulk: Mời Hàng Loạt
-      single: Người Dùng Đơn Lẻ
-    options:
-      noSendEmailHelp: Bạn sẽ cần chia sẻ thông tin đăng nhập với người dùng một cách thủ công
-      sendEmail: Tự động gửi email mời
-      sendEmailHelp: Người dùng sẽ nhận được email với hướng dẫn đăng nhập
-    results:
-      failed: '✗ {{error}}'
-      invited: ✓ Đã mời
-      summary: 'Tổng cộng: {{total}} | Thành công: {{successful}} | Thất bại: {{failed}}'
-      title: Kết Quả Mời
-      warning: 'Quan trọng: Vì email tự động bị tắt, bạn cần chia sẻ mật khẩu tạm thời với người dùng được mời một cách thủ công.'
-    singleUser:
-      emailLabel: Địa Chỉ Email
-      emailPlaceholder: user@example.com
-    title: Mời Người Dùng
-    unconfiguredDomain:
-      affectedUsers: 'Người dùng có domain chưa được cấu hình:'
-      cancel: Hủy
-      message: Các địa chỉ email sau đây có domain chưa được cấu hình cho việc đăng ký tự động. Những người dùng này sẽ cần sự hỗ trợ từ quản trị viên để truy cập hệ thống sau khi được mời.
-      proceedAnyway: Tiếp Tục Dù Sao
-      title: Cảnh Báo Cấu Hình Domain
-  inviteUsers: Mời Người Dùng
-  manageTenant: 'Quản lý người dùng cho tenant: {{tenantId}}'
-  messages:
-    failedToCheckAdminStatus: Không thể xác minh trạng thái quản trị viên
-    failedToLoadUsers: Không thể tải người dùng
-    failedToRefreshSession: Không thể làm mới phiên xác thực
-    failedToRemoveUser: Không thể xóa người dùng
-    failedToUpdateUserRole: Không thể cập nhật vai trò người dùng
-    loading: Đang tải...
-    noUsersFound: Không tìm thấy người dùng
-    refreshingSession: Đang làm mới phiên...
-    removeUserConfirmation: 'Bạn có chắc chắn muốn xóa người dùng {{username}}? Hành động này không thể hoàn tác.'
-  roles:
-    admin: Quản Trị Viên
-    regularUser: Người Dùng Thường
-  stats:
-    admins: Quản Trị Viên
-    disabledUsers: Người Dùng Bị Vô Hiệu
-    regularUsers: Người Dùng Thường
-    totalUsers: Tổng Người Dùng
-  status:
-    disabled: VÔ HIỆU
-  table:
-    actions: Hành Động
-    created: Ngày Tạo
-    role: Vai Trò
-    status: Trạng Thái
-    user: Người Dùng
-  title: Cổng Quản Trị
-  userManagement: Quản Lý Người Dùng
 agent:
   drop_files: Thả file để tải lên
   title: Chat Agent
 auth:
   loading: Đang tải...
   login: Đăng nhập
-  loginWith: 'Đăng nhập bằng {{provider}}'
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Tùy chọn nâng cao
@@ -90,9 +15,10 @@ chat:
   delete_link: Xóa liên kết
   delete_link_message: Bằng cách xóa liên kết, bạn có thể ngừng công khai lịch sử cuộc trò chuyện.
   drop_files: Vui lòng thả file
+  hint_cmd_enter: ⌘ + Enter để gửi
+  hint_ctrl_enter: Ctrl + Enter để gửi
   history: Lịch sử cuộc trò chuyện
   initialize: Khởi tạo
-  model_parameters: Tham số mô hình
   open_link: Mở liên kết
   prompt_examples: Ví dụ prompt
   save: Lưu
@@ -110,6 +36,8 @@ common:
   cancel: Hủy
   clear: Xóa
   close: Đóng
+  collapse: Thu gọn
+  colon: ':'
   complete: Hoàn thành
   create: Tạo
   delete: Xóa
@@ -117,6 +45,7 @@ common:
   error: Lỗi
   errorNoSuggestions: Không tìm thấy gợi ý.
   execute: Thực hiện
+  expand: Mở rộng
   feedback_received: Đã nhận phản hồi. Cảm ơn bạn.
   here: Tại đây
   load_more: Tải thêm
@@ -128,6 +57,7 @@ common:
   not_available: Không thể lấy được
   not_selected: Chưa được chọn
   optional: Tùy chọn
+  other: Khác
   previous: Trước
   required: Bắt buộc
   reviewComplete: Hoàn thành đánh giá
@@ -374,6 +304,11 @@ diagram:
       desc: XY chart thể hiện mối quan hệ giữa hai biến
       exampleTitle: Ví dụ thời gian ngủ・làm việc
       title: XY Chart
+dialog:
+  unsavedChanges:
+    leave: Rời khỏi
+    message: Nếu bạn rời khỏi trang này, nội dung đã nhập sẽ bị mất. Bạn có chắc chắn muốn rời khỏi?
+    title: Thay đổi chưa được lưu
 drawer:
   ai_services: Dịch vụ AI
   builder_mode: Chế độ builder
@@ -614,19 +549,24 @@ language:
   zh: Tiếng Trung
 meetingMinutes:
   auto_generate: Tự động tạo
+  clear_minutes: Xóa biên bản
   custom_prompt: Lời nhắc tùy chỉnh
   custom_prompt_placeholder: Nhập lời nhắc tùy chỉnh để tạo biên bản cuộc họp...
   frequency: Tần suất tạo
   frequency_10min: Mỗi 10 phút
   frequency_1min: Mỗi phút
+  frequency_3min: Mỗi 3 phút
   frequency_5min: Mỗi 5 phút
   generate: Tạo
   generate_minutes_header: Tạo biên bản
   generated_minutes: Biên bản đã được tạo
   generating: Đang tạo biên bản...
   generation_error: Không thể tạo biên bản cuộc họp. Vui lòng thử lại.
+  generation_frequency: Tần suất tạo
+  generation_panel: Tạo biên bản họp
   generation_success: Tạo biên bản cuộc họp thành công
-  language: Ngôn ngữ
+  hide_prompt: ▼ Ẩn prompt
+  language: Ngôn ngữ phiên âm
   language_auto: Tự động phát hiện
   language_chinese: Tiếng Trung
   language_english: Tiếng Anh
@@ -636,21 +576,31 @@ meetingMinutes:
   language_vietnamese: Tiếng Việt
   last_generated: Tạo lần cuối {{time}}
   minutes_placeholder: Biên bản sẽ xuất hiện ở đây sau khi tạo
-  model: Mô hình
+  model: Mô hình tạo biên bản cuộc họp
+  new_recording_session: Phiên ghi âm mới
+  next_generation: Tạo tiếp theo
   next_generation_in: 'Tạo tiếp theo trong : '
+  no_transcript: Không có bản chuyển đổi
+  partial_indicator: (...)
   record_transcribe: Ghi âm và chuyển đổi
+  screen_audio_error: Lỗi âm thanh màn hình
   speech_recognition: Nhận dạng giọng nói
   style: Kiểu biên bản
   style_custom: Tùy chỉnh
+  style_detail: Chi tiết
+  style_diagram: Sơ đồ
   style_faq: FAQ
   style_newspaper: Báo chí
+  style_summary: Tóm tắt
   style_transcription: Chuyển đổi
+  style_whiteboard: Bảng trắng
   title: Trình tạo biên bản cuộc họp
   transcript: Bản chuyển đổi
+  transcription_panel: Phiên âm
+  view_prompt: ▶ Xem prompt
 model:
   parameters:
-    reasoning: Reasoning
-    reasoning_budget: Reasoning Budget
+    reasoning_budget: Token budget for extended thinking
 navigation:
   agentChat: Agent Chat
   chat: Chat
@@ -658,7 +608,6 @@ navigation:
   flowChat: Flow Chat
   home: Trang chủ
   imageGeneration: Tạo hình ảnh
-  pptxGeneration: Tạo PPTX
   promptOptimization: Tối ưu hóa prompt
   ragChat: RAG Chat
   settings: Cài đặt
@@ -723,12 +672,16 @@ setting:
     hãy chắc chắn kiểm tra xem bạn đã kích hoạt mô hình được chỉ định trong {{region}} .Để biết cách thực hiện từng cách, vui lòng tham khảo 
     <1>generative-ai-use-cases</1>.
   items:
-    admin_portal: Cổng Quản Trị
-    admin_portal_checking: Đang kiểm tra quyền...
-    admin_portal_manage_users: Quản Lý Người Dùng
     agent_enabled: Agent được bật
+    delete_all_chats: Xóa tất cả lịch sử hội thoại
+    delete_all_chats_button: Xóa tất cả lịch sử
+    delete_all_chats_confirmation: Bạn có chắc chắn muốn xóa tất cả lịch sử hội thoại không? Hành động này không thể hoàn tác.
+    delete_all_chats_deleting: Đang xóa...
+    delete_all_chats_failed: Xóa thất bại
+    delete_all_chats_success: Đã xóa tất cả lịch sử hội thoại
     language: Cài đặt ngôn ngữ
     language_help: Có thể thay đổi ngôn ngữ hiển thị
+    line_break_enter: Nhấn Enter để xuống dòng
     login_status: Trạng thái đăng nhập
     rag_enabled: RAG (Amazon Kendra) được bật
     rag_kb_enabled: RAG (Knowledge Base) được bật
@@ -772,7 +725,7 @@ transcribe:
   mic_input: Đầu vào microphone
   result_placeholder: Kết quả nhận dạng giọng nói sẽ được hiển thị ở đây
   screen_audio: Âm thanh màn hình
-  screen_audio_error: 'Lỗi âm thanh màn hình:'
+  screen_audio_error: Lỗi âm thanh màn hình
   screen_audio_notice: 'Đối với Windows: Chọn tab "Toàn bộ màn hình" và bật "Chia sẻ âm thanh hệ thống".<br/>Đối với Mac: Chọn "Chrome Tab" và bật "Also share tab audio".<br/>Chrome và Edge hoạt động. Firefox không hoạt động.'
   select_input_method: Vui lòng chọn từ đầu vào microphone hoặc tải lên tệp
   speaker_names: Tên người nói (phân cách bằng dấu phẩy)
@@ -786,11 +739,21 @@ translate:
   additional_context_placeholder: Có thể nhập các điểm bổ sung muốn xem xét (như tính thân mật, v.v.)
   auto_detect_language: Tự động phát hiện ngôn ngữ
   auto_translate: Dịch tự động
+  contextHelp: Thông tin ngữ cảnh giúp cải thiện độ chính xác dịch thuật bằng cách cung cấp thông tin nền về cuộc họp.
   continue_output: Xuất tiếp tục
   enter_text: Vui lòng nhập
+  model: Mô hình dịch thời gian thực
+  realtimeTranslation: Dịch thời gian thực
   result_placeholder: Kết quả dịch thuật sẽ được hiển thị ở đây
+  systemGeneratedContext: Ngữ cảnh được tạo bởi hệ thống
+  systemGeneratedContextPlaceholder: Ngữ cảnh được tạo tự động dựa trên nội dung cuộc họp
+  target_language: Ngôn ngữ dịch thời gian thực
   text_to_translate: Văn bản muốn dịch
-  title: Dịch thuậ
+  title: Dịch thuật
+  translating: Đang dịch...
+  translation: Bản dịch
+  userDefinedContext: Ngữ cảnh do người dùng định nghĩa
+  userDefinedContextPlaceholder: 'Nhập ngữ cảnh để cải thiện độ chính xác dịch thuật (ví dụ: chủ đề cuộc họp, thuật ngữ chuyên môn, v.v.)'
 useCaseBuilder:
   accessError: Lỗi truy cập
   addInputExample: Thêm ví dụ đầu vào
@@ -1101,9 +1064,6 @@ videoAnalyzer:
 voiceChat:
   close: Kết thúc Phiên
   default_system_prompt: You are an AI assistant.
-  experimental_warning: >-
-    Voice chat vẫn đang trong giai đoạn thử nghiệm. Kiến trúc và các yếu tố khác có thể thay đổi trong tương lai. Lịch sử hội thoại sẽ không được lưu. Chỉ hỗ trợ tiếng Anh.
-  experimental_warning_title: Về voice chat
   im_listening: Hãy phát biểu
   start: Bắt đầu phiên
   title: Voice Chat
@@ -1194,35 +1154,3 @@ writer:
   tutorial: Hướng dẫn
   tutorial_success: Đã tải hướng dẫn
   useAsTextEditor: Sử dụng như editor văn bản
-pptx:
-  title: Trình tạo bản trình bày PowerPoint
-  description: Tạo bản trình bày chuyên nghiệp tự động với sự hỗ trợ của AI
-  template:
-    label: Lựa chọn mẫu
-    blank: Mẫu trắng
-    blankDescription: Bắt đầu với mẫu sạch và tối giản
-    noTemplates: Không có mẫu tùy chỉnh nào
-    public: Mẫu công khai
-    private: Mẫu riêng tư
-  slideCount:
-    label: Số slide
-  options:
-    titleSlide: Bao gồm slide tiêu đề
-    summarySlide: Bao gồm slide tóm tắt
-  instructions:
-    label: Hướng dẫn bản trình bày
-    placeholder: Nhập chủ đề và yêu cầu bản trình bày của bạn tại đây...
-    help: Mô tả những gì bạn muốn trong bản trình bày. Hãy cụ thể về chủ đề, cấu trúc và bất kỳ yêu cầu đặc biệt nào.
-  generation:
-    status: Trạng thái tạo
-    generating: Đang tạo bản trình bày...
-    completed: Tạo hoàn thành thành công
-    failed: Tạo thất bại
-  examples:
-    title: Chủ đề ví dụ
-    business:
-      title: Chiến lược kinh doanh
-      content: Tạo bản trình bày về đánh giá kinh doanh quý, bao gồm phân tích thị trường, hiệu suất tài chính và các sáng kiến chiến lược cho quý tiếp theo.
-    training:
-      title: Đào tạo sản phẩm
-      content: Phát triển tài liệu đào tạo cho các tính năng phần mềm mới, bao gồm hướng dẫn từng bước, thực hành tốt nhất và mẹo xử lý sự cố.

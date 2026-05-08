@@ -1,7 +1,5 @@
 import { Duration } from 'aws-cdk-lib';
 import {
-  LambdaVersion,
-  StringAttribute,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -10,26 +8,17 @@ import {
   IdentityPool,
   UserPoolAuthenticationProvider,
 } from 'aws-cdk-lib/aws-cognito-identitypool';
-import {
-  Effect,
-  Policy,
-  PolicyStatement,
-  Role,
-  CfnRole,
-} from 'aws-cdk-lib/aws-iam';
+import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LAMBDA_RUNTIME_NODEJS, LAMBDA_RUNTIME_PYTHON } from '../../consts';
-import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
-import { SelfSignUpTenantMapEntry } from 'generative-ai-use-cases';
+import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface AuthProps {
   readonly selfSignUpEnabled: boolean;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly selfSignUpTenantMap?: SelfSignUpTenantMapEntry[] | null;
+  readonly allowedSignUpEmailDomains?: string[] | null;
   readonly samlAuthEnabled: boolean;
-  readonly samlDefaultAuthEnabled: boolean;
 }
 
 export class Auth extends Construct {
@@ -41,11 +30,10 @@ export class Auth extends Construct {
     super(scope, id);
 
     const userPool = new UserPool(this, 'UserPool', {
-      // If SAML authentication is enabled and default auth is disabled, do not use self-sign-up with UserPool. Be aware of security.
-      selfSignUpEnabled:
-        props.samlAuthEnabled && !props.samlDefaultAuthEnabled
-          ? false
-          : props.selfSignUpEnabled,
+      // If SAML authentication is enabled, do not use self-sign-up with UserPool. Be aware of security.
+      selfSignUpEnabled: props.samlAuthEnabled
+        ? false
+        : props.selfSignUpEnabled,
       signInAliases: {
         username: false,
         email: true,
@@ -56,31 +44,10 @@ export class Auth extends Construct {
         requireDigits: true,
         minLength: 8,
       },
-      customAttributes: {
-        tenant_id: new StringAttribute({
-          minLen: 1,
-          maxLen: 50,
-          mutable: true,
-        }),
-        tenantAdmin: new StringAttribute({
-          minLen: 4, // "true" or "false"
-          maxLen: 5,
-          mutable: true, // Allows updating admin status
-        }),
-      },
     });
 
     const client = userPool.addClient('client', {
       idTokenValidity: Duration.days(1),
-      refreshTokenValidity: Duration.days(30),
-      accessTokenValidity: Duration.hours(1),
-      enableTokenRevocation: true,
-      authFlows: {
-        adminUserPassword: true,
-        custom: true,
-        userPassword: true,
-        userSrp: true,
-      },
     });
 
     const idPool = new IdentityPool(this, 'IdentityPool', {
@@ -92,35 +59,7 @@ export class Auth extends Construct {
           }),
         ],
       },
-      allowUnauthenticatedIdentities: false,
     });
-
-    // Fix the trust relationship for the authenticated role
-    // The Identity Pool's default authenticated role needs proper trust policy
-    const authenticatedRole = idPool.authenticatedRole as Role;
-    const cfnRole = authenticatedRole.node.defaultChild as CfnRole;
-
-    // Update the assume role policy to properly trust cognito-identity.amazonaws.com
-    cfnRole.assumeRolePolicyDocument = {
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: {
-            Federated: 'cognito-identity.amazonaws.com',
-          },
-          Action: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
-          Condition: {
-            StringEquals: {
-              'cognito-identity.amazonaws.com:aud': idPool.identityPoolId,
-            },
-            'ForAnyValue:StringLike': {
-              'cognito-identity.amazonaws.com:amr': 'authenticated',
-            },
-          },
-        },
-      ],
-    };
 
     if (props.allowedIpV4AddressRanges || props.allowedIpV6AddressRanges) {
       const ipRanges = [
@@ -163,56 +102,27 @@ export class Auth extends Construct {
     );
 
     // Lambda
-    if (props.selfSignUpTenantMap && props.selfSignUpTenantMap.length > 0) {
-      const checkTenantFunction = new NodejsFunction(this, 'CheckTenant', {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/checkTenant.ts',
-        timeout: Duration.seconds(30),
-        environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
-        },
-      });
-
-      userPool.addTrigger(UserPoolOperation.PRE_SIGN_UP, checkTenantFunction);
-
-      const assignTenantFunction = new NodejsFunction(this, 'AssignTenant', {
-        runtime: LAMBDA_RUNTIME_NODEJS,
-        entry: './lambda/assignTenant.ts',
-        timeout: Duration.seconds(30),
-        environment: {
-          SELF_SIGNUP_TENANT_MAP: JSON.stringify(props.selfSignUpTenantMap),
-        },
-      });
-
-      assignTenantFunction.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['cognito-idp:AdminUpdateUserAttributes'],
-          resources: ['*'],
-        })
+    if (props.allowedSignUpEmailDomains) {
+      const checkEmailDomainFunction = new NodejsFunction(
+        this,
+        'CheckEmailDomain',
+        {
+          runtime: LAMBDA_RUNTIME_NODEJS,
+          entry: './lambda/checkEmailDomain.ts',
+          timeout: Duration.minutes(15),
+          environment: {
+            ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR: JSON.stringify(
+              props.allowedSignUpEmailDomains
+            ),
+          },
+        }
       );
+
       userPool.addTrigger(
-        UserPoolOperation.POST_CONFIRMATION,
-        assignTenantFunction
+        UserPoolOperation.PRE_SIGN_UP,
+        checkEmailDomainFunction
       );
     }
-
-    // Pre Token Generation Lambda for adding custom claims
-    const preTokenGenerationFunction = new PythonFunction(
-      this,
-      'PreTokenGeneration',
-      {
-        runtime: LAMBDA_RUNTIME_PYTHON,
-        entry: './lambda/pre_token_generation',
-        timeout: Duration.seconds(5),
-      }
-    );
-
-    userPool.addTrigger(
-      UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
-      preTokenGenerationFunction,
-      LambdaVersion.V2_0
-    );
 
     this.client = client;
     this.userPool = userPool;

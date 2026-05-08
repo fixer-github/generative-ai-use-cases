@@ -1,6 +1,5 @@
 import useVersion from '../hooks/useVersion';
 import useUserSetting from '../hooks/useUserSetting';
-import useRoleMonitor from '../hooks/useRoleMonitor';
 import { Link } from 'react-router-dom';
 import Help from '../components/Help';
 import Alert from '../components/Alert';
@@ -8,16 +7,14 @@ import Button from '../components/Button';
 import Switch from '../components/Switch';
 import { MODELS } from '../hooks/useModel';
 import useGitHub, { PullRequest } from '../hooks/useGitHub';
-import {
-  PiGithubLogoFill,
-  PiArrowSquareOut,
-  PiShieldCheck,
-} from 'react-icons/pi';
+import { PiGithubLogoFill, PiArrowSquareOut } from 'react-icons/pi';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { useTranslation, Trans } from 'react-i18next';
 import { supportedLngs } from '../i18n/config';
+import useChatList from '../hooks/useChatList';
+import DialogConfirmDeleteAllChats from '../components/DialogConfirmDeleteAllChats';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
@@ -53,15 +50,19 @@ const Setting = () => {
     agentNames,
   } = MODELS;
   const { cache } = useSWRConfig();
-  const { getHasUpdate } = useVersion();
+  const { getLocalVersion, getHasUpdate } = useVersion();
   const { getClosedPullRequests } = useGitHub();
-  const { signOut, user: _user } = useAuthenticator();
+  const { signOut } = useAuthenticator();
   const { i18n, t } = useTranslation();
-  const { isAdmin, isLoading: isAdminLoading } = useRoleMonitor({ enabled: false }); // Only check when needed, don't start polling
+  const { deleteAllChats } = useChatList();
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
 
+  const localVersion = getLocalVersion();
   const hasUpdate = getHasUpdate();
   const closedPullRequests = getClosedPullRequests();
   const {
+    settingSubmitCmdOrCtrlEnter,
+    setSettingSubmitCmdOrCtrlEnter,
     settingTypingAnimation,
     setSettingTypingAnimation,
     settingShowUseCaseBuilder,
@@ -80,6 +81,15 @@ const Setting = () => {
     signOut();
   }, [cache, signOut]);
 
+  const onClickDeleteAllChats = useCallback(async () => {
+    try {
+      await deleteAllChats();
+      setIsDeleteAllDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to delete all chats:', error);
+    }
+  }, [deleteAllChats]);
+
   return (
     <div className="px-12 lg:px-32 xl:px-64">
       {hasUpdate && (
@@ -90,7 +100,7 @@ const Setting = () => {
               components={[
                 <Link
                   className="text-aws-smile"
-                  to="https://github.com/fixer-github/generative-ai-use-cases"
+                  to="https://github.com/aws-samples/generative-ai-use-cases"
                   target="_blank"
                 />,
               ]}
@@ -121,6 +131,16 @@ const Setting = () => {
           helpMessage={t('setting.items.language_help')}
           top={true}
         />
+
+        <SettingItem
+          name={t('setting.items.line_break_enter')}
+          value={
+            <Switch
+              checked={settingSubmitCmdOrCtrlEnter}
+              label=""
+              onSwitch={setSettingSubmitCmdOrCtrlEnter}
+            />
+          }></SettingItem>
 
         <SettingItem
           name={t('setting.items.typing_animation')}
@@ -163,6 +183,16 @@ const Setting = () => {
           }></SettingItem>
 
         <SettingItem
+          name={t('setting.items.delete_all_chats')}
+          value={
+            <Button
+              onClick={() => setIsDeleteAllDialogOpen(true)}
+              className="bg-red-500 text-white">
+              {t('setting.items.delete_all_chats_button')}
+            </Button>
+          }></SettingItem>
+
+        <SettingItem
           name={t('setting.items.login_status')}
           value={
             <Button onClick={onClickSignout}>{t('setting.signout')}</Button>
@@ -176,36 +206,6 @@ const Setting = () => {
               <PiArrowSquareOut className="text-base" />
             </Link>
           }></SettingItem>
-
-        {/* Admin Portal Button - Only show for tenant admins */}
-        {/* Show loading state while checking admin status */}
-        {isAdminLoading && (
-          <SettingItem
-            name={t('setting.items.admin_portal')}
-            value={
-              <div className="flex items-center text-gray-500">
-                <PiShieldCheck className="mr-1 animate-pulse text-base" />
-                {t('setting.items.admin_portal_checking')}
-              </div>
-            }
-          />
-        )}
-
-        {/* Show admin portal link for verified admins */}
-        {!isAdminLoading && isAdmin && (
-          <SettingItem
-            name={t('setting.items.admin_portal')}
-            value={
-              <Link
-                to="/admin"
-                className="flex items-center text-blue-600 hover:text-blue-800">
-                <PiShieldCheck className="mr-1 text-base" />
-                {t('setting.items.admin_portal_manage_users')}{' '}
-                <PiArrowSquareOut className="ml-1 text-base" />
-              </Link>
-            }
-          />
-        )}
       </div>
 
       <div className="mb-3 mt-9 flex justify-center font-semibold">
@@ -214,9 +214,14 @@ const Setting = () => {
 
       <div className="text-sm">
         <SettingItem
+          name={t('setting.items.version')}
+          value={localVersion || t('common.not_available')}
+          helpMessage={t('setting.items.version_help')}
+          top={true}
+        />
+        <SettingItem
           name={t('setting.items.rag_enabled')}
           value={ragEnabled.toString()}
-          top={true}
         />
         <SettingItem
           name={t('setting.items.rag_kb_enabled')}
@@ -258,7 +263,7 @@ const Setting = () => {
               />,
               <Link
                 className="text-aws-smile"
-                to="https://github.com/fixer-github/generative-ai-use-cases"
+                to="https://github.com/aws-samples/generative-ai-use-cases"
                 target="_blank"
               />,
             ]}
@@ -291,7 +296,7 @@ const Setting = () => {
 
         <div className="mb-3 mt-1 flex w-full justify-end text-xs">
           <a
-            href="https://github.com/fixer-github/generative-ai-use-cases/pulls?q=is%3Apr+is%3Aclosed"
+            href="https://github.com/aws-samples/generative-ai-use-cases/pulls?q=is%3Apr+is%3Aclosed"
             className="flex items-center hover:underline"
             target="_blank">
             <PiArrowSquareOut className="mr-1 text-base" />
@@ -299,6 +304,12 @@ const Setting = () => {
           </a>
         </div>
       </div>
+
+      <DialogConfirmDeleteAllChats
+        isOpen={isDeleteAllDialogOpen}
+        onDelete={onClickDeleteAllChats}
+        onClose={() => setIsDeleteAllDialogOpen(false)}
+      />
     </div>
   );
 };

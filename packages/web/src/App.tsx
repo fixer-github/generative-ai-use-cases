@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { RoleMonitorProvider } from './components/RoleMonitorProvider';
 import {
   PiList,
   PiHouse,
@@ -24,7 +23,6 @@ import {
   PiTreeStructure,
   PiNotebook,
   PiGraph,
-  PiPresentation,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -46,13 +44,17 @@ const ragKnowledgeBaseEnabled: boolean =
 const agentEnabled: boolean = import.meta.env.VITE_APP_AGENT_ENABLED === 'true';
 const inlineAgents: boolean = import.meta.env.VITE_APP_INLINE_AGENTS === 'true';
 const mcpEnabled: boolean = import.meta.env.VITE_APP_MCP_ENABLED === 'true';
-const pptxEnabled: boolean = import.meta.env.VITE_APP_PPTX_ENABLED === 'true';
+const agentCoreEnabled: boolean =
+  import.meta.env.VITE_APP_AGENT_CORE_ENABLED === 'true';
+const agentBuilderEnabled: boolean =
+  import.meta.env.VITE_APP_AGENT_CORE_AGENT_BUILDER_ENABLED === 'true';
+
 const {
   visionEnabled,
   imageGenModelIds,
   videoGenModelIds,
   speechToSpeechModelIds,
-  agentNames,
+  agents,
   flowChatEnabled,
 } = MODELS;
 
@@ -112,13 +114,6 @@ const App: React.FC = () => {
           sub: 'Knowledge Base',
         }
       : null,
-    {
-      label: t('navigation.ragChatBot'),
-      to: '/rag-chat-bot',
-      icon: <PiChatCircleText />,
-      display: 'usecase' as const,
-      sub: 'Experimental',
-    },
     agentEnabled && !inlineAgents
       ? {
           label: t('navigation.agentChat'),
@@ -128,10 +123,10 @@ const App: React.FC = () => {
         }
       : null,
     ...(agentEnabled && inlineAgents
-      ? agentNames.map((name: string) => {
+      ? agents.map((agent) => {
           return {
-            label: name,
-            to: `/agent/${name}`,
+            label: agent.displayName,
+            to: `/agent/${agent.displayName}`,
             icon: <PiRobot />,
             display: 'usecase' as const,
             sub: 'Agent',
@@ -143,6 +138,24 @@ const App: React.FC = () => {
           label: t('mcp_chat.title'),
           to: '/mcp',
           icon: <PiGraph />,
+          display: 'usecase' as const,
+          sub: 'Deprecated',
+        }
+      : null,
+    agentCoreEnabled
+      ? {
+          label: t('agent_core.title'),
+          to: '/agent-core',
+          icon: <PiRobot />,
+          display: 'usecase' as const,
+          sub: 'Experimental',
+        }
+      : null,
+    agentBuilderEnabled
+      ? {
+          label: 'Agent Builder',
+          to: '/agent-builder',
+          icon: <PiRobot />,
           display: 'usecase' as const,
           sub: 'Experimental',
         }
@@ -161,7 +174,6 @@ const App: React.FC = () => {
           to: '/voice-chat',
           icon: <PiMicrophoneBold />,
           display: 'usecase' as const,
-          sub: 'Experimental',
         }
       : null,
     enabled('generate')
@@ -244,14 +256,6 @@ const App: React.FC = () => {
           display: 'usecase' as const,
         }
       : null,
-    pptxEnabled && enabled('pptx')
-      ? {
-          label: t('navigation.pptxGeneration'),
-          to: '/pptx',
-          icon: <PiPresentation />,
-          display: 'usecase' as const,
-        }
-      : null,
     {
       label: t('navigation.speechRecognition'),
       to: '/transcribe',
@@ -286,58 +290,79 @@ const App: React.FC = () => {
     }
   }, [pathname, screen, notifyScreen]);
 
+  // Close inter-use-cases demo popup when navigating away from demo pages
+  const { setIsShow: setInterUseCasesShow, useCases } = useInterUseCases();
+  useEffect(() => {
+    // Only check if demo is currently shown and useCases are loaded
+    // Skip if useCases is empty to avoid closing during initialization
+    if (isShow && useCases.length > 0) {
+      const isInDemoFlow = useCases.some((useCase) => {
+        // Normalize paths by ensuring they start with /
+        const useCasePath = useCase.path.startsWith('/')
+          ? useCase.path
+          : `/${useCase.path}`;
+        // Check if current path matches any use case path
+        return (
+          pathname === useCasePath || pathname.startsWith(useCasePath + '/')
+        );
+      });
+      if (!isInDemoFlow) {
+        setInterUseCasesShow(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isShow]);
+
   return (
-    <RoleMonitorProvider>
-      <div
-        className="screen:w-screen screen:h-screen overflow-x-hidden overflow-y-scroll"
-        ref={screen}>
-        <main className="flex-1">
-          <div ref={scrollTopAnchorRef}></div>
-          <header className="bg-aws-squid-ink visible flex h-12 w-full items-center justify-between text-lg text-white lg:invisible lg:h-0 print:hidden">
-            <div className="flex w-10 items-center justify-start">
-              <button
-                className="focus:ring-aws-sky mr-2 rounded-full p-2 hover:opacity-50 focus:outline-none focus:ring-1"
-                onClick={() => {
-                  switchDrawer();
-                }}>
-                <PiList />
-              </button>
-            </div>
+    <div
+      className="screen:w-screen screen:h-screen overflow-x-hidden overflow-y-scroll"
+      ref={screen}>
+      <main className="flex-1">
+        <div ref={scrollTopAnchorRef}></div>
+        <header className="bg-aws-squid-ink visible flex h-12 w-full items-center justify-between text-lg text-white lg:invisible lg:h-0 print:hidden">
+          <div className="flex w-10 items-center justify-start">
+            <button
+              className="focus:ring-aws-sky mr-2 rounded-full  p-2 hover:opacity-50 focus:outline-none focus:ring-1"
+              onClick={() => {
+                switchDrawer();
+              }}>
+              <PiList />
+            </button>
+          </div>
 
-            {label}
+          {label}
 
-            {/* Dummy block to center the label */}
-            <div className="w-10" />
-          </header>
+          {/* Dummy block to center the label */}
+          <div className="w-10" />
+        </header>
 
+        <div
+          className={`fixed -left-64 top-0 z-50 transition-all lg:left-0 lg:z-0 ${
+            isOpenDrawer ? 'left-0' : '-left-64'
+          }`}>
+          <Drawer items={items} />
+        </div>
+
+        <div
+          id="smallDrawerFiller"
+          className={`${isOpenDrawer ? 'visible' : 'invisible'} lg:invisible`}>
           <div
-            className={`fixed -left-64 top-0 z-50 transition-all lg:left-0 lg:z-0 ${
-              isOpenDrawer ? 'left-0' : '-left-64'
-            }`}>
-            <Drawer items={items} />
-          </div>
-
-          <div
-            id="smallDrawerFiller"
-            className={`${isOpenDrawer ? 'visible' : 'invisible'} lg:invisible`}>
-            <div
-              className="screen:h-screen fixed top-0 z-40 w-screen bg-gray-900/90"
-              onClick={switchDrawer}></div>
-            <ButtonIcon
-              className="fixed left-64 top-0 z-40 text-white"
-              onClick={switchDrawer}>
-              <PiX />
-            </ButtonIcon>
-          </div>
-          <div className="text-aws-font-color lg:ml-64">
-            {/* Show when inter-use case connection is enabled */}
-            {isShow && <PopupInterUseCasesDemo />}
-            <Outlet />
-          </div>
-          <div ref={scrollBottomAnchorRef}></div>
-        </main>
-      </div>
-    </RoleMonitorProvider>
+            className="screen:h-screen fixed top-0 z-40 w-screen bg-gray-900/90"
+            onClick={switchDrawer}></div>
+          <ButtonIcon
+            className="fixed left-64 top-0 z-40 text-white"
+            onClick={switchDrawer}>
+            <PiX />
+          </ButtonIcon>
+        </div>
+        <div className="text-aws-font-color lg:ml-64">
+          {/* Show when inter-use case connection is enabled */}
+          {isShow && <PopupInterUseCasesDemo />}
+          <Outlet />
+        </div>
+        <div ref={scrollBottomAnchorRef}></div>
+      </main>
+    </div>
   );
 };
 

@@ -41,7 +41,7 @@ export const handler = async (
         '$2'
       ) ?? '';
 
-    await setChatTitle(req.chat.id, req.chat.createdDate, title, event);
+    await setChatTitle(req.chat.id, req.chat.createdDate, title);
 
     return {
       statusCode: 200,

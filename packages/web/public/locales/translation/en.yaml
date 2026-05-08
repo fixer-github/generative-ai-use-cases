@@ -1,85 +1,132 @@
-adminPortal:
-  actions:
-    remove: Remove
-  invite:
-    actions:
-      cancel: Cancel
-      close: Close
-      inviting: Inviting...
-      sendInvitations: Send Invitations
-    bulkMode:
-      csvFormat: 'CSV format: Email in first column. Example: john@example.com,John Doe,Sales'
-      csvSelected: 'Selected: {{filename}}'
-      csvUpload: CSV File Upload
-      manualEntry: Manual Entry (one email per line)
-      manualPlaceholder: user1@example.com
-      or: or
-    errors:
-      adminPrivilegesRevoked: Your admin privileges have been revoked. You can no longer invite users.
-      invalidFile: Please select a valid CSV file
-      invitationFailed: Failed to invite users
-      noEmailsProvided: Please provide at least one email address
-      tooManyEmails: Maximum 100 users can be invited at once
-    mode:
-      bulk: Bulk Invite
-      single: Single User
-    options:
-      noSendEmailHelp: You will need to manually share login credentials with users
-      sendEmail: Send invitation email automatically
-      sendEmailHelp: Users will receive email with login instructions
-    results:
-      failed: '✗ {{error}}'
-      invited: ✓ Invited
-      summary: 'Total: {{total}} | Successful: {{successful}} | Failed: {{failed}}'
-      title: Invitation Results
-      warning: 'Important: Since automatic emails are disabled, you need to manually share the temporary passwords with invited users.'
-    singleUser:
-      emailLabel: Email Address
-      emailPlaceholder: user@example.com
-    title: Invite Users
-    unconfiguredDomain:
-      affectedUsers: 'Users with unconfigured domains:'
-      cancel: Cancel
-      message: The following email addresses have domains that are not configured for self-signup. These users will need admin assistance to access the system after invitation.
-      proceedAnyway: Proceed Anyway
-      title: Domain Configuration Warning
-  inviteUsers: Invite Users
-  manageTenant: 'Manage users for tenant: {{tenantId}}'
-  messages:
-    failedToCheckAdminStatus: Failed to verify admin status
-    failedToLoadUsers: Failed to load users
-    failedToRefreshSession: Failed to refresh authentication session
-    failedToRemoveUser: Failed to remove user
-    failedToUpdateUserRole: Failed to update user role
-    loading: Loading...
-    noUsersFound: No users found
-    refreshingSession: Refreshing session...
-    removeUserConfirmation: 'Are you sure you want to remove user {{username}}? This action cannot be undone.'
-  roles:
-    admin: Admin
-    regularUser: Regular User
-  stats:
-    admins: Admins
-    disabledUsers: Disabled
-    regularUsers: Regular
-    totalUsers: Total Users
-  status:
-    disabled: DISABLED
-  table:
-    actions: Actions
-    created: Created
-    role: Role
-    status: Status
-    user: User
-  title: Admin Portal
-  userManagement: User Management
 agent:
   drop_files: Drop files to upload
   title: Agent Chat
+agent_builder:
+  add_agents_to_favorites_description: Add agents to your favorites to see them here
+  add_mcp_server: Add MCP Server
+  add_mcp_server_button: Add MCP Server
+  add_mcp_servers_help: Click "Add MCP Server" to add tools and capabilities to your agent
+  add_new_mcp_server: Add New MCP Server
+  agent_chat: Agent Chat
+  agent_cloned_successfully: Agent "{{name}}" cloned successfully!
+  agent_created_successfully: Agent created successfully
+  agent_deleted_successfully: Agent deleted successfully
+  agent_not_found: Agent Not Found
+  agent_updated_successfully: Agent updated successfully
+  all_categories: All
+  arguments: Arguments
+  arguments_help: Package name or command arguments (space-separated)
+  arguments_label: Arguments
+  arguments_placeholder: package-name arg1 arg2
+  basic_information: Basic Information
+  bedrock_agent_description: Pre-configured Bedrock Agent with specialized capabilities
+  chat: chat
+  check_back_later_description: Check back later for new public agents
+  clone: Clone
+  code_execution: Code execution
+  code_execution_description: Allows this agent to run the code and run the scripts.
+  command: Command
+  command_help: Only 'uvx' command is allowed for security reasons
+  command_label: Command
+  command_placeholder: uvx
+  confirm_delete: Are you sure you want to delete this agent?
+  create_agent: Create Agent
+  create_first_agent_description: Create your first agent to get started
+  create_your_first_agent: Create Your First Agent
+  created_by: Created by
+  describe_agent: Please explain the functions of the agent
+  description: Description
+  description_label: Description
+  description_placeholder: Describe what your agent does...
+  description_too_long: Description must be 500 characters or less
+  edit_agent: Edit Agent
+  editor: Editor
+  enable_code_execution: Enabling code execution
+  enter_agent_name: Enter the agent name
+  enter_system_prompt: Enter a system prompt that defines the agent behavior
+  enter_tags_comma_separated: Enter tags separated by commas
+  environment_help: JSON format environment variables (optional)
+  environment_variables: Environment Variables
+  environment_variables_label: Environment Variables
+  example_github: GitHub
+  external: External
+  external_agent_description: Pre-configured external agents with specialized capabilities
+  external_agents: External Agents
+  failed_to_clone_agent: Failed to clone agent
+  failed_to_create_agent: Failed to create agent
+  failed_to_delete_agent: Failed to delete agent
+  failed_to_load_agents: Failed to load agents
+  failed_to_toggle_favorite: Failed to toggle favorite
+  failed_to_update_agent: Failed to update agent
+  favorites: Favorites
+  filter_by_tag: Filter by tag
+  generate_short: Generate
+  generate_with_ai: Generate with AI
+  generating_prompt: Generating system prompt...
+  loading_agent: Loading agent...
+  mcp_server_configuration: MCP Server Configuration
+  mcp_server_description: >-
+    Select MCP servers to enable additional capabilities for your agent. These
+    servers are pre-configured by administrators for security.
+  mcp_servers: MCP Servers
+  mcp_servers_description: Add MCP servers to provide tools and capabilities to your agent
+  model: Model
+  my_agents: My Agents
+  name: Name
+  name_too_long: Agent name must be 100 characters or less
+  no_agents_yet: No agents yet
+  no_external_agents_available: No external agents available
+  no_favorite_agents_yet: No favorite agents yet
+  no_mcp_servers: No MCP servers configured
+  no_mcp_servers_available: No MCP servers are currently available.
+  no_mcp_servers_match_filter: No MCP servers match your current filter.
+  no_mcp_servers_selected: No MCP servers selected. Your agent will have basic functionality only.
+  no_public_agents_available: No public agents available
+  overwrite_confirm: Overwrite
+  overwrite_prompt_message: A system prompt already exists. Do you want to overwrite it with AI-generated prompt?
+  overwrite_prompt_title: Overwrite System Prompt Confirmation
+  preview: Preview
+  public: Public Agents
+  public_sharing_description: >-
+    Make this agent available on public agent directories and be discovered and
+    available to others. 
+
+    The agent is visible to all users, but you cannot modify the original.
+  quick_examples: Quick Examples
+  quick_examples_title: Quick Examples
+  search_agents: Search agents...
+  search_mcp_servers: Search MCP servers...
+  security_notice: Security Notice
+  security_notice_description: >-
+    Only uvx command is allowed. External network access is restricted for
+    security.
+  security_restrictions: >-
+    Only uvx command is allowed. External network access is restricted for
+    security.
+  separate_tags_with_commas: Separate multiple tags with commas
+  server_configuration: Server Configuration
+  server_description_placeholder: Brief description of what this server provides...
+  server_name: Server Name
+  server_name_label: Server Name
+  server_name_placeholder: e.g., github-mcp-server
+  share_publicly: Share publicly
+  showing_results: Showing {{start}}-{{end}} of {{total}} results
+  start_chatting_with: Start chatting with {{name}}
+  system_prompt: System Prompt
+  tags: Tags
+  test: Test
+  title: Agent Builder
+  tool_settings: Tool Settings
+  updated: Updated date
+agent_core:
+  model: Model
+  runtime: Runtime
+  start_conversation: Start a conversation with AgentCore
+  title: AgentCore
+agent_dashboard: {}
 auth:
   loading: Loading...
   login: Login
-  loginWith: 'Login with {{provider}}'
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Advanced Options
@@ -93,15 +140,16 @@ chat:
   delete_link: Delete Link
   delete_link_message: You can stop sharing the conversation history by deleting the link.
   drop_files: Drop files here
+  hint_cmd_enter: ⌘ + Enter to Submit
+  hint_ctrl_enter: Ctrl + Enter to Submit
   history: Conversation History
   initialize: Initialize
-  model_parameters: Model Parameters
   open_link: Open Link
   prompt_examples: Prompt Examples
   save: Save
   saved_system_prompts: Saved System Prompts
   search_by_title: Search by title
-  settings: Settings
+  settings: Apply
   share: Share
   share_conversation: Share Conversation History
   sharing: Sharing
@@ -110,29 +158,48 @@ chat:
   title: Chat
   view_prompt_examples: View Prompt Examples
 common:
+  add: Add
+  arrow: →
+  back: Back
   cancel: Cancel
   clear: Clear
   close: Close
+  collapse: Collapse
+  colon: ':'
   complete: Complete
   create: Create
+  default: Default
   delete: Delete
+  disable: Disable
+  disabled: Disabled
+  edit: Edit
+  enable: Enable
+  enabled: Enabled
   enter_text: Enter text
   error: An error occurred
   errorNoSuggestions: No suggestions were found.
   execute: Execute
+  expand: Expand
   export: Export
   feedback_received: Feedback received. Thank you.
+  first_page: First page
+  form: Form
   here: here
+  last_page: Last page
   load_more: Load more
   loading: Loading...
   next: Next
+  next_page: Next page
   no_options_found: No options found
   none: None
   notAuthenticated: You are not authenticated.
   not_available: Not available
   not_selected: Not selected
   optional: Optional
+  other: Other
   previous: Previous
+  previous_page: Previous page
+  remove: Remove
   required: Required
   reviewComplete: Review completed
   save: Save
@@ -142,6 +209,7 @@ common:
   title: Title
   trace: Trace
   try: Try
+  update: Update
 demo:
   inter_use_cases: Use Case Integration
 diagram:
@@ -373,6 +441,11 @@ diagram:
       desc: XY charts show relationships between two variables
       exampleTitle: Sleep vs Work Hours Example
       title: XY Chart
+dialog:
+  unsavedChanges:
+    leave: Leave
+    message: If you leave this page, your input will be lost. Are you sure you want to leave?
+    title: Unsaved Changes
 drawer:
   ai_services: AI Services
   builder_mode: Builder Mode
@@ -514,10 +587,16 @@ generateText:
   result_placeholder: Generated text will be displayed here
   source_info: Source information for text
   title: Text Generation
+inputs:
+  attachment: Attachment
+  reasoning: Extended thinking
+  setting: Setting
 landing:
   alert:
     description: >-
-      This is an environment used for internal demos by SA. When giving demos to customers, please use the one deployed in your own AWS account as a rule. Do not input customer data or use it for business purposes.
+      This is an environment used for internal demos by SA. When giving demos to
+      customers, please use the one deployed in your own AWS account as a rule.
+      Do not input customer data or use it for business purposes.
     title: About GenU Demo Environment
   demo:
     agent:
@@ -559,7 +638,8 @@ landing:
         music, photography, trendy smartphone, city background
     mcp:
       content: >-
-        Please research about Amazon Bedrock security. Is user input used for model training?
+        Please research about Amazon Bedrock security. Is user input used for
+        model training?
     rag:
       content: >-
         Please provide an overview of Amazon Nova Canvas and explain its key
@@ -603,6 +683,11 @@ landing:
         execute actions or reference the vector database of Knowledge Bases for
         Amazon Bedrock.
       title: Agent Chat
+    agent_core:
+      description: >-
+        AgentCore Chat is a feature that utilizes various Agents created with
+        Bedrock AgentCore.
+      title: AgentCore
     chat:
       description: >-
         You can have interactive dialogues with an LLM in a chat format. It can
@@ -636,12 +721,16 @@ landing:
       title: Image Generation
     mcp_chat:
       description: >-
-        MCP Chat is a chat function that seamlessly integrates Bedrock's LLM models with external data and external tools through the Model Context Protocol (MCP). You can freely add tools by editing the mcp.json file. Leveraging Strands Agents as an MCP agent.
+        MCP Chat is a chat function that seamlessly integrates Bedrock's LLM
+        models with external data and external tools through the Model Context
+        Protocol (MCP). You can freely add tools by editing the mcp.json file.
+        Leveraging Strands Agents as an MCP agent.
       title: MCP Chat
     meeting-minutes:
       description: >-
-        Automatically generate meeting minutes from audio recordings or real-time transcription.
-        No need to write prompts - choose from near-original transcription, newspaper style, or FAQ format.
+        Automatically generate meeting minutes from audio recordings or
+        real-time transcription. No need to write prompts - choose from
+        near-original transcription, newspaper style, or FAQ format.
       title: Meeting Minutes Generation
     rag_chat:
       description_kb: >-
@@ -731,19 +820,34 @@ mcp_chat:
   title: MCP Chat
 meetingMinutes:
   auto_generate: Auto Generate
+  bidirectional: Bidirectional Translation
+  both_panel: Both Panels
+  clear_minutes: Clear
   custom_prompt: Custom Prompt
   custom_prompt_placeholder: Enter your custom prompt for generating meeting minutes...
+  diagram_flowchart: Flowchart (Meeting Flow)
+  diagram_mindmap: Mindmap (Decisions)
+  diagram_options: Diagram Types to Generate
+  diagram_sequence: Sequence Diagram (Relationships)
+  diagram_timeline: Timeline (Deadlines & Schedule)
   frequency: Generation Frequency
   frequency_10min: Every 10 minutes
   frequency_1min: Every 1 minute
+  frequency_3min: Every 3 minutes
   frequency_5min: Every 5 minutes
   generate: Generate
   generate_minutes_header: Generate Meeting Minutes
   generated_minutes: Generated Minutes
   generating: Generating minutes...
   generation_error: Failed to generate meeting minutes. Please try again.
+  generation_frequency: Generation Frequency
+  generation_panel: Generate Minutes
   generation_success: Meeting minutes generated successfully
-  language: Language
+  hide_prompt: ▼ Hide prompt
+  input_source: Input Source
+  language: Transcription Language
+  language_1: Language 1
+  language_2: Language 2
   language_auto: Auto Detect
   language_chinese: Chinese
   language_english: English
@@ -752,22 +856,41 @@ meetingMinutes:
   language_thai: Thai
   language_vietnamese: Vietnamese
   last_generated: Last generated {{time}}
+  microphone: Microphone
   minutes_placeholder: Minutes will appear here after generation
-  model: Model
+  model: Meeting Minutes Generation Model
+  new_recording_session: New Recording Session
+  next_generation: Next Generation
   next_generation_in: 'Next generation in : '
+  no_transcript: No Transcript
+  option: Option
+  partial_indicator: (...)
   record_transcribe: Record & Transcribe
+  screen_audio_error: Screen Audio Error
+  settings: Settings
   speech_recognition: Speech Recognition
   style: Minutes Style
   style_custom: Custom
+  style_detail: Detail
+  style_diagram: Diagram
   style_faq: FAQ
   style_newspaper: Newspaper
+  style_summary: Summary
   style_transcription: Transcription
+  style_whiteboard: Whiteboard
+  target_language: Real-time Translation Language
   title: Meeting Minutes Generator
   transcript: Transcript
+  transcription_language: Transcription Language
+  transcription_panel: Transcription
+  translation_language: Translation Language
+  translation_model: Real-time Translation Model
+  translation_type: Translation Type
+  unidirectional: Unidirectional Translation
+  view_prompt: ▶ View prompt
 model:
   parameters:
-    reasoning: Reasoning
-    reasoning_budget: Reasoning Budget
+    reasoning_budget: Token budget for extended thinking
 navigation:
   agentChat: Agent Chat
   chat: Chat
@@ -776,10 +899,8 @@ navigation:
   home: Home
   imageGeneration: Image Generation
   meetingMinutes: Meeting Minutes
-  pptxGeneration: PPTX Generation
   promptOptimization: Prompt Optimization
   ragChat: RAG Chat
-  ragChatBot: RAG ChatBot
   settings: Settings
   speechRecognition: Speech Recognition
   summary: Summary
@@ -844,108 +965,6 @@ rag:
   please_refer: .
   retrieving: Retrieving reference documents from Kendra...
   title: RAG Chat
-ragChatBot:
-  all: All
-  allBots: All Bots
-  changeVisibility: Change Visibility
-  chat: Chat
-  chatPage:
-    botInfo: Bot Information
-    chunksEnabled: Chunks display enabled
-    confirmClear: Are you sure you want to clear the conversation?
-    copy: Copy
-    inputPlaceholder: Type a message...
-    instruction: Instruction
-    noMessages: No messages
-    quickStarters: Quick Starters
-    send: Send
-    sendError: Failed to send message
-    syncStatus: Sync Status
-    title: ChatBot Chat
-  confirmDelete: Are you sure you want to delete this bot?
-  createNew: Create New Bot
-  delete: Delete
-  description: Create, manage, and share AI bots
-  edit:
-    add: Add
-    back: Back
-    basicInfo: Basic Information
-    cancel: Cancel
-    createTitle: Create New Bot
-    description: Description
-    displayRetrievedChunks: Display Retrieved Chunks
-    editTitle: Edit Bot
-    generationParams: Generation Parameters
-    instruction: Instruction
-    knowledge: Knowledge Base
-    maxTokens: Max Tokens
-    promptCaching: Prompt Caching
-    quickStarterExample: Example
-    quickStarterTitle: Title
-    quickStarters: Quick Starters
-    requiredFields: Please fill in required fields
-    save: Save
-    saveBeforeUpload: Please save the bot before uploading files
-    saveFailed: Failed to save
-    saving: Saving...
-    sourceUrls: Source URLs
-    temperature: Temperature
-    title: Title
-    topK: Top-K
-    topP: Top-P
-    uploadFiles: Upload Files
-  editTitle: Edit
-  filter: Filter
-  filterAll: All
-  filterPrivate: Private
-  filterPublic: Public
-  filterStarred: Starred
-  history:
-    back: Back
-    confirmBulkDelete: 'Are you sure you want to delete {{count}} conversations?'
-    confirmDelete: Are you sure you want to delete this conversation?
-    daysAgo: '{{days}} days ago'
-    deleteSelected: Delete Selected
-    deselectAll: Deselect All
-    hoursAgo: '{{hours}} hours ago'
-    lastMessage: Last message
-    messageCount: 'Messages: {{count}}'
-    minutesAgo: '{{minutes}} minutes ago'
-    noConversations: No conversations found
-    noDate: No date
-    open: Open
-    search: Search
-    searchPlaceholder: Search conversations...
-    selectAll: Select All
-    selected: '{{count}} selected'
-    showing: 'Showing {{count}} conversations'
-    title: Conversation History
-    untitled: Untitled
-    yesterday: Yesterday
-  lastUsed: Last used
-  myBots: My Bots
-  noBots: No bots found
-  organizationPublic: Organization Public
-  organizationPublicDescription: Members of your organization can use this bot
-  popularBots: Popular Bots
-  private: Private
-  privateDescription: Only you can use this bot
-  scopeFilter: Scope
-  search: Search
-  searchPlaceholder: Search by bot name or description
-  shared: Shared
-  title: RAG ChatBot Management
-  showStarredOnly: Show starred only
-  star: Star
-  starredOnly: Starred Only
-  syncStatus:
-    completed: Sync Complete
-    failed: Sync Failed
-    syncing: Syncing
-  tenantPublic: Tenant Public
-  tenantPublicDescription: Members of your tenant can use this bot
-  unstar: Unstar
-  viewMore: View More
 setting:
   ai_items:
     agent_name: Agent Name
@@ -959,12 +978,16 @@ setting:
     enabled the specified models in {{region}}. For details on how to do this,
     please refer to <1>generative-ai-use-cases</1>.
   items:
-    admin_portal: Admin Portal
-    admin_portal_checking: Checking permissions...
-    admin_portal_manage_users: Manage Users
     agent_enabled: Agent Enabled
+    delete_all_chats: Delete All Conversation History
+    delete_all_chats_button: Delete All History
+    delete_all_chats_confirmation: Are you sure you want to delete all conversation history? This action cannot be undone.
+    delete_all_chats_deleting: Deleting...
+    delete_all_chats_failed: Failed to delete
+    delete_all_chats_success: All conversation history has been deleted
     language: Language
     language_help: Change display language
+    line_break_enter: Press Enter to create new line
     login_status: Login status
     rag_enabled: RAG (Amazon Kendra) Enabled
     rag_kb_enabled: RAG (Knowledge Base) Enabled
@@ -1016,7 +1039,9 @@ summarize:
 transcribe:
   detailed_parameters: Detailed parameters
   direct_input: Direct Input
-  direct_input_instruction: Please enter the source text for meeting minutes directly in the "Transcript" area below.
+  direct_input_instruction: >-
+    Please enter the source text for meeting minutes directly in the
+    "Transcript" area below.
   direct_input_placeholder: Please enter the source text for meeting minutes here...
   file_upload: File Upload
   max_speakers: Max Speakers
@@ -1024,8 +1049,11 @@ transcribe:
   mic_input: Microphone Input
   result_placeholder: Speech recognition results will be displayed here
   screen_audio: Screen Audio
-  screen_audio_error: 'Screen Audio Error:'
-  screen_audio_notice: 'For Windows: Select "Entire Screen" tab and turn ON "Share system audio".<br/>For Mac: Select "Chrome Tab" and turn ON "Also share tab audio".<br/>Chrome and Edge work. Firefox does not work.'
+  screen_audio_error: Screen Audio Error
+  screen_audio_notice: >-
+    For Windows: Select "Entire Screen" tab and turn ON "Share system
+    audio".<br/>For Mac: Select "Chrome Tab" and turn ON "Also share tab
+    audio".<br/>Chrome and Edge work. Firefox does not work.
   select_input_method: Please select from microphone input or file upload
   speaker_names: Speaker names (comma separated)
   speaker_recognition: Speaker recognition
@@ -1033,16 +1061,31 @@ transcribe:
   stop_recording: Stop Recording
   supported_files: mp3, mp4, wav, flac, ogg, amr, webm, m4a files are available
   title: Speech Recognition
+  voice_transcription: Voice Transcription
 translate:
   additional_context: Additional context
   additional_context_placeholder: You can enter additional points to consider (e.g., casualness, etc.)
   auto_detect_language: Auto detect language
   auto_translate: Auto translate
+  contextHelp: >-
+    Context information helps improve translation accuracy by providing
+    background information about the meeting.
   continue_output: Continue output
+  detectedLanguage: Detected Language
   enter_text: Enter text
+  realtimeTranslation: Real-time Translation
+  realtime_translation: Real-time Translation
   result_placeholder: Translation results will be displayed here
+  systemGeneratedContext: System-generated Context
+  systemGeneratedContextPlaceholder: Auto-generated context based on the meeting content
   text_to_translate: Text to translate
   title: Translate
+  translating: Translating...
+  translation: Translation
+  userDefinedContext: User-defined Context
+  userDefinedContextPlaceholder: >-
+    Enter context to improve translation accuracy (e.g., meeting topic,
+    technical terms, etc.)
 useCaseBuilder:
   accessError: Access Error
   addInputExample: Add Input Example
@@ -1351,59 +1394,6 @@ useCaseBuilder:
   updateDescription: Update the use case with the above content.
   updateErrorCondition: 'The following conditions must be met:'
   updating: Updating...
-pptx:
-  title: PowerPoint Presentation Generator
-  description: Create professional presentations automatically with AI assistance
-  template:
-    label: Template Selection
-    blank: Blank Template
-    blankDescription: Start with a clean, minimal template
-    noTemplates: No custom templates available
-    public: Public template
-    private: Private template
-  slideCount:
-    label: Number of Slides
-  options:
-    titleSlide: Include Title Slide
-    summarySlide: Include Summary Slide
-  instructions:
-    label: Presentation Instructions
-    placeholder: Enter your presentation topic and requirements here...
-    help: Describe what you want in your presentation. Be specific about the topic, structure, and any special requirements.
-  generation:
-    status: Generation Status
-    generating: Generating presentation...
-    completed: Generation completed successfully
-    failed: Generation failed
-  generate: Generate
-  generating: Generating...
-  download: Download
-  upload:
-    title: Upload Template
-    fileLabel: Template File
-    nameLabel: Template Name
-    namePlaceholder: Enter template name
-    descriptionLabel: Description
-    descriptionPlaceholder: Enter template description
-    tagsLabel: Tags
-    tagsPlaceholder: Enter tags (comma-separated)
-    tagsHelp: Add tags to help categorize your template
-    publicLabel: Make this template public
-    publicHelp: Public templates can be used by all users
-    upload: Upload
-    uploading: Uploading...
-    invalidFileType: Invalid file type. Please select a PowerPoint file (.pptx)
-    fileTooLarge: File is too large. Maximum size is 10MB
-    missingFields: Please fill in all required fields
-    failed: Failed to upload template
-  examples:
-    title: Example Topics
-    business:
-      title: Business Strategy
-      content: Create a presentation about quarterly business review, including market analysis, financial performance, and strategic initiatives for the next quarter.
-    training:
-      title: Product Training
-      content: Develop training materials for new software features, including step-by-step guides, best practices, and troubleshooting tips.
 video:
   aspectRatio: Aspect Ratio
   clear: Clear
@@ -1477,11 +1467,6 @@ videoAnalyzer:
 voiceChat:
   close: Close session
   default_system_prompt: You are an AI assistant.
-  experimental_warning: >-
-    Voice Chat is still in an experimental stage. The architecture, etc. may be
-    changed in the future. Conversation history will not be saved. The supported
-    language is English only.
-  experimental_warning_title: About Voice Chat
   im_listening: I'm listening...
   start: Start new session
   title: Voice Chat

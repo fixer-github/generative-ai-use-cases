@@ -8,7 +8,7 @@ export const handler = async (
     const userId: string =
       event.requestContext.authorizer!.claims['cognito:username'];
     const systemContextId = event.pathParameters!.systemContextId!;
-    await deleteSystemContext(userId, systemContextId, event);
+    await deleteSystemContext(userId, systemContextId);
 
     return {
       statusCode: 204,

@@ -9,5 +9,8 @@ node_modules
 site*/
 .cache
 
-# Deployment Configuration
-packages/cdk/cdk.json
+# Jest snapshot fix files
+*.snap.fix
+# Coding Asssitant
+.kiro/settings
+.kiro/specs

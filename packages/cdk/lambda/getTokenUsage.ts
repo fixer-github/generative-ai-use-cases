@@ -1,9 +1,7 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { aggregateTokenUsage } from './repository';
+import { GetTokenUsageEvent } from 'generative-ai-use-cases';
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+export const handler = async (event: GetTokenUsageEvent) => {
   try {
     console.log('Getting token usage statistics', { event });
 
@@ -25,9 +23,7 @@ export const handler = async (
     }
 
     // Get aggregated data for the specified period
-    const stats = await aggregateTokenUsage(startDate, endDate, event, [
-      userId,
-    ]);
+    const stats = await aggregateTokenUsage(startDate, endDate, [userId]);
 
     return {
       statusCode: 200,

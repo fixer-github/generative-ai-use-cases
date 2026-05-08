@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useRef } from 'react';
 import RowItem, { RowItemProps } from './RowItem';
 import Help from './Help';
 import { useTranslation } from 'react-i18next';
+import useUserSetting from '../hooks/useUserSetting';
 
 type Props = RowItemProps & {
   value?: string;
@@ -24,6 +25,7 @@ const MAX_HEIGHT = 300;
 
 const Textarea: React.FC<Props> = (props) => {
   const { t } = useTranslation();
+  const { settingSubmitCmdOrCtrlEnter } = useUserSetting();
   const ref = useRef<HTMLTextAreaElement>(null);
   const maxHeight = props.maxHeight || MAX_HEIGHT;
 
@@ -71,17 +73,36 @@ const Textarea: React.FC<Props> = (props) => {
         className={`${
           props.className ?? ''
         } w-full resize-none rounded p-1.5 outline-none ${
-          props.noBorder ? 'border-0 focus:ring-0' : 'border border-black/30'
-        } ${props.disabled ? 'bg-gray-200' : ''}`}
+          props.noBorder ? 'border-0 focus:ring-0 ' : 'border border-black/30'
+        } ${props.disabled ? 'bg-gray-200 ' : ''}`}
         rows={props.rows ?? 1}
         placeholder={props.placeholder || t('common.enter_text')}
         value={props.value}
         onKeyDown={(e) => {
           // keyCode is deprecated, but used for some browsers to handle IME input
           if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-          if (props.onEnter && e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            props.onEnter();
+
+          if (props.onEnter) {
+            if (settingSubmitCmdOrCtrlEnter) {
+              // When line break mode is enabled, enter key creates new line and cmd/ctrl+enter sends message
+              if (navigator.platform.toLowerCase().includes('mac')) {
+                if (e.key === 'Enter' && e.metaKey) {
+                  e.preventDefault();
+                  props.onEnter();
+                }
+              } else {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  e.preventDefault();
+                  props.onEnter();
+                }
+              }
+            } else {
+              // Default behavior: send with enter (not cmd/ctrl+enter)
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                props.onEnter();
+              }
+            }
           }
         }}
         onChange={(e) => {

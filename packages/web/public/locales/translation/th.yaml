@@ -1,84 +1,9 @@
-adminPortal:
-  actions:
-    remove: ลบ
-  invite:
-    actions:
-      cancel: ยกเลิก
-      close: ปิด
-      inviting: กำลังเชิญ...
-      sendInvitations: ส่งคำเชิญ
-    bulkMode:
-      csvFormat: 'รูปแบบ CSV: อีเมลในคอลัมน์แรก ตัวอย่าง: john@example.com,John Doe,ฝ่ายขาย'
-      csvSelected: 'เลือกแล้ว: {{filename}}'
-      csvUpload: อัปโหลดไฟล์ CSV
-      manualEntry: การป้อนด้วยตนเอง (หนึ่งอีเมลต่อบรรทัด)
-      manualPlaceholder: user1@example.com
-      or: หรือ
-    errors:
-      invalidFile: กรุณาเลือกไฟล์ CSV ที่ถูกต้อง
-      invitationFailed: ไม่สามารถเชิญผู้ใช้ได้
-      noEmailsProvided: กรุณาระบุที่อยู่อีเมลอย่างน้อยหนึ่งที่
-      tooManyEmails: สามารถเชิญผู้ใช้ได้สูงสุด 100 คนในครั้งเดียว
-    mode:
-      bulk: เชิญจำนวนมาก
-      single: ผู้ใช้เดี่ยว
-    options:
-      noSendEmailHelp: คุณจะต้องแชร์ข้อมูลประจำตัวการเข้าสู่ระบบกับผู้ใช้ด้วยตนเอง
-      sendEmail: ส่งอีเมลเชิญอัตโนมัติ
-      sendEmailHelp: ผู้ใช้จะได้รับอีเมลพร้อมคำแนะนำในการเข้าสู่ระบบ
-    results:
-      failed: '✗ {{error}}'
-      invited: ✓ เชิญแล้ว
-      summary: 'รวม: {{total}} | สำเร็จ: {{successful}} | ล้มเหลว: {{failed}}'
-      title: ผลการเชิญ
-      warning: 'สำคัญ: เนื่องจากอีเมลอัตโนมัติถูกปิดใช้งาน คุณจำเป็นต้องแชร์รหัสผ่านชั่วคราวกับผู้ใช้ที่ได้รับเชิญด้วยตนเอง'
-    singleUser:
-      emailLabel: ที่อยู่อีเมล
-      emailPlaceholder: user@example.com
-    title: เชิญผู้ใช้
-    unconfiguredDomain:
-      affectedUsers: 'ผู้ใช้ที่มีโดเมนที่ไม่ได้กำหนดค่า:'
-      cancel: ยกเลิก
-      message: ที่อยู่อีเมลต่อไปนี้มีโดเมนที่ไม่ได้กำหนดค่าสำหรับการสมัครสมาชิกอัตโนมัติ ผู้ใช้เหล่านี้จะต้องการความช่วยเหลือจากผู้ดูแลระบบเพื่อเข้าถึงระบบหลังจากได้รับการเชิญ
-      proceedAnyway: ดำเนินการต่อไปอยู่ดี
-      title: คำเตือนการกำหนดค่าโดเมน
-  inviteUsers: เชิญผู้ใช้
-  manageTenant: 'จัดการผู้ใช้สำหรับเทนเทนต์: {{tenantId}}'
-  messages:
-    failedToCheckAdminStatus: ไม่สามารถตรวจสอบสถานะผู้ดูแลระบบได้
-    failedToLoadUsers: ไม่สามารถโหลดผู้ใช้ได้
-    failedToRefreshSession: ไม่สามารถรีเฟรชเซสชันการยืนยันตัวตนได้
-    failedToRemoveUser: ไม่สามารถลบผู้ใช้ได้
-    failedToUpdateUserRole: ไม่สามารถอัปเดตบทบาทผู้ใช้ได้
-    loading: กำลังโหลด...
-    noUsersFound: ไม่พบผู้ใช้
-    refreshingSession: กำลังรีเฟรชเซสชัน...
-    removeUserConfirmation: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ {{username}}? การดำเนินการนี้ไม่สามารถยกเลิกได้'
-  roles:
-    admin: ผู้ดูแลระบบ
-    regularUser: ผู้ใช้ทั่วไป
-  stats:
-    admins: ผู้ดูแลระบบ
-    disabledUsers: ผู้ใช้ที่ถูกปิดใช้งาน
-    regularUsers: ผู้ใช้ทั่วไป
-    totalUsers: ผู้ใช้ทั้งหมด
-  status:
-    disabled: ปิดใช้งาน
-  table:
-    actions: การดำเนินการ
-    created: วันที่สร้าง
-    role: บทบาท
-    status: สถานะ
-    user: ผู้ใช้
-  title: พอร์ทัลผู้ดูแลระบบ
-  userManagement: การจัดการผู้ใช้
 agent:
   drop_files: วางไฟล์เพื่ออัปโหลด
   title: Agent Chat
 auth:
   loading: กำลังโหลด...
   login: เข้าสู่ระบบ
-  loginWith: 'เข้าสู่ระบบด้วย {{provider}}'
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: ตัวเลือกขั้นสูง
@@ -90,9 +15,10 @@ chat:
   delete_link: ลบลิงก์
   delete_link_message: คุณสามารถหยุดการแชร์ประวัติการสนทนาโดยการลบลิงก์
   drop_files: วางไฟล์ที่นี่
+  hint_cmd_enter: ⌘ + Enter เพื่อส่ง
+  hint_ctrl_enter: Ctrl + Enter เพื่อส่ง
   history: ประวัติการสนทนา
   initialize: เริ่มต้นใหม่
-  model_parameters: พารามิเตอร์โมเดล
   open_link: เปิดลิงก์
   prompt_examples: ตัวอย่าง prompt
   save: บันทึก
@@ -110,6 +36,8 @@ common:
   cancel: ยกเลิก
   clear: ล้าง
   close: ปิด
+  collapse: ย่อ
+  colon: ':'
   complete: เสร็จสิ้น
   create: สร้าง
   delete: ลบ
@@ -117,6 +45,7 @@ common:
   error: เกิดข้อผิดพลาด
   errorNoSuggestions: ไม่พบคำแนะนำ
   execute: ดำเนินการ
+  expand: ขยาย
   export: ส่งออก
   feedback_received: ได้รับข้อเสนอแนะแล้ว ขอบคุณ
   here: ที่นี่
@@ -129,6 +58,7 @@ common:
   not_available: ไม่พร้อมใช้งาน
   not_selected: ไม่ได้เลือก
   optional: ไม่บังคับ
+  other: อื่นๆ
   previous: ก่อนหน้า
   required: จำเป็น
   reviewComplete: การตรวจสอบเสร็จสิ้น
@@ -376,6 +306,11 @@ diagram:
       desc: XY chart แสดงความสัมพันธ์ระหว่างตัวแปรสองตัว
       exampleTitle: ตัวอย่างชั่วโมงนอนเทียบกับชั่วโมงทำงาน
       title: XY Chart
+dialog:
+  unsavedChanges:
+    leave: ออก
+    message: หากคุณออกจากหน้านี้ ข้อมูลที่ป้อนจะสูญหาย คุณแน่ใจหรือไม่ว่าต้องการออก?
+    title: การเปลี่ยนแปลงที่ยังไม่ได้บันทึก
 drawer:
   ai_services: บริการ AI
   builder_mode: Builder Mode
@@ -630,19 +565,24 @@ language:
   zh: ภาษาจีน
 meetingMinutes:
   auto_generate: สร้างอัตโนมัติ
+  clear_minutes: ล้างรายงานการประชุม
   custom_prompt: พรอมต์แบบกำหนดเอง
   custom_prompt_placeholder: ป้อนพรอมต์แบบกำหนดเองสำหรับการสร้างรายงานการประชุม...
   frequency: ความถี่ในการสร้าง
   frequency_10min: ทุก 10 นาที
   frequency_1min: ทุกนาที
+  frequency_3min: ทุก 3 นาที
   frequency_5min: ทุก 5 นาที
   generate: สร้าง
   generate_minutes_header: สร้างรายงานการประชุม
   generated_minutes: รายงานการประชุมที่สร้างแล้ว
   generating: กำลังสร้างรายงานการประชุม...
   generation_error: ไม่สามารถสร้างรายงานการประชุมได้ กรุณาลองอีกครั้ง
+  generation_frequency: ความถี่ในการสร้าง
+  generation_panel: สร้างรายงานการประชุม
   generation_success: สร้างรายงานการประชุมสำเร็จ
-  language: ภาษา
+  hide_prompt: ▼ ซ่อนพรอมต์
+  language: ภาษาการถอดเสียง
   language_auto: ตรวจจับอัตโนมัติ
   language_chinese: จีน
   language_english: อังกฤษ
@@ -652,20 +592,30 @@ meetingMinutes:
   language_vietnamese: เวียดนาม
   last_generated: สร้างล่าสุดเมื่อ {{time}}
   minutes_placeholder: รายงานการประชุมจะปรากฏที่นี่หลังจากสร้าง
-  model: โมเดล
+  model: โมเดลสร้างรายงานการประชุม
+  new_recording_session: เซสชันการบันทึกใหม่
+  next_generation: การสร้างครั้งถัดไป
   next_generation_in: 'สร้างครั้งถัดไปใน : '
+  no_transcript: ไม่มีบันทึกการถอดความ
+  partial_indicator: (...)
   record_transcribe: บันทึกและถอดความ
+  screen_audio_error: ข้อผิดพลาดเสียงหน้าจอ
   speech_recognition: การรู้จำเสียงพูด
   style: รูปแบบรายงานการประชุม
   style_custom: กำหนดเอง
+  style_detail: รายละเอียด
+  style_diagram: ไดอะแกรม
   style_faq: คำถามที่พบบ่อย
   style_newspaper: หนังสือพิมพ์
+  style_summary: สรุป
   style_transcription: การถอดความ
+  style_whiteboard: ไวท์บอร์ด
   title: ตัวสร้างรายงานการประชุม
   transcript: บันทึกการถอดความ
+  transcription_panel: ถอดความ
+  view_prompt: ▶ ดูพรอมต์
 model:
   parameters:
-    reasoning: การให้เหตุผล
     reasoning_budget: งบประมาณการให้เหตุผล
 navigation:
   agentChat: Agent Chat
@@ -675,7 +625,6 @@ navigation:
   home: Home (หน้าหลัก)
   imageGeneration: การสร้างภาพ
   meetingMinutes: รายงานการประชุม
-  pptxGeneration: สร้าง PPTX
   promptOptimization: ปรับแต่ง Prompt ให้ตรงความต้องการ
   ragChat: RAG Chat
   settings: ตั้งค่า
@@ -745,14 +694,24 @@ setting:
   config_message: >-
     การตั้งค่าสามารถเปลี่ยนแปลงได้โดยใช้ <0>AWS CDK</0> ไม่ใช่บนหน้าจอนี้ หากคุณพบข้อผิดพลาดเมื่อใช้ use cases โปรดตรวจสอบว่าคุณได้เปิดใช้งานโมเดลที่ระบุใน {{region}} สำหรับรายละเอียดเกี่ยวกับวิธีการทำเช่นนี้ โปรดดูที่ <1>generative-ai-use-cases</1>
   items:
-    admin_portal: พอร์ทัลผู้ดูแล
-    admin_portal_checking: กำลังตรวจสอบสิทธิ์...
-    admin_portal_manage_users: จัดการผู้ใช้
     agent_enabled: เปิดใช้งานตัวแทน
+    delete_all_chats: ลบประวัติการสนทนาทั้งหมด
+    delete_all_chats_button: ลบประวัติทั้งหมด
+    delete_all_chats_confirmation: คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการสนทนาทั้งหมด? การกระทำนี้ไม่สามารถยกเลิกได้
+    delete_all_chats_deleting: กำลังลบ...
+    delete_all_chats_failed: การลบล้มเหลว
+    delete_all_chats_success: ลบประวัติการสนทนาทั้งหมดแล้ว
     language: ภาษา
     language_help: เปลี่ยนภาษาที่แสดง
+    line_break_enter: กด Enter เพื่อขึ้นบรรทัดใหม่
+    login_status: สถานะการเข้าสู่ระบบ
     rag_enabled: เปิดใช้งาน RAG (Amazon Kendra)
     rag_kb_enabled: เปิดใช้งาน RAG (Knowledge Base)
+    show_email: แสดงอีเมล
+    show_tools: แสดงเครื่องมือ
+    show_use_case_builder: แสดง Use Case Builder
+    stats: สถิติ
+    typing_animation: แอนิเมชันการพิมพ์
     version: เวอร์ชัน
     version_help: อ้างอิงเวอร์ชันใน package.json ของ generative-ai-use-cases
   recent_updates: การอัปเดตล่าสุด
@@ -788,7 +747,7 @@ transcribe:
   mic_input: อินพุตไมโครโฟน
   result_placeholder: ข้อความที่แปลงจากเสียงของคุณ
   screen_audio: เสียงหน้าจอ
-  screen_audio_error: 'ข้อผิดพลาดเสียงหน้าจอ:'
+  screen_audio_error: ข้อผิดพลาดเสียงหน้าจอ
   screen_audio_notice: 'สำหรับ Windows: เลือกแท็บ "หน้าจอทั้งหมด" และเปิด "แชร์เสียงระบบด้วย"<br/>สำหรับ Mac: เลือก "Chrome Tab" และเปิด "Also share tab audio"<br/>Chrome และ Edge ใช้งานได้ Firefox ใช้งานไม่ได้'
   select_input_method: โปรดเลือกจากอินพุตไมโครโฟนหรืออัปโหลดไฟล์
   speaker_names: ชื่อผู้พูด (คั่นด้วยเครื่องหมายจุลภาค)
@@ -802,11 +761,21 @@ translate:
   additional_context_placeholder: คุณสามารถป้อนประเด็นเพิ่มเติมที่ต้องการพิจารณา (เช่น ความไม่เป็นทางการ ฯลฯ)
   auto_detect_language: ตรวจจับภาษาอัตโนมัติ
   auto_translate: แปลอัตโนมัติ
+  contextHelp: ข้อมูลบริบทช่วยเพิ่มความแม่นยำในการแปลโดยให้ข้อมูลพื้นฐานเกี่ยวกับการประชุม
   continue_output: ดำเนินการต่อ
   enter_text: ป้อนข้อความ
+  model: โมเดลการแปลแบบเรียลไทม์
+  realtimeTranslation: การแปลแบบเรียลไทม์
   result_placeholder: ผลการแปลจะแสดงที่นี่
+  systemGeneratedContext: บริบทที่สร้างโดยระบบ
+  systemGeneratedContextPlaceholder: บริบทที่สร้างขึ้นอัตโนมัติจากเนื้อหาการประชุม
+  target_language: ภาษาการแปลแบบเรียลไทม์
   text_to_translate: ข้อความที่จะแปล
   title: แปล
+  translating: กำลังแปล...
+  translation: การแปล
+  userDefinedContext: บริบทที่ผู้ใช้กำหนด
+  userDefinedContextPlaceholder: ป้อนบริบทเพื่อเพิ่มความแม่นยำในการแปล (เช่น หัวข้อการประชุม คำศัพท์เทคนิค ฯลฯ)
 useCaseBuilder:
   accessError: ข้อผิดพลาดในการเข้าถึง
   addInputExample: เพิ่มตัวอย่างอินพุต
@@ -1127,9 +1096,6 @@ videoAnalyzer:
 voiceChat:
   close: ปิดเซสชั่น
   default_system_prompt: You are an AI assistant.
-  experimental_warning: >-
-    Voice Chat ยังอยู่ในระยะทดลอง สถาปัตยกรรมและอื่นๆ อาจมีการเปลี่ยนแปลงในอนาคต ประวัติการสนทนาจะไม่ได้รับการบันทึก ภาษาที่รองรับคือภาษาอังกฤษเท่านั้น
-  experimental_warning_title: เกี่ยวกับ Voice Chat
   im_listening: กำลังฟัง...
   start: เริ่มเซสชันใหม่
   title: Voice Chat
@@ -1223,35 +1189,3 @@ writer:
   tutorial: บทเรียน
   tutorial_success: โหลดบทเรียนแล้ว
   useAsTextEditor: ใช้เป็นเครื่องมือแก้ไขข้อความ
-pptx:
-  title: เครื่องมือสร้างงานนำเสนอ PowerPoint
-  description: สร้างงานนำเสนอระดับมืออาชีพอัตโนมัติด้วยความช่วยเหลือจาก AI
-  template:
-    label: การเลือกเทมเพลต
-    blank: เทมเพลตว่าง
-    blankDescription: เริ่มต้นด้วยเทมเพลตที่สะอาดและอย่างง่าย
-    noTemplates: ไม่มีเทมเพลตกำหนดเอง
-    public: เทมเพลตสาธารณะ
-    private: เทมเพลตส่วนตัว
-  slideCount:
-    label: จำนวนสลายด์
-  options:
-    titleSlide: รวมสลายด์หัวข้อ
-    summarySlide: รวมสลายด์สรุป
-  instructions:
-    label: คำแนะนำสำหรับงานนำเสนอ
-    placeholder: ป้อนหัวข้องานนำเสนอและข้อกำหนดของคุณที่นี่...
-    help: อธิบายสิ่งที่คุณต้องการในงานนำเสนอ ระบุเฉพาะเจาะจงเกี่ยวกับหัวข้อ โครงสร้าง และข้อกำหนดพิเศษใดๆ
-  generation:
-    status: สถานะการสร้าง
-    generating: กำลังสร้างงานนำเสนอ...
-    completed: สร้างเสร็จสิ้นเรียบร้อยแล้ว
-    failed: การสร้างล้มเหลว
-  examples:
-    title: ตัวอย่างหัวข้อ
-    business:
-      title: กลยุทธ์ทางธุรกิจ
-      content: สร้างงานนำเสนอเกี่ยวกับการทบทวนธุรกิจรายไตรมาส รวมถึงการวิเคราะห์ตลาด ผลการดำเนินงานทางการเงิน และโครงการเชิงกลยุทธ์สำหรับไตรมาสถัดไป
-    training:
-      title: การฝึกอบรมผลิตภัณฑ์
-      content: พัฒนาสื่อการฝึกอบรมสำหรับคุณสมบัติใหม่ของซอฟต์แวร์ รวมถึงคู่มือขั้นตอนละเอียด แนวทางปฏิบัติที่ดี และคำแนะนำการแก้ไขปัญหา

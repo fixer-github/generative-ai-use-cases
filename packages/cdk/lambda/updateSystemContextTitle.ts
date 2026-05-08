@@ -13,8 +13,7 @@ export const handler = async (
     const systemContext = await updateSystemContextTitle(
       userId,
       systemContextId,
-      req.title,
-      event
+      req.title
     );
 
     return {

@@ -12,8 +12,7 @@ export const handler = async (
     const messages = await createSystemContext(
       userId,
       req.systemContextTitle,
-      req.systemContext,
-      event
+      req.systemContext
     );
 
     return {

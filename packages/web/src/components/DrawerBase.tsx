@@ -37,11 +37,13 @@ const DrawerBase: React.FC<Props> = (props) => {
   return (
     <>
       <nav
-        className={`bg-aws-squid-ink flex h-screen w-64 flex-col justify-between text-sm text-white print:hidden`}>
+        className={`bg-aws-squid-ink flex h-screen w-64 flex-col justify-between text-sm text-white  print:hidden`}>
         <div className="flex h-full flex-col">
           {props.children}
           <div className="flex flex-none items-center justify-between gap-x-2 border-t border-gray-400 px-3 py-2">
-            {settingShowEmail && <div className="text-sm">{email}</div>}
+            {settingShowEmail && (
+              <div className="truncate text-xs">{email}</div>
+            )}
             <div className="grow" />
             <Link to="/stats" title={t('stat.title')}>
               <PiChartBar className="text-lg" />
