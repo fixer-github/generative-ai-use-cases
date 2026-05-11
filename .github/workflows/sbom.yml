@@ -27,7 +27,7 @@ jobs:
       - name: Generate SBOM
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-format JSON --output-file "sbom-${TAG_NAME}.json"
+          npx @cyclonedx/cyclonedx-npm@6 --output-format JSON --output-file "sbom-${TAG_NAME}.json"
 
       - name: Validate SBOM
         run: |
