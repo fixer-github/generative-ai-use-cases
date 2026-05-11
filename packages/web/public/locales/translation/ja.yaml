@@ -113,7 +113,7 @@ agent_core:
   model: モデル
   runtime: ランタイム
   start_conversation: AgentCore と会話を始める
-  title: AgentCore
+  title: AIエージェント
 agent_dashboard: {}
 auth:
   loading: 読み込み中...
