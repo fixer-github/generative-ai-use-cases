@@ -197,7 +197,7 @@ common:
   submit: 送信
   title: タイトル
   trace: トレース
-  try: 試す
+  try: 開く
   update: 更新
 demo:
   inter_use_cases: ユースケース連携
