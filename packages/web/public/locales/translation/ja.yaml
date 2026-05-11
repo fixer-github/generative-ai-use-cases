@@ -112,7 +112,7 @@ agent_builder:
 agent_core:
   model: モデル
   runtime: ランタイム
-  start_conversation: AgentCore と会話を始める
+  start_conversation: AIエージェントと会話を始める
   title: AIエージェント
 agent_dashboard: {}
 auth:
@@ -557,8 +557,8 @@ landing:
         Bases for Amazon Bedrock のベクトルデータベースを参照することが可能です。
       title: Agent チャット
     agent_core:
-      description: AgentCore チャットは Bedrock AgentCore で作成したさまざまな Agent を利用する機能です
-      title: AgentCore
+      description: AIエージェントチャットは Bedrock AgentCore で作成したさまざまな AIエージェント を利用する機能です
+      title: AIエージェント
     chat:
       description: >-
         LLM
