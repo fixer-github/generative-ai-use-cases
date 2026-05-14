@@ -216,7 +216,7 @@ const routes: RouteObject[] = [
     : null,
   agentCoreEnabled
     ? {
-        path: '/agent-core/:agentArn',
+        path: '/agent-core/:agentName',
         element: <AgentCorePage />,
       }
     : null,

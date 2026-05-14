@@ -16,8 +16,8 @@ const AgentCoreListPage: React.FC = () => {
   const genericRuntime = getGenericRuntime();
   const externalRuntimes = getExternalRuntimes();
 
-  const handleSelect = (arn: string) => {
-    navigate(`/agent-core/${encodeURIComponent(arn)}`);
+  const handleSelect = (name: string) => {
+    navigate(`/agent-core/${encodeURIComponent(name)}`);
   };
 
   return (
@@ -51,7 +51,7 @@ const AgentCoreListPage: React.FC = () => {
               <div
                 key={runtime.arn}
                 className={`flex cursor-pointer flex-row items-center gap-3 p-3 hover:bg-gray-100 ${idx > 0 ? 'border-t' : ''}`}
-                onClick={() => handleSelect(runtime.arn)}>
+                onClick={() => handleSelect(runtime.name)}>
                 <RobotIcon className="h-8 w-8 shrink-0 text-gray-400" />
                 <div className="flex flex-1 flex-col">
                   <div className="mb-1 flex items-center gap-2">

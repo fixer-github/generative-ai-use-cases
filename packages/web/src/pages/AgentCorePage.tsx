@@ -68,7 +68,7 @@ const useAgentCorePageState = create<StateType>((set) => {
 
 const AgentCorePage: React.FC = () => {
   const { t } = useTranslation();
-  const { agentArn } = useParams<{ agentArn?: string }>();
+  const { agentName } = useParams<{ agentName?: string }>();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { content, setContent } = useAgentCorePageState();
@@ -104,14 +104,16 @@ const AgentCorePage: React.FC = () => {
 
   const { clear: clearFiles, uploadFiles, uploadedFiles } = useFiles(pathname);
 
-  // Set the ARN from URL parameter
+  // Set the ARN from URL parameter (look up by name)
   useEffect(() => {
-    if (agentArn) {
-      const decodedArn = decodeURIComponent(agentArn);
-      setSelectedArn(decodedArn);
+    if (agentName && allAvailableRuntimes.length > 0) {
+      const decodedName = decodeURIComponent(agentName);
+      const runtime = allAvailableRuntimes.find((r) => r.name === decodedName);
+      if (runtime) {
+        setSelectedArn(runtime.arn);
+      }
     }
-     
-  }, [agentArn]);
+  }, [agentName, allAvailableRuntimes]);
 
   // Initialize system context and model ID only once on mount
   useEffect(() => {
@@ -213,9 +215,9 @@ const AgentCorePage: React.FC = () => {
 
   // Prepare runtime options (only the selected runtime)
   const runtimeOptions = useMemo(() => {
-    if (!agentArn) return [];
-    const decodedArn = decodeURIComponent(agentArn);
-    const runtime = allAvailableRuntimes.find((r) => r.arn === decodedArn);
+    if (!agentName) return [];
+    const decodedName = decodeURIComponent(agentName);
+    const runtime = allAvailableRuntimes.find((r) => r.name === decodedName);
     if (!runtime) return [];
     const isGeneric = genericRuntime && runtime.arn === genericRuntime.arn;
     const isExternal = externalRuntimes.some((r) => r.arn === runtime.arn);
@@ -226,7 +228,7 @@ const AgentCorePage: React.FC = () => {
         tags: isGeneric ? ['Generic'] : isExternal ? ['External'] : undefined,
       },
     ];
-  }, [agentArn, allAvailableRuntimes, genericRuntime, externalRuntimes]);
+  }, [agentName, allAvailableRuntimes, genericRuntime, externalRuntimes]);
 
   // Prepare model options
   const modelOptions = useMemo(() => {
@@ -238,15 +240,11 @@ const AgentCorePage: React.FC = () => {
 
   // Calculate page title from runtime options
   const pageTitle = useMemo(() => {
-    if (agentArn && runtimeOptions.length > 0) {
-      // Find the runtime name from runtimeOptions
-      const runtime = runtimeOptions.find(
-        (option) => option.value === decodeURIComponent(agentArn)
-      );
-      return runtime ? runtime.label : t('agent_core.title', 'AgentCore');
+    if (agentName && runtimeOptions.length > 0) {
+      return runtimeOptions[0].label;
     }
     return t('agent_core.title', 'AgentCore');
-  }, [agentArn, runtimeOptions, t]);
+  }, [agentName, runtimeOptions, t]);
 
   const showingMessages = useMemo(() => {
     return messages;
@@ -257,7 +255,7 @@ const AgentCorePage: React.FC = () => {
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
         className={`${!isEmpty ? 'screen:pb-48' : ''} relative`}>
-        {agentArn && (
+        {agentName && (
           <div className="flex items-center px-4 py-2 lg:hidden print:hidden">
             <button
               className="text-sm font-normal text-gray-500 hover:text-gray-800"
@@ -267,7 +265,7 @@ const AgentCorePage: React.FC = () => {
           </div>
         )}
         <div className="invisible my-0 flex h-0 items-center justify-center gap-4 text-xl font-semibold lg:visible lg:my-5 lg:h-min print:visible print:my-5 print:h-min">
-          {agentArn && (
+          {agentName && (
             <button
               className="text-sm font-normal text-gray-500 hover:text-gray-800"
               onClick={() => navigate('/agent-core')}>
