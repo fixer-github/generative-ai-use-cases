@@ -12,6 +12,7 @@ import {
   SpeechToSpeech,
   McpApi,
   AgentCore,
+  Scheduler,
 } from './construct';
 import { loadMCPConfig, extractSafeMCPConfig } from './utils/mcp-config-loader';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
@@ -405,6 +406,27 @@ export class GenerativeAiUseCasesStack extends Stack {
         useCaseBuilderTable: useCaseBuilder.useCaseBuilderTable,
         useCaseIdIndexName: useCaseBuilder.useCaseIdIndexName,
         cognitoUserPoolProxyEndpoint: props.cognitoUserPoolProxyEndpoint,
+      });
+    }
+
+    // Scheduler
+    // Build agentName->ARN mapping from available runtimes
+    const agentNameToArnMap: Record<string, string> = {};
+    if (genericRuntimeArn && genericRuntimeName) {
+      agentNameToArnMap[genericRuntimeName] = genericRuntimeArn;
+    }
+    for (const runtime of params.agentCoreExternalRuntimes) {
+      agentNameToArnMap[runtime.name] = runtime.arn;
+    }
+    if (Object.keys(agentNameToArnMap).length > 0) {
+      new Scheduler(this, 'Scheduler', {
+        userPool: auth.userPool,
+        api: api.api,
+        agentNameToArnMap,
+        modelRegion: params.modelRegion,
+        agentCoreRegion: params.agentCoreRegion,
+        vpc: props.vpc,
+        securityGroups,
       });
     }
 
