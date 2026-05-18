@@ -1,9 +1,16 @@
 import { Model } from './message';
 
+export type CustomAppConfiguration = {
+  id: string;
+  displayName: string;
+  url: string;
+};
+
 export type AgentCoreConfiguration = {
   name: string;
   arn: string;
   description: string;
+  apps?: CustomAppConfiguration[];
 };
 
 // AgentCore Runtime Request (extended from Strands with additional fields)

@@ -100,7 +100,19 @@ export class Web extends Construct {
       const cspSaml = props.samlCognitoDomainName
         ? ` https://${props.samlCognitoDomainName}`
         : '';
-      const csp = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.amazonaws.com; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com wss://*.amazonaws.com:* https://*.on.aws https://raw.githubusercontent.com https://api.github.com${cspSaml}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.youtube.com/;`;
+
+      // Collect app URLs from agentCoreExternalRuntimes for CSP frame-src
+      const appOrigins = props.agentCoreExternalRuntimes
+        .flatMap((runtime) => runtime.apps ?? [])
+        .map((app) => {
+          const url = new URL(app.url);
+          return url.origin;
+        });
+      const uniqueAppOrigins = [...new Set(appOrigins)];
+      const frameSrcApps =
+        uniqueAppOrigins.length > 0 ? ' ' + uniqueAppOrigins.join(' ') : '';
+
+      const csp = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.amazonaws.com; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com wss://*.amazonaws.com:* https://*.on.aws https://raw.githubusercontent.com https://api.github.com${cspSaml}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.youtube.com/${frameSrcApps};`;
 
       // Create Response Headers Policy for security headers
       const responseHeadersPolicy = new ResponseHeadersPolicy(
