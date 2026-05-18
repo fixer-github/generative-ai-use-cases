@@ -285,7 +285,11 @@ const AgentCorePage: React.FC = () => {
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
         className={`${!isEmpty ? 'screen:pb-48' : ''} relative`}
-        style={hasApps && isPanelOpen ? { marginRight: '50vw' } : undefined}>
+        style={
+          hasApps && isPanelOpen
+            ? { marginRight: 'calc(50vw - 8rem)' }
+            : undefined
+        }>
         {agentName && (
           <div className="flex items-center px-4 py-2 lg:hidden print:hidden">
             <button
@@ -384,7 +388,7 @@ const AgentCorePage: React.FC = () => {
           className="fixed top-[calc(50vh-2rem)] z-0"
           style={
             hasApps && isPanelOpen
-              ? { right: 'calc(50vw + 1rem)' }
+              ? { right: 'calc(50vw - 8rem + 1rem)' }
               : { right: '2rem' }
           }>
           <ScrollTopBottom />
@@ -392,33 +396,31 @@ const AgentCorePage: React.FC = () => {
 
         {/* Input Area */}
         <div
-          className="fixed bottom-0 z-0 flex flex-col items-center justify-center print:hidden"
+          className={`fixed bottom-0 z-0 flex flex-col items-center justify-center print:hidden ${
+            hasApps && isPanelOpen ? 'left-0 lg:left-64' : 'w-full lg:pr-64'
+          }`}
           style={
-            hasApps && isPanelOpen
-              ? { left: 0, right: '50vw', paddingRight: '0' }
-              : { left: 0, right: 0 }
+            hasApps && isPanelOpen ? { right: 'calc(50vw - 8rem)' } : undefined
           }>
-          <div className="w-full lg:pr-64">
-            <InputChatContent
-              content={content}
-              disabled={loading && !writing}
-              onChangeContent={setContent}
-              resetDisabled={isEmpty}
-              isEmpty={isEmpty}
-              onSend={() => {
-                if (!loading) {
-                  onSend();
-                } else {
-                  onStop();
-                }
-              }}
-              onReset={onReset}
-              fileUpload={fileUpload}
-              fileLimit={fileLimit}
-              accept={accept}
-              canStop={writing}
-            />
-          </div>
+          <InputChatContent
+            content={content}
+            disabled={loading && !writing}
+            onChangeContent={setContent}
+            resetDisabled={isEmpty}
+            isEmpty={isEmpty}
+            onSend={() => {
+              if (!loading) {
+                onSend();
+              } else {
+                onStop();
+              }
+            }}
+            onReset={onReset}
+            fileUpload={fileUpload}
+            fileLimit={fileLimit}
+            accept={accept}
+            canStop={writing}
+          />
         </div>
       </div>
 

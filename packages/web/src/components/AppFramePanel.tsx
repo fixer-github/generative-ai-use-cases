@@ -33,7 +33,9 @@ const AppFramePanel: React.FC<Props> = ({
   return (
     <div
       className={`fixed right-0 top-0 z-10 flex h-screen flex-col border-l border-gray-300 bg-white transition-all duration-300 ${
-        isPanelOpen ? 'w-[50vw] min-w-[400px]' : 'w-0 overflow-hidden'
+        isPanelOpen
+          ? 'w-[calc(50vw_-_8rem)] min-w-[400px]'
+          : 'w-0 overflow-hidden'
       }`}>
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-3">
