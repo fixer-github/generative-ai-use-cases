@@ -610,6 +610,7 @@ navigation:
   imageGeneration: Tạo hình ảnh
   promptOptimization: Tối ưu hóa prompt
   ragChat: RAG Chat
+  scheduler: Lịch trình
   settings: Cài đặt
   speechRecognition: Nhận dạng giọng nói
   summary: Tóm tắt
@@ -659,6 +660,93 @@ rag:
   please_refer: Vui lòng tham khảo.
   retrieving: Đang lấy tài liệu tham khảo từ Kendra...
   title: RAG Chat
+scheduler:
+  agent: Agent
+  basic_info: Thông tin cơ bản
+  cancel: Hủy
+  chat_deep_dive: Tìm hiểu sâu trong chat
+  completed_at: 'Hoàn thành: {{time}}'
+  create: Tạo
+  day_friday: T6
+  day_monday: T2
+  day_of_month: Ngày
+  day_of_month_label: 'Ngày {{day}}'
+  day_saturday: T7
+  day_sunday: CN
+  day_thursday: T5
+  day_tuesday: T3
+  day_wednesday: T4
+  days_of_week: Thứ
+  delete: Xóa
+  delete_confirm_message: Xóa tác vụ "{{name}}"? Việc thực thi theo lịch sẽ dừng. Lịch sử thực thi sẽ được giữ lại.
+  delete_task: Xóa tác vụ
+  disabled: Tắt
+  edit: Sửa
+  edit_task: Sửa tác vụ
+  email_notification: Thông báo email
+  email_sent: Đã gửi
+  email_unsent: Chưa gửi
+  empty_no_tasks: Không có tác vụ được lên lịch
+  empty_suggestion: Tạo tác vụ để AI thực hiện định kỳ từ "Tác vụ mới"
+  enabled: Bật
+  error_content: Chi tiết lỗi
+  error_delete_failed: Xóa thất bại
+  error_save_failed: Lưu thất bại
+  error_update_status_failed: Cập nhật trạng thái thất bại
+  execution_history: Lịch sử thực thi
+  execution_result: Kết quả thực thi
+  execution_settings: Cài đặt thực thi
+  execution_time: Thời gian thực thi
+  execution_time_seconds: '{{seconds}} giây'
+  hour_label: '{{hour}} giờ'
+  last_updated: Cập nhật lần cuối
+  minute_label: '{{minute}} phút'
+  model: Mô hình
+  month_view: Tháng
+  more_items: '+{{count}}'
+  new_task: Tác vụ mới
+  new_task_create: Tạo tác vụ mới
+  no_execution_history: Chưa có lịch sử thực thi
+  notification_info: >-
+    Kết quả thực thi sẽ được gửi đến địa chỉ email đăng ký với tài khoản của bạn.
+    Khi tạo tác vụ đầu tiên, bạn sẽ nhận được email xác nhận. Vui lòng nhấp vào liên kết trong email để kích hoạt thông báo.
+  prompt: Prompt
+  prompt_placeholder: Nhập hướng dẫn để AI thực hiện. Có thể bao gồm URL.
+  registered_tasks: 'Tác vụ đã đăng ký ({{count}})'
+  repeat: Lặp lại
+  repeat_daily: Hàng ngày
+  repeat_monthly: Hàng tháng
+  repeat_weekly: Hàng tuần
+  schedule: Lịch trình
+  schedule_daily: 'Hàng ngày {{time}}'
+  schedule_monthly: 'Hàng tháng ngày {{day}} {{time}}'
+  schedule_weekly: 'Hàng tuần {{days}} {{time}}'
+  status_error: Lỗi thực thi
+  status_running: Đang chạy
+  status_success: Hoàn thành
+  status_unknown: Không xác định
+  task_name: Tên tác vụ
+  task_name_placeholder: 'VD: Kiểm tra thông báo'
+  time_separator: ':'
+  title: Lịch trình
+  today: Hôm nay
+  tokens: Token
+  tokens_detail: 'Đầu vào {{input}} / Đầu ra {{output}}'
+  unknown_task: Tác vụ không xác định
+  update: Cập nhật
+  validation_agent_required: Vui lòng chọn agent
+  validation_days_required: Vui lòng chọn ít nhất một ngày
+  validation_model_required: Vui lòng chọn mô hình
+  validation_name_required: Vui lòng nhập tên tác vụ
+  validation_prompt_required: Vui lòng nhập prompt
+  week_view: Tuần
+  weekday_full_friday: Thứ Sáu
+  weekday_full_monday: Thứ Hai
+  weekday_full_saturday: Thứ Bảy
+  weekday_full_sunday: Chủ Nhật
+  weekday_full_thursday: Thứ Năm
+  weekday_full_tuesday: Thứ Ba
+  weekday_full_wednesday: Thứ Tư
 setting:
   ai: Generative AI
   ai_items:

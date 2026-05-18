@@ -297,6 +297,9 @@ export class GenerativeAiUseCasesStack extends Stack {
         : undefined,
       agentCoreExternalRuntimes: params.agentCoreExternalRuntimes,
       agentCoreRegion: params.agentCoreRegion,
+      schedulerEnabled:
+        params.createGenericAgentCoreRuntime ||
+        params.agentCoreExternalRuntimes.length > 0,
       // Frontend
       hiddenUseCases: params.hiddenUseCases,
       // Custom Domain

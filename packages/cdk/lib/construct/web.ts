@@ -70,6 +70,7 @@ export interface WebProps {
   readonly agentCoreAgentBuilderRuntime?: AgentCoreConfiguration;
   readonly agentCoreExternalRuntimes: AgentCoreConfiguration[];
   readonly agentCoreRegion?: string;
+  readonly schedulerEnabled: boolean;
   readonly brandingConfig?: {
     logoPath?: string;
     title?: string;
@@ -312,6 +313,7 @@ export class Web extends Construct {
         VITE_APP_AGENT_CORE_EXTERNAL_RUNTIMES: JSON.stringify(
           props.agentCoreExternalRuntimes
         ),
+        VITE_APP_SCHEDULER_ENABLED: props.schedulerEnabled.toString(),
         VITE_APP_BRANDING_LOGO_PATH: props.brandingConfig?.logoPath ?? '',
         VITE_APP_BRANDING_TITLE: props.brandingConfig?.title ?? '',
       },

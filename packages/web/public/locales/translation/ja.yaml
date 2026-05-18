@@ -764,6 +764,7 @@ navigation:
   meetingMinutes: 議事録生成
   promptOptimization: プロンプト最適化
   ragChat: RAG チャット
+  scheduler: スケジューラ
   settings: 設定
   speechRecognition: 音声認識
   summary: 要約
@@ -821,6 +822,93 @@ research:
   technical_research: 技術調査
   technical_research_desc: 詳細な技術調査と分析を実施します
   title: リサーチ
+scheduler:
+  agent: エージェント
+  basic_info: 基本情報
+  cancel: キャンセル
+  chat_deep_dive: チャットで深掘りする
+  completed_at: '完了: {{time}}'
+  create: 作成
+  day_friday: 金
+  day_monday: 月
+  day_of_month: 日付
+  day_of_month_label: '{{day}}日'
+  day_saturday: 土
+  day_sunday: 日
+  day_thursday: 木
+  day_tuesday: 火
+  day_wednesday: 水
+  days_of_week: 曜日
+  delete: 削除
+  delete_confirm_message: タスク「{{name}}」を削除しますか？ スケジュール実行は停止されます。実行履歴は保持されます。
+  delete_task: タスクの削除
+  disabled: 無効
+  edit: 編集
+  edit_task: タスク編集
+  email_notification: メール通知
+  email_sent: 送信済み
+  email_unsent: 未送信
+  empty_no_tasks: スケジュールされたタスクがありません
+  empty_suggestion: 「新規タスク」からAIに定期実行させるタスクを作成しましょう
+  enabled: 有効
+  error_content: エラー内容
+  error_delete_failed: 削除に失敗しました
+  error_save_failed: 保存に失敗しました
+  error_update_status_failed: ステータスの更新に失敗しました
+  execution_history: 実行履歴
+  execution_result: タスク実行結果
+  execution_settings: 実行設定
+  execution_time: 実行時間
+  execution_time_seconds: '{{seconds}}秒'
+  hour_label: '{{hour}}時'
+  last_updated: 最終更新
+  minute_label: '{{minute}}分'
+  model: モデル
+  month_view: 月
+  more_items: '+{{count}}件'
+  new_task: 新規タスク
+  new_task_create: 新規タスク作成
+  no_execution_history: まだ実行履歴がありません
+  notification_info: >-
+    タスクの実行結果は、アカウントに登録されたメールアドレス宛に通知されます。
+    初回のタスク作成時に確認メールが届きますので、メール内のリンクをクリックして通知を有効化してください。
+  prompt: プロンプト
+  prompt_placeholder: AIに実行させたい指示を入力してください。URLを含めることもできます。
+  registered_tasks: '登録済みタスク ({{count}})'
+  repeat: 繰り返し
+  repeat_daily: 毎日
+  repeat_monthly: 毎月
+  repeat_weekly: 毎週
+  schedule: スケジュール
+  schedule_daily: '毎日 {{time}}'
+  schedule_monthly: '毎月 {{day}}日 {{time}}'
+  schedule_weekly: '毎週 {{days}} {{time}}'
+  status_error: 実行エラー
+  status_running: 実行中
+  status_success: 実行完了
+  status_unknown: 不明
+  task_name: タスク名
+  task_name_placeholder: '例: 厚労省通知チェック'
+  time_separator: ':'
+  title: スケジューラ
+  today: 今日
+  tokens: トークン
+  tokens_detail: '入力 {{input}} / 出力 {{output}}'
+  unknown_task: 不明なタスク
+  update: 更新
+  validation_agent_required: エージェントを選択してください
+  validation_days_required: 曜日を1つ以上選択してください
+  validation_model_required: モデルを選択してください
+  validation_name_required: タスク名を入力してください
+  validation_prompt_required: プロンプトを入力してください
+  week_view: 週
+  weekday_full_friday: 金曜日
+  weekday_full_monday: 月曜日
+  weekday_full_saturday: 土曜日
+  weekday_full_sunday: 日曜日
+  weekday_full_thursday: 木曜日
+  weekday_full_tuesday: 火曜日
+  weekday_full_wednesday: 水曜日
 setting:
   ai_items:
     agent_name: Agent 名

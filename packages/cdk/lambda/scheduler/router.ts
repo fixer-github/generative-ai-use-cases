@@ -91,10 +91,11 @@ export async function routeRequest(
       httpMethod === 'GET'
     ) {
       const taskId = pathParameters?.taskId;
-      const executionId = pathParameters?.executionId;
-      if (!taskId || !executionId) {
+      const rawExecutionId = pathParameters?.executionId;
+      if (!taskId || !rawExecutionId) {
         return errorResponse('taskId and executionId are required');
       }
+      const executionId = decodeURIComponent(rawExecutionId);
       return await handleGetExecution(userId, taskId, executionId);
     }
 

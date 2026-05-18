@@ -36,6 +36,10 @@ import AgentCorePage from './pages/AgentCorePage.tsx';
 import AgentBuilderListPage from './pages/agentBuilder/AgentBuilderListPage.tsx';
 import AgentBuilderEditPage from './pages/agentBuilder/AgentBuilderEditPage';
 import AgentBuilderChatPage from './pages/agentBuilder/AgentBuilderChatPage';
+import SchedulerPage from './pages/scheduler/SchedulerPage.tsx';
+import SchedulerTaskFormPage from './pages/scheduler/SchedulerTaskFormPage.tsx';
+import SchedulerTaskDetailPage from './pages/scheduler/SchedulerTaskDetailPage.tsx';
+import SchedulerExecutionDetailPage from './pages/scheduler/SchedulerExecutionDetailPage.tsx';
 import { MODELS } from './hooks/useModel';
 import { Authenticator } from '@aws-amplify/ui-react';
 import UseCaseBuilderEditPage from './pages/useCaseBuilder/UseCaseBuilderEditPage.tsx';
@@ -61,6 +65,8 @@ const agentCoreEnabled: boolean =
   import.meta.env.VITE_APP_AGENT_CORE_ENABLED === 'true';
 const agentBuilderEnabled: boolean =
   import.meta.env.VITE_APP_AGENT_CORE_AGENT_BUILDER_ENABLED === 'true';
+const schedulerEnabled: boolean =
+  import.meta.env.VITE_APP_SCHEDULER_ENABLED === 'true';
 
 const {
   visionEnabled,
@@ -242,6 +248,36 @@ const routes: RouteObject[] = [
     ? {
         path: '/agent-builder/:agentId',
         element: <AgentBuilderChatPage />,
+      }
+    : null,
+  schedulerEnabled
+    ? {
+        path: '/scheduler',
+        element: <SchedulerPage />,
+      }
+    : null,
+  schedulerEnabled
+    ? {
+        path: '/scheduler/new',
+        element: <SchedulerTaskFormPage />,
+      }
+    : null,
+  schedulerEnabled
+    ? {
+        path: '/scheduler/:taskId',
+        element: <SchedulerTaskDetailPage />,
+      }
+    : null,
+  schedulerEnabled
+    ? {
+        path: '/scheduler/:taskId/edit',
+        element: <SchedulerTaskFormPage />,
+      }
+    : null,
+  schedulerEnabled
+    ? {
+        path: '/scheduler/:taskId/executions/:executionId',
+        element: <SchedulerExecutionDetailPage />,
       }
     : null,
   {

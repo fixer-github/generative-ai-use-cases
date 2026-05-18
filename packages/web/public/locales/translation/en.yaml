@@ -918,6 +918,7 @@ navigation:
   meetingMinutes: Meeting Minutes
   promptOptimization: Prompt Optimization
   ragChat: RAG Chat
+  scheduler: Scheduler
   settings: Settings
   speechRecognition: Speech Recognition
   summary: Summary
@@ -994,6 +995,93 @@ research:
   technical_research: Technical Research
   technical_research_desc: Conducts detailed technical research and analysis
   title: Research
+scheduler:
+  agent: Agent
+  basic_info: Basic Information
+  cancel: Cancel
+  chat_deep_dive: Deep Dive in Chat
+  completed_at: 'Completed: {{time}}'
+  create: Create
+  day_friday: Fri
+  day_monday: Mon
+  day_of_month: Day of Month
+  day_of_month_label: '{{day}}'
+  day_saturday: Sat
+  day_sunday: Sun
+  day_thursday: Thu
+  day_tuesday: Tue
+  day_wednesday: Wed
+  days_of_week: Days of Week
+  delete: Delete
+  delete_confirm_message: Delete task "{{name}}"? Scheduled execution will be stopped. Execution history will be retained.
+  delete_task: Delete Task
+  disabled: Disabled
+  edit: Edit
+  edit_task: Edit Task
+  email_notification: Email Notification
+  email_sent: Sent
+  email_unsent: Not Sent
+  empty_no_tasks: No scheduled tasks
+  empty_suggestion: Create a task for AI to run on a schedule from "New Task"
+  enabled: Enabled
+  error_content: Error Details
+  error_delete_failed: Failed to delete
+  error_save_failed: Failed to save
+  error_update_status_failed: Failed to update status
+  execution_history: Execution History
+  execution_result: Task Execution Result
+  execution_settings: Execution Settings
+  execution_time: Execution Time
+  execution_time_seconds: '{{seconds}}s'
+  hour_label: '{{hour}}'
+  last_updated: Last Updated
+  minute_label: '{{minute}}'
+  model: Model
+  month_view: Month
+  more_items: '+{{count}}'
+  new_task: New Task
+  new_task_create: Create New Task
+  no_execution_history: No execution history yet
+  notification_info: >-
+    Execution results will be sent to the email address registered with your account.
+    A confirmation email will be sent when you create your first task. Please click the link in the email to enable notifications.
+  prompt: Prompt
+  prompt_placeholder: Enter the instructions for AI to execute. You can also include URLs.
+  registered_tasks: 'Registered Tasks ({{count}})'
+  repeat: Repeat
+  repeat_daily: Daily
+  repeat_monthly: Monthly
+  repeat_weekly: Weekly
+  schedule: Schedule
+  schedule_daily: 'Daily {{time}}'
+  schedule_monthly: '{{day}}th of each month {{time}}'
+  schedule_weekly: 'Weekly {{days}} {{time}}'
+  status_error: Execution Error
+  status_running: Running
+  status_success: Completed
+  status_unknown: Unknown
+  task_name: Task Name
+  task_name_placeholder: e.g. MHLW Notification Check
+  time_separator: ':'
+  title: Scheduler
+  today: Today
+  tokens: Tokens
+  tokens_detail: 'Input {{input}} / Output {{output}}'
+  unknown_task: Unknown Task
+  update: Update
+  validation_agent_required: Please select an agent
+  validation_days_required: Please select at least one day
+  validation_model_required: Please select a model
+  validation_name_required: Please enter a task name
+  validation_prompt_required: Please enter a prompt
+  week_view: Week
+  weekday_full_friday: Friday
+  weekday_full_monday: Monday
+  weekday_full_saturday: Saturday
+  weekday_full_sunday: Sunday
+  weekday_full_thursday: Thursday
+  weekday_full_tuesday: Tuesday
+  weekday_full_wednesday: Wednesday
 setting:
   ai_items:
     agent_name: Agent Name
