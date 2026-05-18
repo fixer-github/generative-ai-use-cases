@@ -13,7 +13,14 @@ import {
   McpApi,
   AgentCore,
   Scheduler,
+  BackupLockedBuckets,
+  CognitoExportConstruct,
+  DdbPitrExportConstruct,
+  S3ReplicationConstruct,
+  RestoreRoleConstruct,
 } from './construct';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { loadMCPConfig, extractSafeMCPConfig } from './utils/mcp-config-loader';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -442,6 +449,49 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       vpc: props.vpc,
       securityGroups,
+    });
+
+    // ===== Backup Resources (wiring Phase 2-6 constructs) =====
+    // Phase 2: Three isolated backup buckets (Object Lock Compliance 90 days)
+    const backupBuckets = new BackupLockedBuckets(this, 'BackupLockedBuckets', {
+      env: params.env,
+    });
+
+    // Phase 3: Cognito periodic export (daily at JST 00:00)
+    new CognitoExportConstruct(this, 'CognitoExport', {
+      userPool: auth.userPool,
+      exportBucket: backupBuckets.cognitoExportBucket,
+    });
+
+    // Phase 4: DynamoDB PITR Export (daily at JST 04:30, UseCaseBuilder is conditional)
+    const ddbTables: dynamodb.ITable[] = [database.table, database.statsTable];
+    if (useCaseBuilder) {
+      ddbTables.push(useCaseBuilder.useCaseBuilderTable);
+    }
+    new DdbPitrExportConstruct(this, 'DdbPitrExport', {
+      tables: ddbTables,
+      exportBucket: backupBuckets.ddbExportBucket,
+    });
+
+    // Phase 5: SRR from FileBucket to s3ReplicationBucket
+    new S3ReplicationConstruct(this, 'S3Replication', {
+      sourceBuckets: [api.fileBucket],
+      destinationBucket: backupBuckets.s3ReplicationBucket,
+    });
+
+    // Phase 6: IAM Role for restoration operators (AccountPrincipal + MFA required condition, 4h session)
+    new RestoreRoleConstruct(this, 'RestoreRole', {
+      trustedPrincipal: new iam.AccountPrincipal(this.account).withConditions({
+        Bool: { 'aws:MultiFactorAuthPresent': 'true' },
+      }),
+      tables: ddbTables,
+      userPool: auth.userPool,
+      sourceBuckets: [api.fileBucket],
+      backupBuckets: [
+        backupBuckets.ddbExportBucket,
+        backupBuckets.s3ReplicationBucket,
+        backupBuckets.cognitoExportBucket,
+      ],
     });
 
     // Cfn Outputs

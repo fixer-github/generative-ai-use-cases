@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import { Stack, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import {
   AuthorizationType,
@@ -35,6 +36,11 @@ import {
 } from '@generative-ai-use-cases/common';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
+import {
+  BACKUP_PROTECTED_TAG,
+  BACKUP_PROTECTED_METADATA_KEY,
+  BACKUP_PROTECTED_METADATA_VALUE,
+} from '../aspect/deletion-policy-setter';
 import {
   InterfaceVpcEndpoint,
   IVpc,
@@ -153,11 +159,28 @@ export class Api extends Construct {
     // S3 (File Bucket)
     const fileBucket = new Bucket(this, 'FileBucket', {
       encryption: BucketEncryption.S3_MANAGED,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+      autoDeleteObjects: false,
       enforceSSL: true,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
+      lifecycleRules: [
+        {
+          // Prevent old versions from accumulating indefinitely
+          noncurrentVersionExpiration: Duration.days(90),
+          // Remove incomplete multipart upload artifacts (cost optimization)
+          abortIncompleteMultipartUploadAfter: Duration.days(7),
+        },
+      ],
     });
+    fileBucket.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(fileBucket).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
     fileBucket.addCorsRule({
       allowedOrigins: ['*'],
       allowedMethods: [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT],
