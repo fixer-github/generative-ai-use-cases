@@ -12,7 +12,14 @@ import {
   SpeechToSpeech,
   McpApi,
   AgentCore,
+  BackupLockedBuckets,
+  CognitoExportConstruct,
+  DdbPitrExportConstruct,
+  S3ReplicationConstruct,
+  RestoreRoleConstruct,
 } from './construct';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { loadMCPConfig, extractSafeMCPConfig } from './utils/mcp-config-loader';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -417,6 +424,49 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       vpc: props.vpc,
       securityGroups,
+    });
+
+    // ===== バックアップリソース（Phase 2〜6 構築物の配線） =====
+    // Phase 2: 分離保管バケット 3 つ（Object Lock Compliance 90 日）
+    const backupBuckets = new BackupLockedBuckets(this, 'BackupLockedBuckets', {
+      env: params.env,
+    });
+
+    // Phase 3: Cognito 定期エクスポート（JST 00:00 日次）
+    new CognitoExportConstruct(this, 'CognitoExport', {
+      userPool: auth.userPool,
+      exportBucket: backupBuckets.cognitoExportBucket,
+    });
+
+    // Phase 4: DynamoDB PITR Export（JST 04:30 日次、UseCaseBuilder は条件付き）
+    const ddbTables: dynamodb.ITable[] = [database.table, database.statsTable];
+    if (useCaseBuilder) {
+      ddbTables.push(useCaseBuilder.useCaseBuilderTable);
+    }
+    new DdbPitrExportConstruct(this, 'DdbPitrExport', {
+      tables: ddbTables,
+      exportBucket: backupBuckets.ddbExportBucket,
+    });
+
+    // Phase 5: FileBucket → s3ReplicationBucket への SRR
+    new S3ReplicationConstruct(this, 'S3Replication', {
+      sourceBuckets: [api.fileBucket],
+      destinationBucket: backupBuckets.s3ReplicationBucket,
+    });
+
+    // Phase 6: 復元実施者用 IAM Role（AccountPrincipal + MFA 必須条件、4h セッション）
+    new RestoreRoleConstruct(this, 'RestoreRole', {
+      trustedPrincipal: new iam.AccountPrincipal(this.account).withConditions({
+        Bool: { 'aws:MultiFactorAuthPresent': 'true' },
+      }),
+      tables: ddbTables,
+      userPool: auth.userPool,
+      sourceBuckets: [api.fileBucket],
+      backupBuckets: [
+        backupBuckets.ddbExportBucket,
+        backupBuckets.s3ReplicationBucket,
+        backupBuckets.cognitoExportBucket,
+      ],
     });
 
     // Cfn Outputs

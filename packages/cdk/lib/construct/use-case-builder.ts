@@ -9,11 +9,17 @@ import {
   NodejsFunction,
   NodejsFunctionProps,
 } from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as cdk from 'aws-cdk-lib';
 import { Duration } from 'aws-cdk-lib';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import * as ddb from 'aws-cdk-lib/aws-dynamodb';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
+import {
+  BACKUP_PROTECTED_TAG,
+  BACKUP_PROTECTED_METADATA_KEY,
+  BACKUP_PROTECTED_METADATA_VALUE,
+} from '../aspect/deletion-policy-setter';
 
 export interface UseCaseBuilderProps {
   readonly userPool: UserPool;
@@ -44,7 +50,20 @@ export class UseCaseBuilder extends Construct {
         type: ddb.AttributeType.STRING,
       },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      deletionProtection: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+    this.useCaseBuilderTable.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(this.useCaseBuilderTable).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
 
     this.useCaseBuilderTable.addGlobalSecondaryIndex({
       indexName: this.useCaseIdIndexName,

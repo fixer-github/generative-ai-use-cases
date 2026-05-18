@@ -1,5 +1,11 @@
+import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ddb from 'aws-cdk-lib/aws-dynamodb';
+import {
+  BACKUP_PROTECTED_TAG,
+  BACKUP_PROTECTED_METADATA_KEY,
+  BACKUP_PROTECTED_METADATA_VALUE,
+} from '../aspect/deletion-policy-setter';
 
 export class Database extends Construct {
   public readonly table: ddb.Table;
@@ -20,7 +26,17 @@ export class Database extends Construct {
         type: ddb.AttributeType.STRING,
       },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      deletionProtection: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+    table.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(table).add(BACKUP_PROTECTED_TAG.key, BACKUP_PROTECTED_TAG.value);
 
     table.addGlobalSecondaryIndex({
       indexName: feedbackIndexName,
@@ -41,7 +57,20 @@ export class Database extends Construct {
         type: ddb.AttributeType.STRING,
       },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      deletionProtection: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+    statsTable.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(statsTable).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
 
     this.table = table;
     this.statsTable = statsTable;

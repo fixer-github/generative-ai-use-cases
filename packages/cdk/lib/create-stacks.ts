@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import { IConstruct } from 'constructs';
 import { GenerativeAiUseCasesStack } from './generative-ai-use-cases-stack';
 import { CloudFrontWafStack } from './cloud-front-waf-stack';
 import { DashboardStack } from './dashboard-stack';
@@ -13,16 +12,7 @@ import { ApplicationInferenceProfileStack } from './application-inference-profil
 import { ClosedNetworkStack } from './closed-network-stack';
 import { RemoteOutputs } from 'cdk-remote-stack';
 import { REMOTE_OUTPUT_KEYS } from './remote-output-keys';
-
-class DeletionPolicySetter implements cdk.IAspect {
-  constructor(private readonly policy: cdk.RemovalPolicy) {}
-
-  visit(node: IConstruct): void {
-    if (node instanceof cdk.CfnResource) {
-      node.applyRemovalPolicy(this.policy);
-    }
-  }
-}
+import { DeletionPolicySetter } from './aspect/deletion-policy-setter';
 
 // Merges inference profile ARNs into ModelIds and returns a new array using RemoteOutputs
 const mergeModelIdsAndInferenceProfileArn = (

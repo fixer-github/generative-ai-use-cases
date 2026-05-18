@@ -13,3 +13,8 @@ export * from './mcp-api';
 export * from './closedNetwork';
 export * from './agent-core';
 export * from './generic-agent-core';
+export * from './backup-locked-buckets';
+export * from './cognito-export';
+export * from './ddb-pitr-export';
+export * from './s3-replication';
+export * from './restore-role';
