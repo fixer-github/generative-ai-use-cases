@@ -627,6 +627,7 @@ navigation:
   meetingMinutes: รายงานการประชุม
   promptOptimization: ปรับแต่ง Prompt ให้ตรงความต้องการ
   ragChat: RAG Chat
+  scheduler: ตัวจัดตาราง
   settings: ตั้งค่า
   speechRecognition: แปลงเสียงพูดเป็นข้อความ
   summary: สรุป
@@ -684,6 +685,93 @@ rag:
   please_refer: .
   retrieving: กำลังค้นคืนเอกสารอ้างอิงจาก Kendra...
   title: RAG Chat
+scheduler:
+  agent: เอเจนต์
+  basic_info: ข้อมูลพื้นฐาน
+  cancel: ยกเลิก
+  chat_deep_dive: สำรวจเพิ่มเติมในแชท
+  completed_at: 'เสร็จสิ้น: {{time}}'
+  create: สร้าง
+  day_friday: ศ
+  day_monday: จ
+  day_of_month: วันที่
+  day_of_month_label: 'วันที่ {{day}}'
+  day_saturday: ส
+  day_sunday: อา
+  day_thursday: พฤ
+  day_tuesday: อ
+  day_wednesday: พ
+  days_of_week: วัน
+  delete: ลบ
+  delete_confirm_message: ลบงาน "{{name}}"? การดำเนินการตามกำหนดจะหยุด ประวัติการดำเนินการจะถูกเก็บรักษาไว้
+  delete_task: ลบงาน
+  disabled: ปิดใช้งาน
+  edit: แก้ไข
+  edit_task: แก้ไขงาน
+  email_notification: การแจ้งเตือนทางอีเมล
+  email_sent: ส่งแล้ว
+  email_unsent: ยังไม่ส่ง
+  empty_no_tasks: ไม่มีงานที่กำหนดไว้
+  empty_suggestion: สร้างงานให้ AI ดำเนินการตามกำหนดจาก "งานใหม่"
+  enabled: เปิดใช้งาน
+  error_content: รายละเอียดข้อผิดพลาด
+  error_delete_failed: ลบไม่สำเร็จ
+  error_save_failed: บันทึกไม่สำเร็จ
+  error_update_status_failed: อัปเดตสถานะไม่สำเร็จ
+  execution_history: ประวัติการดำเนินการ
+  execution_result: ผลการดำเนินการ
+  execution_settings: การตั้งค่าการดำเนินการ
+  execution_time: เวลาดำเนินการ
+  execution_time_seconds: '{{seconds}} วินาที'
+  hour_label: '{{hour}} นาฬิกา'
+  last_updated: อัปเดตล่าสุด
+  minute_label: '{{minute}} นาที'
+  model: โมเดล
+  month_view: เดือน
+  more_items: '+{{count}}'
+  new_task: งานใหม่
+  new_task_create: สร้างงานใหม่
+  no_execution_history: ยังไม่มีประวัติการดำเนินการ
+  notification_info: >-
+    ผลการดำเนินการจะถูกส่งไปยังอีเมลที่ลงทะเบียนกับบัญชีของคุณ
+    เมื่อสร้างงานแรก คุณจะได้รับอีเมลยืนยัน โปรดคลิกลิงก์ในอีเมลเพื่อเปิดใช้การแจ้งเตือน
+  prompt: พรอมต์
+  prompt_placeholder: ป้อนคำสั่งให้ AI ดำเนินการ สามารถรวม URL ได้
+  registered_tasks: 'งานที่ลงทะเบียน ({{count}})'
+  repeat: ทำซ้ำ
+  repeat_daily: ทุกวัน
+  repeat_monthly: ทุกเดือน
+  repeat_weekly: ทุกสัปดาห์
+  schedule: กำหนดการ
+  schedule_daily: 'ทุกวัน {{time}}'
+  schedule_monthly: 'ทุกเดือนวันที่ {{day}} {{time}}'
+  schedule_weekly: 'ทุกสัปดาห์ {{days}} {{time}}'
+  status_error: ข้อผิดพลาดในการดำเนินการ
+  status_running: กำลังดำเนินการ
+  status_success: ดำเนินการเสร็จสิ้น
+  status_unknown: ไม่ทราบ
+  task_name: ชื่องาน
+  task_name_placeholder: 'เช่น: ตรวจสอบการแจ้งเตือน'
+  time_separator: ':'
+  title: ตัวจัดตาราง
+  today: วันนี้
+  tokens: โทเค็น
+  tokens_detail: 'อินพุต {{input}} / เอาต์พุต {{output}}'
+  unknown_task: งานที่ไม่รู้จัก
+  update: อัปเดต
+  validation_agent_required: โปรดเลือกเอเจนต์
+  validation_days_required: โปรดเลือกอย่างน้อยหนึ่งวัน
+  validation_model_required: โปรดเลือกโมเดล
+  validation_name_required: โปรดป้อนชื่องาน
+  validation_prompt_required: โปรดป้อนพรอมต์
+  week_view: สัปดาห์
+  weekday_full_friday: วันศุกร์
+  weekday_full_monday: วันจันทร���
+  weekday_full_saturday: วันเสาร์
+  weekday_full_sunday: วันอาทิตย์
+  weekday_full_thursday: วันพฤหัสบดี
+  weekday_full_tuesday: วันอังคาร
+  weekday_full_wednesday: วันพุธ
 setting:
   ai_items:
     agent_name: Agent Name

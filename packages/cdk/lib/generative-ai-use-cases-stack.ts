@@ -12,6 +12,7 @@ import {
   SpeechToSpeech,
   McpApi,
   AgentCore,
+  Scheduler,
   BackupLockedBuckets,
   CognitoExportConstruct,
   DdbPitrExportConstruct,
@@ -303,6 +304,9 @@ export class GenerativeAiUseCasesStack extends Stack {
         : undefined,
       agentCoreExternalRuntimes: params.agentCoreExternalRuntimes,
       agentCoreRegion: params.agentCoreRegion,
+      schedulerEnabled:
+        params.createGenericAgentCoreRuntime ||
+        params.agentCoreExternalRuntimes.length > 0,
       // Frontend
       hiddenUseCases: params.hiddenUseCases,
       // Custom Domain
@@ -415,6 +419,27 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
+    // Scheduler
+    // Build agentName->ARN mapping from available runtimes
+    const agentNameToArnMap: Record<string, string> = {};
+    if (genericRuntimeArn && genericRuntimeName) {
+      agentNameToArnMap[genericRuntimeName] = genericRuntimeArn;
+    }
+    for (const runtime of params.agentCoreExternalRuntimes) {
+      agentNameToArnMap[runtime.name] = runtime.arn;
+    }
+    if (Object.keys(agentNameToArnMap).length > 0) {
+      new Scheduler(this, 'Scheduler', {
+        userPool: auth.userPool,
+        api: api.api,
+        agentNameToArnMap,
+        modelRegion: params.modelRegion,
+        agentCoreRegion: params.agentCoreRegion,
+        vpc: props.vpc,
+        securityGroups,
+      });
+    }
+
     // Transcribe
     new Transcribe(this, 'Transcribe', {
       userPool: auth.userPool,
@@ -426,19 +451,19 @@ export class GenerativeAiUseCasesStack extends Stack {
       securityGroups,
     });
 
-    // ===== バックアップリソース（Phase 2〜6 構築物の配線） =====
-    // Phase 2: 分離保管バケット 3 つ（Object Lock Compliance 90 日）
+    // ===== Backup Resources (wiring Phase 2-6 constructs) =====
+    // Phase 2: Three isolated backup buckets (Object Lock Compliance 90 days)
     const backupBuckets = new BackupLockedBuckets(this, 'BackupLockedBuckets', {
       env: params.env,
     });
 
-    // Phase 3: Cognito 定期エクスポート（JST 00:00 日次）
+    // Phase 3: Cognito periodic export (daily at JST 00:00)
     new CognitoExportConstruct(this, 'CognitoExport', {
       userPool: auth.userPool,
       exportBucket: backupBuckets.cognitoExportBucket,
     });
 
-    // Phase 4: DynamoDB PITR Export（JST 04:30 日次、UseCaseBuilder は条件付き）
+    // Phase 4: DynamoDB PITR Export (daily at JST 04:30, UseCaseBuilder is conditional)
     const ddbTables: dynamodb.ITable[] = [database.table, database.statsTable];
     if (useCaseBuilder) {
       ddbTables.push(useCaseBuilder.useCaseBuilderTable);
@@ -448,13 +473,13 @@ export class GenerativeAiUseCasesStack extends Stack {
       exportBucket: backupBuckets.ddbExportBucket,
     });
 
-    // Phase 5: FileBucket → s3ReplicationBucket への SRR
+    // Phase 5: SRR from FileBucket to s3ReplicationBucket
     new S3ReplicationConstruct(this, 'S3Replication', {
       sourceBuckets: [api.fileBucket],
       destinationBucket: backupBuckets.s3ReplicationBucket,
     });
 
-    // Phase 6: 復元実施者用 IAM Role（AccountPrincipal + MFA 必須条件、4h セッション）
+    // Phase 6: IAM Role for restoration operators (AccountPrincipal + MFA required condition, 4h session)
     new RestoreRoleConstruct(this, 'RestoreRole', {
       trustedPrincipal: new iam.AccountPrincipal(this.account).withConditions({
         Bool: { 'aws:MultiFactorAuthPresent': 'true' },

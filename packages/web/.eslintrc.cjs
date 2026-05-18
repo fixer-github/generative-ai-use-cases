@@ -42,7 +42,7 @@ module.exports = {
       // The following warnings are suppressed
       // Classname 'w-' is not a Tailwind CSS class!
       // Classname 'h-' is not a Tailwind CSS class!
-      whitelist: ['w-', 'h-'],
+      whitelist: ['w\\-', 'h\\-', '(.*\\-)?aws\\-(.*)'],
     },
   },
 };

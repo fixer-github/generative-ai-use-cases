@@ -15,7 +15,7 @@ const EXPORT_BUCKET_NAME = process.env.EXPORT_BUCKET_NAME!;
 const cognitoClient = new CognitoIdentityProviderClient({});
 const s3Client = new S3Client({});
 
-// 全ユーザーをページネーションで取得
+// Retrieve all users with pagination
 const listAllUsers = async (): Promise<UserType[]> => {
   const users: UserType[] = [];
   let paginationToken: string | undefined;
@@ -34,7 +34,7 @@ const listAllUsers = async (): Promise<UserType[]> => {
   return users;
 };
 
-// 全グループをページネーションで取得
+// Retrieve all groups with pagination
 const listAllGroups = async (): Promise<GroupType[]> => {
   const groups: GroupType[] = [];
   let nextToken: string | undefined;
@@ -53,7 +53,7 @@ const listAllGroups = async (): Promise<GroupType[]> => {
   return groups;
 };
 
-// 指定グループに所属するユーザー名一覧をページネーションで取得
+// Retrieve all usernames belonging to a specified group with pagination
 const listUsernamesInGroup = async (groupName: string): Promise<string[]> => {
   const usernames: string[] = [];
   let nextToken: string | undefined;
@@ -75,14 +75,14 @@ const listUsernamesInGroup = async (groupName: string): Promise<string[]> => {
   return usernames;
 };
 
-// YYYY-MM-DD（UTC ベース、日次パス用）
+// YYYY-MM-DD (UTC-based, for daily path prefix)
 const formatDate = (date: Date): string => {
   return date.toISOString().slice(0, 10);
 };
 
-// EventBridge スケジュールから日次起動される Cognito Export Lambda。
-// UserPool 配下の全ユーザー・全グループ・グループ所属マップを 1 つの JSON にまとめ、
-// S3 の cognito-exports/YYYY-MM-DD/users.json に保管する。
+// Cognito Export Lambda triggered daily by an EventBridge schedule.
+// Aggregates all users, groups, and group membership mappings under the UserPool
+// into a single JSON file stored at cognito-exports/YYYY-MM-DD/users.json in S3.
 export const handler = async (event: ScheduledEvent): Promise<void> => {
   console.log('Cognito export started:', JSON.stringify(event));
 

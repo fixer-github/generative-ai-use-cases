@@ -515,6 +515,7 @@ navigation:
   meetingMinutes: 会议纪要
   promptOptimization: 提示优化
   ragChat: RAG聊天
+  scheduler: 调度器
   settings: 设置
   speechRecognition: 语音识别
   summary: 摘要
@@ -557,6 +558,93 @@ rag:
   please_refer: 请参考。
   retrieving: 正在从Kendra获取参考文档...
   title: RAG聊天
+scheduler:
+  agent: 代理
+  basic_info: 基本信息
+  cancel: 取消
+  chat_deep_dive: 在聊天中深入了解
+  completed_at: '完成: {{time}}'
+  create: 创建
+  day_friday: 五
+  day_monday: 一
+  day_of_month: 日期
+  day_of_month_label: '{{day}}日'
+  day_saturday: 六
+  day_sunday: 日
+  day_thursday: 四
+  day_tuesday: 二
+  day_wednesday: 三
+  days_of_week: 星期
+  delete: 删除
+  delete_confirm_message: 删除任务"{{name}}"？计划执行将停止。执行历史将保留。
+  delete_task: 删除任务
+  disabled: 已禁用
+  edit: 编辑
+  edit_task: 编辑任务
+  email_notification: 邮件通知
+  email_sent: 已发送
+  email_unsent: 未发送
+  empty_no_tasks: 没有计划任务
+  empty_suggestion: 从"新建任务"创建AI定期执行的任务
+  enabled: 已启用
+  error_content: 错误内容
+  error_delete_failed: 删除失败
+  error_save_failed: 保存失败
+  error_update_status_failed: 状态更新失败
+  execution_history: 执行历史
+  execution_result: 任务执行结果
+  execution_settings: 执行设置
+  execution_time: 执行时间
+  execution_time_seconds: '{{seconds}}秒'
+  hour_label: '{{hour}}时'
+  last_updated: 最后更新
+  minute_label: '{{minute}}分'
+  model: 模型
+  month_view: 月
+  more_items: '+{{count}}件'
+  new_task: 新建任务
+  new_task_create: 创建新任务
+  no_execution_history: 暂无执行历史
+  notification_info: >-
+    执行结果将发送到您账户注册的邮箱地址。
+    创建第一个任务时会收到确认邮件，请点击邮件中的链接启用通知。
+  prompt: 提示词
+  prompt_placeholder: 输入要AI执行的指令。也可以包含URL。
+  registered_tasks: '已注册任务 ({{count}})'
+  repeat: 重复
+  repeat_daily: 每天
+  repeat_monthly: 每月
+  repeat_weekly: 每周
+  schedule: 计划
+  schedule_daily: '每天 {{time}}'
+  schedule_monthly: '每月 {{day}}日 {{time}}'
+  schedule_weekly: '每周 {{days}} {{time}}'
+  status_error: 执行错误
+  status_running: 执行中
+  status_success: 执行完成
+  status_unknown: 未知
+  task_name: 任务名称
+  task_name_placeholder: '例: 通知检查'
+  time_separator: ':'
+  title: 调度器
+  today: 今天
+  tokens: Token
+  tokens_detail: '输入 {{input}} / 输出 {{output}}'
+  unknown_task: 未知任务
+  update: 更新
+  validation_agent_required: 请选择代理
+  validation_days_required: 请至少选择一天
+  validation_model_required: 请选择模型
+  validation_name_required: 请输入任务名称
+  validation_prompt_required: 请输入提示词
+  week_view: 周
+  weekday_full_friday: 星期五
+  weekday_full_monday: 星期一
+  weekday_full_saturday: 星期六
+  weekday_full_sunday: 星期日
+  weekday_full_thursday: 星期四
+  weekday_full_tuesday: 星期二
+  weekday_full_wednesday: 星期三
 setting:
   ai_items:
     agent_name: Agent名称

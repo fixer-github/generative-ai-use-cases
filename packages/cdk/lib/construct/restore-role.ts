@@ -6,34 +6,34 @@ import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface RestoreRoleProps {
-  // AssumeRole を許可する信頼関係。Phase 6 の Q1=a 確定方針として、
-  // 暫定で AccountPrincipal（MFA 必須条件付き）を渡す想定。SSO ロール等が
-  // 確定したらここを差替える。
+  // Trust relationship that allows AssumeRole. As the confirmed Phase 6 Q1=a policy,
+  // AccountPrincipal (with MFA required condition) is passed as an interim measure.
+  // Replace this once the SSO role or similar is finalized.
   readonly trustedPrincipal: iam.IPrincipal;
-  // 復元対象の DynamoDB テーブル群（Main / Stats / (UseCaseBuilder)）。
-  // Phase 4 と同じ方針 β で可変長注入し、Phase 7 で UseCaseBuilder 有効時に
-  // 3 件、無効時に 2 件を渡す。
+  // DynamoDB tables to be restored (Main / Stats / (UseCaseBuilder)).
+  // Injected as a variable-length array following the same Policy Beta as Phase 4;
+  // in Phase 7, 3 tables are passed when UseCaseBuilder is enabled, 2 otherwise.
   readonly tables: dynamodb.ITable[];
-  // 復元対象の Cognito UserPool。
+  // The Cognito UserPool to be restored.
   readonly userPool: cognito.IUserPool;
-  // 復元対象の本番 S3 バケット群（FileBucket 等）。書込・削除を含む。
+  // Production S3 buckets to be restored (FileBucket, etc.). Includes write and delete permissions.
   readonly sourceBuckets: IBucket[];
-  // 分離保管バケット群（Object Lock Compliance 配下）。読取のみ付与し、
-  // 書込・削除は意図的に付与しない（P-13、多層防御）。
+  // Isolated backup buckets (under Object Lock Compliance). Only read access is granted;
+  // write and delete are intentionally withheld (P-13, defense in depth).
   readonly backupBuckets: IBucket[];
 }
 
-// バックアップからの復元作業を実施するための IAM Role を提供する Construct。
+// Construct that provides an IAM Role for performing backup restoration operations.
 //
-// 構成：
-// 1. 復元実施者用 Role（`role`）
-//    - DynamoDB PITR / S3 / Cognito / CloudWatch Logs / 分離保管読取の 5 系権限を最小範囲で付与
-//    - maxSessionDuration: 4 時間
-// 2. Cognito インポート用サービスロール（`cognitoImportRole`）
-//    - `CreateUserImportJob` 実行時の `cloud-watch-logs-role-arn` パラメータに指定する
-//    - cognito-idp.amazonaws.com を信頼し、CloudWatch Logs 書込権限のみを持つ
+// Components:
+// 1. Restoration operator Role (`role`)
+//    - Grants least-privilege permissions across 5 areas: DynamoDB PITR / S3 / Cognito / CloudWatch Logs / isolated backup read
+//    - maxSessionDuration: 4 hours
+// 2. Cognito import service role (`cognitoImportRole`)
+//    - Specified as the `cloud-watch-logs-role-arn` parameter when executing `CreateUserImportJob`
+//    - Trusts cognito-idp.amazonaws.com and has only CloudWatch Logs write permissions
 //
-// 設計書の §6.1（P-07）と §7.5（P-13）、および復元手順書の各復元シナリオに準拠。
+// Compliant with design document sections 6.1 (P-07) and 7.5 (P-13), and each restoration scenario in the restoration procedure manual.
 export class RestoreRoleConstruct extends Construct {
   public readonly role: iam.Role;
   public readonly cognitoImportRole: iam.Role;
@@ -66,8 +66,8 @@ export class RestoreRoleConstruct extends Construct {
 
     const tableArns = props.tables.map((t) => t.tableArn);
 
-    // ① DynamoDB 復元権限：PITR 復元・テーブル情報取得・スキャン／クエリ・Import
-    // resources は対象テーブル ARN に限定。GSI 操作は PITR 復元 API では不要。
+    // (1) DynamoDB restore permissions: PITR restore, table info retrieval, scan/query, import.
+    // Resources are scoped to the target table ARNs. GSI operations are not needed for the PITR restore API.
     this.role.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -88,7 +88,7 @@ export class RestoreRoleConstruct extends Construct {
       })
     );
 
-    // ② S3 本番復元権限：復元時の上書き・削除を含む。範囲は本番バケットのみ。
+    // (2) S3 production restore permissions: includes overwrite and delete for restoration. Scoped to production buckets only.
     const sourceBucketResources = props.sourceBuckets.flatMap((bucket) => [
       bucket.bucketArn,
       `${bucket.bucketArn}/*`,
@@ -110,7 +110,7 @@ export class RestoreRoleConstruct extends Construct {
       })
     );
 
-    // ③ Cognito 復元権限：ユーザーインポートジョブ作成・実行・状態取得・ユーザー操作
+    // (3) Cognito restore permissions: user import job creation, execution, status retrieval, and user operations
     this.role.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -131,9 +131,9 @@ export class RestoreRoleConstruct extends Construct {
       })
     );
 
-    // ④ CloudWatch Logs 参照権限：復元時の調査・トラブルシュート用
-    // CloudWatch Logs API は resource ARN 指定で動作しない操作が多いため、
-    // 設計書（準備手順書 §6.1.3）準拠で resources: ['*'] を採用。
+    // (4) CloudWatch Logs read permissions: for investigation and troubleshooting during restoration.
+    // Many CloudWatch Logs API operations do not work with resource ARN scoping,
+    // so resources: ['*'] is used in compliance with the design document (preparation manual section 6.1.3).
     this.role.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -149,8 +149,8 @@ export class RestoreRoleConstruct extends Construct {
       })
     );
 
-    // ⑤ 分離保管バケット読取権限（P-13）：書込・削除は付与しない。
-    // Object Lock 状態取得も含めることで、復元前にロック有効期限の確認が可能。
+    // (5) Isolated backup bucket read permissions (P-13): write and delete are not granted.
+    // Object Lock status retrieval is included to allow verifying lock expiration before restoration.
     const backupBucketResources = props.backupBuckets.flatMap((bucket) => [
       bucket.bucketArn,
       `${bucket.bucketArn}/*`,
@@ -174,9 +174,9 @@ export class RestoreRoleConstruct extends Construct {
       })
     );
 
-    // Cognito インポート用サービスロール：CreateUserImportJob の引数として渡す
-    // CloudWatch Logs への書込権限のみを付与する。Cognito サービスが
-    // この Role を AssumeRole してインポート進捗ログを CloudWatch に出力する。
+    // Cognito import service role: passed as an argument to CreateUserImportJob.
+    // Only CloudWatch Logs write permissions are granted. The Cognito service
+    // assumes this role to write import progress logs to CloudWatch.
     this.cognitoImportRole = new iam.Role(this, 'CognitoImportRole', {
       assumedBy: new iam.ServicePrincipal('cognito-idp.amazonaws.com'),
       description:

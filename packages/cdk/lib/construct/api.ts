@@ -166,9 +166,9 @@ export class Api extends Construct {
       versioned: true,
       lifecycleRules: [
         {
-          // 旧バージョンが無限に蓄積するのを防ぐ
+          // Prevent old versions from accumulating indefinitely
           noncurrentVersionExpiration: Duration.days(90),
-          // 中断したマルチパートアップロードのゴミを除去（コスト対策）
+          // Remove incomplete multipart upload artifacts (cost optimization)
           abortIncompleteMultipartUploadAfter: Duration.days(7),
         },
       ],

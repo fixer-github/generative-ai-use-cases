@@ -20,16 +20,16 @@ const extractTableName = (tableArn: string): string => {
   return slashIndex >= 0 ? tableArn.slice(slashIndex + 1) : tableArn;
 };
 
-// YYYY-MM-DD（UTC ベース、日次パス用）
+// YYYY-MM-DD (UTC-based, for daily path prefix)
 const formatDate = (date: Date): string => {
   return date.toISOString().slice(0, 10);
 };
 
-// EventBridge スケジュールから日次起動される DynamoDB PITR Export Lambda。
-// 環境変数 TABLE_ARNS にカンマ区切りで指定された全テーブルについて
-// ExportTableToPointInTime を呼び出し、S3 の ddb-export/{tableName}/{YYYY-MM-DD}/
-// 配下に DynamoDB JSON 形式で出力する（AWS が AWSDynamoDB/{ExportId}/ を自動付与）。
-// API は非同期のため、Lambda は呼び出しのみで終了し、エクスポートジョブは AWS 側で継続する。
+// DynamoDB PITR Export Lambda triggered daily by an EventBridge schedule.
+// Calls ExportTableToPointInTime for all tables specified as comma-separated ARNs
+// in the TABLE_ARNS environment variable, exporting them in DynamoDB JSON format
+// to ddb-export/{tableName}/{YYYY-MM-DD}/ in S3 (AWS automatically appends AWSDynamoDB/{ExportId}/).
+// Since the API is asynchronous, the Lambda only initiates the call and the export job continues on the AWS side.
 export const handler = async (event: ScheduledEvent): Promise<void> => {
   console.log('DDB PITR export started:', JSON.stringify(event));
 

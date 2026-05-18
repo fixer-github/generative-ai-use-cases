@@ -1,21 +1,21 @@
 import * as cdk from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
 
-// バックアップ保護対象リソースを示すタグ。AWS リソース上のマーキング用
-// （運用・コスト分析・AWS Backup の対象指定等で活用可能）。
+// Tag indicating a backup-protected resource. Used for marking on AWS resources
+// (can be utilized for operations, cost analysis, AWS Backup target selection, etc.).
 export const BACKUP_PROTECTED_TAG = {
   key: 'Backup',
   value: 'Protected',
 } as const;
 
-// バックアップ保護対象リソースを示す Construct メタデータ。Aspect 判定用。
-// cdk.Tags.of() はタグ自体が Aspect 経由で伝播するため Aspect 実行順序に依存して
-// しまうが、construct.node.addMetadata() は同期処理なので Aspect から確実に読める。
+// Construct metadata indicating a backup-protected resource. Used for Aspect evaluation.
+// cdk.Tags.of() propagates tags via Aspects, making it dependent on Aspect execution order,
+// but construct.node.addMetadata() is synchronous so it can be reliably read from Aspects.
 export const BACKUP_PROTECTED_METADATA_KEY = 'Backup';
 export const BACKUP_PROTECTED_METADATA_VALUE = 'Protected';
 
-// Construct ツリーをスコープ方向（親方向）に辿り、いずれかの祖先 construct に
-// Backup: Protected メタデータが付与されているかを判定する。
+// Traverse the construct tree upward (toward the parent scope) and determine
+// whether any ancestor construct has the Backup: Protected metadata attached.
 const isBackupProtected = (node: IConstruct): boolean => {
   let current: IConstruct | undefined = node;
   while (current) {
@@ -38,9 +38,9 @@ export class DeletionPolicySetter implements cdk.IAspect {
 
   visit(node: IConstruct): void {
     if (node instanceof cdk.CfnResource) {
-      // Backup: Protected メタデータを持つリソース（およびその子）はバックアップ計画上の
-      // 保護対象のため、RemovalPolicy.DESTROY を強制適用しない（個別 construct 側で
-      // RETAIN を保持させる）。
+      // Resources with Backup: Protected metadata (and their children) are protected
+      // under the backup plan, so do not force-apply RemovalPolicy.DESTROY (let individual
+      // constructs keep their RETAIN policy).
       if (isBackupProtected(node)) return;
       node.applyRemovalPolicy(this.policy);
     }

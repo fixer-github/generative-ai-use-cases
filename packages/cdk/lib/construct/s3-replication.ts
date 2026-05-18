@@ -3,25 +3,25 @@ import { Bucket, CfnBucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface S3ReplicationProps {
-  // 複製元バケット群（FileBucket 等）。L1 オーバーライドで replicationConfiguration を
-  // 付与する都合上、concrete な Bucket 型で受け取る必要がある（node.defaultChild が必要）。
+  // Source buckets (FileBucket, etc.). Must be the concrete Bucket type (not IBucket)
+  // because L1 override for replicationConfiguration requires access to node.defaultChild.
   readonly sourceBuckets: Bucket[];
-  // 複製先バケット（BackupLockedBuckets.s3ReplicationBucket）。
-  // ARN のみ参照するため IBucket で受ければ十分。
+  // Destination bucket (BackupLockedBuckets.s3ReplicationBucket).
+  // IBucket is sufficient since only the ARN is referenced.
   readonly destinationBucket: IBucket;
 }
 
-// FileBucket（複数対応）から BackupLockedBuckets.s3ReplicationBucket へ
-// 同一リージョン内 SRR（Same Region Replication）を構成する Construct。
+// Construct that configures Same Region Replication (SRR) from FileBucket(s)
+// to BackupLockedBuckets.s3ReplicationBucket.
 //
-// 設計上の前提：
-// - 複製元バケットは Versioning 有効（Phase 1 で対応済）
-// - 複製先バケットは Object Lock Compliance 90 日（Phase 2 で対応済）
-// - 削除マーカーは複製しない（誤削除の影響遮断）
-// - 新規 PUT のみが対象。既存オブジェクトは AWS S3 Batch Replication で別途運用
+// Design assumptions:
+// - Source buckets have Versioning enabled (addressed in Phase 1)
+// - Destination bucket has Object Lock Compliance with 90-day retention (addressed in Phase 2)
+// - Delete markers are not replicated (to isolate the impact of accidental deletions)
+// - Only new PUTs are targeted. Existing objects are handled separately via AWS S3 Batch Replication
 //
-// 本 construct は Phase 5 で作成のみ行い、メインスタックへの組込み（FileBucket と
-// s3ReplicationBucket の配線）は Phase 7 で実施する。
+// This construct is created in Phase 5; integration into the main stack (wiring FileBucket
+// to s3ReplicationBucket) is done in Phase 7.
 export class S3ReplicationConstruct extends Construct {
   public readonly replicationRole: iam.Role;
 
@@ -34,16 +34,16 @@ export class S3ReplicationConstruct extends Construct {
       );
     }
 
-    // S3 サービスを信頼する IAM Role
+    // IAM Role that trusts the S3 service
     this.replicationRole = new iam.Role(this, 'ReplicationRole', {
       assumedBy: new iam.ServicePrincipal('s3.amazonaws.com'),
       description:
         'IAM Role for S3 cross-bucket replication to backup-locked bucket',
     });
 
-    // ソース側読取権限：各 source bucket に対して必要な権限を付与
-    // Object Lock 取得系（GetObjectVersionRetention / GetObjectLegalHold）は、
-    // 宛先側で Object Lock が有効なため AWS 仕様上必要となる。
+    // Source-side read permissions: grant required permissions for each source bucket.
+    // Object Lock retrieval actions (GetObjectVersionRetention / GetObjectLegalHold) are
+    // required by AWS when Object Lock is enabled on the destination side.
     props.sourceBuckets.forEach((bucket) => {
       this.replicationRole.addToPolicy(
         new iam.PolicyStatement({
@@ -62,7 +62,7 @@ export class S3ReplicationConstruct extends Construct {
       );
     });
 
-    // 宛先側書込権限
+    // Destination-side write permissions
     this.replicationRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -75,9 +75,9 @@ export class S3ReplicationConstruct extends Construct {
       })
     );
 
-    // L1 オーバーライドで各 source bucket に replicationConfiguration を付与
-    // L2 API での replicationRules が成熟していないため、L1（CfnBucket）の
-    // replicationConfiguration プロパティを直接設定する。
+    // Apply replicationConfiguration to each source bucket via L1 override.
+    // Since the L2 API for replicationRules is not mature, the L1 (CfnBucket)
+    // replicationConfiguration property is set directly.
     props.sourceBuckets.forEach((bucket, idx) => {
       const cfnBucket = bucket.node.defaultChild as CfnBucket;
       cfnBucket.replicationConfiguration = {
@@ -87,9 +87,9 @@ export class S3ReplicationConstruct extends Construct {
             id: `replicate-to-backup-locked-${idx}`,
             status: 'Enabled',
             priority: 1,
-            // 空 filter で全オブジェクトをレプリ対象に
+            // Empty filter to target all objects for replication
             filter: {},
-            // 削除マーカーは複製しない（誤削除の影響を宛先に伝播させない）
+            // Do not replicate delete markers (prevent accidental deletion impact from propagating to the destination)
             deleteMarkerReplication: { status: 'Disabled' },
             destination: {
               bucket: props.destinationBucket.bucketArn,

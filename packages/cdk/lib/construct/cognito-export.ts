@@ -15,17 +15,17 @@ import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface CognitoExportProps {
   readonly userPool: cognito.IUserPool;
-  // Phase 7 で BackupLockedBuckets.cognitoExportBucket を注入予定。
-  // 未指定時は本 construct 内で仮バケット（Object Lock なし、Backup: Protected
-  // 付与なし）を作成する。Phase 7 で外部バケットを注入することで、仮バケットは
-  // 不要となり Aspect の DESTROY 適用で自然削除される。
+  // Intended to inject BackupLockedBuckets.cognitoExportBucket in Phase 7.
+  // When not specified, a temporary bucket (no Object Lock, no Backup: Protected tag)
+  // is created within this construct. Injecting an external bucket in Phase 7 makes
+  // the temporary bucket unnecessary, and it will be naturally deleted by the Aspect's DESTROY policy.
   readonly exportBucket?: IBucket;
 }
 
-// Cognito UserPool の全ユーザー・グループ・グループ所属マップを日次で
-// S3 にエクスポートする Construct。EventBridge Rule により JST 00:00（UTC 15:00）に
-// 自動起動される。Phase 3 では仮バケットを内部生成し、Phase 7 で
-// BackupLockedBuckets.cognitoExportBucket（Object Lock Compliance 90 日）に差し替える。
+// Construct that exports all Cognito UserPool users, groups, and group membership
+// mappings to S3 on a daily basis. Automatically triggered by an EventBridge Rule at
+// JST 00:00 (UTC 15:00). In Phase 3, a temporary bucket is generated internally;
+// in Phase 7, it is replaced with BackupLockedBuckets.cognitoExportBucket (Object Lock Compliance 90 days).
 export class CognitoExportConstruct extends Construct {
   public readonly exportBucket: IBucket;
   public readonly exportLambda: NodejsFunction;
@@ -45,7 +45,7 @@ export class CognitoExportConstruct extends Construct {
       },
     });
 
-    // Cognito 最小権限：対象 UserPool ARN に限定
+    // Cognito least-privilege: scoped to the target UserPool ARN
     this.exportLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -58,10 +58,10 @@ export class CognitoExportConstruct extends Construct {
       })
     );
 
-    // S3 PutObject 権限：対象バケットに限定
+    // S3 PutObject permission: scoped to the target bucket
     this.exportBucket.grantPut(this.exportLambda);
 
-    // EventBridge Rule：JST 00:00 日次（UTC 15:00 = JST 24:00 = 翌日 00:00）
+    // EventBridge Rule: Daily at JST 00:00 (UTC 15:00 = JST 24:00 = next day 00:00)
     new events.Rule(this, 'DailyExportSchedule', {
       schedule: events.Schedule.cron({
         minute: '0',
@@ -71,9 +71,9 @@ export class CognitoExportConstruct extends Construct {
     });
   }
 
-  // Phase 7 で外部バケットに差し替えるまでの暫定保管先。Object Lock は適用しない
-  // （後から解除不可のため）。Backup: Protected メタデータ／タグも付与せず、
-  // Phase 7 で本物に差し替えた後の cdk destroy で自然削除されるようにする。
+  // Temporary storage until replaced with an external bucket in Phase 7. Object Lock is not
+  // applied (since it cannot be disabled once enabled). Backup: Protected metadata/tags are
+  // also not attached, so this bucket is naturally deleted by cdk destroy after replacement in Phase 7.
   private createFallbackBucket(): Bucket {
     return new Bucket(this, 'FallbackExportBucket', {
       versioned: true,

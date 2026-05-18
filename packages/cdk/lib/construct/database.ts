@@ -36,7 +36,10 @@ export class Database extends Construct {
       BACKUP_PROTECTED_METADATA_KEY,
       BACKUP_PROTECTED_METADATA_VALUE
     );
-    cdk.Tags.of(table).add(BACKUP_PROTECTED_TAG.key, BACKUP_PROTECTED_TAG.value);
+    cdk.Tags.of(table).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
 
     table.addGlobalSecondaryIndex({
       indexName: feedbackIndexName,

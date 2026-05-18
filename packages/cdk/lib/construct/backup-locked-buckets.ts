@@ -14,13 +14,13 @@ import {
 } from '../aspect/deletion-policy-setter';
 
 export interface BackupLockedBucketsProps {
-  // cdk.json の env 値（バケット名に組み込む）
+  // The env value from cdk.json (embedded in bucket names)
   readonly env: string;
 }
 
-// バックアップを改ざん・削除不可で保管するためのバケット群。
-// Object Lock Compliance モード 90 日のデフォルトリテンションを適用する。
-// 本 construct は Phase 2 で作成のみ行い、メインスタックへの組込みは Phase 7 で実施する。
+// Bucket group for storing backups in a tamper-proof, undeletable manner.
+// Applies a default retention of 90 days in Object Lock Compliance mode.
+// This construct is created in Phase 2; integration into the main stack is done in Phase 7.
 export class BackupLockedBuckets extends Construct {
   public readonly ddbExportBucket: Bucket;
   public readonly s3ReplicationBucket: Bucket;
@@ -32,7 +32,7 @@ export class BackupLockedBuckets extends Construct {
     const { env } = props;
     const region = cdk.Stack.of(this).region;
 
-    // construct 全体に保護対象メタデータを付与（Aspect 除外用）
+    // Attach backup-protected metadata to the entire construct (for Aspect exclusion)
     this.node.addMetadata(
       BACKUP_PROTECTED_METADATA_KEY,
       BACKUP_PROTECTED_METADATA_VALUE

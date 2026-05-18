@@ -14,21 +14,21 @@ import { Construct } from 'constructs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 
 export interface DdbPitrExportProps {
-  // Main / Stats / (UseCaseBuilder) を可変長で受取。Phase 7 で
-  // useCaseBuilderEnabled || agentBuilderEnabled の条件分岐により 2〜3 件を渡す想定。
+  // Accepts a variable number of tables (Main / Stats / (UseCaseBuilder)). In Phase 7,
+  // 2 or 3 tables are passed depending on the useCaseBuilderEnabled || agentBuilderEnabled condition.
   readonly tables: dynamodb.ITable[];
-  // Phase 7 で BackupLockedBuckets.ddbExportBucket を注入予定。
-  // 未指定時は本 construct 内で仮バケット（Object Lock なし、Backup: Protected
-  // 付与なし）を作成する。Phase 7 で外部バケットを注入することで、仮バケットは
-  // 不要となり Aspect の DESTROY 適用で自然削除される。
+  // Intended to inject BackupLockedBuckets.ddbExportBucket in Phase 7.
+  // When not specified, a temporary bucket (no Object Lock, no Backup: Protected tag)
+  // is created within this construct. Injecting an external bucket in Phase 7 makes
+  // the temporary bucket unnecessary, and it will be naturally deleted by the Aspect's DESTROY policy.
   readonly exportBucket?: IBucket;
 }
 
-// DynamoDB の PITR（Point-In-Time Recovery）機能を使い、指定されたテーブル群を
-// 日次で S3 にエクスポートする Construct。EventBridge Rule により JST 04:30
-// （UTC 19:30）に自動起動される。Cognito Export（JST 00:00）と時間をずらして
-// API 競合を回避している。Phase 4 では仮バケットを内部生成し、Phase 7 で
-// BackupLockedBuckets.ddbExportBucket（Object Lock Compliance 90 日）に差し替える。
+// Construct that uses DynamoDB's PITR (Point-In-Time Recovery) feature to export
+// specified tables to S3 on a daily basis. Automatically triggered by an EventBridge Rule
+// at JST 04:30 (UTC 19:30). Staggered from the Cognito Export (JST 00:00) to avoid
+// API contention. In Phase 4, a temporary bucket is generated internally; in Phase 7,
+// it is replaced with BackupLockedBuckets.ddbExportBucket (Object Lock Compliance 90 days).
 export class DdbPitrExportConstruct extends Construct {
   public readonly exportBucket: IBucket;
   public readonly exportLambda: NodejsFunction;
@@ -56,7 +56,7 @@ export class DdbPitrExportConstruct extends Construct {
       },
     });
 
-    // DynamoDB ExportTableToPointInTime 権限：対象テーブル ARN に限定
+    // DynamoDB ExportTableToPointInTime permission: scoped to the target table ARNs
     this.exportLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -65,10 +65,10 @@ export class DdbPitrExportConstruct extends Construct {
       })
     );
 
-    // S3 書込権限：ddb-export/* プレフィックスに限定
-    // DynamoDB Export サービスは Lambda の権限ではなく export サービス自身が
-    // PutObject を実行するが、Lambda 側でも grantPut 相当を付与しておくことで
-    // 将来の検証・補助スクリプト実行に備える。
+    // S3 write permission: scoped to the ddb-export/* prefix.
+    // The DynamoDB Export service performs PutObject with its own permissions rather than
+    // Lambda's, but we grant equivalent PutObject permissions to the Lambda as well to
+    // support future validation and auxiliary script execution.
     this.exportLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -77,8 +77,8 @@ export class DdbPitrExportConstruct extends Construct {
       })
     );
 
-    // EventBridge Rule：JST 04:30 日次（UTC 19:30）
-    // Cognito Export（JST 00:00）と時間をずらして DDB / Cognito API の競合を回避
+    // EventBridge Rule: Daily at JST 04:30 (UTC 19:30)
+    // Staggered from the Cognito Export (JST 00:00) to avoid DDB / Cognito API contention
     new events.Rule(this, 'DailyExportSchedule', {
       schedule: events.Schedule.cron({
         minute: '30',
@@ -88,9 +88,9 @@ export class DdbPitrExportConstruct extends Construct {
     });
   }
 
-  // Phase 7 で外部バケットに差し替えるまでの暫定保管先。Object Lock は適用しない
-  // （後から解除不可のため）。Backup: Protected メタデータ／タグも付与せず、
-  // Phase 7 で本物に差し替えた後の cdk destroy で自然削除されるようにする。
+  // Temporary storage until replaced with an external bucket in Phase 7. Object Lock is not
+  // applied (since it cannot be disabled once enabled). Backup: Protected metadata/tags are
+  // also not attached, so this bucket is naturally deleted by cdk destroy after replacement in Phase 7.
   private createFallbackBucket(): Bucket {
     return new Bucket(this, 'FallbackExportBucket', {
       versioned: true,
