@@ -4,9 +4,12 @@ import InputChatContent from '../components/InputChatContent';
 import ChatMessage from '../components/ChatMessage';
 import Select from '../components/Select';
 import ScrollTopBottom from '../components/ScrollTopBottom';
+import AppFramePanel from '../components/AppFramePanel';
 import useFollow from '../hooks/useFollow';
+import useAppFrame from '../hooks/useAppFrame';
 import { create } from 'zustand';
 import BedrockIcon from '../assets/bedrock.svg?react';
+import { PiSidebar } from 'react-icons/pi';
 import { v4 as uuidv4 } from 'uuid';
 import useFiles from '../hooks/useFiles';
 import { FileLimit } from 'generative-ai-use-cases';
@@ -104,6 +107,31 @@ const AgentCorePage: React.FC = () => {
 
   const { clear: clearFiles, uploadFiles, uploadedFiles } = useFiles(pathname);
 
+  // Resolve apps for the current runtime
+  const currentApps = useMemo(() => {
+    if (!agentName) return [];
+    const decodedName = decodeURIComponent(agentName);
+    const runtime = allAvailableRuntimes.find((r) => r.name === decodedName);
+    return runtime?.apps ?? [];
+  }, [agentName, allAvailableRuntimes]);
+
+  const hasApps = currentApps.length > 0;
+
+  // App frame hook - manages iframe lifecycle and postMessage protocol
+  const {
+    isPanelOpen,
+    togglePanel,
+    activeAppId,
+    switchApp,
+    appStatuses,
+    registerIframeRef,
+    setIsPanelOpen,
+  } = useAppFrame({
+    apps: currentApps,
+    sessionId,
+    parentOrigin: window.location.origin,
+  });
+
   // Set the ARN from URL parameter (look up by name)
   useEffect(() => {
     if (agentName && allAvailableRuntimes.length > 0) {
@@ -187,7 +215,8 @@ const AgentCorePage: React.FC = () => {
     setContent('');
     clearFiles();
     setSessionId(uuidv4());
-  }, [clear, clearFiles, setContent]);
+    setIsPanelOpen(false);
+  }, [clear, clearFiles, setContent, setIsPanelOpen]);
 
   // Handle stop generation
   const onStop = useCallback(() => {
@@ -255,7 +284,8 @@ const AgentCorePage: React.FC = () => {
     <>
       <div
         onDragOver={fileUpload ? handleDragOver : undefined}
-        className={`${!isEmpty ? 'screen:pb-48' : ''} relative`}>
+        className={`${!isEmpty ? 'screen:pb-48' : ''} relative`}
+        style={hasApps && isPanelOpen ? { marginRight: '50vw' } : undefined}>
         {agentName && (
           <div className="flex items-center px-4 py-2 lg:hidden print:hidden">
             <button
@@ -274,6 +304,19 @@ const AgentCorePage: React.FC = () => {
             </button>
           )}
           {pageTitle}
+          {/* App panel toggle button */}
+          {hasApps && (
+            <button
+              className={`ml-2 rounded p-1.5 transition-colors ${
+                isPanelOpen
+                  ? 'bg-aws-smile/10 text-aws-smile'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+              }`}
+              onClick={togglePanel}
+              title={isPanelOpen ? 'Close app panel' : 'Open app panel'}>
+              <PiSidebar size={20} />
+            </button>
+          )}
         </div>
 
         {/* File Drop Overlay */}
@@ -337,33 +380,60 @@ const AgentCorePage: React.FC = () => {
         )}
 
         {/* Scroll Controls */}
-        <div className="fixed right-4 top-[calc(50vh-2rem)] z-0 lg:right-8">
+        <div
+          className="fixed top-[calc(50vh-2rem)] z-0"
+          style={
+            hasApps && isPanelOpen
+              ? { right: 'calc(50vw + 1rem)' }
+              : { right: '2rem' }
+          }>
           <ScrollTopBottom />
         </div>
 
         {/* Input Area */}
-        <div className="fixed bottom-0 z-0 flex w-full flex-col items-center justify-center lg:pr-64 print:hidden">
-          <InputChatContent
-            content={content}
-            disabled={loading && !writing}
-            onChangeContent={setContent}
-            resetDisabled={isEmpty}
-            isEmpty={isEmpty}
-            onSend={() => {
-              if (!loading) {
-                onSend();
-              } else {
-                onStop();
-              }
-            }}
-            onReset={onReset}
-            fileUpload={fileUpload}
-            fileLimit={fileLimit}
-            accept={accept}
-            canStop={writing}
-          />
+        <div
+          className="fixed bottom-0 z-0 flex flex-col items-center justify-center print:hidden"
+          style={
+            hasApps && isPanelOpen
+              ? { left: 0, right: '50vw', paddingRight: '0' }
+              : { left: 0, right: 0 }
+          }>
+          <div className="w-full lg:pr-64">
+            <InputChatContent
+              content={content}
+              disabled={loading && !writing}
+              onChangeContent={setContent}
+              resetDisabled={isEmpty}
+              isEmpty={isEmpty}
+              onSend={() => {
+                if (!loading) {
+                  onSend();
+                } else {
+                  onStop();
+                }
+              }}
+              onReset={onReset}
+              fileUpload={fileUpload}
+              fileLimit={fileLimit}
+              accept={accept}
+              canStop={writing}
+            />
+          </div>
         </div>
       </div>
+
+      {/* App iframe panel */}
+      {hasApps && (
+        <AppFramePanel
+          apps={currentApps}
+          activeAppId={activeAppId}
+          isPanelOpen={isPanelOpen}
+          appStatuses={appStatuses}
+          onClose={togglePanel}
+          onSwitchApp={switchApp}
+          registerIframeRef={registerIframeRef}
+        />
+      )}
     </>
   );
 };

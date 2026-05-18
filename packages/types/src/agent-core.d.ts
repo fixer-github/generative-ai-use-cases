@@ -13,6 +13,12 @@ export type AgentCoreConfiguration = {
   apps?: CustomAppConfiguration[];
 };
 
+// App notification sent from agent backend via stream
+export type AppNotification = {
+  appId: string;
+  payload: Record<string, unknown>;
+};
+
 // AgentCore Runtime Request (extended from Strands with additional fields)
 export type AgentCoreRequest = StrandsRequest & {
   mcp_servers?: string[]; // Changed to string array
@@ -277,6 +283,7 @@ export type StrandsRedactContentEvent = {
 
 // Main stream event type (matches the Python StreamEvent TypedDict)
 export type StrandsStreamEvent = {
+  appNotification?: AppNotification;
   contentBlockDelta?: StrandsContentBlockDeltaEvent;
   contentBlockStart?: StrandsContentBlockStartEvent;
   contentBlockStop?: StrandsContentBlockStopEvent;
