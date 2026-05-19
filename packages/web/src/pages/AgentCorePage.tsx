@@ -254,7 +254,7 @@ const AgentCorePage: React.FC = () => {
     return [
       {
         value: runtime.arn,
-        label: runtime.name,
+        label: runtime.displayName ?? runtime.name,
         tags: isGeneric ? ['Generic'] : isExternal ? ['External'] : undefined,
       },
     ];

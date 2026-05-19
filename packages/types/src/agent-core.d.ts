@@ -8,6 +8,7 @@ export type CustomAppConfiguration = {
 
 export type AgentCoreConfiguration = {
   name: string;
+  displayName?: string;
   arn: string;
   description: string;
   apps?: CustomAppConfiguration[];
