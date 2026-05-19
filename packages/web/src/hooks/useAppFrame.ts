@@ -86,15 +86,30 @@ const useAppFrame = ({ apps, sessionId }: UseAppFrameOptions) => {
           return;
         }
 
+        const idTokenPayload = session.tokens?.idToken?.payload;
+        const displayName =
+          (idTokenPayload?.['custom:displayName'] as string) ??
+          (idTokenPayload?.['name'] as string) ??
+          (idTokenPayload?.['email'] as string) ??
+          '';
+
+        const expClaim = session.tokens?.idToken?.payload?.exp;
+        const expiresAt =
+          typeof expClaim === 'number' ? expClaim * 1000 : Date.now() + 3600000;
+
         sendMessage(appId, 'gaixer:lifecycle:init', {
           auth: {
             idToken,
             accessToken,
+            expiresAt,
           },
-          sessionId,
-          appId,
-          userInfo: {
-            sub: session.userSub,
+          user: {
+            sub: session.userSub ?? '',
+            displayName,
+          },
+          app: {
+            appId,
+            sessionId,
           },
         });
       } catch (error) {
@@ -112,11 +127,16 @@ const useAppFrame = ({ apps, sessionId }: UseAppFrameOptions) => {
         const idToken = session.tokens?.idToken?.toString();
         const accessToken = session.tokens?.accessToken?.toString();
 
+        const expClaim = session.tokens?.idToken?.payload?.exp;
+        const expiresAt =
+          typeof expClaim === 'number' ? expClaim * 1000 : Date.now() + 3600000;
+
         sendMessage(appId, 'gaixer:auth:refresh-response', {
           status: 'ok',
           auth: {
             idToken,
             accessToken,
+            expiresAt,
           },
         });
       } catch (error) {

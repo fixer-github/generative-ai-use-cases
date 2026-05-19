@@ -307,9 +307,7 @@ export class StrandsStreamProcessor {
   /**
    * Process a streaming event and return formatted content
    */
-  processEvent(
-    eventText: string
-  ): {
+  processEvent(eventText: string): {
     text: string;
     trace?: string;
     metadata?: Metadata;
