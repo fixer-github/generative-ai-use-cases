@@ -1,9 +1,22 @@
 import { Model } from './message';
 
+export type CustomAppConfiguration = {
+  id: string;
+  displayName: string;
+  url: string;
+};
+
 export type AgentCoreConfiguration = {
   name: string;
   arn: string;
   description: string;
+  apps?: CustomAppConfiguration[];
+};
+
+// App notification sent from agent backend via stream
+export type AppNotification = {
+  appId: string;
+  payload: Record<string, unknown>;
 };
 
 // AgentCore Runtime Request (extended from Strands with additional fields)
@@ -270,6 +283,7 @@ export type StrandsRedactContentEvent = {
 
 // Main stream event type (matches the Python StreamEvent TypedDict)
 export type StrandsStreamEvent = {
+  appNotification?: AppNotification;
   contentBlockDelta?: StrandsContentBlockDeltaEvent;
   contentBlockStart?: StrandsContentBlockStartEvent;
   contentBlockStop?: StrandsContentBlockStopEvent;

@@ -21,6 +21,42 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+def _extract_app_notifications(message: dict) -> list[dict]:
+    """Extract _appNotification entries from a tool result message.
+
+    Tool result messages have the structure:
+    {"role": "user", "content": [{"toolResult": {"content": [{"text": "..."}]}}]}
+
+    The text content may be a JSON string from the app backend containing
+    an "_appNotification" field (see AI-アプリバックエンド連携仕様.md section 4.4).
+    """
+    if not isinstance(message, dict) or message.get("role") != "user":
+        return []
+
+    notifications = []
+    for content_block in message.get("content", []):
+        if not isinstance(content_block, dict) or "toolResult" not in content_block:
+            continue
+        tool_result = content_block["toolResult"]
+        for result_content in tool_result.get("content", []):
+            if not isinstance(result_content, dict):
+                continue
+            # Handle text content (JSON string from app backend)
+            if "text" in result_content:
+                try:
+                    parsed = json.loads(result_content["text"])
+                    if isinstance(parsed, dict) and "_appNotification" in parsed:
+                        notifications.append(parsed["_appNotification"])
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            # Handle json content (already parsed dict)
+            elif "json" in result_content:
+                parsed = result_content["json"]
+                if isinstance(parsed, dict) and "_appNotification" in parsed:
+                    notifications.append(parsed["_appNotification"])
+    return notifications
+
+
 class IterationLimitExceededError(Exception):
     """Exception raised when iteration limit is exceeded"""
 
@@ -113,6 +149,13 @@ class AgentManager:
             async for event in agent.stream_async(processed_prompt):
                 if "event" in event:
                     yield json.dumps(event, ensure_ascii=False) + "\n"
+
+                # Extract _appNotification from tool result messages and inject as custom stream event
+                if "message" in event:
+                    notifications = _extract_app_notifications(event["message"])
+                    for notification in notifications:
+                        custom_event = {"event": {"appNotification": notification}}
+                        yield json.dumps(custom_event, ensure_ascii=False) + "\n"
 
         except Exception as e:
             logger.error(f"Error processing agent request: {e}", exc_info=True)

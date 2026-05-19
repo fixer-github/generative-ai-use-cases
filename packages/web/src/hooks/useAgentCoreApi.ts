@@ -22,6 +22,7 @@ import {
   convertFilesToStrandsContentBlocks,
 } from '../utils/strandsUtils';
 import { getRegionFromArn } from '../utils/arnUtils';
+import useAppNotificationStore from './useAppNotificationStore';
 
 // Get environment variables
 const region = import.meta.env.VITE_APP_REGION as string;
@@ -54,6 +55,11 @@ const useAgentCoreApi = (id: string) => {
       const processed = processor.processEvent(eventText);
 
       if (processed) {
+        if (processed.appNotification) {
+          useAppNotificationStore
+            .getState()
+            .pushNotification(processed.appNotification);
+        }
         if (processed.text || processed.trace || processed.metadata) {
           addChunkToAssistantMessage(
             processed.text || '',

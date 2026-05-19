@@ -3,6 +3,7 @@
  */
 
 import {
+  AppNotification,
   ExtraData,
   Metadata,
   StrandsContentBlock,
@@ -306,14 +307,25 @@ export class StrandsStreamProcessor {
   /**
    * Process a streaming event and return formatted content
    */
-  processEvent(
-    eventText: string
-  ): { text: string; trace?: string; metadata?: Metadata } | null {
+  processEvent(eventText: string): {
+    text: string;
+    trace?: string;
+    metadata?: Metadata;
+    appNotification?: AppNotification;
+  } | null {
     try {
       const parsedEvent = JSON.parse(eventText);
       const streamEvent = parsedEvent.event as StrandsStreamEvent;
 
       if (!streamEvent) return null;
+
+      // Handle appNotification custom event (from agent backend)
+      if (streamEvent.appNotification) {
+        return {
+          text: '',
+          appNotification: streamEvent.appNotification,
+        };
+      }
 
       // Handle message start event
       if (streamEvent.messageStart) {

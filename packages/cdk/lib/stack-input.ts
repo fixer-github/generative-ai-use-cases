@@ -158,6 +158,18 @@ const baseStackInputSchema = z.object({
         name: z.string(),
         arn: z.string(),
         description: z.string().default(''),
+        apps: z
+          .array(
+            z.object({
+              id: z.string().regex(/^[a-z0-9-]+$/, {
+                message:
+                  'App id must contain only lowercase alphanumeric characters and hyphens',
+              }),
+              displayName: z.string(),
+              url: z.string().url(),
+            })
+          )
+          .optional(),
       })
     )
     .default([]),
