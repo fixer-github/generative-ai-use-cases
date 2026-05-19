@@ -55,7 +55,9 @@ const AgentCoreListPage: React.FC = () => {
                 <RobotIcon className="h-8 w-8 shrink-0 text-gray-400" />
                 <div className="flex flex-1 flex-col">
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="text-sm font-bold">{runtime.name}</span>
+                    <span className="text-sm font-bold">
+                      {runtime.displayName ?? runtime.name}
+                    </span>
                     {tag && (
                       <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                         {tag}
