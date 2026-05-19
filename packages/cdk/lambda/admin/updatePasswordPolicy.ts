@@ -39,14 +39,40 @@ const validatePolicy = (policy: PasswordPolicy): string | null => {
  * Build UpdateUserPool input from the existing pool description,
  * replacing only the password policy. This avoids the UpdateUserPool
  * pitfall where omitted parameters revert to defaults.
+ *
+ * Read-only fields from DescribeUserPool are destructured out, and
+ * everything else is spread into the update input so that newly added
+ * Cognito properties are automatically preserved.
  */
 const buildUpdateInput = (
   existing: UserPoolType,
   newPolicy: PasswordPolicy
 ) => {
+  // These fields are read-only or immutable after creation and must
+  // NOT be sent to UpdateUserPool.
+  const readOnlyKeys = new Set([
+    'Id',
+    'Name',
+    'Status',
+    'Arn',
+    'CreationDate',
+    'LastModifiedDate',
+    'EstimatedNumberOfUsers',
+    'SchemaAttributes',
+    'Domain',
+    'CustomDomain',
+    'UsernameAttributes',
+    'AliasAttributes',
+    'UsernameConfiguration',
+    'Policies',
+  ]);
+  const preservedSettings = Object.fromEntries(
+    Object.entries(existing).filter(([key]) => !readOnlyKeys.has(key))
+  );
+
   return {
     UserPoolId: USER_POOL_ID,
-    // Preserve existing settings
+    ...preservedSettings,
     Policies: {
       PasswordPolicy: {
         MinimumLength: newPolicy.minimumLength,
@@ -54,26 +80,10 @@ const buildUpdateInput = (
         RequireLowercase: newPolicy.requireLowercase,
         RequireNumbers: newPolicy.requireNumbers,
         RequireSymbols: newPolicy.requireSymbols,
-        // Preserve temporary password validity if set
         TemporaryPasswordValidityDays:
           existing.Policies?.PasswordPolicy?.TemporaryPasswordValidityDays,
       },
     },
-    // Preserve all other existing settings to prevent reset
-    AutoVerifiedAttributes: existing.AutoVerifiedAttributes,
-    SmsVerificationMessage: existing.SmsVerificationMessage,
-    EmailVerificationMessage: existing.EmailVerificationMessage,
-    EmailVerificationSubject: existing.EmailVerificationSubject,
-    VerificationMessageTemplate: existing.VerificationMessageTemplate,
-    SmsAuthenticationMessage: existing.SmsAuthenticationMessage,
-    MfaConfiguration: existing.MfaConfiguration,
-    DeviceConfiguration: existing.DeviceConfiguration,
-    EmailConfiguration: existing.EmailConfiguration,
-    SmsConfiguration: existing.SmsConfiguration,
-    UserPoolTags: existing.UserPoolTags,
-    AdminCreateUserConfig: existing.AdminCreateUserConfig,
-    UserPoolAddOns: existing.UserPoolAddOns,
-    AccountRecoverySetting: existing.AccountRecoverySetting,
   };
 };
 
