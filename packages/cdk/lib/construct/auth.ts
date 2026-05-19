@@ -1,5 +1,6 @@
 import { Duration } from 'aws-cdk-lib';
 import {
+  CfnUserPoolGroup,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -123,6 +124,13 @@ export class Auth extends Construct {
         checkEmailDomainFunction
       );
     }
+
+    // Admin group
+    new CfnUserPoolGroup(this, 'AdminGroup', {
+      userPoolId: userPool.userPoolId,
+      groupName: 'admin',
+      description: 'Administrator group with user management privileges',
+    });
 
     this.client = client;
     this.userPool = userPool;

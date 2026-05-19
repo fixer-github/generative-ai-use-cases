@@ -40,6 +40,7 @@ import SchedulerPage from './pages/scheduler/SchedulerPage.tsx';
 import SchedulerTaskFormPage from './pages/scheduler/SchedulerTaskFormPage.tsx';
 import SchedulerTaskDetailPage from './pages/scheduler/SchedulerTaskDetailPage.tsx';
 import SchedulerExecutionDetailPage from './pages/scheduler/SchedulerExecutionDetailPage.tsx';
+import AdminPage from './pages/admin/AdminPage';
 import { MODELS } from './hooks/useModel';
 import { Authenticator } from '@aws-amplify/ui-react';
 import UseCaseBuilderEditPage from './pages/useCaseBuilder/UseCaseBuilderEditPage.tsx';
@@ -280,6 +281,10 @@ const routes: RouteObject[] = [
         element: <SchedulerExecutionDetailPage />,
       }
     : null,
+  {
+    path: '/admin',
+    element: <AdminPage />,
+  },
   {
     path: '*',
     element: <NotFound />,

@@ -1,3 +1,52 @@
+admin:
+  access_denied: アクセス拒否
+  access_denied_message: この機能は管理者のみ利用できます。
+  password_policy:
+    fixed_requirements: ※ 小文字・数字は常に必須です。
+    length_chars: '{{count}} 文字'
+    minimum_length: 最小パスワード文字数
+    note: パスワードポリシーの変更は、次回パスワード変更時から適用されます。既存のパスワードには遡及しません。
+    require_symbols: 記号を必須にする
+    require_uppercase: 大文字を必須にする
+    save_confirm: パスワードポリシーを変更すると、全ユーザに影響します。変更してもよろしいですか？
+    save_confirm_title: パスワードポリシー変更の確認
+    save_error: パスワードポリシーの更新に失敗しました。
+    save_success: パスワードポリシーを更新しました。
+  tabs:
+    password_policy: パスワードポリシー
+    user_management: ユーザ管理
+  title: 管理者設定
+  users:
+    actions: 操作
+    admin_role: 管理者権限
+    create: ユーザ追加
+    create_error: ユーザの作成に失敗しました。
+    create_note: 仮パスワードがメールで送信されます。
+    create_title: 新規ユーザ作成
+    created: 作成日
+    delete: 削除
+    delete_confirm: '{{email}} を削除してもよろしいですか？この操作は取り消せません。'
+    delete_confirm_title: ユーザ削除の確認
+    delete_error: ユーザの削除に失敗しました。
+    disable: 無効化
+    edit_role: ロール編集
+    edit_role_title: ロール編集
+    editing_user: '{{email}} のロールを編集'
+    email: メールアドレス
+    email_placeholder: user@example.com
+    enable: 有効化
+    enabled: 有効/無効
+    enabled_no: 無効
+    enabled_yes: 有効
+    grant_admin: 管理者権限を付与
+    groups_error: ロールの更新に失敗しました。
+    role: ロール
+    role_admin: Admin
+    role_user: User
+    status: ステータス
+    toggle_error: ユーザの有効/無効の切り替えに失敗しました。
+    total: '{{count}} 名のユーザ'
+    you: (自分)
 agent:
   drop_files: ファイルをドロップしてアップロード
   title: Agent チャット
@@ -191,6 +240,7 @@ common:
   previous_page: 前のページ
   remove: 削除
   required: 必須
+  reset: リセット
   reviewComplete: レビュー完了
   save: 保存
   selectUseCase: ユースケースを選択
@@ -755,6 +805,7 @@ model:
     reasoning_budget: 深く考えるトークン数上限
     reasoning_effort: 思考の深さ (Effort)
 navigation:
+  admin: 管理者設定
   agentChat: Agent チャット
   chat: チャット
   diagramGeneration: ダイアグラム生成

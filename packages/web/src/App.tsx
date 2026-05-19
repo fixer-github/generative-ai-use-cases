@@ -24,6 +24,7 @@ import {
   PiNotebook,
   PiGraph,
   PiCalendarBlank,
+  PiShieldCheck,
 } from 'react-icons/pi';
 import { Outlet } from 'react-router-dom';
 import Drawer, { ItemProps } from './components/Drawer';
@@ -37,6 +38,7 @@ import { MODELS } from './hooks/useModel';
 import useScreen from './hooks/useScreen';
 import { optimizePromptEnabled } from './hooks/useOptimizePrompt';
 import useUseCases from './hooks/useUseCases';
+import useAdmin from './hooks/useAdmin';
 import { useTranslation } from 'react-i18next';
 
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
@@ -79,6 +81,7 @@ const App: React.FC = () => {
   const { screen, notifyScreen, scrollTopAnchorRef, scrollBottomAnchorRef } =
     useScreen();
   const { enabled } = useUseCases();
+  const { isAdmin } = useAdmin();
 
   const items: ItemProps[] = [
     {
@@ -262,6 +265,14 @@ const App: React.FC = () => {
           label: t('navigation.diagramGeneration'),
           to: '/diagram',
           icon: <PiTreeStructure />,
+          display: 'usecase' as const,
+        }
+      : null,
+    isAdmin
+      ? {
+          label: t('navigation.admin'),
+          to: '/admin',
+          icon: <PiShieldCheck />,
           display: 'usecase' as const,
         }
       : null,

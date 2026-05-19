@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import {
   Auth,
   Api,
+  AdminApi,
   Web,
   Database,
   Rag,
@@ -179,6 +180,14 @@ export class GenerativeAiUseCasesStack extends Stack {
       cognitoUserPoolProxyEndpoint: props.cognitoUserPoolProxyEndpoint,
     });
 
+    // Admin API
+    new AdminApi(this, 'AdminApi', {
+      userPool: auth.userPool,
+      api: api.api,
+      vpc: props.vpc,
+      securityGroups,
+    });
+
     // WAF
     if (
       params.allowedIpV4AddressRanges ||
@@ -290,6 +299,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       agentCoreGenericRuntime: genericRuntimeArn
         ? {
             name: genericRuntimeName || 'GenericAgentCoreRuntime',
+            displayName: 'Generic Agent Core Runtime',
             arn: genericRuntimeArn,
             description: 'Generic Agent Core Runtime for custom agents',
           }
@@ -298,6 +308,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       agentCoreAgentBuilderRuntime: agentBuilderRuntimeArn
         ? {
             name: agentBuilderRuntimeName || 'AgentBuilderAgentCoreRuntime',
+            displayName: 'Agent Builder',
             arn: agentBuilderRuntimeArn,
             description: 'Agent Core Runtime for AgentBuilder',
           }
