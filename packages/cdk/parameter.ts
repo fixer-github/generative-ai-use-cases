@@ -23,12 +23,14 @@ const envs: Record<string, Partial<StackInput>> = {
   // },
   dev: {
     // Parameters for development environment
+    additionalS3Buckets: ['fixer-excel-agent'],
   },
   staging: {
     // Parameters for staging environment
   },
   prod: {
     // Parameters for production environment
+    additionalS3Buckets: ['fixer-excel-agent'],
   },
   // If you need other environments, customize them as needed
 };

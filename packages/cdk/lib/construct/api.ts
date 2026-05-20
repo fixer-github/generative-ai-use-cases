@@ -26,6 +26,7 @@ import {
   Bucket,
   BucketEncryption,
   HttpMethods,
+  IBucket,
 } from 'aws-cdk-lib/aws-s3';
 import { Agent, AgentInfo, ModelConfiguration } from 'generative-ai-use-cases';
 import {
@@ -61,7 +62,7 @@ export interface BackendApiProps {
   readonly crossAccountBedrockRoleArn?: string | null;
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
-  readonly additionalS3Buckets?: Bucket[];
+  readonly additionalS3Buckets?: IBucket[];
 
   // Resource
   readonly userPool: UserPool;
