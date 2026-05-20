@@ -216,15 +216,21 @@ export class GenerativeAiUseCasesStack extends Stack {
     }
 
     // SpeechToSpeech (for bidirectional communication)
-    const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
-      envSuffix: params.env,
-      api: api.api,
-      userPool: auth.userPool,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
-      crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
-      vpc: props.vpc,
-      securityGroups,
-    });
+    let speechToSpeechNamespace = '';
+    let speechToSpeechEventApiEndpoint = '';
+    if (params.speechToSpeechEnabled) {
+      const speechToSpeech = new SpeechToSpeech(this, 'SpeechToSpeech', {
+        envSuffix: params.env,
+        api: api.api,
+        userPool: auth.userPool,
+        speechToSpeechModelIds: params.speechToSpeechModelIds,
+        crossAccountBedrockRoleArn: params.crossAccountBedrockRoleArn,
+        vpc: props.vpc,
+        securityGroups,
+      });
+      speechToSpeechNamespace = speechToSpeech.namespace;
+      speechToSpeechEventApiEndpoint = speechToSpeech.eventApiEndpoint;
+    }
 
     // Load MCP configuration for Web frontend
     const mcpServers = loadMCPConfig(
@@ -292,9 +298,12 @@ export class GenerativeAiUseCasesStack extends Stack {
       customAgentsJson: JSON.stringify(params.agents),
       inlineAgents: params.inlineAgents,
       useCaseBuilderEnabled: params.useCaseBuilderEnabled,
-      speechToSpeechNamespace: speechToSpeech.namespace,
-      speechToSpeechEventApiEndpoint: speechToSpeech.eventApiEndpoint,
-      speechToSpeechModelIds: params.speechToSpeechModelIds,
+      speechToSpeechEnabled: params.speechToSpeechEnabled,
+      speechToSpeechNamespace,
+      speechToSpeechEventApiEndpoint,
+      speechToSpeechModelIds: params.speechToSpeechEnabled
+        ? params.speechToSpeechModelIds
+        : [],
       mcpEnabled: params.mcpEnabled,
       mcpEndpoint,
       mcpServersConfig: safeMCPConfig,
@@ -612,16 +621,22 @@ export class GenerativeAiUseCasesStack extends Stack {
       value: JSON.stringify(params.hiddenUseCases),
     });
 
+    new CfnOutput(this, 'SpeechToSpeechEnabled', {
+      value: params.speechToSpeechEnabled.toString(),
+    });
+
     new CfnOutput(this, 'SpeechToSpeechNamespace', {
-      value: speechToSpeech.namespace,
+      value: speechToSpeechNamespace,
     });
 
     new CfnOutput(this, 'SpeechToSpeechEventApiEndpoint', {
-      value: speechToSpeech.eventApiEndpoint,
+      value: speechToSpeechEventApiEndpoint,
     });
 
     new CfnOutput(this, 'SpeechToSpeechModelIds', {
-      value: JSON.stringify(params.speechToSpeechModelIds),
+      value: JSON.stringify(
+        params.speechToSpeechEnabled ? params.speechToSpeechModelIds : []
+      ),
     });
 
     new CfnOutput(this, 'McpEnabled', {
