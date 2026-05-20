@@ -1,3 +1,52 @@
+admin:
+  access_denied: Access Denied
+  access_denied_message: This feature is only available to administrators.
+  password_policy:
+    fixed_requirements: '* Lowercase letters and numbers are always required.'
+    length_chars: '{{count}} characters'
+    minimum_length: Minimum password length
+    note: Password policy changes apply on next password change. Existing passwords are not affected.
+    require_symbols: Require symbols
+    require_uppercase: Require uppercase letters
+    save_confirm: Changing the password policy will affect all users. Are you sure you want to proceed?
+    save_confirm_title: Confirm Password Policy Change
+    save_error: Failed to update password policy.
+    save_success: Password policy updated successfully.
+  tabs:
+    password_policy: Password Policy
+    user_management: User Management
+  title: Admin Settings
+  users:
+    actions: Actions
+    admin_role: Admin role
+    create: Add User
+    create_error: Failed to create user.
+    create_note: A temporary password will be sent via email.
+    create_title: Create New User
+    created: Created
+    delete: Delete
+    delete_confirm: 'Are you sure you want to delete {{email}}? This action cannot be undone.'
+    delete_confirm_title: Confirm User Deletion
+    delete_error: Failed to delete user.
+    disable: Disable
+    edit_role: Edit Role
+    edit_role_title: Edit Role
+    editing_user: 'Editing role for {{email}}'
+    email: Email
+    email_placeholder: user@example.com
+    enable: Enable
+    enabled: Enabled
+    enabled_no: Disabled
+    enabled_yes: Enabled
+    grant_admin: Grant admin role
+    groups_error: Failed to update role.
+    role: Role
+    role_admin: Admin
+    role_user: User
+    status: Status
+    toggle_error: Failed to toggle user status.
+    total: '{{count}} users'
+    you: (you)
 agent:
   drop_files: Drop files to upload
   title: Agent Chat
@@ -202,6 +251,7 @@ common:
   previous_page: Previous page
   remove: Remove
   required: Required
+  reset: Reset
   reviewComplete: Review completed
   save: Save
   selectUseCase: Select Use Case
@@ -909,6 +959,7 @@ model:
     reasoning_budget: Token budget for extended thinking
     reasoning_effort: Thinking effort level
 navigation:
+  admin: Admin Settings
   agentChat: Agent Chat
   chat: Chat
   diagramGeneration: Diagram Generation

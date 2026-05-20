@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import {
   Auth,
   Api,
+  AdminApi,
   Web,
   Database,
   Rag,
@@ -177,6 +178,14 @@ export class GenerativeAiUseCasesStack extends Stack {
       securityGroups,
       apiGatewayVpcEndpoint: props.apiGatewayVpcEndpoint,
       cognitoUserPoolProxyEndpoint: props.cognitoUserPoolProxyEndpoint,
+    });
+
+    // Admin API
+    new AdminApi(this, 'AdminApi', {
+      userPool: auth.userPool,
+      api: api.api,
+      vpc: props.vpc,
+      securityGroups,
     });
 
     // WAF
