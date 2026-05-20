@@ -64,6 +64,8 @@ const buildUpdateInput = (
     'UsernameAttributes',
     'AliasAttributes',
     'UsernameConfiguration',
+    'SmsConfigurationFailure',
+    'EmailConfigurationFailure',
     'Policies',
   ]);
   const preservedSettings = Object.fromEntries(
@@ -74,14 +76,14 @@ const buildUpdateInput = (
     UserPoolId: USER_POOL_ID,
     ...preservedSettings,
     Policies: {
+      ...existing.Policies,
       PasswordPolicy: {
+        ...existing.Policies?.PasswordPolicy,
         MinimumLength: newPolicy.minimumLength,
         RequireUppercase: newPolicy.requireUppercase,
         RequireLowercase: newPolicy.requireLowercase,
         RequireNumbers: newPolicy.requireNumbers,
         RequireSymbols: newPolicy.requireSymbols,
-        TemporaryPasswordValidityDays:
-          existing.Policies?.PasswordPolicy?.TemporaryPasswordValidityDays,
       },
     },
   };
