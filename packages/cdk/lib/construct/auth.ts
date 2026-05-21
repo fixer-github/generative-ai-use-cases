@@ -1,6 +1,7 @@
 import { Duration } from 'aws-cdk-lib';
 import {
   CfnUserPoolGroup,
+  Mfa,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -19,6 +20,7 @@ export interface AuthProps {
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly allowedSignUpEmailDomains?: string[] | null;
+  readonly mfaRequired: boolean;
   readonly samlAuthEnabled: boolean;
 }
 
@@ -44,6 +46,11 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
+      },
+      mfa: props.mfaRequired ? Mfa.REQUIRED : Mfa.OFF,
+      mfaSecondFactor: {
+        sms: false,
+        otp: true,
       },
     });
 
