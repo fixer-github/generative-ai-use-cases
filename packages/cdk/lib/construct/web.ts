@@ -55,6 +55,7 @@ export interface WebProps {
   readonly hostedZoneId?: string | null;
   readonly useCaseBuilderEnabled: boolean;
   readonly hiddenUseCases: HiddenUseCases;
+  readonly speechToSpeechEnabled: boolean;
   readonly speechToSpeechNamespace: string;
   readonly speechToSpeechEventApiEndpoint: string;
   readonly speechToSpeechModelIds: ModelConfiguration[];
@@ -300,6 +301,8 @@ export class Web extends Construct {
         VITE_APP_USE_CASE_BUILDER_ENABLED:
           props.useCaseBuilderEnabled.toString(),
         VITE_APP_HIDDEN_USE_CASES: JSON.stringify(props.hiddenUseCases),
+        VITE_APP_SPEECH_TO_SPEECH_ENABLED:
+          props.speechToSpeechEnabled.toString(),
         VITE_APP_SPEECH_TO_SPEECH_NAMESPACE: props.speechToSpeechNamespace,
         VITE_APP_SPEECH_TO_SPEECH_EVENT_API_ENDPOINT:
           props.speechToSpeechEventApiEndpoint,

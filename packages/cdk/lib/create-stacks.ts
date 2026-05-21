@@ -58,7 +58,9 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
       ...params.modelIds.map((model) => model.region),
       ...params.imageGenerationModelIds.map((model) => model.region),
       ...params.videoGenerationModelIds.map((model) => model.region),
-      ...params.speechToSpeechModelIds.map((model) => model.region),
+      ...(params.speechToSpeechEnabled
+        ? params.speechToSpeechModelIds.map((model) => model.region)
+        : []),
     ]),
   ];
   const inferenceProfileStacks: Record<
@@ -98,11 +100,13 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     inferenceProfileStacks,
     app
   );
-  updatedParams.speechToSpeechModelIds = mergeModelIdsAndInferenceProfileArn(
-    params.speechToSpeechModelIds,
-    inferenceProfileStacks,
-    app
-  );
+  updatedParams.speechToSpeechModelIds = params.speechToSpeechEnabled
+    ? mergeModelIdsAndInferenceProfileArn(
+        params.speechToSpeechModelIds,
+        inferenceProfileStacks,
+        app
+      )
+    : [];
 
   // GenU Stack
   const isSageMakerStudio = 'SAGEMAKER_APP_TYPE_LOWERCASE' in process.env;
