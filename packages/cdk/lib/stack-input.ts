@@ -97,6 +97,8 @@ const baseStackInputSchema = z.object({
     )
     .default([]),
   crossAccountBedrockRoleArn: z.string().nullish(),
+  // Additional S3 buckets for download access (e.g., external agent buckets like fixer-excel-agent)
+  additionalS3Buckets: z.array(z.string()).default([]),
   // RAG
   ragEnabled: z.boolean().default(false),
   kendraIndexLanguage: z.string().default('ja'),
