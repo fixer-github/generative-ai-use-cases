@@ -60,8 +60,12 @@ export class ApplicationInferenceProfileStack extends Stack {
     };
 
     createInferenceProfiles(params.modelIds);
-    createInferenceProfiles(params.imageGenerationModelIds);
-    createInferenceProfiles(params.videoGenerationModelIds);
+    if (params.imageGenerationEnabled) {
+      createInferenceProfiles(params.imageGenerationModelIds);
+    }
+    if (params.videoGenerationEnabled) {
+      createInferenceProfiles(params.videoGenerationModelIds);
+    }
     if (params.speechToSpeechEnabled) {
       createInferenceProfiles(params.speechToSpeechModelIds);
     }

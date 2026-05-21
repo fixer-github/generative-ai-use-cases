@@ -301,135 +301,146 @@ export class Api extends Construct {
     });
     table.grantWriteData(predictTitleFunction);
 
-    const generateImageFunction = new NodejsFunction(this, 'GenerateImage', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/generateImage.ts',
-      timeout: Duration.minutes(15),
-      environment: {
-        MODEL_REGION: modelRegion,
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-      },
-      bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
-      },
-      vpc,
-      securityGroups,
-    });
-
-    const generateVideoFunction = new NodejsFunction(this, 'GenerateVideo', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/generateVideo.ts',
-      timeout: Duration.minutes(15),
-      environment: {
-        MODEL_REGION: modelRegion,
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        VIDEO_BUCKET_OWNER: Stack.of(this).account,
-        VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
-        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-        BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
-      },
-      bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
-      },
-      vpc,
-      securityGroups,
-    });
-    for (const region of Object.keys(props.videoBucketRegionMap)) {
-      const bucketName = props.videoBucketRegionMap[region];
-      generateVideoFunction.role?.addToPrincipalPolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['s3:PutObject'],
-          resources: [
-            `arn:aws:s3:::${bucketName}`,
-            `arn:aws:s3:::${bucketName}/*`,
-          ],
-        })
-      );
+    // Image generation (conditional)
+    let generateImageFunction: NodejsFunction | undefined;
+    if (imageGenerationModelIds.length > 0) {
+      generateImageFunction = new NodejsFunction(this, 'GenerateImage', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/generateImage.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MODEL_REGION: modelRegion,
+          MODEL_IDS: JSON.stringify(modelIds),
+          IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+          VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+          CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+        },
+        bundling: {
+          nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        },
+        vpc,
+        securityGroups,
+      });
     }
-    table.grantWriteData(generateVideoFunction);
 
-    const copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/copyVideoJob.ts',
-      timeout: Duration.minutes(15),
-      memorySize: 512,
-      environment: {
-        MODEL_REGION: modelRegion,
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
-        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-        BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
-      },
-      bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
-      },
-      vpc,
-      securityGroups,
-    });
-    for (const region of Object.keys(props.videoBucketRegionMap)) {
-      const bucketName = props.videoBucketRegionMap[region];
-      copyVideoJob.role?.addToPrincipalPolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ['s3:GetObject', 's3:DeleteObject', 's3:ListBucket'],
-          resources: [
-            `arn:aws:s3:::${bucketName}`,
-            `arn:aws:s3:::${bucketName}/*`,
-          ],
-        })
-      );
+    // Video generation (conditional)
+    let generateVideoFunction: NodejsFunction | undefined;
+    let copyVideoJob: NodejsFunction | undefined;
+    let listVideoJobs: NodejsFunction | undefined;
+    let deleteVideoJob: NodejsFunction | undefined;
+    if (videoGenerationModelIds.length > 0) {
+      generateVideoFunction = new NodejsFunction(this, 'GenerateVideo', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/generateVideo.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MODEL_REGION: modelRegion,
+          MODEL_IDS: JSON.stringify(modelIds),
+          IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+          VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+          VIDEO_BUCKET_OWNER: Stack.of(this).account,
+          VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
+          CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+          BUCKET_NAME: fileBucket.bucketName,
+          TABLE_NAME: table.tableName,
+        },
+        bundling: {
+          nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        },
+        vpc,
+        securityGroups,
+      });
+      for (const region of Object.keys(props.videoBucketRegionMap)) {
+        const bucketName = props.videoBucketRegionMap[region];
+        generateVideoFunction.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['s3:PutObject'],
+            resources: [
+              `arn:aws:s3:::${bucketName}`,
+              `arn:aws:s3:::${bucketName}/*`,
+            ],
+          })
+        );
+      }
+      table.grantWriteData(generateVideoFunction);
+
+      copyVideoJob = new NodejsFunction(this, 'CopyVideoJob', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/copyVideoJob.ts',
+        timeout: Duration.minutes(15),
+        memorySize: 512,
+        environment: {
+          MODEL_REGION: modelRegion,
+          MODEL_IDS: JSON.stringify(modelIds),
+          IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+          VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+          VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
+          CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+          BUCKET_NAME: fileBucket.bucketName,
+          TABLE_NAME: table.tableName,
+        },
+        bundling: {
+          nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        },
+        vpc,
+        securityGroups,
+      });
+      for (const region of Object.keys(props.videoBucketRegionMap)) {
+        const bucketName = props.videoBucketRegionMap[region];
+        copyVideoJob.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['s3:GetObject', 's3:DeleteObject', 's3:ListBucket'],
+            resources: [
+              `arn:aws:s3:::${bucketName}`,
+              `arn:aws:s3:::${bucketName}/*`,
+            ],
+          })
+        );
+      }
+      fileBucket.grantWrite(copyVideoJob);
+      table.grantWriteData(copyVideoJob);
+
+      listVideoJobs = new NodejsFunction(this, 'ListVideoJobs', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/listVideoJobs.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MODEL_REGION: modelRegion,
+          MODEL_IDS: JSON.stringify(modelIds),
+          IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+          VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+          VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
+          CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+          BUCKET_NAME: fileBucket.bucketName,
+          TABLE_NAME: table.tableName,
+          COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
+        },
+        bundling: {
+          nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+        },
+        vpc,
+        securityGroups,
+      });
+      table.grantReadWriteData(listVideoJobs);
+      copyVideoJob.grantInvoke(listVideoJobs);
+
+      deleteVideoJob = new NodejsFunction(this, 'DeleteVideoJob', {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/deleteVideoJob.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MODEL_IDS: JSON.stringify(modelIds),
+          IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+          VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+          TABLE_NAME: table.tableName,
+        },
+        vpc,
+        securityGroups,
+      });
+      table.grantWriteData(deleteVideoJob);
     }
-    fileBucket.grantWrite(copyVideoJob);
-    table.grantWriteData(copyVideoJob);
-
-    const listVideoJobs = new NodejsFunction(this, 'ListVideoJobs', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/listVideoJobs.ts',
-      timeout: Duration.minutes(15),
-      environment: {
-        MODEL_REGION: modelRegion,
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        VIDEO_BUCKET_REGION_MAP: JSON.stringify(props.videoBucketRegionMap),
-        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
-        BUCKET_NAME: fileBucket.bucketName,
-        TABLE_NAME: table.tableName,
-        COPY_VIDEO_JOB_FUNCTION_ARN: copyVideoJob.functionArn,
-      },
-      bundling: {
-        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
-      },
-      vpc,
-      securityGroups,
-    });
-    table.grantReadWriteData(listVideoJobs);
-    copyVideoJob.grantInvoke(listVideoJobs);
-
-    const deleteVideoJob = new NodejsFunction(this, 'DeleteVideoJob', {
-      runtime: LAMBDA_RUNTIME_NODEJS,
-      entry: './lambda/deleteVideoJob.ts',
-      timeout: Duration.minutes(15),
-      environment: {
-        MODEL_IDS: JSON.stringify(modelIds),
-        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
-        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
-        TABLE_NAME: table.tableName,
-      },
-      vpc,
-      securityGroups,
-    });
-    table.grantWriteData(deleteVideoJob);
 
     const optimizePromptFunction = new NodejsFunction(
       this,
@@ -533,9 +544,9 @@ export class Api extends Construct {
       predictFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
       predictStreamFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
-      generateImageFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
-      generateVideoFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
-      listVideoJobs.role?.addToPrincipalPolicy(sagemakerPolicy);
+      generateImageFunction?.role?.addToPrincipalPolicy(sagemakerPolicy);
+      generateVideoFunction?.role?.addToPrincipalPolicy(sagemakerPolicy);
+      listVideoJobs?.role?.addToPrincipalPolicy(sagemakerPolicy);
       invokeFlowFunction.role?.addToPrincipalPolicy(sagemakerPolicy);
     }
 
@@ -559,9 +570,9 @@ export class Api extends Construct {
       predictStreamFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       predictFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(bedrockPolicy);
-      generateImageFunction.role?.addToPrincipalPolicy(bedrockPolicy);
-      generateVideoFunction.role?.addToPrincipalPolicy(bedrockPolicy);
-      listVideoJobs.role?.addToPrincipalPolicy(bedrockPolicy);
+      generateImageFunction?.role?.addToPrincipalPolicy(bedrockPolicy);
+      generateVideoFunction?.role?.addToPrincipalPolicy(bedrockPolicy);
+      listVideoJobs?.role?.addToPrincipalPolicy(bedrockPolicy);
       invokeFlowFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       optimizePromptFunction.role?.addToPrincipalPolicy(bedrockPolicy);
     } else {
@@ -579,15 +590,15 @@ export class Api extends Construct {
       predictStreamFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(logsPolicy);
-      generateImageFunction.role?.addToPrincipalPolicy(logsPolicy);
-      generateVideoFunction.role?.addToPrincipalPolicy(logsPolicy);
-      listVideoJobs.role?.addToPrincipalPolicy(logsPolicy);
+      generateImageFunction?.role?.addToPrincipalPolicy(logsPolicy);
+      generateVideoFunction?.role?.addToPrincipalPolicy(logsPolicy);
+      listVideoJobs?.role?.addToPrincipalPolicy(logsPolicy);
       predictStreamFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
-      generateImageFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
-      generateVideoFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
-      listVideoJobs.role?.addToPrincipalPolicy(assumeRolePolicy);
+      generateImageFunction?.role?.addToPrincipalPolicy(assumeRolePolicy);
+      generateVideoFunction?.role?.addToPrincipalPolicy(assumeRolePolicy);
+      listVideoJobs?.role?.addToPrincipalPolicy(assumeRolePolicy);
       // To get pre-signed URL from S3 in different account
       getFileDownloadSignedUrlFunction.role?.addToPrincipalPolicy(
         assumeRolePolicy
@@ -1023,36 +1034,43 @@ export class Api extends Construct {
       commonAuthorizerProps
     );
 
-    const imageResource = api.root.addResource('image');
-    const imageGenerateResource = imageResource.addResource('generate');
-    // POST: /image/generate
-    imageGenerateResource.addMethod(
-      'POST',
-      new LambdaIntegration(generateImageFunction),
-      commonAuthorizerProps
-    );
+    // Image generation API routes (conditional)
+    if (generateImageFunction) {
+      const imageResource = api.root.addResource('image');
+      const imageGenerateResource = imageResource.addResource('generate');
+      // POST: /image/generate
+      imageGenerateResource.addMethod(
+        'POST',
+        new LambdaIntegration(generateImageFunction),
+        commonAuthorizerProps
+      );
+    }
 
-    const videoResource = api.root.addResource('video');
-    const videoGenerateResource = videoResource.addResource('generate');
-    // POST: /video/generate
-    videoGenerateResource.addMethod(
-      'POST',
-      new LambdaIntegration(generateVideoFunction),
-      commonAuthorizerProps
-    );
-    // GET: /video/generate
-    videoGenerateResource.addMethod(
-      'GET',
-      new LambdaIntegration(listVideoJobs),
-      commonAuthorizerProps
-    );
-    const videoJobResource = videoGenerateResource.addResource('{createdDate}');
-    // DELETE: /video/generate/{createdDate}
-    videoJobResource.addMethod(
-      'DELETE',
-      new LambdaIntegration(deleteVideoJob),
-      commonAuthorizerProps
-    );
+    // Video generation API routes (conditional)
+    if (generateVideoFunction && listVideoJobs && deleteVideoJob) {
+      const videoResource = api.root.addResource('video');
+      const videoGenerateResource = videoResource.addResource('generate');
+      // POST: /video/generate
+      videoGenerateResource.addMethod(
+        'POST',
+        new LambdaIntegration(generateVideoFunction),
+        commonAuthorizerProps
+      );
+      // GET: /video/generate
+      videoGenerateResource.addMethod(
+        'GET',
+        new LambdaIntegration(listVideoJobs),
+        commonAuthorizerProps
+      );
+      const videoJobResource =
+        videoGenerateResource.addResource('{createdDate}');
+      // DELETE: /video/generate/{createdDate}
+      videoJobResource.addMethod(
+        'DELETE',
+        new LambdaIntegration(deleteVideoJob),
+        commonAuthorizerProps
+      );
+    }
 
     // Used in the web content extraction use case
     const webTextResource = api.root.addResource('web-text');
