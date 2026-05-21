@@ -75,7 +75,7 @@ const baseStackInputSchema = z.object({
     )
     .default(['amazon.nova-reel-v1:0']),
   // SpeechToSpeech
-  speechToSpeechEnabled: z.boolean().default(false),
+  speechToSpeechEnabled: z.boolean().default(true),
   speechToSpeechModelIds: z
     .array(
       z.union([
