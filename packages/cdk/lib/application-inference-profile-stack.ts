@@ -62,7 +62,9 @@ export class ApplicationInferenceProfileStack extends Stack {
     createInferenceProfiles(params.modelIds);
     createInferenceProfiles(params.imageGenerationModelIds);
     createInferenceProfiles(params.videoGenerationModelIds);
-    createInferenceProfiles(params.speechToSpeechModelIds);
+    if (params.speechToSpeechEnabled) {
+      createInferenceProfiles(params.speechToSpeechModelIds);
+    }
 
     // Export all inference profile ARNs as a single JSON output
     if (Object.keys(this.inferenceProfileArns).length > 0) {
