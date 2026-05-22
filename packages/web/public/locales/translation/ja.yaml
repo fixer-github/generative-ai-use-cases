@@ -40,6 +40,10 @@ admin:
     enabled_yes: 有効
     grant_admin: 管理者権限を付与
     groups_error: ロールの更新に失敗しました。
+    reset_mfa: MFAリセット
+    reset_mfa_confirm: '{{email}} のMFA設定をリセットしてもよろしいですか？次回ログイン時に再設定が必要になります。'
+    reset_mfa_confirm_title: MFAリセットの確認
+    reset_mfa_error: MFAのリセットに失敗しました。
     role: ロール
     role_admin: Admin
     role_user: User

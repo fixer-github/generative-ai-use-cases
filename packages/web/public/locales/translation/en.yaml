@@ -40,6 +40,10 @@ admin:
     enabled_yes: Enabled
     grant_admin: Grant admin role
     groups_error: Failed to update role.
+    reset_mfa: Reset MFA
+    reset_mfa_confirm: 'Are you sure you want to reset MFA for {{email}}? They will need to set up MFA again on next login.'
+    reset_mfa_confirm_title: Confirm MFA Reset
+    reset_mfa_error: Failed to reset MFA.
     role: Role
     role_admin: Admin
     role_user: User

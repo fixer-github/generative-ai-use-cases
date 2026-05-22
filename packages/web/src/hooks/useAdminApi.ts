@@ -46,6 +46,13 @@ const useAdminApi = () => {
       await http.delete(`/admin/users/${encodeURIComponent(username)}`);
     },
 
+    resetMfa: async (username: string) => {
+      await http.post(
+        `/admin/users/${encodeURIComponent(username)}/reset-mfa`,
+        {}
+      );
+    },
+
     updateUserGroups: async (username: string, groups: string[]) => {
       const res = await http.put<
         { username: string; groups: string[] },
