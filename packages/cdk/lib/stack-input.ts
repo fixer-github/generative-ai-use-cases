@@ -52,6 +52,7 @@ const baseStackInputSchema = z.object({
       'us.amazon.nova-micro-v1:0',
       'us.deepseek.r1-v1:0',
     ]),
+  imageGenerationEnabled: z.boolean().default(true),
   imageGenerationModelIds: z
     .array(
       z.union([
@@ -63,6 +64,7 @@ const baseStackInputSchema = z.object({
       ])
     )
     .default(['amazon.nova-canvas-v1:0']),
+  videoGenerationEnabled: z.boolean().default(true),
   videoGenerationModelIds: z
     .array(
       z.union([

@@ -56,8 +56,12 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
   const modelRegions = [
     ...new Set([
       ...params.modelIds.map((model) => model.region),
-      ...params.imageGenerationModelIds.map((model) => model.region),
-      ...params.videoGenerationModelIds.map((model) => model.region),
+      ...(params.imageGenerationEnabled
+        ? params.imageGenerationModelIds.map((model) => model.region)
+        : []),
+      ...(params.videoGenerationEnabled
+        ? params.videoGenerationModelIds.map((model) => model.region)
+        : []),
       ...(params.speechToSpeechEnabled
         ? params.speechToSpeechModelIds.map((model) => model.region)
         : []),
@@ -90,16 +94,20 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     inferenceProfileStacks,
     app
   );
-  updatedParams.imageGenerationModelIds = mergeModelIdsAndInferenceProfileArn(
-    params.imageGenerationModelIds,
-    inferenceProfileStacks,
-    app
-  );
-  updatedParams.videoGenerationModelIds = mergeModelIdsAndInferenceProfileArn(
-    params.videoGenerationModelIds,
-    inferenceProfileStacks,
-    app
-  );
+  updatedParams.imageGenerationModelIds = params.imageGenerationEnabled
+    ? mergeModelIdsAndInferenceProfileArn(
+        params.imageGenerationModelIds,
+        inferenceProfileStacks,
+        app
+      )
+    : [];
+  updatedParams.videoGenerationModelIds = params.videoGenerationEnabled
+    ? mergeModelIdsAndInferenceProfileArn(
+        params.videoGenerationModelIds,
+        inferenceProfileStacks,
+        app
+      )
+    : [];
   updatedParams.speechToSpeechModelIds = params.speechToSpeechEnabled
     ? mergeModelIdsAndInferenceProfileArn(
         params.speechToSpeechModelIds,
@@ -208,27 +216,30 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
 
   // Create S3 Bucket for each unique region for StartAsyncInvoke in video generation
   // because the S3 Bucket must be in the same region as Bedrock Runtime
-  const videoModelRegions = [
-    ...new Set(
-      updatedParams.videoGenerationModelIds.map((model) => model.region)
-    ),
-  ];
   const videoBucketRegionMap: Record<string, string> = {};
 
-  for (const region of videoModelRegions) {
-    const videoTmpBucketStack = new VideoTmpBucketStack(
-      app,
-      `VideoTmpBucketStack${updatedParams.env}${region}`,
-      {
-        env: {
-          account: updatedParams.account,
-          region,
-        },
-        params: updatedParams,
-      }
-    );
+  if (params.videoGenerationEnabled) {
+    const videoModelRegions = [
+      ...new Set(
+        updatedParams.videoGenerationModelIds.map((model) => model.region)
+      ),
+    ];
 
-    videoBucketRegionMap[region] = videoTmpBucketStack.bucketName;
+    for (const region of videoModelRegions) {
+      const videoTmpBucketStack = new VideoTmpBucketStack(
+        app,
+        `VideoTmpBucketStack${updatedParams.env}${region}`,
+        {
+          env: {
+            account: updatedParams.account,
+            region,
+          },
+          params: updatedParams,
+        }
+      );
+
+      videoBucketRegionMap[region] = videoTmpBucketStack.bucketName;
+    }
   }
 
   const generativeAiUseCasesStack = new GenerativeAiUseCasesStack(
