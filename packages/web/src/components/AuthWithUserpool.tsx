@@ -49,12 +49,51 @@ const AuthWithUserpool: React.FC<Props> = (props) => {
   return (
     <Authenticator
       hideSignUp={!selfSignUpEnabled}
+      formFields={{
+        setupTotp: {
+          QR: {
+            totpIssuer: 'GaiXer',
+          },
+        },
+      }}
       components={{
         Header: () => (
           <div className="text-aws-font-color mb-5 mt-10 flex justify-center text-3xl">
             {t('auth.title')}
           </div>
         ),
+        SetupTotp: {
+          Header() {
+            return (
+              <div className="mb-4 text-center">
+                <h2 className="text-aws-font-color text-lg font-semibold">
+                  {t('auth.mfa.setup_title')}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  {t('auth.mfa.setup_description')}
+                </p>
+                <ol className="marker:text-aws-sky mt-3 list-inside list-decimal space-y-1 text-left text-sm text-gray-700 marker:font-semibold">
+                  <li>{t('auth.mfa.setup_step1')}</li>
+                  <li>{t('auth.mfa.setup_step2')}</li>
+                </ol>
+              </div>
+            );
+          },
+        },
+        ConfirmSignIn: {
+          Header() {
+            return (
+              <div className="mb-4 text-center">
+                <h2 className="text-aws-font-color text-lg font-semibold">
+                  {t('auth.mfa.confirm_title')}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  {t('auth.mfa.confirm_description')}
+                </p>
+              </div>
+            );
+          },
+        },
       }}>
       {props.children}
     </Authenticator>

@@ -168,6 +168,13 @@ agent_dashboard: {}
 auth:
   loading: 読み込み中...
   login: ログイン
+  mfa:
+    confirm_description: 認証アプリに表示されている6桁のコードを入力してください。
+    confirm_title: 認証コードの入力
+    setup_description: 認証アプリを使用してアカウントのセキュリティを強化します。
+    setup_step1: お使いの認証アプリでQRコードをスキャンしてください
+    setup_step2: アプリに表示される6桁のコードを下の入力欄に入力してください
+    setup_title: 2段階認証のセットアップ
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高度なオプション

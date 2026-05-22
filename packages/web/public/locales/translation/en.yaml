@@ -177,6 +177,13 @@ agent_dashboard: {}
 auth:
   loading: Loading...
   login: Login
+  mfa:
+    confirm_description: Enter the 6-digit code displayed in your authenticator app.
+    confirm_title: Enter Authentication Code
+    setup_description: Enhance your account security using an authenticator app.
+    setup_step1: Scan the QR code with your authenticator app
+    setup_step2: Enter the 6-digit code displayed in your app below
+    setup_title: Set Up Two-Factor Authentication
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Advanced Options
