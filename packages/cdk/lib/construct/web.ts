@@ -71,6 +71,7 @@ export interface WebProps {
   readonly agentCoreAgentBuilderRuntime?: AgentCoreConfiguration;
   readonly agentCoreExternalRuntimes: AgentCoreConfiguration[];
   readonly agentCoreRegion?: string;
+  readonly mfaRequired: boolean;
   readonly schedulerEnabled: boolean;
   readonly brandingConfig?: {
     logoPath?: string;
@@ -286,6 +287,7 @@ export class Web extends Construct {
         VITE_APP_FLOW_STREAM_FUNCTION_ARN: props.flowStreamFunctionArn,
         VITE_APP_OPTIMIZE_PROMPT_FUNCTION_ARN: props.optimizePromptFunctionArn,
         VITE_APP_SELF_SIGN_UP_ENABLED: props.selfSignUpEnabled.toString(),
+        VITE_APP_MFA_REQUIRED: props.mfaRequired.toString(),
         VITE_APP_MODEL_REGION: props.modelRegion,
         VITE_APP_MODEL_IDS: JSON.stringify(props.modelIds),
         VITE_APP_IMAGE_MODEL_IDS: JSON.stringify(props.imageGenerationModelIds),

@@ -142,6 +142,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
+      mfaRequired: params.mfaRequired,
       samlAuthEnabled: params.samlAuthEnabled,
     });
 
@@ -275,6 +276,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClientId: auth.client.userPoolClientId,
       idPoolId: auth.idPool.identityPoolId,
       selfSignUpEnabled: params.selfSignUpEnabled,
+      mfaRequired: params.mfaRequired,
       samlAuthEnabled: params.samlAuthEnabled,
       samlCognitoDomainName: params.samlCognitoDomainName,
       samlCognitoFederatedIdentityProviderName:

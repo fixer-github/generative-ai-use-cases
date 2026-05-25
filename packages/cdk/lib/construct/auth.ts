@@ -1,6 +1,7 @@
 import { Duration } from 'aws-cdk-lib';
 import {
   CfnUserPoolGroup,
+  Mfa,
   UserPool,
   UserPoolClient,
   UserPoolOperation,
@@ -19,6 +20,7 @@ export interface AuthProps {
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly allowedSignUpEmailDomains?: string[] | null;
+  readonly mfaRequired: boolean;
   readonly samlAuthEnabled: boolean;
 }
 
@@ -44,6 +46,14 @@ export class Auth extends Construct {
         requireSymbols: true,
         requireDigits: true,
         minLength: 8,
+      },
+      // Use Mfa.OPTIONAL and enforce MFA at the application level.
+      // Mfa.REQUIRED causes AdminSetUserMFAPreference to be ignored,
+      // so we use OPTIONAL and force setup on the frontend when MFA is not configured.
+      mfa: props.mfaRequired ? Mfa.OPTIONAL : Mfa.OFF,
+      mfaSecondFactor: {
+        sms: false,
+        otp: true,
       },
     });
 

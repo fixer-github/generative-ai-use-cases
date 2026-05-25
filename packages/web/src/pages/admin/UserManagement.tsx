@@ -6,6 +6,7 @@ import {
   PiProhibit,
   PiCheckCircle,
   PiUserGear,
+  PiShieldSlash,
 } from 'react-icons/pi';
 import useAdminApi from '../../hooks/useAdminApi';
 import useAdmin from '../../hooks/useAdmin';
@@ -23,6 +24,7 @@ const UserManagement: React.FC = () => {
     enableUser,
     deleteUser,
     updateUserGroups,
+    resetMfa,
   } = useAdminApi();
   const { currentUsername } = useAdmin();
 
@@ -47,6 +49,11 @@ const UserManagement: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Reset MFA confirm dialog
+  const [isResetMfaOpen, setIsResetMfaOpen] = useState(false);
+  const [resetMfaUser, setResetMfaUser] = useState<AdminUser | null>(null);
+  const [resetMfaLoading, setResetMfaLoading] = useState(false);
 
   // Action loading state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -129,6 +136,27 @@ const UserManagement: React.FC = () => {
       setGroupsLoading(false);
     }
   }, [editingUser, editingIsAdmin, updateUserGroups, mutate, t]);
+
+  const handleResetMfa = useCallback(async () => {
+    if (!resetMfaUser) return;
+    setResetMfaLoading(true);
+    setError('');
+    try {
+      await resetMfa(resetMfaUser.username);
+      await mutate();
+      setIsResetMfaOpen(false);
+      setResetMfaUser(null);
+    } catch {
+      setError(t('admin.users.reset_mfa_error'));
+    } finally {
+      setResetMfaLoading(false);
+    }
+  }, [resetMfaUser, resetMfa, mutate, t]);
+
+  const openResetMfaDialog = useCallback((user: AdminUser) => {
+    setResetMfaUser(user);
+    setIsResetMfaOpen(true);
+  }, []);
 
   const openGroupsDialog = useCallback((user: AdminUser) => {
     setEditingUser(user);
@@ -258,6 +286,15 @@ const UserManagement: React.FC = () => {
                       <PiUserGear />
                     </button>
                     <button
+                      className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
+                      title={t('admin.users.reset_mfa')}
+                      disabled={
+                        isSelf(user.username) || actionLoading === user.username
+                      }
+                      onClick={() => openResetMfaDialog(user)}>
+                      <PiShieldSlash />
+                    </button>
+                    <button
                       className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
                       title={t('admin.users.delete')}
                       disabled={isSelf(user.username)}
@@ -378,6 +415,28 @@ const UserManagement: React.FC = () => {
               loading={deleteLoading}
               className="bg-red-500 text-white">
               {t('admin.users.delete')}
+            </Button>
+          </div>
+        </div>
+      </ModalDialog>
+
+      {/* Reset MFA Confirm Dialog */}
+      <ModalDialog
+        isOpen={isResetMfaOpen}
+        title={t('admin.users.reset_mfa_confirm_title')}
+        onClose={() => setIsResetMfaOpen(false)}>
+        <div className="space-y-4">
+          <div className="text-sm">
+            {t('admin.users.reset_mfa_confirm', {
+              email: resetMfaUser?.email,
+            })}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button outlined onClick={() => setIsResetMfaOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleResetMfa} loading={resetMfaLoading}>
+              {t('admin.users.reset_mfa')}
             </Button>
           </div>
         </div>

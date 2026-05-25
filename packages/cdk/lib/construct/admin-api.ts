@@ -51,6 +51,7 @@ export class AdminApi extends Construct {
         'cognito-idp:AdminListGroupsForUser',
         'cognito-idp:DescribeUserPool',
         'cognito-idp:UpdateUserPool',
+        'cognito-idp:AdminSetUserMFAPreference',
       ],
       resources: [userPool.userPoolArn],
     });
@@ -136,6 +137,19 @@ export class AdminApi extends Construct {
     );
     updateUserGroupsFunction.addToRolePolicy(cognitoAdminPolicy);
 
+    const resetMfaFunction = new NodejsFunction(this, 'ResetMfa', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/admin/resetMfa.ts',
+      timeout: Duration.minutes(1),
+      environment: commonEnv,
+      bundling: {
+        nodeModules: ['@aws-sdk/client-cognito-identity-provider'],
+      },
+      vpc,
+      securityGroups,
+    });
+    resetMfaFunction.addToRolePolicy(cognitoAdminPolicy);
+
     const getPasswordPolicyFunction = new NodejsFunction(
       this,
       'GetPasswordPolicy',
@@ -218,6 +232,16 @@ export class AdminApi extends Construct {
     enableResource.addMethod(
       'POST',
       new LambdaIntegration(enableUserFunction),
+      commonAuthorizerProps
+    );
+
+    // /admin/users/{username}/reset-mfa
+    const resetMfaResource = userResource.addResource('reset-mfa');
+
+    // POST /admin/users/{username}/reset-mfa
+    resetMfaResource.addMethod(
+      'POST',
+      new LambdaIntegration(resetMfaFunction),
       commonAuthorizerProps
     );
 

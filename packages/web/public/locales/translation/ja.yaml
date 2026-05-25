@@ -40,6 +40,10 @@ admin:
     enabled_yes: 有効
     grant_admin: 管理者権限を付与
     groups_error: ロールの更新に失敗しました。
+    reset_mfa: MFAリセット
+    reset_mfa_confirm: '{{email}} のMFA設定をリセットしてもよろしいですか？次回ログイン時に2段階認証の再設定が求められます。再設定が完了するまでの間、このユーザーのアカウントは2段階認証による保護がない状態となります。'
+    reset_mfa_confirm_title: MFAリセットの確認
+    reset_mfa_error: MFAのリセットに失敗しました。
     role: ロール
     role_admin: Admin
     role_user: User
@@ -168,6 +172,18 @@ agent_dashboard: {}
 auth:
   loading: 読み込み中...
   login: ログイン
+  mfa:
+    confirm_description: 認証アプリに表示されている6桁のコードを入力してください。
+    confirm_title: 認証コードの入力
+    force_setup_description: セキュリティのため、2段階認証の設定が必要です。認証アプリを使用してセットアップを完了してください。
+    force_setup_title: 2段階認証の設定が必要です
+    setup_complete: 2段階認証のセットアップが完了しました。
+    setup_description: 認証アプリを使用してアカウントのセキュリティを強化します。
+    setup_step1: お使いの認証アプリでQRコードをスキャンしてください
+    setup_step2: アプリに表示される6桁のコードを下の入力欄に入力してください
+    setup_title: 2段階認証のセットアップ
+    verify_button: 確認
+    verify_error: コードの検証に失敗しました。正しいコードを入力してください。
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: 高度なオプション

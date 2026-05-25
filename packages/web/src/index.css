@@ -22,6 +22,34 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
+/* MFA - Setup TOTP screen */
+[data-amplify-authenticator-setup-totp] {
+  padding: 0.5rem 1.5rem 1.5rem;
+}
+
+[data-amplify-authenticator-setup-totp] [data-amplify-qrcode] {
+  display: block;
+  margin: 1rem auto;
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+[data-amplify-authenticator-setup-totp] [data-amplify-copy] {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* MFA - Confirm Sign In screen */
+[data-amplify-authenticator-confirmsignin] {
+  padding: 0.5rem 1.5rem 1.5rem;
+}
+
 @media print {
   body {
     -webkit-print-color-adjust: exact;
