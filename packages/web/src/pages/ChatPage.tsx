@@ -30,6 +30,7 @@ import {
   SystemContext,
 } from 'generative-ai-use-cases';
 import ModelParameters from '../components/ModelParameters';
+import WebSearchUnsupportedBanner from '../components/WebSearchUnsupportedBanner';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { useTranslation } from 'react-i18next';
 
@@ -481,6 +482,9 @@ const ChatPage: React.FC = () => {
               return { value: m, label: modelDisplayName(m) };
             })}
           />
+        </div>
+        <div className="print:hidden">
+          <WebSearchUnsupportedBanner modelId={modelId} />
         </div>
 
         {loadingMessages && (

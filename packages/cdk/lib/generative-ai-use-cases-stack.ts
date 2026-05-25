@@ -184,6 +184,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       securityGroups,
       apiGatewayVpcEndpoint: props.apiGatewayVpcEndpoint,
       cognitoUserPoolProxyEndpoint: props.cognitoUserPoolProxyEndpoint,
+      searchApiKey: params.searchApiKey,
+      searchEngine: params.searchEngine,
+      searchApiKeySsmParameterName: params.searchApiKeySsmParameterName,
     });
 
     // Admin API

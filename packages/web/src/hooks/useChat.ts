@@ -585,6 +585,7 @@ const useChatState = create<{
         model: model,
         messages: formattedMessages,
         id: id,
+        webSearchEnabled: true,
       },
       false
     );

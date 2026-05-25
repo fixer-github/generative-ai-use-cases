@@ -143,6 +143,9 @@ const baseStackInputSchema = z.object({
   searchAgentEnabled: z.boolean().default(false),
   searchApiKey: z.string().nullish(),
   searchEngine: z.enum(['Brave', 'Tavily']).default('Brave'),
+  // SSM SecureString parameter name (e.g. "/genu/search-api-key"). Preferred over searchApiKey
+  // when set: the Lambda fetches the value at runtime instead of receiving it as an env var.
+  searchApiKeySsmParameterName: z.string().nullish(),
   agents: z
     .array(
       z.object({
