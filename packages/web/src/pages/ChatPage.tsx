@@ -542,10 +542,10 @@ const ChatPage: React.FC = () => {
         </div>
 
         {isEmpty && !loadingMessages ? (
-          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center lg:pr-64 print:hidden">
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center lg:left-64 print:hidden">
             <div className="pointer-events-auto relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
               {!chatId && (
-                <div className="absolute bottom-full mb-2 max-h-[50vh] w-full overflow-y-auto">
+                <div className="absolute bottom-full mb-2 max-h-[50vh] w-full">
                   <ExpandableField
                     label={t('chat.system_prompt')}
                     className="relative w-full">
