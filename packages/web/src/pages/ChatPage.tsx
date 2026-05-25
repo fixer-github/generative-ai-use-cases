@@ -483,24 +483,9 @@ const ChatPage: React.FC = () => {
           />
         </div>
 
-        {((isEmpty && !loadingMessages) || loadingMessages) && (
-          <div className="relative flex h-[calc(100vh-13rem)] flex-col items-center justify-center gap-y-4">
-            <BedrockIcon
-              className={`fill-gray-400 ${
-                loadingMessages ? 'animate-pulse' : ''
-              }`}
-            />
-
-            {!loadingMessages && (
-              <Button
-                className="text-sm"
-                outlined
-                onClick={() => {
-                  setForceExpandPromptList(Math.random());
-                }}>
-                {t('chat.view_prompt_examples')}
-              </Button>
-            )}
+        {loadingMessages && (
+          <div className="relative flex h-[calc(100vh-13rem)] flex-col items-center justify-center">
+            <BedrockIcon className="animate-pulse fill-gray-400" />
           </div>
         )}
 
@@ -556,75 +541,111 @@ const ChatPage: React.FC = () => {
           <ScrollTopBottom />
         </div>
 
-        <div className="fixed bottom-0 z-0 flex w-full flex-col items-center justify-center lg:pr-64 print:hidden">
-          {isEmpty && !loadingMessages && !chatId && (
-            <ExpandableField
-              label={t('chat.system_prompt')}
-              className="relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
-              <>
-                <div className="absolute -top-2 right-0 mb-2 flex justify-end">
-                  <Button
-                    outlined
-                    className="text-xs"
-                    onClick={() => {
-                      clear();
-                      setInputSystemContext(currentSystemContext);
-                    }}>
-                    {t('chat.initialize')}
-                  </Button>
-                  <Button
-                    outlined
-                    className="ml-1 text-xs"
-                    onClick={() => {
-                      setSaveSystemContext(inputSystemContext);
-                      setShowSystemContextModal(true);
-                    }}>
-                    {t('chat.save')}
-                  </Button>
-                </div>
+        {isEmpty && !loadingMessages ? (
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center lg:left-64 print:hidden">
+            <div className="pointer-events-auto relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
+              {!chatId && (
+                <div className="absolute bottom-full mb-2 max-h-[50vh] w-full">
+                  <ExpandableField
+                    label={t('chat.system_prompt')}
+                    className="relative w-full">
+                    <>
+                      <div className="absolute -top-2 right-0 mb-2 flex justify-end">
+                        <Button
+                          outlined
+                          className="text-xs"
+                          onClick={() => {
+                            clear();
+                            setInputSystemContext(currentSystemContext);
+                          }}>
+                          {t('chat.initialize')}
+                        </Button>
+                        <Button
+                          outlined
+                          className="ml-1 text-xs"
+                          onClick={() => {
+                            setSaveSystemContext(inputSystemContext);
+                            setShowSystemContextModal(true);
+                          }}>
+                          {t('chat.save')}
+                        </Button>
+                      </div>
 
-                <InputChatContent
-                  disableMarginBottom={true}
-                  content={inputSystemContext}
-                  onChangeContent={setInputSystemContext}
-                  fullWidth={true}
-                  resetDisabled={true}
-                  disabled={inputSystemContext === currentSystemContext}
-                  sendIcon={<PiArrowClockwiseBold />}
-                  onSend={() => {
-                    updateSystemContext(inputSystemContext);
-                  }}
-                  hideReset={true}
-                />
-              </>
-            </ExpandableField>
-          )}
-          <InputChatContent
-            content={content}
-            disabled={loading && !writing}
-            onChangeContent={setContent}
-            resetDisabled={!!chatId}
-            onSend={() => {
-              if (!loading) {
-                onSend();
-              } else {
-                onStop();
-              }
-            }}
-            onReset={onReset}
-            fileUpload={fileUpload}
-            fileLimit={fileLimit}
-            accept={accept}
-            reasoning={reasoning}
-            onReasoningSwitched={onReasoningSwitched}
-            reasoningEnabled={reasoningEnabled}
-            setting={setting}
-            onSetting={() => {
-              setShowSetting(true);
-            }}
-            canStop={writing}
-          />
-        </div>
+                      <InputChatContent
+                        disableMarginBottom={true}
+                        content={inputSystemContext}
+                        onChangeContent={setInputSystemContext}
+                        fullWidth={true}
+                        resetDisabled={true}
+                        disabled={inputSystemContext === currentSystemContext}
+                        sendIcon={<PiArrowClockwiseBold />}
+                        onSend={() => {
+                          updateSystemContext(inputSystemContext);
+                        }}
+                        hideReset={true}
+                      />
+                    </>
+                  </ExpandableField>
+                </div>
+              )}
+              <InputChatContent
+                fullWidth={true}
+                disableMarginBottom={true}
+                content={content}
+                disabled={loading && !writing}
+                onChangeContent={setContent}
+                resetDisabled={!!chatId}
+                onSend={() => {
+                  if (!loading) {
+                    onSend();
+                  } else {
+                    onStop();
+                  }
+                }}
+                onReset={onReset}
+                fileUpload={fileUpload}
+                fileLimit={fileLimit}
+                accept={accept}
+                reasoning={reasoning}
+                onReasoningSwitched={onReasoningSwitched}
+                reasoningEnabled={reasoningEnabled}
+                setting={setting}
+                onSetting={() => {
+                  setShowSetting(true);
+                }}
+                canStop={writing}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="fixed bottom-0 z-0 flex w-full flex-col items-center justify-center lg:pr-64 print:hidden">
+            <InputChatContent
+              content={content}
+              disabled={loading && !writing}
+              onChangeContent={setContent}
+              resetDisabled={!!chatId}
+              onSend={() => {
+                if (!loading) {
+                  onSend();
+                } else {
+                  onStop();
+                }
+              }}
+              onReset={onReset}
+              fileUpload={fileUpload}
+              fileLimit={fileLimit}
+              accept={accept}
+              reasoning={reasoning}
+              onReasoningSwitched={onReasoningSwitched}
+              reasoningEnabled={reasoningEnabled}
+              setting={setting}
+              onSetting={() => {
+                setShowSetting(true);
+              }}
+              canStop={writing}
+            />
+          </div>
+        )}
       </div>
 
       {isEmpty && !loadingMessages && (
