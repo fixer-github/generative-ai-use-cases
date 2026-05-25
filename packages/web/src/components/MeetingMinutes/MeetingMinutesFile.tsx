@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import Button from '../Button';
 import ButtonCopy from '../ButtonCopy';
 import ButtonSendToUseCase from '../ButtonSendToUseCase';
@@ -95,6 +96,14 @@ const MeetingMinutesFile: React.FC<MeetingMinutesFileProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) {
+      const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
+      if (files[0].size > MAX_FILE_SIZE_BYTES) {
+        toast.error(t('meetingMinutes.error.file_too_large'));
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
       setFile(files[0]);
     }
   };

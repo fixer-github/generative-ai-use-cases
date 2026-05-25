@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { MediaFormat } from '@aws-sdk/client-transcribe';
+import { toast } from 'sonner';
+import i18next from 'i18next';
 import useTranscribeApi from './useTranscribeApi';
+import { withRetry } from '../utils/retry';
+
+const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 
 const useTranscribeState = create<{
   loading: boolean;
@@ -25,6 +30,16 @@ const useTranscribeState = create<{
   };
 
   const setStatus = (status: string) => {
+    if (status === 'FAILED') {
+      set(() => ({
+        status: status,
+        loading: false,
+      }));
+      toast.error(
+        i18next.t('meetingMinutes.error.file_transcription_job_failed')
+      );
+      return;
+    }
     set(() => ({
       status: status,
       loading: status === 'COMPLETED' ? false : true,
@@ -36,6 +51,7 @@ const useTranscribeState = create<{
       status: '',
       jobName: null,
       file: null,
+      loading: false,
     }));
   };
 
@@ -44,33 +60,53 @@ const useTranscribeState = create<{
     maxSpeakers = 1,
     languageCode?: string
   ) => {
+    const file = get().file;
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(i18next.t('meetingMinutes.error.file_too_large'));
+      return;
+    }
+
     set(() => ({
       loading: true,
     }));
 
-    const mediaFormat = get().file?.name.split('.').pop() as MediaFormat;
+    try {
+      const mediaFormat = file.name.split('.').pop() as MediaFormat;
 
-    // Get the signed URL
-    const signedUrlRes = await api.getSignedUrl({
-      mediaFormat: mediaFormat,
-    });
-    const signedUrl = signedUrlRes.data;
-    const audioUrl = signedUrl.split(/[?#]/)[0]; // Exclude the query parameters from the signed URL
+      // Get the signed URL
+      const signedUrlRes = await api.getSignedUrl({
+        mediaFormat: mediaFormat,
+      });
+      const signedUrl = signedUrlRes.data;
+      const audioUrl = signedUrl.split(/[?#]/)[0]; // Exclude the query parameters from the signed URL
 
-    // Upload the audio
-    await api.uploadAudio(signedUrl, { file: get().file! });
+      // Upload the audio with retry
+      await withRetry(
+        () => api.uploadAudio(signedUrl, { file: file }),
+        3,
+        1000
+      );
 
-    // Start the transcription
-    const startTranscriptionRes = await api.startTranscription({
-      audioUrl: audioUrl,
-      speakerLabel: speakerLabel,
-      maxSpeakers: maxSpeakers,
-      languageCode: languageCode,
-    });
+      // Start the transcription
+      const startTranscriptionRes = await api.startTranscription({
+        audioUrl: audioUrl,
+        speakerLabel: speakerLabel,
+        maxSpeakers: maxSpeakers,
+        languageCode: languageCode,
+      });
 
-    set(() => ({
-      jobName: startTranscriptionRes.jobName,
-    }));
+      set(() => ({
+        jobName: startTranscriptionRes.jobName,
+      }));
+    } catch (error) {
+      console.error('File transcription error:', error);
+      set(() => ({
+        loading: false,
+      }));
+      toast.error(i18next.t('meetingMinutes.error.file_transcription_failed'));
+    }
   };
 
   return {

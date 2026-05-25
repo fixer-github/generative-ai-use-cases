@@ -8,6 +8,7 @@ import React, {
 import { useTranslation } from 'react-i18next';
 import { LanguageCode } from '@aws-sdk/client-transcribe-streaming';
 import { Transcript } from 'generative-ai-use-cases';
+import { toast } from 'sonner';
 import Select from '../Select';
 import Textarea from '../Textarea';
 import MeetingMinutesTranscriptSegment from './MeetingMinutesTranscriptSegment';
@@ -103,7 +104,6 @@ const MeetingMinutesRealtimeTranslation: React.FC<
     recording: screenRecording,
     clearTranscripts: clearScreenTranscripts,
     isSupported: isScreenAudioSupported,
-    error: screenAudioError,
     rawTranscripts: screenRawTranscripts,
   } = useScreenAudio();
 
@@ -668,6 +668,11 @@ const MeetingMinutesRealtimeTranslation: React.FC<
 
   // Start transcription
   const onClickExecStartTranscription = useCallback(async () => {
+    if (!enableMicAudio && !enableScreenAudio) {
+      toast.error(t('meetingMinutes.error.no_audio_source'));
+      return;
+    }
+
     // Simple session management - just increment session ID when recording starts
     setCurrentSessionId((prev) => prev + 1);
 
@@ -729,6 +734,7 @@ const MeetingMinutesRealtimeTranslation: React.FC<
       }
     }
   }, [
+    t,
     primaryLanguage,
     secondaryLanguage,
     translationType,
@@ -868,14 +874,6 @@ const MeetingMinutesRealtimeTranslation: React.FC<
               />
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Screen Audio Error Display */}
-      {screenAudioError && (
-        <div className="mb-3 shrink-0 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          <strong>{t('meetingMinutes.screen_audio_error')}</strong>
-          {t('common.colon')} {screenAudioError}
         </div>
       )}
 
