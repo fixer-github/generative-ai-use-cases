@@ -47,7 +47,10 @@ export class Auth extends Construct {
         requireDigits: true,
         minLength: 8,
       },
-      mfa: props.mfaRequired ? Mfa.REQUIRED : Mfa.OFF,
+      // Use Mfa.OPTIONAL and enforce MFA at the application level.
+      // Mfa.REQUIRED causes AdminSetUserMFAPreference to be ignored,
+      // so we use OPTIONAL and force setup on the frontend when MFA is not configured.
+      mfa: props.mfaRequired ? Mfa.OPTIONAL : Mfa.OFF,
       mfaSecondFactor: {
         sms: false,
         otp: true,

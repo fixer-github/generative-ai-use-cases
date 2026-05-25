@@ -3,6 +3,7 @@ import { Authenticator, translations } from '@aws-amplify/ui-react';
 import { I18n } from 'aws-amplify/utils';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import MfaSetupEnforcer from './MfaSetupEnforcer';
 
 const selfSignUpEnabled: boolean =
   import.meta.env.VITE_APP_SELF_SIGN_UP_ENABLED === 'true';
@@ -95,7 +96,7 @@ const AuthWithUserpool: React.FC<Props> = (props) => {
           },
         },
       }}>
-      {props.children}
+      <MfaSetupEnforcer>{props.children}</MfaSetupEnforcer>
     </Authenticator>
   );
 };

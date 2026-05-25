@@ -276,6 +276,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClientId: auth.client.userPoolClientId,
       idPoolId: auth.idPool.identityPoolId,
       selfSignUpEnabled: params.selfSignUpEnabled,
+      mfaRequired: params.mfaRequired,
       samlAuthEnabled: params.samlAuthEnabled,
       samlCognitoDomainName: params.samlCognitoDomainName,
       samlCognitoFederatedIdentityProviderName:

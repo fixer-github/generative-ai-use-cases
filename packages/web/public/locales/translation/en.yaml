@@ -41,7 +41,7 @@ admin:
     grant_admin: Grant admin role
     groups_error: Failed to update role.
     reset_mfa: Reset MFA
-    reset_mfa_confirm: 'Are you sure you want to reset MFA for {{email}}? They will need to set up MFA again on next login.'
+    reset_mfa_confirm: "Are you sure you want to reset MFA for {{email}}? They will be required to set up two-factor authentication again on next login. Until the setup is complete, this user's account will not be protected by two-factor authentication."
     reset_mfa_confirm_title: Confirm MFA Reset
     reset_mfa_error: Failed to reset MFA.
     role: Role
@@ -184,10 +184,15 @@ auth:
   mfa:
     confirm_description: Enter the 6-digit code displayed in your authenticator app.
     confirm_title: Enter Authentication Code
+    force_setup_description: For security, you need to set up two-factor authentication. Please complete the setup using your authenticator app.
+    force_setup_title: Two-Factor Authentication Required
+    setup_complete: Two-factor authentication setup is complete.
     setup_description: Enhance your account security using an authenticator app.
     setup_step1: Scan the QR code with your authenticator app
     setup_step2: Enter the 6-digit code displayed in your app below
     setup_title: Set Up Two-Factor Authentication
+    verify_button: Verify
+    verify_error: Failed to verify code. Please enter the correct code.
   title: Generative AI Use Cases on AWS
 chat:
   advanced_options: Advanced Options
