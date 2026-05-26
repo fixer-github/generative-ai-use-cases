@@ -5,13 +5,16 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
 import MicrophoneStream from 'microphone-stream';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import update from 'immutability-helper';
 import { Buffer } from 'buffer';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { Transcript } from 'generative-ai-use-cases';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { withRetry } from '../utils/retry';
 
 const pcmEncodeChunk = (chunk: Buffer) => {
   const input = MicrophoneStream.toRaw(chunk);
@@ -39,6 +42,7 @@ const idPoolId = import.meta.env.VITE_APP_IDENTITY_POOL_ID;
 const providerName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
 
 const useMicrophone = () => {
+  const { t } = useTranslation();
   const [micStream, setMicStream] = useState<MicrophoneStream | undefined>();
   const [recording, setRecording] = useState(false);
   const [rawTranscripts, setRawTranscripts] = useState<
@@ -84,13 +88,10 @@ const useMicrophone = () => {
     return mergedTranscripts;
   }, [rawTranscripts, language]);
 
-  useEffect(() => {
-    // break if already set
-    if (transcribeClient) return;
-
-    fetchAuthSession().then((session) => {
+  const initTranscribeClient = useCallback(async () => {
+    try {
+      const session = await withRetry(() => fetchAuthSession());
       const token = session.tokens?.idToken?.toString();
-      // break if unauthenticated
       if (!token) {
         return;
       }
@@ -106,8 +107,24 @@ const useMicrophone = () => {
         }),
       });
       setTranscribeClient(transcribe);
-    });
-  }, [transcribeClient]);
+    } catch {
+      console.error('Failed to initialize TranscribeClient');
+      toast.error(t('meetingMinutes.error.auth_session_failed'));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (transcribeClient) return;
+    initTranscribeClient();
+  }, [transcribeClient, initTranscribeClient]);
+
+  const stopTranscription = useCallback(() => {
+    if (micStream) {
+      micStream.stop();
+      setRecording(false);
+      setMicStream(undefined);
+    }
+  }, [micStream]);
 
   const startStream = async (
     mic: MicrophoneStream,
@@ -122,16 +139,6 @@ const useMicrophone = () => {
     if (languageCode) {
       setLanguage(languageCode);
     }
-
-    const audioStream = async function* () {
-      for await (const chunk of mic as unknown as Buffer[]) {
-        yield {
-          AudioEvent: {
-            AudioChunk: pcmEncodeChunk(chunk),
-          },
-        };
-      }
-    };
 
     // Best Practice: https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html
     let commandParams;
@@ -166,19 +173,33 @@ const useMicrophone = () => {
       };
     }
 
-    const command = new StartStreamTranscriptionCommand({
-      ...commandParams,
-      MediaEncoding: 'pcm',
-      MediaSampleRateHertz: 48000,
-      AudioStream: audioStream(),
-      ShowSpeakerLabel: speakerLabel,
-    });
+    const createCommand = () => {
+      const audioStream = async function* () {
+        for await (const chunk of mic as unknown as Buffer[]) {
+          yield {
+            AudioEvent: {
+              AudioChunk: pcmEncodeChunk(chunk),
+            },
+          };
+        }
+      };
+      return new StartStreamTranscriptionCommand({
+        ...commandParams,
+        MediaEncoding: 'pcm',
+        MediaSampleRateHertz: 48000,
+        AudioStream: audioStream(),
+        ShowSpeakerLabel: speakerLabel,
+      });
+    };
 
     try {
-      const response = await transcribeClient.send(command);
+      const response = await withRetry(
+        () => transcribeClient.send(createCommand()),
+        3,
+        1000
+      );
 
       if (response.TranscriptResultStream) {
-        // This snippet should be put into an async function
         for await (const event of response.TranscriptResultStream) {
           if (
             event.TranscriptEvent?.Transcript?.Results &&
@@ -262,11 +283,12 @@ const useMicrophone = () => {
         }
       }
     } catch (error) {
-      console.error(error);
-      stopTranscription();
+      console.error('Microphone transcription error:', error);
+      toast.error(t('meetingMinutes.error.mic_transcription_failed'));
     } finally {
       stopTranscription();
       transcribeClient.destroy();
+      setTranscribeClient(undefined);
     }
   };
 
@@ -295,17 +317,21 @@ const useMicrophone = () => {
         enableMultiLanguage
       );
     } catch (e) {
-      console.log(e);
+      console.log('Microphone capture error:', e);
+      if (e instanceof Error) {
+        if (e.name === 'NotAllowedError') {
+          toast.error(t('meetingMinutes.error.mic_permission_denied'));
+        } else if (
+          e.name === 'NotFoundError' ||
+          e.name === 'OverconstrainedError'
+        ) {
+          toast.error(t('meetingMinutes.error.mic_not_available'));
+        } else {
+          toast.error(t('meetingMinutes.error.mic_transcription_failed'));
+        }
+      }
     } finally {
       mic.stop();
-      setRecording(false);
-      setMicStream(undefined);
-    }
-  };
-
-  const stopTranscription = () => {
-    if (micStream) {
-      micStream.stop();
       setRecording(false);
       setMicStream(undefined);
     }

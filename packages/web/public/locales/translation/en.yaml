@@ -903,6 +903,23 @@ meetingMinutes:
   diagram_options: Diagram Types to Generate
   diagram_sequence: Sequence Diagram (Relationships)
   diagram_timeline: Timeline (Deadlines & Schedule)
+  error:
+    auth_session_failed: Failed to obtain authentication session. Please log in again.
+    file_too_large: File size exceeds the limit (2GB).
+    file_transcription_failed: Failed to transcribe the file.
+    file_transcription_job_failed: Transcription job failed. Please check the file and try again.
+    file_upload_failed: Failed to upload the file.
+    mic_not_available: Microphone is not available. Please check your device connection.
+    mic_permission_denied: Microphone access was denied. Please check your browser settings.
+    mic_transcription_failed: An error occurred during microphone transcription.
+    no_audio_source: No audio input source selected. Please enable microphone or screen audio.
+    screen_audio_denied: Screen audio access was denied.
+    screen_audio_failed: Failed to start screen audio capture.
+    screen_audio_no_audio_track: No audio track available in screen capture.
+    screen_audio_not_supported: Screen audio capture is not supported in this browser.
+    screen_transcription_failed: An error occurred during screen audio transcription.
+    transcription_connection_failed: Failed to connect to the transcription service.
+    transcription_interrupted: Transcription was interrupted. Previous results have been preserved.
   frequency: Generation Frequency
   frequency_10min: Every 10 minutes
   frequency_1min: Every 1 minute

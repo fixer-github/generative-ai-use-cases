@@ -23,7 +23,8 @@ const useTranscribeApi = () => {
       return http.get<GetTranscriptionResponse>(
         jobName ? `transcribe/result/${jobName}` : null,
         {
-          refreshInterval: status === 'COMPLETED' ? 0 : 2000,
+          refreshInterval:
+            status === 'COMPLETED' || status === 'FAILED' ? 0 : 2000,
           onSuccess: (data: GetTranscriptionResponse) => {
             setStatus(data.status);
           },

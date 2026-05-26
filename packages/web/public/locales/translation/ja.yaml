@@ -748,6 +748,23 @@ meetingMinutes:
   diagram_options: 生成する図の種類
   diagram_sequence: シーケンス図（関係性）
   diagram_timeline: タイムライン（期限・スケジュール）
+  error:
+    auth_session_failed: 認証セッションの取得に失敗しました。再度ログインしてください。
+    file_too_large: ファイルサイズが大きすぎます（上限2GB）。
+    file_transcription_failed: ファイルの文字起こしに失敗しました。
+    file_transcription_job_failed: 文字起こしジョブが失敗しました。ファイルを確認の上、再度お試しください。
+    file_upload_failed: ファイルのアップロードに失敗しました。
+    mic_not_available: マイクが利用できません。デバイスの接続を確認してください。
+    mic_permission_denied: マイクのアクセスが拒否されました。ブラウザの設定を確認してください。
+    mic_transcription_failed: マイクの文字起こし中にエラーが発生しました。
+    no_audio_source: 音声入力ソースが選択されていません。マイクまたはスクリーン音声を有効にしてください。
+    screen_audio_denied: スクリーン音声のアクセスが拒否されました。
+    screen_audio_failed: スクリーン音声のキャプチャに失敗しました。
+    screen_audio_no_audio_track: スクリーンキャプチャに音声トラックが含まれていません。
+    screen_audio_not_supported: このブラウザではスクリーン音声のキャプチャに対応していません。
+    screen_transcription_failed: スクリーン音声の文字起こし中にエラーが発生しました。
+    transcription_connection_failed: 文字起こしサービスへの接続に失敗しました。
+    transcription_interrupted: 文字起こし中に接続が切断されました。それまでの結果は保持されています。
   frequency: 生成頻度
   frequency_10min: 10分ごと
   frequency_1min: 1分ごと

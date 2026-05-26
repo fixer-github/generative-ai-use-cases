@@ -5,13 +5,16 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
 import MicrophoneStream from 'microphone-stream';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import update from 'immutability-helper';
 import { Buffer } from 'buffer';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { Transcript } from 'generative-ai-use-cases';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { withRetry } from '../utils/retry';
 
 const pcmEncodeChunk = (chunk: Buffer) => {
   const input = MicrophoneStream.toRaw(chunk);
@@ -39,6 +42,7 @@ const idPoolId = import.meta.env.VITE_APP_IDENTITY_POOL_ID;
 const providerName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
 
 const useScreenAudio = () => {
+  const { t } = useTranslation();
   const [screenStream, setScreenStream] = useState<
     MicrophoneStream | undefined
   >();
@@ -57,7 +61,6 @@ const useScreenAudio = () => {
   const [transcribeClient, setTranscribeClient] =
     useState<TranscribeStreamingClient>();
   const [isSupported, setIsSupported] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
   const [preparedDisplayStream, setPreparedDisplayStream] =
     useState<MediaStream | null>(null);
 
@@ -98,13 +101,10 @@ const useScreenAudio = () => {
     return mergedTranscripts;
   }, [rawTranscripts, language]);
 
-  useEffect(() => {
-    // break if already set
-    if (transcribeClient) return;
-
-    fetchAuthSession().then((session) => {
+  const initTranscribeClient = useCallback(async () => {
+    try {
+      const session = await withRetry(() => fetchAuthSession());
       const token = session.tokens?.idToken?.toString();
-      // break if unauthenticated
       if (!token) {
         return;
       }
@@ -120,8 +120,30 @@ const useScreenAudio = () => {
         }),
       });
       setTranscribeClient(transcribe);
-    });
-  }, [transcribeClient]);
+    } catch {
+      console.error('Failed to initialize TranscribeClient');
+      toast.error(t('meetingMinutes.error.auth_session_failed'));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (transcribeClient) return;
+    initTranscribeClient();
+  }, [transcribeClient, initTranscribeClient]);
+
+  const stopTranscription = useCallback(() => {
+    if (screenStream) {
+      screenStream.stop();
+      setRecording(false);
+      setScreenStream(undefined);
+    }
+
+    // Clean up prepared stream if exists
+    if (preparedDisplayStream) {
+      preparedDisplayStream.getTracks().forEach((track) => track.stop());
+      setPreparedDisplayStream(null);
+    }
+  }, [screenStream, preparedDisplayStream]);
 
   const startStream = async (
     stream: MicrophoneStream,
@@ -136,16 +158,6 @@ const useScreenAudio = () => {
     if (languageCode) {
       setLanguage(languageCode);
     }
-
-    const audioStream = async function* () {
-      for await (const chunk of stream as unknown as Buffer[]) {
-        yield {
-          AudioEvent: {
-            AudioChunk: pcmEncodeChunk(chunk),
-          },
-        };
-      }
-    };
 
     // Best Practice: https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html
     let commandParams;
@@ -180,19 +192,33 @@ const useScreenAudio = () => {
       };
     }
 
-    const command = new StartStreamTranscriptionCommand({
-      ...commandParams,
-      MediaEncoding: 'pcm',
-      MediaSampleRateHertz: 48000,
-      AudioStream: audioStream(),
-      ShowSpeakerLabel: speakerLabel,
-    });
+    const createCommand = () => {
+      const audioStream = async function* () {
+        for await (const chunk of stream as unknown as Buffer[]) {
+          yield {
+            AudioEvent: {
+              AudioChunk: pcmEncodeChunk(chunk),
+            },
+          };
+        }
+      };
+      return new StartStreamTranscriptionCommand({
+        ...commandParams,
+        MediaEncoding: 'pcm',
+        MediaSampleRateHertz: 48000,
+        AudioStream: audioStream(),
+        ShowSpeakerLabel: speakerLabel,
+      });
+    };
 
     try {
-      const response = await transcribeClient.send(command);
+      const response = await withRetry(
+        () => transcribeClient.send(createCommand()),
+        3,
+        1000
+      );
 
       if (response.TranscriptResultStream) {
-        // This snippet should be put into an async function
         for await (const event of response.TranscriptResultStream) {
           if (
             event.TranscriptEvent?.Transcript?.Results &&
@@ -274,11 +300,11 @@ const useScreenAudio = () => {
       }
     } catch (error) {
       console.error('Screen audio transcription error:', error);
-      setError('Screen audio transcription failed');
-      stopTranscription();
+      toast.error(t('meetingMinutes.error.screen_transcription_failed'));
     } finally {
       stopTranscription();
       transcribeClient.destroy();
+      setTranscribeClient(undefined);
     }
   };
 
@@ -289,13 +315,12 @@ const useScreenAudio = () => {
     enableMultiLanguage?: boolean
   ) => {
     if (!isSupported) {
-      setError('Screen audio capture is not supported in this browser');
+      toast.error(t('meetingMinutes.error.screen_audio_not_supported'));
       return;
     }
 
     const stream = new MicrophoneStream();
     try {
-      setError('');
       setScreenStream(stream);
 
       // Request screen audio capture
@@ -333,11 +358,13 @@ const useScreenAudio = () => {
       console.log('Screen audio capture error:', e);
       if (e instanceof Error) {
         if (e.name === 'NotAllowedError') {
-          setError('Screen audio access was denied');
+          toast.error(t('meetingMinutes.error.screen_audio_denied'));
         } else if (e.name === 'NotSupportedError') {
-          setError('Screen audio capture is not supported');
+          toast.error(t('meetingMinutes.error.screen_audio_not_supported'));
+        } else if (e.message.includes('No audio track')) {
+          toast.error(t('meetingMinutes.error.screen_audio_no_audio_track'));
         } else {
-          setError('Failed to start screen audio capture');
+          toast.error(t('meetingMinutes.error.screen_audio_failed'));
         }
       }
     } finally {
@@ -362,8 +389,6 @@ const useScreenAudio = () => {
     }
 
     try {
-      setError('');
-
       // Request screen audio capture
       // Note: Most browsers require video to be true when capturing audio
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -385,11 +410,13 @@ const useScreenAudio = () => {
       console.log('Screen audio capture preparation error:', e);
       if (e instanceof Error) {
         if (e.name === 'NotAllowedError') {
-          setError('Screen audio access was denied');
+          toast.error(t('meetingMinutes.error.screen_audio_denied'));
         } else if (e.name === 'NotSupportedError') {
-          setError('Screen audio capture is not supported');
+          toast.error(t('meetingMinutes.error.screen_audio_not_supported'));
+        } else if (e.message.includes('No audio track')) {
+          toast.error(t('meetingMinutes.error.screen_audio_no_audio_track'));
         } else {
-          setError('Failed to prepare screen audio capture');
+          toast.error(t('meetingMinutes.error.screen_audio_failed'));
         }
       }
       throw e;
@@ -415,7 +442,6 @@ const useScreenAudio = () => {
   ) => {
     const stream = new MicrophoneStream();
     try {
-      setError('');
       setScreenStream(stream);
 
       // Extract only the audio track
@@ -443,7 +469,11 @@ const useScreenAudio = () => {
     } catch (e) {
       console.log('Screen audio transcription error:', e);
       if (e instanceof Error) {
-        setError('Failed to start screen audio transcription');
+        if (e.message.includes('No audio track')) {
+          toast.error(t('meetingMinutes.error.screen_audio_no_audio_track'));
+        } else {
+          toast.error(t('meetingMinutes.error.screen_audio_failed'));
+        }
       }
     } finally {
       stream.stop();
@@ -456,23 +486,8 @@ const useScreenAudio = () => {
     }
   };
 
-  const stopTranscription = () => {
-    if (screenStream) {
-      screenStream.stop();
-      setRecording(false);
-      setScreenStream(undefined);
-    }
-
-    // Clean up prepared stream if exists
-    if (preparedDisplayStream) {
-      preparedDisplayStream.getTracks().forEach((track) => track.stop());
-      setPreparedDisplayStream(null);
-    }
-  };
-
   const clearTranscripts = () => {
     setRawTranscripts([]);
-    setError('');
   };
 
   return {
@@ -484,7 +499,6 @@ const useScreenAudio = () => {
     transcriptScreen,
     clearTranscripts,
     isSupported,
-    error,
     rawTranscripts,
   };
 };
