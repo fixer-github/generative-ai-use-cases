@@ -138,11 +138,14 @@ export async function* invokeStreamWithTools(
       const blockBuilders: Record<
         number,
         {
-          type: 'text' | 'toolUse';
+          type: 'text' | 'toolUse' | 'reasoning';
           text: string;
           toolUseId?: string;
           toolName?: string;
           toolInputJson: string;
+          reasoningText?: string;
+          reasoningSignature?: string;
+          redactedContent?: Uint8Array;
         }
       > = {};
       let stopReason: StopReason | undefined;
@@ -191,16 +194,29 @@ export async function* invokeStreamWithTools(
               };
             }
             blockBuilders[idx].toolInputJson += delta.toolUse.input;
-          } else if (
-            'reasoningContent' in delta &&
-            delta.reasoningContent &&
-            'text' in delta.reasoningContent &&
-            delta.reasoningContent.text
-          ) {
-            yield streamingChunk({
-              text: '',
-              trace: delta.reasoningContent.text,
-            });
+          } else if ('reasoningContent' in delta && delta.reasoningContent) {
+            // reasoning ブロックは extended thinking 有効時に流れてくる。
+            // 後続ループに送り返す際、Bedrock は reasoningText.text と
+            // signature をそのまま保持していることを検証するため、ここで
+            // 全フィールドを蓄積し、assistantBlocks 再構築時に復元する。
+            const rc = delta.reasoningContent;
+            if (!blockBuilders[idx]) {
+              blockBuilders[idx] = {
+                type: 'reasoning',
+                text: '',
+                toolInputJson: '',
+                reasoningText: '',
+              };
+            }
+            if ('text' in rc && rc.text) {
+              blockBuilders[idx].reasoningText =
+                (blockBuilders[idx].reasoningText ?? '') + rc.text;
+              yield streamingChunk({ text: '', trace: rc.text });
+            } else if ('signature' in rc && rc.signature) {
+              blockBuilders[idx].reasoningSignature = rc.signature;
+            } else if ('redactedContent' in rc && rc.redactedContent) {
+              blockBuilders[idx].redactedContent = rc.redactedContent;
+            }
           }
         }
 
@@ -223,7 +239,26 @@ export async function* invokeStreamWithTools(
         .sort((a, b) => a - b);
       for (const i of sortedIndices) {
         const b = blockBuilders[i];
-        if (b.type === 'text' && b.text) {
+        if (b.type === 'reasoning') {
+          if (b.redactedContent) {
+            assistantBlocks.push({
+              reasoningContent: {
+                redactedContent: b.redactedContent,
+              },
+            } as ContentBlock);
+          } else if (b.reasoningText) {
+            assistantBlocks.push({
+              reasoningContent: {
+                reasoningText: {
+                  text: b.reasoningText,
+                  ...(b.reasoningSignature
+                    ? { signature: b.reasoningSignature }
+                    : {}),
+                },
+              },
+            } as ContentBlock);
+          }
+        } else if (b.type === 'text' && b.text) {
           assistantBlocks.push({ text: b.text } as ContentBlock);
         } else if (b.type === 'toolUse' && b.toolUseId && b.toolName) {
           let parsed: unknown = {};

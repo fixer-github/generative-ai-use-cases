@@ -307,7 +307,7 @@ const doFetch = async (
   redirectsLeft: number,
   controller: AbortController
 ): Promise<
-  | { ok: true; response: Response }
+  | { ok: true; response: Response; finalUrl: URL }
   | { ok: false; error: FetchUrlError; message: string }
 > => {
   // Validate target host
@@ -400,7 +400,7 @@ const doFetch = async (
     };
   }
 
-  return { ok: true, response };
+  return { ok: true, response, finalUrl: url };
 };
 
 export const executeFetchUrl = async (
@@ -450,6 +450,7 @@ export const executeFetchUrl = async (
     const chunks: Uint8Array[] = [];
     let received = 0;
     try {
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -498,7 +499,7 @@ export const executeFetchUrl = async (
 
     return {
       ok: true,
-      url: v.url.toString(),
+      url: fetched.finalUrl.toString(),
       title,
       content_markdown: content,
       fetched_at: new Date().toISOString(),

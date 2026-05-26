@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 // Local smoke test for the web-search tool-use flow.
 //
 // Usage (from repo root):
