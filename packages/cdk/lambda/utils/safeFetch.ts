@@ -442,24 +442,43 @@ export const executeFetchUrl = async (
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      received += value.byteLength;
-      if (received > MAX_BYTES) {
-        try {
-          await reader.cancel();
-        } catch {
-          /* noop */
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        received += value.byteLength;
+        if (received > MAX_BYTES) {
+          try {
+            await reader.cancel();
+          } catch {
+            /* noop */
+          }
+          return {
+            ok: false,
+            error: 'too_large',
+            message: 'ページが大きすぎて取得できませんでした。',
+          };
         }
+        chunks.push(value);
+      }
+    } catch (e) {
+      // The shared AbortController also aborts the body stream when TIMEOUT_MS
+      // elapses after headers arrive, so reader.read() can throw AbortError here.
+      const err = e as Error;
+      if (err.name === 'AbortError') {
         return {
           ok: false,
-          error: 'too_large',
-          message: 'ページが大きすぎて取得できませんでした。',
+          error: 'timeout',
+          message: 'ページの応答が時間内にありませんでした。',
         };
       }
-      chunks.push(value);
+      console.error('body read error', err);
+      return {
+        ok: false,
+        error: 'unknown',
+        message: 'ページの取得に失敗しました。',
+      };
     }
 
     const bytes = Buffer.concat(chunks);
