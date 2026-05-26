@@ -115,8 +115,18 @@ export async function* invokeStreamWithTools(
       const tools: Tool[] = [];
       if (webSearchCount < MAX_PER_TOOL) tools.push(webSearchToolSpec);
       if (fetchUrlCount < MAX_PER_TOOL) tools.push(fetchUrlToolSpec);
-      if (tools.length > 0 && supportsToolUse(model.modelId)) {
-        input.toolConfig = { tools };
+      if (supportsToolUse(model.modelId)) {
+        if (tools.length > 0) {
+          input.toolConfig = { tools };
+        } else if (extraTurns.length > 0) {
+          // 両ツールが MAX_PER_TOOL に到達。messages には過去の
+          // toolUse / toolResult が残っているため、Bedrock の制約上
+          // toolConfig.tools を空にできない。全ツールを再アドバタイズし、
+          // 再呼び出しは実行時ガード (limit_exceeded を返す) で弾く。
+          input.toolConfig = {
+            tools: [webSearchToolSpec, fetchUrlToolSpec],
+          };
+        }
       }
 
       const command = new ConverseStreamCommand(input);
@@ -275,7 +285,7 @@ export async function* invokeStreamWithTools(
           if (webSearchCount >= MAX_PER_TOOL) {
             const body = JSON.stringify({
               error: 'limit_exceeded',
-              message: `web_search の呼び出し回数が上限 ${MAX_PER_TOOL} に達しました。`,
+              message: `web_search の呼び出し回数が上限 ${MAX_PER_TOOL} に達しました。これ以上ツールを呼び出さず、これまでに得た情報だけで回答してください。`,
             });
             toolResultBlocks.push({
               toolResult: {
@@ -333,7 +343,7 @@ export async function* invokeStreamWithTools(
           if (fetchUrlCount >= MAX_PER_TOOL) {
             const body = JSON.stringify({
               error: 'limit_exceeded',
-              message: `fetch_url の呼び出し回数が上限 ${MAX_PER_TOOL} に達しました。`,
+              message: `fetch_url の呼び出し回数が上限 ${MAX_PER_TOOL} に達しました。これ以上ツールを呼び出さず、これまでに得た情報だけで回答してください。`,
             });
             toolResultBlocks.push({
               toolResult: {

@@ -97,12 +97,19 @@ const isPrivateIp = (ip: string): boolean => {
 
 // Validate hostname resolves to a public address.
 const isHostPublic = async (hostname: string): Promise<boolean> => {
+  // URL.hostname keeps the surrounding brackets for IPv6 literals (e.g. "[::1]"),
+  // but isIP / dns.lookup expect the bare address. Strip them first.
+  const host =
+    hostname.startsWith('[') && hostname.endsWith(']')
+      ? hostname.slice(1, -1)
+      : hostname;
+
   // If hostname is itself an IP literal, check directly.
-  if (isIP(hostname)) {
-    return !isPrivateIp(hostname);
+  if (isIP(host)) {
+    return !isPrivateIp(host);
   }
   // Reject obvious local names
-  const lower = hostname.toLowerCase();
+  const lower = host.toLowerCase();
   if (
     lower === 'localhost' ||
     lower.endsWith('.localhost') ||
@@ -112,7 +119,7 @@ const isHostPublic = async (hostname: string): Promise<boolean> => {
     return false;
   }
   try {
-    const records = await dns.lookup(hostname, { all: true });
+    const records = await dns.lookup(host, { all: true });
     if (records.length === 0) return false;
     for (const r of records) {
       if (isPrivateIp(r.address)) return false;
