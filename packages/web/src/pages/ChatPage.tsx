@@ -32,6 +32,7 @@ import {
 import ModelParameters from '../components/ModelParameters';
 import WebSearchUnsupportedBanner from '../components/WebSearchUnsupportedBanner';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
+import { supportsToolUse } from '../utils/toolUseSupport';
 import { useTranslation } from 'react-i18next';
 
 const fileLimit: FileLimit = {
@@ -151,6 +152,7 @@ const ChatPage: React.FC = () => {
         budgetTokens: DEFAULT_REASONING_BUDGET,
       },
     });
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [showSetting, setShowSetting] = useState(false);
   const { t } = useTranslation();
   const [forceExpandPromptList, setForceExpandPromptList] = useState<
@@ -191,10 +193,20 @@ const ChatPage: React.FC = () => {
   const reasoningEnabled = useMemo(() => {
     return overrideModelParameters.reasoningConfig.type === 'enabled';
   }, [overrideModelParameters]);
+  const webSearchSupported = useMemo(() => {
+    return !!modelId && supportsToolUse(modelId);
+  }, [modelId]);
   // Currently, the settings modal is only used with the reasoning option
   const setting = useMemo(() => {
     return reasoning;
   }, [reasoning]);
+
+  // Reset Web search toggle when the selected model no longer supports tool use
+  useEffect(() => {
+    if (!webSearchSupported) {
+      setWebSearchEnabled(false);
+    }
+  }, [webSearchSupported]);
 
   useEffect(() => {
     const _modelId = !modelId ? availableModels[0] : modelId;
@@ -232,7 +244,8 @@ const ChatPage: React.FC = () => {
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
     setContent('');
     clearFiles();
@@ -243,6 +256,7 @@ const ChatPage: React.FC = () => {
     fileUpload,
     setFollowing,
     overrideModelParameters,
+    webSearchEnabled,
     uploadedFiles,
   ]);
 
@@ -257,9 +271,10 @@ const ChatPage: React.FC = () => {
       undefined,
       undefined,
       base64Cache,
-      overrideModelParameters
+      overrideModelParameters,
+      webSearchEnabled
     );
-  }, [retryGeneration, base64Cache, overrideModelParameters]);
+  }, [retryGeneration, base64Cache, overrideModelParameters, webSearchEnabled]);
 
   const onReset = useCallback(() => {
     clear();
@@ -284,10 +299,17 @@ const ChatPage: React.FC = () => {
         undefined,
         undefined,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
-    [editChat, base64Cache, setFollowing, overrideModelParameters]
+    [
+      editChat,
+      base64Cache,
+      setFollowing,
+      overrideModelParameters,
+      webSearchEnabled,
+    ]
   );
 
   const [creatingShareId, setCreatingShareId] = useState(false);
@@ -426,6 +448,10 @@ const ChatPage: React.FC = () => {
       },
     });
   }, [reasoningEnabled, overrideModelParameters, setOverrideModelParameters]);
+
+  const onWebSearchSwitched = useCallback(() => {
+    setWebSearchEnabled((v) => !v);
+  }, []);
 
   const handleDragOver = (event: React.DragEvent) => {
     // When a file is dragged, display the overlay
@@ -613,6 +639,9 @@ const ChatPage: React.FC = () => {
                 reasoning={reasoning}
                 onReasoningSwitched={onReasoningSwitched}
                 reasoningEnabled={reasoningEnabled}
+                webSearch={webSearchSupported}
+                onWebSearchSwitched={onWebSearchSwitched}
+                webSearchEnabled={webSearchEnabled}
                 setting={setting}
                 onSetting={() => {
                   setShowSetting(true);
@@ -642,6 +671,9 @@ const ChatPage: React.FC = () => {
               reasoning={reasoning}
               onReasoningSwitched={onReasoningSwitched}
               reasoningEnabled={reasoningEnabled}
+              webSearch={webSearchSupported}
+              onWebSearchSwitched={onWebSearchSwitched}
+              webSearchEnabled={webSearchEnabled}
               setting={setting}
               onSetting={() => {
                 setShowSetting(true);

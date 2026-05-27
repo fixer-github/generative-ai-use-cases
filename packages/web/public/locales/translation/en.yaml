@@ -667,6 +667,7 @@ inputs:
   attachment: Attachment
   reasoning: Extended thinking
   setting: Setting
+  web_search: Web search
 landing:
   alert:
     description: >-

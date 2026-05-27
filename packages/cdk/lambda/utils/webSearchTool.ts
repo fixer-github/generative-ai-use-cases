@@ -107,7 +107,11 @@ const searchUsingBrave = async (keyword: string): Promise<WebSearchResult> => {
       });
     } catch (e) {
       console.error('Brave search network error', e);
-      return { ok: false, error: 'unknown', message: '検索 API への接続に失敗しました。' };
+      return {
+        ok: false,
+        error: 'unknown',
+        message: '検索 API への接続に失敗しました。',
+      };
     }
 
     if (response.status === 429) {
@@ -140,7 +144,11 @@ const searchUsingBrave = async (keyword: string): Promise<WebSearchResult> => {
 
     if (!response.ok) {
       console.error('Brave search HTTP error', response.status);
-      return { ok: false, error: 'unknown', message: '検索 API でエラーが発生しました。' };
+      return {
+        ok: false,
+        error: 'unknown',
+        message: '検索 API でエラーが発生しました。',
+      };
     }
 
     let data: { web?: { results?: BraveSearchResult[] } };
@@ -148,25 +156,35 @@ const searchUsingBrave = async (keyword: string): Promise<WebSearchResult> => {
       data = await response.json();
     } catch (e) {
       console.error('Brave search JSON parse error', e);
-      return { ok: false, error: 'unknown', message: '検索結果の解析に失敗しました。' };
+      return {
+        ok: false,
+        error: 'unknown',
+        message: '検索結果の解析に失敗しました。',
+      };
     }
 
     const rawResults = data.web?.results ?? [];
-    const results: WebSearchHit[] = rawResults.slice(0, MAX_RESULTS).map((r) => {
-      const extra =
-        r.extra_snippets && r.extra_snippets.length > 0
-          ? '\n' + r.extra_snippets.join('\n')
-          : '';
-      return {
-        url: r.url,
-        title: r.title,
-        snippet: truncate((r.description || '') + extra, MAX_SNIPPET_CHARS),
-      };
-    });
+    const results: WebSearchHit[] = rawResults
+      .slice(0, MAX_RESULTS)
+      .map((r) => {
+        const extra =
+          r.extra_snippets && r.extra_snippets.length > 0
+            ? '\n' + r.extra_snippets.join('\n')
+            : '';
+        return {
+          url: r.url,
+          title: r.title,
+          snippet: truncate((r.description || '') + extra, MAX_SNIPPET_CHARS),
+        };
+      });
     return { ok: true, results };
   }
 
-  return { ok: false, error: 'unknown', message: '検索 API でエラーが発生しました。' };
+  return {
+    ok: false,
+    error: 'unknown',
+    message: '検索 API でエラーが発生しました。',
+  };
 };
 
 const searchUsingTavily = async (keyword: string): Promise<WebSearchResult> => {
@@ -192,7 +210,11 @@ const searchUsingTavily = async (keyword: string): Promise<WebSearchResult> => {
     });
   } catch (e) {
     console.error('Tavily search network error', e);
-    return { ok: false, error: 'unknown', message: '検索 API への接続に失敗しました。' };
+    return {
+      ok: false,
+      error: 'unknown',
+      message: '検索 API への接続に失敗しました。',
+    };
   }
 
   if (response.status === 429) {
@@ -211,7 +233,11 @@ const searchUsingTavily = async (keyword: string): Promise<WebSearchResult> => {
   }
   if (!response.ok) {
     console.error('Tavily search HTTP error', response.status);
-    return { ok: false, error: 'unknown', message: '検索 API でエラーが発生しました。' };
+    return {
+      ok: false,
+      error: 'unknown',
+      message: '検索 API でエラーが発生しました。',
+    };
   }
 
   let data: { results?: TavilySearchResult[] };
@@ -219,7 +245,11 @@ const searchUsingTavily = async (keyword: string): Promise<WebSearchResult> => {
     data = await response.json();
   } catch (e) {
     console.error('Tavily search JSON parse error', e);
-    return { ok: false, error: 'unknown', message: '検索結果の解析に失敗しました。' };
+    return {
+      ok: false,
+      error: 'unknown',
+      message: '検索結果の解析に失敗しました。',
+    };
   }
 
   const rawResults = data.results ?? [];

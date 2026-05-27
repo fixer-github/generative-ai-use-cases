@@ -132,7 +132,9 @@ const isHostPublic = async (hostname: string): Promise<boolean> => {
 
 const validateUrl = (
   rawUrl: string
-): { ok: true; url: URL } | { ok: false; error: FetchUrlError; message: string } => {
+):
+  | { ok: true; url: URL }
+  | { ok: false; error: FetchUrlError; message: string } => {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -329,8 +331,7 @@ const doFetch = async (
       headers: {
         'User-Agent':
           'Mozilla/5.0 (compatible; GenU-WebSearch/1.0; +https://aws.amazon.com/)',
-        Accept:
-          'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5',
+        Accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5',
         'Accept-Language': 'ja,en;q=0.7',
       },
     });
@@ -389,7 +390,11 @@ const doFetch = async (
   }
 
   if (response.status === 404) {
-    return { ok: false, error: 'not_found', message: 'ページが見つかりません。' };
+    return {
+      ok: false,
+      error: 'not_found',
+      message: 'ページが見つかりません。',
+    };
   }
   if (!response.ok) {
     console.error('HTTP error', response.status, url.toString());

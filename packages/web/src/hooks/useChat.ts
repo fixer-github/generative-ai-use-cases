@@ -70,7 +70,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled?: boolean
   ) => void;
   edit: (
     id: string,
@@ -85,7 +86,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled?: boolean
   ) => void;
   continueGeneration: (
     generationMode: GenerationMode,
@@ -100,7 +102,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled?: boolean
   ) => void;
   retryGeneration: (
     generationMode: GenerationMode,
@@ -115,7 +118,8 @@ const useChatState = create<{
     overrideModelType: Model['type'] | undefined,
     setSessionId: (sessionId: string) => void,
     base64Cache: Record<string, string> | undefined,
-    overrideModelParameters: AdditionalModelRequestFields | undefined
+    overrideModelParameters: AdditionalModelRequestFields | undefined,
+    webSearchEnabled?: boolean
   ) => void;
   sendFeedback: (
     id: string,
@@ -485,7 +489,8 @@ const useChatState = create<{
     base64Cache: Record<string, string> | undefined = undefined,
     overrideModelParameters:
       | AdditionalModelRequestFields
-      | undefined = undefined
+      | undefined = undefined,
+    webSearchEnabled: boolean = false
   ) => {
     const modelId = get().modelIds[id];
 
@@ -585,7 +590,7 @@ const useChatState = create<{
         model: model,
         messages: formattedMessages,
         id: id,
-        webSearchEnabled: true,
+        webSearchEnabled: webSearchEnabled,
       },
       false
     );
@@ -859,7 +864,8 @@ const useChatState = create<{
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       const unrecordedUserMessage: UnrecordedMessage = {
         role: 'user',
@@ -912,7 +918,8 @@ const useChatState = create<{
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
 
@@ -933,7 +940,8 @@ const useChatState = create<{
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       set((state) => {
         const newChats = produce(state.chats, (draft) => {
@@ -976,7 +984,8 @@ const useChatState = create<{
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
 
@@ -1116,7 +1125,8 @@ const useChat = (id: string, chatId?: string) => {
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       post(
         id,
@@ -1131,7 +1141,8 @@ const useChat = (id: string, chatId?: string) => {
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     editChat: (
@@ -1149,7 +1160,8 @@ const useChat = (id: string, chatId?: string) => {
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       edit(
         id,
@@ -1164,7 +1176,8 @@ const useChat = (id: string, chatId?: string) => {
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     continueGeneration: (
@@ -1181,7 +1194,8 @@ const useChat = (id: string, chatId?: string) => {
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       continueGeneration(
         'continue',
@@ -1196,7 +1210,8 @@ const useChat = (id: string, chatId?: string) => {
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     retryGeneration: (
@@ -1213,7 +1228,8 @@ const useChat = (id: string, chatId?: string) => {
       base64Cache: Record<string, string> | undefined = undefined,
       overrideModelParameters:
         | AdditionalModelRequestFields
-        | undefined = undefined
+        | undefined = undefined,
+      webSearchEnabled: boolean = false
     ) => {
       retryGeneration(
         'retry',
@@ -1228,7 +1244,8 @@ const useChat = (id: string, chatId?: string) => {
         overrideModelType,
         setSessionId,
         base64Cache,
-        overrideModelParameters
+        overrideModelParameters,
+        webSearchEnabled
       );
     },
     sendFeedback: async (feedbackData: UpdateFeedbackRequest) => {

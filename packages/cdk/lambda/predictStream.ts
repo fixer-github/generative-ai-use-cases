@@ -39,12 +39,12 @@ export const handler = awslambda.streamifyResponse(
 
     const stream = useWebSearch
       ? invokeStreamWithTools(model, event.messages, event.id)
-      : api[model.type].invokeStream?.(
+      : (api[model.type].invokeStream?.(
           model,
           event.messages,
           event.id,
           event.idToken
-        ) ?? [];
+        ) ?? []);
 
     for await (const token of stream) {
       responseStream.write(token);

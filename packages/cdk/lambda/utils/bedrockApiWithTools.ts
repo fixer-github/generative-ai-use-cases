@@ -19,11 +19,7 @@ import {
   executeWebSearch,
   WebSearchResult,
 } from './webSearchTool';
-import {
-  fetchUrlToolSpec,
-  executeFetchUrl,
-  FetchUrlResult,
-} from './safeFetch';
+import { fetchUrlToolSpec, executeFetchUrl, FetchUrlResult } from './safeFetch';
 import { supportsToolUse } from './toolUseSupport';
 
 const MODEL_REGION = process.env.MODEL_REGION as string;
@@ -266,7 +262,11 @@ export async function* invokeStreamWithTools(
             try {
               parsed = JSON.parse(b.toolInputJson);
             } catch (e) {
-              console.warn('Failed to parse tool input JSON', e, b.toolInputJson);
+              console.warn(
+                'Failed to parse tool input JSON',
+                e,
+                b.toolInputJson
+              );
               parsed = {};
             }
           }
@@ -338,9 +338,7 @@ export async function* invokeStreamWithTools(
           const result = await executeWebSearch(keyword);
           webSearchCount++;
           if (result.ok) {
-            const lines = result.results
-              .map((r) => `  ▸ ${r.url}`)
-              .join('\n');
+            const lines = result.results.map((r) => `  ▸ ${r.url}`).join('\n');
             yield streamingChunk({
               trace: `✓ ${result.results.length} 件のソースを参照\n${lines}\n`,
               text: '',
@@ -474,4 +472,3 @@ export async function* invokeStreamWithTools(
     }
   }
 }
-

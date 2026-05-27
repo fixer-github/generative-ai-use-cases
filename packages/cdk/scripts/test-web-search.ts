@@ -21,10 +21,10 @@ import { invokeStreamWithTools } from '../lambda/utils/bedrockApiWithTools';
 import { Model, UnrecordedMessage } from 'generative-ai-use-cases';
 
 const prompt =
-  process.env.TEST_PROMPT ?? '明日の東京の天気を簡潔に教えて。出典 URL も載せて。';
+  process.env.TEST_PROMPT ??
+  '明日の東京の天気を簡潔に教えて。出典 URL も載せて。';
 const modelId =
-  process.env.TEST_MODEL_ID ??
-  'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+  process.env.TEST_MODEL_ID ?? 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 
 const model: Model = {
   type: 'bedrock',
