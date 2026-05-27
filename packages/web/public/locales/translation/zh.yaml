@@ -65,7 +65,6 @@ common:
   start_over: 重新开始
   submit: 提交
   title: 标题
-  trace: 跟踪
   try: 尝试
 demo:
   inter_use_cases: 用例集成
@@ -1039,7 +1038,6 @@ writer:
     replace_selection: 替换选定内容
     search_instruct: 指示AI搜索
     thinking: 思考中
-    trace: 跟踪
     use_search_engine: 使用搜索引擎
   amazonBedrockDescription: >-
     Amazon Bedrock是一项完全托管的服务，通过单一API提供来自AI21

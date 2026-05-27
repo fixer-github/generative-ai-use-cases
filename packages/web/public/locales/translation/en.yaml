@@ -277,7 +277,6 @@ common:
   start_over: Start over
   submit: Submit
   title: Title
-  trace: Trace
   try: Try
   update: Update
 demo:
@@ -1725,7 +1724,6 @@ writer:
     replace_selection: Replace selection
     search_instruct: Instruct AI to search
     thinking: Thinking
-    trace: Trace
     use_search_engine: Use Search Engine
   amazonBedrockDescription: >-
     Amazon Bedrock is a fully managed service that offers a choice of

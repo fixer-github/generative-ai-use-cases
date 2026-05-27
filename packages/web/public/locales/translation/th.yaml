@@ -68,7 +68,6 @@ common:
   start_over: เริ่มใหม่
   submit: ส่ง
   title: ชื่อเรื่อง
-  trace: ติดตาม
   try: ลอง
 demo:
   inter_use_cases: การบูรณาการ Use Case
@@ -1226,7 +1225,6 @@ writer:
     replace_selection: แทนที่ส่วนที่เลือก
     search_instruct: สั่ง AI ให้ค้นหา
     thinking: กำลังคิด
-    trace: ติดตาม
     use_search_engine: ใช้เครื่องมือค้นหา
   amazonBedrockDescription: >-
     Amazon Bedrock เป็นบริการที่มีการจัดการเต็มรูปแบบที่นำเสนอตัวเลือกของโมเดลพื้นฐาน (FMs) ประสิทธิภาพสูงจากบริษัท AI ชั้นนำเช่น AI21 Labs, Anthropic, Cohere, Meta, Stability AI และ Amazon ผ่าน API เดียว พร้อมด้วยชุดความสามารถที่หลากหลายที่คุณต้องการเพื่อสร้างแอปพลิเคชัน Generative AI ด้วยความปลอดภัย ความเป็นส่วนตัว และ AI ที่รับผิดชอบ

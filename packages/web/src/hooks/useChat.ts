@@ -384,10 +384,6 @@ const useChatState = create<{
     });
   };
 
-  const isExactlyCodeBlock = (text: string): boolean => {
-    return /^```\s*(\w*)\s*\n([\s\S]*?)\n```\s*$/.test(text);
-  };
-
   const addChunkToAssistantMessage = (
     id: string,
     chunk: string,
@@ -398,12 +394,6 @@ const useChatState = create<{
     set((state) => {
       const newChats = produce(state.chats, (draft) => {
         const oldAssistantMessage = draft[id].messages.pop()!;
-
-        // If the received trace is a code block, do not display it as an inline message
-        let traceInlineMessage: string | undefined = undefined;
-        if (trace && !isExactlyCodeBlock(trace.trim())) {
-          traceInlineMessage = trace.trim();
-        }
 
         // If new metadata came when old metadata exist, add up numbers
         if (metadata && oldAssistantMessage.metadata) {
@@ -433,8 +423,6 @@ const useChatState = create<{
           trace: (oldAssistantMessage.trace || '') + (trace || ''),
           llmType: model?.modelId || oldAssistantMessage.llmType,
           metadata: metadata || oldAssistantMessage.metadata,
-          traceInlineMessage:
-            traceInlineMessage ?? oldAssistantMessage.traceInlineMessage,
         };
         draft[id].messages.push(newAssistantMessage);
       });
