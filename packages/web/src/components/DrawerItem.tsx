@@ -38,7 +38,7 @@ const DrawerItem: React.FC<DrawerItemProps> = (props) => {
       {!visibility && !props.settingVisibility ? (
         <div></div>
       ) : (
-        <div className="mt-0.5 flex h-8 items-center">
+        <div className="mr-1 mt-0.5 flex h-8 items-center">
           {props.settingVisibility && (
             <Switch checked={visibility} onSwitch={setVisibility} label="" />
           )}

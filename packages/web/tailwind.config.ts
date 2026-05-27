@@ -32,6 +32,7 @@ export default {
         'sidebar-text-muted': '#8FA6AF',
         'sidebar-item-hover': '#315C6C',
         'sidebar-item-active-bg': '#416977',
+        'sidebar-accent': '#5A8090',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
