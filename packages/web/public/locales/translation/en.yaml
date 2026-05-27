@@ -223,6 +223,9 @@ chat:
   system_prompt: System Prompt
   title: Chat
   view_prompt_examples: View Prompt Examples
+  web_search_unsupported: >-
+    This model does not support web search tools. Please switch to a supported
+    model if you need the latest information.
 common:
   add: Add
   arrow: →
@@ -664,6 +667,7 @@ inputs:
   attachment: Attachment
   reasoning: Extended thinking
   setting: Setting
+  web_search: Web search
 landing:
   alert:
     description: >-

@@ -212,6 +212,7 @@ chat:
   system_prompt: システムプロンプト
   title: チャット
   view_prompt_examples: プロンプト例を見る
+  web_search_unsupported: このモデルは Web 検索ツールに対応していません。最新情報が必要な場合は対応モデルに切り替えてください。
 common:
   add: 追加
   arrow: →
@@ -565,6 +566,7 @@ inputs:
   attachment: 添付ファイル
   reasoning: 深く考える
   setting: 設定
+  web_search: Web 検索
 landing:
   alert:
     description: >-

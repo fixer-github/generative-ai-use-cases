@@ -63,6 +63,12 @@ export interface BackendApiProps {
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly additionalS3Buckets?: IBucket[];
+  // Web search (chat tool use)
+  readonly searchApiKey?: string | null;
+  readonly searchEngine?: 'Brave' | 'Tavily';
+  // Name of an SSM SecureString parameter holding the search API key. When set, the
+  // Lambda fetches the key at runtime; the plaintext never ends up in env vars.
+  readonly searchApiKeySsmParameterName?: string | null;
 
   // Resource
   readonly userPool: UserPool;
@@ -241,6 +247,13 @@ export class Api extends Construct {
           : {}),
         QUERY_DECOMPOSITION_ENABLED: JSON.stringify(queryDecompositionEnabled),
         RERANKING_MODEL_ID: rerankingModelId ?? '',
+        // Prefer SSM parameter name; fall back to literal env var when only the
+        // legacy field is set. The Lambda decides which to use at runtime.
+        SEARCH_API_KEY: props.searchApiKeySsmParameterName
+          ? ''
+          : (props.searchApiKey ?? ''),
+        SEARCH_API_KEY_SSM_PARAM: props.searchApiKeySsmParameterName ?? '',
+        SEARCH_ENGINE: props.searchEngine ?? 'Brave',
       },
       bundling: {
         nodeModules: [
@@ -248,6 +261,8 @@ export class Api extends Construct {
           '@aws-sdk/client-bedrock-agent-runtime',
           // The default version of client-sagemaker-runtime does not support StreamingResponse, so specify the version in package.json for bundling
           '@aws-sdk/client-sagemaker-runtime',
+          '@aws-sdk/client-ssm',
+          'node-html-parser',
         ],
       },
       vpc,
@@ -255,6 +270,38 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+
+    // Grant SSM SecureString read for the search API key when configured.
+    if (props.searchApiKeySsmParameterName) {
+      const region = Stack.of(this).region;
+      const account = Stack.of(this).account;
+      const paramName = props.searchApiKeySsmParameterName.startsWith('/')
+        ? props.searchApiKeySsmParameterName.slice(1)
+        : props.searchApiKeySsmParameterName;
+      predictStreamFunction.role?.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['ssm:GetParameter'],
+          resources: [
+            `arn:aws:ssm:${region}:${account}:parameter/${paramName}`,
+          ],
+        })
+      );
+      // SecureString decryption uses the AWS-managed key by default; allow
+      // Decrypt against any KMS key in the account scoped via ViaService.
+      predictStreamFunction.role?.addToPrincipalPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['kms:Decrypt'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              'kms:ViaService': `ssm.${region}.amazonaws.com`,
+            },
+          },
+        })
+      );
+    }
 
     // Add Flow Lambda Function
     const invokeFlowFunction = new NodejsFunction(this, 'InvokeFlow', {

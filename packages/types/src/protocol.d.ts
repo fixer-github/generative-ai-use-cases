@@ -91,6 +91,7 @@ export type PredictRequest = {
   idToken?: string;
   messages: UnrecordedMessage[];
   id: string;
+  webSearchEnabled?: boolean;
 };
 
 export type PredictResponse = string;

@@ -29,6 +29,7 @@ chat:
   show_system_prompt: 显示系统提示
   system_prompt: 系统提示
   title: 聊天
+  web_search_unsupported: 此模型不支持网络搜索工具。如需最新信息，请切换到支持的模型。
 common:
   cancel: 取消
   clear: 清除

@@ -14,6 +14,7 @@ import {
   PiSpinnerGap,
   PiSlidersHorizontal,
   PiClockCountdownLight,
+  PiGlobe,
 } from 'react-icons/pi';
 import useFiles from '../hooks/useFiles';
 import FileCard from './FileCard';
@@ -43,6 +44,9 @@ type Props = {
   reasoning?: boolean;
   onReasoningSwitched?: () => void;
   reasoningEnabled?: boolean;
+  webSearch?: boolean;
+  onWebSearchSwitched?: () => void;
+  webSearchEnabled?: boolean;
 } & (
   | {
       hideReset?: false;
@@ -248,6 +252,19 @@ const InputChatContent: React.FC<Props> = (props) => {
                   onSwitch={props.onReasoningSwitched ?? (() => {})}
                   icon={<PiClockCountdownLight />}
                   isEnabled={!!props.reasoningEnabled}
+                />
+              </Tooltip>
+            )}
+            {props.webSearch && (
+              <Tooltip
+                message={t('inputs.web_search')}
+                position="center"
+                topPosition="-top-16"
+                nowrap>
+                <ButtonToggle
+                  onSwitch={props.onWebSearchSwitched ?? (() => {})}
+                  icon={<PiGlobe />}
+                  isEnabled={!!props.webSearchEnabled}
                 />
               </Tooltip>
             )}

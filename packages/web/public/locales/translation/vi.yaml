@@ -32,6 +32,7 @@ chat:
   system_prompt: System prompt
   title: Chat
   view_prompt_examples: Xem ví dụ prompt
+  web_search_unsupported: Mô hình này không hỗ trợ công cụ tìm kiếm web. Vui lòng chuyển sang mô hình được hỗ trợ nếu cần thông tin mới nhất.
 common:
   cancel: Hủy
   clear: Xóa

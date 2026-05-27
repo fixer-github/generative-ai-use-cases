@@ -32,6 +32,7 @@ chat:
   system_prompt: System Prompt
   title: Chat
   view_prompt_examples: ดูตัวอย่าง Prompt
+  web_search_unsupported: โมเดลนี้ไม่รองรับเครื่องมือค้นหาเว็บ หากต้องการข้อมูลล่าสุด โปรดเปลี่ยนไปใช้โมเดลที่รองรับ
 common:
   cancel: ยกเลิก
   clear: ล้าง
