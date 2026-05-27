@@ -31,7 +31,6 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     'instruction'
   );
 
-  const [trace, setTrace] = useState('');
   const [completion, setCompletion] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -47,17 +46,12 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
 
       const stream = write(text, options.body.option, options.body.command);
 
-      let trace = '';
       let fullResponse = '';
       for await (const chunk of stream) {
         if (chunk.text) {
           fullResponse += chunk.text;
           fullResponse = fullResponse.replace('</output>', '');
           setCompletion(fullResponse);
-        }
-        if (chunk.trace) {
-          trace += chunk.trace;
-          setTrace(trace);
         }
       }
     } catch (e: unknown) {
@@ -71,7 +65,7 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
     }
   };
 
-  const hasCompletion = completion.length > 0 || trace.length > 0;
+  const hasCompletion = completion.length > 0;
   if (!editor) return null;
 
   return (
@@ -79,19 +73,6 @@ export function AISelector({ onOpenChange }: AISelectorProps) {
       {hasCompletion && (
         <div className="flex max-h-[400px]">
           <ScrollArea>
-            {trace && (
-              <details className="prose prose-sm p-2 px-4">
-                <summary>
-                  <div className="inline-flex gap-1">
-                    {t('writer.ai.trace')}
-                    {isLoading && !completion && (
-                      <div className="border-aws-sky size-5 animate-spin rounded-full border-4 border-t-transparent"></div>
-                    )}
-                  </div>
-                </summary>
-                <Markdown>{trace}</Markdown>
-              </details>
-            )}
             <div className="prose prose-sm p-2 px-4">
               <Markdown>{completion}</Markdown>
             </div>

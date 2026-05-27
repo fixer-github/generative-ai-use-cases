@@ -67,7 +67,6 @@ common:
   start_over: Bắt đầu lại từ đầu
   submit: Gửi
   title: Tiêu đề
-  trace: Trace
   try: Thử
 demo:
   inter_use_cases: Liên kết use case
@@ -1194,7 +1193,6 @@ writer:
     replace_selection: Thay thế vùng được chọn
     search_instruct: Hướng dẫn AI tìm kiếm
     thinking: Đang suy nghĩ
-    trace: Theo dõi
     use_search_engine: Sử dụng công cụ tìm kiếm
   amazonBedrockDescription: >-
     Amazon Bedrock là dịch vụ quản lý hoàn toàn, cung cấp khả năng lựa chọn các mô hình nền tảng (FM) hiệu suất cao từ các công ty AI hàng đầu như AI21 Labs, Anthropic, Cohere, Meta, Stability

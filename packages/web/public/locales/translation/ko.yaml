@@ -75,7 +75,6 @@ common:
   start_over: 다시 시작
   submit: 제출
   title: 제목
-  trace: 추적
   try: 시도
 demo:
   inter_use_cases: 사용 사례 통합
@@ -986,7 +985,6 @@ writer:
     replace_selection: 선택 영역 바꾸기
     search_instruct: AI에게 검색 지시
     thinking: 생각 중
-    trace: 추적
     use_search_engine: 검색 엔진 사용
   amazonBedrockDescription: >-
     Amazon Bedrock은 AI21 Labs, Anthropic, Cohere, Meta, Stability AI, Amazon과 같은

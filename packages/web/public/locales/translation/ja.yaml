@@ -264,7 +264,6 @@ common:
   start_over: 最初からやり直す
   submit: 送信
   title: タイトル
-  trace: トレース
   try: 試す
   update: 更新
 demo:
@@ -1452,7 +1451,6 @@ writer:
     replace_selection: 選択範囲を置換
     search_instruct: 検索を AI に指示
     thinking: 思考中
-    trace: トレース
     use_search_engine: 検索エンジンを使う
   amazonBedrockDescription: >-
     Amazon Bedrock は完全マネージド型のサービスで、AI21 Labs、Anthropic、Cohere、Meta、Stability
