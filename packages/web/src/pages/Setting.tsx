@@ -67,8 +67,6 @@ const Setting = () => {
     setSettingTypingAnimation,
     settingShowUseCaseBuilder,
     setSettingShowUseCaseBuilder,
-    settingShowTools,
-    setSettingShowTools,
     settingShowEmail,
     setSettingShowEmail,
   } = useUserSetting();
@@ -159,16 +157,6 @@ const Setting = () => {
               checked={settingShowUseCaseBuilder}
               label=""
               onSwitch={setSettingShowUseCaseBuilder}
-            />
-          }></SettingItem>
-
-        <SettingItem
-          name={t('setting.items.show_tools')}
-          value={
-            <Switch
-              checked={settingShowTools}
-              label=""
-              onSwitch={setSettingShowTools}
             />
           }></SettingItem>
 

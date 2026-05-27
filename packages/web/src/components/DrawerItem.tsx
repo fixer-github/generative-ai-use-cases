@@ -43,8 +43,10 @@ const DrawerItem: React.FC<DrawerItemProps> = (props) => {
             <Switch checked={visibility} onSwitch={setVisibility} label="" />
           )}
           <Link
-            className={`hover:bg-aws-sky flex h-8 w-full items-center rounded p-2 ${
-              location.pathname === props.to && 'bg-aws-sky'
+            className={`hover:bg-sidebar-item-hover flex h-8 w-full items-center rounded p-2 ${
+              location.pathname === props.to
+                ? 'bg-sidebar-item-active-bg text-sidebar-text-active'
+                : ''
             } ${props.className} ${props.settingVisibility ? 'pl-2' : ''}`}
             to={props.to}
             onClick={onClick}>
@@ -54,7 +56,9 @@ const DrawerItem: React.FC<DrawerItemProps> = (props) => {
             <div className="flex w-full items-center justify-between">
               <span>{props.label}</span>
               {props.sub && (
-                <span className="text-xs text-gray-300">{props.sub}</span>
+                <span className="text-sidebar-text-muted text-xs">
+                  {props.sub}
+                </span>
               )}
             </div>
           </Link>
