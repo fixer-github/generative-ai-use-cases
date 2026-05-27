@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #edf3f1;
+}
+
 /* Tailwind's settings override this, so we set important */
 .amplify-button--primary {
   background-color: var(

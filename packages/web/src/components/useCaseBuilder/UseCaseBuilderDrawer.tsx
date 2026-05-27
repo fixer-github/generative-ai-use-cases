@@ -63,7 +63,7 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
       <ExpandableMenu
         title={t('useCaseBuilder.favorites')}
         className="mx-3 my-2 text-xs">
-        <div className="scrollbar-thin scrollbar-thumb-white ml-2 mr-1 h-full overflow-y-auto">
+        <div className="scrollbar-thin scrollbar-thumb-sidebar-accent scrollbar-track-sidebar-bg ml-2 mr-1 h-full overflow-y-auto">
           <div>
             <CustomUseCaseDrawerItems useCases={favoriteUseCases} />
             {isLoadingFavoriteUseCases &&
@@ -91,7 +91,7 @@ const UseCaseBuilderDrawer: React.FC<Props> = (props) => {
       <ExpandableMenu
         title={t('useCaseBuilder.recentlyUsed')}
         className="mx-3 my-2 text-xs">
-        <div className="scrollbar-thin scrollbar-thumb-white ml-2 mr-1 h-full overflow-y-auto">
+        <div className="scrollbar-thin scrollbar-thumb-sidebar-accent scrollbar-track-sidebar-bg ml-2 mr-1 h-full overflow-y-auto">
           <div>
             <CustomUseCaseDrawerItems useCases={recentlyUsedUseCases} />
             {isLoadingRecentlyUsedUseCases &&
