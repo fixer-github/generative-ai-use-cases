@@ -17,3 +17,5 @@ site*/
 
 # Git worktree directory
 worktree/
+
+packages/cdk/cdk.json
