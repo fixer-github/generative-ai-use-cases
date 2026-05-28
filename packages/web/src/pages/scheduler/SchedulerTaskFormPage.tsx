@@ -96,19 +96,21 @@ const SchedulerTaskFormPage: React.FC = () => {
     }
   }, [isEdit, taskData]);
 
-  // Set default agent if only one available
+  // Set default agent (create mode only; edit mode populates from taskData)
   useEffect(() => {
+    if (isEdit) return;
     if (!agentName && runtimes.length > 0) {
       setAgentName(runtimes[0].name);
     }
-  }, [runtimes, agentName]);
+  }, [runtimes, agentName, isEdit]);
 
-  // Set default model
+  // Set default model (create mode only; edit mode populates from taskData)
   useEffect(() => {
+    if (isEdit) return;
     if (!modelId && MODELS.modelIds.length > 0) {
       setModelId(MODELS.modelIds[0]);
     }
-  }, [modelId]);
+  }, [modelId, isEdit]);
 
   const toggleDayOfWeek = useCallback((day: number) => {
     setDaysOfWeek((prev) => {
