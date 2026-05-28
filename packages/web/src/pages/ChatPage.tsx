@@ -18,7 +18,6 @@ import ScrollTopBottom from '../components/ScrollTopBottom';
 import useFollow from '../hooks/useFollow';
 import { PiArrowClockwiseBold, PiShareFatFill } from 'react-icons/pi';
 import { create } from 'zustand';
-import BedrockIcon from '../assets/bedrock.svg?react';
 import { ChatPageQueryParams } from '../@types/navigate';
 import { MODELS } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
@@ -382,6 +381,7 @@ const ChatPage: React.FC = () => {
       return messages;
     }
   }, [showSystemContext, rawMessages, messages]);
+  const showNewChatInitialView = isEmpty && !loadingMessages && !chatId;
 
   const currentSystemContext = useMemo(() => {
     return getCurrentSystemContext();
@@ -515,7 +515,7 @@ const ChatPage: React.FC = () => {
 
         {loadingMessages && (
           <div className="relative flex h-[calc(100vh-13rem)] flex-col items-center justify-center">
-            <BedrockIcon className="animate-pulse fill-gray-400" />
+            <div className="border-aws-sky h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"></div>
           </div>
         )}
 
@@ -571,53 +571,51 @@ const ChatPage: React.FC = () => {
           <ScrollTopBottom />
         </div>
 
-        {isEmpty && !loadingMessages ? (
+        {showNewChatInitialView ? (
           <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center lg:left-64 print:hidden">
             <div className="pointer-events-auto relative w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6">
-              {!chatId && (
-                <div className="absolute bottom-full mb-2 max-h-[50vh] w-full">
-                  <ExpandableField
-                    label={t('chat.system_prompt')}
-                    className="relative w-full">
-                    <>
-                      <div className="absolute -top-2 right-0 mb-2 flex justify-end">
-                        <Button
-                          outlined
-                          className="text-xs"
-                          onClick={() => {
-                            clear();
-                            setInputSystemContext(currentSystemContext);
-                          }}>
-                          {t('chat.initialize')}
-                        </Button>
-                        <Button
-                          outlined
-                          className="ml-1 text-xs"
-                          onClick={() => {
-                            setSaveSystemContext(inputSystemContext);
-                            setShowSystemContextModal(true);
-                          }}>
-                          {t('chat.save')}
-                        </Button>
-                      </div>
+              <div className="absolute bottom-full mb-2 max-h-[50vh] w-full">
+                <ExpandableField
+                  label={t('chat.system_prompt')}
+                  className="relative w-full">
+                  <>
+                    <div className="absolute -top-2 right-0 mb-2 flex justify-end">
+                      <Button
+                        outlined
+                        className="text-xs"
+                        onClick={() => {
+                          clear();
+                          setInputSystemContext(currentSystemContext);
+                        }}>
+                        {t('chat.initialize')}
+                      </Button>
+                      <Button
+                        outlined
+                        className="ml-1 text-xs"
+                        onClick={() => {
+                          setSaveSystemContext(inputSystemContext);
+                          setShowSystemContextModal(true);
+                        }}>
+                        {t('chat.save')}
+                      </Button>
+                    </div>
 
-                      <InputChatContent
-                        disableMarginBottom={true}
-                        content={inputSystemContext}
-                        onChangeContent={setInputSystemContext}
-                        fullWidth={true}
-                        resetDisabled={true}
-                        disabled={inputSystemContext === currentSystemContext}
-                        sendIcon={<PiArrowClockwiseBold />}
-                        onSend={() => {
-                          updateSystemContext(inputSystemContext);
-                        }}
-                        hideReset={true}
-                      />
-                    </>
-                  </ExpandableField>
-                </div>
-              )}
+                    <InputChatContent
+                      disableMarginBottom={true}
+                      content={inputSystemContext}
+                      onChangeContent={setInputSystemContext}
+                      fullWidth={true}
+                      resetDisabled={true}
+                      disabled={inputSystemContext === currentSystemContext}
+                      sendIcon={<PiArrowClockwiseBold />}
+                      onSend={() => {
+                        updateSystemContext(inputSystemContext);
+                      }}
+                      hideReset={true}
+                    />
+                  </>
+                </ExpandableField>
+              </div>
               <InputChatContent
                 fullWidth={true}
                 disableMarginBottom={true}
@@ -684,7 +682,7 @@ const ChatPage: React.FC = () => {
         )}
       </div>
 
-      {isEmpty && !loadingMessages && (
+      {showNewChatInitialView && (
         <PromptList
           onClick={onClickSamplePrompt}
           systemContextList={systemContextList as SystemContext[]}

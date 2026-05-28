@@ -1058,6 +1058,10 @@ const useChat = (id: string, chatId?: string) => {
   const filteredMessages = useMemo(() => {
     return chats[id]?.messages.filter((chat) => chat.role !== 'system') ?? [];
   }, [chats, id]);
+  const loadingMessages =
+    isLoadingMessage ||
+    isLoadingChat ||
+    (!!chatId && !!messagesData && !!chatData && !chats[id]?.chat);
 
   return {
     loading: loading[id] ?? false,
@@ -1074,7 +1078,7 @@ const useChat = (id: string, chatId?: string) => {
     setWriting: (newWriting: boolean) => {
       setWriting(id, newWriting);
     },
-    loadingMessages: isLoadingMessage,
+    loadingMessages,
     init: () => {
       init(id);
     },
