@@ -18,11 +18,12 @@ export function successResponse(
 
 export function errorResponse(
   message: string,
-  statusCode: number = 400
+  statusCode: number = 400,
+  extra?: Record<string, unknown>
 ): APIGatewayProxyResult {
   return {
     statusCode,
     headers: CORS_HEADERS,
-    body: JSON.stringify({ error: message }),
+    body: JSON.stringify({ error: message, ...extra }),
   };
 }

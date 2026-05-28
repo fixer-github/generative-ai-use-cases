@@ -600,14 +600,17 @@ scheduler:
   error_content: 오류 내용
   error_delete_failed: 삭제 실패
   error_save_failed: 저장 실패
+  error_task_limit_reached: 등록 가능한 작업 수의 상한({{limit}}개)에 도달했습니다. 기존 작업을 삭제한 후 다시 시도하세요.
   error_update_status_failed: 상태 업데이트 실패
   execution_history: 실행 기록
   execution_result: 작업 실행 결과
   execution_settings: 실행 설정
   execution_time: 실행 시간
   execution_time_seconds: '{{seconds}}초'
+  hour_aria_label: 시
   hour_label: '{{hour}}시'
   last_updated: 마지막 업데이트
+  minute_aria_label: 분
   minute_label: '{{minute}}분'
   model: 모델
   month_view: 월
@@ -644,6 +647,8 @@ scheduler:
   update: 업데이트
   validation_agent_required: 에이전트를 선택하세요
   validation_days_required: 요일을 하나 이상 선택하세요
+  validation_hour_invalid: 시간은 0에서 23 사이의 숫자여야 합니다
+  validation_minute_invalid: 분은 0에서 59 사이의 숫자여야 합니다
   validation_model_required: 모델을 선택하세요
   validation_name_required: 작업 이름을 입력하세요
   validation_prompt_required: 프롬프트를 입력하세요

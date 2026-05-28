@@ -1114,14 +1114,17 @@ scheduler:
   error_content: Error Details
   error_delete_failed: Failed to delete
   error_save_failed: Failed to save
+  error_task_limit_reached: You have reached the maximum number of tasks ({{limit}}). Please delete an existing task and try again.
   error_update_status_failed: Failed to update status
   execution_history: Execution History
   execution_result: Task Execution Result
   execution_settings: Execution Settings
   execution_time: Execution Time
   execution_time_seconds: '{{seconds}}s'
+  hour_aria_label: Hour
   hour_label: '{{hour}}'
   last_updated: Last Updated
+  minute_aria_label: Minute
   minute_label: '{{minute}}'
   model: Model
   month_view: Month
@@ -1158,6 +1161,8 @@ scheduler:
   update: Update
   validation_agent_required: Please select an agent
   validation_days_required: Please select at least one day
+  validation_hour_invalid: Hour must be a number between 0 and 23
+  validation_minute_invalid: Minute must be a number between 0 and 59
   validation_model_required: Please select a model
   validation_name_required: Please enter a task name
   validation_prompt_required: Please enter a prompt

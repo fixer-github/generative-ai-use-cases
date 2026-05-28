@@ -590,14 +590,17 @@ scheduler:
   error_content: 错误内容
   error_delete_failed: 删除失败
   error_save_failed: 保存失败
+  error_task_limit_reached: 已达到任务注册数量上限（{{limit}} 个）。请删除现有任务后重试。
   error_update_status_failed: 状态更新失败
   execution_history: 执行历史
   execution_result: 任务执行结果
   execution_settings: 执行设置
   execution_time: 执行时间
   execution_time_seconds: '{{seconds}}秒'
+  hour_aria_label: 小时
   hour_label: '{{hour}}时'
   last_updated: 最后更新
+  minute_aria_label: 分钟
   minute_label: '{{minute}}分'
   model: 模型
   month_view: 月
@@ -634,6 +637,8 @@ scheduler:
   update: 更新
   validation_agent_required: 请选择代理
   validation_days_required: 请至少选择一天
+  validation_hour_invalid: 小时必须是 0 到 23 之间的数字
+  validation_minute_invalid: 分钟必须是 0 到 59 之间的数字
   validation_model_required: 请选择模型
   validation_name_required: 请输入任务名称
   validation_prompt_required: 请输入提示词

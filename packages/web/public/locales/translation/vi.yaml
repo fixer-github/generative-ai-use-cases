@@ -692,14 +692,17 @@ scheduler:
   error_content: Chi tiết lỗi
   error_delete_failed: Xóa thất bại
   error_save_failed: Lưu thất bại
+  error_task_limit_reached: Đã đạt số lượng tác vụ tối đa ({{limit}} tác vụ). Vui lòng xóa một tác vụ hiện có và thử lại.
   error_update_status_failed: Cập nhật trạng thái thất bại
   execution_history: Lịch sử thực thi
   execution_result: Kết quả thực thi
   execution_settings: Cài đặt thực thi
   execution_time: Thời gian thực thi
   execution_time_seconds: '{{seconds}} giây'
+  hour_aria_label: Giờ
   hour_label: '{{hour}} giờ'
   last_updated: Cập nhật lần cuối
+  minute_aria_label: Phút
   minute_label: '{{minute}} phút'
   model: Mô hình
   month_view: Tháng
@@ -736,6 +739,8 @@ scheduler:
   update: Cập nhật
   validation_agent_required: Vui lòng chọn agent
   validation_days_required: Vui lòng chọn ít nhất một ngày
+  validation_hour_invalid: Giờ phải là số từ 0 đến 23
+  validation_minute_invalid: Phút phải là số từ 0 đến 59
   validation_model_required: Vui lòng chọn mô hình
   validation_name_required: Vui lòng nhập tên tác vụ
   validation_prompt_required: Vui lòng nhập prompt

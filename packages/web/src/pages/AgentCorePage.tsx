@@ -8,7 +8,6 @@ import AppFramePanel from '../components/AppFramePanel';
 import useFollow from '../hooks/useFollow';
 import useAppFrame from '../hooks/useAppFrame';
 import { create } from 'zustand';
-import BedrockIcon from '../assets/bedrock.svg?react';
 import { PiSidebar } from 'react-icons/pi';
 import { v4 as uuidv4 } from 'uuid';
 import useFiles from '../hooks/useFiles';
@@ -354,8 +353,7 @@ const AgentCorePage: React.FC = () => {
         {/* Empty State */}
         {isEmpty && (
           <div className="relative flex h-[calc(100vh-13rem)] flex-col items-center justify-center">
-            <BedrockIcon className="fill-gray-400" />
-            <p className="mt-4 text-gray-500">
+            <p className="text-gray-500">
               {t(
                 'agent_core.start_conversation',
                 'Start a conversation with AgentCore'

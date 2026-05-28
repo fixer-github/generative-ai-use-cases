@@ -82,7 +82,8 @@ export async function handleCreateTask(
   if (currentCount >= MAX_TASKS_PER_USER) {
     return errorResponse(
       `Task limit reached (max ${MAX_TASKS_PER_USER} tasks per user)`,
-      400
+      400,
+      { code: 'TASK_LIMIT_REACHED', limit: MAX_TASKS_PER_USER }
     );
   }
 

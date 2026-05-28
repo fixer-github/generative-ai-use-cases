@@ -67,17 +67,21 @@ const SchedulerTaskFormPage: React.FC = () => {
     label: t('scheduler.day_of_month_label', { day: i + 1 }),
   }));
 
-  const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
-    value: String(i).padStart(2, '0'),
-    label: t('scheduler.hour_label', { hour: String(i).padStart(2, '0') }),
-  }));
+  const normalizeDigits = (s: string): string =>
+    s
+      .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+      .trim();
 
-  const MINUTE_OPTIONS = [
-    { value: '00', label: t('scheduler.minute_label', { minute: '00' }) },
-    { value: '15', label: t('scheduler.minute_label', { minute: '15' }) },
-    { value: '30', label: t('scheduler.minute_label', { minute: '30' }) },
-    { value: '45', label: t('scheduler.minute_label', { minute: '45' }) },
-  ];
+  const padTwoDigits = (s: string): string => {
+    const n = normalizeDigits(s);
+    return /^\d{1,2}$/.test(n) ? n.padStart(2, '0') : s;
+  };
+
+  const parseTimeField = (s: string): number | null => {
+    const n = normalizeDigits(s);
+    if (!/^\d{1,2}$/.test(n)) return null;
+    return parseInt(n, 10);
+  };
 
   // Populate form for edit mode
   useEffect(() => {
@@ -96,19 +100,21 @@ const SchedulerTaskFormPage: React.FC = () => {
     }
   }, [isEdit, taskData]);
 
-  // Set default agent if only one available
+  // Set default agent (create mode only; edit mode populates from taskData)
   useEffect(() => {
+    if (isEdit) return;
     if (!agentName && runtimes.length > 0) {
       setAgentName(runtimes[0].name);
     }
-  }, [runtimes, agentName]);
+  }, [runtimes, agentName, isEdit]);
 
-  // Set default model
+  // Set default model (create mode only; edit mode populates from taskData)
   useEffect(() => {
+    if (isEdit) return;
     if (!modelId && MODELS.modelIds.length > 0) {
       setModelId(MODELS.modelIds[0]);
     }
-  }, [modelId]);
+  }, [modelId, isEdit]);
 
   const toggleDayOfWeek = useCallback((day: number) => {
     setDaysOfWeek((prev) => {
@@ -123,7 +129,7 @@ const SchedulerTaskFormPage: React.FC = () => {
   const buildScheduleConfig = (): ScheduleConfig => {
     const config: ScheduleConfig = {
       type: scheduleType,
-      time: `${hour}:${minute}`,
+      time: `${padTwoDigits(hour)}:${padTwoDigits(minute)}`,
     };
     if (scheduleType === 'weekly') {
       config.daysOfWeek = daysOfWeek;
@@ -141,6 +147,12 @@ const SchedulerTaskFormPage: React.FC = () => {
     if (!modelId) return t('scheduler.validation_model_required');
     if (scheduleType === 'weekly' && daysOfWeek.length === 0)
       return t('scheduler.validation_days_required');
+    const hourNum = parseTimeField(hour);
+    if (hourNum === null || hourNum < 0 || hourNum > 23)
+      return t('scheduler.validation_hour_invalid');
+    const minuteNum = parseTimeField(minute);
+    if (minuteNum === null || minuteNum < 0 || minuteNum > 59)
+      return t('scheduler.validation_minute_invalid');
     return null;
   };
 
@@ -178,10 +190,13 @@ const SchedulerTaskFormPage: React.FC = () => {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        t('scheduler.error_save_failed');
+      const data = e?.response?.data;
+      let msg: string;
+      if (data?.code === 'TASK_LIMIT_REACHED') {
+        msg = t('scheduler.error_task_limit_reached', { limit: data.limit });
+      } else {
+        msg = data?.error || e?.message || t('scheduler.error_save_failed');
+      }
       setError(msg);
     } finally {
       setSaving(false);
@@ -333,18 +348,26 @@ const SchedulerTaskFormPage: React.FC = () => {
           {/* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */}
           <span className="text-sm">{t('scheduler.execution_time')} (JST)</span>
           <div className="mt-1 flex items-center gap-2">
-            <Select
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              className="w-16 rounded border border-black/30 p-1.5 text-center outline-none"
               value={hour}
-              options={HOUR_OPTIONS}
-              onChange={setHour}
-              notItem
+              onChange={(e) => setHour(e.target.value)}
+              onBlur={() => setHour(padTwoDigits(hour))}
+              aria-label={t('scheduler.hour_aria_label')}
             />
             <span className="text-lg">{t('scheduler.time_separator')}</span>
-            <Select
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              className="w-16 rounded border border-black/30 p-1.5 text-center outline-none"
               value={minute}
-              options={MINUTE_OPTIONS}
-              onChange={setMinute}
-              notItem
+              onChange={(e) => setMinute(e.target.value)}
+              onBlur={() => setMinute(padTwoDigits(minute))}
+              aria-label={t('scheduler.minute_aria_label')}
             />
           </div>
         </div>

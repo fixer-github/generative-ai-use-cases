@@ -717,14 +717,17 @@ scheduler:
   error_content: รายละเอียดข้อผิดพลาด
   error_delete_failed: ลบไม่สำเร็จ
   error_save_failed: บันทึกไม่สำเร็จ
+  error_task_limit_reached: ถึงจำนวนงานสูงสุดที่ลงทะเบียนได้แล้ว ({{limit}} งาน) โปรดลบงานที่มีอยู่แล้วลองอีกครั้ง
   error_update_status_failed: อัปเดตสถานะไม่สำเร็จ
   execution_history: ประวัติการดำเนินการ
   execution_result: ผลการดำเนินการ
   execution_settings: การตั้งค่าการดำเนินการ
   execution_time: เวลาดำเนินการ
   execution_time_seconds: '{{seconds}} วินาที'
+  hour_aria_label: ชั่วโมง
   hour_label: '{{hour}} นาฬิกา'
   last_updated: อัปเดตล่าสุด
+  minute_aria_label: นาที
   minute_label: '{{minute}} นาที'
   model: โมเดล
   month_view: เดือน
@@ -761,6 +764,8 @@ scheduler:
   update: อัปเดต
   validation_agent_required: โปรดเลือกเอเจนต์
   validation_days_required: โปรดเลือกอย่างน้อยหนึ่งวัน
+  validation_hour_invalid: ชั่วโมงต้องเป็นตัวเลขระหว่าง 0 ถึง 23
+  validation_minute_invalid: นาทีต้องเป็นตัวเลขระหว่าง 0 ถึง 59
   validation_model_required: โปรดเลือกโมเดล
   validation_name_required: โปรดป้อนชื่องาน
   validation_prompt_required: โปรดป้อนพรอมต์
