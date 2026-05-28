@@ -190,10 +190,13 @@ const SchedulerTaskFormPage: React.FC = () => {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        t('scheduler.error_save_failed');
+      const data = e?.response?.data;
+      let msg: string;
+      if (data?.code === 'TASK_LIMIT_REACHED') {
+        msg = t('scheduler.error_task_limit_reached', { limit: data.limit });
+      } else {
+        msg = data?.error || e?.message || t('scheduler.error_save_failed');
+      }
       setError(msg);
     } finally {
       setSaving(false);

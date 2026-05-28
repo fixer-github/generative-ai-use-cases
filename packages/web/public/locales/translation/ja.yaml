@@ -939,6 +939,7 @@ scheduler:
   error_content: エラー内容
   error_delete_failed: 削除に失敗しました
   error_save_failed: 保存に失敗しました
+  error_task_limit_reached: タスクの登録数が上限（{{limit}}件）に達しました。既存のタスクを削除してから再度お試しください。
   error_update_status_failed: ステータスの更新に失敗しました
   execution_history: 実行履歴
   execution_result: タスク実行結果

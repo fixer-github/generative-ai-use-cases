@@ -600,6 +600,7 @@ scheduler:
   error_content: 오류 내용
   error_delete_failed: 삭제 실패
   error_save_failed: 저장 실패
+  error_task_limit_reached: 등록 가능한 작업 수의 상한({{limit}}개)에 도달했습니다. 기존 작업을 삭제한 후 다시 시도하세요.
   error_update_status_failed: 상태 업데이트 실패
   execution_history: 실행 기록
   execution_result: 작업 실행 결과

@@ -717,6 +717,7 @@ scheduler:
   error_content: รายละเอียดข้อผิดพลาด
   error_delete_failed: ลบไม่สำเร็จ
   error_save_failed: บันทึกไม่สำเร็จ
+  error_task_limit_reached: ถึงจำนวนงานสูงสุดที่ลงทะเบียนได้แล้ว ({{limit}} งาน) โปรดลบงานที่มีอยู่แล้วลองอีกครั้ง
   error_update_status_failed: อัปเดตสถานะไม่สำเร็จ
   execution_history: ประวัติการดำเนินการ
   execution_result: ผลการดำเนินการ

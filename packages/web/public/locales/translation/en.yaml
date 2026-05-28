@@ -1114,6 +1114,7 @@ scheduler:
   error_content: Error Details
   error_delete_failed: Failed to delete
   error_save_failed: Failed to save
+  error_task_limit_reached: You have reached the maximum number of tasks ({{limit}}). Please delete an existing task and try again.
   error_update_status_failed: Failed to update status
   execution_history: Execution History
   execution_result: Task Execution Result

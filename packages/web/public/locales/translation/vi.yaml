@@ -692,6 +692,7 @@ scheduler:
   error_content: Chi tiết lỗi
   error_delete_failed: Xóa thất bại
   error_save_failed: Lưu thất bại
+  error_task_limit_reached: Đã đạt số lượng tác vụ tối đa ({{limit}} tác vụ). Vui lòng xóa một tác vụ hiện có và thử lại.
   error_update_status_failed: Cập nhật trạng thái thất bại
   execution_history: Lịch sử thực thi
   execution_result: Kết quả thực thi
