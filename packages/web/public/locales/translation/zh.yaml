@@ -634,6 +634,8 @@ scheduler:
   update: 更新
   validation_agent_required: 请选择代理
   validation_days_required: 请至少选择一天
+  validation_hour_invalid: 小时必须是 0 到 23 之间的数字
+  validation_minute_invalid: 分钟必须是 0 到 59 之间的数字
   validation_model_required: 请选择模型
   validation_name_required: 请输入任务名称
   validation_prompt_required: 请输入提示词

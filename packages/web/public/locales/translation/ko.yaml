@@ -644,6 +644,8 @@ scheduler:
   update: 업데이트
   validation_agent_required: 에이전트를 선택하세요
   validation_days_required: 요일을 하나 이상 선택하세요
+  validation_hour_invalid: 시간은 0에서 23 사이의 숫자여야 합니다
+  validation_minute_invalid: 분은 0에서 59 사이의 숫자여야 합니다
   validation_model_required: 모델을 선택하세요
   validation_name_required: 작업 이름을 입력하세요
   validation_prompt_required: 프롬프트를 입력하세요

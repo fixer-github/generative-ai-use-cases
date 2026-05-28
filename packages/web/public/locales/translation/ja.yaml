@@ -983,6 +983,8 @@ scheduler:
   update: 更新
   validation_agent_required: エージェントを選択してください
   validation_days_required: 曜日を1つ以上選択してください
+  validation_hour_invalid: 時は0〜23の範囲の数値で入力してください
+  validation_minute_invalid: 分は0〜59の範囲の数値で入力してください
   validation_model_required: モデルを選択してください
   validation_name_required: タスク名を入力してください
   validation_prompt_required: プロンプトを入力してください

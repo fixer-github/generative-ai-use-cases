@@ -1158,6 +1158,8 @@ scheduler:
   update: Update
   validation_agent_required: Please select an agent
   validation_days_required: Please select at least one day
+  validation_hour_invalid: Hour must be a number between 0 and 23
+  validation_minute_invalid: Minute must be a number between 0 and 59
   validation_model_required: Please select a model
   validation_name_required: Please enter a task name
   validation_prompt_required: Please enter a prompt

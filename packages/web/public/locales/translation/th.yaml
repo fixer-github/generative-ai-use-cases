@@ -761,6 +761,8 @@ scheduler:
   update: อัปเดต
   validation_agent_required: โปรดเลือกเอเจนต์
   validation_days_required: โปรดเลือกอย่างน้อยหนึ่งวัน
+  validation_hour_invalid: ชั่วโมงต้องเป็นตัวเลขระหว่าง 0 ถึง 23
+  validation_minute_invalid: นาทีต้องเป็นตัวเลขระหว่าง 0 ถึง 59
   validation_model_required: โปรดเลือกโมเดล
   validation_name_required: โปรดป้อนชื่องาน
   validation_prompt_required: โปรดป้อนพรอมต์

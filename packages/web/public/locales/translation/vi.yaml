@@ -736,6 +736,8 @@ scheduler:
   update: Cập nhật
   validation_agent_required: Vui lòng chọn agent
   validation_days_required: Vui lòng chọn ít nhất một ngày
+  validation_hour_invalid: Giờ phải là số từ 0 đến 23
+  validation_minute_invalid: Phút phải là số từ 0 đến 59
   validation_model_required: Vui lòng chọn mô hình
   validation_name_required: Vui lòng nhập tên tác vụ
   validation_prompt_required: Vui lòng nhập prompt
