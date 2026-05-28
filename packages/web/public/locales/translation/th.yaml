@@ -724,8 +724,10 @@ scheduler:
   execution_settings: การตั้งค่าการดำเนินการ
   execution_time: เวลาดำเนินการ
   execution_time_seconds: '{{seconds}} วินาที'
+  hour_aria_label: ชั่วโมง
   hour_label: '{{hour}} นาฬิกา'
   last_updated: อัปเดตล่าสุด
+  minute_aria_label: นาที
   minute_label: '{{minute}} นาที'
   model: โมเดล
   month_view: เดือน

@@ -597,8 +597,10 @@ scheduler:
   execution_settings: 执行设置
   execution_time: 执行时间
   execution_time_seconds: '{{seconds}}秒'
+  hour_aria_label: 小时
   hour_label: '{{hour}}时'
   last_updated: 最后更新
+  minute_aria_label: 分钟
   minute_label: '{{minute}}分'
   model: 模型
   month_view: 月

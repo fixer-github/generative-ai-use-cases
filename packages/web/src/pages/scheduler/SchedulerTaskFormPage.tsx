@@ -356,7 +356,7 @@ const SchedulerTaskFormPage: React.FC = () => {
               value={hour}
               onChange={(e) => setHour(e.target.value)}
               onBlur={() => setHour(padTwoDigits(hour))}
-              aria-label={t('scheduler.hour_label', { hour: '' })}
+              aria-label={t('scheduler.hour_aria_label')}
             />
             <span className="text-lg">{t('scheduler.time_separator')}</span>
             <input
@@ -367,7 +367,7 @@ const SchedulerTaskFormPage: React.FC = () => {
               value={minute}
               onChange={(e) => setMinute(e.target.value)}
               onBlur={() => setMinute(padTwoDigits(minute))}
-              aria-label={t('scheduler.minute_label', { minute: '' })}
+              aria-label={t('scheduler.minute_aria_label')}
             />
           </div>
         </div>

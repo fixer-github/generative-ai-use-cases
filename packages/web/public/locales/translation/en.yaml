@@ -1121,8 +1121,10 @@ scheduler:
   execution_settings: Execution Settings
   execution_time: Execution Time
   execution_time_seconds: '{{seconds}}s'
+  hour_aria_label: Hour
   hour_label: '{{hour}}'
   last_updated: Last Updated
+  minute_aria_label: Minute
   minute_label: '{{minute}}'
   model: Model
   month_view: Month

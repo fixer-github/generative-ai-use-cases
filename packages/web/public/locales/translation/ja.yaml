@@ -946,8 +946,10 @@ scheduler:
   execution_settings: 実行設定
   execution_time: 実行時間
   execution_time_seconds: '{{seconds}}秒'
+  hour_aria_label: 時
   hour_label: '{{hour}}時'
   last_updated: 最終更新
+  minute_aria_label: 分
   minute_label: '{{minute}}分'
   model: モデル
   month_view: 月

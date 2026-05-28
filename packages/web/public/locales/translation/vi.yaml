@@ -699,8 +699,10 @@ scheduler:
   execution_settings: Cài đặt thực thi
   execution_time: Thời gian thực thi
   execution_time_seconds: '{{seconds}} giây'
+  hour_aria_label: Giờ
   hour_label: '{{hour}} giờ'
   last_updated: Cập nhật lần cuối
+  minute_aria_label: Phút
   minute_label: '{{minute}} phút'
   model: Mô hình
   month_view: Tháng

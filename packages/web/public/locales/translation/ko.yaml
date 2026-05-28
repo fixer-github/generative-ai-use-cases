@@ -607,8 +607,10 @@ scheduler:
   execution_settings: 실행 설정
   execution_time: 실행 시간
   execution_time_seconds: '{{seconds}}초'
+  hour_aria_label: 시
   hour_label: '{{hour}}시'
   last_updated: 마지막 업데이트
+  minute_aria_label: 분
   minute_label: '{{minute}}분'
   model: 모델
   month_view: 월
