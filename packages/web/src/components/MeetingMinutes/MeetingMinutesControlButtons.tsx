@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../Button';
 import ButtonCopy from '../ButtonCopy';
@@ -20,6 +20,12 @@ interface MeetingMinutesControlButtonsProps {
   onClear: () => void;
 }
 
+const formatElapsedTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 const MeetingMinutesControlButtons: React.FC<
   MeetingMinutesControlButtonsProps
 > = ({
@@ -31,9 +37,38 @@ const MeetingMinutesControlButtons: React.FC<
   onClear,
 }) => {
   const { t } = useTranslation();
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Reset and start timer when recording starts/stops
+  useEffect(() => {
+    if (!isRecording) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    setElapsedSeconds(0);
+    const intervalId = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isRecording]);
 
   return (
     <div className="flex items-center gap-2">
+      {/* Recording indicator */}
+      {isRecording && (
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
+          </span>
+          <span className="text-sm tabular-nums text-red-600">
+            {formatElapsedTime(elapsedSeconds)}
+          </span>
+        </div>
+      )}
+
       {/* Copy and Send buttons - show when transcript exists */}
       {hasTranscriptText && (
         <>
