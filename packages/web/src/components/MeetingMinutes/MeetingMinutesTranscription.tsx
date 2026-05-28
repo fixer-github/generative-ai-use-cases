@@ -71,8 +71,23 @@ const MeetingMinutesTranscription: React.FC<
     });
   }, [micRecording, screenRecording, onRecordingStateChange]);
 
+  // Map i18n language to transcription language
+  const LANG_MAPPING: Record<string, string> = useMemo(
+    () => ({
+      ja: 'ja-JP',
+      en: 'en-US',
+      zh: 'zh-CN',
+      ko: 'ko-KR',
+      th: 'th-TH',
+      vi: 'vi-VN',
+    }),
+    []
+  );
+
   // Internal state management
-  const [languageCode, setLanguageCode] = useState('auto');
+  const [languageCode, setLanguageCode] = useState(
+    () => LANG_MAPPING[i18n.resolvedLanguage ?? ''] ?? 'auto'
+  );
   const [speakerLabel, setSpeakerLabel] = useState(false);
   const [maxSpeakers, setMaxSpeakers] = useState(4);
   const [speakers, setSpeakers] = useState('');
@@ -105,38 +120,6 @@ const MeetingMinutesTranscription: React.FC<
       speakers.split(',').map((speaker, idx) => [`spk_${idx}`, speaker.trim()])
     );
   }, [speakers]);
-
-  // Map i18n language to transcription language
-  const getTranscriptionLanguageFromSettings = useCallback(
-    (settingsLang: string): string => {
-      const langMapping: { [key: string]: string } = {
-        ja: 'ja-JP',
-        en: 'en-US',
-        zh: 'zh-CN',
-        ko: 'ko-KR',
-        th: 'th-TH',
-        vi: 'vi-VN',
-      };
-      return langMapping[settingsLang] || 'auto';
-    },
-    []
-  );
-
-  // Set language from settings on mount
-  useEffect(() => {
-    if (i18n.resolvedLanguage && languageCode === 'auto') {
-      const mappedLang = getTranscriptionLanguageFromSettings(
-        i18n.resolvedLanguage
-      );
-      if (mappedLang !== 'auto') {
-        setLanguageCode(mappedLang);
-      }
-    }
-  }, [
-    i18n.resolvedLanguage,
-    languageCode,
-    getTranscriptionLanguageFromSettings,
-  ]);
 
   // Helper function to format time in MM:SS format
   const formatTime = useCallback((seconds: number): string => {
