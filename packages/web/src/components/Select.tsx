@@ -94,7 +94,7 @@ const Select: React.FC<Props> = (props) => {
   };
 
   return (
-    <RowItem notItem={props.notItem} className="relative">
+    <RowItem notItem={props.notItem}>
       {props.label && (
         <div className="flex items-center">
           <span className="text-sm">{props.label}</span>
@@ -130,45 +130,47 @@ const Select: React.FC<Props> = (props) => {
               </ButtonIcon>
             </span>
           )}
-        </div>
-        <Transition
-          as={Fragment}
-          leave="transition ease-in duration-100"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0">
-          <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-fit min-w-64 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
-            {props.options.map((option, idx) => (
-              <Listbox.Option
-                key={idx}
-                className={({ active }) =>
-                  `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                    active ? 'bg-aws-smile/10 text-aws-smile' : 'text-gray-900'
-                  }`
-                }
-                value={option.value}>
-                {({ selected }) => (
-                  <>
-                    <span
-                      className={`line-clamp-1 ${
-                        selected ? 'font-medium' : 'font-normal'
-                      }`}>
-                      <OptionContent
-                        value={option.value}
-                        label={option.label}
-                        tags={option.tags}
-                      />
-                    </span>
-                    {selected ? (
-                      <span className="text-aws-smile absolute inset-y-0 left-0 flex items-center pl-3">
-                        <PiCheck className="size-5" />
+          <Transition
+            as={Fragment}
+            leave="transition ease-in duration-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0">
+            <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-fit min-w-64 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+              {props.options.map((option, idx) => (
+                <Listbox.Option
+                  key={idx}
+                  className={({ active }) =>
+                    `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
+                      active
+                        ? 'bg-aws-smile/10 text-aws-smile'
+                        : 'text-gray-900'
+                    }`
+                  }
+                  value={option.value}>
+                  {({ selected }) => (
+                    <>
+                      <span
+                        className={`line-clamp-1 ${
+                          selected ? 'font-medium' : 'font-normal'
+                        }`}>
+                        <OptionContent
+                          value={option.value}
+                          label={option.label}
+                          tags={option.tags}
+                        />
                       </span>
-                    ) : null}
-                  </>
-                )}
-              </Listbox.Option>
-            ))}
-          </Listbox.Options>
-        </Transition>
+                      {selected ? (
+                        <span className="text-aws-smile absolute inset-y-0 left-0 flex items-center pl-3">
+                          <PiCheck className="size-5" />
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Transition>
+        </div>
       </Listbox>
     </RowItem>
   );
