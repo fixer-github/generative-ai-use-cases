@@ -205,7 +205,7 @@ const SchedulerTaskFormPage: React.FC = () => {
 
   const agentOptions = runtimes.map((r) => ({
     value: r.name,
-    label: r.name,
+    label: r.displayName ?? r.name,
   }));
 
   const modelOptions = MODELS.modelIds.map((id) => ({
