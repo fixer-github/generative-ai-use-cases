@@ -631,8 +631,8 @@ landing:
         Bases for Amazon Bedrock のベクトルデータベースを参照することが可能です。
       title: Agent チャット
     agent_core:
-      description: AgentCore チャットは Bedrock AgentCore で作成したさまざまな Agent を利用する機能です
-      title: AgentCore
+      description: あらかじめ用意された AI エージェントと対話し、調べ物やタスクの実行を任せられる機能です。
+      title: AIエージェント
     chat:
       description: >-
         LLM
