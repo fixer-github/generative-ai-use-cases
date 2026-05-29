@@ -148,6 +148,14 @@ const CLAUDE_OPUS_4_5_DEFAULT_PARAMS: ConverseInferenceParams = {
   },
 };
 
+// Claude Opus 4.7+ deprecates temperature / top_p (the Converse API rejects them),
+// so only maxTokens is sent. Extended thinking must use the "adaptive" type.
+const CLAUDE_OPUS_4_7_PLUS_DEFAULT_PARAMS: ConverseInferenceParams = {
+  inferenceConfig: {
+    maxTokens: 64000,
+  },
+};
+
 const CLAUDE_3_5_DEFAULT_PARAMS: ConverseInferenceParams = {
   inferenceConfig: {
     maxTokens: 8192,
@@ -427,6 +435,13 @@ export const getInferenceProfileArn = (modelId: string): string | undefined => {
   return undefined;
 };
 
+// Claude Opus 4.7+ rejects `temperature` / `top_p` ("deprecated for this model")
+// and only supports adaptive extended thinking ("thinking.type.enabled" is rejected).
+// These models must therefore send maxTokens only and use reasoning_config.type "adaptive".
+// New Opus versions need to be registered in BEDROCK_TEXT_GEN_MODELS anyway, so add them here too.
+const isAdaptiveThinkingOnlyModel = (modelId: string): boolean =>
+  /anthropic\.claude-opus-4-(7|8)(?![0-9])/.test(modelId);
+
 // API call, extract string from output, etc.
 
 const createConverseCommandInput = (
@@ -526,11 +541,16 @@ const createConverseCommandInput = (
   const guardrailConfig = createGuardrailConfig();
 
   const modelIdOrArn = getInferenceProfileArn(model.modelId) || model.modelId;
+
+  // Opus 4.7+ does not accept temperature / top_p, so send maxTokens only.
+  const adaptiveThinkingOnly = isAdaptiveThinkingOnlyModel(model.modelId);
   const converseCommandInput: ConverseCommandInput = {
     modelId: modelIdOrArn,
     messages: conversationWithCache,
     system: systemContextWithCache,
-    inferenceConfig: params.inferenceConfig,
+    inferenceConfig: adaptiveThinkingOnly
+      ? { maxTokens: params.inferenceConfig?.maxTokens }
+      : params.inferenceConfig,
     guardrailConfig,
   };
 
@@ -538,19 +558,31 @@ const createConverseCommandInput = (
     modelMetadata[model.modelId].flags.reasoning &&
     model.modelParameters?.reasoningConfig?.type === 'enabled'
   ) {
-    converseCommandInput.inferenceConfig = {
-      ...params.inferenceConfig,
-      temperature: 1, // reasoning requires temperature to be 1
-      topP: undefined, // reasoning does not require topP
-      maxTokens: params.inferenceConfig?.maxTokens,
-    };
-    converseCommandInput.additionalModelRequestFields = {
-      reasoning_config: {
-        type: model.modelParameters?.reasoningConfig?.type,
-        budget_tokens:
-          model.modelParameters?.reasoningConfig?.budgetTokens || 0,
-      },
-    };
+    if (adaptiveThinkingOnly) {
+      // Opus 4.7+: adaptive thinking only, no temperature / top_p / budget_tokens.
+      converseCommandInput.inferenceConfig = {
+        maxTokens: params.inferenceConfig?.maxTokens,
+      };
+      converseCommandInput.additionalModelRequestFields = {
+        reasoning_config: {
+          type: 'adaptive',
+        },
+      };
+    } else {
+      converseCommandInput.inferenceConfig = {
+        ...params.inferenceConfig,
+        temperature: 1, // reasoning requires temperature to be 1
+        topP: undefined, // reasoning does not require topP
+        maxTokens: params.inferenceConfig?.maxTokens,
+      };
+      converseCommandInput.additionalModelRequestFields = {
+        reasoning_config: {
+          type: model.modelParameters?.reasoningConfig?.type,
+          budget_tokens:
+            model.modelParameters?.reasoningConfig?.budgetTokens || 0,
+        },
+      };
+    }
   }
 
   return converseCommandInput;
@@ -1020,6 +1052,22 @@ export const BEDROCK_TEXT_GEN_MODELS: {
     extractConverseOutput: extractConverseOutput,
     extractConverseStreamOutput: extractConverseStreamOutput,
   },
+  'jp.anthropic.claude-opus-4-8': {
+    defaultParams: CLAUDE_OPUS_4_7_PLUS_DEFAULT_PARAMS,
+    usecaseParams: USECASE_DEFAULT_PARAMS,
+    createConverseCommandInput: createConverseCommandInput,
+    createConverseStreamCommandInput: createConverseStreamCommandInput,
+    extractConverseOutput: extractConverseOutput,
+    extractConverseStreamOutput: extractConverseStreamOutput,
+  },
+  'global.anthropic.claude-opus-4-8': {
+    defaultParams: CLAUDE_OPUS_4_7_PLUS_DEFAULT_PARAMS,
+    usecaseParams: USECASE_DEFAULT_PARAMS,
+    createConverseCommandInput: createConverseCommandInput,
+    createConverseStreamCommandInput: createConverseStreamCommandInput,
+    extractConverseOutput: extractConverseOutput,
+    extractConverseStreamOutput: extractConverseStreamOutput,
+  },
   'global.anthropic.claude-sonnet-4-5-20250929-v1:0': {
     defaultParams: CLAUDE_SONNET_4_DEFAULT_PARAMS,
     usecaseParams: USECASE_DEFAULT_PARAMS,
@@ -1045,6 +1093,22 @@ export const BEDROCK_TEXT_GEN_MODELS: {
     extractConverseStreamOutput: extractConverseStreamOutput,
   },
   'jp.anthropic.claude-sonnet-4-5-20250929-v1:0': {
+    defaultParams: CLAUDE_SONNET_4_DEFAULT_PARAMS,
+    usecaseParams: USECASE_DEFAULT_PARAMS,
+    createConverseCommandInput: createConverseCommandInput,
+    createConverseStreamCommandInput: createConverseStreamCommandInput,
+    extractConverseOutput: extractConverseOutput,
+    extractConverseStreamOutput: extractConverseStreamOutput,
+  },
+  'jp.anthropic.claude-sonnet-4-6': {
+    defaultParams: CLAUDE_SONNET_4_DEFAULT_PARAMS,
+    usecaseParams: USECASE_DEFAULT_PARAMS,
+    createConverseCommandInput: createConverseCommandInput,
+    createConverseStreamCommandInput: createConverseStreamCommandInput,
+    extractConverseOutput: extractConverseOutput,
+    extractConverseStreamOutput: extractConverseStreamOutput,
+  },
+  'global.anthropic.claude-sonnet-4-6': {
     defaultParams: CLAUDE_SONNET_4_DEFAULT_PARAMS,
     usecaseParams: USECASE_DEFAULT_PARAMS,
     createConverseCommandInput: createConverseCommandInput,
