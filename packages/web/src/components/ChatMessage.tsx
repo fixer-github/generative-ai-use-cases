@@ -18,10 +18,10 @@ import {
   PiNotePencil,
   PiCheck,
   PiX,
+  PiRobotFill,
 } from 'react-icons/pi';
 import { BaseProps } from '../@types/common';
 import { ShownMessage, UpdateFeedbackRequest } from 'generative-ai-use-cases';
-import BedrockIcon from '../assets/bedrock.svg?react';
 import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';
 import FileCard from './FileCard';
@@ -163,8 +163,8 @@ const ChatMessage: React.FC<Props> = (props) => {
             </div>
           )}
           {chatContent?.role === 'assistant' && (
-            <div className="bg-aws-ml h-min rounded p-1">
-              <BedrockIcon className="size-7 fill-white" />
+            <div className="bg-aws-ml h-min rounded p-2 text-xl text-white">
+              <PiRobotFill />
             </div>
           )}
           {chatContent?.role === 'system' && (
