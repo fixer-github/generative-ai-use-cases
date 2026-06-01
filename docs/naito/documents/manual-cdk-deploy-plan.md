@@ -62,6 +62,8 @@
 
 **本書ではこの判断を確定しない。** B7 着手時に残課題G とあわせてユーザー確認する。本書の以降の記述は「どちらに転んでも成立する」よう、Runtime 本体の生成手段は両論併記とし、GenU CDK 側は最低限「Runtime ARN を環境変数としてチャット中継 Lambda へ渡す配線」を持つ前提で書く。
 
+**残課題G 確定（2026-06-01・B7 着手時）**：上記2択を**案b（外部 ARN 参照）**で確定する。AgentCore Runtime は AgentCore 側リポジトリ `agents/manual-agent/` の `deploy.py`（既存 infection-chatbot-toc と同方式）でデプロイし、GenU CDK は `Runtime` Construct を宣言しない。ツール7種は実装言語（Python）へ Strands `@tool` で直接組み込む（G-1）。GenU CDK 側は、デプロイ済み Runtime の ARN を CDK パラメータ（`stack-input.ts` に `manualAgentRuntimeArn` 等。具体名は B9 で確定）で受け取り、チャット中継 Lambda（B9）の環境変数へ渡すだけにする。既存 `agentCoreExternalRuntimes` の考え方に整合。本書 第5章もこの確定に従う。
+
 ---
 
 ## 2. 新規スタック構成
@@ -276,6 +278,15 @@ B6 着手時（2026-06-01）に次を確定した（スキャン／画像のみ�
 | 31 | OCR 方式（F-4） | Amazon Textract **`DetectDocumentText`（同期）**。入力は S3 保存済みの `{manual_id}/pages/page_NNNN.png` を **S3Object 参照**で渡す。**PDF のみ**対象（TXT/MD は対象外）、リージョン `us-east-1`。新規 Python ライブラリ追加なし（boto3 同梱） |
 | 32 | 失敗時の扱い（F-5） | 1ページの OCR 失敗はログを残して抽出済みテキストのまま継続し、マニュアル全体を `failed` にしない |
 | 33 | Textract IAM（F-6） | 前処理 Lambda に **`textract:DetectDocumentText`** を追加（`AnalyzeDocument` は付与しない）。S3Object 参照のための当該バケット read は既存 grant で充足 |
+
+B7 着手時（2026-06-01）に次を確定した（AgentCore Runtime コンテナ）。**実体は AgentCore 側リポジトリ `agents/manual-agent/`** にあり、GenU CDK 側の作業は B9（中継 Lambda）まで発生しない。本表は接続点の確定事項を記録する。
+
+| # | 項目 | 確定値（2026-06-01） |
+|---|---|---|
+| 34 | 残課題G（ツール供給方式） | G-1=実装言語（Python）へ **Strands `@tool` で直接組み込み**（MCP 等の外部プロトコルは不採用）。G-2=Runtime は `agents/manual-agent/deploy.py` でデプロイ（**案b**）、GenU CDK は ARN を参照するのみ（`Runtime` Construct 宣言＝案a は不採用） |
+| 35 | 説明文の動的併合 | 中継 Lambda（B9）が DynamoDB から `status=completed` の全マニュアルの `title`/`description` を取得し、質問とあわせてリクエスト payload で Runtime へ渡す。Runtime は固定システムプロンプトへ説明文を併合し**リクエストごとに**プロンプトを組み立てる。AI 実行環境は DynamoDB への直接アクセス権限を持たない（説明文は payload 受領のみ） |
+| 36 | Runtime ARN の GenU への供給 | GenU CDK は CDK パラメータ（`stack-input.ts` の `manualAgentRuntimeArn` 等、具体名は B9 で確定）でデプロイ済み ARN を受け取り、中継 Lambda の環境変数へ渡す。既存 `agentCoreExternalRuntimes` の考え方に整合 |
+| 37 | S3／DynamoDB のキー規約（AI 実行環境が読む対象） | manual-rag の前処理出力に整合：`{manual_id}/pages/page_NNNN.png`・`.md`／`{manual_id}/toc.md`・`toc.json`／`{manual_id}/page_map.json`（既存 infection の `documents/` 接頭辞・`catalog.json` 方式は使わない）。ツールのスコープ確認は DynamoDB を参照（B8） |
 
 ---
 
