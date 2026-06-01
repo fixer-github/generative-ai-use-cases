@@ -8,8 +8,9 @@ Responsibilities (design doc section 4 steps 2/4/5, section 9):
   (MIT). Pages where no number can be read map to null (residual task E = plan A).
 - Extract a table of contents from the PDF outline (bookmarks) with pypdf, if present.
 
-OCR routing for pages with little/no extractable text (Amazon Textract) is NOT done
-here; it is added in phase B6. In B5 such pages simply keep a short/empty page text.
+OCR routing for pages with little/no extractable text (Amazon Textract) is not done
+here; it lives in app.py / src/ocr.py (phase B6), which replaces the text of pages
+that fall below the threshold.
 """
 
 import os

@@ -12,9 +12,14 @@ PDF, phase B5 (src/pdf.py):
 - Builds page_map.json by reading the printed number from each page footer
   (pdfplumber; null where unreadable). Generates toc.* from PDF bookmarks if present.
 
+OCR, phase B6 (src/ocr.py):
+- PDF pages whose extractable text has fewer than OCR_TEXT_THRESHOLD visible
+  (non-whitespace) characters are read from their PNG via Amazon Textract
+  (DetectDocumentText) and the result replaces the extracted text. A single
+  page's OCR failure is logged and skipped without failing the whole manual.
+
 In all cases DynamoDB is updated: page_count and status (completed / failed +
-error_detail). OCR for pages with little/no extractable text (Amazon Textract) is
-added in phase B6; in B5 such pages keep a short/empty page text.
+error_detail).
 
 Two entry points, handled by a single handler:
   (a) S3 ObjectCreated event for {manual_id}/original.txt|md|pdf (normal upload)
@@ -32,7 +37,7 @@ from typing import List, Optional
 
 import boto3
 
-from src import pdf
+from src import ocr, pdf
 from src.splitter import split_pages
 
 s3 = boto3.client("s3")
@@ -40,6 +45,16 @@ ddb = boto3.resource("dynamodb")
 
 BUCKET_NAME = os.environ.get("BUCKET_NAME", "")
 TABLE_NAME = os.environ.get("TABLE_NAME", "")
+
+# OCR routing threshold (residual task F). A PDF page whose extractable text has
+# fewer than this many visible (non-whitespace) characters is sent to Amazon
+# Textract and its result replaces the extracted text unconditionally (plan B-b).
+OCR_TEXT_THRESHOLD = 500
+
+
+def _visible_len(text: str) -> int:
+    """Character count excluding all whitespace (residual task F-2)."""
+    return len(re.sub(r"\s", "", text))
 
 # Text-origin formats (B4).
 SUPPORTED_TEXT_EXT = {"txt", "md"}
@@ -202,6 +217,19 @@ def _process_pdf(manual_id: str, key: str) -> None:
                 ExtraArgs={"ContentType": "image/png"},
             )
             os.remove(png_path)
+
+        # OCR routing (phase B6): pages with little/no extractable text are read
+        # from their PNG via Amazon Textract and the result replaces the text
+        # unconditionally (residual task F = plan B-b). A single page's OCR
+        # failure is logged and skipped; it does not fail the whole manual.
+        for index, text in enumerate(page_texts):
+            if _visible_len(text) >= OCR_TEXT_THRESHOLD:
+                continue
+            page_key = f"{manual_id}/pages/page_{index + 1:04d}.png"
+            try:
+                page_texts[index] = ocr.detect_document_text(BUCKET_NAME, page_key)
+            except Exception as e:  # noqa: BLE001 - one page must not abort all
+                print(f"OCR failed for {manual_id} page {index + 1}: {e}")
 
         _write_pages(manual_id, page_texts)
 

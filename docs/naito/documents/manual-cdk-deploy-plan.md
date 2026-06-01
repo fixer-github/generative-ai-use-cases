@@ -201,7 +201,7 @@ B1 では `ManualRagStack` を `GenerativeAiUseCasesStack`（UserPool を所有�
 | B3 | （フロント。CDK 対象外。フラグ連携の整合のみ確認） | なし |
 | B4 | 前処理 Lambda（Docker Image・poppler 同梱）の関数定義、S3 イベント配線、メモリ/タイムアウト確定 | 残課題D（TXT/MD のページ分割値） |
 | B5 | （前処理 PDF 対応は Lambda 内ロジック。CDK 側は B4 で定義済の関数を使用） | 残課題E（page_map 生成方法） |
-| B6 | Textract 権限の付与（B4 の IAM に含めるか、B6 で追加か） | 残課題F（OCR 閾値） |
+| B6 | Textract 権限の付与（**B6 で追加**＝`textract:DetectDocumentText`）。OCR 振り分けは Lambda 内ロジック | 残課題F 確定済み（OCR 閾値=500・空白除外・無条件置換） |
 | B7 | AgentCore Runtime の宣言／ARN 受け渡し配線（残課題G 次第。本書 1.3/5） | 残課題G（ツール供給方式） |
 | B8 | （ツール実装は AgentCore 側リポジトリ。CDK 対象外） | 残課題G（B7 と共通） |
 | B9 | チャット中継 Lambda の定義、AgentCore Invoke 権限、ストリーミング配線 | なし |
@@ -266,6 +266,16 @@ B5 着手時（2026-06-01）に次を確定した（前処理 Lambda の PDF 対
 | 26 | S3 通知フィルタ追加 | `original.pdf` の suffix 通知を**追加**配線（B4 で保留した分）。これで PDF アップロードが前処理を起動 |
 | 27 | 依存追加 | `requirements.txt` に **pypdf・pdfplumber** を追加 |
 | 28 | Textract IAM | **B5 では付与しない**。OCR 実装は B6 のため、`textract:*` 権限も B6 で追加（最小権限） |
+
+B6 着手時（2026-06-01）に次を確定した（スキャン／画像のみページの OCR 対応）。CDK 側の変更は前処理 Lambda への Textract 権限追加に限られ、振り分けロジックは Lambda 内に実装する。
+
+| # | 項目 | 確定値（2026-06-01） |
+|---|---|---|
+| 29 | 残課題F（OCR 閾値・数え方） | F-1=**500 文字**／F-2=**空白・改行を除いた文字数**（`len(re.sub(r"\s", "", text))`）。改行だけ・スペースだけのページを「テキストあり」と誤判定しないため（本体計画書 第4章ステップ3） |
+| 30 | 振り分け処理（F-3） | 閾値未満のページは OCR を実行し、結果で当該ページのテキストを**無条件に置換**（案③-b）。born-digital の正テキストが OCR 結果で上書きされうる点は了承のうえ確定 |
+| 31 | OCR 方式（F-4） | Amazon Textract **`DetectDocumentText`（同期）**。入力は S3 保存済みの `{manual_id}/pages/page_NNNN.png` を **S3Object 参照**で渡す。**PDF のみ**対象（TXT/MD は対象外）、リージョン `us-east-1`。新規 Python ライブラリ追加なし（boto3 同梱） |
+| 32 | 失敗時の扱い（F-5） | 1ページの OCR 失敗はログを残して抽出済みテキストのまま継続し、マニュアル全体を `failed` にしない |
+| 33 | Textract IAM（F-6） | 前処理 Lambda に **`textract:DetectDocumentText`** を追加（`AnalyzeDocument` は付与しない）。S3Object 参照のための当該バケット read は既存 grant で充足 |
 
 ---
 
