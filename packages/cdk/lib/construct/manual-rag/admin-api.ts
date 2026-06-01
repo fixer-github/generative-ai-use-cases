@@ -32,6 +32,9 @@ export interface ManualAdminApiProps {
  */
 export class ManualAdminApi extends Construct {
   public readonly api: RestApi;
+  // Exposed so the stack can wire PREPROCESS_FUNCTION_ARN and grant invoke once
+  // the preprocessing Lambda exists (B4).
+  public readonly reprocessManualFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: ManualAdminApiProps) {
     super(scope, id);
@@ -96,6 +99,7 @@ export class ManualAdminApi extends Construct {
     table.grantReadWriteData(reprocessManualFunction);
     bucket.grantRead(reprocessManualFunction);
     bucket.grantDelete(reprocessManualFunction);
+    this.reprocessManualFunction = reprocessManualFunction;
 
     // PATCH /manuals/{manualId}
     const updateManualFunction = defineFunction(

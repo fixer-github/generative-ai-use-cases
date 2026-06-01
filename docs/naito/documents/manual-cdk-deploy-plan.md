@@ -241,6 +241,18 @@ B2 着手時（2026-06-01）に次を確定した。
 | 11 | Construct 分割 | `construct/manual-rag/admin-api.ts` に `ManualAdminApi`（管理 Lambda 5種 + REST API）を新設 |
 | 12 | ManualRagStack 生成順序 | 案A：`generativeAiUseCasesStack` の後ろへ移動し `userPool`/`userPoolClient` を props 受け渡し（第4.1章） |
 
+B4 着手時（2026-06-01）に次を確定した（前処理 Lambda 骨組み・TXT/MD のページ分割）。
+
+| # | 項目 | 確定値（2026-06-01） |
+|---|---|---|
+| 13 | 残課題D（TXT 上限文字数・Markdown 例外） | D-1=**2,000 文字**／D-2=見出し無し・最初の見出し前は固定文字数分割、見出し分割後の上限超過は固定文字数で再分割／D-3=TXT・MD の `page_map.json` は印刷番号「なし(null)」で生成・`toc.*` 非生成（本体計画書 第4章ステップ3） |
+| 14 | 前処理 Lambda 実装言語・配置 | **Python 3.13 / Docker Image**。ベースは **AWS 公式 Lambda イメージ `public.ecr.aws/lambda/python:3.13`**（Lambda Runtime Interface 同梱）。前処理はイベント駆動（S3 イベント／直接 invoke）であり HTTP 常駐ではないため、`mcp-api` の Lambda Web Adapter＋`uv run` 方式は採らず、`CMD ["app.handler"]` のイベントハンドラ構成とする。依存は **pip**（B4 は標準ライブラリ＋同梱 boto3。pypdf 等は B5 で追記）、`poppler-utils` は **dnf** で同梱（別プロセス呼び出し＝GPL 非伝播は維持）。配置 `packages/cdk/lambda-python/manual-preprocess/`、Construct は `construct/manual-rag/preprocess.ts` |
+| 15 | コンテナ実行条件 | **x86_64 / memorySize 2048MB / timeout 15分**（イベント駆動 Lambda。B5 の画像化を見越した余裕値）。ephemeral storage は PDF 画像化を行う B5 で見直す |
+| 16 | 起動経路 | 1ハンドラで2系統を受ける：(あ) S3 イベント（通常アップロード）／(い) 直接 invoke `{manual_id}`（再処理。既存 `reprocessManual.ts` が送る形式） |
+| 17 | S3 通知フィルタ（自己ループ防止） | suffix フィルタで **`original.txt` / `original.md` のみ**発火（B4 範囲）。`pages/page_0001.md` 等の派生物は後方一致せず再発火しない。ハンドラ側でも `original.` 以外を無視（多重防御）。`original.pdf` の配線は B5 で追加 |
+| 18 | `PREPROCESS_FUNCTION_ARN` 配線 | `ManualAdminApi` から再処理 Lambda を公開し、スタックで前処理 Lambda の ARN を env 注入＋`grantInvoke`（B2 のプレースホルダを実体化） |
+| 19 | CfnOutput（フロント繋ぎ込み用） | `ManualRagStack` に **管理 API URL／バケット名／テーブル名** を出力 |
+
 ---
 
 ## 9. 参照

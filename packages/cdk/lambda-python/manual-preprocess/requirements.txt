@@ -1,0 +1,4 @@
+# Manual preprocessing Lambda dependencies.
+# B4 (TXT/Markdown) uses only the standard library and the boto3 that ships with
+# the AWS Lambda Python base image, so no extra packages are required here.
+# PDF dependencies (pypdf, pdfplumber) are added in phase B5.
