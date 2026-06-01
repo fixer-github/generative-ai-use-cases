@@ -184,13 +184,13 @@ const baseStackInputSchema = z.object({
       })
     )
     .default([]),
-  // Scheduler email notification (SendGrid)
+  // Email notification (SendGrid) shared across the app (scheduler + auth)
   // The API key and the authenticated sender address are configured directly
   // in cdk.json (mirrors searchApiKey). When either is unset, or in
-  // closed-network mode, scheduler email notifications are disabled (tasks
-  // still run; emailSent=false).
-  schedulerSendgridApiKey: z.string().nullish(),
-  schedulerMailFrom: z.string().nullish(),
+  // closed-network mode, SendGrid email is disabled (the scheduler still runs
+  // tasks with emailSent=false; Cognito falls back to its default email).
+  sendgridApiKey: z.string().nullish(),
+  mailFrom: z.string().nullish(),
   // MCP
   mcpEnabled: z.boolean().default(false),
   // Guardrail

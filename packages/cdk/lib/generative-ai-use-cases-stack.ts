@@ -144,6 +144,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
       mfaRequired: params.mfaRequired,
       samlAuthEnabled: params.samlAuthEnabled,
+      sendgridApiKey: params.sendgridApiKey,
+      mailFrom: params.mailFrom,
+      closedNetworkMode: params.closedNetworkMode,
     });
 
     // Database
@@ -466,8 +469,8 @@ export class GenerativeAiUseCasesStack extends Stack {
         agentNameToArnMap,
         modelRegion: params.modelRegion,
         agentCoreRegion: params.agentCoreRegion,
-        sendgridApiKey: params.schedulerSendgridApiKey,
-        mailFrom: params.schedulerMailFrom,
+        sendgridApiKey: params.sendgridApiKey,
+        mailFrom: params.mailFrom,
         closedNetworkMode: params.closedNetworkMode,
         vpc: props.vpc,
         securityGroups,

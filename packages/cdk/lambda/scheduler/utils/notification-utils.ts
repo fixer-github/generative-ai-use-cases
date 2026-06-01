@@ -1,16 +1,10 @@
 /* eslint-disable i18nhelper/no-jp-string */
 /**
- * SendGrid Notification Utilities
+ * Scheduler Notification Utilities
  *
- * Sends execution result notifications via the SendGrid Mail Send API.
- *
- * Configuration is provided directly through two env vars (set from cdk.json):
- *   - SENDGRID_API_KEY: the SendGrid API key
- *   - MAIL_FROM:        the authenticated sender address
- *
- * When either value is unset (e.g. closed-network mode, or the feature has not
- * been configured yet), notifications are treated as disabled. The recipient
- * address is resolved per-execution from Cognito.
+ * Builds scheduler-specific success/error emails and delivers them through the
+ * shared SendGrid helper (../../utils/sendgrid). The recipient address is
+ * resolved per-execution from Cognito.
  */
 
 import {
@@ -18,33 +12,16 @@ import {
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { TokenUsage } from '../types';
+import { sendMail } from '../../utils/sendgrid';
 
 const region = process.env.AWS_REGION!;
 const userPoolId = process.env.USER_POOL_ID!;
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM;
-
-const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send';
 
 // Generous body cap so a runaway agent result cannot produce a multi-MB email.
 // (SendGrid's own limit is ~30MB; this is a UX/safety bound, not a hard API one.)
 const MAX_BODY_SIZE = 256 * 1024;
 
 const cognito = new CognitoIdentityProviderClient({ region });
-
-/**
- * Whether email notifications are configured. False in closed-network mode or
- * before the SendGrid parameters have been set, in which case callers should
- * skip notification and record emailSent=false.
- */
-export function isNotificationConfigured(): boolean {
-  return (
-    !!SENDGRID_API_KEY &&
-    SENDGRID_API_KEY.length > 0 &&
-    !!MAIL_FROM &&
-    MAIL_FROM.length > 0
-  );
-}
 
 /**
  * Resolve the user's email address from Cognito.
@@ -63,38 +40,6 @@ export async function getUserEmail(userId: string): Promise<string> {
     throw new Error(`Email not found for user ${userId}`);
   }
   return email;
-}
-
-/**
- * Send a plaintext email through the SendGrid Mail Send API.
- */
-async function sendViaSendGrid(
-  toEmail: string,
-  subject: string,
-  body: string
-): Promise<void> {
-  if (!isNotificationConfigured()) {
-    throw new Error('SendGrid notification is not configured');
-  }
-
-  const res = await fetch(SENDGRID_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${SENDGRID_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: toEmail }] }],
-      from: { email: MAIL_FROM },
-      subject: subject.substring(0, 998), // RFC 5322 subject length guard
-      content: [{ type: 'text/plain', value: body }],
-    }),
-  });
-
-  if (res.status >= 400) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`SendGrid request failed: ${res.status} ${detail}`);
-  }
 }
 
 /**
@@ -123,7 +68,7 @@ ${safeResult}
 
 詳細はGaiXerのスケジューラ画面からご確認いただけます。`;
 
-  await sendViaSendGrid(toEmail, `[GaiXer] タスク実行完了: ${taskName}`, body);
+  await sendMail(toEmail, `[GaiXer] タスク実行完了: ${taskName}`, body);
 }
 
 /**
@@ -145,11 +90,7 @@ ${errorMessage}
 
 タスクの設定をご確認ください。`;
 
-  await sendViaSendGrid(
-    toEmail,
-    `[GaiXer] タスク実行エラー: ${taskName}`,
-    body
-  );
+  await sendMail(toEmail, `[GaiXer] タスク実行エラー: ${taskName}`, body);
 }
 
 /**
