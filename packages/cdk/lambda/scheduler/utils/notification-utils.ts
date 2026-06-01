@@ -1,17 +1,18 @@
 /* eslint-disable i18nhelper/no-jp-string */
 /**
- * SNS Notification Utilities
+ * SendGrid Notification Utilities
  *
- * Manages per-user SNS topics and sends execution result notifications.
+ * Sends execution result notifications via the SendGrid Mail Send API.
+ *
+ * Configuration is provided directly through two env vars (set from cdk.json):
+ *   - SENDGRID_API_KEY: the SendGrid API key
+ *   - MAIL_FROM:        the authenticated sender address
+ *
+ * When either value is unset (e.g. closed-network mode, or the feature has not
+ * been configured yet), notifications are treated as disabled. The recipient
+ * address is resolved per-execution from Cognito.
  */
 
-import {
-  SNSClient,
-  CreateTopicCommand,
-  SubscribeCommand,
-  ListSubscriptionsByTopicCommand,
-  PublishCommand,
-} from '@aws-sdk/client-sns';
 import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
@@ -20,23 +21,35 @@ import { TokenUsage } from '../types';
 
 const region = process.env.AWS_REGION!;
 const userPoolId = process.env.USER_POOL_ID!;
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
 
-const sns = new SNSClient({ region });
+const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send';
+
+// Generous body cap so a runaway agent result cannot produce a multi-MB email.
+// (SendGrid's own limit is ~30MB; this is a UX/safety bound, not a hard API one.)
+const MAX_BODY_SIZE = 256 * 1024;
+
 const cognito = new CognitoIdentityProviderClient({ region });
 
-// SNS message size limit (256KB). Reserve space for subject/metadata.
-const MAX_MESSAGE_SIZE = 250 * 1024;
+/**
+ * Whether email notifications are configured. False in closed-network mode or
+ * before the SendGrid parameters have been set, in which case callers should
+ * skip notification and record emailSent=false.
+ */
+export function isNotificationConfigured(): boolean {
+  return (
+    !!SENDGRID_API_KEY &&
+    SENDGRID_API_KEY.length > 0 &&
+    !!MAIL_FROM &&
+    MAIL_FROM.length > 0
+  );
+}
 
 /**
- * Ensure SNS topic exists for the user and email is subscribed.
- * Returns the topic ARN.
- *
- * CreateTopic is idempotent: if the topic already exists, it returns the existing ARN.
+ * Resolve the user's email address from Cognito.
  */
-export async function ensureUserNotificationTopic(
-  userId: string
-): Promise<{ topicArn: string; email: string }> {
-  // Get user email from Cognito
+export async function getUserEmail(userId: string): Promise<string> {
   const userResponse = await cognito.send(
     new AdminGetUserCommand({
       UserPoolId: userPoolId,
@@ -49,42 +62,46 @@ export async function ensureUserNotificationTopic(
   if (!email) {
     throw new Error(`Email not found for user ${userId}`);
   }
-
-  // Create or get existing topic (idempotent)
-  const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const topicName = `gaixer-notification-${sanitizedUserId}`;
-  const topicResult = await sns.send(
-    new CreateTopicCommand({ Name: topicName })
-  );
-  const topicArn = topicResult.TopicArn!;
-
-  // Check if email is already subscribed
-  const subscriptions = await sns.send(
-    new ListSubscriptionsByTopicCommand({ TopicArn: topicArn })
-  );
-  const isSubscribed = subscriptions.Subscriptions?.some(
-    (sub: { Protocol?: string; Endpoint?: string }) =>
-      sub.Protocol === 'email' && sub.Endpoint === email
-  );
-
-  if (!isSubscribed) {
-    await sns.send(
-      new SubscribeCommand({
-        TopicArn: topicArn,
-        Protocol: 'email',
-        Endpoint: email,
-      })
-    );
-  }
-
-  return { topicArn, email };
+  return email;
 }
 
 /**
- * Send success notification
+ * Send a plaintext email through the SendGrid Mail Send API.
+ */
+async function sendViaSendGrid(
+  toEmail: string,
+  subject: string,
+  body: string
+): Promise<void> {
+  if (!isNotificationConfigured()) {
+    throw new Error('SendGrid notification is not configured');
+  }
+
+  const res = await fetch(SENDGRID_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: toEmail }] }],
+      from: { email: MAIL_FROM },
+      subject: subject.substring(0, 998), // RFC 5322 subject length guard
+      content: [{ type: 'text/plain', value: body }],
+    }),
+  });
+
+  if (res.status >= 400) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`SendGrid request failed: ${res.status} ${detail}`);
+  }
+}
+
+/**
+ * Send success notification to the given recipient.
  */
 export async function sendSuccessNotification(
-  topicArn: string,
+  toEmail: string,
   taskName: string,
   resultText: string,
   executionTime: string,
@@ -94,43 +111,26 @@ export async function sendSuccessNotification(
     ? `\nトークン消費: 入力 ${tokenUsage.inputTokens.toLocaleString()} / 出力 ${tokenUsage.outputTokens.toLocaleString()}`
     : '';
 
-  let body = `タスク「${taskName}」の実行が完了しました。
+  const safeResult = capResultText(resultText);
+
+  const body = `タスク「${taskName}」の実行が完了しました。
 
 ■ 実行結果
-${resultText}
+${safeResult}
 
 ■ 実行情報
 実行日時: ${formatJstDateTime(executionTime)}${tokenInfo}
 
 詳細はGaiXerのスケジューラ画面からご確認いただけます。`;
 
-  // Truncate if exceeds SNS limit
-  if (Buffer.byteLength(body, 'utf-8') > MAX_MESSAGE_SIZE) {
-    const truncationNote =
-      '\n\n[メール本文が上限を超えたため省略されました。続きはGaiXerの画面でご確認ください。]';
-    // Calculate available space for resultText
-    const overhead = Buffer.byteLength(body.replace(resultText, ''), 'utf-8');
-    const availableBytes =
-      MAX_MESSAGE_SIZE - overhead - Buffer.byteLength(truncationNote, 'utf-8');
-    const truncatedResult =
-      truncateUtf8(resultText, availableBytes) + truncationNote;
-    body = body.replace(resultText, truncatedResult);
-  }
-
-  await sns.send(
-    new PublishCommand({
-      TopicArn: topicArn,
-      Subject: `[GaiXer] タスク実行完了: ${taskName}`.substring(0, 100),
-      Message: body,
-    })
-  );
+  await sendViaSendGrid(toEmail, `[GaiXer] タスク実行完了: ${taskName}`, body);
 }
 
 /**
- * Send error notification
+ * Send error notification to the given recipient.
  */
 export async function sendErrorNotification(
-  topicArn: string,
+  toEmail: string,
   taskName: string,
   errorMessage: string,
   executionTime: string
@@ -145,13 +145,25 @@ ${errorMessage}
 
 タスクの設定をご確認ください。`;
 
-  await sns.send(
-    new PublishCommand({
-      TopicArn: topicArn,
-      Subject: `[GaiXer] タスク実行エラー: ${taskName}`.substring(0, 100),
-      Message: body,
-    })
+  await sendViaSendGrid(
+    toEmail,
+    `[GaiXer] タスク実行エラー: ${taskName}`,
+    body
   );
+}
+
+/**
+ * Cap result text to a generous byte limit, appending a notice when truncated.
+ */
+function capResultText(resultText: string): string {
+  if (Buffer.byteLength(resultText, 'utf-8') <= MAX_BODY_SIZE) {
+    return resultText;
+  }
+  const truncationNote =
+    '\n\n[メール本文が上限を超えたため省略されました。続きはGaiXerの画面でご確認ください。]';
+  const availableBytes =
+    MAX_BODY_SIZE - Buffer.byteLength(truncationNote, 'utf-8');
+  return truncateUtf8(resultText, availableBytes) + truncationNote;
 }
 
 /**

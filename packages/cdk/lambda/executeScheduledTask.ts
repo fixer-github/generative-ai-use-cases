@@ -12,7 +12,7 @@
  * 5. Invoke AgentCore runtime
  * 6. Buffer stream response
  * 7. Save result to DynamoDB
- * 8. Send SNS notification
+ * 8. Send email notification via SendGrid
  */
 
 import {
@@ -24,13 +24,13 @@ import {
   getTask,
   createExecution,
   updateExecutionStatus,
-  getUserNotificationInfo,
 } from './scheduler/repository';
 import { collectStreamResponse } from './scheduler/utils/stream-utils';
 import {
   sendSuccessNotification,
   sendErrorNotification,
-  ensureUserNotificationTopic,
+  getUserEmail,
+  isNotificationConfigured,
 } from './scheduler/utils/notification-utils';
 
 const MODEL_REGION = process.env.MODEL_REGION || 'us-east-1';
@@ -102,18 +102,14 @@ export const handler = async (event: SchedulerEventPayload): Promise<void> => {
     return;
   }
 
-  // 5. Get notification info
-  let snsTopicArn = task.snsTopicArn;
-  if (!snsTopicArn) {
+  // 5. Resolve recipient email (best-effort). Skipped when notifications are
+  //    not configured (e.g. closed-network mode).
+  let recipientEmail: string | undefined;
+  if (isNotificationConfigured()) {
     try {
-      const info = await getUserNotificationInfo(userId);
-      snsTopicArn = info?.snsTopicArn;
-      if (!snsTopicArn) {
-        const result = await ensureUserNotificationTopic(userId);
-        snsTopicArn = result.topicArn;
-      }
+      recipientEmail = await getUserEmail(userId);
     } catch (error) {
-      console.error('Failed to get notification info:', error);
+      console.error('Failed to resolve recipient email:', error);
     }
   }
 
@@ -192,10 +188,10 @@ export const handler = async (event: SchedulerEventPayload): Promise<void> => {
 
     // 9. Send success notification
     let emailSent = false;
-    if (snsTopicArn) {
+    if (recipientEmail) {
       try {
         await sendSuccessNotification(
-          snsTopicArn,
+          recipientEmail,
           task.taskName,
           streamResult.text,
           now,
@@ -239,10 +235,10 @@ export const handler = async (event: SchedulerEventPayload): Promise<void> => {
     }
 
     // Send error notification
-    if (snsTopicArn) {
+    if (recipientEmail) {
       try {
         await sendErrorNotification(
-          snsTopicArn,
+          recipientEmail,
           task.taskName,
           errorMessage,
           now

@@ -13,11 +13,6 @@
  *    - SK: {executionId}  ({taskId}#{scheduledTime})
  *    - Purpose: Store execution logs per task
  *
- * 3. User Notification Info:
- *    - PK: userNotification#{userId}
- *    - SK: info
- *    - Purpose: Store user's SNS topic ARN
- *
  * GSI (UserExecutionIndex):
  *    - GSI PK: userExecution#{userId}
  *    - GSI SK: {startedAt}
@@ -38,7 +33,6 @@ import {
   ScheduledTaskResponse,
   TaskExecutionSummary,
   TaskExecutionDetail,
-  UserNotificationInfo,
 } from './types';
 
 const TABLE_NAME: string = process.env.SCHEDULER_TABLE_NAME!;
@@ -410,38 +404,5 @@ export const listExecutionsByUser = async (
   );
   return (result.Items || []).map((item) =>
     toExecutionSummary(item as TaskExecution)
-  );
-};
-
-// --- User Notification Info ---
-
-export const getUserNotificationInfo = async (
-  userId: string
-): Promise<UserNotificationInfo | null> => {
-  const result = await dynamoDbDocument.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        pk: `userNotification#${userId}`,
-        sk: 'info',
-      },
-    })
-  );
-  return result.Item ? (result.Item as UserNotificationInfo) : null;
-};
-
-export const saveUserNotificationInfo = async (
-  userId: string,
-  info: UserNotificationInfo
-): Promise<void> => {
-  await dynamoDbDocument.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `userNotification#${userId}`,
-        sk: 'info',
-        ...info,
-      },
-    })
   );
 };
