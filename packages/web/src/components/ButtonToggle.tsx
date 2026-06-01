@@ -12,10 +12,10 @@ const ButtonToggle: React.FC<Props> = (props) => {
     <button
       className={`${
         props.className ?? ''
-      } flex items-center justify-center rounded-xl border bg-white p-2 text-xl ${
+      } flex items-center justify-center rounded-xl border p-2 text-xl ${
         props.isEnabled
-          ? 'text-aws-smile border-aws-smile'
-          : 'border-gray-400 text-gray-400'
+          ? 'bg-aws-smile border-aws-smile text-white'
+          : 'border-gray-400 bg-white text-gray-400'
       }`}
       onClick={props.onSwitch}>
       {props.icon}
