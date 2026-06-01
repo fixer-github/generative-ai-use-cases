@@ -14,6 +14,7 @@ import {
   PiClock,
 } from 'react-icons/pi';
 import useSchedulerApi from '../../hooks/useSchedulerApi';
+import { useAgentCore } from '../../hooks/useAgentCore';
 import { formatScheduleLabel } from './schedulerUtils';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
@@ -29,6 +30,9 @@ const SchedulerTaskDetailPage: React.FC = () => {
   const api = useSchedulerApi();
   const { data: taskData, mutate: mutateTask } = api.getTask(taskId ?? null);
   const { data: execData } = api.listExecutions(taskId ?? null, 20);
+
+  const { getAllAvailableRuntimes } = useAgentCore('/scheduler-detail');
+  const runtimes = getAllAvailableRuntimes();
 
   const task = taskData?.task;
   const executions = execData?.executions ?? [];
@@ -166,7 +170,10 @@ const SchedulerTaskDetailPage: React.FC = () => {
                 <div className="text-xs text-gray-400">
                   {t('scheduler.agent')}
                 </div>
-                <div className="text-sm">{task.agentName}</div>
+                <div className="text-sm">
+                  {runtimes.find((r) => r.name === task.agentName)
+                    ?.displayName ?? task.agentName}
+                </div>
               </div>
             </div>
             <div className="flex items-start gap-2">
