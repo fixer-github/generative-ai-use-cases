@@ -25,6 +25,8 @@ export interface ManualRagStackProps extends StackProps {
  * B2: manual admin API (REST API + management Lambdas).
  * B4: preprocessing Lambda (TXT/Markdown page splitting), wired to S3 events and to
  *     the reprocess Lambda via PREPROCESS_FUNCTION_ARN.
+ * B5: PDF support in the same preprocessing Lambda (page images, text extraction,
+ *     page_map from footers, toc from bookmarks); original.pdf added to the trigger.
  * The chat relay Lambda / AgentCore Runtime wiring is added in later phases.
  */
 export class ManualRagStack extends Stack {

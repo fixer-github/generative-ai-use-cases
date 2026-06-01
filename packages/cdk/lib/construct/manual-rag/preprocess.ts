@@ -15,16 +15,18 @@ export interface ManualPreprocessProps {
 }
 
 /**
- * Preprocessing Lambda for the Manual RAG feature (B4).
+ * Preprocessing Lambda for the Manual RAG feature (B4/B5).
  *
- * Docker Image (Python 3.13, AWS Lambda base image) bundling poppler-utils for the
- * PDF rasterization added in B5. The function is event-driven, not an HTTP server:
- * it is triggered by S3 ObjectCreated events for {manual_id}/original.txt|md and by
- * direct invoke ({ manual_id }) from the reprocess Lambda.
+ * Docker Image (Python 3.13, AWS Lambda base image) bundling poppler-utils
+ * (pdftoppm) for PDF rasterization. The function is event-driven, not an HTTP
+ * server: it is triggered by S3 ObjectCreated events for
+ * {manual_id}/original.txt|md|pdf and by direct invoke ({ manual_id }) from the
+ * reprocess Lambda.
  *
- * B4 scope is TXT / Markdown: split into page texts under {manual_id}/pages/, write
- * page_map.json (printed page = null), and update DynamoDB status. PDF/OCR come in
- * B5/B6; original.pdf is intentionally NOT wired to the trigger here.
+ * TXT / Markdown (B4): split into page texts under {manual_id}/pages/, write
+ * page_map.json (printed page = null). PDF (B5): rasterize pages to PNG, extract
+ * per-page text, read printed numbers from footers into page_map.json, and emit
+ * toc.* from bookmarks. OCR for image-only pages (Amazon Textract) comes in B6.
  */
 export class ManualPreprocess extends Construct {
   public readonly function: IFunction;
@@ -51,19 +53,16 @@ export class ManualPreprocess extends Construct {
     table.grantReadWriteData(preprocessFunction);
 
     // S3 trigger for normal uploads. The suffix filter matches only the original
-    // files (exact tail "original.txt" / "original.md"); derived artifacts such as
-    // pages/page_0001.md do not match, preventing a self-trigger loop. original.pdf
-    // is wired in B5. The handler also guards against non-original keys.
-    bucket.addEventNotification(
-      EventType.OBJECT_CREATED,
-      new LambdaDestination(preprocessFunction),
-      { suffix: 'original.txt' }
-    );
-    bucket.addEventNotification(
-      EventType.OBJECT_CREATED,
-      new LambdaDestination(preprocessFunction),
-      { suffix: 'original.md' }
-    );
+    // files (exact tail "original.txt" / "original.md" / "original.pdf"); derived
+    // artifacts such as pages/page_0001.md|png do not match, preventing a
+    // self-trigger loop. The handler also guards against non-original keys.
+    for (const suffix of ['original.txt', 'original.md', 'original.pdf']) {
+      bucket.addEventNotification(
+        EventType.OBJECT_CREATED,
+        new LambdaDestination(preprocessFunction),
+        { suffix }
+      );
+    }
 
     this.function = preprocessFunction;
   }

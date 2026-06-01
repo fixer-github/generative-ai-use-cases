@@ -253,6 +253,20 @@ B4 着手時（2026-06-01）に次を確定した（前処理 Lambda 骨組み�
 | 18 | `PREPROCESS_FUNCTION_ARN` 配線 | `ManualAdminApi` から再処理 Lambda を公開し、スタックで前処理 Lambda の ARN を env 注入＋`grantInvoke`（B2 のプレースホルダを実体化） |
 | 19 | CfnOutput（フロント繋ぎ込み用） | `ManualRagStack` に **管理 API URL／バケット名／テーブル名** を出力 |
 
+B5 着手時（2026-06-01）に次を確定した（前処理 Lambda の PDF 対応）。CDK 側はほぼ B4 で定義済みの関数を流用し、変更は依存追加・S3 トリガ追加に限られる。
+
+| # | 項目 | 確定値（2026-06-01） |
+|---|---|---|
+| 20 | 残課題E（`page_map.json` 生成方法） | **案ア＝フッター読み取り方式**。pdfplumber で各物理ページ下部のテキストから印刷番号（アラビア数字・ローマ数字）を読み、読めなければ `null`。PDF のみ適用、TXT・MD は全ページ `null`（本体計画書 第4章ステップ4）。案イ（一定ずれ量検出）は途中リセット等に弱く不採用 |
+| 21 | ページ画像生成 | `pdftoppm -png -r 150`（**150 DPI / PNG**）で `pages/page_0001.png` 連番。/tmp へ生成→S3 アップロード→/tmp から削除し ephemeral storage を逐次解放 |
+| 22 | テキスト抽出ライブラリ | **pypdf**（各ページ本文抽出＋しおり/outline 取得）、**pdfplumber**（フッター数字の位置読み取り＝案ア）。PyMuPDF は不使用（本体計画書 第9章） |
+| 23 | OCR 振り分け | **B5 では行わない**。全ページを画像化し、抽出テキストで `page_0001.md` を書く。テキストが取れない／極小ページは短い・空の `.md` のまま。閾値判定と Textract 呼び出しは **B6**（残課題F） |
+| 24 | toc 生成 | pypdf でしおり（outline）があれば `toc.json`/`toc.md` 生成、無ければ生成しない（本体計画書 第4章ステップ5） |
+| 25 | コンテナ実行条件（B5 据え置き） | **memory 2048MB / ephemeral 2048MB / timeout 15分** を維持。ページ単位で画像を逐次 S3 アップロード後に /tmp 削除するため据え置きで足りる |
+| 26 | S3 通知フィルタ追加 | `original.pdf` の suffix 通知を**追加**配線（B4 で保留した分）。これで PDF アップロードが前処理を起動 |
+| 27 | 依存追加 | `requirements.txt` に **pypdf・pdfplumber** を追加 |
+| 28 | Textract IAM | **B5 では付与しない**。OCR 実装は B6 のため、`textract:*` 権限も B6 で追加（最小権限） |
+
 ---
 
 ## 9. 参照
