@@ -466,6 +466,10 @@ export class GenerativeAiUseCasesStack extends Stack {
         agentNameToArnMap,
         modelRegion: params.modelRegion,
         agentCoreRegion: params.agentCoreRegion,
+        sendgridApiKeySsmParameterName:
+          params.schedulerSendgridApiKeySsmParameterName,
+        mailFromSsmParameterName: params.schedulerMailFromSsmParameterName,
+        closedNetworkMode: params.closedNetworkMode,
         vpc: props.vpc,
         securityGroups,
       });

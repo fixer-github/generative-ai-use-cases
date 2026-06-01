@@ -36,7 +36,12 @@ export interface SchedulerProps {
   readonly agentNameToArnMap: Record<string, string>;
   readonly modelRegion: string;
   readonly agentCoreRegion?: string;
+  // SendGrid email notification (SSM parameter names). When unset, or in
+  // closed-network mode, email notifications are disabled.
+  readonly sendgridApiKeySsmParameterName?: string | null;
+  readonly mailFromSsmParameterName?: string | null;
   // Closed network
+  readonly closedNetworkMode?: boolean;
   readonly vpc?: IVpc;
   readonly securityGroups?: ISecurityGroup[];
 }
@@ -50,6 +55,20 @@ export class Scheduler extends Construct {
 
     const region = Stack.of(this).region;
     const account = Stack.of(this).account;
+
+    // Email notifications via SendGrid are enabled only when both SSM parameter
+    // names are provided and we are not in closed-network mode (no internet
+    // egress to the SendGrid API).
+    const notificationsEnabled =
+      !props.closedNetworkMode &&
+      !!props.sendgridApiKeySsmParameterName &&
+      !!props.mailFromSsmParameterName;
+
+    // Normalize an SSM parameter name (with or without leading slash) to its ARN.
+    const ssmParameterArn = (name: string): string => {
+      const normalized = name.startsWith('/') ? name.slice(1) : name;
+      return `arn:aws:ssm:${region}:${account}:parameter/${normalized}`;
+    };
 
     // --- DynamoDB Table ---
     const schedulerTable = new ddb.Table(this, 'SchedulerTable', {
@@ -118,11 +137,17 @@ export class Scheduler extends Construct {
         AGENT_NAME_TO_ARN_MAP: JSON.stringify(agentNameToArnMap),
         USER_POOL_ID: userPool.userPoolId,
         ...(agentCoreRegion ? { AGENT_CORE_REGION: agentCoreRegion } : {}),
+        ...(notificationsEnabled
+          ? {
+              SENDGRID_API_KEY_PARAM: props.sendgridApiKeySsmParameterName!,
+              MAIL_FROM_PARAM: props.mailFromSsmParameterName!,
+            }
+          : {}),
       },
       bundling: {
         nodeModules: [
           '@aws-sdk/client-bedrock-agentcore',
-          '@aws-sdk/client-sns',
+          '@aws-sdk/client-ssm',
           '@aws-sdk/client-cognito-identity-provider',
         ],
       },
@@ -144,19 +169,33 @@ export class Scheduler extends Construct {
       );
     }
 
-    // Grant SNS publish permissions
-    executeFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'sns:Publish',
-          'sns:CreateTopic',
-          'sns:Subscribe',
-          'sns:ListSubscriptionsByTopic',
-        ],
-        resources: [`arn:aws:sns:${region}:${account}:gaixer-notification-*`],
-      })
-    );
+    // Grant SSM read for SendGrid config (API key + sender address) when enabled
+    if (notificationsEnabled) {
+      executeFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['ssm:GetParameter'],
+          resources: [
+            ssmParameterArn(props.sendgridApiKeySsmParameterName!),
+            ssmParameterArn(props.mailFromSsmParameterName!),
+          ],
+        })
+      );
+      // SecureString decryption uses the AWS-managed key by default; allow
+      // Decrypt against any KMS key in the account scoped via ViaService.
+      executeFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['kms:Decrypt'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              'kms:ViaService': `ssm.${region}.amazonaws.com`,
+            },
+          },
+        })
+      );
+    }
 
     // Grant Cognito permissions (for getting user email)
     executeFunction.addToRolePolicy(
@@ -198,14 +237,9 @@ export class Scheduler extends Construct {
         SCHEDULER_ROLE_ARN: schedulerExecutionRole.roleArn,
         DLQ_ARN: dlq.queueArn,
         AGENT_NAME_TO_ARN_MAP: JSON.stringify(agentNameToArnMap),
-        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: {
-        nodeModules: [
-          '@aws-sdk/client-scheduler',
-          '@aws-sdk/client-sns',
-          '@aws-sdk/client-cognito-identity-provider',
-        ],
+        nodeModules: ['@aws-sdk/client-scheduler'],
       },
       vpc: props.vpc,
       securityGroups: props.securityGroups,
@@ -241,28 +275,6 @@ export class Scheduler extends Construct {
         effect: iam.Effect.ALLOW,
         actions: ['iam:PassRole'],
         resources: [schedulerExecutionRole.roleArn],
-      })
-    );
-
-    // Grant SNS topic management
-    schedulerApiFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'sns:CreateTopic',
-          'sns:Subscribe',
-          'sns:ListSubscriptionsByTopic',
-        ],
-        resources: [`arn:aws:sns:${region}:${account}:gaixer-notification-*`],
-      })
-    );
-
-    // Grant Cognito permissions
-    schedulerApiFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['cognito-idp:AdminGetUser'],
-        resources: [userPool.userPoolArn],
       })
     );
 

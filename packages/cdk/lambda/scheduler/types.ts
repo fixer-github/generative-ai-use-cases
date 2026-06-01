@@ -28,7 +28,6 @@ export interface ScheduledTask {
   enabled: boolean;
   deleted: boolean;
   userId: string;
-  snsTopicArn?: string;
   updatedAt: string;
 }
 
@@ -107,11 +106,4 @@ export interface SchedulerEventPayload {
   taskId: string;
   userId: string;
   scheduledTime: string;
-}
-
-// --- SNS Notification User Info ---
-
-export interface UserNotificationInfo {
-  snsTopicArn: string;
-  email: string;
 }

@@ -27,11 +27,6 @@ import {
   toCronExpression,
   validateScheduleConfig,
 } from '../utils/schedule-utils';
-import { ensureUserNotificationTopic } from '../utils/notification-utils';
-import {
-  saveUserNotificationInfo,
-  getUserNotificationInfo,
-} from '../repository';
 import { successResponse, errorResponse } from '../utils/response-utils';
 
 const MAX_TASKS_PER_USER = 20;
@@ -91,25 +86,6 @@ export async function handleCreateTask(
   const scheduleName = `gaixer-task-${taskId}`;
   const cronExpression = toCronExpression(body.schedule);
 
-  // Ensure user has an SNS topic for notifications
-  let snsTopicArn: string;
-  try {
-    const existingInfo = await getUserNotificationInfo(userId);
-    if (existingInfo) {
-      snsTopicArn = existingInfo.snsTopicArn;
-    } else {
-      const { topicArn, email } = await ensureUserNotificationTopic(userId);
-      snsTopicArn = topicArn;
-      await saveUserNotificationInfo(userId, { snsTopicArn: topicArn, email });
-    }
-  } catch (error) {
-    console.error('Failed to setup SNS notification:', error);
-    return errorResponse(
-      'Failed to setup notification. Please try again.',
-      500
-    );
-  }
-
   // Create EventBridge Schedule first (design principle: Scheduler before DB)
   try {
     await schedulerClient.send(
@@ -157,7 +133,6 @@ export async function handleCreateTask(
     enabled: true,
     deleted: false,
     userId,
-    snsTopicArn,
     updatedAt: now,
   };
 
