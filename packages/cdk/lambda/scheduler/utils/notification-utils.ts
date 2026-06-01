@@ -4,27 +4,25 @@
  *
  * Sends execution result notifications via the SendGrid Mail Send API.
  *
- * Configuration is provided through two SSM parameters whose names are passed
- * as env vars:
- *   - SENDGRID_API_KEY_PARAM: SSM SecureString holding the SendGrid API key
- *   - MAIL_FROM_PARAM:        SSM String holding the authenticated sender address
+ * Configuration is provided directly through two env vars (set from cdk.json):
+ *   - SENDGRID_API_KEY: the SendGrid API key
+ *   - MAIL_FROM:        the authenticated sender address
  *
- * When either parameter name is unset (e.g. closed-network mode, or the feature
- * has not been configured yet), notifications are treated as disabled. The
- * recipient address is resolved per-execution from Cognito.
+ * When either value is unset (e.g. closed-network mode, or the feature has not
+ * been configured yet), notifications are treated as disabled. The recipient
+ * address is resolved per-execution from Cognito.
  */
 
 import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { TokenUsage } from '../types';
 
 const region = process.env.AWS_REGION!;
 const userPoolId = process.env.USER_POOL_ID!;
-const SENDGRID_API_KEY_PARAM = process.env.SENDGRID_API_KEY_PARAM;
-const MAIL_FROM_PARAM = process.env.MAIL_FROM_PARAM;
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
 
 const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send';
 
@@ -34,42 +32,6 @@ const MAX_BODY_SIZE = 256 * 1024;
 
 const cognito = new CognitoIdentityProviderClient({ region });
 
-// --- SSM value resolution (cached in module scope across warm invocations) ---
-
-const SSM_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-let ssmClient: SSMClient | undefined;
-const getSsmClient = (): SSMClient => {
-  if (!ssmClient) ssmClient = new SSMClient({ region });
-  return ssmClient;
-};
-
-interface CachedParam {
-  value: string;
-  expiresAt: number;
-}
-const paramCache: Record<string, CachedParam> = {};
-
-async function getSsmParameter(
-  name: string,
-  withDecryption: boolean
-): Promise<string> {
-  const now = Date.now();
-  const cached = paramCache[name];
-  if (cached && now < cached.expiresAt) {
-    return cached.value;
-  }
-  const res = await getSsmClient().send(
-    new GetParameterCommand({ Name: name, WithDecryption: withDecryption })
-  );
-  const value = res.Parameter?.Value;
-  if (!value) {
-    throw new Error(`SSM parameter "${name}" is empty`);
-  }
-  paramCache[name] = { value, expiresAt: now + SSM_CACHE_TTL_MS };
-  return value;
-}
-
 /**
  * Whether email notifications are configured. False in closed-network mode or
  * before the SendGrid parameters have been set, in which case callers should
@@ -77,10 +39,10 @@ async function getSsmParameter(
  */
 export function isNotificationConfigured(): boolean {
   return (
-    !!SENDGRID_API_KEY_PARAM &&
-    SENDGRID_API_KEY_PARAM.length > 0 &&
-    !!MAIL_FROM_PARAM &&
-    MAIL_FROM_PARAM.length > 0
+    !!SENDGRID_API_KEY &&
+    SENDGRID_API_KEY.length > 0 &&
+    !!MAIL_FROM &&
+    MAIL_FROM.length > 0
   );
 }
 
@@ -115,20 +77,15 @@ async function sendViaSendGrid(
     throw new Error('SendGrid notification is not configured');
   }
 
-  const [apiKey, mailFrom] = await Promise.all([
-    getSsmParameter(SENDGRID_API_KEY_PARAM!, true),
-    getSsmParameter(MAIL_FROM_PARAM!, false),
-  ]);
-
   const res = await fetch(SENDGRID_ENDPOINT, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${SENDGRID_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       personalizations: [{ to: [{ email: toEmail }] }],
-      from: { email: mailFrom },
+      from: { email: MAIL_FROM },
       subject: subject.substring(0, 998), // RFC 5322 subject length guard
       content: [{ type: 'text/plain', value: body }],
     }),

@@ -63,6 +63,8 @@
     "searchAgentEnabled": false,
     "searchEngine": "Brave",
     "searchApiKey": "",
+    "schedulerSendgridApiKey": "",
+    "schedulerMailFrom": "",
     "agents": [],
     "inlineAgents": false,
     "mcpEnabled": false,

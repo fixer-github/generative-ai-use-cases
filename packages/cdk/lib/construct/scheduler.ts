@@ -36,10 +36,11 @@ export interface SchedulerProps {
   readonly agentNameToArnMap: Record<string, string>;
   readonly modelRegion: string;
   readonly agentCoreRegion?: string;
-  // SendGrid email notification (SSM parameter names). When unset, or in
+  // SendGrid email notification. The API key and sender address are passed
+  // through directly (configured in cdk.json). When unset, or in
   // closed-network mode, email notifications are disabled.
-  readonly sendgridApiKeySsmParameterName?: string | null;
-  readonly mailFromSsmParameterName?: string | null;
+  readonly sendgridApiKey?: string | null;
+  readonly mailFrom?: string | null;
   // Closed network
   readonly closedNetworkMode?: boolean;
   readonly vpc?: IVpc;
@@ -56,19 +57,11 @@ export class Scheduler extends Construct {
     const region = Stack.of(this).region;
     const account = Stack.of(this).account;
 
-    // Email notifications via SendGrid are enabled only when both SSM parameter
-    // names are provided and we are not in closed-network mode (no internet
-    // egress to the SendGrid API).
+    // Email notifications via SendGrid are enabled only when both the API key
+    // and sender address are provided and we are not in closed-network mode
+    // (no internet egress to the SendGrid API).
     const notificationsEnabled =
-      !props.closedNetworkMode &&
-      !!props.sendgridApiKeySsmParameterName &&
-      !!props.mailFromSsmParameterName;
-
-    // Normalize an SSM parameter name (with or without leading slash) to its ARN.
-    const ssmParameterArn = (name: string): string => {
-      const normalized = name.startsWith('/') ? name.slice(1) : name;
-      return `arn:aws:ssm:${region}:${account}:parameter/${normalized}`;
-    };
+      !props.closedNetworkMode && !!props.sendgridApiKey && !!props.mailFrom;
 
     // --- DynamoDB Table ---
     const schedulerTable = new ddb.Table(this, 'SchedulerTable', {
@@ -139,15 +132,14 @@ export class Scheduler extends Construct {
         ...(agentCoreRegion ? { AGENT_CORE_REGION: agentCoreRegion } : {}),
         ...(notificationsEnabled
           ? {
-              SENDGRID_API_KEY_PARAM: props.sendgridApiKeySsmParameterName!,
-              MAIL_FROM_PARAM: props.mailFromSsmParameterName!,
+              SENDGRID_API_KEY: props.sendgridApiKey!,
+              MAIL_FROM: props.mailFrom!,
             }
           : {}),
       },
       bundling: {
         nodeModules: [
           '@aws-sdk/client-bedrock-agentcore',
-          '@aws-sdk/client-ssm',
           '@aws-sdk/client-cognito-identity-provider',
         ],
       },
@@ -165,34 +157,6 @@ export class Scheduler extends Construct {
           effect: iam.Effect.ALLOW,
           actions: ['bedrock-agentcore:InvokeAgentRuntime'],
           resources: agentRuntimeArns.map((arn) => arn + '*'),
-        })
-      );
-    }
-
-    // Grant SSM read for SendGrid config (API key + sender address) when enabled
-    if (notificationsEnabled) {
-      executeFunction.addToRolePolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['ssm:GetParameter'],
-          resources: [
-            ssmParameterArn(props.sendgridApiKeySsmParameterName!),
-            ssmParameterArn(props.mailFromSsmParameterName!),
-          ],
-        })
-      );
-      // SecureString decryption uses the AWS-managed key by default; allow
-      // Decrypt against any KMS key in the account scoped via ViaService.
-      executeFunction.addToRolePolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['kms:Decrypt'],
-          resources: ['*'],
-          conditions: {
-            StringEquals: {
-              'kms:ViaService': `ssm.${region}.amazonaws.com`,
-            },
-          },
         })
       );
     }

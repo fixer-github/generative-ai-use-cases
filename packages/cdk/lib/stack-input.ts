@@ -185,11 +185,12 @@ const baseStackInputSchema = z.object({
     )
     .default([]),
   // Scheduler email notification (SendGrid)
-  // SSM parameter names: the API key (SecureString) and the authenticated
-  // sender address (String). When either is unset, or in closed-network mode,
-  // scheduler email notifications are disabled (tasks still run; emailSent=false).
-  schedulerSendgridApiKeySsmParameterName: z.string().nullish(),
-  schedulerMailFromSsmParameterName: z.string().nullish(),
+  // The API key and the authenticated sender address are configured directly
+  // in cdk.json (mirrors searchApiKey). When either is unset, or in
+  // closed-network mode, scheduler email notifications are disabled (tasks
+  // still run; emailSent=false).
+  schedulerSendgridApiKey: z.string().nullish(),
+  schedulerMailFrom: z.string().nullish(),
   // MCP
   mcpEnabled: z.boolean().default(false),
   // Guardrail
