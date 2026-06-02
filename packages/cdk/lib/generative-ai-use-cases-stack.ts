@@ -356,6 +356,14 @@ export class GenerativeAiUseCasesStack extends Stack {
       brandingConfig: params.brandingConfig,
     });
 
+    // Pass the app's login URL to the Custom Email Sender Lambda so admin
+    // invitation emails can link to the sign-in screen. web.webUrl resolves to
+    // this environment's own URL at deploy time (custom domain or the
+    // CloudFront domain), so each environment automatically gets its own URL.
+    // Done here rather than in Auth because Web (which determines the URL)
+    // depends on Auth and is created afterwards.
+    auth.customEmailSenderFunction?.addEnvironment('APP_URL', web.webUrl);
+
     // RAG
     if (params.ragEnabled) {
       const rag = new Rag(this, 'Rag', {

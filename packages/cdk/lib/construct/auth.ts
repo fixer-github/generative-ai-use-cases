@@ -42,6 +42,11 @@ export class Auth extends Construct {
   readonly userPool: UserPool;
   readonly client: UserPoolClient;
   readonly idPool: IdentityPool;
+  // Custom Email Sender Lambda (only set when SendGrid is enabled). Exposed so
+  // the stack can inject the app's login URL via addEnvironment after the Web
+  // construct (which determines the URL) has been created — the Web construct
+  // depends on this Auth construct, so the URL is not available here yet.
+  readonly customEmailSenderFunction?: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
@@ -203,6 +208,8 @@ export class Auth extends Construct {
         UserPoolOperation.CUSTOM_EMAIL_SENDER,
         customEmailSenderFunction
       );
+
+      this.customEmailSenderFunction = customEmailSenderFunction;
     }
 
     // Admin group

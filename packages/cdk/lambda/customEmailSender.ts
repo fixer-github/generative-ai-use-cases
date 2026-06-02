@@ -31,12 +31,19 @@ const TEMP_PASSWORD_VALIDITY_DAYS = Number(
   process.env.TEMP_PASSWORD_VALIDITY_DAYS || '7'
 );
 
-const BRAND = 'GaiXer'; // Service name shown in the header
 const COMPANY = 'FIXER'; // Company name shown in the footer copyright
 const BRAND_COLOR = '#1a2b4a';
 
 const { decrypt } = buildClient(CommitmentPolicy.FORBID_ENCRYPT_ALLOW_DECRYPT);
 const keyring = new KmsKeyringNode({ keyIds: [KMS_KEY_ARN] });
+
+function getLoginUrl(): string | undefined {
+  const appUrl = process.env.APP_URL?.trim();
+  if (!appUrl || appUrl === 'CLOSED_NETWORK_MODE') {
+    return undefined;
+  }
+  return appUrl;
+}
 
 /**
  * Decrypt the base64 code/temporary-password delivered by Cognito.
@@ -62,6 +69,8 @@ interface MessageContent {
   code?: string;
   /** Key/value rows (e.g. username + temporary password). */
   credentials?: { label: string; value: string }[];
+  /** Login screen URL for admin-created users. */
+  loginUrl?: string;
   /** Expiry notice shown near the note (e.g. "valid for 24 hours"). */
   expiry?: string;
   /** Footnote (e.g. "discard this email if unexpected"). */
@@ -71,7 +80,7 @@ interface MessageContent {
 }
 
 /** Escape user-controlled / decrypted values before embedding in HTML. */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -83,7 +92,7 @@ function escapeHtml(value: string): string {
  * Render the plaintext part. This is the fallback for clients that don't
  * display HTML, so it mirrors the same information.
  */
-function renderText(c: MessageContent): string {
+export function renderText(c: MessageContent): string {
   const lines: string[] = [c.intro];
 
   if (c.code) {
@@ -91,6 +100,9 @@ function renderText(c: MessageContent): string {
   }
   if (c.credentials) {
     lines.push('', ...c.credentials.map((r) => `${r.label}: ${r.value}`));
+  }
+  if (c.loginUrl) {
+    lines.push('', `ログイン画面: ${c.loginUrl}`);
   }
   if (c.expiry) {
     lines.push('', c.expiry);
@@ -107,7 +119,7 @@ function renderText(c: MessageContent): string {
  * compatibility. Note that Outlook (Windows) ignores `border-radius` and
  * `box-shadow`, so the design must remain readable as flat rectangles.
  */
-function renderHtml(c: MessageContent): string {
+export function renderHtml(c: MessageContent): string {
   const accent = c.alert ? '#b3261e' : BRAND_COLOR;
   const intro = escapeHtml(c.intro).replace(/\n/g, '<br>');
 
@@ -139,6 +151,17 @@ function renderHtml(c: MessageContent): string {
           </table>`;
   }
 
+  if (c.loginUrl) {
+    const loginUrl = escapeHtml(c.loginUrl);
+    main += `<table role="presentation" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #d6e0ef;border-radius:8px;width:100%;margin:0 0 24px;">
+            <tr><td style="padding:20px;">
+              <p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:#666;">ログイン画面はこちらです。</p>
+              <a href="${loginUrl}" style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:10px 18px;border-radius:6px;">ログイン画面を開く</a>
+              <p style="margin:12px 0 0;font-size:12px;line-height:1.6;color:#888;word-break:break-all;">${loginUrl}</p>
+            </td></tr>
+          </table>`;
+  }
+
   if (c.expiry) {
     main += `<p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;">${escapeHtml(
       c.expiry
@@ -163,11 +186,8 @@ function renderHtml(c: MessageContent): string {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 0;">
     <tr><td align="center">
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-        <tr><td bgcolor="${accent}" style="background:${accent};padding:24px;text-align:center;">
-          <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:1px;">${BRAND}</span>
-        </td></tr>
         <tr><td style="padding:32px 32px 24px;color:#1a1a1a;">
-          <h1 style="margin:0 0 16px;font-size:18px;">${escapeHtml(
+          <h1 style="margin:0 0 16px;font-size:18px;color:${accent};">${escapeHtml(
             c.heading
           )}</h1>
           ${main}
@@ -186,7 +206,7 @@ function renderHtml(c: MessageContent): string {
  * Build the semantic content for the given trigger source. Returns undefined
  * for sources we intentionally do not handle.
  */
-function buildMessage(
+export function buildMessage(
   triggerSource: string,
   email: string,
   code: string | undefined
@@ -223,6 +243,7 @@ function buildMessage(
           { label: 'ユーザー名', value: email },
           { label: '仮パスワード', value: code ?? '' },
         ],
+        loginUrl: getLoginUrl(),
         expiry: `この仮パスワードは${TEMP_PASSWORD_VALIDITY_DAYS}日間有効です。期限内にログインしてください。`,
         note: '初回ログイン時に新しいパスワードの設定が必要です。',
       };
