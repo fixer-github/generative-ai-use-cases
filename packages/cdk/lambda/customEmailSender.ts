@@ -89,6 +89,22 @@ export function escapeHtml(value: string): string {
 }
 
 /**
+ * Cognito HTML-escapes reserved characters in temporary passwords before
+ * encrypting them for custom sender triggers. Decode exactly one layer before
+ * rendering so users receive the real password.
+ */
+export function unescapeHtmlEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/**
  * Render the plaintext part. This is the fallback for clients that don't
  * display HTML, so it mirrors the same information.
  */
@@ -241,7 +257,10 @@ export function buildMessage(
 以下の情報でログインしてください。`,
         credentials: [
           { label: 'ユーザー名', value: email },
-          { label: '仮パスワード', value: code ?? '' },
+          {
+            label: '仮パスワード',
+            value: code ? unescapeHtmlEntities(code) : '',
+          },
         ],
         loginUrl: getLoginUrl(),
         expiry: `この仮パスワードは${TEMP_PASSWORD_VALIDITY_DAYS}日間有効です。期限内にログインしてください。`,
