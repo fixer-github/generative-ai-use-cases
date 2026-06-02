@@ -30,8 +30,8 @@ import {
   sendSuccessNotification,
   sendErrorNotification,
   getUserEmail,
-  isNotificationConfigured,
 } from './scheduler/utils/notification-utils';
+import { isSendGridConfigured } from './utils/sendgrid';
 
 const MODEL_REGION = process.env.MODEL_REGION || 'us-east-1';
 const AGENT_NAME_TO_ARN_MAP: Record<string, string> = JSON.parse(
@@ -105,7 +105,7 @@ export const handler = async (event: SchedulerEventPayload): Promise<void> => {
   // 5. Resolve recipient email (best-effort). Skipped when notifications are
   //    not configured (e.g. closed-network mode).
   let recipientEmail: string | undefined;
-  if (isNotificationConfigured()) {
+  if (isSendGridConfigured()) {
     try {
       recipientEmail = await getUserEmail(userId);
     } catch (error) {

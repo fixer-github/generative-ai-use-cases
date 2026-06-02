@@ -28,6 +28,10 @@ module.exports = {
         'lambda/utils/safeFetch.ts',
         'lambda/utils/webSearchTool.ts',
         'scripts/test-web-search.ts',
+        // Local-only dev scripts whose Japanese strings/comments mirror the
+        // SendGrid email copy; not shipped, so i18n 警告の対象外とする。
+        'scripts/preview-emails.ts',
+        'scripts/send-test-mail.ts',
       ],
       rules: {
         'i18nhelper/no-jp-string': 'off',
