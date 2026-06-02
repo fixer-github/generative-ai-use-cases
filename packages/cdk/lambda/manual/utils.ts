@@ -60,6 +60,15 @@ export const isAdmin = (event: APIGatewayProxyEvent): boolean => {
   return parseGroups(claims['cognito:groups']).includes(ADMIN_GROUP);
 };
 
+// manualId is a server-generated UUID (createUploadUrl uses uuidv4). The admin
+// endpoints take it as a path parameter and use it as an S3 prefix / DynamoDB key,
+// so validate the format before use to reject path traversal and arbitrary-prefix
+// inputs. The check is version-agnostic (canonical 8-4-4-4-12 hex layout).
+const MANUAL_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const isValidManualId = (id: string): boolean => MANUAL_ID_RE.test(id);
+
 // Extract a lowercase extension (without the dot) from a filename.
 export const getExtension = (filename: string): string => {
   const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/);

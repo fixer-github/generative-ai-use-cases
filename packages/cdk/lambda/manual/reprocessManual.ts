@@ -16,7 +16,7 @@ import {
   LambdaClient,
   InvocationType,
 } from '@aws-sdk/client-lambda';
-import { error, isAdmin, ok } from './utils';
+import { error, isAdmin, isValidManualId, ok } from './utils';
 
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -70,6 +70,9 @@ export const handler = async (
     const manualId = event.pathParameters?.manualId;
     if (!manualId) {
       return error(400, 'manualId is required');
+    }
+    if (!isValidManualId(manualId)) {
+      return error(400, 'manualId must be a valid UUID');
     }
 
     const tableName = process.env.TABLE_NAME;

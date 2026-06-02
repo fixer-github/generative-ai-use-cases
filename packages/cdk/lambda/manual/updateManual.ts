@@ -4,7 +4,7 @@ import {
   DynamoDBDocumentClient,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { error, isAdmin, ok } from './utils';
+import { error, isAdmin, isValidManualId, ok } from './utils';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -29,6 +29,9 @@ export const handler = async (
     const manualId = event.pathParameters?.manualId;
     if (!manualId) {
       return error(400, 'manualId is required');
+    }
+    if (!isValidManualId(manualId)) {
+      return error(400, 'manualId must be a valid UUID');
     }
 
     const req: UpdateManualRequest = JSON.parse(event.body ?? '{}');

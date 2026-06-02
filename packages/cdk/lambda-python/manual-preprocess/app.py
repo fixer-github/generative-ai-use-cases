@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import boto3
+from botocore.exceptions import ClientError
 
 from src import ocr, pdf
 from src.splitter import split_pages
@@ -50,6 +51,14 @@ TABLE_NAME = os.environ.get("TABLE_NAME", "")
 # fewer than this many visible (non-whitespace) characters is sent to Amazon
 # Textract and its result replaces the extracted text unconditionally (plan B-b).
 OCR_TEXT_THRESHOLD = 500
+
+# Per-manual processing lock TTL. The S3 event path and the reprocess Event invoke
+# can fire for the same manual_id concurrently, interleaving writes to the same
+# keys; a conditional DynamoDB lock serializes processing of one manual (other
+# manuals still run in parallel). The TTL matches the function timeout so a hard
+# failure (timeout / OOM) that never releases the lock cannot wedge a manual
+# permanently — once the deadline passes, the next invocation re-acquires it.
+LOCK_TTL_SECONDS = 15 * 60
 
 
 def _visible_len(text: str) -> int:
@@ -67,8 +76,64 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _epoch_now() -> int:
+    return int(datetime.now(timezone.utc).timestamp())
+
+
 def _table():
     return ddb.Table(TABLE_NAME)
+
+
+def _acquire_lock(manual_id: str, owner: str) -> bool:
+    """Try to take the per-manual processing lock.
+
+    Succeeds when no lock is held, the caller already holds it (async retries reuse
+    the same request id), or the existing lock has expired. Returns False when
+    another live invocation holds it, in which case the caller must skip.
+    """
+    now_epoch = _epoch_now()
+    try:
+        _table().update_item(
+            Key={"manual_id": manual_id},
+            UpdateExpression=(
+                "SET lock_owner = :owner, lock_expires_at = :deadline, "
+                "#status = :processing, updated_at = :now"
+            ),
+            ConditionExpression=(
+                "attribute_exists(manual_id) AND ("
+                "attribute_not_exists(lock_owner) OR lock_owner = :owner "
+                "OR lock_expires_at < :now_epoch)"
+            ),
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":owner": owner,
+                ":deadline": now_epoch + LOCK_TTL_SECONDS,
+                ":now_epoch": now_epoch,
+                ":processing": "processing",
+                ":now": _now(),
+            },
+        )
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+
+
+def _release_lock(manual_id: str, owner: str) -> None:
+    """Release the lock, but only if this invocation still owns it."""
+    try:
+        _table().update_item(
+            Key={"manual_id": manual_id},
+            UpdateExpression="REMOVE lock_owner, lock_expires_at",
+            ConditionExpression="lock_owner = :owner",
+            ExpressionAttributeValues={":owner": owner},
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            # Lock was taken over after its TTL expired, or already released.
+            return
+        raise
 
 
 def _update_status(
@@ -252,12 +317,20 @@ def _process_pdf(manual_id: str, key: str) -> None:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def _process_one(manual_id: str, key: str) -> None:
+def _process_one(manual_id: str, key: str, owner: str) -> None:
     """Process a single manual original object."""
     match = _ORIGINAL_KEY_RE.match(key)
     if not match:
         # Defense in depth: ignore derived artifacts (pages/, toc.*, page_map.json).
         print(f"Skipping non-original key: {key}")
+        return
+
+    # Serialize concurrent processing of the same manual (S3 event vs reprocess).
+    if not _acquire_lock(manual_id, owner):
+        print(
+            f"Manual {manual_id} is being processed by another invocation; "
+            f"skipping {key}"
+        )
         return
 
     ext = match.group("ext").lower()
@@ -297,6 +370,8 @@ def _process_one(manual_id: str, key: str) -> None:
     except Exception as e:  # noqa: BLE001 - record the failure on the manual item
         print(f"Failed to process manual {manual_id}: {e}")
         _update_status(manual_id, "failed", error_detail=str(e)[:1024])
+    finally:
+        _release_lock(manual_id, owner)
 
 
 def _targets_from_event(event: dict) -> List[tuple]:
@@ -329,7 +404,10 @@ def _targets_from_event(event: dict) -> List[tuple]:
 
 
 def handler(event, context):  # noqa: ANN001 - Lambda signature
+    # aws_request_id stays stable across async retries, so a retry re-acquires its
+    # own lock rather than being blocked by it.
+    owner = getattr(context, "aws_request_id", "") or "unknown"
     targets = _targets_from_event(event)
     for manual_id, key in targets:
-        _process_one(manual_id, key)
+        _process_one(manual_id, key, owner)
     return {"processed": len(targets)}

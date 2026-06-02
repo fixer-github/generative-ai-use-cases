@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import { error, isAdmin, ok } from './utils';
+import { error, isAdmin, isValidManualId, ok } from './utils';
 
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -56,6 +56,9 @@ export const handler = async (
     const manualId = event.pathParameters?.manualId;
     if (!manualId) {
       return error(400, 'manualId is required');
+    }
+    if (!isValidManualId(manualId)) {
+      return error(400, 'manualId must be a valid UUID');
     }
 
     await deletePrefix(process.env.BUCKET_NAME!, `${manualId}/`);
