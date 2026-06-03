@@ -6,6 +6,7 @@ import {
   IFunction,
 } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import { EventType } from 'aws-cdk-lib/aws-s3';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 // Same class name as the s3-notifications LambdaDestination above; alias to avoid
@@ -59,7 +60,13 @@ export class ManualPreprocess extends Construct {
     table.grantWriteData(markFailedFunction);
 
     const preprocessFunction = new DockerImageFunction(this, 'Function', {
-      code: DockerImageCode.fromImageAsset('./lambda-python/manual-preprocess'),
+      // Force an amd64 image regardless of the build host (e.g. Apple Silicon),
+      // so it matches the X86_64 Lambda architecture below. Same pattern as
+      // closed-web.ts. Without this, fromImageAsset builds for the host arch and
+      // an arm64 Mac would produce an image that mismatches the function.
+      code: DockerImageCode.fromImageAsset('./lambda-python/manual-preprocess', {
+        platform: Platform.LINUX_AMD64,
+      }),
       memorySize: 2048,
       ephemeralStorageSize: Size.mebibytes(2048),
       timeout: Duration.minutes(15),
