@@ -1,0 +1,9 @@
+# Manual preprocessing Lambda dependencies.
+# TXT/Markdown (B4) use only the standard library and the boto3 that ships with
+# the AWS Lambda Python base image.
+# PDF (B5): pypdf for text extraction and bookmarks (BSD-3), pdfplumber for
+# reading printed page numbers from footers (MIT). PyMuPDF (AGPL) is NOT used.
+# Page rasterization uses the poppler-utils `pdftoppm` binary (see Dockerfile),
+# invoked as a separate process, so no Python imaging dependency is required.
+pypdf==5.1.0
+pdfplumber==0.11.4

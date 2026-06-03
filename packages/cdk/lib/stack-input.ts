@@ -197,6 +197,8 @@ const baseStackInputSchema = z.object({
   guardrailEnabled: z.boolean().default(false),
   // Usecase builder
   useCaseBuilderEnabled: z.boolean().default(true),
+  // Manual RAG feature (manual reference mode)
+  manualRagEnabled: z.boolean().default(false),
   // Flows
   flows: z
     .array(

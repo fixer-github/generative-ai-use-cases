@@ -6,6 +6,7 @@ import { AgentStack } from './agent-stack';
 import { RagKnowledgeBaseStack } from './rag-knowledge-base-stack';
 import { GuardrailStack } from './guardrail-stack';
 import { AgentCoreStack } from './agent-core-stack';
+import { ManualRagStack } from './manual-rag-stack';
 import { ProcessedStackInput } from './stack-input';
 import { VideoTmpBucketStack } from './video-tmp-bucket-stack';
 import { ApplicationInferenceProfileStack } from './application-inference-profile-stack';
@@ -299,6 +300,26 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     new DeletionPolicySetter(cdk.RemovalPolicy.DESTROY)
   );
 
+  // Manual RAG feature (B1: storage / B2: admin API).
+  // Created after GenerativeAiUseCasesStack so the admin API authorizer can use its
+  // Cognito UserPool. When the flag is false (default) the stack is not created and
+  // no reference is added, so existing behavior is fully preserved.
+  const manualRagStack = params.manualRagEnabled
+    ? new ManualRagStack(app, `ManualRagStack${params.env}`, {
+        env: {
+          account: params.account,
+          region: params.region,
+        },
+        params: params,
+        userPool: generativeAiUseCasesStack.userPool,
+        userPoolClient: generativeAiUseCasesStack.userPoolClient,
+        crossRegionReferences: true,
+      })
+    : null;
+  if (manualRagStack) {
+    manualRagStack.addDependency(generativeAiUseCasesStack);
+  }
+
   const dashboardStack = updatedParams.dashboard
     ? new DashboardStack(
         app,
@@ -325,6 +346,7 @@ export const createStacks = (app: cdk.App, params: ProcessedStackInput) => {
     guardrailStack,
     agentCoreStack,
     generativeAiUseCasesStack,
+    manualRagStack,
     dashboardStack,
   };
 };
