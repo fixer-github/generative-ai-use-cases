@@ -1,0 +1,284 @@
+/* ===========================================================================
+   FIXER Design System — Color & Type Tokens
+   ---------------------------------------------------------------------------
+   A universal token layer for FIXER SaaS products (GaiXer, Sovereign GaiXer,
+   cloud.config, Tech Blog, etc.). Use the SEMANTIC tokens in product code;
+   the PRIMITIVE scale exists so you can re-theme later.
+   ============================================================================ */
+
+
+/* ---------------------------------------------------------------------------
+   1. WEBFONTS
+   --------------------------------------------------------------------------- */
+/* Display & Serif — used in the FIXER logotype, marketing headlines, and
+   any context that wants editorial weight. The FIXER mark itself is a
+   custom Didone/Bodoni-flavoured display cut; Noto Serif JP is the
+   closest mixed-script substitute we ship with the system. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700;900&display=swap");
+
+/* Body — Noto Sans JP carries Japanese + Latin at every weight and is the
+   default text face across FIXER product UIs. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap");
+
+/* Numerics & micro-headlines — Inter is used for English-only product
+   chrome (sidebars, badges, table headers in dashboards). */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+/* Mono — code, IDs, tokens, log streams. */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+
+/* ---------------------------------------------------------------------------
+   2. PRIMITIVE COLOR SCALE
+   --------------------------------------------------------------------------- */
+.gx-scope {
+  /* —— FIXER Navy —— the brand anchor. The logotype is rendered at navy-700.
+        The exact #16213e shade is pulled from the corporate site / GaiXer
+        msapplication-TileColor. */
+  --navy-50:   #eef1f7;
+  --navy-100:  #d4dbe8;
+  --navy-200:  #aab6cd;
+  --navy-300:  #7689ad;
+  --navy-400:  #485e88;
+  --navy-500:  #2b426e;
+  --navy-600:  #1f3158;
+  --navy-700:  #16213e;   /* PRIMARY — FIXER logo color */
+  --navy-800:  #0e1729;
+  --navy-900:  #070c17;
+
+  /* —— GaiXer Gradient stops —— teal → indigo → purple. Used for the
+        product mark and high-emphasis CTAs across the AI platform. */
+  --teal-400:  #21c0c0;
+  --teal-500:  #00b8b8;
+  --indigo-500:#2d5be9;
+  --indigo-600:#1e3fb0;
+  --purple-500:#5b0ebe;
+  --purple-600:#3b0883;
+
+  /* —— Service accent reds —— the "Services" object motif on fixer.co.jp
+        leans coral-red. Use sparingly for promotional moments, never as a
+        primary product accent. */
+  --red-400:   #ff6b4a;
+  --red-500:   #f53a1f;
+  --red-600:   #c61a05;
+
+  /* —— Neutrals —— warm-tinted greys, intentionally low chroma so the
+        navy and the gradient remain the loudest things on the page. */
+  --white:     #ffffff;
+  --gray-50:   #f7f8fa;   /* page bg on dashboards */
+  --gray-100:  #f1f2f5;   /* GaiXer site bg */
+  --gray-200:  #e3e5ea;
+  --gray-300:  #c9cdd6;
+  --gray-400:  #9ba0ad;
+  --gray-500:  #6b7180;
+  --gray-600:  #4a4f5c;
+  --gray-700:  #2f3340;
+  --gray-800:  #1c1f29;
+  --gray-900:  #0d0f15;
+
+  /* —— Semantic state colors —— */
+  --success-500: #10915a;
+  --warning-500: #d68a0c;
+  --danger-500:  #d33a2c;
+  --info-500:    var(--indigo-500);
+}
+
+
+/* ---------------------------------------------------------------------------
+   3. SEMANTIC COLOR TOKENS  (use these in product code)
+   --------------------------------------------------------------------------- */
+.gx-scope {
+  /* Brand */
+  --brand-primary:    var(--navy-700);
+  --brand-primary-hi: var(--navy-800);
+  --brand-on-primary: var(--white);
+
+  /* GaiXer / AI product accent */
+  --accent-gaixer-from: var(--teal-500);
+  --accent-gaixer-mid:  var(--indigo-500);
+  --accent-gaixer-to:   var(--purple-500);
+  --accent-gaixer-grad: linear-gradient(
+                          92deg,
+                          var(--accent-gaixer-from)  0%,
+                          var(--accent-gaixer-mid)  48%,
+                          var(--accent-gaixer-to)  100%);
+
+  /* Surfaces */
+  --bg-page:       var(--white);
+  --bg-subtle:     var(--gray-100);
+  --bg-sunken:     var(--gray-200);
+  --bg-inverse:    var(--navy-700);
+  --bg-card:       var(--white);
+  --bg-overlay:    rgba(7, 12, 23, 0.55);
+
+  /* Foreground */
+  --fg-1:          var(--navy-700);   /* primary text */
+  --fg-2:          var(--gray-700);   /* body */
+  --fg-3:          var(--gray-500);   /* secondary */
+  --fg-4:          var(--gray-400);   /* placeholder, captions */
+  --fg-on-dark:    var(--white);
+  --fg-on-dark-2:  rgba(255,255,255,0.72);
+  --fg-link:       var(--indigo-500);
+
+  /* Borders */
+  --border-subtle: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --border-focus:  var(--indigo-500);
+
+  /* State */
+  --state-success: var(--success-500);
+  --state-warning: var(--warning-500);
+  --state-danger:  var(--danger-500);
+  --state-info:    var(--info-500);
+}
+
+
+/* ---------------------------------------------------------------------------
+   4. TYPE PRIMITIVES
+   --------------------------------------------------------------------------- */
+.gx-scope {
+  --font-display: "Noto Serif JP", "Times New Roman", "ヒラギノ明朝 ProN", serif;
+  --font-sans:    "Inter", "Noto Sans JP", -apple-system, "Hiragino Kaku Gothic ProN",
+                  "Yu Gothic", "Meiryo", sans-serif;
+  --font-jp:      "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+                  "Meiryo", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Modular type scale, 1.25 ratio, anchored at 16px */
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-28: 1.75rem;
+  --fs-32: 2rem;
+  --fs-40: 2.5rem;
+  --fs-48: 3rem;
+  --fs-64: 4rem;
+  --fs-80: 5rem;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.3;
+  --lh-normal: 1.55;
+  --lh-loose:  1.75;
+
+  --tracking-display: -0.02em;
+  --tracking-tight:   -0.01em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.04em;
+  --tracking-caps:    0.12em;
+}
+
+
+/* ---------------------------------------------------------------------------
+   5. SEMANTIC TYPE  —  classes you can apply directly
+   --------------------------------------------------------------------------- */
+.t-eyebrow {
+  font: 600 var(--fs-12) / var(--lh-snug) var(--font-sans);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.t-display-xl {
+  font: 900 var(--fs-80) / var(--lh-tight) var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--fg-1);
+}
+
+.t-display-lg {
+  font: 900 var(--fs-64) / var(--lh-tight) var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--fg-1);
+}
+
+.t-h1 {
+  font: 700 var(--fs-48) / var(--lh-tight) var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--fg-1);
+}
+
+.t-h2 {
+  font: 700 var(--fs-32) / var(--lh-snug) var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.t-h3 {
+  font: 700 var(--fs-24) / var(--lh-snug) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.t-h4 {
+  font: 600 var(--fs-20) / var(--lh-snug) var(--font-sans);
+  color: var(--fg-1);
+}
+
+.t-body {
+  font: 400 var(--fs-16) / var(--lh-normal) var(--font-sans);
+  color: var(--fg-2);
+}
+
+.t-body-sm {
+  font: 400 var(--fs-14) / var(--lh-normal) var(--font-sans);
+  color: var(--fg-2);
+}
+
+.t-caption {
+  font: 400 var(--fs-12) / var(--lh-snug) var(--font-sans);
+  color: var(--fg-3);
+}
+
+.t-code {
+  font: 500 var(--fs-13) / var(--lh-snug) var(--font-mono);
+  color: var(--fg-1);
+}
+
+/* JP-only heading variant: use when content is purely Japanese, the
+   Noto Sans JP weights read cleaner than Noto Serif JP at body sizes. */
+.t-jp-headline {
+  font: 700 var(--fs-32) / 1.4 var(--font-jp);
+  letter-spacing: 0.02em;
+  color: var(--fg-1);
+}
+
+
+/* ---------------------------------------------------------------------------
+   6. SPACING / RADIUS / ELEVATION  (used by components in the UI kits)
+   --------------------------------------------------------------------------- */
+.gx-scope {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  48px;
+  --space-8:  64px;
+  --space-9:  96px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  --elev-1: 0 1px 2px rgba(22,33,62,0.06), 0 1px 1px rgba(22,33,62,0.04);
+  --elev-2: 0 4px 12px rgba(22,33,62,0.08), 0 1px 2px rgba(22,33,62,0.04);
+  --elev-3: 0 12px 32px rgba(22,33,62,0.12), 0 2px 6px rgba(22,33,62,0.05);
+  --elev-4: 0 24px 64px rgba(22,33,62,0.18), 0 4px 12px rgba(22,33,62,0.06);
+
+  /* Glow used on the gradient CTA when hovered */
+  --glow-gaixer: 0 8px 24px rgba(45, 91, 233, 0.32),
+                 0 4px 12px rgba(91, 14, 190, 0.24);
+
+  --dur-fast:   120ms;
+  --dur-base:   200ms;
+  --dur-slow:   320ms;
+  --easing-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --easing-in:  cubic-bezier(0.55, 0, 0.68, 0.53);
+}

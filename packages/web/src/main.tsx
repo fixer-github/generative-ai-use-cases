@@ -54,7 +54,11 @@ import GenerateDiagramPage from './pages/GenerateDiagramPage.tsx';
 import WriterPage from './pages/WriterPage.tsx';
 import useUseCases from './hooks/useUseCases';
 import { Toaster } from 'sonner';
+import GxLayout from './gx/GxLayout';
+import { gxRoutes } from './gx/routes';
 
+const newUiEnabled: boolean =
+  import.meta.env.VITE_APP_NEW_UI_ENABLED === 'true';
 const ragEnabled: boolean = import.meta.env.VITE_APP_RAG_ENABLED === 'true';
 const ragKnowledgeBaseEnabled: boolean =
   import.meta.env.VITE_APP_RAG_KNOWLEDGE_BASE_ENABLED === 'true';
@@ -350,6 +354,25 @@ const router = createBrowserRouter([
             </AuthWithUserpool>
           ),
           children: useCaseBuilderRoutes,
+        },
+      ]
+    : []),
+  // New UI (GaiXer for healthcare): mounted under /g, coexisting with the
+  // legacy UI. Toggled by VITE_APP_NEW_UI_ENABLED.
+  ...(newUiEnabled
+    ? [
+        {
+          path: '/g',
+          element: samlAuthEnabled ? (
+            <AuthWithSAML>
+              <GxLayout />
+            </AuthWithSAML>
+          ) : (
+            <AuthWithUserpool>
+              <GxLayout />
+            </AuthWithUserpool>
+          ),
+          children: gxRoutes,
         },
       ]
     : []),

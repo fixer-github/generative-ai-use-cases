@@ -19,7 +19,13 @@ const useAdmin = () => {
       '') as string;
   }, [session]);
 
-  return { isAdmin, currentUsername };
+  // For display purposes. cognito:username can be a UUID in a user pool, so we
+  // expose the human-readable email separately (callers fall back to currentUsername).
+  const email = useMemo(() => {
+    return (session?.tokens?.idToken?.payload['email'] ?? '') as string;
+  }, [session]);
+
+  return { isAdmin, currentUsername, email };
 };
 
 export default useAdmin;

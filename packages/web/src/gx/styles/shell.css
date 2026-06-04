@@ -1,0 +1,106 @@
+/* ===========================================================================
+   GaiXer 新UI シェル — レイアウトフレーム
+   ---------------------------------------------------------------------------
+   デザインバンドルの styles/app.css 由来。ただし旧UIへ漏れないよう、すべての
+   セレクタを .gx-scope 配下に限定している（box-sizing/reset/button もスコープ内）。
+   トークンは tokens.css で .gx-scope に定義済み。
+   ============================================================================ */
+
+@import url('./tokens.css');
+@import url('./sidebar.css');
+
+/* ---- スコープ内リセット（グローバルには適用しない） ---- */
+.gx-scope,
+.gx-scope * {
+  box-sizing: border-box;
+}
+
+/* ---- アプリフレーム（サイドバー 280px + メイン） ---- */
+.gx-scope.gx-frame {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100vh;
+  width: 100%;
+  background: var(--bg-page);
+  color: var(--fg-1);
+  font-family: var(--font-jp);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---- サイドバー列 ---- */
+.gx-sidebar-col {
+  min-height: 0;
+  height: 100vh;
+  border-right: 1px solid var(--border-subtle);
+  background: #ffffff;
+}
+
+/* ---- メイン領域 ---- */
+.gx-main {
+  position: relative;
+  min-width: 0;
+  overflow: hidden auto;
+  background: var(--bg-page);
+}
+.gx-main-inner {
+  padding: 28px 40px 64px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ---- グラデーションユーティリティ ---- */
+.gx-scope .grad-text {
+  background: var(--accent-gaixer-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- ボタン（スコープ内のみ） ---- */
+.gx-scope button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- スクロールバー ---- */
+.gx-main::-webkit-scrollbar,
+.gx-scope .sx-hist::-webkit-scrollbar {
+  width: 8px;
+}
+.gx-main::-webkit-scrollbar-thumb,
+.gx-scope .sx-hist::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 8px;
+}
+
+/* ---- Phase 0 プレースホルダ画面 ---- */
+.gx-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 48px 8px;
+}
+.gx-placeholder__title {
+  font: 700 var(--fs-28) / var(--lh-snug) var(--font-jp);
+  letter-spacing: 0.02em;
+  color: var(--navy-700);
+}
+.gx-placeholder__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--fg-3);
+  font-size: var(--fs-13);
+}
+.gx-placeholder__note::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-gaixer-grad);
+}
