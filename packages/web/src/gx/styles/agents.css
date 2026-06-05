@@ -1,0 +1,229 @@
+/* ===========================================================================
+   GaiXer 新UI — エージェント一覧（フラットカタログ v1）
+   ---------------------------------------------------------------------------
+   デザインバンドル project/app/AgentList.jsx の alC-* を gx-agents-* へ改名移植。
+   ヒーロー本体・公式/院内バッジ・識別子は共有部品（components.css）へ切り出し済み。
+   本ファイルは「ページ固有」分のみ：背景・検索バー・例示chip・セクション見出し・
+   カードグリッド・カード・空/スケルトン・フッタ。
+
+   D8（フラットカタログ）：最近使用rail / 今週のおすすめ / カテゴリbar / お気に入り /
+   samples / caps / usage は v1 では出さないため、対応する alC-* は移植しない。
+
+   方針：全セレクタ .gx-scope 配下／トークン参照のみ／生 hex は増やさない。
+   ============================================================================ */
+
+/* ルート：メイン領域を満たして内部スクロール（プロト alC-main の縦グラデ背景）。 */
+.gx-scope .gx-agents {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: linear-gradient(
+    180deg,
+    #fafbfd 0%,
+    var(--gray-100) 600px,
+    var(--gray-100) 100%
+  );
+}
+
+/* ---- 検索バー（プロト alC-search：グラデ枠 + 内側白） ---- */
+.gx-scope .gx-agents__search {
+  border-radius: 14px;
+  padding: 2px;
+  box-shadow: var(--elev-2);
+  background-image: linear-gradient(#fff, #fff), var(--accent-gaixer-grad);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  border: 2px solid transparent;
+  transition: box-shadow var(--dur-base) var(--easing-out);
+}
+.gx-scope .gx-agents__search:focus-within {
+  box-shadow: var(--glow-gaixer), var(--elev-2);
+}
+.gx-scope .gx-agents__search-inner {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gx-scope .gx-agents__search-icon {
+  display: inline-flex;
+  color: var(--fg-3);
+  flex: 0 0 18px;
+}
+.gx-scope .gx-agents__search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: 400 15px / 1.5 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-agents__search-input::placeholder {
+  color: var(--fg-4);
+}
+
+/* ---- 例示chip（プロト alC-search-foot / alC-ex） ---- */
+.gx-scope .gx-agents__examples {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font: 400 var(--fs-12) / 1 var(--font-jp);
+  color: var(--fg-3);
+}
+.gx-scope .gx-agents__example {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  font: 400 var(--fs-12) / 1.4 var(--font-jp);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--easing-out);
+}
+.gx-scope .gx-agents__example:hover {
+  color: var(--navy-700);
+  border-color: var(--navy-300);
+  transform: translateY(-1px);
+}
+
+/* ---- セクション見出し（プロト alC-catbar の見出し+件数のみ採用） ---- */
+.gx-scope .gx-agents__section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 22px 40px 6px;
+}
+.gx-scope .gx-agents__section-title {
+  margin: 0;
+  font: 700 16px / 1.3 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-agents__count {
+  margin-left: auto;
+  font: 400 var(--fs-12) / 1 var(--font-sans);
+  color: var(--fg-3);
+}
+
+/* ---- カードグリッド（プロト alC-grid / alC-bigcard） ---- */
+.gx-scope .gx-agents__grid {
+  margin: 16px 40px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 1100px) {
+  .gx-scope .gx-agents__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .gx-scope .gx-agents__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gx-scope .gx-agents__card {
+  text-align: left;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: all var(--dur-base) var(--easing-out);
+}
+.gx-scope .gx-agents__card:hover {
+  transform: translateY(-2px);
+  border-color: var(--navy-300);
+  box-shadow: var(--elev-3);
+}
+/* ホバー時のアイコン枠の見え方（プロト alC-bigcard:hover .alC-big-icon） */
+.gx-scope .gx-agents__card:hover .gx-agent-id__icon {
+  background: var(--navy-700);
+  color: #fff;
+}
+.gx-scope .gx-agents__card.is-system:hover .gx-agent-id__icon {
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+}
+
+.gx-scope .gx-agents__desc {
+  font: 400 12.5px / 1.6 var(--font-jp);
+  color: var(--fg-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- 空状態 ---- */
+.gx-scope .gx-agents__empty {
+  margin: 40px;
+  padding: 48px 24px;
+  text-align: center;
+  background: #fff;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+.gx-scope .gx-agents__empty-title {
+  font: 600 var(--fs-16) / 1.5 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-agents__empty-hint {
+  margin-top: 6px;
+  font: 400 var(--fs-13) / 1.5 var(--font-jp);
+  color: var(--fg-3);
+}
+
+/* ---- スケルトン（規約：loading は skeleton／シマー1種類） ---- */
+.gx-scope .gx-agents__card.is-skeleton {
+  cursor: default;
+  gap: 14px;
+}
+.gx-scope .gx-agents__card.is-skeleton:hover {
+  transform: none;
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+.gx-scope .gx-agents__skel-head,
+.gx-scope .gx-agents__skel-line {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    var(--gray-100) 30%,
+    var(--gray-200) 50%,
+    var(--gray-100) 70%
+  );
+  background-size: 200% 100%;
+  animation: gxShimmer 1.2s linear infinite;
+}
+.gx-scope .gx-agents__skel-head {
+  height: 44px;
+}
+.gx-scope .gx-agents__skel-line {
+  height: 12px;
+}
+.gx-scope .gx-agents__skel-line.short {
+  width: 60%;
+}
+@keyframes gxShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---- フッタ（プロト alC-foot） ---- */
+.gx-scope .gx-agents__foot {
+  padding: 32px 40px 40px;
+  color: var(--fg-3);
+  font: 400 11.5px / 1.6 var(--font-jp);
+}

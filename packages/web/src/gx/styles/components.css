@@ -1,0 +1,139 @@
+/* ===========================================================================
+   GaiXer 新UI — 画面横断の共有部品スタイル
+   ---------------------------------------------------------------------------
+   2画面以上で出現が確認できた共有部品（移植規約ドラフト §3）のスタイル。
+   初出はエージェント一覧だが、トップ等が再利用するため画面CSSから分離する。
+
+   方針：
+   - 全セレクタを .gx-scope 配下に閉じ、旧UI（Tailwind aws-*）へ漏らさない。
+   - 色・影・角丸はすべて tokens.css の CSS 変数のみ参照。生 hex は増やさない。
+     （プロトに散在した生 hex は対応トークンへ寄せる：#2d5be9→--indigo-500 等）
+   ============================================================================ */
+
+/* グラデーション文字（見出しの強調）。プロト alC-title .grad の汎用化。 */
+.gx-scope .gx-grad {
+  background: var(--accent-gaixer-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* =====================  GxPageHero（ヒーロー型ヘッダ）  ===================== */
+.gx-scope .gx-hero {
+  padding: 36px 40px 24px;
+  background:
+    radial-gradient(
+      120% 100% at 100% 0%,
+      rgba(45, 91, 233, 0.06) 0%,
+      rgba(91, 14, 190, 0.03) 40%,
+      transparent 70%
+    ),
+    radial-gradient(
+      80% 60% at 0% 100%,
+      rgba(0, 184, 184, 0.04) 0%,
+      transparent 60%
+    ),
+    #fff;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gx-scope .gx-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 11.5px / var(--lh-snug) var(--font-sans);
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gx-scope .gx-hero__spark {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.gx-scope .gx-hero__title {
+  margin: 12px 0 4px;
+  font: 700 30px / 1.25 var(--font-jp);
+  color: var(--navy-700);
+  letter-spacing: 0.005em;
+}
+.gx-scope .gx-hero__sub {
+  margin: 0 0 22px;
+  color: var(--fg-2);
+  font: 400 var(--fs-14) / var(--lh-normal) var(--font-jp);
+}
+
+/* =====================  GxOriginBadge（公式/院内）  ===================== */
+.gx-scope .gx-origin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font: 700 10px / 1.4 var(--font-jp);
+  letter-spacing: 0.06em;
+  flex: 0 0 auto;
+}
+.gx-scope .gx-origin-badge.is-system {
+  background: var(--navy-700);
+  color: #fff;
+}
+.gx-scope .gx-origin-badge.is-user {
+  background: var(--gray-100);
+  color: var(--fg-3);
+}
+
+/* =====================  GxAgentIdentity（識別子の塊）  ===================== */
+.gx-scope .gx-agent-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.gx-scope .gx-agent-id__icon {
+  border-radius: 11px;
+  background: var(--gray-50);
+  color: var(--navy-700);
+  display: grid;
+  place-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  transition: background var(--dur-base) var(--easing-out);
+}
+.gx-scope .gx-agent-id__icon.is-system {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 184, 184, 0.16),
+    rgba(91, 14, 190, 0.14)
+  );
+}
+.gx-scope .gx-agent-id__main {
+  flex: 1;
+  min-width: 0;
+}
+.gx-scope .gx-agent-id__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  font: 600 15px / 1.35 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-agent-id__nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.gx-scope .gx-agent-id__creator {
+  margin-top: 2px;
+  font: 400 11.5px / var(--lh-snug) var(--font-jp);
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

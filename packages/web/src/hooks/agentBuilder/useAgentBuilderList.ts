@@ -89,8 +89,12 @@ const useAgentBuilderList = () => {
   const agentCoreAgents: AgentConfiguration[] = externalRuntimes.map(
     (runtime: AgentCoreConfiguration) => ({
       agentId: runtime.arn, // Use ARN as unique ID
-      name: runtime.name,
-      description: t('agent_builder.external_agent_description'),
+      name: runtime.displayName || runtime.name,
+      // Prefer the real description from the cdk runtime config; fall back to
+      // the generic i18n string only when the config has none. (Previously this
+      // always used the fixed string and discarded the configured description.)
+      description:
+        runtime.description || t('agent_builder.external_agent_description'),
       systemPrompt: '', // External agents don't have editable system prompts
       mcpServers: [],
       modelId: '',

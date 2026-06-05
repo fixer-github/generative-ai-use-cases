@@ -5,15 +5,19 @@
  */
 import { RouteObject } from 'react-router-dom';
 import GxPlaceholderPage from './pages/GxPlaceholderPage';
-import GxChatPlaceholder from './pages/GxChatPlaceholder';
+import GxChatPage from './pages/GxChatPage';
+import GxAgentsPage from './pages/GxAgentsPage';
 import { GX } from './strings';
 
 export const gxRoutes: RouteObject[] = [
   { path: '/g', element: <GxPlaceholderPage title={GX.pages.home} /> },
-  { path: '/g/chat', element: <GxChatPlaceholder /> },
-  { path: '/g/chat/:chatId', element: <GxChatPlaceholder /> },
-  { path: '/g/agents', element: <GxPlaceholderPage title={GX.pages.agents} /> },
-  { path: '/g/minutes', element: <GxPlaceholderPage title={GX.pages.minutes} /> },
+  { path: '/g/chat', element: <GxChatPage /> },
+  { path: '/g/chat/:chatId', element: <GxChatPage /> },
+  { path: '/g/agents', element: <GxAgentsPage /> },
+  {
+    path: '/g/minutes',
+    element: <GxPlaceholderPage title={GX.pages.minutes} />,
+  },
   {
     path: '/g/scheduler',
     element: <GxPlaceholderPage title={GX.pages.scheduler} />,
