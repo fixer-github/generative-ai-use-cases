@@ -203,11 +203,6 @@ const useAgentCoreApi = (id: string) => {
           }),
         };
 
-        console.log(
-          'AgentCoreRequest payload:',
-          JSON.stringify(agentCoreRequest, null, 2)
-        );
-
         const commandInput: InvokeAgentRuntimeCommandInput = {
           agentRuntimeArn: req.agentRuntimeArn,
           ...(req.sessionId ? { runtimeSessionId: req.sessionId } : {}),
@@ -310,13 +305,6 @@ const useAgentCoreApi = (id: string) => {
           );
         }
 
-        // Observability (PR1): verify llm_call events were collected from the
-        // stream. Persistence via GenU API is added in PR2 (cross-repo observability contract §4 PR2).
-        console.log(
-          `[observability] collected ${llmCalls.length} llm_call event(s) for agent_run_id=${req.agentRunId ?? '(none)'}`,
-          llmCalls
-        );
-
         // Save chat history
         const chatId = await createChatIfNotExist();
         await setPredictedTitle();
@@ -363,6 +351,9 @@ const useAgentCoreApi = (id: string) => {
           endedAt: new Date().toISOString(),
           status: 'failed',
           errorType: error instanceof Error ? error.name : 'UnknownError',
+          // Persist any llm_call events collected before the failure (their
+          // usage is real); the run itself is still recorded as failed.
+          llmCalls,
         });
       } finally {
         setLoading(false);
