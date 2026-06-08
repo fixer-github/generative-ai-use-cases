@@ -48,6 +48,8 @@ export type UnrecordedMessage = {
   extraData?: ExtraData[];
   llmType?: string;
   metadata?: Metadata;
+  agentRunId?: string;
+  agentId?: string;
 };
 
 export type ExtraData = {

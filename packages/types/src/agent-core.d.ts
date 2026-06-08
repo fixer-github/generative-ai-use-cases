@@ -20,11 +20,63 @@ export type AppNotification = {
   payload: Record<string, unknown>;
 };
 
+// LLM call observability event (custom event yielded by the agent backend).
+// Collected by the frontend for observability; not shown in the UI.
+// Contract (single source of truth): cross-repo observability contract §3.2 (llm_call event schema).
+export type AgentCoreLlmCallEvent = {
+  llm_call_id: string;
+  agent_run_id: string;
+  agent_id?: string;
+  model_id: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_write_input_tokens?: number;
+  latency_ms?: number | null;
+  status: 'succeeded' | 'failed'; // MVP: always 'succeeded' (see cross-repo observability contract §3.2)
+  error_type?: string | null;
+  created_at: string; // ISO8601 UTC with milliseconds, trailing Z
+};
+
+export type AgentRunStatus = 'running' | 'succeeded' | 'failed';
+
+export type StartAgentRunRequest = {
+  agent_run_id: string;
+  agent_id: string;
+  session_id?: string;
+  chat_id?: string;
+  started_at: string;
+};
+
+export type CompleteAgentRunRequest = {
+  agent_run_id: string;
+  agent_id: string;
+  session_id?: string;
+  chat_id?: string;
+  user_message_id?: string;
+  assistant_message_id?: string;
+  started_at?: string;
+  ended_at: string;
+  status: Exclude<AgentRunStatus, 'running'>;
+  error_type?: string | null;
+};
+
+export type AppendAgentLlmCallsRequest = {
+  agent_run_id: string;
+  llm_calls: AgentCoreLlmCallEvent[];
+};
+
+export type AgentObservabilityResponse = {
+  ok: boolean;
+};
+
 // AgentCore Runtime Request (extended from Strands with additional fields)
 export type AgentCoreRequest = StrandsRequest & {
   mcp_servers?: string[]; // Changed to string array
   session_id?: string;
   code_execution_enabled?: boolean;
+  agent_run_id?: string; // Observability: agent run id (cross-repo observability contract §3.1)
 };
 
 export type AgentCoreStreamResponse = StrandsStreamEvent;
@@ -285,6 +337,7 @@ export type StrandsRedactContentEvent = {
 // Main stream event type (matches the Python StreamEvent TypedDict)
 export type StrandsStreamEvent = {
   appNotification?: AppNotification;
+  llm_call?: AgentCoreLlmCallEvent; // Observability custom event (cross-repo observability contract §3.2)
   contentBlockDelta?: StrandsContentBlockDeltaEvent;
   contentBlockStart?: StrandsContentBlockStartEvent;
   contentBlockStop?: StrandsContentBlockStopEvent;

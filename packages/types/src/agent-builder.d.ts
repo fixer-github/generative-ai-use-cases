@@ -186,4 +186,5 @@ export type AgentCoreRuntimeRequest = {
   mcpServers?: MCPServerReference[]; // Changed to string array
   agentId?: string; // Agent ID for logging/tracking
   codeExecutionEnabled?: boolean; // Code execution setting
+  agentRunId?: string; // Observability: agent run id (cross-repo observability contract §3.1)
 };

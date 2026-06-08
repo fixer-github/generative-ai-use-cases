@@ -11,6 +11,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 import {
   AgentCoreRequest,
+  AgentCoreLlmCallEvent,
   Model,
   UnrecordedMessage,
   StrandsContentBlock,
@@ -21,6 +22,11 @@ import {
   convertToStrandsFormat,
   convertFilesToStrandsContentBlocks,
 } from '../utils/strandsUtils';
+import {
+  attachAgentObservabilityToMessages,
+  saveAgentObservabilityCompletionBestEffort,
+  startAgentRunBestEffort,
+} from '../utils/agentObservabilityUtils';
 import { getRegionFromArn } from '../utils/arnUtils';
 import useAppNotificationStore from './useAppNotificationStore';
 
@@ -44,14 +50,26 @@ const useAgentCoreApi = (id: string) => {
     replaceMessages,
     setPredictedTitle,
   } = useChat(id);
-  const { createMessages } = useChatApi();
+  const {
+    createMessages,
+    startAgentRun,
+    completeAgentRun,
+    appendAgentLlmCalls,
+  } = useChatApi();
 
   // Create a stream processor instance that maintains state across chunks
   const streamProcessor = useCallback(() => new StrandsStreamProcessor(), []);
 
-  // Process a chunk of Strands event data and add it to the assistant message
+  // Process a chunk of Strands event data and add it to the assistant message.
+  // onLlmCall collects observability llm_call events (cross-repo observability contract §3.2) without
+  // affecting the rendered message.
   const processChunk = useCallback(
-    (eventText: string, model: Model, processor: StrandsStreamProcessor) => {
+    (
+      eventText: string,
+      model: Model,
+      processor: StrandsStreamProcessor,
+      onLlmCall?: (llmCall: AgentCoreLlmCallEvent) => void
+    ) => {
       const processed = processor.processEvent(eventText);
 
       if (processed) {
@@ -59,6 +77,9 @@ const useAgentCoreApi = (id: string) => {
           useAppNotificationStore
             .getState()
             .pushNotification(processed.appNotification);
+        }
+        if (processed.llmCall && onLlmCall) {
+          onLlmCall(processed.llmCall);
         }
         if (processed.text || processed.trace || processed.metadata) {
           addChunkToAssistantMessage(
@@ -85,11 +106,27 @@ const useAgentCoreApi = (id: string) => {
     async (req: AgentCoreRuntimeRequest) => {
       setLoading(true);
       let isFirstChunk = true;
+      const startedAt = new Date().toISOString();
 
       // Create a new stream processor for this request
       const processor = streamProcessor();
 
+      // Observability (cross-repo observability contract §3.2): collect llm_call events from the stream.
+      // PR1 only collects and logs them; persistence via GenU API is added in PR2.
+      const llmCalls: AgentCoreLlmCallEvent[] = [];
+      const collectLlmCall = (llmCall: AgentCoreLlmCallEvent) => {
+        llmCalls.push(llmCall);
+      };
+
       try {
+        await startAgentRunBestEffort({
+          apis: { startAgentRun },
+          agentRunId: req.agentRunId,
+          agentId: req.agentId,
+          sessionId: req.sessionId,
+          startedAt,
+        });
+
         pushMessage('user', req.prompt);
         pushMessage('assistant', 'Thinking...');
 
@@ -159,6 +196,7 @@ const useAgentCoreApi = (id: string) => {
           ...(req.userId && { user_id: req.userId }),
           ...(req.mcpServers && { mcp_servers: req.mcpServers }),
           ...(req.agentId && { agent_id: req.agentId }),
+          ...(req.agentRunId && { agent_run_id: req.agentRunId }),
           ...(req.sessionId && { session_id: req.sessionId }),
           ...(req.codeExecutionEnabled !== undefined && {
             code_execution_enabled: req.codeExecutionEnabled,
@@ -217,7 +255,12 @@ const useAgentCoreApi = (id: string) => {
                   }
 
                   if (processedText.trim()) {
-                    processChunk(processedText, req.model, processor);
+                    processChunk(
+                      processedText,
+                      req.model,
+                      processor,
+                      collectLlmCall
+                    );
                   }
                 }
               }
@@ -230,7 +273,12 @@ const useAgentCoreApi = (id: string) => {
                 processedText = buffer.substring(6);
               }
               if (processedText.trim()) {
-                processChunk(processedText, req.model, processor);
+                processChunk(
+                  processedText,
+                  req.model,
+                  processor,
+                  collectLlmCall
+                );
               }
             }
           } else {
@@ -243,7 +291,8 @@ const useAgentCoreApi = (id: string) => {
             processChunk(
               JSON.stringify(response, null, 2),
               req.model,
-              processor
+              processor,
+              collectLlmCall
             );
           }
         } else {
@@ -253,28 +302,68 @@ const useAgentCoreApi = (id: string) => {
             pushMessage('assistant', '');
             isFirstChunk = false;
           }
-          processChunk(JSON.stringify(response, null, 2), req.model, processor);
+          processChunk(
+            JSON.stringify(response, null, 2),
+            req.model,
+            processor,
+            collectLlmCall
+          );
         }
+
+        // Observability (PR1): verify llm_call events were collected from the
+        // stream. Persistence via GenU API is added in PR2 (cross-repo observability contract §4 PR2).
+        console.log(
+          `[observability] collected ${llmCalls.length} llm_call event(s) for agent_run_id=${req.agentRunId ?? '(none)'}`,
+          llmCalls
+        );
 
         // Save chat history
         const chatId = await createChatIfNotExist();
         await setPredictedTitle();
-        const toBeRecordedMessages = addMessageIdsToUnrecordedMessages();
+        const toBeRecordedMessages = attachAgentObservabilityToMessages(
+          addMessageIdsToUnrecordedMessages(),
+          req.agentRunId,
+          req.agentId
+        );
         const { messages } = await createMessages(chatId, {
           messages: toBeRecordedMessages,
         });
         replaceMessages(messages);
+
+        await saveAgentObservabilityCompletionBestEffort({
+          apis: { appendAgentLlmCalls, completeAgentRun },
+          agentRunId: req.agentRunId,
+          agentId: req.agentId,
+          sessionId: req.sessionId,
+          chatId,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          status: 'succeeded',
+          errorType: null,
+          llmCalls,
+          messages: toBeRecordedMessages,
+        });
       } catch (error) {
         console.error('Error invoking AgentCore Runtime:', error);
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred';
-        // processChunk(`Error: ${errorMessage}`, req.model, processor);
+        // processChunk(`Error: ${errorMessage}`, req.model, processor, collectLlmCall);
         addChunkToAssistantMessage(
           errorMessage,
           undefined,
           req.model,
           undefined
         );
+        await saveAgentObservabilityCompletionBestEffort({
+          apis: { appendAgentLlmCalls, completeAgentRun },
+          agentRunId: req.agentRunId,
+          agentId: req.agentId,
+          sessionId: req.sessionId,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          status: 'failed',
+          errorType: error instanceof Error ? error.name : 'UnknownError',
+        });
       } finally {
         setLoading(false);
       }
@@ -288,6 +377,9 @@ const useAgentCoreApi = (id: string) => {
       setPredictedTitle,
       addMessageIdsToUnrecordedMessages,
       createMessages,
+      startAgentRun,
+      completeAgentRun,
+      appendAgentLlmCalls,
       replaceMessages,
       popMessage,
       processChunk,

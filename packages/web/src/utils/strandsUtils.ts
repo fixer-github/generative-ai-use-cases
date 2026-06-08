@@ -3,6 +3,7 @@
  */
 
 import {
+  AgentCoreLlmCallEvent,
   AppNotification,
   ExtraData,
   Metadata,
@@ -312,6 +313,7 @@ export class StrandsStreamProcessor {
     trace?: string;
     metadata?: Metadata;
     appNotification?: AppNotification;
+    llmCall?: AgentCoreLlmCallEvent;
   } | null {
     try {
       const parsedEvent = JSON.parse(eventText);
@@ -324,6 +326,16 @@ export class StrandsStreamProcessor {
         return {
           text: '',
           appNotification: streamEvent.appNotification,
+        };
+      }
+
+      // Handle llm_call observability custom event (from agent backend).
+      // Collected by the caller for observability; not rendered in the UI.
+      // Contract: cross-repo observability contract §3.2.
+      if (streamEvent.llm_call) {
+        return {
+          text: '',
+          llmCall: streamEvent.llm_call,
         };
       }
 

@@ -10,6 +10,7 @@ import {
 export class Database extends Construct {
   public readonly table: ddb.Table;
   public readonly statsTable: ddb.Table;
+  public readonly agentObservabilityTable: ddb.Table;
   public readonly feedbackIndexName: string;
 
   constructor(scope: Construct, id: string) {
@@ -75,8 +76,50 @@ export class Database extends Construct {
       BACKUP_PROTECTED_TAG.value
     );
 
+    const agentObservabilityTable = new ddb.Table(
+      this,
+      'AgentObservabilityTable',
+      {
+        partitionKey: {
+          name: 'agent_run_id',
+          type: ddb.AttributeType.STRING,
+        },
+        sortKey: {
+          name: 'sk',
+          type: ddb.AttributeType.STRING,
+        },
+        billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+        pointInTimeRecoverySpecification: {
+          pointInTimeRecoveryEnabled: true,
+        },
+        deletionProtection: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+      }
+    );
+    agentObservabilityTable.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(agentObservabilityTable).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
+
+    agentObservabilityTable.addGlobalSecondaryIndex({
+      indexName: 'AgentIdIndex',
+      partitionKey: {
+        name: 'GSI1PK',
+        type: ddb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'GSI1SK',
+        type: ddb.AttributeType.STRING,
+      },
+    });
+
     this.table = table;
     this.statsTable = statsTable;
+    this.agentObservabilityTable = agentObservabilityTable;
     this.feedbackIndexName = feedbackIndexName;
   }
 }

@@ -76,6 +76,7 @@ export interface BackendApiProps {
   readonly userPoolClient: UserPoolClient;
   readonly table: Table;
   readonly statsTable: Table;
+  readonly agentObservabilityTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: string;
   readonly guardrailIdentify?: string;
@@ -691,6 +692,27 @@ export class Api extends Construct {
     table.grantReadWriteData(createMessagesFunction);
     props.statsTable.grantReadWriteData(createMessagesFunction);
 
+    const agentObservabilityFunction = new NodejsFunction(
+      this,
+      'AgentObservability',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/agentObservability.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          AGENT_OBSERVABILITY_TABLE_NAME:
+            props.agentObservabilityTable.tableName,
+          TENANT_ID: Stack.of(this).account,
+          ENVIRONMENT_ID: Stack.of(this).stackName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    props.agentObservabilityTable.grantReadWriteData(
+      agentObservabilityFunction
+    );
+
     const updateChatTitleFunction = new NodejsFunction(
       this,
       'UpdateChatTitle',
@@ -1033,6 +1055,19 @@ export class Api extends Construct {
     messagesResource.addMethod(
       'POST',
       new LambdaIntegration(createMessagesFunction),
+      commonAuthorizerProps
+    );
+
+    const agentObservabilityResource = api.root.addResource(
+      'agent-observability'
+    );
+    const agentObservabilityOperationResource =
+      agentObservabilityResource.addResource('{operation}');
+
+    // POST: /agent-observability/{operation}
+    agentObservabilityOperationResource.addMethod(
+      'POST',
+      new LambdaIntegration(agentObservabilityFunction),
       commonAuthorizerProps
     );
 
