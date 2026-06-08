@@ -275,6 +275,13 @@ export const IcChevronDown: React.FC<IconProps> = ({ size = 11, ...p }) => (
   </Svg>
 );
 
+export const IcBell: React.FC<IconProps> = ({ size = 17, ...p }) => (
+  <Svg size={size} {...p}>
+    <path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.8 5.5 1.8 5.5H4.2S6 13.5 6 9z" />
+    <path d="M10 18.5a2 2 0 0 0 4 0" />
+  </Svg>
+);
+
 /* ===========================================================================
    シーン用の装飾アイコン（Sc*）— トップ Bento のシーンカード／クイックボタン用。
    プロト icons.jsx のシーンアイコンを忠実に移植（医療文脈のモノライン）。

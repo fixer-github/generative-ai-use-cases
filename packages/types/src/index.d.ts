@@ -3,6 +3,7 @@ export * from './base';
 export * from './message';
 export * from './chat';
 export * from './meeting';
+export * from './notification';
 export * from './protocol';
 export * from './image';
 export * from './video';

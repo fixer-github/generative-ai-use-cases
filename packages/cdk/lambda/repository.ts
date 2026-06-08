@@ -13,6 +13,9 @@ import {
   MeetingSpeaker,
   ListMeetingsResponse,
   UpdateMeetingRequest,
+  StoredNotification,
+  NotificationType,
+  ListNotificationsResponse,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -30,6 +33,10 @@ import {
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
 const MEETING_TABLE_NAME: string = process.env.MEETING_TABLE_NAME!;
+// Only set on notification-aware lambdas (notification API + B3 meeting
+// completion). Other lambdas import this module without the var; the
+// `!` is compile-time only, so the const is simply unused at runtime there.
+const NOTIFICATION_TABLE_NAME: string = process.env.NOTIFICATION_TABLE_NAME!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
@@ -993,4 +1000,170 @@ export const deleteMeeting = async (
   );
 
   return meeting;
+};
+
+// ---------------------------------------------------------------------------
+// Notifications (P4 / B6)
+//
+// The dedicated NotificationTable is the source of truth for the sidebar bell.
+// Notifications are produced by backend Lambdas only (B3 meeting completion;
+// the scheduler execution Lambda has its own writer because it lives in a
+// separate construct and cannot import this module). They are NOT projected
+// into the Chat table — they belong in the bell, not sidebar history.
+// id = `notification#${userId}` (PK), createdDate = `${epochMs}` (SK, newest
+// first). See the Phase 2 common-infrastructure-cluster memo, section 4.
+// ---------------------------------------------------------------------------
+
+// Notifications self-expire via DynamoDB TTL after this many days.
+const NOTIFICATION_TTL_DAYS = 90;
+
+export const createNotification = async (
+  _userId: string,
+  input: {
+    type: NotificationType;
+    title: string;
+    body?: string;
+    link: string;
+  }
+): Promise<StoredNotification> => {
+  const createdDate = `${Date.now()}`;
+  const notification: StoredNotification = {
+    id: `notification#${_userId}`,
+    createdDate,
+    notificationId: `notification#${crypto.randomUUID()}`,
+    type: input.type,
+    title: input.title,
+    ...(input.body !== undefined ? { body: input.body } : {}),
+    link: input.link,
+    read: false,
+    ttl: Math.floor(Date.now() / 1000) + NOTIFICATION_TTL_DAYS * 24 * 60 * 60,
+  };
+
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      Item: notification,
+    })
+  );
+
+  return notification;
+};
+
+export const listNotifications = async (
+  _userId: string,
+  _exclusiveStartKey?: string
+): Promise<ListNotificationsResponse> => {
+  const exclusiveStartKey = _exclusiveStartKey
+    ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
+    : undefined;
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      KeyConditionExpression: '#id = :id',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+      },
+      ExpressionAttributeValues: {
+        ':id': `notification#${_userId}`,
+      },
+      ScanIndexForward: false,
+      Limit: 100,
+      ExclusiveStartKey: exclusiveStartKey,
+    })
+  );
+
+  return {
+    data: res.Items as StoredNotification[],
+    lastEvaluatedKey: res.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+      : undefined,
+  };
+};
+
+const findNotificationById = async (
+  _userId: string,
+  _notificationId: string
+): Promise<StoredNotification | null> => {
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      KeyConditionExpression: '#id = :id',
+      FilterExpression: '#notificationId = :notificationId',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+        '#notificationId': 'notificationId',
+      },
+      ExpressionAttributeValues: {
+        ':id': `notification#${_userId}`,
+        ':notificationId': `notification#${_notificationId}`,
+      },
+    })
+  );
+
+  if (!res.Items || res.Items.length === 0) {
+    return null;
+  }
+  return res.Items[0] as StoredNotification;
+};
+
+export const markNotificationRead = async (
+  _userId: string,
+  _notificationId: string
+): Promise<StoredNotification | null> => {
+  const notification = await findNotificationById(_userId, _notificationId);
+  if (!notification) {
+    return null;
+  }
+
+  const res = await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      Key: {
+        id: notification.id,
+        createdDate: notification.createdDate,
+      },
+      UpdateExpression: 'set #read = :read',
+      ExpressionAttributeNames: { '#read': 'read' },
+      ExpressionAttributeValues: { ':read': true },
+      ReturnValues: 'ALL_NEW',
+    })
+  );
+
+  return res.Attributes as StoredNotification;
+};
+
+export const markAllNotificationsRead = async (
+  _userId: string
+): Promise<number> => {
+  // Notification volume per user is small (bell-only, 90-day TTL), so a single
+  // unread scan + per-row update is sufficient; no pagination loop needed.
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      KeyConditionExpression: '#id = :id',
+      FilterExpression: '#read = :false',
+      ExpressionAttributeNames: { '#id': 'id', '#read': 'read' },
+      ExpressionAttributeValues: {
+        ':id': `notification#${_userId}`,
+        ':false': false,
+      },
+    })
+  );
+
+  const unread = (res.Items as StoredNotification[] | undefined) ?? [];
+  await Promise.all(
+    unread.map((n) =>
+      dynamoDbDocument.send(
+        new UpdateCommand({
+          TableName: NOTIFICATION_TABLE_NAME,
+          Key: { id: n.id, createdDate: n.createdDate },
+          UpdateExpression: 'set #read = :read',
+          ExpressionAttributeNames: { '#read': 'read' },
+          ExpressionAttributeValues: { ':read': true },
+        })
+      )
+    )
+  );
+
+  return unread.length;
 };

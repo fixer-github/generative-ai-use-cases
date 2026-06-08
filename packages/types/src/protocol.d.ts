@@ -13,6 +13,7 @@ import {
   MeetingMinutesDoc,
 } from './meeting';
 import { SystemContext } from './systemContext';
+import { StoredNotification } from './notification';
 import {
   QueryCommandOutput,
   RetrieveCommandOutput,
@@ -121,6 +122,20 @@ export type UpdateMeetingRequest = Partial<
 
 export type UpdateMeetingResponse = {
   meeting: Meeting;
+};
+
+// Notifications (P4 / B6). Read + mark-read only; notifications are produced by
+// backend Lambdas (meeting completion, scheduler failure), never created by the
+// client. See the Phase 2 common-infrastructure-cluster memo, section 4.
+export type ListNotificationsResponse = Pagination<StoredNotification>;
+
+export type MarkNotificationReadResponse = {
+  notification: StoredNotification;
+};
+
+export type MarkAllNotificationsReadResponse = {
+  // number of previously-unread notifications that were marked read
+  count: number;
 };
 
 export type CreateSystemContextRequest = {
@@ -258,6 +273,13 @@ export type StartTranscriptionRequest = {
   speakerLabel: boolean;
   maxSpeakers: number;
   languageCode?: string;
+  // When the job belongs to a meeting (new-UI batch flow), the bare meeting uuid
+  // (without the `meeting#` prefix). startTranscription then encodes it into the
+  // Transcribe job name so the B3 completion detector can map the finished job
+  // back to the meeting and flip its status. Absent for the legacy transcribe
+  // feature (a plain UUID job name is used and B3 ignores it). See Phase 2
+  // common-infrastructure-cluster memo, section 6.
+  meetingId?: string;
 };
 
 export type StartTranscriptionResponse = {

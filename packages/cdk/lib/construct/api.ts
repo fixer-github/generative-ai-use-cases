@@ -47,6 +47,8 @@ import {
   IVpc,
   ISecurityGroup,
 } from 'aws-cdk-lib/aws-ec2';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 
 export interface BackendApiProps {
   // Context Params
@@ -80,6 +82,7 @@ export interface BackendApiProps {
   readonly statsTable: Table;
   readonly agentObservabilityTable: Table;
   readonly meetingTable: Table;
+  readonly notificationTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: string;
   readonly guardrailIdentify?: string;
@@ -950,6 +953,99 @@ export class Api extends Construct {
     );
     meetingBucket.grantWrite(getMeetingAudioUploadUrlFunction);
 
+    // Notifications (P4 / B6). Read + mark-read only; notifications are produced
+    // by backend Lambdas (B3 meeting completion writes here directly; the
+    // scheduler execution Lambda writes via its own cross-construct grant). No
+    // public create route. See Phase 2 common-infrastructure-cluster memo 4.
+    const notificationTable = props.notificationTable;
+
+    const listNotificationsFunction = new NodejsFunction(
+      this,
+      'ListNotifications',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/listNotifications.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          NOTIFICATION_TABLE_NAME: notificationTable.tableName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    notificationTable.grantReadData(listNotificationsFunction);
+
+    const markNotificationReadFunction = new NodejsFunction(
+      this,
+      'MarkNotificationRead',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/markNotificationRead.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          NOTIFICATION_TABLE_NAME: notificationTable.tableName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    notificationTable.grantReadWriteData(markNotificationReadFunction);
+
+    const markAllNotificationsReadFunction = new NodejsFunction(
+      this,
+      'MarkAllNotificationsRead',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/markAllNotificationsRead.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          NOTIFICATION_TABLE_NAME: notificationTable.tableName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    notificationTable.grantReadWriteData(markAllNotificationsReadFunction);
+
+    // B3: Transcribe batch completion detector. An account-wide EventBridge rule
+    // catches "Transcribe Job State Change" (COMPLETED / FAILED); the Lambda
+    // decodes the meeting linkage embedded in the job name (gx.<...>), flips the
+    // meeting status (transcribing -> ready/failed) and writes a notification.
+    // Placed here (not in the Transcribe construct) because Transcribe is built
+    // AFTER Api and cannot be granted meetingTable/notificationTable. The Lambda
+    // is status-only (it does NOT read the transcript) -- the client fetches the
+    // body via the existing getTranscription path. See Phase 2 memo 6 / codemap fix 4.
+    const transcribeCompletionFunction = new NodejsFunction(
+      this,
+      'TranscribeCompletion',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/transcribeCompletion.ts',
+        timeout: Duration.minutes(1),
+        environment: {
+          TABLE_NAME: table.tableName, // projection-row status mirror
+          MEETING_TABLE_NAME: meetingTable.tableName,
+          NOTIFICATION_TABLE_NAME: notificationTable.tableName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    meetingTable.grantReadWriteData(transcribeCompletionFunction);
+    table.grantWriteData(transcribeCompletionFunction);
+    notificationTable.grantWriteData(transcribeCompletionFunction);
+
+    new events.Rule(this, 'TranscribeCompletionRule', {
+      eventPattern: {
+        source: ['aws.transcribe'],
+        detailType: ['Transcribe Job State Change'],
+        detail: {
+          TranscriptionJobStatus: ['COMPLETED', 'FAILED'],
+        },
+      },
+      targets: [new targets.LambdaFunction(transcribeCompletionFunction)],
+    });
+
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
       entry: './lambda/getWebText.ts',
@@ -1344,6 +1440,36 @@ export class Api extends Construct {
       .addMethod(
         'POST',
         new LambdaIntegration(getMeetingAudioUploadUrlFunction),
+        commonAuthorizerProps
+      );
+
+    // Notification routes (P4 / B6). Read + mark-read only — no create route
+    // (producers are backend Lambdas). See Phase 2 memo 4.
+    const notificationsResource = api.root.addResource('notifications');
+
+    // GET: /notifications
+    notificationsResource.addMethod(
+      'GET',
+      new LambdaIntegration(listNotificationsFunction),
+      commonAuthorizerProps
+    );
+
+    // POST: /notifications/read-all (mark every unread notification read)
+    notificationsResource
+      .addResource('read-all')
+      .addMethod(
+        'POST',
+        new LambdaIntegration(markAllNotificationsReadFunction),
+        commonAuthorizerProps
+      );
+
+    // POST: /notifications/{notificationId}/read (mark one read)
+    notificationsResource
+      .addResource('{notificationId}')
+      .addResource('read')
+      .addMethod(
+        'POST',
+        new LambdaIntegration(markNotificationReadFunction),
         commonAuthorizerProps
       );
 

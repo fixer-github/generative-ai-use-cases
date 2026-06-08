@@ -25,6 +25,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MeetingMinutesDoc, MeetingSource } from 'generative-ai-use-cases';
 import useMeetingApi from '../../hooks/useMeetingApi';
+import useTranscribeApi from '../../hooks/useTranscribeApi';
 import { useMEState } from '../hooks/useMEState';
 import { useMinutesGenerator } from '../hooks/useMinutesGenerator';
 import {
@@ -90,6 +91,7 @@ const GxMinutesWorkbenchPage: React.FC = () => {
   const params = useParams();
   const location = useLocation();
   const api = useMeetingApi();
+  const transcribeApi = useTranscribeApi();
   const { generate } = useMinutesGenerator();
 
   const st = useMEState();
@@ -104,11 +106,35 @@ const GxMinutesWorkbenchPage: React.FC = () => {
   );
   const isDraft = !existingId;
 
+  // バッチ（B3）では入口ページが会議を先に作成し、その meetingId を渡してくる。
+  // ドラフトモードでこれがあれば二重 createMeeting せず再利用する（着工方針メモ §6 / step 4-f）。
+  const preCreatedMeetingId = (location.state as { meetingId?: string })
+    ?.meetingId;
+
   // 既存会議の読み込み（ドラフト時は undefined キーで fetch しない）。
   const { data: found, error: findError } = api.findMeetingById(existingId);
 
   // --- 会議メタ・永続化状態 ---
-  const [meetingId, setMeetingId] = useState<string | null>(existingId ?? null);
+  const [meetingId, setMeetingId] = useState<string | null>(
+    existingId ?? preCreatedMeetingId ?? null
+  );
+
+  // B3 fetch-on-open（離脱後に戻ったバッチ会議の復旧）。完了検知は status だけ進める
+  // ため、離脱中に完了した会議は transcriptKey が未設定のまま status=ready になる。
+  // その場合だけ jobName で getTranscription を取りに行く（既存の自動ポーリングを流用）。
+  // 永続化は最初の編集時の自動保存に委ねる（再取得は安価なので即時保存は強制しない）。
+  const [recoverStatus, setRecoverStatus] = useState('');
+  const recoveredRef = useRef(false);
+  const needsRecovery =
+    !isDraft &&
+    !!found?.meeting &&
+    !found?.transcript &&
+    !!found?.meeting?.jobName;
+  const { data: recoverData } = transcribeApi.getTranscription(
+    needsRecovery ? found!.meeting!.jobName! : null,
+    recoverStatus,
+    setRecoverStatus
+  );
   const [source, setSource] = useState<MeetingSource>('mic');
   const [title, setTitle] = useState<string>(W.defaultTitle);
   const [createdMs, setCreatedMs] = useState<number | undefined>(undefined);
@@ -258,6 +284,25 @@ const GxMinutesWorkbenchPage: React.FC = () => {
     setInitialized(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDraft, initialized, found, findError]);
+
+  // 既存モードのバッチ復旧：getTranscription が完了データを返したら editor へ流し込む
+  // （表示が成立）。永続化（transcriptKey）は最初の編集時の自動保存に任せる。まだ
+  // 文字起こし中なら（IN_PROGRESS）2秒間隔の自動ポーリングで待ち、完了後に流入する。
+  useEffect(() => {
+    if (!needsRecovery || recoveredRef.current) return;
+    const trs = recoverData?.transcripts;
+    if (!trs || trs.length === 0) return;
+    recoveredRef.current = true;
+    const init = normalizeFileDraft({
+      source: 'batch',
+      fileName: title,
+      transcripts: trs,
+      languageCode: recoverData?.languageCode,
+    });
+    st.load(init, found?.meeting?.rev ?? 0);
+    setDurationSec(init.durationSec);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsRecovery, recoverData]);
 
   // -------------------------------------------------------------------------
   // 永続化：文字起こしの自動保存（rev 変化をデバウンス）／議事録の保存

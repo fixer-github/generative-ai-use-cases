@@ -182,6 +182,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       statsTable: database.statsTable,
       agentObservabilityTable: database.agentObservabilityTable,
       meetingTable: database.meetingTable,
+      notificationTable: database.notificationTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: agentsJson,
       guardrailIdentify: props.guardrailIdentifier,

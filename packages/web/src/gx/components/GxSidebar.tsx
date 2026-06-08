@@ -5,10 +5,12 @@
  *   - 管理者リンク：useAdmin（Cognito admin 判定）でロール出し分け
  *   - アカウント：email を表示名に使用（cognito:username は UUID になりうるため）。所属は P1 未確定のため当面非表示
  *
- * Phase 0 の方針（判断メモ D1）に従い、以下はあえて出さない：
- *   - 種別フィルタ chip（議事録・実行の履歴流入は Phase 2）
- *   - 通知ベル（P4 通知基盤は Phase 2。押せて空は混乱のため非表示）
- *   - 機能ナビのアラートバッジ（集計供給源が未実装）
+ * Phase 0 の方針（判断メモ D1）に従い当面非表示としていた要素のうち、Phase 2
+ * 共通基盤クラスタで実データが流入したものを順次解禁する：
+ *   - 通知ベル（P4 通知基盤）：step 3 で解禁。GxNotificationBell（NotificationTable）。
+ * 引き続き非表示（後続 step で解禁予定）：
+ *   - 種別フィルタ chip（議事録・実行の履歴流入は step 6）
+ *   - 機能ナビのアラートバッジ（集計供給源は step 5/6）
  *
  * 検索は「縮退（タイトル検索で開始）」としてクライアント側の部分一致で動かす。
  */
@@ -19,6 +21,7 @@ import useChatList from '../../hooks/useChatList';
 import useAdmin from '../../hooks/useAdmin';
 import { Chat } from 'generative-ai-use-cases';
 import { GX } from '../strings';
+import GxNotificationBell from './GxNotificationBell';
 import {
   IcChat,
   IcAgent,
@@ -129,6 +132,8 @@ const GxSidebar: React.FC = () => {
         <div className="sx-brand__mark" />
         <span className="sx-brand__name">{GX.brand.name}</span>
         <span className="sx-brand__tag">{GX.brand.tag}</span>
+        {/* 通知ベル（step 3 で解禁）。未読バッジ＋一覧パネル。 */}
+        <GxNotificationBell />
       </div>
 
       {/* 新しい作業 → Bento ランチャー（トップ） */}

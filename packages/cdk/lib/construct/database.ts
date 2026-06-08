@@ -12,6 +12,7 @@ export class Database extends Construct {
   public readonly statsTable: ddb.Table;
   public readonly agentObservabilityTable: ddb.Table;
   public readonly meetingTable: ddb.Table;
+  public readonly notificationTable: ddb.Table;
   public readonly feedbackIndexName: string;
 
   constructor(scope: Construct, id: string) {
@@ -148,10 +149,32 @@ export class Database extends Construct {
       },
     });
 
+    // Notification table (P4 / B6). Backs the sidebar bell + unread badge.
+    // Unlike the entity tables above, notifications are derived, transient
+    // pointers (each links to a meeting / scheduled task that is the real record
+    // of truth), so this table gets a deliberately LIGHTER posture: no PITR, no
+    // deletion protection, DESTROY on teardown, and a TTL attribute so rows
+    // self-expire (default +90 days, set by the producer). It is therefore NOT
+    // backup-protected. See the Phase 2 common-infrastructure-cluster memo 4 / 10.
+    const notificationTable = new ddb.Table(this, 'NotificationTable', {
+      partitionKey: {
+        name: 'id', // `notification#${userId}`
+        type: ddb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'createdDate', // `${epochMs}` (newest first)
+        type: ddb.AttributeType.STRING,
+      },
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     this.table = table;
     this.statsTable = statsTable;
     this.agentObservabilityTable = agentObservabilityTable;
     this.meetingTable = meetingTable;
+    this.notificationTable = notificationTable;
     this.feedbackIndexName = feedbackIndexName;
   }
 }

@@ -11,15 +11,21 @@
  *     toast＝§4.1 のエラーハンドリングをそのまま継承）を流用。
  *   - (a) 新規UI型：ドロップゾーン・話者分離スイッチ・想定人数ステッパ・処理中表示は新規。
  *
- * スコープ（3b と同じ規律：フロント完結）：
- *   - 会議エンティティ作成（createMeeting{source:'batch'}）・status 遷移（B2/B3）・
- *     文字起こしの S3 永続化は backend の完了検知（EventBridge＝B3）と同時に結線する。
- *     本増分では createMeeting を呼ばず、完了した文字起こしを location.state（`fileDraft`）
- *     で編集ワークベンチ（step 5）へ渡す。受け渡し契約は step 5 が確定する。
+ * B3 採用（共通基盤クラスタ step 4-f）：
+ *   - 開始時に createMeeting({source:'batch'}) で会議を先に作成（status=transcribing）。
+ *     これにより会議が即サイドバーに出て、離脱しても B3（EventBridge 完了検知）が
+ *     status を ready/failed へ進める（固まらない・完了通知が出る）。
+ *   - meetingId を transcribe へ渡してジョブ名に埋め込む（B3 が job→meeting を逆引き）。
+ *     得た jobName は会議に保存（離脱後に再開した時のワークベンチ fetch-on-open 用）。
+ *   - 完了まで滞在した場合は従来どおり編集ワークベンチへ遷移するが、createMeeting 済みの
+ *     meetingId を location.state で渡し、ワークベンチは二重作成せず再利用する。
+ *   - backend 未デプロイ／createMeeting 失敗時は meetingId 無しで従来の inline 経路に
+ *     フォールバック（壊れた会議行を作らない）。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useTranscribe from '../../hooks/useTranscribe';
+import useMeetingApi from '../../hooks/useMeetingApi';
 import {
   IcBack,
   IcUpload,
@@ -38,6 +44,10 @@ import '../styles/minutes-entry.css';
 const F = GX.minutes.file;
 
 const ACCEPT = '.mp3,.wav,.m4a,.mp4,.flac,.ogg,.webm,audio/*,video/*';
+
+const stripMeetingPrefix = (id: string) => id.replace(/^meeting#/, '');
+// Derive a default meeting title from the file name (drop the extension).
+const titleFromFile = (name: string) => name.replace(/\.[^.]+$/, '') || name;
 
 const fmtBytes = (n: number): string => {
   if (n >= 1024 * 1024 * 1024)
@@ -60,8 +70,13 @@ const fmtDuration = (totalSec: number): string => {
 
 const GxMinutesFilePage: React.FC = () => {
   const navigate = useNavigate();
-  const { loading, transcriptData, file, setFile, transcribe, clear } =
+  const { loading, transcriptData, file, setFile, transcribe, clear, jobName } =
     useTranscribe();
+  const meetingApi = useMeetingApi();
+
+  // 開始時に作成した会議の bare id（B3 結線・遷移時の再利用に使う）。
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const jobNameSavedRef = useRef(false);
 
   const [phase, setPhase] = useState<'setup' | 'processing'>('setup');
   const [dragOver, setDragOver] = useState(false);
@@ -105,12 +120,36 @@ const GxMinutesFilePage: React.FC = () => {
     [onPick]
   );
 
-  const onStart = useCallback(() => {
+  const onStart = useCallback(async () => {
     if (!file) return;
     setPhase('processing');
+    // B3: 会議を先に作成（status=transcribing）。失敗しても文字起こしは継続し、
+    // meetingId 無し＝従来の inline 経路にフォールバックする（壊れた行を作らない）。
+    let mid: string | undefined;
+    try {
+      const res = await meetingApi.createMeeting({
+        source: 'batch',
+        title: titleFromFile(file.name),
+      });
+      mid = stripMeetingPrefix(res.meeting.meetingId);
+      setMeetingId(mid);
+    } catch (e) {
+      console.log('createMeeting (batch) failed', e);
+    }
     // withRetry / FAILED トースト等のエラーハンドリングは useTranscribe が担保（§4.1）。
-    transcribe(speakerLabel, speakerLabel ? maxSpeakers : 1, 'ja-JP');
-  }, [file, transcribe, speakerLabel, maxSpeakers]);
+    transcribe(speakerLabel, speakerLabel ? maxSpeakers : 1, 'ja-JP', mid);
+  }, [file, transcribe, speakerLabel, maxSpeakers, meetingApi]);
+
+  // ジョブ開始で得た jobName を会議に保存（1度だけ）。離脱後に再開した時、ワークベンチが
+  // この jobName で getTranscription を取りに行く（fetch-on-open）。
+  useEffect(() => {
+    if (!jobName || !meetingId || jobNameSavedRef.current) return;
+    jobNameSavedRef.current = true;
+    meetingApi
+      .updateMeeting(meetingId, { jobName })
+      .catch((e) => console.log('updateMeeting jobName failed', e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobName, meetingId]);
 
   // 文字起こし完了（transcriptData 到着）で編集ワークベンチへ。
   useEffect(() => {
@@ -118,6 +157,8 @@ const GxMinutesFilePage: React.FC = () => {
     if (transcriptData?.transcripts) {
       navigate('/g/minutes/draft', {
         state: {
+          // 開始時に作成済みの会議を再利用させる（ワークベンチは二重 createMeeting しない）。
+          meetingId: meetingId ?? undefined,
           fileDraft: {
             source: 'batch',
             fileName: file?.name ?? '',
@@ -139,6 +180,7 @@ const GxMinutesFilePage: React.FC = () => {
     durationSec,
     speakerLabel,
     maxSpeakers,
+    meetingId,
   ]);
 
   const onBack = useCallback(() => navigate('/g/minutes'), [navigate]);

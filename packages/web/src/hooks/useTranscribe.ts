@@ -14,7 +14,10 @@ const useTranscribeState = create<{
   transcribe: (
     speakerLabel?: boolean,
     maxSpakers?: number,
-    languageCode?: string
+    languageCode?: string,
+    // When set (new-UI batch flow), links the Transcribe job to a meeting so the
+    // B3 completion detector can advance the meeting status. See cluster memo §6.
+    meetingId?: string
   ) => Promise<void>;
   jobName: string | null;
   status: string;
@@ -58,7 +61,8 @@ const useTranscribeState = create<{
   const transcribe = async (
     speakerLabel = false,
     maxSpeakers = 1,
-    languageCode?: string
+    languageCode?: string,
+    meetingId?: string
   ) => {
     const file = get().file;
     if (!file) return;
@@ -95,6 +99,7 @@ const useTranscribeState = create<{
         speakerLabel: speakerLabel,
         maxSpeakers: maxSpeakers,
         languageCode: languageCode,
+        meetingId: meetingId,
       });
 
       set(() => ({
@@ -144,6 +149,7 @@ const useTranscribe = () => {
     setFile,
     transcribe,
     clear,
+    jobName,
   };
 };
 export default useTranscribe;

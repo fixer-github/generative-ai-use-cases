@@ -22,6 +22,13 @@ export const GX = {
     autoBadge: '自動',
     emptyHistory: '会話履歴はまだありません',
   },
+  notifications: {
+    title: '通知',
+    ariaOpen: '通知を開く',
+    close: '閉じる',
+    empty: '通知はありません',
+    markAllRead: 'すべて既読',
+  },
   nav: {
     agents: 'AIエージェント',
     minutes: '議事録生成',
