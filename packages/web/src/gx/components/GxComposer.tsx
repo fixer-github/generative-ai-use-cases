@@ -104,7 +104,13 @@ const GxComposer: React.FC<Props> = ({
       clearTranscripts();
       startTranscription();
     }
-  }, [recording, content, stopTranscription, clearTranscripts, startTranscription]);
+  }, [
+    recording,
+    content,
+    stopTranscription,
+    clearTranscripts,
+    startTranscription,
+  ]);
 
   // モデル変更などで添付制約が変わったら検証する（現行 InputChatContent と同挙動）
   useEffect(() => {

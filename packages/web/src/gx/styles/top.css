@@ -86,7 +86,9 @@
 }
 .gx-scope .gx-top .gx-composer--hero:focus-within {
   border-color: transparent;
-  box-shadow: var(--glow-gaixer), 0 8px 30px rgba(22, 33, 62, 0.08);
+  box-shadow:
+    var(--glow-gaixer),
+    0 8px 30px rgba(22, 33, 62, 0.08);
 }
 
 /* ---- クイックボタン（よくはじめる作業） ---- */
@@ -283,7 +285,11 @@
       rgba(91, 14, 190, 0.04) 40%,
       transparent 70%
     ),
-    radial-gradient(80% 60% at 0% 100%, rgba(0, 184, 184, 0.08) 0%, transparent 60%),
+    radial-gradient(
+      80% 60% at 0% 100%,
+      rgba(0, 184, 184, 0.08) 0%,
+      transparent 60%
+    ),
     #fff;
   padding: 28px 28px 24px;
 }
@@ -384,7 +390,11 @@
   border-radius: var(--radius-lg);
   padding: 18px 20px 20px;
   background-image:
-    radial-gradient(120% 80% at 0% 0%, rgba(45, 91, 233, 0.04), transparent 50%),
+    radial-gradient(
+      120% 80% at 0% 0%,
+      rgba(45, 91, 233, 0.04),
+      transparent 50%
+    ),
     linear-gradient(#fff, #fff);
   animation: gxTopSgIn 280ms var(--easing-out);
 }

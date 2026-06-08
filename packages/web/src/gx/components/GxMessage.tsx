@@ -148,7 +148,6 @@ const GxMessage: React.FC<Props> = ({
         <div className={'gx-msg__bubble ' + (isUser ? 'user' : 'ai')}>
           {isAssistant ? (
             showEmptyPulse ? (
-              /* eslint-disable-next-line @shopify/jsx-no-hardcoded-content */
               <span className="gx-msg__pulse">▍</span>
             ) : (
               <Markdown prefix={`${idx}`}>

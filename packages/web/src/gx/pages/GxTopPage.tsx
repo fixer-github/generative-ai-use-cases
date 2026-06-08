@@ -316,12 +316,16 @@ const GxTopPage: React.FC = () => {
 
   const renderSuggestionCard = ({ agent, reason }: Suggestion) => {
     const origin = agent.createdBy === 'System' ? 'system' : 'user';
-    const tags = (agent.tags || []).filter((t) => t !== 'AgentCore').slice(0, 2);
+    const tags = (agent.tags || [])
+      .filter((t) => t !== 'AgentCore')
+      .slice(0, 2);
     return (
       <button
         key={agent.agentId}
         type="button"
-        className={'gx-top-sg-card ' + (origin === 'system' ? 'is-system' : 'is-user')}
+        className={
+          'gx-top-sg-card ' + (origin === 'system' ? 'is-system' : 'is-user')
+        }
         onClick={() => start(content, toTarget(agent))}>
         <GxAgentIdentity
           name={agent.name}
@@ -506,7 +510,9 @@ const GxTopPage: React.FC = () => {
             className="gx-top-tile feature"
             onClick={() => start(feature.content)}>
             <div className="head-row">
-              <div className="icon">{FeatureIcon && <FeatureIcon size={30} />}</div>
+              <div className="icon">
+                {FeatureIcon && <FeatureIcon size={30} />}
+              </div>
               <span className="badge">{GX.top.featureBadge}</span>
             </div>
             <div className="body" style={{ marginTop: 16, gap: 8 }}>
