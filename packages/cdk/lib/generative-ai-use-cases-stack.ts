@@ -179,6 +179,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPoolClient: auth.client,
       table: database.table,
       statsTable: database.statsTable,
+      agentObservabilityTable: database.agentObservabilityTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: agentsJson,
       guardrailIdentify: props.guardrailIdentifier,
@@ -509,7 +510,11 @@ export class GenerativeAiUseCasesStack extends Stack {
     });
 
     // Phase 4: DynamoDB PITR Export (daily at JST 04:30, UseCaseBuilder is conditional)
-    const ddbTables: dynamodb.ITable[] = [database.table, database.statsTable];
+    const ddbTables: dynamodb.ITable[] = [
+      database.table,
+      database.statsTable,
+      database.agentObservabilityTable,
+    ];
     if (useCaseBuilder) {
       ddbTables.push(useCaseBuilder.useCaseBuilderTable);
     }

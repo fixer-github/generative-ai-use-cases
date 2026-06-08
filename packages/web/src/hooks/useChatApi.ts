@@ -19,6 +19,10 @@ import {
   FindShareIdResponse,
   GetSharedChatResponse,
   Chat,
+  AgentObservabilityResponse,
+  AppendAgentLlmCallsRequest,
+  CompleteAgentRunRequest,
+  StartAgentRunRequest,
 } from 'generative-ai-use-cases';
 import {
   LambdaClient,
@@ -45,6 +49,24 @@ const useChatApi = () => {
     ): Promise<CreateMessagesResponse> => {
       const chatId = decomposeId(_chatId);
       const res = await http.post(`chats/${chatId}/messages`, req);
+      return res.data;
+    },
+    startAgentRun: async (
+      req: StartAgentRunRequest
+    ): Promise<AgentObservabilityResponse> => {
+      const res = await http.post('agent-observability/start-run', req);
+      return res.data;
+    },
+    completeAgentRun: async (
+      req: CompleteAgentRunRequest
+    ): Promise<AgentObservabilityResponse> => {
+      const res = await http.post('agent-observability/complete-run', req);
+      return res.data;
+    },
+    appendAgentLlmCalls: async (
+      req: AppendAgentLlmCallsRequest
+    ): Promise<AgentObservabilityResponse> => {
+      const res = await http.post('agent-observability/llm-calls', req);
       return res.data;
     },
     deleteChat: async (chatId: string) => {

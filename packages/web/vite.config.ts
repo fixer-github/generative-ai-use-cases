@@ -83,8 +83,8 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
   test: {
-    name: 'use-case-builder',
-    root: './tests/use-case-builder',
+    name: 'web',
+    root: './tests',
     environment: 'node',
     setupFiles: [],
   },

@@ -182,13 +182,25 @@ const AgentCorePage: React.FC = () => {
           ? uploadedFileObjects.map((uploadedFile) => uploadedFile.file)
           : undefined;
 
+      // Observability (cross-repo observability contract §3.1): generate a new agent_run_id per send.
+      // agent_id is the runtime name (URL param). selectedArn is only set after
+      // agentName resolves to a runtime, so decoding agentName is reliable here.
+      const agentRunId = uuidv4();
+      const runtimeName = agentName ? decodeURIComponent(agentName) : undefined;
+
       // Invoke agent runtime with content and files
       invokeAgentRuntime(
         selectedArn,
         sessionId,
         content,
         'DEFAULT',
-        filesToSend
+        filesToSend,
+        undefined, // userId
+        undefined, // mcpServers
+        runtimeName, // agentId = runtime name (observability agent_id)
+        undefined, // modelId
+        undefined, // codeExecutionEnabled
+        agentRunId // observability agent_run_id
       );
       setContent('');
       clearFiles();
@@ -206,6 +218,7 @@ const AgentCorePage: React.FC = () => {
     sessionId,
     clearFiles,
     uploadedFiles,
+    agentName,
   ]);
 
   // Handle reset

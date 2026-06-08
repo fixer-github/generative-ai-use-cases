@@ -32,6 +32,9 @@ module.exports = {
         // SendGrid email copy; not shipped, so i18n 警告の対象外とする。
         'scripts/preview-emails.ts',
         'scripts/send-test-mail.ts',
+        // SendGrid メールのレンダリング結果（日本語の本文・ラベル）を検証する
+        // ユニットテスト。アサーション文字列が日本語になるため i18n 警告の対象外とする。
+        'test/lambda/customEmailSender.test.ts',
       ],
       rules: {
         'i18nhelper/no-jp-string': 'off',

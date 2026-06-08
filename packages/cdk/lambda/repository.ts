@@ -355,6 +355,8 @@ export const batchCreateMessages = async (
         usecase: m.usecase,
         llmType: m.llmType ?? '',
         metadata: m.metadata,
+        ...(m.agentRunId && { agentRunId: m.agentRunId }),
+        ...(m.agentId && { agentId: m.agentId }),
       };
     }
   );
