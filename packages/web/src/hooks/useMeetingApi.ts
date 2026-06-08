@@ -5,8 +5,10 @@ import {
   FindMeetingByIdResponse,
   UpdateMeetingRequest,
   UpdateMeetingResponse,
+  GetMeetingAudioUploadUrlResponse,
 } from 'generative-ai-use-cases';
 import useHttp from './useHttp';
+import axios from 'axios';
 
 // Client for the meeting (minutes) workbench backend (/meetings). The
 // MeetingTable is the source of truth; create/update also write a Chat
@@ -52,6 +54,24 @@ const useMeetingApi = () => {
     },
     deleteMeeting: (meetingId: string) => {
       return http.delete<void>(`meetings/${meetingId}`);
+    },
+    // B7: get a presigned PUT URL, then upload the recorded audio blob directly
+    // to S3 (too large for the API body). The caller persists the returned
+    // audioKey via updateMeeting.
+    getAudioUploadUrl: async (
+      meetingId: string,
+      ext: string
+    ): Promise<GetMeetingAudioUploadUrlResponse> => {
+      const res = await http.post(`meetings/${meetingId}/audio-url`, { ext });
+      return res.data;
+    },
+    uploadAudio: (url: string, blob: Blob, contentType: string) => {
+      return axios({
+        method: 'PUT',
+        url,
+        headers: { 'Content-Type': contentType },
+        data: blob,
+      });
     },
   };
 };

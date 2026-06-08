@@ -28,6 +28,34 @@ const pcmEncodeChunk = (chunk: Buffer) => {
   return Buffer.from(buffer);
 };
 
+// Recorded audio captured in parallel with the live transcription, so the
+// workbench can play it back while editing (B7). The same MediaStream feeds
+// both Transcribe and the MediaRecorder; pause/resume drive both so the saved
+// audio timeline stays aligned with the transcript timestamps.
+export type RecordedAudio = { blob: Blob; mimeType: string; ext: string };
+
+const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+];
+
+const pickAudioMime = (): string => {
+  if (typeof MediaRecorder === 'undefined') return '';
+  for (const m of AUDIO_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+};
+
+const extForMime = (mime: string): string => {
+  if (mime.includes('mp4')) return 'mp4';
+  if (mime.includes('ogg')) return 'ogg';
+  return 'webm';
+};
+
 const region = import.meta.env.VITE_APP_REGION;
 const cognitoIdentityPoolProxyEndpoint = import.meta.env
   .VITE_APP_COGNITO_IDENTITY_POOL_PROXY_ENDPOINT;
@@ -51,6 +79,11 @@ const useMicrophone = () => {
   // Additive: existing callers that never use pause/resume are unaffected.
   const mediaStreamRef = useRef<MediaStream | undefined>(undefined);
   const [paused, setPaused] = useState(false);
+  // Parallel recorder (B7). Holds the chunks until collectAudio() assembles the
+  // blob; stopTranscription discards them (e.g. when the user navigates back).
+  const recorderRef = useRef<MediaRecorder | undefined>(undefined);
+  const chunksRef = useRef<Blob[]>([]);
+  const audioMimeRef = useRef<string>('');
   const [rawTranscripts, setRawTranscripts] = useState<
     {
       resultId: string;
@@ -124,23 +157,76 @@ const useMicrophone = () => {
     initTranscribeClient();
   }, [transcribeClient, initTranscribeClient]);
 
+  // Stop and discard the parallel recorder (no blob is kept). collectAudio()
+  // is the path that preserves the recording.
+  const discardRecorder = useCallback(() => {
+    const rec = recorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      try {
+        rec.stop();
+      } catch {
+        // already stopping
+      }
+    }
+    recorderRef.current = undefined;
+    chunksRef.current = [];
+  }, []);
+
   const stopTranscription = useCallback(() => {
     if (micStream) {
+      discardRecorder();
       micStream.stop();
       setRecording(false);
       setMicStream(undefined);
       mediaStreamRef.current = undefined;
       setPaused(false);
     }
-  }, [micStream]);
+  }, [micStream, discardRecorder]);
+
+  // Stop the recorder and resolve with the assembled audio blob (B7). Call this
+  // BEFORE stopTranscription so the recording is captured before teardown.
+  const collectAudio = useCallback((): Promise<RecordedAudio | null> => {
+    return new Promise((resolve) => {
+      const rec = recorderRef.current;
+      if (!rec || rec.state === 'inactive') {
+        resolve(null);
+        return;
+      }
+      rec.onstop = () => {
+        const chunks = chunksRef.current;
+        chunksRef.current = [];
+        recorderRef.current = undefined;
+        if (chunks.length === 0) {
+          resolve(null);
+          return;
+        }
+        const mimeType = audioMimeRef.current || rec.mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        resolve(
+          blob.size > 0 ? { blob, mimeType, ext: extForMime(mimeType) } : null
+        );
+      };
+      try {
+        rec.stop();
+      } catch {
+        resolve(null);
+      }
+    });
+  }, []);
 
   // Mute the mic without tearing down the stream (Transcribe receives silence).
+  // The recorder is paused too so the saved audio skips the muted span and its
+  // timeline stays aligned with the transcript timestamps.
   const pauseTranscription = useCallback(() => {
     const stream = mediaStreamRef.current;
     if (!stream) return;
     stream.getAudioTracks().forEach((track) => {
       track.enabled = false;
     });
+    const rec = recorderRef.current;
+    if (rec && rec.state === 'recording') rec.pause();
     setPaused(true);
   }, []);
 
@@ -150,6 +236,8 @@ const useMicrophone = () => {
     stream.getAudioTracks().forEach((track) => {
       track.enabled = true;
     });
+    const rec = recorderRef.current;
+    if (rec && rec.state === 'paused') rec.resume();
     setPaused(false);
   }, []);
 
@@ -337,6 +425,28 @@ const useMicrophone = () => {
       setPaused(false);
       mic.setStream(stream);
 
+      // Record the same stream in parallel for playback (B7). The MediaStream
+      // can feed both Transcribe and the recorder. Failure here must not break
+      // transcription, so the audio is simply not saved if recording fails.
+      try {
+        if (typeof MediaRecorder !== 'undefined') {
+          const mime = pickAudioMime();
+          const rec = mime
+            ? new MediaRecorder(stream, { mimeType: mime })
+            : new MediaRecorder(stream);
+          audioMimeRef.current = rec.mimeType || mime;
+          chunksRef.current = [];
+          rec.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+          };
+          recorderRef.current = rec;
+          rec.start(1000); // 1s timeslice so chunks flush periodically
+        }
+      } catch (e) {
+        console.log('MediaRecorder init failed (audio will not be saved):', e);
+        recorderRef.current = undefined;
+      }
+
       setRecording(true);
       await startStream(
         mic,
@@ -360,6 +470,7 @@ const useMicrophone = () => {
         }
       }
     } finally {
+      discardRecorder();
       mic.stop();
       setRecording(false);
       setMicStream(undefined);
@@ -375,6 +486,7 @@ const useMicrophone = () => {
   return {
     startTranscription,
     stopTranscription,
+    collectAudio,
     pauseTranscription,
     resumeTranscription,
     paused,

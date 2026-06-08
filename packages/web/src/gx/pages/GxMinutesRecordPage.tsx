@@ -123,6 +123,7 @@ const GxMinutesRecordPage: React.FC = () => {
   const {
     startTranscription,
     stopTranscription,
+    collectAudio,
     pauseTranscription,
     resumeTranscription,
     paused,
@@ -195,7 +196,10 @@ const GxMinutesRecordPage: React.FC = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns.length, partialText, markers.length]);
 
-  const onStop = useCallback(() => {
+  const onStop = useCallback(async () => {
+    // Collect the parallel recording (B7) BEFORE tearing down the mic stream,
+    // then hand it to the workbench via navigation state for S3 upload.
+    const audio = await collectAudio();
     stopTranscription();
     navigate('/g/minutes/draft', {
       state: {
@@ -205,10 +209,11 @@ const GxMinutesRecordPage: React.FC = () => {
           turns,
           markers,
           speakerLabel: true,
+          audio: audio ?? undefined,
         },
       },
     });
-  }, [stopTranscription, navigate, elapsed, turns, markers]);
+  }, [collectAudio, stopTranscription, navigate, elapsed, turns, markers]);
 
   const onBack = useCallback(() => {
     stopTranscription();

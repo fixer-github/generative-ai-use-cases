@@ -845,6 +845,16 @@ export class Api extends Construct {
       enforceSSL: true,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
     });
+    // Recorded meeting audio is PUT directly from the browser via a presigned
+    // URL, then GET (presigned) for playback. Mirrors the transcribe audio
+    // bucket's CORS so no new posture is introduced. See Phase 2 memo B7.
+    meetingBucket.addCorsRule({
+      allowedOrigins: ['*'],
+      allowedMethods: [HttpMethods.PUT, HttpMethods.GET],
+      allowedHeaders: ['*'],
+      exposedHeaders: [],
+      maxAge: 3000,
+    });
 
     const createMeetingFunction = new NodejsFunction(this, 'CreateMeeting', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -921,6 +931,24 @@ export class Api extends Construct {
     meetingTable.grantReadWriteData(deleteMeetingFunction);
     table.grantReadWriteData(deleteMeetingFunction);
     meetingBucket.grantReadWrite(deleteMeetingFunction);
+
+    // Presigned PUT URL for the recorded audio (B7). The blob is uploaded
+    // directly from the browser to the meeting bucket; only write is needed.
+    const getMeetingAudioUploadUrlFunction = new NodejsFunction(
+      this,
+      'GetMeetingAudioUploadUrl',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/getMeetingAudioUploadUrl.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MEETING_BUCKET_NAME: meetingBucket.bucketName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    meetingBucket.grantWrite(getMeetingAudioUploadUrlFunction);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -1309,6 +1337,15 @@ export class Api extends Construct {
       new LambdaIntegration(deleteMeetingFunction),
       commonAuthorizerProps
     );
+
+    // POST: /meetings/{meetingId}/audio-url (presigned PUT URL for audio, B7)
+    meetingResource
+      .addResource('audio-url')
+      .addMethod(
+        'POST',
+        new LambdaIntegration(getMeetingAudioUploadUrlFunction),
+        commonAuthorizerProps
+      );
 
     // Image generation API routes (conditional)
     if (generateImageFunction) {

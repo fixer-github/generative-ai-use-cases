@@ -119,6 +119,12 @@ const GxMinutesWorkbenchPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const lastSavedRev = useRef(-1);
 
+  // --- 録音音声（B7：聞き返し） ---
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const objectUrlRef = useRef<string | null>(null); // 自前生成した URL のみ revoke
+  const audioUploadedRef = useRef(false);
+
   // --- 議事録（手動生成） ---
   const [minutes, setMinutes] = useState<MeetingMinutesDoc | null>(null);
   const [gen, setGen] = useState<GenStatus>('empty');
@@ -184,9 +190,23 @@ const GxMinutesWorkbenchPage: React.FC = () => {
     setDurationSec(init.durationSec);
     setCreatedMs(Date.now());
     lastSavedRev.current = -1; // 未保存（最初の保存を促す）
+    // 録音音声があれば即時にローカル URL で再生可能にする（S3 往復を待たない）。
+    if (d && d.source === 'mic' && d.audio) {
+      const url = URL.createObjectURL(d.audio.blob);
+      objectUrlRef.current = url;
+      setAudioUrl(url);
+    }
     setInitialized(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDraft, initialized]);
+
+  // 自前生成したオブジェクト URL の後始末（presigned URL は対象外）。
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    },
+    []
+  );
 
   // ドラフトモード：会議エンティティを1度だけ作成（status は最初の保存で ready に）。
   useEffect(() => {
@@ -227,6 +247,8 @@ const GxMinutesWorkbenchPage: React.FC = () => {
     setTitle(m.title || W.defaultTitle);
     setCreatedMs(Number(m.createdDate) || undefined);
     setDurationSec(found.transcript?.durationSec);
+    audioUploadedRef.current = true; // 既存会議は再アップロード不要
+    if (found.audioUrl) setAudioUrl(found.audioUrl);
     if (found.minutes) {
       setMinutes(found.minutes);
       setGen('ready');
@@ -271,6 +293,39 @@ const GxMinutesWorkbenchPage: React.FC = () => {
     const id = setTimeout(saveTranscript, 1200);
     return () => clearTimeout(id);
   }, [initialized, meetingId, st.rev, saveTranscript]);
+
+  // 録音音声の S3 アップロード（B7）：会議作成後に1度だけ。署名URL→直PUT→audioKey 保存。
+  useEffect(() => {
+    if (!meetingId || audioUploadedRef.current) return;
+    const d = draftRef.current;
+    const audio = d && d.source === 'mic' ? d.audio : undefined;
+    if (!audio) return;
+    audioUploadedRef.current = true;
+    (async () => {
+      try {
+        const { url, audioKey } = await api.getAudioUploadUrl(
+          meetingId,
+          audio.ext
+        );
+        await api.uploadAudio(url, audio.blob, audio.mimeType);
+        await api.updateMeeting(meetingId, { audioKey });
+      } catch (e) {
+        // backend 未デプロイ等：アップロード失敗。ローカル URL での再生は継続。
+        console.log('audio upload failed', e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meetingId]);
+
+  // タイムスタンプ／根拠リンクから音声を該当時刻へシークして再生（聞き返し）。
+  const seekTo = useCallback((sec: number) => {
+    const el = audioRef.current;
+    if (!el || !isFinite(sec)) return;
+    el.currentTime = Math.max(0, sec);
+    el.play().catch(() => {
+      // 自動再生がブロックされた場合はシークのみ（ユーザーが再生を押せる）。
+    });
+  }, []);
 
   const saveMinutes = useCallback(
     async (doc: MeetingMinutesDoc) => {
@@ -593,7 +648,19 @@ const GxMinutesWorkbenchPage: React.FC = () => {
                         </div>
                       )}
                     </span>
-                    <span className="gx-me-ts">{t.t}</span>
+                    <span
+                      className={'gx-me-ts' + (audioUrl ? ' seek' : '')}
+                      title={audioUrl ? W.seekTitle : undefined}
+                      onClick={
+                        audioUrl
+                          ? (e) => {
+                              e.stopPropagation();
+                              seekTo(t.at);
+                            }
+                          : undefined
+                      }>
+                      {t.t}
+                    </span>
                     {t.est && (
                       <span className="gx-me-est">
                         <IcInfo size={9} />
@@ -772,8 +839,17 @@ const GxMinutesWorkbenchPage: React.FC = () => {
         </section>
       </div>
 
-      {/* 下部：話者凡例（波形・再生は B7 後／§2.5 縮退） */}
+      {/* 下部：録音音声プレーヤー（B7・聞き返し）＋話者凡例（波形色分けは §2.5 縮退） */}
       <div className="gx-meA__foot" onClick={(e) => e.stopPropagation()}>
+        {audioUrl && (
+          <audio
+            ref={audioRef}
+            className="gx-meA__player"
+            src={audioUrl}
+            controls
+            preload="metadata"
+          />
+        )}
         <div className="gx-meA__legend">
           <span className="lb">話者</span>
           {st.speakers.map((s) => (

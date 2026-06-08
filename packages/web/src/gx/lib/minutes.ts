@@ -89,6 +89,9 @@ export type RecordDraft = {
   turns: { id: string; spk?: string; atSec: number; text: string }[];
   markers?: { id: string; atSec: number; afterCount: number }[];
   speakerLabel?: boolean;
+  // Recorded audio captured in parallel (B7), uploaded to S3 from the workbench
+  // once the meeting is created. Carried in-memory via navigation state.
+  audio?: { blob: Blob; mimeType: string; ext: string };
 };
 
 // fileDraft（batch）：生 Transcript[]（B4 で startTime/endTime 入り）。

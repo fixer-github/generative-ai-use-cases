@@ -79,6 +79,23 @@ export type FindMeetingByIdResponse = {
   // these on open; they are not stored on the DynamoDB item.
   transcript?: MeetingTranscript | null;
   minutes?: MeetingMinutesDoc | null;
+  // Presigned GET URL for the recorded audio (when audioKey is set), so the
+  // workbench can play it back (re-listening while editing the transcript). The
+  // audio body itself is never inlined. See Phase 2 memo B7.
+  audioUrl?: string | null;
+};
+
+// Presigned PUT URL for uploading a meeting's recorded audio directly to S3
+// (the audio blob is too large to pass through the API/Lambda body, so we sign
+// a URL the browser PUTs to, mirroring the batch file-upload flow). See B7.
+export type GetMeetingAudioUploadUrlRequest = {
+  // File extension derived from the recorded MIME type (webm | mp4 | ogg).
+  ext?: string;
+};
+
+export type GetMeetingAudioUploadUrlResponse = {
+  url: string;
+  audioKey: string;
 };
 
 // DynamoDB-attribute patch, plus optional S3 bodies. When `transcript` /

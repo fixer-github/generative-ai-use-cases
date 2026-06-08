@@ -230,6 +230,7 @@ export const GX = {
       transcriptTitle: '文字起こし',
       turnCount: (n: number) => `${n} 発話`,
       search: '検索',
+      seekTitle: 'この時点の音声を再生',
       tipSplit: 'ここで分割',
       tipMerge: '次の発話と結合',
       tipAdd: '下に発話を追加',

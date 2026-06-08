@@ -552,7 +552,7 @@
   box-shadow: var(--glow-gaixer);
 }
 
-/* ---- 下部：話者凡例（波形・再生は B7 録音音源保存後／§2.5 縮退） ---- */
+/* ---- 下部：録音音声プレーヤー（B7・聞き返し）＋話者凡例（波形色分けは §2.5 縮退） ---- */
 .gx-scope .gx-meA__foot {
   display: flex;
   align-items: center;
@@ -560,6 +560,10 @@
   padding: 11px 24px;
   background: var(--navy-700);
   color: #fff;
+}
+.gx-scope .gx-meA__player {
+  height: 34px;
+  flex-shrink: 0;
 }
 .gx-scope .gx-meA__legend {
   display: flex;
