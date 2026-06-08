@@ -2,6 +2,7 @@ export * from './agent';
 export * from './base';
 export * from './message';
 export * from './chat';
+export * from './meeting';
 export * from './protocol';
 export * from './image';
 export * from './video';

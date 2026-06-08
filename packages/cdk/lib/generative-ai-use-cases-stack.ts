@@ -156,6 +156,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     const api = new Api(this, 'API', {
       modelRegion: params.modelRegion,
       modelIds: params.modelIds,
+      agentSuggestModelId: params.agentSuggestModelId,
       imageGenerationModelIds: params.imageGenerationModelIds,
       videoGenerationModelIds: params.videoGenerationModelIds,
       videoBucketRegionMap: props.videoBucketRegionMap,
@@ -180,6 +181,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       table: database.table,
       statsTable: database.statsTable,
       agentObservabilityTable: database.agentObservabilityTable,
+      meetingTable: database.meetingTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: agentsJson,
       guardrailIdentify: props.guardrailIdentifier,
@@ -514,6 +516,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       database.table,
       database.statsTable,
       database.agentObservabilityTable,
+      database.meetingTable,
     ];
     if (useCaseBuilder) {
       ddbTables.push(useCaseBuilder.useCaseBuilderTable);

@@ -53,6 +53,10 @@ const baseStackInputSchema = z.object({
       'us.amazon.nova-micro-v1:0',
       'us.deepseek.r1-v1:0',
     ]),
+  // Model used by the new-UI top-page agent auto-suggestion endpoint
+  // (/predict/agent-suggest). Required, with NO fallback to defaultModel:
+  // this is an explicit, intentional choice of a cheap/fast judge model.
+  agentSuggestModelId: z.string(),
   imageGenerationEnabled: z.boolean().default(true),
   imageGenerationModelIds: z
     .array(

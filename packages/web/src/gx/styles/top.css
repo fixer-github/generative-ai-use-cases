@@ -1,0 +1,668 @@
+/* ===========================================================================
+   GaiXer 新UI — トップ（Bento ランチャー v1 / Phase 1 step 1）
+   ---------------------------------------------------------------------------
+   デザインバンドル project/app/OptionB.jsx の optB-* を gx-top-* へ改名移植。
+   着工方針：`Phase1_トップページ_着工方針メモ.md`。
+
+   本ファイルの範囲（step 1 = ランチャー下半分）：
+     hero（eyebrow/title/sub）・コンポーザのトップ向け枠付け・クイックボタン・
+     フィルタpill・Bento（feature/normal/wide タイル）・セクション見出し・フッタ。
+
+   範囲外（後続 increment）：
+     - エージェント自動提案エリア（optB-sg*）= 判定エンドポイント（Nova Lite）待ち。
+     - 利用統計タイル（132/2.4分/4.6）と頻度ソート = 非表示（ユーザー指示・メモ §4.3(あ)）。
+
+   方針：全セレクタ .gx-scope 配下／色・影・角丸・イージングはトークン参照のみ。
+   ============================================================================ */
+
+/* ルート：メイン領域を満たして内部スクロール（agents と同方式）。 */
+.gx-scope .gx-top {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: linear-gradient(
+    180deg,
+    #fafbfd 0%,
+    var(--gray-100) 600px,
+    var(--gray-100) 100%
+  );
+}
+
+/* ---- ヒーロー ---- */
+.gx-scope .gx-top-hero {
+  padding: 36px 40px 24px;
+}
+.gx-scope .gx-top-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  font: 500 11.5px / 1.4 var(--font-jp);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.gx-scope .gx-top-eyebrow .badge {
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+.gx-scope .gx-top-title {
+  margin: 14px 0 4px;
+  font: 700 36px / 1.25 var(--font-jp);
+  color: var(--navy-700);
+  letter-spacing: 0.005em;
+}
+.gx-scope .gx-top-sub {
+  margin: 0 0 22px;
+  color: var(--fg-3);
+  font: 400 14.5px / var(--lh-normal) var(--font-jp);
+}
+
+/* ---- コンポーザ（共有 GxComposer hero をトップ向けに枠付け） ----
+   グラデ枠（プロト optB-composer）はチャット空状態へ波及させないため
+   .gx-top 配下に限定して上書きする（共有部品本体は components.css のまま）。 */
+.gx-scope .gx-top .gx-composer-wrap {
+  padding: 0;
+  background: transparent;
+}
+.gx-scope .gx-top .gx-composer--hero {
+  /* プロト optB-composer はヒーロー内で幅いっぱい（max-width 無し）＝下の Bento と同幅。
+     共有部品側の幅上限（min(680px) / max-width:760px）をトップでは解除する。 */
+  width: 100%;
+  max-width: none;
+  border: 2px solid transparent;
+  background-image: linear-gradient(#fff, #fff), var(--accent-gaixer-grad);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow:
+    0 8px 30px rgba(22, 33, 62, 0.06),
+    0 2px 4px rgba(22, 33, 62, 0.04);
+}
+.gx-scope .gx-top .gx-composer--hero:focus-within {
+  border-color: transparent;
+  box-shadow: var(--glow-gaixer), 0 8px 30px rgba(22, 33, 62, 0.08);
+}
+
+/* ---- クイックボタン（よくはじめる作業） ---- */
+.gx-scope .gx-top-quicks {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.gx-scope .gx-top-quicks .label {
+  font: 600 11.5px / 1 var(--font-sans);
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.gx-scope .gx-top-quick {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  font: 400 12.5px / 1.4 var(--font-jp);
+  color: var(--fg-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 140ms var(--easing-out);
+}
+.gx-scope .gx-top-quick:hover {
+  transform: translateY(-1px);
+  border-color: var(--navy-300);
+  box-shadow: var(--elev-1);
+}
+
+/* ---- フィルタバー（頻度ソートは出さない＝pillのみ） ---- */
+.gx-scope .gx-top-filter {
+  margin: 28px 40px 16px;
+  display: flex;
+  align-items: center;
+}
+.gx-scope .gx-top-filter-pills {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  flex-wrap: wrap;
+}
+.gx-scope .gx-top-pill {
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  font: 500 12.5px / 1 var(--font-jp);
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--easing-out);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+}
+.gx-scope .gx-top-pill:hover {
+  color: var(--navy-700);
+}
+.gx-scope .gx-top-pill.active {
+  background: var(--navy-700);
+  color: #fff;
+}
+.gx-scope .gx-top-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+}
+
+/* ---- セクション見出し ---- */
+.gx-scope .gx-top-section-title {
+  margin: 0 40px 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.gx-scope .gx-top-section-title h2 {
+  margin: 0;
+  font: 700 18px / 1.3 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-top-section-title .meta {
+  color: var(--fg-3);
+  font: 400 12px / 1 var(--font-sans);
+}
+
+/* ---- Bento ---- */
+.gx-scope .gx-top-bento {
+  margin: 0 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 132px;
+  gap: 14px;
+}
+@media (max-width: 1100px) {
+  .gx-scope .gx-top-bento {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .gx-scope .gx-top-bento {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* タイル（button をカードとして使うためのリセット込み） */
+.gx-scope .gx-top-tile {
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-jp);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 220ms var(--easing-out);
+}
+.gx-scope .gx-top-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-3);
+  border-color: var(--navy-200);
+}
+.gx-scope .gx-top-tile .icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--gray-50);
+  display: grid;
+  place-items: center;
+  color: var(--navy-700);
+  transition: all 180ms var(--easing-out);
+}
+.gx-scope .gx-top-tile:hover .icon {
+  background: var(--navy-700);
+  color: #fff;
+}
+.gx-scope .gx-top-tile .title {
+  font: 600 14.5px / 1.4 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-top-tile .one {
+  font: 400 12.5px / 1.5 var(--font-jp);
+  color: var(--fg-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gx-scope .gx-top-tile .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gx-scope .gx-top-tile .body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+.gx-scope .gx-top-tile .corner-time {
+  font: 400 10.5px / 1 var(--font-jp);
+  color: var(--fg-4);
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* Feature（2×2。統計ブロックは出さない） */
+.gx-scope .gx-top-tile.feature {
+  grid-column: span 2;
+  grid-row: span 2;
+  background:
+    radial-gradient(
+      120% 80% at 100% 0%,
+      rgba(45, 91, 233, 0.1) 0%,
+      rgba(91, 14, 190, 0.04) 40%,
+      transparent 70%
+    ),
+    radial-gradient(80% 60% at 0% 100%, rgba(0, 184, 184, 0.08) 0%, transparent 60%),
+    #fff;
+  padding: 28px 28px 24px;
+}
+.gx-scope .gx-top-tile.feature .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(22, 33, 62, 0.06);
+  color: var(--navy-700);
+  font: 600 11px / 1 var(--font-jp);
+  letter-spacing: 0.06em;
+  width: max-content;
+}
+.gx-scope .gx-top-tile.feature .title {
+  font-size: 22px;
+  line-height: 1.4;
+}
+.gx-scope .gx-top-tile.feature .one {
+  font-size: 13.5px;
+  line-height: 1.65;
+  -webkit-line-clamp: 3;
+}
+.gx-scope .gx-top-tile.feature .icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+}
+.gx-scope .gx-top-tile.feature .head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.gx-scope .gx-top-tile.feature .open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--navy-700);
+  font: 600 13px / 1 var(--font-jp);
+  margin-top: 12px;
+}
+
+/* Wide（span-2 単段） */
+.gx-scope .gx-top-tile.wide {
+  grid-column: span 2;
+}
+.gx-scope .gx-top-tile.wide .row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.gx-scope .gx-top-tile.wide .icon {
+  width: 46px;
+  height: 46px;
+}
+
+/* ---- フッタ（プロト optB-foot：静的な動作表示） ---- */
+.gx-scope .gx-top-foot {
+  margin: 24px 40px 48px;
+  color: var(--fg-3);
+  font: 400 11.5px / 1.6 var(--font-jp);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gx-scope .gx-top-foot .pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--state-success);
+  box-shadow: 0 0 0 0 rgba(16, 145, 90, 0.4);
+  animation: gxTopPulse 2s infinite;
+  flex: 0 0 6px;
+}
+@keyframes gxTopPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 145, 90, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 145, 90, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 145, 90, 0);
+  }
+}
+
+/* ===========================================================================
+   エージェント自動提案エリア（プロト optB-sg* の移植）
+   入力を止めると判定エンドポイント /predict/agent-suggest を呼ぶ。
+   状態：loading（skeleton）→ ready（カード）／ empty（slim notice）。
+   ========================================================================== */
+.gx-scope .gx-top-sg {
+  margin: 18px 40px 4px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px 20px;
+  background-image:
+    radial-gradient(120% 80% at 0% 0%, rgba(45, 91, 233, 0.04), transparent 50%),
+    linear-gradient(#fff, #fff);
+  animation: gxTopSgIn 280ms var(--easing-out);
+}
+@keyframes gxTopSgIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.gx-scope .gx-top-sg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.gx-scope .gx-top-sg-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13.5px / 1.4 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-top-sg-title .spark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  flex: 0 0 22px;
+}
+.gx-scope .gx-top-sg-title em {
+  font-style: normal;
+  color: var(--fg-3);
+  font-weight: 500;
+  font-size: 12px;
+  margin-left: 4px;
+}
+.gx-scope .gx-top-sg-skip {
+  font: 400 12px / 1 var(--font-jp);
+  color: var(--fg-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  flex: 0 0 auto;
+}
+.gx-scope .gx-top-sg-skip:hover {
+  color: var(--navy-700);
+}
+
+.gx-scope .gx-top-sg-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1100px) {
+  .gx-scope .gx-top-sg-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.gx-scope .gx-top-sg-card {
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-jp);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--dur-base) var(--easing-out);
+}
+.gx-scope .gx-top-sg-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--navy-300);
+  box-shadow: var(--elev-3);
+}
+/* ホバー時のアイコン枠（GxAgentIdentity の枠）の見え方 */
+.gx-scope .gx-top-sg-card:hover .gx-agent-id__icon {
+  background: var(--navy-700);
+  color: #fff;
+}
+.gx-scope .gx-top-sg-card.is-system:hover .gx-agent-id__icon {
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+}
+.gx-scope .gx-top-sg-reason {
+  font: 400 12px / 1.55 var(--font-jp);
+  color: var(--fg-2);
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.gx-scope .gx-top-sg-reason .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-gaixer-mid);
+  margin-top: 6px;
+  flex: 0 0 6px;
+}
+.gx-scope .gx-top-sg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  gap: 8px;
+}
+.gx-scope .gx-top-sg-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.gx-scope .gx-top-sg-tag {
+  font: 400 10.5px / 1.4 var(--font-jp);
+  color: var(--fg-3);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+}
+.gx-scope .gx-top-sg-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--navy-700);
+  color: #fff;
+  font: 600 12px / 1 var(--font-jp);
+  flex: 0 0 auto;
+  transition: all var(--dur-fast) var(--easing-out);
+}
+.gx-scope .gx-top-sg-card:hover .gx-top-sg-send {
+  background: var(--accent-gaixer-grad);
+  box-shadow: var(--glow-gaixer);
+}
+
+/* loading：spark パルス＋ドット */
+.gx-scope .gx-top-sg.is-loading .gx-top-sg-title .spark {
+  animation: gxTopSgPulse 1.4s ease-in-out infinite;
+}
+@keyframes gxTopSgPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 14, 190, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(91, 14, 190, 0.18);
+  }
+}
+.gx-scope .gx-top-sg-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+.gx-scope .gx-top-sg-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-gaixer-mid);
+  animation: gxTopSgBounce 1.2s ease-in-out infinite;
+}
+.gx-scope .gx-top-sg-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.gx-scope .gx-top-sg-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes gxTopSgBounce {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* skeleton（loading 中のカード。規約：シマー1種類） */
+.gx-scope .gx-top-sg-card.is-skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.gx-scope .gx-top-sg-skel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gx-scope .gx-top-sg-skel-id {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+.gx-scope .gx-top-skelbar {
+  display: block;
+  background: linear-gradient(
+    100deg,
+    var(--gray-100) 30%,
+    var(--gray-200) 50%,
+    var(--gray-100) 70%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-xs);
+  animation: gxTopShimmer 1.4s linear infinite;
+}
+@keyframes gxTopShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.gx-scope .gx-top-skelbar.skel-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  flex: 0 0 38px;
+}
+.gx-scope .gx-top-skelbar.skel-name {
+  height: 12px;
+  width: 70%;
+}
+.gx-scope .gx-top-skelbar.skel-creator {
+  height: 9px;
+  width: 55%;
+}
+.gx-scope .gx-top-skelbar.skel-reason {
+  height: 36px;
+  border-radius: 8px;
+}
+.gx-scope .gx-top-skelbar.skel-tag {
+  height: 14px;
+  width: 64px;
+  border-radius: var(--radius-pill);
+}
+.gx-scope .gx-top-skelbar.skel-btn {
+  height: 22px;
+  width: 110px;
+  border-radius: var(--radius-pill);
+}
+
+/* empty（合致なし）：slim な inline 通知 */
+.gx-scope .gx-top-sg-empty {
+  margin: 12px 40px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font: 400 12.5px / 1.5 var(--font-jp);
+  color: var(--fg-2);
+}
+.gx-scope .gx-top-sg-empty .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--state-warning);
+  flex: 0 0 8px;
+}
+.gx-scope .gx-top-sg-empty b {
+  color: var(--navy-700);
+  font-weight: 600;
+}

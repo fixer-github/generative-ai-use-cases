@@ -38,6 +38,7 @@ import GxMessage from '../components/GxMessage';
 import { IcFiles } from '../components/icons';
 import { GX } from '../strings';
 import { GxChatStartContext } from '../types';
+import '../styles/components.css';
 import '../styles/chat.css';
 
 const fileLimit: FileLimit = {
@@ -259,6 +260,7 @@ const GxChatPage: React.FC = () => {
       canStop={writing}
       disabled={loading && !writing}
       autoFocus={showEmpty}
+      mic
       fileUpload={fileUpload}
       accept={accept}
       fileLimit={fileLimit}

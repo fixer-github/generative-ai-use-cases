@@ -137,3 +137,236 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* =====================  GxComposer（統合コンポーザ・最優先共有部品）  =====================
+   移植規約 §3.2(1)。チャット（inline）とトップ（hero）で共有するため、チャット第1号で
+   chat.css に同梱していた本体スタイルを §9.2 の規約どおりここへ移設した。
+   variant: inline（会話下部に常駐）/ hero（トップ・空状態の大型）。
+   ページ固有の枠付け（チャット空状態の幅・トップのグラデ枠）は各画面CSSで上書きする。 */
+.gx-scope .gx-composer-wrap {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  background: var(--gray-100);
+}
+.gx-scope .gx-composer {
+  max-width: 760px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 10px 10px 10px 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  box-shadow: var(--elev-1);
+  transition:
+    border-color var(--dur-base) var(--easing-out),
+    box-shadow var(--dur-base) var(--easing-out);
+}
+.gx-scope .gx-composer:focus-within {
+  border-color: var(--indigo-500);
+  box-shadow:
+    0 0 0 3px rgba(45, 91, 233, 0.18),
+    var(--elev-2);
+}
+/* hero バリアント（トップ・空状態）：プロト optB-composer の縦2段カード。
+   上段＝テキスト入力 / 下段＝[ツール行 ／ 送信] の actions 行。
+   グラデ枠（border-image トリック）と全体幅は top.css 側で付ける。 */
+.gx-scope .gx-composer--hero {
+  width: min(680px, 100%);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-radius: 18px;
+  box-shadow: var(--elev-2);
+}
+/* 下段：ツール行（左）と送信（右）を両端寄せ */
+.gx-scope .gx-composer--hero .gx-composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gx-scope .gx-composer--hero .gx-composer__tools {
+  gap: 6px;
+  padding-bottom: 0;
+}
+/* hero のツールはラベル付きピル（プロト optB-tool） */
+.gx-scope .gx-composer--hero .gx-composer__tool {
+  width: auto;
+  height: auto;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--gray-50);
+  color: var(--fg-3);
+  font: 500 var(--fs-12) / 1 var(--font-sans);
+}
+.gx-scope .gx-composer--hero .gx-composer__tool:hover {
+  background: var(--gray-50);
+  color: var(--navy-700);
+  border-color: var(--navy-300);
+}
+.gx-scope .gx-composer--hero .gx-composer__tool-label {
+  white-space: nowrap;
+}
+
+.gx-scope .gx-composer__tools {
+  display: flex;
+  gap: 2px;
+  padding-bottom: 2px;
+}
+.gx-scope .gx-composer__tool {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-3);
+}
+.gx-scope .gx-composer__tool:hover {
+  background: var(--gray-100);
+  color: var(--fg-1);
+}
+.gx-scope .gx-composer__tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* 録音中のマイク：色＋点滅で「録音中」を明示（既存の録音フィードバックに合わせる） */
+.gx-scope .gx-composer__tool--recording,
+.gx-scope .gx-composer__tool--recording:hover {
+  color: var(--danger-600, #dc2626);
+  background: var(--danger-50, #fef2f2);
+  animation: gx-mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes gx-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.gx-scope .gx-composer__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font: 400 var(--fs-14) / 1.5 var(--font-jp);
+  color: var(--fg-1);
+  padding: 6px 0;
+  max-height: 220px;
+}
+.gx-scope .gx-composer__input::placeholder {
+  color: var(--fg-4);
+}
+/* hero の入力欄：プロト optB textarea（15px / 1.6・navy・min-height 56px） */
+.gx-scope .gx-composer--hero .gx-composer__input {
+  width: 100%;
+  font: 400 15px / 1.6 var(--font-jp);
+  color: var(--navy-700);
+  min-height: 56px;
+  padding: 0;
+}
+
+.gx-scope .gx-composer__send {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--navy-700);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast) var(--easing-out);
+}
+.gx-scope .gx-composer__send:hover {
+  background: var(--navy-800);
+}
+.gx-scope .gx-composer__send:disabled {
+  background: var(--gray-300);
+  cursor: not-allowed;
+}
+.gx-scope .gx-composer__send--stop {
+  background: var(--danger-500);
+}
+.gx-scope .gx-composer__send--stop:hover {
+  background: var(--red-600);
+}
+/* hero の送信：プロト optB-send（グラデのピル「生成をはじめる →」） */
+.gx-scope .gx-composer--hero .gx-composer__send {
+  width: auto;
+  height: auto;
+  padding: 9px 18px 9px 18px;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  font: 600 var(--fs-13) / 1 var(--font-sans);
+  background: var(--accent-gaixer-grad);
+  box-shadow: var(--glow-gaixer);
+}
+.gx-scope .gx-composer--hero .gx-composer__send:hover {
+  box-shadow: var(--glow-gaixer);
+  filter: brightness(1.03);
+}
+/* 送信が無効（未入力）でもグラデのまま薄く見せる（プロト踏襲・常時CTA） */
+.gx-scope .gx-composer--hero .gx-composer__send:disabled {
+  background: var(--accent-gaixer-grad);
+  opacity: 0.55;
+}
+
+/* 添付ファイルのプレビュー（コンポーザ上部） */
+.gx-scope .gx-composer__files {
+  max-width: 760px;
+  margin: 0 auto 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gx-scope .gx-composer--hero ~ .gx-composer__files,
+.gx-scope .gx-composer__files--hero {
+  max-width: min(680px, 100%);
+}
+.gx-scope .gx-composer__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--gray-100);
+  border: 1px solid var(--border-subtle);
+  font: 500 var(--fs-12) / 1 var(--font-sans);
+  color: var(--fg-1);
+  max-width: 240px;
+}
+.gx-scope .gx-composer__file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gx-scope .gx-composer__file-x {
+  display: inline-flex;
+  color: var(--fg-4);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.gx-scope .gx-composer__file-x:hover {
+  color: var(--danger-500);
+}
+.gx-scope .gx-composer__error {
+  max-width: 760px;
+  margin: 0 auto 6px;
+  font: 500 var(--fs-12) / 1.4 var(--font-sans);
+  color: var(--danger-500);
+}

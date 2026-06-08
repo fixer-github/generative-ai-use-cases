@@ -1,0 +1,206 @@
+/* ===========================================================================
+   GaiXer 新UI — 議事録ワークベンチ：入口「方法を選ぶ」（MChoose 移植）
+   ---------------------------------------------------------------------------
+   デザインバンドル project/app/MChoose.jsx の mch-* を gx-mch-* へ改名移植。
+   ・全セレクタ .gx-scope 配下／トークン参照のみ／生 hex は対応トークンへ寄せる。
+   ・プロトの .app-frame/.main/.mch-main は新シェル（GxLayout の gx-main）が担うため
+     持ち込まない。ページルートは他画面（gx-agents 等）と同じ inset:0 + 内部スクロール。
+   ・録音/ファイル/処理中/ワークベンチ本体は後続増分（step3b/3c・step5）で別ファイル化。
+   ============================================================================ */
+
+/* ルート：メイン領域を満たして内部スクロール（プロト mch-main の縦グラデ背景）。 */
+.gx-scope .gx-mch {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    var(--bg-subtle) 520px,
+    var(--bg-subtle) 100%
+  );
+}
+.gx-scope .gx-mch__wrap {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 64px 40px 56px;
+}
+
+.gx-scope .gx-mch__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  font: 500 11.5px/1 var(--font-sans);
+  color: var(--gray-600);
+  letter-spacing: 0.04em;
+}
+.gx-scope .gx-mch__eyebrow .badge {
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+.gx-scope .gx-mch__h1 {
+  margin: 16px 0 6px;
+  font: 700 34px/1.3 var(--font-jp);
+  color: var(--navy-700);
+  letter-spacing: 0.005em;
+}
+.gx-scope .gx-mch__h1 .grad {
+  background: var(--accent-gaixer-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gx-scope .gx-mch__sub {
+  margin: 0 0 34px;
+  font: 400 14.5px/1.6 var(--font-jp);
+  color: var(--gray-600);
+}
+
+.gx-scope .gx-mch__cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.gx-scope .gx-mch__card {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 26px 26px 22px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  transition:
+    transform 220ms var(--easing-out),
+    box-shadow 220ms var(--easing-out),
+    border-color 220ms var(--easing-out);
+}
+.gx-scope .gx-mch__card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 40px rgba(22, 33, 62, 0.1);
+  border-color: var(--navy-200);
+}
+.gx-scope .gx-mch__card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--accent-gaixer-grad);
+  opacity: 0;
+  transition: opacity 220ms;
+}
+.gx-scope .gx-mch__card:hover::after {
+  opacity: 1;
+}
+
+.gx-scope .gx-mch__ic {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  margin-bottom: 16px;
+}
+.gx-scope .gx-mch__ic svg {
+  width: 26px;
+  height: 26px;
+}
+.gx-scope .gx-mch__ic.live {
+  background: linear-gradient(135deg, var(--teal-500), var(--indigo-500));
+  box-shadow: 0 10px 24px -10px rgba(0, 184, 184, 0.7);
+}
+.gx-scope .gx-mch__ic.file {
+  background: linear-gradient(135deg, var(--indigo-500), var(--purple-600));
+  box-shadow: 0 10px 24px -10px rgba(91, 14, 190, 0.6);
+}
+
+.gx-scope .gx-mch__ttl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.gx-scope .gx-mch__card h2 {
+  margin: 0;
+  font: 700 19px/1.3 var(--font-jp);
+  color: var(--navy-700);
+}
+.gx-scope .gx-mch__tag {
+  font: 700 10px/1 var(--font-sans);
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+}
+.gx-scope .gx-mch__tag.live {
+  color: var(--teal-500);
+  background: rgba(0, 184, 184, 0.1);
+}
+.gx-scope .gx-mch__tag.file {
+  color: var(--purple-600);
+  background: rgba(91, 14, 190, 0.08);
+}
+.gx-scope .gx-mch__card p {
+  margin: 0 0 16px;
+  font: 400 13px/1.7 var(--font-jp);
+  color: var(--gray-600);
+}
+
+.gx-scope .gx-mch__feat {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.gx-scope .gx-mch__feat li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font: 500 12.5px/1.55 var(--font-jp);
+  color: var(--fg-2);
+}
+.gx-scope .gx-mch__ck {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border-radius: 6px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  color: var(--success-500);
+  background: rgba(16, 145, 90, 0.12);
+}
+
+.gx-scope .gx-mch__go {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: 700 13.5px/1 var(--font-jp);
+  color: var(--navy-700);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  transition:
+    border-color var(--dur-fast),
+    color var(--dur-fast);
+}
+.gx-scope .gx-mch__go:hover {
+  border-color: var(--navy-300);
+  color: var(--navy-700);
+}

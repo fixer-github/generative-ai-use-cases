@@ -1,0 +1,400 @@
+/* ===========================================================================
+   GaiXer 新UI — 議事録ワークベンチ：共有アトム（録音／編集 共通）
+   ---------------------------------------------------------------------------
+   デザインバンドル project/styles/minutes-edit.css（「共有アトム 案A/B/C 共通」）の
+   me-* を gx-me-* へ改名移植。発話行（turn）・話者チップ（spk）・アバター（av）など、
+   録音画面（minutes-entry.css）と編集ワークベンチ（後続 minutes-workbench.css）の
+   両方が使う「見た目の素材」だけをここに置く。レイアウトは各ページの CSS が持つ。
+   ・全セレクタ .gx-scope 配下／トークン参照のみ／生 hex は持ち込まない。
+   ・汎用すぎる .ts は gx-me-ts に改名（衝突回避）。
+   ============================================================================ */
+
+/* ---- アバター ---- */
+.gx-scope .gx-me-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 700 12px/1 var(--font-sans);
+}
+.gx-scope .gx-me-av.sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex: 0 0 22px;
+  font-size: 10px;
+}
+
+/* ---- 不確か語（聞き間違い候補） ---- */
+.gx-scope .gx-me-text mark {
+  background: #fff3cf;
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+  text-decoration: underline dotted rgba(214, 138, 12, 0.7);
+  text-underline-offset: 3px;
+}
+
+/* ---- 話者チップ（録音中は付け替え不可。表示のみ） ---- */
+.gx-scope .gx-me-spk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  border-radius: var(--radius-pill);
+  padding: 2px 8px 2px 3px;
+  font: 600 11.5px/1 var(--font-sans);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me-spk.unnamed {
+  font-family: var(--font-mono);
+  color: var(--fg-3);
+  border-style: dashed;
+}
+.gx-scope .gx-me-spk .gx-me-av {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex: 0 0 18px;
+  font-size: 9px;
+}
+
+/* ---- 発話行（左：アバター／右：話者メタ＋本文） ---- */
+.gx-scope .gx-me-turn {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 11px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+.gx-scope .gx-me-turn + .gx-me-turn {
+  border-top: 1px dashed var(--border-subtle);
+  border-radius: 0;
+}
+.gx-scope .gx-me-turn-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.gx-scope .gx-me-ts {
+  font: 500 10.5px/1 var(--font-mono);
+  color: var(--fg-4);
+}
+.gx-scope .gx-me-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-1);
+}
+
+/* ===========================================================================
+   編集ワークベンチ共有アトム（step 5・bundle minutes-edit.css の追加分）
+   ・録音画面（表示のみ）には出ない、編集系の素材。レイアウトは
+     minutes-workbench.css が持つ。
+   ============================================================================ */
+
+/* ---- アバター（大） ---- */
+.gx-scope .gx-me-av.lg {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  font-size: 13px;
+}
+
+/* ---- 発話行：選択中／要確認の状態（編集ワークベンチ） ---- */
+.gx-scope .gx-me-turn.active {
+  background: rgba(45, 91, 233, 0.05);
+  box-shadow: inset 2px 0 0 var(--indigo-500);
+}
+.gx-scope .gx-me-turn.lowconf {
+  background: rgba(214, 138, 12, 0.05);
+}
+.gx-scope .gx-me-text:focus {
+  background: #fffdf5;
+  box-shadow: 0 0 0 2px #f1e7c4;
+  outline: none;
+  border-radius: 5px;
+}
+.gx-scope .gx-me-text.empty:empty::before {
+  content: '（手動追加）ここに発言を入力…';
+  color: var(--fg-4);
+  font-style: italic;
+}
+
+/* ---- 話者チップ（編集：クリックで付け替え） ---- */
+.gx-scope .gx-me-spk.click {
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.gx-scope .gx-me-spk.click:hover {
+  border-color: var(--purple-500);
+  box-shadow: 0 0 0 3px rgba(91, 14, 190, 0.1);
+}
+.gx-scope .gx-me-spk .car {
+  color: var(--fg-4);
+}
+
+/* ---- 付け替えポップオーバー ---- */
+.gx-scope .gx-me-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 230px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-3);
+  padding: 6px;
+}
+.gx-scope .gx-me-menu-h {
+  font: 600 11px/1 var(--font-sans);
+  color: var(--fg-3);
+  padding: 7px 8px 8px;
+}
+.gx-scope .gx-me-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.gx-scope .gx-me-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  font: 500 12.5px/1 var(--font-sans);
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+}
+.gx-scope .gx-me-menu-row:hover {
+  background: var(--gray-100);
+}
+.gx-scope .gx-me-menu-row.on {
+  background: rgba(45, 91, 233, 0.07);
+}
+.gx-scope .gx-me-menu-nm {
+  flex: 1;
+}
+.gx-scope .gx-me-menu-ck {
+  color: var(--indigo-500);
+}
+.gx-scope .gx-me-menu-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px;
+  border-top: 1px solid var(--border-subtle);
+  font: 500 10.5px/1.4 var(--font-sans);
+  color: var(--fg-3);
+}
+.gx-scope .gx-me-menu-foot svg {
+  flex: 0 0 12px;
+  color: var(--purple-500);
+}
+
+/* ---- 要確認バッジ／時刻目安バッジ ---- */
+.gx-scope .gx-me-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--radius-xs);
+  font: 700 10px/1.4 var(--font-sans);
+  background: rgba(214, 138, 12, 0.12);
+  color: #9a6206;
+  border: 1px solid rgba(214, 138, 12, 0.25);
+}
+.gx-scope .gx-me-est {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font: 700 9.5px/1.4 var(--font-sans);
+  background: var(--gray-100);
+  color: var(--fg-3);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ---- 話者ロスターチップ（命名入力つき） ---- */
+.gx-scope .gx-me-roster-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 7px 10px 7px 8px;
+}
+.gx-scope .gx-me-roster-chip .nf {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.gx-scope .gx-me-roster-chip input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  font: 500 12.5px/1 var(--font-sans);
+  color: var(--fg-1);
+  background: #fff;
+}
+.gx-scope .gx-me-roster-chip input:focus {
+  outline: none;
+  border-color: var(--purple-500);
+  box-shadow: 0 0 0 3px rgba(91, 14, 190, 0.12);
+}
+.gx-scope .gx-me-roster-chip.named input {
+  border-color: rgba(16, 145, 90, 0.4);
+  background: #f5fbf8;
+}
+
+/* ---- 議事録ドキュメント本体 ---- */
+.gx-scope .gx-me-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.gx-scope .gx-me-doc-meta {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gx-scope .gx-me-doc-meta .r {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+}
+.gx-scope .gx-me-doc-meta .k {
+  color: var(--fg-3);
+  width: 60px;
+  flex: 0 0 60px;
+}
+.gx-scope .gx-me-doc-meta .v {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+.gx-scope .gx-me-sec-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 800 13.5px/1 var(--font-jp);
+  color: var(--fg-1);
+  margin-bottom: 12px;
+}
+.gx-scope .gx-me-sec-h .bar {
+  width: 4px;
+  height: 15px;
+  border-radius: 3px;
+  background: var(--accent-gaixer-grad);
+}
+.gx-scope .gx-me-li {
+  display: flex;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--fg-1);
+  margin-bottom: 8px;
+}
+.gx-scope .gx-me-li .b {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-4);
+  margin-top: 8px;
+  flex: 0 0 6px;
+}
+.gx-scope .gx-me-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 13px 15px;
+  margin-bottom: 10px;
+}
+.gx-scope .gx-me-card .top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.gx-scope .gx-me-card .ck {
+  width: 21px;
+  height: 21px;
+  border-radius: var(--radius-sm);
+  flex: 0 0 21px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  background: rgba(45, 91, 233, 0.12);
+  color: var(--indigo-500);
+}
+.gx-scope .gx-me-card.todo .ck {
+  background: rgba(214, 138, 12, 0.14);
+  color: var(--warning-500);
+}
+.gx-scope .gx-me-card .txt {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-1);
+  font-weight: 500;
+  outline: none;
+}
+.gx-scope .gx-me-card .txt:focus {
+  background: #fffdf5;
+  box-shadow: 0 0 0 2px #f1e7c4;
+  border-radius: 5px;
+}
+.gx-scope .gx-me-card .foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+.gx-scope .gx-me-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--fg-2);
+}
+.gx-scope .gx-me-due {
+  background: #fcefdb;
+  color: var(--warning-500);
+  font: 700 10.5px/1 var(--font-sans);
+  border-radius: var(--radius-pill);
+  padding: 4px 9px;
+}
+.gx-scope .gx-me-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--fg-3);
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+  font: 600 10.5px/1 var(--font-mono);
+}
+.gx-scope .gx-me-ref:hover {
+  border-color: var(--purple-500);
+  color: var(--purple-600);
+}

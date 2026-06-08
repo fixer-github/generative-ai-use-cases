@@ -8,6 +8,11 @@ import {
   UpdateFeedbackRequest,
   ListChatsResponse,
   TokenUsageStats,
+  Meeting,
+  MeetingSource,
+  MeetingSpeaker,
+  ListMeetingsResponse,
+  UpdateMeetingRequest,
 } from 'generative-ai-use-cases';
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -24,6 +29,7 @@ import {
 
 const TABLE_NAME: string = process.env.TABLE_NAME!;
 const STATS_TABLE_NAME: string = process.env.STATS_TABLE_NAME!;
+const MEETING_TABLE_NAME: string = process.env.MEETING_TABLE_NAME!;
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
@@ -743,4 +749,248 @@ export const aggregateTokenUsage = async (
     console.error('Error aggregating token usage:', error);
     throw error;
   }
+};
+
+// ---------------------------------------------------------------------------
+// Meeting (minutes) workbench
+//
+// The dedicated MeetingTable is the source of truth. On create/update we also
+// write a lightweight projection row to the main table (usecase === 'minutes')
+// so the sidebar history (listChats) can list meetings with no schema change.
+// The projection row shares the meeting's SK (createdDate), so its key is
+// reconstructable as { id: `user#${userId}`, createdDate: meeting.createdDate }
+// without an extra query. See the Phase 2 meeting-workbench design memo, 1.2.
+// ---------------------------------------------------------------------------
+
+export const createMeeting = async (
+  _userId: string,
+  source: MeetingSource,
+  title?: string
+): Promise<Meeting> => {
+  const meetingPk = `meeting#${_userId}`;
+  const userPk = `user#${_userId}`;
+  const createdDate = `${Date.now()}`;
+  const uuid = crypto.randomUUID();
+  const meetingId = `meeting#${uuid}`;
+  // mic sessions start recording; batch uploads start in transcribing.
+  const status = source === 'mic' ? 'recording' : 'transcribing';
+
+  const meeting: Meeting = {
+    id: meetingPk,
+    createdDate,
+    meetingId,
+    title: title ?? '',
+    status,
+    source,
+    speakers: [],
+    rev: 0,
+    updatedDate: createdDate,
+  };
+
+  // 1) Meeting entity (source of truth) -> dedicated MeetingTable
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: MEETING_TABLE_NAME,
+      Item: meeting,
+    })
+  );
+
+  // 2) Projection row -> main table, picked up by listChats (sidebar history)
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        id: userPk,
+        createdDate,
+        chatId: `chat#${uuid}`,
+        usecase: 'minutes',
+        title: title ?? '',
+        meetingId,
+        status,
+        updatedDate: createdDate,
+      },
+    })
+  );
+
+  return meeting;
+};
+
+export const listMeetings = async (
+  _userId: string,
+  _exclusiveStartKey?: string
+): Promise<ListMeetingsResponse> => {
+  const exclusiveStartKey = _exclusiveStartKey
+    ? JSON.parse(Buffer.from(_exclusiveStartKey, 'base64').toString())
+    : undefined;
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: MEETING_TABLE_NAME,
+      KeyConditionExpression: '#id = :id',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+      },
+      ExpressionAttributeValues: {
+        ':id': `meeting#${_userId}`,
+      },
+      ScanIndexForward: false,
+      Limit: 100,
+      ExclusiveStartKey: exclusiveStartKey,
+    })
+  );
+
+  return {
+    data: res.Items as Meeting[],
+    lastEvaluatedKey: res.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(res.LastEvaluatedKey)).toString('base64')
+      : undefined,
+  };
+};
+
+export const findMeetingById = async (
+  _userId: string,
+  _meetingId: string
+): Promise<Meeting | null> => {
+  const res = await dynamoDbDocument.send(
+    new QueryCommand({
+      TableName: MEETING_TABLE_NAME,
+      KeyConditionExpression: '#id = :id',
+      FilterExpression: '#meetingId = :meetingId',
+      ExpressionAttributeNames: {
+        '#id': 'id',
+        '#meetingId': 'meetingId',
+      },
+      ExpressionAttributeValues: {
+        ':id': `meeting#${_userId}`,
+        ':meetingId': `meeting#${_meetingId}`,
+      },
+    })
+  );
+
+  if (!res.Items || res.Items.length === 0) {
+    return null;
+  } else {
+    return res.Items[0] as Meeting;
+  }
+};
+
+export const updateMeeting = async (
+  _userId: string,
+  _meetingId: string,
+  patch: UpdateMeetingRequest
+): Promise<Meeting> => {
+  const meeting = await findMeetingById(_userId, _meetingId);
+  if (!meeting) {
+    throw new Error('Meeting not found');
+  }
+  const updatedDate = `${Date.now()}`;
+
+  type AttrVal = string | number | MeetingSpeaker[];
+  const fields: (keyof UpdateMeetingRequest)[] = [
+    'title',
+    'status',
+    'jobName',
+    'transcriptKey',
+    'minutesKey',
+    'audioKey',
+    'speakers',
+    'rev',
+    'genRev',
+  ];
+  const sets: string[] = ['#updatedDate = :updatedDate'];
+  const names: Record<string, string> = { '#updatedDate': 'updatedDate' };
+  const values: Record<string, AttrVal> = { ':updatedDate': updatedDate };
+  for (const f of fields) {
+    const v = patch[f];
+    if (v !== undefined) {
+      sets.push(`#${f} = :${f}`);
+      names[`#${f}`] = f;
+      values[`:${f}`] = v as AttrVal;
+    }
+  }
+
+  const res = await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: MEETING_TABLE_NAME,
+      Key: {
+        id: meeting.id,
+        createdDate: meeting.createdDate,
+      },
+      UpdateExpression: `set ${sets.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ReturnValues: 'ALL_NEW',
+    })
+  );
+  const updated = res.Attributes as Meeting;
+
+  // Mirror title/status onto the projection row (shares the meeting's SK).
+  if (patch.title !== undefined || patch.status !== undefined) {
+    const projSets: string[] = ['#updatedDate = :updatedDate'];
+    const projNames: Record<string, string> = { '#updatedDate': 'updatedDate' };
+    const projValues: Record<string, AttrVal> = {
+      ':updatedDate': updatedDate,
+    };
+    if (patch.title !== undefined) {
+      projSets.push('#title = :title');
+      projNames['#title'] = 'title';
+      projValues[':title'] = patch.title;
+    }
+    if (patch.status !== undefined) {
+      projSets.push('#status = :status');
+      projNames['#status'] = 'status';
+      projValues[':status'] = patch.status;
+    }
+    await dynamoDbDocument.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          id: `user#${_userId}`,
+          createdDate: meeting.createdDate,
+        },
+        UpdateExpression: `set ${projSets.join(', ')}`,
+        ExpressionAttributeNames: projNames,
+        ExpressionAttributeValues: projValues,
+      })
+    );
+  }
+
+  return updated;
+};
+
+// Delete the meeting body (MeetingTable) and its projection row (main table).
+// Returns the deleted meeting so the caller can clean up its S3 objects
+// (transcript / minutes / audio). S3 cleanup lives in the lambda, which holds
+// the bucket grant. See Phase 2 meeting-workbench memo 8.5.
+export const deleteMeeting = async (
+  _userId: string,
+  _meetingId: string
+): Promise<Meeting | null> => {
+  const meeting = await findMeetingById(_userId, _meetingId);
+  if (!meeting) {
+    return null;
+  }
+
+  // 1) Meeting entity (source of truth)
+  await dynamoDbDocument.send(
+    new DeleteCommand({
+      TableName: MEETING_TABLE_NAME,
+      Key: {
+        id: meeting.id,
+        createdDate: meeting.createdDate,
+      },
+    })
+  );
+
+  // 2) Projection row in the main table (shares the meeting's SK)
+  await dynamoDbDocument.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        id: `user#${_userId}`,
+        createdDate: meeting.createdDate,
+      },
+    })
+  );
+
+  return meeting;
 };

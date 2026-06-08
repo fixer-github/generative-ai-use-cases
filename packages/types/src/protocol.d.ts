@@ -6,6 +6,12 @@ import {
   Metadata,
 } from './message';
 import { Chat } from './chat';
+import {
+  Meeting,
+  MeetingSource,
+  MeetingTranscript,
+  MeetingMinutesDoc,
+} from './meeting';
 import { SystemContext } from './systemContext';
 import {
   QueryCommandOutput,
@@ -55,6 +61,51 @@ export type ListMessagesResponse = {
   messages: RecordedMessage[];
 };
 
+// Meeting (議事録) workbench
+export type CreateMeetingRequest = {
+  title?: string;
+  source: MeetingSource;
+};
+
+export type CreateMeetingResponse = {
+  meeting: Meeting;
+};
+
+export type ListMeetingsResponse = Pagination<Meeting>;
+
+export type FindMeetingByIdResponse = {
+  meeting: Meeting | null;
+  // Resolved S3 bodies (when the corresponding key is set). The workbench reads
+  // these on open; they are not stored on the DynamoDB item.
+  transcript?: MeetingTranscript | null;
+  minutes?: MeetingMinutesDoc | null;
+};
+
+// DynamoDB-attribute patch, plus optional S3 bodies. When `transcript` /
+// `minutes` are present the lambda writes them to S3 and sets the matching
+// key (transcriptKey / minutesKey) on the item; they are never stored inline.
+export type UpdateMeetingRequest = Partial<
+  Pick<
+    Meeting,
+    | 'title'
+    | 'status'
+    | 'jobName'
+    | 'transcriptKey'
+    | 'minutesKey'
+    | 'audioKey'
+    | 'speakers'
+    | 'rev'
+    | 'genRev'
+  >
+> & {
+  transcript?: MeetingTranscript;
+  minutes?: MeetingMinutesDoc;
+};
+
+export type UpdateMeetingResponse = {
+  meeting: Meeting;
+};
+
 export type CreateSystemContextRequest = {
   systemContext: SystemContext;
 };
@@ -95,6 +146,20 @@ export type PredictRequest = {
 };
 
 export type PredictResponse = string;
+
+// New UI (GaiXer medical) top-page agent auto-suggestion.
+// Sends the user's free-text query and candidate agents (id/name/description),
+// and the LLM picks up to 3 matches via a lightweight synchronous endpoint
+// (/predict/agent-suggest). See the top-page implementation memo (s2/s7).
+export type AgentSuggestRequest = {
+  query: string;
+  agents: { id: string; name: string; description: string }[];
+};
+
+export type AgentSuggestResponse = {
+  // Matched agents (up to 3, best first). Empty array means no match.
+  matches: { id: string; reason: string }[];
+};
 
 export type FlowRequest = {
   flowIdentifier: string;
@@ -185,6 +250,11 @@ export type StartTranscriptionResponse = {
 export type Transcript = {
   speakerLabel?: string;
   transcript: string;
+  // Segment timestamps in seconds. Streaming (useMicrophone) already keeps
+  // these; batch (getTranscription) now preserves them too. Required by the
+  // workbench for evidence links, waveform, and proportional time splitting.
+  startTime?: number;
+  endTime?: number;
 };
 
 export type GetTranscriptionResponse = {

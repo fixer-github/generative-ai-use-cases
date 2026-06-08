@@ -1,0 +1,646 @@
+/* ===========================================================================
+   GaiXer 新UI — 議事録ワークベンチ：入口「録音中（その場で文字起こし）」
+   ---------------------------------------------------------------------------
+   デザインバンドル project/app/MEntry.jsx の MRecording（me2-*）を gx-me2__* へ
+   改名移植。ファイル入口（MEntryFile / MUploadProc）は step 3c で本ファイルへ追記する。
+   ・プロトの .app-frame/.main/.me2-main（サイドバー＋全高フレーム）は新シェル
+     （GxLayout の gx-main）が担うため持ち込まない。ページルートは他画面同様
+     position:absolute; inset:0 + 内部スクロール。
+   ・発話行・アバター・話者チップ等の共有アトムは minutes-shared.css（gx-me-*）を使う。
+   ・全セレクタ .gx-scope 配下／トークン参照のみ／生 hex は対応トークンへ寄せる。
+   ============================================================================ */
+
+/* ルート：メイン領域を満たし、ヘッダ固定＋本文内部スクロール。 */
+.gx-scope .gx-me2 {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+/* ---- ヘッダ（戻る・タイトル・録音状態・操作） ---- */
+.gx-scope .gx-me2__top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gx-scope .gx-me2__back {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: #fff;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-3);
+}
+.gx-scope .gx-me2__back:hover {
+  color: var(--fg-1);
+  border-color: var(--navy-300);
+}
+.gx-scope .gx-me2__ttl {
+  font: 800 17px/1.2 var(--font-jp);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__meta {
+  font: 500 11.5px/1 var(--font-sans);
+  color: var(--fg-3);
+  margin-top: 3px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.gx-scope .gx-me2__sp {
+  flex: 1;
+}
+.gx-scope .gx-me2__rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  background: rgba(211, 58, 44, 0.1);
+  color: var(--danger-500);
+  font: 700 12.5px/1 var(--font-sans);
+}
+.gx-scope .gx-me2__rec .pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger-500);
+  animation: gx-me2-blink 1.1s infinite;
+}
+/* 一時停止中は赤を落として点滅も止める */
+.gx-scope .gx-me2__rec.paused {
+  background: rgba(214, 138, 12, 0.1);
+  color: var(--warning-500);
+}
+.gx-scope .gx-me2__rec.paused .pulse {
+  background: var(--warning-500);
+  animation: none;
+}
+@keyframes gx-me2-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+.gx-scope .gx-me2__timer {
+  font: 700 13px/1 var(--font-mono);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__recctl {
+  display: flex;
+  gap: 9px;
+}
+
+/* ---- スクロール本文 ---- */
+.gx-scope .gx-me2__scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.gx-scope .gx-me2__wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 22px 40px 48px;
+}
+
+.gx-scope .gx-me2__card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+/* ---- レベルメータ ---- */
+.gx-scope .gx-me2__level {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+.gx-scope .gx-me2__mic {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: rgba(211, 58, 44, 0.1);
+  color: var(--danger-500);
+}
+.gx-scope .gx-me2__mic.paused {
+  background: rgba(214, 138, 12, 0.1);
+  color: var(--warning-500);
+}
+.gx-scope .gx-me2__meter {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 44px;
+  flex: 1;
+}
+.gx-scope .gx-me2__meter span {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--indigo-500);
+  opacity: 0.85;
+}
+@keyframes gx-me2-lv {
+  0%,
+  100% {
+    height: 18%;
+  }
+  50% {
+    height: 88%;
+  }
+}
+/* 一時停止中はアニメーションを止め、低い静止バーにする */
+.gx-scope .gx-me2__meter.paused span {
+  animation: none !important;
+  height: 18% !important;
+  background: var(--gray-300);
+}
+
+/* ---- 注記 ---- */
+.gx-scope .gx-me2__note {
+  display: flex;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(45, 91, 233, 0.06);
+  font: 500 11.5px/1.55 var(--font-jp);
+  color: var(--fg-2);
+  margin-bottom: 14px;
+}
+.gx-scope .gx-me2__note svg {
+  flex: 0 0 15px;
+  color: var(--indigo-500);
+  margin-top: 1px;
+}
+.gx-scope .gx-me2__note b {
+  font-weight: 700;
+}
+
+/* ---- ボタン（primary/ghost） ---- */
+.gx-scope .gx-me2__primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  cursor: pointer;
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  font: 700 13px/1 var(--font-jp);
+  box-shadow: var(--glow-gaixer);
+}
+.gx-scope .gx-me2__ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  cursor: pointer;
+  font: 600 12.5px/1 var(--font-jp);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__ghost:hover {
+  border-color: var(--navy-300);
+}
+
+/* ---- ライブ文字起こしストリーム ---- */
+.gx-scope .gx-me2__streamcard {
+  padding: 8px 16px 14px;
+}
+.gx-scope .gx-me2__stream {
+  padding: 4px 4px 8px;
+}
+.gx-scope .gx-me2__turn {
+  padding: 11px 6px;
+}
+/* partial（認識中）行 */
+.gx-scope .gx-me2__partial {
+  color: var(--fg-4);
+  font-style: italic;
+}
+.gx-scope .gx-me2__cur {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--indigo-500);
+  margin-left: 2px;
+  vertical-align: -2px;
+  animation: gx-me2-blink 1s infinite;
+}
+
+/* 文字起こしがまだ無いときの待機表示 */
+.gx-scope .gx-me2__waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 34px 12px;
+  font: 500 12.5px/1.6 var(--font-jp);
+  color: var(--fg-4);
+  text-align: center;
+}
+.gx-scope .gx-me2__waiting .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--indigo-500);
+  animation: gx-me2-blink 1.1s infinite;
+}
+
+/* 目印（インラインの区切り行） */
+.gx-scope .gx-me2__markerline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 6px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(214, 138, 12, 0.08);
+  border: 1px dashed rgba(214, 138, 12, 0.4);
+  font: 700 11.5px/1 var(--font-jp);
+  color: #8a5a08;
+}
+.gx-scope .gx-me2__markerline svg {
+  width: 13px;
+  height: 13px;
+}
+.gx-scope .gx-me2__markerline .at {
+  font: 600 11px/1 var(--font-mono);
+  color: var(--warning-500);
+  margin-left: auto;
+}
+
+/* ===========================================================================
+   ファイル入口（MEntryFile）／アップロード処理中（MUploadProc）追記（step 3c）
+   ・プロト me2-dz / me2-setup / me2-file / me2-switch / me2-count / me2-step /
+     me2-actionbar / me2-proc / me2-bg / me2-toast / me2-bar / me2-skel を
+     gx-me2__* へ改名移植。生 hex はトークンへ寄せた。
+   ============================================================================ */
+
+/* ステータスバッジ（ヘッダ右） */
+.gx-scope .gx-me2__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--gray-100);
+  color: var(--fg-3);
+  font: 700 12px/1 var(--font-sans);
+}
+.gx-scope .gx-me2__status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-3);
+}
+.gx-scope .gx-me2__status.processing {
+  background: rgba(45, 91, 233, 0.08);
+  color: var(--indigo-600);
+}
+.gx-scope .gx-me2__status.processing .dot {
+  background: var(--indigo-500);
+}
+
+/* eyebrow / 見出し */
+.gx-scope .gx-me2__h1 {
+  font: 800 24px/1.25 var(--font-jp);
+  color: var(--fg-1);
+  margin: 0 0 4px;
+}
+
+/* ドロップゾーン */
+.gx-scope .gx-me2__dz {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(100deg, #fbfcfe, #f7f9fc);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.gx-scope .gx-me2__dz.drag {
+  border-color: var(--indigo-500);
+  background: rgba(45, 91, 233, 0.05);
+}
+.gx-scope .gx-me2__dz .ic {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-gaixer-grad);
+  color: #fff;
+  box-shadow: 0 10px 22px -10px rgba(45, 91, 233, 0.6);
+}
+.gx-scope .gx-me2__dz h3 {
+  margin: 0;
+  font: 700 14.5px/1.3 var(--font-jp);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__dz h3 u {
+  color: var(--purple-600);
+  text-decoration: none;
+}
+.gx-scope .gx-me2__dz p {
+  margin: 3px 0 0;
+  font: 500 12px/1 var(--font-sans);
+  color: var(--fg-3);
+}
+.gx-scope .gx-me2__fmts {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.gx-scope .gx-me2__fmt {
+  font: 700 10px/1 var(--font-sans);
+  color: var(--fg-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 4px 9px;
+}
+
+/* セットアップ（2カラム） */
+.gx-scope .gx-me2__setup {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 24px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+.gx-scope .gx-me2__vline {
+  background: var(--border-subtle);
+}
+.gx-scope .gx-me2__lab {
+  font: 700 12.5px/1 var(--font-jp);
+  color: var(--fg-1);
+  margin-bottom: 8px;
+}
+.gx-scope .gx-me2__lab .opt {
+  font: 500 11px/1 var(--font-sans);
+  color: var(--fg-3);
+  margin-left: 5px;
+}
+.gx-scope .gx-me2__desc {
+  font: 500 11.5px/1.5 var(--font-sans);
+  color: var(--fg-3);
+}
+
+/* 選択済みファイル行 */
+.gx-scope .gx-me2__file {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.gx-scope .gx-me2__file .fi {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 184, 184, 0.12);
+  color: var(--teal-500);
+}
+.gx-scope .gx-me2__file .nm {
+  font: 600 13px/1.3 var(--font-sans);
+  color: var(--fg-1);
+  word-break: break-all;
+}
+.gx-scope .gx-me2__file .mt {
+  font: 500 11.5px/1 var(--font-sans);
+  color: var(--fg-3);
+  margin-top: 2px;
+}
+.gx-scope .gx-me2__file .ok {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 12px/1 var(--font-sans);
+  color: var(--success-500);
+  white-space: nowrap;
+}
+
+/* 話者分離スイッチ */
+.gx-scope .gx-me2__sphead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gx-scope .gx-me2__switch {
+  width: 44px;
+  height: 25px;
+  flex: 0 0 44px;
+  border-radius: var(--radius-pill);
+  background: var(--gray-300);
+  position: relative;
+  border: 0;
+  cursor: pointer;
+}
+.gx-scope .gx-me2__switch.on {
+  background: var(--teal-500);
+}
+.gx-scope .gx-me2__switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: left var(--dur-fast);
+}
+.gx-scope .gx-me2__switch.on::after {
+  left: 22px;
+}
+.gx-scope .gx-me2__count {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 0 10px;
+}
+.gx-scope .gx-me2__count > span {
+  font: 700 12.5px/1 var(--font-jp);
+  color: var(--fg-2);
+}
+.gx-scope .gx-me2__step {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.gx-scope .gx-me2__step button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: #fff;
+  font-size: 17px;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.gx-scope .gx-me2__step button:disabled {
+  color: var(--fg-4);
+  cursor: not-allowed;
+}
+.gx-scope .gx-me2__step .val {
+  width: 38px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font: 700 13px/1 var(--font-mono);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* アクションバー */
+.gx-scope .gx-me2__actionbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 20px;
+}
+.gx-scope .gx-me2__actionbar .ic {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(91, 14, 190, 0.1);
+  color: var(--purple-600);
+}
+.gx-scope .gx-me2__actionbar .lbl {
+  font: 700 14px/1.3 var(--font-jp);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__actionbar .mt {
+  font: 500 12px/1 var(--font-sans);
+  color: var(--fg-3);
+  margin-top: 2px;
+}
+.gx-scope .gx-me2__actionbar .est {
+  font: 500 12px/1 var(--font-sans);
+  color: var(--fg-3);
+}
+.gx-scope .gx-me2__primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 注記（amber バリアント） */
+.gx-scope .gx-me2__note.amber {
+  background: rgba(214, 138, 12, 0.08);
+}
+.gx-scope .gx-me2__note.amber svg {
+  color: var(--warning-500);
+}
+
+/* バックグラウンド実行バナー */
+.gx-scope .gx-me2__bg {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(45, 91, 233, 0.25);
+  border-radius: var(--radius-md);
+  background: rgba(45, 91, 233, 0.05);
+}
+.gx-scope .gx-me2__bg .ic {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--indigo-500);
+  border: 1px solid rgba(45, 91, 233, 0.2);
+}
+.gx-scope .gx-me2__bg b {
+  font: 700 13px/1.4 var(--font-jp);
+  color: var(--fg-1);
+}
+.gx-scope .gx-me2__bg p {
+  font: 500 11.5px/1.5 var(--font-sans);
+  color: var(--fg-2);
+  margin: 2px 0 0;
+}
+
+/* 処理中カード */
+.gx-scope .gx-me2__proc {
+  padding: 30px 24px;
+  text-align: center;
+}
+.gx-scope .gx-me2__ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 4px solid var(--gray-200);
+  border-top-color: var(--purple-500);
+  margin: 0 auto 16px;
+  animation: gx-me2-spin 1s linear infinite;
+}
+@keyframes gx-me2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gx-scope .gx-me2__proc h3 {
+  font: 800 16px/1.3 var(--font-jp);
+  color: var(--fg-1);
+  margin: 0 0 5px;
+}
+.gx-scope .gx-me2__proc p {
+  font: 500 12.5px/1.5 var(--font-sans);
+  color: var(--fg-3);
+  margin: 0 0 18px;
+}
+.gx-scope .gx-me2__skel {
+  max-width: 520px;
+  margin: 22px auto 0;
+  text-align: left;
+}
+.gx-scope .gx-me2__sk {
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--gray-100), #fff, var(--gray-100));
+  background-size: 200% 100%;
+  animation: gx-me2-sh 1.3s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes gx-me2-sh {
+  to {
+    background-position: -200% 0;
+  }
+}

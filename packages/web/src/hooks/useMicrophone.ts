@@ -5,7 +5,7 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
 import MicrophoneStream from 'microphone-stream';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import update from 'immutability-helper';
 import { Buffer } from 'buffer';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
@@ -45,6 +45,12 @@ const useMicrophone = () => {
   const { t } = useTranslation();
   const [micStream, setMicStream] = useState<MicrophoneStream | undefined>();
   const [recording, setRecording] = useState(false);
+  // Pause/resume is implemented by toggling the captured MediaStream's audio
+  // tracks. A disabled track keeps yielding silent frames, so the Transcribe
+  // streaming connection stays alive (no idle timeout) while no speech is sent.
+  // Additive: existing callers that never use pause/resume are unaffected.
+  const mediaStreamRef = useRef<MediaStream | undefined>(undefined);
+  const [paused, setPaused] = useState(false);
   const [rawTranscripts, setRawTranscripts] = useState<
     {
       resultId: string;
@@ -123,8 +129,29 @@ const useMicrophone = () => {
       micStream.stop();
       setRecording(false);
       setMicStream(undefined);
+      mediaStreamRef.current = undefined;
+      setPaused(false);
     }
   }, [micStream]);
+
+  // Mute the mic without tearing down the stream (Transcribe receives silence).
+  const pauseTranscription = useCallback(() => {
+    const stream = mediaStreamRef.current;
+    if (!stream) return;
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    setPaused(true);
+  }, []);
+
+  const resumeTranscription = useCallback(() => {
+    const stream = mediaStreamRef.current;
+    if (!stream) return;
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    setPaused(false);
+  }, []);
 
   const startStream = async (
     mic: MicrophoneStream,
@@ -301,12 +328,14 @@ const useMicrophone = () => {
     const mic = new MicrophoneStream();
     try {
       setMicStream(mic);
-      mic.setStream(
-        await window.navigator.mediaDevices.getUserMedia({
-          video: false,
-          audio: true,
-        })
-      );
+      const stream = await window.navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true,
+      });
+      // Keep a reference so pause/resume can toggle the tracks.
+      mediaStreamRef.current = stream;
+      setPaused(false);
+      mic.setStream(stream);
 
       setRecording(true);
       await startStream(
@@ -334,6 +363,8 @@ const useMicrophone = () => {
       mic.stop();
       setRecording(false);
       setMicStream(undefined);
+      mediaStreamRef.current = undefined;
+      setPaused(false);
     }
   };
 
@@ -344,6 +375,12 @@ const useMicrophone = () => {
   return {
     startTranscription,
     stopTranscription,
+    pauseTranscription,
+    resumeTranscription,
+    paused,
+    // True once the Transcribe streaming client is initialized and a session
+    // can be started (callers that auto-start on mount should wait for this).
+    ready: !!transcribeClient,
     recording,
     transcriptMic,
     clearTranscripts,

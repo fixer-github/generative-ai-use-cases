@@ -58,14 +58,27 @@ export const handler = async (
       );
       const output = JSON.parse(await s3Result.Body!.transformToString());
 
-      // Format the transcription
+      // Format the transcription. start_time / end_time are seconds (strings).
       const rawTranscripts: Transcript[] = output.results.audio_segments.map(
-        (item: { transcript: string; speaker_label?: string }) => ({
+        (item: {
+          transcript: string;
+          speaker_label?: string;
+          start_time?: string;
+          end_time?: string;
+        }) => ({
           speakerLabel: item.speaker_label,
           transcript: item.transcript,
+          startTime:
+            item.start_time !== undefined
+              ? parseFloat(item.start_time)
+              : undefined,
+          endTime:
+            item.end_time !== undefined ? parseFloat(item.end_time) : undefined,
         })
       );
-      // If the speaker is continuous, merge them
+      // If the speaker is continuous, merge them. Keep the first segment's
+      // startTime and extend endTime to the last merged segment so the
+      // workbench can anchor evidence links and waveform to real time.
       const transcripts = rawTranscripts
         .reduce((prev, item) => {
           if (
@@ -75,9 +88,14 @@ export const handler = async (
             prev.push({
               speakerLabel: item.speakerLabel,
               transcript: item.transcript,
+              startTime: item.startTime,
+              endTime: item.endTime,
             });
           } else {
             prev[prev.length - 1].transcript += ' ' + item.transcript;
+            if (item.endTime !== undefined) {
+              prev[prev.length - 1].endTime = item.endTime;
+            }
           }
           return prev;
         }, [] as Transcript[])

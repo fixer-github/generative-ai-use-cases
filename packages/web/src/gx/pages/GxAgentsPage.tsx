@@ -25,22 +25,12 @@ import GxAgentIdentity from '../components/GxAgentIdentity';
 import { IcSearch } from '../components/icons';
 import { GX } from '../strings';
 import { GxChatStartContext } from '../types';
+import { toTarget } from '../agentTarget';
 import '../styles/components.css';
 import '../styles/agents.css';
 
 // チャット新規会話のパス（現行 GxSidebar と同じ literal を踏襲）。
 const CHAT_PATH = '/g/chat';
-
-// AgentConfiguration → 開始コンテキストの target（統一メモ §3・§4）。
-// 公式（AgentCore）は ARN 実行、それ以外は素のチャット（systemPrompt 注入は後フェーズ）。
-// 注: tags 'Bedrock'（MODELS.agents 由来）は ARN 実行経路を持たないため当面 chat 扱い。
-//     対象スタックで MODELS.agents が空かは要確認（統一メモ §5-6）。
-const toTarget = (a: AgentConfiguration): GxChatStartContext['target'] => {
-  if (a.tags?.includes('AgentCore')) {
-    return { kind: 'agentcore', arn: a.agentId };
-  }
-  return { kind: 'chat', systemPrompt: a.systemPrompt || undefined };
-};
 
 const GxAgentsPage: React.FC = () => {
   const navigate = useNavigate();

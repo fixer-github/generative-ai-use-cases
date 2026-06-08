@@ -23,6 +23,8 @@ import {
   AppendAgentLlmCallsRequest,
   CompleteAgentRunRequest,
   StartAgentRunRequest,
+  AgentSuggestRequest,
+  AgentSuggestResponse,
 } from 'generative-ai-use-cases';
 import {
   LambdaClient,
@@ -137,6 +139,16 @@ const useChatApi = () => {
     // Buffered Response (used in useTextToJson)
     predict: async (req: PredictRequest): Promise<string> => {
       const res = await http.post<PredictResponse>('predict', req);
+      return res.data;
+    },
+    // New UI top-page agent auto-suggestion (synchronous, up to 3 matches).
+    suggestAgents: async (
+      req: AgentSuggestRequest
+    ): Promise<AgentSuggestResponse> => {
+      const res = await http.post<AgentSuggestResponse>(
+        'predict/agent-suggest',
+        req
+      );
       return res.data;
     },
     // Streaming Response

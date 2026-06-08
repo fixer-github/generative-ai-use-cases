@@ -52,6 +52,8 @@ export interface BackendApiProps {
   // Context Params
   readonly modelRegion: string;
   readonly modelIds: ModelConfiguration[];
+  // Judge model for the new-UI top-page agent auto-suggestion (required, no fallback).
+  readonly agentSuggestModelId: string;
   readonly imageGenerationModelIds: ModelConfiguration[];
   readonly videoGenerationModelIds: ModelConfiguration[];
   readonly videoBucketRegionMap: Record<string, string>;
@@ -77,6 +79,7 @@ export interface BackendApiProps {
   readonly table: Table;
   readonly statsTable: Table;
   readonly agentObservabilityTable: Table;
+  readonly meetingTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: string;
   readonly guardrailIdentify?: string;
@@ -149,6 +152,14 @@ export class Api extends Construct {
       !BEDROCK_RERANKING_MODELS.includes(rerankingModelId)
     ) {
       throw new Error(`Unsupported Model Name: ${rerankingModelId}`);
+    }
+    // agentSuggestModelId is required and must be a supported text model.
+    // No fallback: a misconfigured value fails synth rather than silently
+    // degrading to defaultModel.
+    if (!BEDROCK_TEXT_MODELS.includes(props.agentSuggestModelId)) {
+      throw new Error(
+        `Unsupported Model Name (agentSuggestModelId): ${props.agentSuggestModelId}`
+      );
     }
 
     // We don't support using the same model ID accross multiple regions
@@ -348,6 +359,35 @@ export class Api extends Construct {
       securityGroups,
     });
     table.grantWriteData(predictTitleFunction);
+
+    // Agent auto-suggestion for the new UI top page (synchronous, lightweight).
+    // Same shape as predictTitle; uses defaultModel and returns up to 3 matches
+    // as JSON. Design: see the top-page implementation memo (section 7).
+    const agentSuggestFunction = new NodejsFunction(this, 'AgentSuggest', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/agentSuggest.ts',
+      timeout: Duration.minutes(1),
+      bundling: {
+        nodeModules: ['@aws-sdk/client-bedrock-runtime'],
+      },
+      environment: {
+        MODEL_REGION: modelRegion,
+        MODEL_IDS: JSON.stringify(modelIds),
+        // Judge model for agent suggestion (required, no fallback).
+        AGENT_SUGGEST_MODEL_ID: props.agentSuggestModelId,
+        IMAGE_GENERATION_MODEL_IDS: JSON.stringify(imageGenerationModelIds),
+        VIDEO_GENERATION_MODEL_IDS: JSON.stringify(videoGenerationModelIds),
+        CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
+        ...(props.guardrailIdentify
+          ? { GUARDRAIL_IDENTIFIER: props.guardrailIdentify }
+          : {}),
+        ...(props.guardrailVersion
+          ? { GUARDRAIL_VERSION: props.guardrailVersion }
+          : {}),
+      },
+      vpc,
+      securityGroups,
+    });
 
     // Image generation (conditional)
     let generateImageFunction: NodejsFunction | undefined;
@@ -623,6 +663,7 @@ export class Api extends Construct {
       listVideoJobs?.role?.addToPrincipalPolicy(bedrockPolicy);
       invokeFlowFunction.role?.addToPrincipalPolicy(bedrockPolicy);
       optimizePromptFunction.role?.addToPrincipalPolicy(bedrockPolicy);
+      agentSuggestFunction.role?.addToPrincipalPolicy(bedrockPolicy);
     } else {
       // Policy for when crossAccountBedrockRoleArn is specified
       const logsPolicy = new PolicyStatement({
@@ -638,12 +679,14 @@ export class Api extends Construct {
       predictStreamFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictFunction.role?.addToPrincipalPolicy(logsPolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(logsPolicy);
+      agentSuggestFunction.role?.addToPrincipalPolicy(logsPolicy);
       generateImageFunction?.role?.addToPrincipalPolicy(logsPolicy);
       generateVideoFunction?.role?.addToPrincipalPolicy(logsPolicy);
       listVideoJobs?.role?.addToPrincipalPolicy(logsPolicy);
       predictStreamFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       predictTitleFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
+      agentSuggestFunction.role?.addToPrincipalPolicy(assumeRolePolicy);
       generateImageFunction?.role?.addToPrincipalPolicy(assumeRolePolicy);
       generateVideoFunction?.role?.addToPrincipalPolicy(assumeRolePolicy);
       listVideoJobs?.role?.addToPrincipalPolicy(assumeRolePolicy);
@@ -776,6 +819,108 @@ export class Api extends Construct {
       securityGroups,
     });
     table.grantReadWriteData(updateFeedbackFunction);
+
+    // Meeting (minutes) CRUD. The MeetingTable is the source of truth; create
+    // and update also write a projection row to the main table (TABLE_NAME) so
+    // the sidebar history lists meetings. See Phase 2 meeting-workbench memo 1.2.
+    const meetingTable = props.meetingTable;
+
+    // Dedicated bucket for meeting workbench bodies (transcript.json /
+    // minutes.json; audio later). DynamoDB only holds meta + S3 keys, so the
+    // heavy transcript / structured minutes live here (memo 1.2(2) / 13.4).
+    //
+    // Memo 6/13.4 originally proposed reusing the transcribe construct's
+    // TranscriptBucket, but that bucket is created inside Transcribe, which is
+    // instantiated AFTER Api (Transcribe consumes Api's RestApi). It therefore
+    // cannot be granted to Api's meeting lambdas. We instead create a dedicated
+    // bucket here with the SAME settings as TranscriptBucket (S3-managed
+    // encryption, block-all public access, enforce SSL, destroy on teardown) so
+    // no new retention / security posture is introduced -- which is the
+    // substance of the memo 6 decision. GenU core (transcribe construct) stays
+    // untouched.
+    const meetingBucket = new Bucket(this, 'MeetingBucket', {
+      encryption: BucketEncryption.S3_MANAGED,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      enforceSSL: true,
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+    });
+
+    const createMeetingFunction = new NodejsFunction(this, 'CreateMeeting', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/createMeeting.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: table.tableName,
+        MEETING_TABLE_NAME: meetingTable.tableName,
+      },
+      vpc,
+      securityGroups,
+    });
+    meetingTable.grantWriteData(createMeetingFunction);
+    table.grantWriteData(createMeetingFunction);
+
+    const listMeetingsFunction = new NodejsFunction(this, 'ListMeetings', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/listMeetings.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        MEETING_TABLE_NAME: meetingTable.tableName,
+      },
+      vpc,
+      securityGroups,
+    });
+    meetingTable.grantReadData(listMeetingsFunction);
+
+    const findMeetingByIdFunction = new NodejsFunction(
+      this,
+      'FindMeetingById',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/findMeetingById.ts',
+        timeout: Duration.minutes(15),
+        environment: {
+          MEETING_TABLE_NAME: meetingTable.tableName,
+          MEETING_BUCKET_NAME: meetingBucket.bucketName,
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    meetingTable.grantReadData(findMeetingByIdFunction);
+    meetingBucket.grantRead(findMeetingByIdFunction);
+
+    const updateMeetingFunction = new NodejsFunction(this, 'UpdateMeeting', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/updateMeeting.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: table.tableName,
+        MEETING_TABLE_NAME: meetingTable.tableName,
+        MEETING_BUCKET_NAME: meetingBucket.bucketName,
+      },
+      vpc,
+      securityGroups,
+    });
+    meetingTable.grantReadWriteData(updateMeetingFunction);
+    table.grantReadWriteData(updateMeetingFunction);
+    meetingBucket.grantReadWrite(updateMeetingFunction);
+
+    const deleteMeetingFunction = new NodejsFunction(this, 'DeleteMeeting', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/deleteMeeting.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        TABLE_NAME: table.tableName,
+        MEETING_TABLE_NAME: meetingTable.tableName,
+        MEETING_BUCKET_NAME: meetingBucket.bucketName,
+      },
+      vpc,
+      securityGroups,
+    });
+    meetingTable.grantReadWriteData(deleteMeetingFunction);
+    table.grantReadWriteData(deleteMeetingFunction);
+    meetingBucket.grantReadWrite(deleteMeetingFunction);
 
     const getWebTextFunction = new NodejsFunction(this, 'GetWebText', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -1001,6 +1146,14 @@ export class Api extends Construct {
       commonAuthorizerProps
     );
 
+    // POST: /predict/agent-suggest (new UI top-page agent auto-suggestion)
+    const agentSuggestResource = predictResource.addResource('agent-suggest');
+    agentSuggestResource.addMethod(
+      'POST',
+      new LambdaIntegration(agentSuggestFunction),
+      commonAuthorizerProps
+    );
+
     const chatsResource = api.root.addResource('chats');
 
     // POST: /chats
@@ -1113,6 +1266,47 @@ export class Api extends Construct {
     feedbacksResource.addMethod(
       'POST',
       new LambdaIntegration(updateFeedbackFunction),
+      commonAuthorizerProps
+    );
+
+    // Meeting (minutes) routes. Independent /meetings resource because the
+    // MeetingTable is the source of truth (the Chat row is only a projection).
+    const meetingsResource = api.root.addResource('meetings');
+
+    // POST: /meetings
+    meetingsResource.addMethod(
+      'POST',
+      new LambdaIntegration(createMeetingFunction),
+      commonAuthorizerProps
+    );
+
+    // GET: /meetings
+    meetingsResource.addMethod(
+      'GET',
+      new LambdaIntegration(listMeetingsFunction),
+      commonAuthorizerProps
+    );
+
+    const meetingResource = meetingsResource.addResource('{meetingId}');
+
+    // GET: /meetings/{meetingId}
+    meetingResource.addMethod(
+      'GET',
+      new LambdaIntegration(findMeetingByIdFunction),
+      commonAuthorizerProps
+    );
+
+    // PUT: /meetings/{meetingId}
+    meetingResource.addMethod(
+      'PUT',
+      new LambdaIntegration(updateMeetingFunction),
+      commonAuthorizerProps
+    );
+
+    // DELETE: /meetings/{meetingId}
+    meetingResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteMeetingFunction),
       commonAuthorizerProps
     );
 

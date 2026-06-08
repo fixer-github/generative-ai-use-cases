@@ -19,7 +19,16 @@ import useChatList from '../../hooks/useChatList';
 import useAdmin from '../../hooks/useAdmin';
 import { Chat } from 'generative-ai-use-cases';
 import { GX } from '../strings';
-import { IcChat, IcAgent, IcMinutes, IcScheduler, IcAdmin, IcSearch, IcGear, IcPlus } from './icons';
+import {
+  IcChat,
+  IcAgent,
+  IcMinutes,
+  IcScheduler,
+  IcAdmin,
+  IcSearch,
+  IcGear,
+  IcPlus,
+} from './icons';
 
 type NavId = 'home' | 'agents' | 'minutes' | 'scheduler' | 'admin' | 'settings';
 
@@ -57,12 +66,17 @@ const groupByDate = (chats: Chat[]): DateGroup[] => {
     if (Number.isNaN(d.getTime())) buckets.older.push(c);
     else if (isToday(d)) buckets.today.push(c);
     else if (isYesterday(d)) buckets.yesterday.push(c);
-    else if (differenceInCalendarDays(new Date(), d) <= 7) buckets.last7.push(c);
+    else if (differenceInCalendarDays(new Date(), d) <= 7)
+      buckets.last7.push(c);
     else buckets.older.push(c);
   }
   return [
     { key: 'today', label: GX.dateGroups.today, items: buckets.today },
-    { key: 'yesterday', label: GX.dateGroups.yesterday, items: buckets.yesterday },
+    {
+      key: 'yesterday',
+      label: GX.dateGroups.yesterday,
+      items: buckets.yesterday,
+    },
     { key: 'last7', label: GX.dateGroups.last7, items: buckets.last7 },
     { key: 'older', label: GX.dateGroups.older, items: buckets.older },
   ].filter((g) => g.items.length > 0);
@@ -70,6 +84,16 @@ const groupByDate = (chats: Chat[]): DateGroup[] => {
 
 // chatId は `chat#<uuid>` 形式。ルーティング用に uuid 部分を取り出す。
 const toChatId = (chatId: string): string => chatId.replace(/^chat#/, '');
+// meetingId は `meeting#<uuid>` 形式。bare uuid を取り出す（findMeetingById 規約）。
+const toMeetingId = (meetingId: string): string =>
+  meetingId.replace(/^meeting#/, '');
+
+// 履歴行の遷移先。議事録の投影行（usecase==='minutes'）は編集ワークベンチへ、
+// それ以外（チャット）は会話へ振り分ける（着工方針メモ §9.3-3・§10.3-4）。
+const historyTargetOf = (it: Chat): string =>
+  it.usecase === 'minutes' && it.meetingId
+    ? `/g/minutes/${toMeetingId(it.meetingId)}`
+    : `/g/chat/${toChatId(it.chatId)}`;
 
 const GxSidebar: React.FC = () => {
   const navigate = useNavigate();
@@ -119,7 +143,9 @@ const GxSidebar: React.FC = () => {
         {NAV_ITEMS.map((n) => (
           <div
             key={n.id}
-            className={'sx-nav-item' + (activeRoute === n.id ? ' is-active' : '')}
+            className={
+              'sx-nav-item' + (activeRoute === n.id ? ' is-active' : '')
+            }
             onClick={() => navigate(NAV_TO_PATH[n.id])}>
             <n.Icon size={18} />
             <span className="sx-nav-item__label">{n.label}</span>
@@ -148,17 +174,26 @@ const GxSidebar: React.FC = () => {
           groups.map((grp) => (
             <React.Fragment key={grp.key}>
               <div className="sx-date">{grp.label}</div>
-              {grp.items.map((it) => (
-                <div
-                  className="sx-hi"
-                  key={it.chatId}
-                  onClick={() => navigate(`/g/chat/${toChatId(it.chatId)}`)}>
-                  <span className="sx-hi__icon" style={{ color: '#2d5be9' }}>
-                    <IcChat size={15} />
-                  </span>
-                  <span className="sx-hi__title">{it.title}</span>
-                </div>
-              ))}
+              {grp.items.map((it) => {
+                const isMinutes = it.usecase === 'minutes';
+                return (
+                  <div
+                    className="sx-hi"
+                    key={it.chatId}
+                    onClick={() => navigate(historyTargetOf(it))}>
+                    <span className="sx-hi__icon" style={{ color: '#2d5be9' }}>
+                      {isMinutes ? (
+                        <IcMinutes size={15} />
+                      ) : (
+                        <IcChat size={15} />
+                      )}
+                    </span>
+                    <span className="sx-hi__title">
+                      {it.title || (isMinutes ? GX.pages.minutes : '')}
+                    </span>
+                  </div>
+                );
+              })}
             </React.Fragment>
           ))
         )}
@@ -170,12 +205,16 @@ const GxSidebar: React.FC = () => {
           <div className="sx-div" />
           <div className="sx-admin">
             <div
-              className={'sx-nav-item' + (activeRoute === 'admin' ? ' is-active' : '')}
+              className={
+                'sx-nav-item' + (activeRoute === 'admin' ? ' is-active' : '')
+              }
               onClick={() => navigate(NAV_TO_PATH.admin)}
               title={GX.sidebar.adminTitle}>
               <IcAdmin size={18} />
               <span className="sx-nav-item__label">{GX.sidebar.admin}</span>
-              <span className="sx-badge sx-badge--soft">{GX.sidebar.adminBadge}</span>
+              <span className="sx-badge sx-badge--soft">
+                {GX.sidebar.adminBadge}
+              </span>
             </div>
           </div>
         </>
