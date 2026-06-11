@@ -3,7 +3,6 @@ import { Construct } from 'constructs';
 import {
   Auth,
   Api,
-  AdminApi,
   Web,
   Database,
   Rag,
@@ -38,6 +37,7 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { AgentCoreStack } from './agent-core-stack';
+import { AdminNestedStack } from './nested';
 import * as path from 'path';
 import { RemoteOutputs } from 'cdk-remote-stack';
 import { REMOTE_OUTPUT_KEYS } from './remote-output-keys';
@@ -196,13 +196,20 @@ export class GenerativeAiUseCasesStack extends Stack {
       searchApiKeySsmParameterName: params.searchApiKeySsmParameterName,
     });
 
-    // Admin API
-    new AdminApi(this, 'AdminApi', {
+    // Admin API — moved into a child NestedStack to relieve the CloudFormation 500-resource
+    // limit (NestedStack migration step 0; memo §4.5 + impl-log §2). The parent's auto
+    // Deployment must depend on this child so the child's /admin Methods are included in the
+    // Stage snapshot (memo §4.4). The child's LambdaIntegrations use
+    // scopePermissionToMethod:false to avoid the Deployment -> child -> Stage -> Deployment
+    // cycle (impl-log §2). This was reached via a two-stage deploy: deploy A removed the old
+    // in-parent AdminApi; deploy B (this) recreates it as the child.
+    const adminStack = new AdminNestedStack(this, 'AdminStack', {
       userPool: auth.userPool,
       api: api.api,
       vpc: props.vpc,
       securityGroups,
     });
+    api.api.latestDeployment?.node.addDependency(adminStack);
 
     // WAF
     if (
