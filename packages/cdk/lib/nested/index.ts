@@ -50,3 +50,4 @@
  */
 export * from './admin-nested-stack';
 export * from './scheduler-nested-stack';
+export * from './transcribe-nested-stack';

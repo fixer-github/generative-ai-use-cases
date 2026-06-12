@@ -3,12 +3,14 @@ import {
   AuthorizationType,
   CognitoUserPoolsAuthorizer,
   LambdaIntegration,
+  Resource,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import { IdentityPool } from 'aws-cdk-lib/aws-cognito-identitypool';
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import {
   BlockPublicAccess,
   Bucket,
@@ -132,14 +134,32 @@ export class Transcribe extends Construct {
       authorizationType: AuthorizationType.COGNITO,
       authorizer,
     };
-    const transcribeResource = props.api.root.addResource('transcribe');
+
+    // This construct is instantiated inside TranscribeNestedStack (a child NestedStack).
+    // scopePermissionToMethod:false makes each Lambda invoke permission use
+    // api.arnForExecuteApi() (`${restApiId}/*`, no Stage reference) instead of
+    // method.methodArn (which embeds the parent's deployment Stage). That removes the
+    // child(Permission) -> parent(Stage) edge and breaks the otherwise-cyclic
+    // Deployment -> child NestedStack -> Stage -> Deployment dependency (memo §4.4
+    // addendum; see impl-log §2).
+    const transcribeLambdaIntegration = (fn: IFunction) =>
+      new LambdaIntegration(fn, { scopePermissionToMethod: false });
+
+    // Explicit parent form so the Resource is scoped to this child construct (= child
+    // NestedStack) while its API Gateway parent stays api.root in the parent stack
+    // (memo §4.1 C1 / §4.3). CORS/authorizer/path shape is inherited from
+    // props.parent(=api.root) and unchanged.
+    const transcribeResource = new Resource(this, 'transcribe', {
+      parent: props.api.root,
+      pathPart: 'transcribe',
+    });
 
     // POST: /transcribe/start
     transcribeResource
       .addResource('start')
       .addMethod(
         'POST',
-        new LambdaIntegration(startTranscriptionFunction),
+        transcribeLambdaIntegration(startTranscriptionFunction),
         commonAuthorizerProps
       );
 
@@ -148,7 +168,7 @@ export class Transcribe extends Construct {
       .addResource('url')
       .addMethod(
         'POST',
-        new LambdaIntegration(getSignedUrlFunction),
+        transcribeLambdaIntegration(getSignedUrlFunction),
         commonAuthorizerProps
       );
 
@@ -158,7 +178,7 @@ export class Transcribe extends Construct {
       .addResource('{jobName}')
       .addMethod(
         'GET',
-        new LambdaIntegration(getTranscriptionFunction),
+        transcribeLambdaIntegration(getTranscriptionFunction),
         commonAuthorizerProps
       );
 

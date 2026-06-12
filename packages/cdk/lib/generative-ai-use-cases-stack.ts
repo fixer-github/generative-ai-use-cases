@@ -7,7 +7,6 @@ import {
   Database,
   Rag,
   RagKnowledgeBase,
-  Transcribe,
   CommonWebAcl,
   SpeechToSpeech,
   McpApi,
@@ -36,7 +35,11 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { AgentCoreStack } from './agent-core-stack';
-import { AdminNestedStack, SchedulerNestedStack } from './nested';
+import {
+  AdminNestedStack,
+  SchedulerNestedStack,
+  TranscribeNestedStack,
+} from './nested';
 import * as path from 'path';
 import { RemoteOutputs } from 'cdk-remote-stack';
 import { REMOTE_OUTPUT_KEYS } from './remote-output-keys';
@@ -503,8 +506,19 @@ export class GenerativeAiUseCasesStack extends Stack {
       api.api.latestDeployment?.node.addDependency(schedulerStack);
     }
 
-    // Transcribe
-    new Transcribe(this, 'Transcribe', {
+    // Transcribe — moved into a child NestedStack to relieve the CloudFormation 500-resource
+    // limit (Phase2 step2; memo §4.5 + impl-log §8). AudioBucket / TranscriptBucket (+CORS),
+    // the 3 Lambdas and `/transcribe/*` live in the child. The child's LambdaIntegrations use
+    // scopePermissionToMethod:false to avoid the Deployment -> child -> Stage -> Deployment
+    // cycle, and the parent's auto Deployment depends on the child so the /transcribe Methods
+    // land on the Stage (memo §4.4 + impl-log §2). The construct also attaches an inline policy
+    // (transcribe:StartStreamTranscriptionWebSocket) to auth.idPool.authenticatedRole (parent)
+    // from the child — confirm at runtime that authenticated users can actually run
+    // transcription (memo §8 step2). Reached via a two-stage deploy: deploy A removed the
+    // in-parent Transcribe; deploy B (this) recreates it as the child (buckets start empty).
+    // NOTE: the minutes/B3 feature (APITranscribeCompletion) stays in the parent and is
+    // independent of this construct (it uses its own MeetingBucket; see api.ts).
+    const transcribeStack = new TranscribeNestedStack(this, 'TranscribeStack', {
       userPool: auth.userPool,
       idPool: auth.idPool,
       api: api.api,
@@ -513,6 +527,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       vpc: props.vpc,
       securityGroups,
     });
+    api.api.latestDeployment?.node.addDependency(transcribeStack);
 
     // ===== Backup Resources (wiring Phase 2-6 constructs) =====
     // Phase 2: Three isolated backup buckets (Object Lock Compliance 90 days)
