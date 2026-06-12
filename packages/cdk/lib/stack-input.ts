@@ -15,6 +15,9 @@ const baseStackInputSchema = z.object({
   samlCognitoDomainName: z.string().nullish(),
   samlCognitoFederatedIdentityProviderName: z.string().nullish(),
   // Frontend
+  // New UI (GaiXer for healthcare) mounted under /g. Coexists with the legacy
+  // UI; toggled at build time via VITE_APP_NEW_UI_ENABLED.
+  newUiEnabled: z.boolean().default(false),
   hiddenUseCases: z
     .object({
       generate: z.boolean().optional(),

@@ -73,6 +73,7 @@ export interface WebProps {
   readonly agentCoreRegion?: string;
   readonly mfaRequired: boolean;
   readonly schedulerEnabled: boolean;
+  readonly newUiEnabled: boolean;
   readonly brandingConfig?: {
     logoPath?: string;
     title?: string;
@@ -331,6 +332,7 @@ export class Web extends Construct {
           props.agentCoreExternalRuntimes
         ),
         VITE_APP_SCHEDULER_ENABLED: props.schedulerEnabled.toString(),
+        VITE_APP_NEW_UI_ENABLED: props.newUiEnabled.toString(),
         VITE_APP_BRANDING_LOGO_PATH: props.brandingConfig?.logoPath ?? '',
         VITE_APP_BRANDING_TITLE: props.brandingConfig?.title ?? '',
       },

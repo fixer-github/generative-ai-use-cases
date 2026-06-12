@@ -355,6 +355,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         params.createGenericAgentCoreRuntime ||
         params.agentCoreExternalRuntimes.length > 0,
       // Frontend
+      newUiEnabled: params.newUiEnabled,
       hiddenUseCases: params.hiddenUseCases,
       // Custom Domain
       cert: props.cert,
