@@ -52,6 +52,21 @@ export function toCronExpression(config: ScheduleConfig): string {
 }
 
 /**
+ * Build a one-time EventBridge Scheduler expression (`at(...)`) for a future
+ * instant. Used by the failure handler to self-reschedule transient retries
+ * (30s/2m/8m) as one-shot schedules with ActionAfterCompletion=DELETE.
+ *
+ * The `at()` format is `at(yyyy-mm-ddThh:mm:ss)` interpreted in the schedule's
+ * ScheduleExpressionTimezone. We emit a UTC instant (no trailing 'Z', seconds
+ * precision) and pair it with ScheduleExpressionTimezone='UTC' at the call site.
+ */
+export function toOneTimeExpression(at: Date): string {
+  // toISOString() -> "2026-06-12T05:00:30.123Z"; strip milliseconds and the Z.
+  const iso = at.toISOString().replace(/\.\d{3}Z$/, '');
+  return `at(${iso})`;
+}
+
+/**
  * Convert ISO 8601 weekday number to EventBridge day-of-week name
  * ISO: 1=Monday, 2=Tuesday, ..., 7=Sunday
  * EventBridge: SUN, MON, TUE, WED, THU, FRI, SAT

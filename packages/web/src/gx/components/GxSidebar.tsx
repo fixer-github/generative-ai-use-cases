@@ -1,16 +1,17 @@
 /**
  * 新UI 共通サイドバー（案D・統合シェル）。
  * デザインバンドル project/app/Sidebar.jsx を TSX へ移植し、現行の実データに結線：
- *   - 会話履歴：useChatList（既存 Chat テーブル）を日付グループ表示（D1 / Phase 0 はチャットのみ）
+ *   - 会話履歴：useChatList（既存 Chat テーブル）を日付グループ表示（D1）。
+ *     議事録（usecase==='minutes'）・実行（usecase==='sched'）の投影行も同じ一覧へ流入。
  *   - 管理者リンク：useAdmin（Cognito admin 判定）でロール出し分け
  *   - アカウント：email を表示名に使用（cognito:username は UUID になりうるため）。所属は P1 未確定のため当面非表示
  *
- * Phase 0 の方針（判断メモ D1）に従い当面非表示としていた要素のうち、Phase 2
- * 共通基盤クラスタで実データが流入したものを順次解禁する：
+ * Phase 0 の方針（判断メモ D1）に従い当面非表示としていた要素は、Phase 2 共通基盤
+ * クラスタで実データが流入するのに合わせて順次解禁する：
  *   - 通知ベル（P4 通知基盤）：step 3 で解禁。GxNotificationBell（NotificationTable）。
- * 引き続き非表示（後続 step で解禁予定）：
- *   - 種別フィルタ chip（議事録・実行の履歴流入は step 6）
- *   - 機能ナビのアラートバッジ（集計供給源は step 5/6）
+ *   - 種別フィルタ chip（チャット/議事録/実行）：step 6 で解禁。投影行が両系統流入。
+ *   - 実行行の「自動」バッジ・スケジューラーのアラートバッジ：step 5/6 の供給源（sched
+ *     投影行・未読 sched_* 通知）が揃ったので解禁。
  *
  * 検索は「縮退（タイトル検索で開始）」としてクライアント側の部分一致で動かす。
  */
@@ -22,6 +23,7 @@ import useAdmin from '../../hooks/useAdmin';
 import { Chat } from 'generative-ai-use-cases';
 import { GX } from '../strings';
 import GxNotificationBell from './GxNotificationBell';
+import useNotifications from '../hooks/useNotifications';
 import {
   IcChat,
   IcAgent,
@@ -48,6 +50,33 @@ const NAV_ITEMS: { id: NavId; label: string; Icon: typeof IcAgent }[] = [
   { id: 'agents', label: GX.nav.agents, Icon: IcAgent },
   { id: 'minutes', label: GX.nav.minutes, Icon: IcMinutes },
   { id: 'scheduler', label: GX.nav.scheduler, Icon: IcScheduler },
+];
+
+// 履歴行の種別。チャット以外は投影行（議事録/実行）。デザイン Sidebar.jsx SBTYPE の
+// 色・アイコンに対応づける（chat=青 / minutes=ティール / sched=紫）。
+type HistType = 'chat' | 'minutes' | 'sched';
+const SBTYPE: Record<HistType, { Icon: typeof IcChat; color: string }> = {
+  chat: { Icon: IcChat, color: '#2d5be9' },
+  minutes: { Icon: IcMinutes, color: '#0a9c9c' },
+  sched: { Icon: IcScheduler, color: '#7a2fd6' },
+};
+const typeOf = (it: Chat): HistType =>
+  it.usecase === 'minutes'
+    ? 'minutes'
+    : it.usecase === 'sched'
+      ? 'sched'
+      : 'chat';
+
+type FilterId = 'all' | HistType;
+const FILTERS: { id: FilterId; label: string; color: string | null }[] = [
+  { id: 'all', label: GX.sidebar.filterAll, color: null },
+  { id: 'chat', label: GX.sidebar.filterChat, color: SBTYPE.chat.color },
+  {
+    id: 'minutes',
+    label: GX.sidebar.filterMinutes,
+    color: SBTYPE.minutes.color,
+  },
+  { id: 'sched', label: GX.sidebar.filterSched, color: SBTYPE.sched.color },
 ];
 
 type DateGroup = { key: string; label: string; items: Chat[] };
@@ -91,22 +120,45 @@ const toChatId = (chatId: string): string => chatId.replace(/^chat#/, '');
 const toMeetingId = (meetingId: string): string =>
   meetingId.replace(/^meeting#/, '');
 
-// 履歴行の遷移先。議事録の投影行（usecase==='minutes'）は編集ワークベンチへ、
-// それ以外（チャット）は会話へ振り分ける（着工方針メモ §9.3-3・§10.3-4）。
-const historyTargetOf = (it: Chat): string =>
-  it.usecase === 'minutes' && it.meetingId
-    ? `/g/minutes/${toMeetingId(it.meetingId)}`
-    : `/g/chat/${toChatId(it.chatId)}`;
+// 履歴行の遷移先。
+//   議事録（usecase==='minutes'）→ 編集ワークベンチ
+//   実行（usecase==='sched'）   → スケジューラー実行詳細（taskId/executionId は投影行が保持）
+//   それ以外（チャット）         → 会話
+// executionId は `taskId#scheduledTime` 形式で '#' を含むため URL エンコードする。
+const historyTargetOf = (it: Chat): string => {
+  const t = typeOf(it);
+  if (t === 'minutes' && it.meetingId)
+    return `/g/minutes/${toMeetingId(it.meetingId)}`;
+  if (t === 'sched' && it.taskId && it.executionId)
+    return `/g/scheduler/${it.taskId}/executions/${encodeURIComponent(it.executionId)}`;
+  if (t === 'sched' && it.taskId) return `/g/scheduler/${it.taskId}`;
+  return `/g/chat/${toChatId(it.chatId)}`;
+};
 
 const GxSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { chats } = useChatList();
   const { isAdmin, currentUsername, email } = useAdmin();
+  const { notifications } = useNotifications();
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<FilterId>('all');
 
   // cognito:username が UUID になりうるため、人が読める email を優先（無ければユーザー名）
   const displayName = email || currentUsername;
+
+  // スケジューラーのアラートバッジ＝未読の sched_* 通知件数（自動停止・失敗）。
+  const schedAlert = useMemo(
+    () =>
+      notifications.reduce(
+        (n, x) =>
+          !x.read && (x.type === 'sched_failed' || x.type === 'sched_paused')
+            ? n + 1
+            : n,
+        0
+      ),
+    [notifications]
+  );
 
   const activeRoute: NavId | null = useMemo(() => {
     const entry = (Object.entries(NAV_TO_PATH) as [NavId, string][])
@@ -117,11 +169,13 @@ const GxSidebar: React.FC = () => {
 
   const groups = useMemo(() => {
     const q = query.trim();
-    const filtered = q
-      ? chats.filter((c) => (c.title ?? '').includes(q))
-      : chats;
+    const filtered = chats.filter((c) => {
+      if (q && !(c.title ?? '').includes(q)) return false;
+      if (filter !== 'all' && typeOf(c) !== filter) return false;
+      return true;
+    });
     return groupByDate(filtered);
-  }, [chats, query]);
+  }, [chats, query, filter]);
 
   const initial = (displayName || '?').charAt(0).toUpperCase();
 
@@ -145,17 +199,23 @@ const GxSidebar: React.FC = () => {
       {/* 機能ナビ */}
       <div className="sx-label">{GX.sidebar.sectionFeatures}</div>
       <nav className="sx-nav">
-        {NAV_ITEMS.map((n) => (
-          <div
-            key={n.id}
-            className={
-              'sx-nav-item' + (activeRoute === n.id ? ' is-active' : '')
-            }
-            onClick={() => navigate(NAV_TO_PATH[n.id])}>
-            <n.Icon size={18} />
-            <span className="sx-nav-item__label">{n.label}</span>
-          </div>
-        ))}
+        {NAV_ITEMS.map((n) => {
+          const alert = n.id === 'scheduler' ? schedAlert : 0;
+          return (
+            <div
+              key={n.id}
+              className={
+                'sx-nav-item' + (activeRoute === n.id ? ' is-active' : '')
+              }
+              onClick={() => navigate(NAV_TO_PATH[n.id])}>
+              <n.Icon size={18} />
+              <span className="sx-nav-item__label">{n.label}</span>
+              {alert > 0 && (
+                <span className="sx-badge sx-badge--alert">{alert}</span>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="sx-div" />
@@ -170,8 +230,21 @@ const GxSidebar: React.FC = () => {
         />
       </div>
 
-      {/* 会話履歴（D1：Phase 0 は既存 Chat のみ。種別 chip は非表示） */}
+      {/* 会話履歴（D1）＋種別フィルタ chip（step 6 解禁） */}
       <div className="sx-label">{GX.sidebar.sectionHistory}</div>
+      <div className="sx-chips">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            className={'sx-chip' + (filter === f.id ? ' is-on' : '')}
+            onClick={() => setFilter(f.id)}>
+            {f.color && (
+              <span className="sx-chip__dot" style={{ background: f.color }} />
+            )}
+            {f.label}
+          </button>
+        ))}
+      </div>
       <div className="sx-hist">
         {groups.length === 0 ? (
           <div className="sx-date">{GX.sidebar.emptyHistory}</div>
@@ -180,22 +253,29 @@ const GxSidebar: React.FC = () => {
             <React.Fragment key={grp.key}>
               <div className="sx-date">{grp.label}</div>
               {grp.items.map((it) => {
-                const isMinutes = it.usecase === 'minutes';
+                const t = typeOf(it);
+                const Icon = SBTYPE[t].Icon;
                 return (
                   <div
                     className="sx-hi"
                     key={it.chatId}
                     onClick={() => navigate(historyTargetOf(it))}>
-                    <span className="sx-hi__icon" style={{ color: '#2d5be9' }}>
-                      {isMinutes ? (
-                        <IcMinutes size={15} />
-                      ) : (
-                        <IcChat size={15} />
-                      )}
+                    <span
+                      className="sx-hi__icon"
+                      style={{ color: SBTYPE[t].color }}>
+                      <Icon size={15} />
                     </span>
                     <span className="sx-hi__title">
-                      {it.title || (isMinutes ? GX.pages.minutes : '')}
+                      {it.title ||
+                        (t === 'minutes'
+                          ? GX.pages.minutes
+                          : t === 'sched'
+                            ? GX.nav.scheduler
+                            : '')}
                     </span>
+                    {t === 'sched' && (
+                      <span className="sx-auto">{GX.sidebar.autoBadge}</span>
+                    )}
                   </div>
                 );
               })}

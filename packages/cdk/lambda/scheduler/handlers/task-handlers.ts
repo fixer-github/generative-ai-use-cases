@@ -9,6 +9,7 @@ import {
   UpdateScheduleCommand,
   DeleteScheduleCommand,
 } from '@aws-sdk/client-scheduler';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import * as crypto from 'crypto';
 import {
   CreateScheduledTaskRequest,
@@ -21,7 +22,9 @@ import {
   listTasks,
   countTasks,
   updateTask,
+  updateTaskRuntime,
   deleteTask,
+  toTaskResponse,
 } from '../repository';
 import {
   toCronExpression,
@@ -29,10 +32,12 @@ import {
 } from '../utils/schedule-utils';
 import { successResponse, errorResponse } from '../utils/response-utils';
 
-const MAX_TASKS_PER_USER = 20;
+// Per-user task limit. D7: aligned with the prototype's quota meter (was 20).
+const MAX_TASKS_PER_USER = 10;
 const schedulerClient = new SchedulerClient({
   region: process.env.AWS_REGION,
 });
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 const EXECUTE_FUNCTION_ARN = process.env.EXECUTE_FUNCTION_ARN!;
 const SCHEDULER_ROLE_ARN = process.env.SCHEDULER_ROLE_ARN!;
@@ -104,9 +109,12 @@ export async function handleCreateTask(
           DeadLetterConfig: {
             Arn: DLQ_ARN,
           },
+          // Decision A: the execute Lambda is the single source of retry truth
+          // (self-rescheduled one-time retries at 30s/2m/8m, recorded per fire).
+          // EventBridge's own retry is disabled so it cannot fire untracked
+          // re-runs (it also never fired for task errors, which are swallowed).
           RetryPolicy: {
-            MaximumRetryAttempts: 2,
-            MaximumEventAgeInSeconds: 3600,
+            MaximumRetryAttempts: 0,
           },
         },
         FlexibleTimeWindow: { Mode: 'OFF' },
@@ -157,7 +165,10 @@ export async function handleListTasks(
   userId: string
 ): Promise<APIGatewayProxyResult> {
   const tasks = await listTasks(userId);
-  return successResponse({ tasks });
+  // listTasks already returns non-deleted tasks, so its length is the live
+  // count — no extra COUNT query needed for the quota meter (D7).
+  const remaining = Math.max(0, MAX_TASKS_PER_USER - tasks.length);
+  return successResponse({ tasks, remaining, limit: MAX_TASKS_PER_USER });
 }
 
 export async function handleGetTask(
@@ -168,18 +179,8 @@ export async function handleGetTask(
   if (!task) {
     return errorResponse('Task not found', 404);
   }
-  return successResponse({
-    task: {
-      taskId: task.taskId,
-      taskName: task.taskName,
-      prompt: task.prompt,
-      agentName: task.agentName,
-      modelId: task.modelId,
-      schedule: task.schedule,
-      enabled: task.enabled,
-      updatedAt: task.updatedAt,
-    },
-  });
+  // toTaskResponse derives status/consecutiveFailures/lastError (step 5).
+  return successResponse({ task: toTaskResponse(task) });
 }
 
 export async function handleUpdateTask(
@@ -230,9 +231,9 @@ export async function handleUpdateTask(
             DeadLetterConfig: {
               Arn: DLQ_ARN,
             },
+            // Decision A: EventBridge retry disabled (see handleCreateTask).
             RetryPolicy: {
-              MaximumRetryAttempts: 2,
-              MaximumEventAgeInSeconds: 3600,
+              MaximumRetryAttempts: 0,
             },
           },
           FlexibleTimeWindow: { Mode: 'OFF' },
@@ -245,17 +246,32 @@ export async function handleUpdateTask(
     }
   }
 
-  // Build update object (only include defined fields)
-  const updates: Record<string, unknown> = {};
-  if (body.taskName !== undefined) updates.taskName = body.taskName;
-  if (body.prompt !== undefined) updates.prompt = body.prompt;
-  if (body.agentName !== undefined) updates.agentName = body.agentName;
-  if (body.modelId !== undefined) updates.modelId = body.modelId;
-  if (body.schedule !== undefined) updates.schedule = body.schedule;
-  if (body.enabled !== undefined) updates.enabled = body.enabled;
+  // Content updates (everything except the enabled/status lifecycle).
+  const contentUpdates: Record<string, unknown> = {};
+  if (body.taskName !== undefined) contentUpdates.taskName = body.taskName;
+  if (body.prompt !== undefined) contentUpdates.prompt = body.prompt;
+  if (body.agentName !== undefined) contentUpdates.agentName = body.agentName;
+  if (body.modelId !== undefined) contentUpdates.modelId = body.modelId;
+  if (body.schedule !== undefined) contentUpdates.schedule = body.schedule;
+  if (Object.keys(contentUpdates).length > 0) {
+    await updateTask(userId, taskId, contentUpdates);
+  }
 
-  const taskResponse = await updateTask(userId, taskId, updates);
-  return successResponse({ task: taskResponse });
+  // `enabled` is the API surface for pause/resume; internally it maps to
+  // `status` (the source of truth, which also re-derives `enabled`). Re-enabling
+  // clears the failure streak + lastError so an auto-stopped task starts clean.
+  if (enabledChanged) {
+    await updateTaskRuntime(userId, taskId, {
+      status: body.enabled ? 'active' : 'paused',
+      ...(body.enabled ? { consecutiveFailures: 0, lastError: null } : {}),
+    });
+  }
+
+  const finalTask = await getTask(userId, taskId);
+  if (!finalTask) {
+    return errorResponse('Task not found', 404);
+  }
+  return successResponse({ task: toTaskResponse(finalTask) });
 }
 
 export async function handleDeleteTask(
@@ -282,4 +298,47 @@ export async function handleDeleteTask(
   // Logical delete in DynamoDB
   await deleteTask(userId, taskId);
   return successResponse({ message: 'Task deleted' });
+}
+
+/**
+ * "Run now" (step 5). Fires the task once immediately by asynchronously invoking
+ * the execute Lambda with trigger='manual'. A manual run records an execution
+ * and projects its result into history, but does not drive the failure chain
+ * (no counter / retry / auto-stop / email) — see executeScheduledTask.ts.
+ *
+ * Async invoke (InvocationType: 'Event') returns immediately, so a long task
+ * never blocks the 30s API Lambda; the result surfaces via history + the bell.
+ */
+export async function handleRunNow(
+  userId: string,
+  taskId: string
+): Promise<APIGatewayProxyResult> {
+  const task = await getTask(userId, taskId);
+  if (!task) {
+    return errorResponse('Task not found', 404);
+  }
+
+  // ms precision keeps the executionId (taskId#scheduledTime) distinct from the
+  // recurring fire's (rounded to the schedule's minute boundary).
+  const payload = {
+    taskId,
+    userId,
+    scheduledTime: new Date().toISOString(),
+    trigger: 'manual',
+  };
+
+  try {
+    await lambdaClient.send(
+      new InvokeCommand({
+        FunctionName: EXECUTE_FUNCTION_ARN,
+        InvocationType: 'Event',
+        Payload: Buffer.from(JSON.stringify(payload)),
+      })
+    );
+  } catch (error) {
+    console.error('Failed to trigger manual run:', error);
+    return errorResponse('Failed to trigger run. Please try again.', 500);
+  }
+
+  return successResponse({ message: 'Task run triggered' }, 202);
 }

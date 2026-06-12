@@ -93,6 +93,46 @@ ${errorMessage}
   await sendMail(toEmail, `[GaiXer] タスク実行エラー: ${taskName}`, body);
 }
 
+// --- Bell notification text (step 5) -------------------------------------
+// The persisted bell notification (NotificationTable) is written by the
+// scheduler repository; this module owns the user-facing JP copy (it already
+// carries the i18nhelper disable). `body` is capped so a runaway error message
+// cannot bloat the row.
+
+const MAX_NOTIFICATION_BODY = 500;
+
+/**
+ * Copy for a task that hit a permanent error and was stopped immediately.
+ */
+export function buildSchedFailedNotification(
+  taskName: string,
+  errorMessage: string
+): { title: string; body: string } {
+  return {
+    title: `タスク「${taskName}」の実行に失敗しました`,
+    body: capNotificationBody(`エラーのため自動停止しました。${errorMessage}`),
+  };
+}
+
+/**
+ * Copy for a task auto-stopped after repeated transient failures (3 retries).
+ */
+export function buildSchedPausedNotification(taskName: string): {
+  title: string;
+  body: string;
+} {
+  return {
+    title: `タスク「${taskName}」を自動停止しました`,
+    body: '一時的なエラーが連続したため自動停止しました。設定を確認して再開してください。',
+  };
+}
+
+function capNotificationBody(text: string): string {
+  return text.length <= MAX_NOTIFICATION_BODY
+    ? text
+    : text.slice(0, MAX_NOTIFICATION_BODY) + '…';
+}
+
 /**
  * Cap result text to a generous byte limit, appending a notice when truncated.
  */

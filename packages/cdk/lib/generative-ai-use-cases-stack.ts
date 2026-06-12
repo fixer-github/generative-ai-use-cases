@@ -503,6 +503,9 @@ export class GenerativeAiUseCasesStack extends Stack {
         closedNetworkMode: params.closedNetworkMode,
         vpc: props.vpc,
         securityGroups,
+        // step 5/6: execute Lambda writes the bell notification + sidebar projection.
+        notificationTable: database.notificationTable,
+        table: database.table,
       });
       api.api.latestDeployment?.node.addDependency(schedulerStack);
     }

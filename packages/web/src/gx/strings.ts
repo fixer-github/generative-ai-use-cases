@@ -21,6 +21,11 @@ export const GX = {
     settingsTitle: '設定',
     autoBadge: '自動',
     emptyHistory: '会話履歴はまだありません',
+    // 種別フィルタ chip（step 6 で解禁。デザイン Sidebar.jsx FILTERS）
+    filterAll: 'すべて',
+    filterChat: 'チャット',
+    filterMinutes: '議事録',
+    filterSched: '実行',
   },
   notifications: {
     title: '通知',
@@ -521,5 +526,157 @@ export const GX = {
           '次の問診メモ／診療記録から、外来でよく聞かれる質問とその回答候補を整理し、FAQ形式にまとめてください。\n\n・元になる情報：',
       },
     ],
+  },
+  // スケジューラー運用コンソール（step 7・デザイン SchedulerConsole/Failure/RunDetail 移植）
+  scheduler: {
+    // 一覧（運用コンソール）
+    eyebrow: 'スケジューラー · AIエージェントの定期実行',
+    title: 'スケジュール',
+    budgetLabel: 'タスク枠',
+    newTask: '新規スケジュール',
+    refresh: '更新',
+    sortLabel: '並び順:',
+    sortNext: '更新が新しい順',
+    countSuffix: ' 件のスケジュール',
+    loading: 'スケジュールを読み込んでいます…',
+    empty: 'まだスケジュールがありません。',
+    emptyHint:
+      '「新規スケジュール」から、AIエージェントの定期実行を登録できます。',
+    listHint: '行をクリックすると詳細・実行履歴が開きます',
+    // フィルタ pill
+    filters: {
+      all: 'すべて',
+      active: '有効',
+      paused: '一時停止',
+      error: '要対応',
+    },
+    // 状態ラベル
+    status: {
+      active: '有効',
+      paused: '一時停止',
+      error: '要対応',
+    },
+    // 行・詳細の共通
+    agentLabel: 'エージェント',
+    lastRun: '前回',
+    nextRunUnknown: 'スケジュール実行',
+    deliverySelf: '自分宛',
+    healthRecent: '直近',
+    // 詳細ページ
+    detail: {
+      backTitle: '一覧に戻る',
+      crumbRoot: 'スケジューラー',
+      run: '今すぐ実行',
+      running: '実行を依頼しました',
+      runHint:
+        '実行はバックグラウンドで行われ、結果は履歴とベルに表示されます。',
+      edit: '編集',
+      pause: '一時停止',
+      resume: '再開',
+      delete: '削除',
+      enabledToggle: '有効 / 停止',
+      sectionInfo: 'スケジュール情報',
+      freq: '頻度',
+      prompt: '指示内容',
+      delivery: '配信先',
+      deliverySelfNote: '自分（メール通知）',
+      sessionNote: '実行結果はチャット履歴に保存されます',
+      sectionHistory: '実行・リトライの記録',
+      historyEmpty: '実行履歴はまだありません。',
+      // 削除確認
+      confirmDeleteTitle: 'このスケジュールを削除しますか？',
+      confirmDeleteBody:
+        '定期実行が停止され、スケジュールは削除されます。これまでの実行履歴は残ります。',
+      confirmCancel: 'やめる',
+      confirmDelete: '削除する',
+    },
+    // 失敗UI
+    failure: {
+      autoStopTitle:
+        '連続して失敗したため、スケジュールを自動的に一時停止しました',
+      autoStopBodyTransient:
+        '原因は一時的な接続エラーと判定されています。原因を確認のうえ、再実行またはスケジュールの再開を行ってください。停止中は実行されません。',
+      autoStopBodyPermanent:
+        '原因は構成エラー（権限の失効・対象エージェントの削除など）と判定されています。リトライしても解消しないため、設定を修正してから再開してください。',
+      causeTransientHd: '一時的エラー',
+      causeTransientDesc:
+        'データソースの一時的な障害・タイムアウトなど。自動でリトライします（最大3回・30秒/2分/8分のバックオフ付き）。',
+      causePermanentHd: '構成エラー',
+      causePermanentDesc:
+        '権限の失効・対象エージェントの削除など。リトライしても解消しないため、即時に通知し人による修正を促します。',
+      causeThis: '今回はこちら',
+      causeNone: '該当なし',
+      retryNow: '今すぐ再実行',
+      resumeSchedule: 'スケジュールを再開',
+    },
+    // 実行詳細
+    exec: {
+      backTitle: '詳細に戻る',
+      titleSuccess: '実行結果',
+      titleError: '実行結果 — 失敗',
+      titleRunning: '実行中',
+      bannerSuccess: '正常終了',
+      bannerError: '失敗 · 要対応',
+      bannerRunning: '実行中',
+      sectionInfo: '実行情報',
+      trigger: 'トリガー',
+      triggerSchedule: '定期実行',
+      triggerRetry: '自動リトライ',
+      triggerManual: '手動実行',
+      startedAt: '開始時刻',
+      duration: '所要時間',
+      tokens: '使用トークン',
+      emailSent: 'メール通知',
+      emailSentYes: '送信済み',
+      emailSentNo: '未送信',
+      errorCause: 'エラー分類',
+      causeTransient: '一時的エラー',
+      causePermanent: '構成エラー',
+      errorTitle: 'エラー内容',
+      resultTitle: '実行結果',
+      resultEmpty: '結果テキストはありません。',
+      openInChat: 'チャットで続けて質問する',
+      openInChatHint:
+        'この実行結果をチャットに引き継いで、続けて質問・深掘りできます。',
+      loading: '実行結果を読み込んでいます…',
+      notFound: '実行が見つかりませんでした。',
+    },
+    // フォーム（作成・編集）
+    form: {
+      newTitle: '新規スケジュール',
+      editTitle: 'スケジュールを編集',
+      backTitle: '一覧に戻る',
+      taskName: 'スケジュール名',
+      taskNamePlaceholder: '例: 病床稼働率 日次レポート',
+      prompt: '指示内容（プロンプト）',
+      promptPlaceholder:
+        '例: 昨日時点の病床稼働率を病棟別に集計し、95%超の病棟と推奨アクションをまとめてください。',
+      agent: 'エージェント',
+      model: 'モデル',
+      schedule: '実行スケジュール',
+      typeDaily: '毎日',
+      typeWeekly: '毎週',
+      typeMonthly: '毎月',
+      time: '実行時刻（JST）',
+      daysOfWeek: '曜日',
+      dayOfMonth: '日（1〜28）',
+      dayUnit: '日',
+      save: '保存',
+      create: '作成する',
+      cancel: 'キャンセル',
+      saving: '保存しています…',
+      loading: '読み込んでいます…',
+      errorRequired: 'スケジュール名・指示内容・エージェントは必須です。',
+      errorWeekday: '毎週の場合は曜日を1つ以上選んでください。',
+      weekdayLabels: ['月', '火', '水', '木', '金', '土', '日'],
+    },
+    // スケジュールラベル（formatScheduleLabel 用）
+    label: {
+      daily: '毎日',
+      weeklyPrefix: '毎週 ',
+      monthlyPrefix: '毎月 ',
+      monthlyDayUnit: '日 ',
+      weekdayShort: ['', '月', '火', '水', '木', '金', '土', '日'], // 1=月..7=日
+    },
   },
 } as const;

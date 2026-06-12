@@ -37,6 +37,16 @@ export interface SchedulerProps {
   readonly agentNameToArnMap: Record<string, string>;
   readonly modelRegion: string;
   readonly agentCoreRegion?: string;
+  // Parent-owned tables the execute Lambda writes to from this child stack
+  // (step 5/6). Threaded parent -> SchedulerNestedStack -> here and granted via
+  // grantWriteData. These are one-directional child->parent references (the
+  // child role's inline policy references the parent table ARN), which do NOT
+  // cycle — unlike the LambdaIntegration's Stage reference that needed
+  // scopePermissionToMethod:false (impl-log §2).
+  //   notificationTable -> sidebar bell (sched_failed / sched_paused)
+  //   table             -> main Chat table (execution -> sidebar projection, usecase='sched')
+  readonly notificationTable: ddb.ITable;
+  readonly table: ddb.ITable;
   // SendGrid email notification. The API key and sender address are passed
   // through directly (configured in cdk.json). When unset, or in
   // closed-network mode, email notifications are disabled.
@@ -127,6 +137,15 @@ export class Scheduler extends Construct {
       memorySize: 512,
       environment: {
         SCHEDULER_TABLE_NAME: schedulerTable.tableName,
+        // Parent-owned tables (step 5/6). The execute Lambda's repository writes
+        // to these for the bell notification and the sidebar projection.
+        NOTIFICATION_TABLE_NAME: props.notificationTable.tableName,
+        MAIN_TABLE_NAME: props.table.tableName,
+        // Used to self-reschedule transient retries as one-time schedules.
+        // (The function's own ARN is read from the invocation context to avoid a
+        // self-reference cycle, so it is intentionally NOT passed as an env var.)
+        SCHEDULER_ROLE_ARN: schedulerExecutionRole.roleArn,
+        DLQ_ARN: dlq.queueArn,
         MODEL_REGION: modelRegion,
         AGENT_NAME_TO_ARN_MAP: JSON.stringify(agentNameToArnMap),
         USER_POOL_ID: userPool.userPoolId,
@@ -142,14 +161,17 @@ export class Scheduler extends Construct {
         nodeModules: [
           '@aws-sdk/client-bedrock-agentcore',
           '@aws-sdk/client-cognito-identity-provider',
+          '@aws-sdk/client-scheduler',
         ],
       },
       vpc: props.vpc,
       securityGroups: props.securityGroups,
     });
 
-    // Grant DynamoDB access
+    // Grant DynamoDB access (own scheduler table + parent-owned write targets).
     schedulerTable.grantReadWriteData(executeFunction);
+    props.notificationTable.grantWriteData(executeFunction);
+    props.table.grantWriteData(executeFunction);
 
     // Grant AgentCore invoke permissions
     if (agentRuntimeArns.length > 0) {
@@ -168,6 +190,33 @@ export class Scheduler extends Construct {
         effect: iam.Effect.ALLOW,
         actions: ['cognito-idp:AdminGetUser'],
         resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Step 5: the execute Lambda self-reschedules transient retries (one-time
+    // gaixer-task-*-retry-* schedules) and disables the recurring schedule on
+    // auto-stop. Same resource scope as the API Lambda's grant.
+    executeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'scheduler:CreateSchedule',
+          'scheduler:GetSchedule',
+          'scheduler:UpdateSchedule',
+          'scheduler:DeleteSchedule',
+        ],
+        resources: [
+          `arn:aws:scheduler:${region}:${account}:schedule/default/gaixer-task-*`,
+        ],
+      })
+    );
+
+    // PassRole so the retry/disable schedules can target the execution role.
+    executeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['iam:PassRole'],
+        resources: [schedulerExecutionRole.roleArn],
       })
     );
 
@@ -204,7 +253,7 @@ export class Scheduler extends Construct {
         AGENT_NAME_TO_ARN_MAP: JSON.stringify(agentNameToArnMap),
       },
       bundling: {
-        nodeModules: ['@aws-sdk/client-scheduler'],
+        nodeModules: ['@aws-sdk/client-scheduler', '@aws-sdk/client-lambda'],
       },
       vpc: props.vpc,
       securityGroups: props.securityGroups,
@@ -217,6 +266,9 @@ export class Scheduler extends Construct {
 
     // Grant DynamoDB access
     schedulerTable.grantReadWriteData(schedulerApiFunction);
+
+    // "Run now" (step 5) async-invokes the execute Lambda.
+    executeFunction.grantInvoke(schedulerApiFunction);
 
     // Grant EventBridge Scheduler management
     schedulerApiFunction.addToRolePolicy(
@@ -312,6 +364,14 @@ export class Scheduler extends Construct {
     );
     taskIdResource.addMethod(
       'DELETE',
+      schedulerIntegration,
+      commonAuthorizerProps
+    );
+
+    // /schedules/{taskId}/run (manual "run now")
+    const taskRunResource = taskIdResource.addResource('run');
+    taskRunResource.addMethod(
+      'POST',
       schedulerIntegration,
       commonAuthorizerProps
     );

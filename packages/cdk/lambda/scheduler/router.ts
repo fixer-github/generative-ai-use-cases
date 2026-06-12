@@ -8,6 +8,7 @@
  *   GET    /schedules/{taskId}                           → getTask
  *   PUT    /schedules/{taskId}                           → updateTask
  *   DELETE /schedules/{taskId}                           → deleteTask
+ *   POST   /schedules/{taskId}/run                       → runNow (manual)
  *   GET    /schedules/{taskId}/executions                → listExecutions
  *   GET    /schedules/{taskId}/executions/{executionId}  → getExecution
  */
@@ -19,6 +20,7 @@ import {
   handleGetTask,
   handleUpdateTask,
   handleDeleteTask,
+  handleRunNow,
 } from './handlers/task-handlers';
 import {
   handleListExecutions,
@@ -73,6 +75,13 @@ export async function routeRequest(
       const taskId = pathParameters?.taskId;
       if (!taskId) return errorResponse('taskId is required');
       return await handleDeleteTask(userId, taskId);
+    }
+
+    // POST /schedules/{taskId}/run (manual "run now")
+    if (resource === '/schedules/{taskId}/run' && httpMethod === 'POST') {
+      const taskId = pathParameters?.taskId;
+      if (!taskId) return errorResponse('taskId is required');
+      return await handleRunNow(userId, taskId);
     }
 
     // GET /schedules/{taskId}/executions

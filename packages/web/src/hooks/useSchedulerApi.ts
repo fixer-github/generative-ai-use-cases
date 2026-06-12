@@ -20,6 +20,17 @@ export interface ScheduleConfig {
 
 export type ExecutionStatus = 'running' | 'success' | 'error';
 
+// step 5 lifecycle / failure classification.
+export type TaskStatus = 'active' | 'paused' | 'error';
+export type ErrorCategory = 'transient' | 'permanent';
+export type ExecutionTrigger = 'schedule' | 'retry' | 'manual';
+
+export interface TaskLastError {
+  category: ErrorCategory;
+  message: string;
+  at: string;
+}
+
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
@@ -34,6 +45,10 @@ export interface ScheduledTaskResponse {
   schedule: ScheduleConfig;
   enabled: boolean;
   updatedAt: string;
+  // step 5: lifecycle/health (optional for back-compat with pre-step-5 responses).
+  status?: TaskStatus;
+  consecutiveFailures?: number;
+  lastError?: TaskLastError;
 }
 
 export interface TaskExecutionSummary {
@@ -42,6 +57,10 @@ export interface TaskExecutionSummary {
   status: ExecutionStatus;
   startedAt: string;
   completedAt?: string;
+  // step 5: failure classification + retry-timeline metadata.
+  errorCategory?: ErrorCategory;
+  attempt?: number;
+  trigger?: ExecutionTrigger;
 }
 
 export interface TaskExecutionDetail extends TaskExecutionSummary {
@@ -77,7 +96,12 @@ const useSchedulerApi = () => {
     () => ({
       // Task CRUD
       listTasks: () => {
-        return http.get<{ tasks: ScheduledTaskResponse[] }>('/schedules');
+        // step 5: response now also carries the quota meter (remaining/limit).
+        return http.get<{
+          tasks: ScheduledTaskResponse[];
+          remaining?: number;
+          limit?: number;
+        }>('/schedules');
       },
 
       getTask: (taskId: string | null) => {
@@ -99,6 +123,11 @@ const useSchedulerApi = () => {
 
       deleteTask: (taskId: string) => {
         return http.delete(`/schedules/${taskId}`);
+      },
+
+      // step 5: manual "run now" (async; result surfaces via history + bell).
+      runNow: (taskId: string) => {
+        return http.post(`/schedules/${taskId}/run`, {});
       },
 
       // Execution Logs

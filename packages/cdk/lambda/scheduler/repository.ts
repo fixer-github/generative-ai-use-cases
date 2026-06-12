@@ -27,23 +27,50 @@ import {
   QueryCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { randomUUID } from 'crypto';
 import {
   ScheduledTask,
   TaskExecution,
   ScheduledTaskResponse,
   TaskExecutionSummary,
   TaskExecutionDetail,
+  TaskStatus,
+  TaskLastError,
 } from './types';
 
 const TABLE_NAME: string = process.env.SCHEDULER_TABLE_NAME!;
 const USER_EXECUTION_INDEX = 'UserExecutionIndex';
+
+// Cross-stack tables (step 5/6). These env vars are only set on the execute
+// Lambda (which is granted write access in the Scheduler construct); the API
+// Lambda never touches them, so they are read lazily where used.
+//   NOTIFICATION_TABLE_NAME -> parent NotificationTable (sidebar bell, B6/P4)
+//   MAIN_TABLE_NAME         -> parent main Chat table (execution -> Chat projection, D1)
+const NOTIFICATION_TABLE_NAME: string | undefined =
+  process.env.NOTIFICATION_TABLE_NAME;
+const MAIN_TABLE_NAME: string | undefined = process.env.MAIN_TABLE_NAME;
+
+// Notifications self-expire via DynamoDB TTL after this many days (mirrors the
+// main repository's createNotification). Only the bell-facing failure/auto-stop
+// types are produced from the scheduler side.
+const NOTIFICATION_TTL_DAYS = 90;
+type SchedNotificationType = 'sched_failed' | 'sched_paused';
 
 const dynamoDb = new DynamoDBClient({});
 const dynamoDbDocument = DynamoDBDocumentClient.from(dynamoDb);
 
 // --- Helper: Convert ScheduledTask to API response ---
 
-function toTaskResponse(task: ScheduledTask): ScheduledTaskResponse {
+/**
+ * Derive the lifecycle status. `status` is the source of truth once set; legacy
+ * rows (written before step 5) have no `status` and are read as the projection
+ * of `enabled` (active/paused). An auto-stopped task carries status='error'.
+ */
+export function deriveStatus(task: ScheduledTask): TaskStatus {
+  return task.status ?? (task.enabled ? 'active' : 'paused');
+}
+
+export function toTaskResponse(task: ScheduledTask): ScheduledTaskResponse {
   return {
     taskId: task.taskId,
     taskName: task.taskName,
@@ -53,6 +80,9 @@ function toTaskResponse(task: ScheduledTask): ScheduledTaskResponse {
     schedule: task.schedule,
     enabled: task.enabled,
     updatedAt: task.updatedAt,
+    status: deriveStatus(task),
+    consecutiveFailures: task.consecutiveFailures ?? 0,
+    ...(task.lastError ? { lastError: task.lastError } : {}),
   };
 }
 
@@ -63,6 +93,9 @@ function toExecutionSummary(exec: TaskExecution): TaskExecutionSummary {
     status: exec.status,
     startedAt: exec.startedAt,
     completedAt: exec.completedAt,
+    errorCategory: exec.errorCategory,
+    attempt: exec.attempt,
+    trigger: exec.trigger,
   };
 }
 
@@ -77,6 +110,9 @@ function toExecutionDetail(exec: TaskExecution): TaskExecutionDetail {
     errorMessage: exec.errorMessage,
     tokenUsage: exec.tokenUsage,
     emailSent: exec.emailSent,
+    errorCategory: exec.errorCategory,
+    attempt: exec.attempt,
+    trigger: exec.trigger,
   };
 }
 
@@ -225,6 +261,69 @@ export const updateTask = async (
   return toTaskResponse(result.Attributes as ScheduledTask);
 };
 
+/**
+ * Persist runtime lifecycle state written by the execute Lambda's failure
+ * handler (step 5): status, the consecutive-failure counter, and lastError.
+ * `enabled` is kept in sync as the derived projection of `status` so the
+ * execute-Lambda guard and the old UI continue to read the right flag.
+ * Passing `lastError: null` removes the attribute (used on success/re-enable).
+ */
+export const updateTaskRuntime = async (
+  userId: string,
+  taskId: string,
+  updates: {
+    status?: TaskStatus;
+    consecutiveFailures?: number;
+    lastError?: TaskLastError | null;
+  }
+): Promise<void> => {
+  const setParts: string[] = ['#updatedAt = :updatedAt'];
+  const removeParts: string[] = [];
+  const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
+  const values: Record<string, unknown> = {
+    ':updatedAt': new Date().toISOString(),
+  };
+
+  if (updates.status !== undefined) {
+    setParts.push('#status = :status', '#enabled = :enabled');
+    names['#status'] = 'status';
+    names['#enabled'] = 'enabled';
+    values[':status'] = updates.status;
+    values[':enabled'] = updates.status === 'active';
+  }
+  if (updates.consecutiveFailures !== undefined) {
+    setParts.push('#consecutiveFailures = :consecutiveFailures');
+    names['#consecutiveFailures'] = 'consecutiveFailures';
+    values[':consecutiveFailures'] = updates.consecutiveFailures;
+  }
+  if (updates.lastError === null) {
+    removeParts.push('#lastError');
+    names['#lastError'] = 'lastError';
+  } else if (updates.lastError !== undefined) {
+    setParts.push('#lastError = :lastError');
+    names['#lastError'] = 'lastError';
+    values[':lastError'] = updates.lastError;
+  }
+
+  const clauses: string[] = [`SET ${setParts.join(', ')}`];
+  if (removeParts.length > 0) {
+    clauses.push(`REMOVE ${removeParts.join(', ')}`);
+  }
+
+  await dynamoDbDocument.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        pk: `scheduledTask#${userId}`,
+        sk: taskId,
+      },
+      UpdateExpression: clauses.join(' '),
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    })
+  );
+};
+
 export const deleteTask = async (
   userId: string,
   taskId: string
@@ -288,6 +387,7 @@ export const updateExecutionStatus = async (
     status: 'success' | 'error';
     resultText?: string;
     errorMessage?: string;
+    errorCategory?: 'transient' | 'permanent';
     tokenUsage?: { inputTokens: number; outputTokens: number };
     emailSent?: boolean;
     completedAt: string;
@@ -315,6 +415,11 @@ export const updateExecutionStatus = async (
     expressionParts.push('#errorMessage = :errorMessage');
     expressionNames['#errorMessage'] = 'errorMessage';
     expressionValues[':errorMessage'] = updates.errorMessage;
+  }
+  if (updates.errorCategory !== undefined) {
+    expressionParts.push('#errorCategory = :errorCategory');
+    expressionNames['#errorCategory'] = 'errorCategory';
+    expressionValues[':errorCategory'] = updates.errorCategory;
   }
   if (updates.tokenUsage !== undefined) {
     expressionParts.push('#tokenUsage = :tokenUsage');
@@ -361,6 +466,92 @@ export const listExecutions = async (
   );
   return (result.Items || []).map((item) =>
     toExecutionSummary(item as TaskExecution)
+  );
+};
+
+// --- Cross-stack writers (step 5/6) ---------------------------------------
+//
+// The execute Lambda lives in its own construct/NestedStack and cannot import
+// the main API's repository.ts. These helpers write to the parent-owned
+// NotificationTable and main Chat table, which are granted to the execute
+// Lambda via cross-stack grants. Item shapes mirror the main repository's
+// createNotification / createMeeting-projection verbatim so the bell and the
+// sidebar render identically regardless of the producer.
+
+/**
+ * Write a bell notification (sidebar) for a scheduler failure / auto-stop.
+ * No-op (with a warning) when NOTIFICATION_TABLE_NAME is not configured, so a
+ * misconfiguration never aborts the execution path.
+ */
+export const writeSchedNotification = async (
+  userId: string,
+  input: {
+    type: SchedNotificationType;
+    title: string;
+    body?: string;
+    link: string;
+  }
+): Promise<void> => {
+  if (!NOTIFICATION_TABLE_NAME) {
+    console.warn('NOTIFICATION_TABLE_NAME not set; skipping bell notification');
+    return;
+  }
+  const createdDate = `${Date.now()}`;
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: NOTIFICATION_TABLE_NAME,
+      Item: {
+        id: `notification#${userId}`,
+        createdDate,
+        notificationId: `notification#${randomUUID()}`,
+        type: input.type,
+        title: input.title,
+        ...(input.body !== undefined ? { body: input.body } : {}),
+        link: input.link,
+        read: false,
+        ttl:
+          Math.floor(Date.now() / 1000) + NOTIFICATION_TTL_DAYS * 24 * 60 * 60,
+      },
+    })
+  );
+};
+
+/**
+ * Project a finished execution into the main Chat table so it appears in the
+ * sidebar history with usecase='sched'. Mirrors createMeeting's projection row
+ * (id=`user#${userId}`, createdDate=epochMs SK). listChats returns all rows
+ * unfiltered, so this row flows into the sidebar with no API change.
+ * No-op (with a warning) when MAIN_TABLE_NAME is not configured.
+ */
+export const projectExecutionToChat = async (
+  userId: string,
+  input: {
+    taskId: string;
+    executionId: string;
+    title: string;
+    status: 'success' | 'error';
+  }
+): Promise<void> => {
+  if (!MAIN_TABLE_NAME) {
+    console.warn('MAIN_TABLE_NAME not set; skipping sched chat projection');
+    return;
+  }
+  const createdDate = `${Date.now()}`;
+  await dynamoDbDocument.send(
+    new PutCommand({
+      TableName: MAIN_TABLE_NAME,
+      Item: {
+        id: `user#${userId}`,
+        createdDate,
+        chatId: `chat#${randomUUID()}`,
+        usecase: 'sched',
+        title: input.title,
+        taskId: input.taskId,
+        executionId: input.executionId,
+        status: input.status,
+        updatedDate: createdDate,
+      },
+    })
   );
 };
 

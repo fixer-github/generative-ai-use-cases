@@ -12,6 +12,10 @@ import GxMinutesPage from './pages/GxMinutesPage';
 import GxMinutesRecordPage from './pages/GxMinutesRecordPage';
 import GxMinutesFilePage from './pages/GxMinutesFilePage';
 import GxMinutesWorkbenchPage from './pages/GxMinutesWorkbenchPage';
+import GxSchedulerPage from './pages/GxSchedulerPage';
+import GxSchedulerTaskPage from './pages/GxSchedulerTaskPage';
+import GxSchedulerExecutionPage from './pages/GxSchedulerExecutionPage';
+import GxSchedulerFormPage from './pages/GxSchedulerFormPage';
 import { GX } from './strings';
 
 export const gxRoutes: RouteObject[] = [
@@ -28,9 +32,15 @@ export const gxRoutes: RouteObject[] = [
   { path: '/g/minutes/draft', element: <GxMinutesWorkbenchPage /> },
   // 既存会議の再開（サイドバー履歴・bare meetingId）。
   { path: '/g/minutes/:meetingId', element: <GxMinutesWorkbenchPage /> },
+  // スケジューラー運用コンソール（step 7）。静的セグメント（new）は :taskId より
+  // 優先マッチするため衝突なし。
+  { path: '/g/scheduler', element: <GxSchedulerPage /> },
+  { path: '/g/scheduler/new', element: <GxSchedulerFormPage /> },
+  { path: '/g/scheduler/:taskId', element: <GxSchedulerTaskPage /> },
+  { path: '/g/scheduler/:taskId/edit', element: <GxSchedulerFormPage /> },
   {
-    path: '/g/scheduler',
-    element: <GxPlaceholderPage title={GX.pages.scheduler} />,
+    path: '/g/scheduler/:taskId/executions/:executionId',
+    element: <GxSchedulerExecutionPage />,
   },
   { path: '/g/admin', element: <GxPlaceholderPage title={GX.pages.admin} /> },
   {
