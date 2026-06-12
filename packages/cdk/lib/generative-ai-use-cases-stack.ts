@@ -12,7 +12,6 @@ import {
   SpeechToSpeech,
   McpApi,
   AgentCore,
-  Scheduler,
   BackupLockedBuckets,
   CognitoExportConstruct,
   DdbPitrExportConstruct,
@@ -37,7 +36,7 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { AgentCoreStack } from './agent-core-stack';
-import { AdminNestedStack } from './nested';
+import { AdminNestedStack, SchedulerNestedStack } from './nested';
 import * as path from 'path';
 import { RemoteOutputs } from 'cdk-remote-stack';
 import { REMOTE_OUTPUT_KEYS } from './remote-output-keys';
@@ -472,8 +471,15 @@ export class GenerativeAiUseCasesStack extends Stack {
       });
     }
 
-    // Scheduler
-    // Build agentName->ARN mapping from available runtimes
+    // Scheduler — moved into a child NestedStack to relieve the CloudFormation 500-resource
+    // limit (Phase2 step1; memo §4.5 + impl-log §7). SchedulerTable(+GSI), SQS DLQ, the
+    // EventBridge execution role, the execute/API Lambdas and `/schedules/*` all live in the
+    // child. The child's LambdaIntegration uses scopePermissionToMethod:false to avoid the
+    // Deployment -> child -> Stage -> Deployment cycle, and the parent's auto Deployment
+    // depends on the child so the /schedules Methods land on the Stage (memo §4.4 + impl-log
+    // §2). Reached via a two-stage deploy: deploy A removed the in-parent Scheduler (and the
+    // CFN-external `gaixer-task-*` schedules were cleaned manually, memo §5-6); deploy B
+    // (this) recreates it as the child (SchedulerTable starts empty).
     const agentNameToArnMap: Record<string, string> = {};
     if (genericRuntimeArn && genericRuntimeName) {
       agentNameToArnMap[genericRuntimeName] = genericRuntimeArn;
@@ -482,7 +488,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       agentNameToArnMap[runtime.name] = runtime.arn;
     }
     if (Object.keys(agentNameToArnMap).length > 0) {
-      new Scheduler(this, 'Scheduler', {
+      const schedulerStack = new SchedulerNestedStack(this, 'SchedulerStack', {
         userPool: auth.userPool,
         api: api.api,
         agentNameToArnMap,
@@ -494,6 +500,7 @@ export class GenerativeAiUseCasesStack extends Stack {
         vpc: props.vpc,
         securityGroups,
       });
+      api.api.latestDeployment?.node.addDependency(schedulerStack);
     }
 
     // Transcribe

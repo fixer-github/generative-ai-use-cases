@@ -49,3 +49,4 @@
  *   two deploys: deploy A removes the old construct from the parent; deploy B creates the child.
  */
 export * from './admin-nested-stack';
+export * from './scheduler-nested-stack';

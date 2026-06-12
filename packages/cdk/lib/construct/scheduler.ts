@@ -17,6 +17,7 @@ import {
   LambdaIntegration,
   CognitoUserPoolsAuthorizer,
   AuthorizationType,
+  Resource,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
 import {
@@ -256,10 +257,27 @@ export class Scheduler extends Construct {
       authorizer,
     };
 
-    const schedulerIntegration = new LambdaIntegration(schedulerApiFunction);
+    // This construct is instantiated inside SchedulerNestedStack (a child NestedStack).
+    // scopePermissionToMethod:false makes the Lambda invoke permission use
+    // api.arnForExecuteApi() (`${restApiId}/*`, no Stage reference) instead of
+    // method.methodArn (which embeds the parent's deployment Stage). That removes the
+    // child(Permission) -> parent(Stage) edge and breaks the otherwise-cyclic
+    // Deployment -> child NestedStack -> Stage -> Deployment dependency (memo §4.4
+    // addendum; see impl-log §2). A single integration is reused across all /schedules
+    // methods, so this also collapses the permissions to one api-scoped grant.
+    const schedulerIntegration = new LambdaIntegration(schedulerApiFunction, {
+      scopePermissionToMethod: false,
+    });
 
     // /schedules
-    const schedulesResource = api.root.addResource('schedules');
+    // Explicit parent form so the Resource is scoped to this child construct (= child
+    // NestedStack) while its API Gateway parent stays api.root in the parent stack
+    // (memo §4.1 C1 / §4.3). External shape (CORS/authorizer/paths) is inherited from
+    // props.parent(=api.root) and unchanged.
+    const schedulesResource = new Resource(this, 'schedules', {
+      parent: api.root,
+      pathPart: 'schedules',
+    });
     schedulesResource.addMethod(
       'POST',
       schedulerIntegration,
