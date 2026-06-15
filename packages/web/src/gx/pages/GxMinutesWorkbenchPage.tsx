@@ -26,6 +26,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MeetingMinutesDoc, MeetingSource } from 'generative-ai-use-cases';
 import useMeetingApi from '../../hooks/useMeetingApi';
 import useTranscribeApi from '../../hooks/useTranscribeApi';
+import useChatList from '../../hooks/useChatList';
 import { useMEState } from '../hooks/useMEState';
 import { useMinutesGenerator } from '../hooks/useMinutesGenerator';
 import {
@@ -53,6 +54,7 @@ import {
   IcPlus,
   IcTrash,
   IcDots,
+  IcMinutes,
 } from '../components/icons';
 import { GX } from '../strings';
 import '../styles/minutes-shared.css';
@@ -92,6 +94,7 @@ const GxMinutesWorkbenchPage: React.FC = () => {
   const location = useLocation();
   const api = useMeetingApi();
   const transcribeApi = useTranscribeApi();
+  const chatList = useChatList();
   const { generate } = useMinutesGenerator();
 
   const st = useMEState();
@@ -388,6 +391,32 @@ const GxMinutesWorkbenchPage: React.FC = () => {
     [meetingId, api]
   );
 
+  // 会議タイトルのインライン編集確定（純フロント・小物A）。空はガードして既定名へ。
+  // meetingId があれば updateMeeting({title})→サイドバー履歴(useChatList)を再検証。
+  // draft（meetingId 未確定）は title state のみ更新し、初回 createMeeting の title 引数に
+  // 乗る。transcript/minutes の自動保存とは独立経路でレースしない。
+  const commitTitle = useCallback(
+    (next: string) => {
+      const finalTitle = next.trim() || W.defaultTitle;
+      if (finalTitle === title) return;
+      const prev = title;
+      setTitle(finalTitle); // 楽観更新
+      if (!meetingId) return; // draft：createMeeting の title に乗る
+      api
+        .updateMeeting(meetingId, { title: finalTitle })
+        .then(() => {
+          setSavedAt(new Date());
+          chatList.mutate(); // 投影行はサーバ側でミラー済み。再検証で行名を即時更新
+        })
+        .catch((e) => {
+          // backend 未デプロイ等：保存失敗。元値へ復帰（壊れた表示を残さない）。
+          console.log('updateMeeting title failed', e);
+          setTitle(prev);
+        });
+    },
+    [title, meetingId, api, chatList]
+  );
+
   // -------------------------------------------------------------------------
   // 議事録生成（B5）
   // -------------------------------------------------------------------------
@@ -498,7 +527,7 @@ const GxMinutesWorkbenchPage: React.FC = () => {
           <IcBack />
         </button>
         <div>
-          <div className="gx-meA__ttl">{title}</div>
+          <EditableTitle value={title} onCommit={commitTitle} />
           <div className="gx-meA__meta">
             <span>{dateLabel}</span>
             {durationLabel && <span>{durationLabel}</span>}
@@ -780,6 +809,18 @@ const GxMinutesWorkbenchPage: React.FC = () => {
                 {W.genSynced}
               </span>
             )}
+            {gen === 'ready' && minutes && (
+              <button
+                className="gx-meA__tool"
+                style={{ marginLeft: 8 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.print();
+                }}>
+                <IcMinutes size={11} />
+                {W.pdfButton}
+              </button>
+            )}
             {gen === 'ready' && (
               <span
                 style={{ position: 'relative' }}
@@ -905,6 +946,162 @@ const GxMinutesWorkbenchPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* B8 PDF 書き出し用の清書専用ビュー（画面では非表示・@media print でのみ可視）。
+          編集UI を一切含まず、構造化議事録（MeetingMinutesDoc）のみを清書する。 */}
+      {gen === 'ready' && minutes && (
+        <MinutesPrintView
+          title={title}
+          minutes={minutes}
+          st={st}
+          dateLabel={dateLabel}
+          timeLabel={durationLabel}
+        />
+      )}
+    </div>
+  );
+};
+
+// --- 会議タイトルのインライン編集（表示↔input トグル。確定＝blur/Enter・取消＝Esc） ---
+const EditableTitle: React.FC<{
+  value: string;
+  onCommit: (next: string) => void;
+}> = ({ value, onCommit }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const begin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraft(value);
+    setEditing(true);
+  };
+  const commit = () => {
+    setEditing(false);
+    onCommit(draft);
+  };
+  const cancel = () => {
+    setEditing(false);
+    setDraft(value);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="gx-meA__ttl-input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancel();
+          }
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      className="gx-meA__ttl gx-meA__ttl-edit"
+      title={W.titleEditHint}
+      onClick={begin}>
+      {value}
+    </div>
+  );
+};
+
+// --- PDF 書き出し用の清書ビュー（B8）。構造化議事録のみ。@media print でのみ可視 ---
+const MinutesPrintView: React.FC<{
+  title: string;
+  minutes: MeetingMinutesDoc;
+  st: ReturnType<typeof useMEState>;
+  dateLabel: string;
+  timeLabel: string;
+}> = ({ title, minutes, st, dateLabel, timeLabel }) => {
+  const ownerName = (owner: string | null) =>
+    owner === null ? '' : st.displayName(Number(owner));
+  return (
+    <div className="gx-meA__print">
+      <h1 className="gx-pr__title">{title}</h1>
+      <div className="gx-pr__meta">
+        <div>
+          <span className="k">{W.docDate}</span>
+          {dateLabel}
+          {timeLabel ? ` ・ ${timeLabel}` : ''}
+        </div>
+        <div>
+          <span className="k">{W.docAttendees}</span>
+          {st.speakers.map((s) => st.displayName(s.id)).join('、')}
+        </div>
+      </div>
+
+      <section className="gx-pr__sec">
+        <h2>{W.secSummary}</h2>
+        {minutes.summary.length === 0 ? (
+          <p className="gx-pr__empty">{W.emptyMinutesSection}</p>
+        ) : (
+          <ul>
+            {minutes.summary.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="gx-pr__sec">
+        <h2>{W.secDecisions}</h2>
+        {minutes.decisions.length === 0 ? (
+          <p className="gx-pr__empty">{W.emptyMinutesSection}</p>
+        ) : (
+          minutes.decisions.map((d) => (
+            <div key={d.id} className="gx-pr__item">
+              <div className="t">{d.text}</div>
+              {d.owner !== null && (
+                <div className="o">
+                  {W.docOwner}：{ownerName(d.owner)}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </section>
+
+      <section className="gx-pr__sec">
+        <h2>{W.secTodos}</h2>
+        {minutes.todos.length === 0 ? (
+          <p className="gx-pr__empty">{W.emptyMinutesSection}</p>
+        ) : (
+          minutes.todos.map((k) => (
+            <div key={k.id} className="gx-pr__item">
+              <div className="t">{k.text}</div>
+              {(k.owner !== null || k.due) && (
+                <div className="o">
+                  {k.owner !== null && (
+                    <>
+                      {W.docOwner}：{ownerName(k.owner)}
+                    </>
+                  )}
+                  {k.owner !== null && k.due ? ' ・ ' : ''}
+                  {k.due ? `${W.docDue}：${k.due}` : ''}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 };

@@ -218,6 +218,8 @@ export const GX = {
       defaultTitle: '無題の会議',
       loading: '会議を読み込んでいます…',
       loadError: '会議を読み込めませんでした。',
+      // 会議タイトルの画面内編集（インライン）
+      titleEditHint: 'クリックして会議名を編集',
       // ヘッダの保存インジケータ
       saving: '保存中…',
       savedPrefix: '保存済み',
@@ -285,6 +287,10 @@ export const GX = {
       secTodos: 'ToDo・宿題',
       evidence: '根拠',
       emptyMinutesSection: '（該当なし）',
+      // B8 PDF 書き出し（print CSS ＋ window.print()）
+      pdfButton: 'PDF書き出し',
+      docOwner: '担当',
+      docDue: '期限',
     },
   },
   top: {

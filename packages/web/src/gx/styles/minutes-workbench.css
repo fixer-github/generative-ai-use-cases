@@ -58,6 +58,27 @@
   font: 800 17px/1.2 var(--font-jp);
   color: var(--fg-1);
 }
+.gx-scope .gx-meA__ttl-edit {
+  cursor: text;
+  border-radius: var(--radius-sm);
+  margin: -2px -6px;
+  padding: 2px 6px;
+  transition: background 0.12s;
+}
+.gx-scope .gx-meA__ttl-edit:hover {
+  background: var(--navy-50, rgba(20, 40, 80, 0.05));
+}
+.gx-scope .gx-meA__ttl-input {
+  font: 800 17px/1.2 var(--font-jp);
+  color: var(--fg-1);
+  margin: -3px -7px;
+  padding: 2px 6px;
+  width: min(420px, 50vw);
+  border: 1px solid var(--navy-300);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  outline: none;
+}
 .gx-scope .gx-meA__meta {
   font: 500 11.5px/1 var(--font-sans);
   color: var(--fg-3);
@@ -586,4 +607,118 @@
   width: 9px;
   height: 9px;
   border-radius: 2px;
+}
+
+/* ---- B8 PDF 書き出し（清書専用ビュー・print CSS ＋ window.print()） ---- */
+/* 画面では常に非表示。印刷時のみ編集UIを隠し、このビューだけを清書出力する。 */
+.gx-scope .gx-meA__print {
+  display: none;
+}
+
+@media print {
+  /* シェルを解除：サイドバーを消し、フレーム/メインを通常フローへ戻す。
+     これらは画面では 100vh・overflow:hidden で固定されており、解除しないと
+     清書ビューが1ページ目でクリップされ複数ページに分割できない。 */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .gx-sidebar-col {
+    display: none !important;
+  }
+  .gx-scope.gx-frame,
+  .gx-main {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* ワークベンチ：absolute/inset/overflow を解除し通常フローへ。 */
+  .gx-scope .gx-meA {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* 編集UI（ヘッダ・2ペイン・ツールバー・フッタ等）は印刷しない。
+     清書ビューだけを残すことで余計な空白ページが出ない。 */
+  .gx-scope .gx-meA > *:not(.gx-meA__print) {
+    display: none !important;
+  }
+  .gx-meA__print {
+    display: block !important;
+    width: 100%;
+    background: #fff;
+    color: #111;
+    font-family: var(--font-jp);
+  }
+  .gx-meA__print .gx-pr__title {
+    font: 800 22px/1.3 var(--font-jp);
+    margin: 0 0 12px;
+    color: #111;
+  }
+  .gx-meA__print .gx-pr__meta {
+    border-top: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .gx-meA__print .gx-pr__meta .k {
+    display: inline-block;
+    min-width: 64px;
+    font-weight: 700;
+    color: #555;
+  }
+  .gx-meA__print .gx-pr__sec {
+    margin-bottom: 18px;
+    break-inside: avoid;
+  }
+  .gx-meA__print .gx-pr__sec h2 {
+    font: 700 14px/1.4 var(--font-jp);
+    border-left: 3px solid #333;
+    padding-left: 8px;
+    margin: 0 0 8px;
+    color: #111;
+  }
+  .gx-meA__print .gx-pr__sec ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  .gx-meA__print .gx-pr__sec li {
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 4px;
+  }
+  .gx-meA__print .gx-pr__item {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    break-inside: avoid;
+  }
+  .gx-meA__print .gx-pr__item .t {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .gx-meA__print .gx-pr__item .o {
+    font-size: 11px;
+    color: #555;
+    margin-top: 4px;
+  }
+  .gx-meA__print .gx-pr__empty {
+    font-size: 12px;
+    color: #888;
+    margin: 0;
+  }
+  @page {
+    margin: 18mm 16mm;
+  }
 }
