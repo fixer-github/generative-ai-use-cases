@@ -1,0 +1,94 @@
+name: GenU Validate Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      ENVIRONMENT_NAME: ${{ vars.GENU_ENVIRONMENT_NAME || inputs.environment }}
+      CDK_CONTEXT_ENV: ${{ vars.GENU_CDK_CONTEXT_ENV }}
+      AWS_ACCOUNT_ID: ${{ vars.GENU_AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID }}
+      DEPLOYMENT_REGION: ${{ vars.GENU_DEPLOYMENT_REGION || vars.AWS_REGION }}
+      MODEL_REGION: ${{ vars.GENU_MODEL_REGION }}
+      AGENTCORE_REGION: ${{ vars.GENU_AGENTCORE_REGION }}
+      GENU_STACK_NAME: ${{ vars.GENU_STACK_NAME }}
+      GENU_OUTPUTS_SSM_PREFIX: ${{ vars.GENU_OUTPUTS_SSM_PREFIX }}
+      AGENTCORE_RUNTIMES_JSON: ${{ vars.GENU_AGENTCORE_RUNTIMES_JSON }}
+      VALIDATE_ROLE_ARN: ${{ secrets.GENU_VALIDATE_ROLE_ARN || vars.GENU_VALIDATE_ROLE_ARN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate required CI/CD variables
+        run: |
+          required=(
+            ENVIRONMENT_NAME
+            CDK_CONTEXT_ENV
+            AWS_ACCOUNT_ID
+            DEPLOYMENT_REGION
+            MODEL_REGION
+            AGENTCORE_REGION
+            GENU_STACK_NAME
+            GENU_OUTPUTS_SSM_PREFIX
+            AGENTCORE_RUNTIMES_JSON
+            VALIDATE_ROLE_ARN
+          )
+          for name in "${required[@]}"; do
+            test -n "${!name}" || {
+              echo "${name} is required" >&2
+              exit 1
+            }
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.VALIDATE_ROLE_ARN }}
+          aws-region: ${{ env.DEPLOYMENT_REGION }}
+
+      - name: Verify AWS account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          test "${ACCOUNT_ID}" = "${AWS_ACCOUNT_ID}"
+          echo "CDK_DEFAULT_ACCOUNT=${ACCOUNT_ID}" >> "${GITHUB_ENV}"
+          echo "CDK_DEFAULT_REGION=${DEPLOYMENT_REGION}" >> "${GITHUB_ENV}"
+          aws configure get region
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate CI/CD manifest and CDK context
+        run: node scripts/validate-cicd-config.mjs
+
+      - name: Validate AgentCore runtimes
+        run: node scripts/validate-agentcore-runtimes.mjs
+
+      - name: Build CDK
+        run: npm -w packages/cdk run build
+
+      - name: CDK synth
+        working-directory: packages/cdk
+        run: npx cdk synth --all -c env="${CDK_CONTEXT_ENV}"

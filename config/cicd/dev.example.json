@@ -1,0 +1,28 @@
+{
+  "environmentName": "dev",
+  "cdkEnv": "devel",
+  "awsAccountId": "000000000000",
+  "deploymentRegion": "aws-region-1",
+  "modelRegion": "aws-region-2",
+  "agentCoreRegion": "aws-region-2",
+  "github": {
+    "repository": "owner/repository",
+    "validateRoleArn": "arn:aws:iam::000000000000:role/ExampleValidateOnlyRole",
+    "deployRoleArn": "arn:aws:iam::000000000000:role/ExampleDeployRole"
+  },
+  "stacks": {
+    "genu": "ExampleGenUStack",
+    "agentCore": "ExampleAgentCoreStack",
+    "manualRag": "ExampleManualRagStack"
+  },
+  "outputs": {
+    "ssmParameterPrefix": "/example/dev/outputs"
+  },
+  "agentCoreRuntimes": [
+    {
+      "key": "example_runtime",
+      "required": true,
+      "arn": "arn:aws:bedrock-agentcore:aws-region-2:000000000000:runtime/example_runtime-0000000000"
+    }
+  ]
+}

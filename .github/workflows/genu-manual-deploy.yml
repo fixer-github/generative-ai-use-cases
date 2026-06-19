@@ -1,0 +1,141 @@
+name: GenU Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment manifest
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+      deploy_confirmation:
+        description: Type deploy to run cdk deploy
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+concurrency:
+  group: genu-manual-deploy-${{ github.ref }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 120
+    env:
+      ENVIRONMENT_NAME: ${{ vars.GENU_ENVIRONMENT_NAME || inputs.environment }}
+      CDK_CONTEXT_ENV: ${{ vars.GENU_CDK_CONTEXT_ENV }}
+      AWS_ACCOUNT_ID: ${{ vars.GENU_AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID }}
+      DEPLOYMENT_REGION: ${{ vars.GENU_DEPLOYMENT_REGION || vars.AWS_REGION }}
+      MODEL_REGION: ${{ vars.GENU_MODEL_REGION }}
+      AGENTCORE_REGION: ${{ vars.GENU_AGENTCORE_REGION }}
+      GENU_STACK_NAME: ${{ vars.GENU_STACK_NAME }}
+      GENU_OUTPUTS_SSM_PREFIX: ${{ vars.GENU_OUTPUTS_SSM_PREFIX }}
+      AGENTCORE_RUNTIMES_JSON: ${{ vars.GENU_AGENTCORE_RUNTIMES_JSON }}
+      DEPLOY_ROLE_ARN: ${{ secrets.GENU_DEPLOY_ROLE_ARN || vars.GENU_DEPLOY_ROLE_ARN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirm manual deploy
+        run: |
+          test "${{ inputs.deploy_confirmation }}" = "deploy"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate required CI/CD variables
+        run: |
+          required=(
+            ENVIRONMENT_NAME
+            CDK_CONTEXT_ENV
+            AWS_ACCOUNT_ID
+            DEPLOYMENT_REGION
+            MODEL_REGION
+            AGENTCORE_REGION
+            GENU_STACK_NAME
+            GENU_OUTPUTS_SSM_PREFIX
+            AGENTCORE_RUNTIMES_JSON
+            DEPLOY_ROLE_ARN
+          )
+          for name in "${required[@]}"; do
+            test -n "${!name}" || {
+              echo "${name} is required" >&2
+              exit 1
+            }
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.DEPLOYMENT_REGION }}
+
+      - name: Verify AWS account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          test "${ACCOUNT_ID}" = "${AWS_ACCOUNT_ID}"
+          echo "CDK_DEFAULT_ACCOUNT=${ACCOUNT_ID}" >> "${GITHUB_ENV}"
+          echo "CDK_DEFAULT_REGION=${DEPLOYMENT_REGION}" >> "${GITHUB_ENV}"
+          aws configure get region
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate CI/CD manifest and CDK context
+        run: node scripts/validate-cicd-config.mjs
+
+      - name: Validate AgentCore runtimes
+        run: node scripts/validate-agentcore-runtimes.mjs
+
+      - name: Build CDK
+        run: npm -w packages/cdk run build
+
+      - name: CDK synth
+        working-directory: packages/cdk
+        run: npx cdk synth --all -c env="${CDK_CONTEXT_ENV}"
+
+      - name: CDK diff
+        working-directory: packages/cdk
+        run: npx cdk diff --all -c env="${CDK_CONTEXT_ENV}"
+
+      - name: CDK deploy
+        working-directory: packages/cdk
+        run: |
+          npx cdk deploy --all \
+            -c env="${CDK_CONTEXT_ENV}" \
+            --require-approval never \
+            --outputs-file ../../genu-cdk-outputs.json
+
+      - name: Collect CloudFormation outputs
+        run: |
+          mkdir -p cicd-outputs
+          aws cloudformation describe-stacks \
+            --stack-name "${GENU_STACK_NAME}" \
+            --region "${DEPLOYMENT_REGION}" \
+            --query 'Stacks[0].Outputs' \
+            --output json > "cicd-outputs/${ENVIRONMENT_NAME}-genu-stack-outputs.json"
+          cp genu-cdk-outputs.json "cicd-outputs/${ENVIRONMENT_NAME}-cdk-outputs.json"
+
+      - name: Export CloudFormation outputs to SSM
+        run: |
+          node scripts/export-cfn-outputs-to-ssm.mjs \
+            --output-file "cicd-outputs/${ENVIRONMENT_NAME}-ssm-output-parameters.json"
+
+      - name: Upload deployment outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: genu-${{ inputs.environment }}-deployment-outputs
+          path: cicd-outputs/
+          if-no-files-found: error

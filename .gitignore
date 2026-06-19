@@ -15,6 +15,10 @@ site*/
 .kiro/settings
 .kiro/specs
 
+# Local CI/CD manifests can include account IDs and AWS resource names.
+config/cicd/*.json
+!config/cicd/*.example.json
+
 # Git worktree directory
 worktree/
 
