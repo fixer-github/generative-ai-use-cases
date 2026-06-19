@@ -39,6 +39,7 @@ jobs:
       GENU_STACK_NAME: ${{ vars.GENU_STACK_NAME }}
       GENU_OUTPUTS_SSM_PREFIX: ${{ vars.GENU_OUTPUTS_SSM_PREFIX }}
       AGENTCORE_RUNTIMES_JSON: ${{ vars.GENU_AGENTCORE_RUNTIMES_JSON }}
+      CDK_CONTEXT_JSON: ${{ secrets.GENU_CDK_CONTEXT_JSON || vars.GENU_CDK_CONTEXT_JSON }}
       DEPLOY_ROLE_ARN: ${{ secrets.GENU_DEPLOY_ROLE_ARN || vars.GENU_DEPLOY_ROLE_ARN }}
 
     steps:
@@ -92,6 +93,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Materialize sanitized CDK context
+        run: node scripts/materialize-cicd-cdk-context.mjs
 
       - name: Validate CI/CD manifest and CDK context
         run: node scripts/validate-cicd-config.mjs

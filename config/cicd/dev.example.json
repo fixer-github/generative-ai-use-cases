@@ -21,8 +21,15 @@
   "agentCoreRuntimes": [
     {
       "key": "example_runtime",
+      "name": "example_runtime",
       "required": true,
-      "arn": "arn:aws:bedrock-agentcore:aws-region-2:000000000000:runtime/example_runtime-0000000000"
+      "arn": "arn:aws:bedrock-agentcore:aws-region-2:000000000000:runtime/example_runtime-0000000000",
+      "displayName": "Example Runtime",
+      "description": "Example external AgentCore runtime."
     }
-  ]
+  ],
+  "cdkContext": {
+    "tagKey": "Project",
+    "tagValue": "example-genu-dev"
+  }
 }

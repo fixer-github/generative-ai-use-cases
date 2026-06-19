@@ -10,10 +10,63 @@ export function readCicdConfig(options = {}) {
       : path.join(repoRoot, 'config/cicd/dev.json');
 
   if (fs.existsSync(manifestPath)) {
-    return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    return normalizeCicdConfig(
+      JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    );
   }
 
   return readCicdConfigFromEnv();
+}
+
+export function normalizeCicdConfig(config) {
+  return {
+    ...config,
+    cdkContext: config.cdkContext ?? {},
+    agentCoreRuntimes: normalizeAgentCoreRuntimes(
+      config.agentCoreRuntimes ?? config.agentCoreExternalRuntimes ?? []
+    ),
+    agentCoreExternalRuntimes: normalizeAgentCoreRuntimes(
+      config.agentCoreExternalRuntimes ??
+        config.cdkContext?.agentCoreExternalRuntimes ??
+        config.agentCoreRuntimes ??
+        []
+    ).map(toCdkRuntime),
+  };
+}
+
+export function normalizeAgentCoreRuntimes(runtimes) {
+  if (!Array.isArray(runtimes)) {
+    return [];
+  }
+
+  return runtimes.map((runtime) => {
+    const key = runtime.key ?? runtime.name;
+    return {
+      ...runtime,
+      key,
+      name: runtime.name ?? key,
+      required: runtime.required ?? true,
+    };
+  });
+}
+
+function toCdkRuntime(runtime) {
+  const cdkRuntime = {
+    name: runtime.name,
+    arn: runtime.arn,
+  };
+
+  if (runtime.displayName) {
+    cdkRuntime.displayName = runtime.displayName;
+  }
+  if (runtime.description) {
+    cdkRuntime.description = runtime.description;
+  }
+  if (runtime.apps) {
+    cdkRuntime.apps = runtime.apps;
+  }
+
+  return cdkRuntime;
 }
 
 function readCicdConfigFromEnv() {
@@ -35,6 +88,7 @@ function readCicdConfigFromEnv() {
       ssmParameterPrefix: readEnv('GENU_OUTPUTS_SSM_PREFIX', errors),
     },
     agentCoreRuntimes: readJsonEnv('AGENTCORE_RUNTIMES_JSON', errors),
+    cdkContext: readOptionalJsonEnv('CDK_CONTEXT_JSON', errors),
   };
 
   if (errors.length > 0) {
@@ -45,7 +99,7 @@ function readCicdConfigFromEnv() {
     process.exit(1);
   }
 
-  return config;
+  return normalizeCicdConfig(config);
 }
 
 function readEnv(name, errors) {
@@ -67,5 +121,19 @@ function readJsonEnv(name, errors) {
   } catch (error) {
     errors.push(`${name} must be valid JSON: ${error.message}`);
     return [];
+  }
+}
+
+function readOptionalJsonEnv(name, errors) {
+  const value = process.env[name];
+  if (!value) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    errors.push(`${name} must be valid JSON: ${error.message}`);
+    return {};
   }
 }
