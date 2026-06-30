@@ -93,6 +93,7 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
       summary: t('meetingMinutes.style_summary'),
       detail: t('meetingMinutes.style_detail'),
       faq: t('meetingMinutes.style_faq'),
+      soap: t('meetingMinutes.style_soap'),
       transcription: t('meetingMinutes.style_transcription'),
       diagram: t('meetingMinutes.style_diagram'),
       newspaper: t('meetingMinutes.style_newspaper'),

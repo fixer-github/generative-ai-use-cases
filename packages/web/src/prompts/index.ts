@@ -78,6 +78,7 @@ export type MeetingMinutesParams = {
     | 'detail'
     | 'newspaper'
     | 'faq'
+    | 'soap'
     | 'diagram'
     | 'whiteboard'
     | 'custom';
