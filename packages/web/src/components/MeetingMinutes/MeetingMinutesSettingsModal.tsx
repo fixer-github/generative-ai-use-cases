@@ -164,6 +164,10 @@ const MeetingMinutesSettingsModal: React.FC<
                   label: t('meetingMinutes.style_faq'),
                 },
                 {
+                  value: 'soap',
+                  label: t('meetingMinutes.style_soap'),
+                },
+                {
                   value: 'transcription',
                   label: t('meetingMinutes.style_transcription'),
                 },

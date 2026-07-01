@@ -821,6 +821,7 @@ meetingMinutes:
   style_diagram: 図解
   style_faq: 質疑応答
   style_newspaper: 新聞
+  style_soap: SOAP
   style_summary: 要約
   style_transcription: 文字起こし
   style_whiteboard: ホワイトボード
