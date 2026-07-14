@@ -13,6 +13,7 @@ admin:
     save_error: Failed to update password policy.
     save_success: Password policy updated successfully.
   tabs:
+    license: License Management
     password_policy: Password Policy
     user_management: User Management
   title: Admin Settings
@@ -891,6 +892,33 @@ language:
   th: Thai
   vi: Vietnamese
   zh: Chinese
+license:
+  assign_action: Assign license
+  assign_error: Failed to assign the license.
+  assign_title: Assign License
+  assigning_user: 'Setting license for {{email}}'
+  badge:
+    remaining: '{{remaining}}/{{limit}} left'
+  column_header: License
+  create_plan: Create Plan
+  create_plan_title: Create New Plan
+  delete_confirm: 'Are you sure you want to delete the plan "{{name}}"? Users assigned to it will no longer have a usage limit.'
+  delete_confirm_title: Confirm Plan Deletion
+  delete_plan: Delete
+  edit_plan_title: Edit Plan
+  enabled: Enabled
+  enabled_no: Disabled
+  enabled_yes: Enabled
+  monthly_limit: Monthly Usage Limit
+  plan_create_error: Failed to create the plan.
+  plan_delete_error: Failed to delete the plan.
+  plan_name: Plan Name
+  plan_update_error: Failed to update the plan.
+  plans_total: '{{count}} plans'
+  remaining_count: '{{remaining}}/{{limit}} left'
+  select_plan: Select a plan
+  times_per_month: '{{count}} times/month'
+  unassigned: Unassigned
 mcp_chat:
   loading_message: Connecting to MCP server. This may take some time. Please wait...
   title: MCP Chat

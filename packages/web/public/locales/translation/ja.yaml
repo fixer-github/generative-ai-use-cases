@@ -13,6 +13,7 @@ admin:
     save_error: パスワードポリシーの更新に失敗しました。
     save_success: パスワードポリシーを更新しました。
   tabs:
+    license: ライセンス管理
     password_policy: パスワードポリシー
     user_management: ユーザ管理
   title: 管理者設定
@@ -734,6 +735,33 @@ language:
   th: タイ語
   vi: ベトナム語
   zh: 中国語
+license:
+  assign_action: ライセンス割当
+  assign_error: ライセンスの割当に失敗しました。
+  assign_title: ライセンス割当
+  assigning_user: '{{email}} のライセンスを設定'
+  badge:
+    remaining: '残り {{remaining}}/{{limit}} 回'
+  column_header: ライセンス
+  create_plan: プラン作成
+  create_plan_title: 新規プラン作成
+  delete_confirm: 'プラン「{{name}}」を削除してもよろしいですか？割当済みのユーザは利用回数が無制限になります。'
+  delete_confirm_title: プラン削除の確認
+  delete_plan: 削除
+  edit_plan_title: プラン編集
+  enabled: 有効/無効
+  enabled_no: 無効
+  enabled_yes: 有効
+  monthly_limit: 月間利用上限
+  plan_create_error: プランの作成に失敗しました。
+  plan_delete_error: プランの削除に失敗しました。
+  plan_name: プラン名
+  plan_update_error: プランの更新に失敗しました。
+  plans_total: '{{count}} 件のプラン'
+  remaining_count: '残り {{remaining}}/{{limit}} 回'
+  select_plan: プランを選択
+  times_per_month: '{{count}} 回/月'
+  unassigned: 未割当
 mcp_chat:
   loading_message: MCP サーバーと接続しています。時間がかかる場合があります。そのまま待機してください...
   title: MCP チャット

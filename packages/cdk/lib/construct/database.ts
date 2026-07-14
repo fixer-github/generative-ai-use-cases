@@ -11,6 +11,7 @@ export class Database extends Construct {
   public readonly table: ddb.Table;
   public readonly statsTable: ddb.Table;
   public readonly agentObservabilityTable: ddb.Table;
+  public readonly licenseTable: ddb.Table;
   public readonly feedbackIndexName: string;
 
   constructor(scope: Construct, id: string) {
@@ -117,9 +118,40 @@ export class Database extends Construct {
       },
     });
 
+    // License table: plan definitions (pk='plans'), per-user plan assignment,
+    // and monthly usage counters (pk=`user#<userId>`). TTL only applies to
+    // usage-counter items (which carry a `ttl` attribute); plan/assignment
+    // items never set `ttl` and are therefore never auto-deleted.
+    const licenseTable = new ddb.Table(this, 'LicenseTable', {
+      partitionKey: {
+        name: 'pk',
+        type: ddb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'sk',
+        type: ddb.AttributeType.STRING,
+      },
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      deletionProtection: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      timeToLiveAttribute: 'ttl',
+    });
+    licenseTable.node.addMetadata(
+      BACKUP_PROTECTED_METADATA_KEY,
+      BACKUP_PROTECTED_METADATA_VALUE
+    );
+    cdk.Tags.of(licenseTable).add(
+      BACKUP_PROTECTED_TAG.key,
+      BACKUP_PROTECTED_TAG.value
+    );
+
     this.table = table;
     this.statsTable = statsTable;
     this.agentObservabilityTable = agentObservabilityTable;
+    this.licenseTable = licenseTable;
     this.feedbackIndexName = feedbackIndexName;
   }
 }

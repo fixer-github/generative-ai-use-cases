@@ -180,6 +180,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       table: database.table,
       statsTable: database.statsTable,
       agentObservabilityTable: database.agentObservabilityTable,
+      licenseTable: database.licenseTable,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: agentsJson,
       guardrailIdentify: props.guardrailIdentifier,
@@ -197,6 +198,7 @@ export class GenerativeAiUseCasesStack extends Stack {
     new AdminApi(this, 'AdminApi', {
       userPool: auth.userPool,
       api: api.api,
+      licenseTable: database.licenseTable,
       vpc: props.vpc,
       securityGroups,
     });
@@ -514,6 +516,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       database.table,
       database.statsTable,
       database.agentObservabilityTable,
+      database.licenseTable,
     ];
     if (useCaseBuilder) {
       ddbTables.push(useCaseBuilder.useCaseBuilderTable);

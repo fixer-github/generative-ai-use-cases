@@ -77,6 +77,7 @@ export interface BackendApiProps {
   readonly table: Table;
   readonly statsTable: Table;
   readonly agentObservabilityTable: Table;
+  readonly licenseTable: Table;
   readonly knowledgeBaseId?: string;
   readonly agents?: string;
   readonly guardrailIdentify?: string;
@@ -116,6 +117,7 @@ export class Api extends Construct {
       userPool,
       userPoolClient,
       table,
+      licenseTable,
       idPool,
       knowledgeBaseId,
       queryDecompositionEnabled,
@@ -240,6 +242,7 @@ export class Api extends Construct {
         CROSS_ACCOUNT_BEDROCK_ROLE_ARN: crossAccountBedrockRoleArn ?? '',
         BUCKET_NAME: fileBucket.bucketName,
         KNOWLEDGE_BASE_ID: knowledgeBaseId ?? '',
+        LICENSE_TABLE_NAME: licenseTable.tableName,
         ...(props.guardrailIdentify
           ? { GUARDRAIL_IDENTIFIER: props.guardrailIdentify }
           : {}),
@@ -271,6 +274,9 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+    // License enforcement: predictStream reads plan/assignment and increments
+    // the monthly usage counter, so it needs read/write on the license table.
+    licenseTable.grantReadWriteData(predictStreamFunction);
 
     // Grant SSM SecureString read for the search API key when configured.
     if (props.searchApiKeySsmParameterName) {
@@ -923,6 +929,19 @@ export class Api extends Construct {
     table.grantReadData(getTokenUsageFunction);
     props.statsTable.grantReadData(getTokenUsageFunction);
 
+    // Lambda function for getting the caller's own license (plan + monthly usage)
+    const getMyLicenseFunction = new NodejsFunction(this, 'GetMyLicense', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/getMyLicense.ts',
+      timeout: Duration.minutes(15),
+      environment: {
+        LICENSE_TABLE_NAME: licenseTable.tableName,
+      },
+      vpc,
+      securityGroups,
+    });
+    licenseTable.grantReadData(getMyLicenseFunction);
+
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
       cognitoUserPools: [userPool],
@@ -1223,6 +1242,15 @@ export class Api extends Construct {
     tokenUsageResource.addMethod(
       'GET',
       new LambdaIntegration(getTokenUsageFunction),
+      commonAuthorizerProps
+    );
+
+    // GET: /license/me (caller's own license: plan + current month usage)
+    const licenseResource = api.root.addResource('license');
+    const licenseMeResource = licenseResource.addResource('me');
+    licenseMeResource.addMethod(
+      'GET',
+      new LambdaIntegration(getMyLicenseFunction),
       commonAuthorizerProps
     );
 

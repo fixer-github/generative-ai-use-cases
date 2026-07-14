@@ -451,6 +451,9 @@ language:
   ja: 日语
   ko: 韩语
   zh: 中文
+license:
+  badge:
+    remaining: '剩余 {{remaining}}/{{limit}} 次'
 meetingMinutes:
   auto_generate: 自动生成
   clear_minutes: 清除会议纪要

@@ -1,4 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+// User management tab. In addition to the existing features, it provides a
+// license type / current-month remaining-count column and an assignment dialog.
+// License APIs (listLicensePlans/getUserLicense/assignUserLicense) come from useLicenseApi().
+// getUserLicense(username) returns SWR ({ data, mutate, isLoading }); assignUserLicense returns a Promise.
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   PiPlus,
@@ -7,13 +11,120 @@ import {
   PiCheckCircle,
   PiUserGear,
   PiShieldSlash,
+  PiCreditCard,
 } from 'react-icons/pi';
 import useAdminApi from '../../hooks/useAdminApi';
 import useAdmin from '../../hooks/useAdmin';
+import useLicenseApi from '../../hooks/useLicenseApi';
 import Button from '../../components/Button';
 import Alert from '../../components/Alert';
 import ModalDialog from '../../components/ModalDialog';
-import { AdminUser } from 'generative-ai-use-cases';
+import { AdminUser, LicensePlan } from 'generative-ai-use-cases';
+
+const UserLicenseCell: React.FC<{ username: string }> = ({ username }) => {
+  const { t } = useTranslation();
+  const { getUserLicense } = useLicenseApi();
+  const { data, isLoading } = getUserLicense(username);
+
+  if (isLoading || !data) {
+    // eslint-disable-next-line @shopify/jsx-no-hardcoded-content
+    return <span className="text-xs text-gray-400">-</span>;
+  }
+
+  const { license } = data;
+
+  if (!license.planId) {
+    return (
+      <span className="text-xs text-gray-500">{t('license.unassigned')}</span>
+    );
+  }
+
+  return (
+    <div className="text-xs">
+      <div>{license.planName}</div>
+      {license.usage && (
+        <div className="text-gray-500">
+          {t('license.remaining_count', {
+            remaining: license.usage.remaining,
+            limit: license.usage.limit,
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AssignLicenseDialog: React.FC<{
+  user: AdminUser;
+  plans: LicensePlan[];
+  onClose: () => void;
+}> = ({ user, plans, onClose }) => {
+  const { t } = useTranslation();
+  const { getUserLicense, assignUserLicense } = useLicenseApi();
+  const { data, mutate } = getUserLicense(user.username);
+
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (data?.license) {
+      setSelectedPlanId(data.license.planId ?? '');
+    }
+  }, [data]);
+
+  const handleAssign = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await assignUserLicense(user.username, {
+        planId: selectedPlanId || null,
+      });
+      await mutate();
+      onClose();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      setError(err?.response?.data?.error ?? t('license.assign_error'));
+    } finally {
+      setLoading(false);
+    }
+  }, [user, selectedPlanId, assignUserLicense, mutate, onClose, t]);
+
+  return (
+    <ModalDialog isOpen title={t('license.assign_title')} onClose={onClose}>
+      <div className="space-y-4">
+        {error && <Alert severity="error">{error}</Alert>}
+        <div className="text-sm">
+          {t('license.assigning_user', { email: user.email })}
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            {t('license.select_plan')}
+          </label>
+          <select
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+            className="w-full rounded border border-gray-300 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
+            <option value="">{t('license.unassigned')}</option>
+            {plans.map((plan) => (
+              <option key={plan.planId} value={plan.planId}>
+                {plan.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button outlined onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleAssign} loading={loading}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </div>
+    </ModalDialog>
+  );
+};
 
 const UserManagement: React.FC = () => {
   const { t } = useTranslation();
@@ -27,10 +138,16 @@ const UserManagement: React.FC = () => {
     resetMfa,
   } = useAdminApi();
   const { currentUsername } = useAdmin();
+  const { listLicensePlans } = useLicenseApi();
 
   const { data, mutate, isLoading } = listUsers();
+  const { data: licensePlansData } = listLicensePlans();
 
   const users = useMemo(() => data?.users ?? [], [data]);
+  const licensePlans = useMemo(
+    () => licensePlansData?.plans ?? [],
+    [licensePlansData]
+  );
 
   // Create user dialog
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -54,6 +171,9 @@ const UserManagement: React.FC = () => {
   const [isResetMfaOpen, setIsResetMfaOpen] = useState(false);
   const [resetMfaUser, setResetMfaUser] = useState<AdminUser | null>(null);
   const [resetMfaLoading, setResetMfaLoading] = useState(false);
+
+  // Assign license dialog
+  const [assigningUser, setAssigningUser] = useState<AdminUser | null>(null);
 
   // Action loading state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -211,6 +331,7 @@ const UserManagement: React.FC = () => {
               <th className="px-3 py-2">{t('admin.users.status')}</th>
               <th className="px-3 py-2">{t('admin.users.enabled')}</th>
               <th className="px-3 py-2">{t('admin.users.role')}</th>
+              <th className="px-3 py-2">{t('license.column_header')}</th>
               <th className="px-3 py-2">{t('admin.users.created')}</th>
               <th className="px-3 py-2">{t('admin.users.actions')}</th>
             </tr>
@@ -260,6 +381,9 @@ const UserManagement: React.FC = () => {
                     </span>
                   )}
                 </td>
+                <td className="px-3 py-2">
+                  <UserLicenseCell username={user.username} />
+                </td>
                 <td className="px-3 py-2 text-xs text-gray-500">
                   {new Date(user.createdDate).toLocaleDateString()}
                 </td>
@@ -284,6 +408,12 @@ const UserManagement: React.FC = () => {
                       disabled={isSelf(user.username)}
                       onClick={() => openGroupsDialog(user)}>
                       <PiUserGear />
+                    </button>
+                    <button
+                      className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
+                      title={t('license.assign_action')}
+                      onClick={() => setAssigningUser(user)}>
+                      <PiCreditCard />
                     </button>
                     <button
                       className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
@@ -441,6 +571,15 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       </ModalDialog>
+
+      {/* Assign License Dialog */}
+      {assigningUser && (
+        <AssignLicenseDialog
+          user={assigningUser}
+          plans={licensePlans}
+          onClose={() => setAssigningUser(null)}
+        />
+      )}
     </div>
   );
 };

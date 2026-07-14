@@ -563,6 +563,9 @@ language:
   ko: ภาษาเกาหลี
   th: ภาษาไทย
   zh: ภาษาจีน
+license:
+  badge:
+    remaining: 'เหลือ {{remaining}}/{{limit}} ครั้ง'
 meetingMinutes:
   auto_generate: สร้างอัตโนมัติ
   clear_minutes: ล้างรายงานการประชุม

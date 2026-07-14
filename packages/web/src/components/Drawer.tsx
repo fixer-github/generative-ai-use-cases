@@ -9,6 +9,7 @@ import Switch from './Switch';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';
 import useUserSetting from '../hooks/useUserSetting';
+import useLicense from '../hooks/useLicense';
 
 export type ItemProps = DrawerItemProps & {
   display: 'usecase' | 'tool' | 'none';
@@ -22,6 +23,7 @@ const Drawer: React.FC<Props> = (props) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { settingShowUseCaseBuilder } = useUserSetting();
+  const { license, usage } = useLicense();
 
   const usecases = useMemo(() => {
     return props.items.filter((i) => i.display === 'usecase');
@@ -40,6 +42,14 @@ const Drawer: React.FC<Props> = (props) => {
 
   const [settingVisibility, setSettingVisibility] = useState(false);
 
+  // Usage meter ratio: 0 (exhausted) to 1 (full). A limit of 0 is abnormal and treated as exhausted.
+  const usageRatio =
+    usage && usage.limit > 0
+      ? Math.min(Math.max(usage.remaining / usage.limit, 0), 1)
+      : 0;
+  const isExhausted = !!usage && usage.remaining <= 0;
+  const isLow = !isExhausted && usageRatio <= 0.2;
+
   return (
     <>
       <DrawerBase>
@@ -55,6 +65,45 @@ const Drawer: React.FC<Props> = (props) => {
             />
             <div className="border-b" />
           </>
+        )}
+        {license?.planId && usage && (
+          <div className="bg-sidebar-accent/20 mx-3 my-1 rounded-md px-2.5 py-1.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="text-sidebar-text-muted truncate">
+                {license.planName}
+              </span>
+              <span
+                className={`shrink-0 font-medium tabular-nums ${
+                  isExhausted
+                    ? 'text-red-300'
+                    : isLow
+                      ? 'text-amber-300'
+                      : 'text-sidebar-text'
+                }`}>
+                {t('license.badge.remaining', {
+                  remaining: usage.remaining,
+                  limit: usage.limit,
+                })}
+              </span>
+            </div>
+            <div
+              className="bg-sidebar-bg mt-1.5 h-1 overflow-hidden rounded-full"
+              role="progressbar"
+              aria-valuenow={usage.remaining}
+              aria-valuemin={0}
+              aria-valuemax={usage.limit}>
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isExhausted
+                    ? 'bg-red-400'
+                    : isLow
+                      ? 'bg-amber-400'
+                      : 'bg-sidebar-text'
+                }`}
+                style={{ width: `${usageRatio * 100}%` }}
+              />
+            </div>
+          </div>
         )}
         <div className="text-sidebar-text-muted mx-3 my-1 flex items-center justify-between text-xs">
           <div>

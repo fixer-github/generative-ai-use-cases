@@ -547,6 +547,9 @@ language:
   ko: Tiếng Hàn
   th: tiếng Thái
   zh: Tiếng Trung
+license:
+  badge:
+    remaining: 'Còn {{remaining}}/{{limit}} lần'
 meetingMinutes:
   auto_generate: Tự động tạo
   clear_minutes: Xóa biên bản

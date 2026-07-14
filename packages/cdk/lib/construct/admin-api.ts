@@ -6,6 +6,7 @@ import {
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -15,6 +16,7 @@ import { IVpc, ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
 export interface AdminApiProps {
   readonly userPool: UserPool;
   readonly api: RestApi;
+  readonly licenseTable: Table;
   readonly vpc?: IVpc;
   readonly securityGroups?: ISecurityGroup[];
 }
@@ -23,7 +25,7 @@ export class AdminApi extends Construct {
   constructor(scope: Construct, id: string, props: AdminApiProps) {
     super(scope, id);
 
-    const { userPool, api, vpc, securityGroups } = props;
+    const { userPool, api, licenseTable, vpc, securityGroups } = props;
 
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'AdminAuthorizer', {
       cognitoUserPools: [userPool],
@@ -184,6 +186,89 @@ export class AdminApi extends Construct {
     );
     updatePasswordPolicyFunction.addToRolePolicy(cognitoAdminPolicy);
 
+    // License plan CRUD (admin only, no Cognito calls needed)
+    const licenseEnv = { LICENSE_TABLE_NAME: licenseTable.tableName };
+
+    const listLicensePlansFunction = new NodejsFunction(
+      this,
+      'ListLicensePlans',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/listLicensePlans.ts',
+        timeout: Duration.minutes(1),
+        environment: licenseEnv,
+        vpc,
+        securityGroups,
+      }
+    );
+    licenseTable.grantReadData(listLicensePlansFunction);
+
+    const createLicensePlanFunction = new NodejsFunction(
+      this,
+      'CreateLicensePlan',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/createLicensePlan.ts',
+        timeout: Duration.minutes(1),
+        environment: licenseEnv,
+        vpc,
+        securityGroups,
+      }
+    );
+    licenseTable.grantWriteData(createLicensePlanFunction);
+
+    const updateLicensePlanFunction = new NodejsFunction(
+      this,
+      'UpdateLicensePlan',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/updateLicensePlan.ts',
+        timeout: Duration.minutes(1),
+        environment: licenseEnv,
+        vpc,
+        securityGroups,
+      }
+    );
+    licenseTable.grantReadWriteData(updateLicensePlanFunction);
+
+    const deleteLicensePlanFunction = new NodejsFunction(
+      this,
+      'DeleteLicensePlan',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/deleteLicensePlan.ts',
+        timeout: Duration.minutes(1),
+        environment: licenseEnv,
+        vpc,
+        securityGroups,
+      }
+    );
+    licenseTable.grantReadWriteData(deleteLicensePlanFunction);
+
+    const assignUserLicenseFunction = new NodejsFunction(
+      this,
+      'AssignUserLicense',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/assignUserLicense.ts',
+        timeout: Duration.minutes(1),
+        environment: licenseEnv,
+        vpc,
+        securityGroups,
+      }
+    );
+    licenseTable.grantReadWriteData(assignUserLicenseFunction);
+
+    const getUserLicenseFunction = new NodejsFunction(this, 'GetUserLicense', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/admin/getUserLicense.ts',
+      timeout: Duration.minutes(1),
+      environment: licenseEnv,
+      vpc,
+      securityGroups,
+    });
+    licenseTable.grantReadData(getUserLicenseFunction);
+
     // --- API Gateway Resources ---
 
     const adminResource = api.root.addResource('admin');
@@ -255,6 +340,23 @@ export class AdminApi extends Construct {
       commonAuthorizerProps
     );
 
+    // /admin/users/{username}/license
+    const userLicenseResource = userResource.addResource('license');
+
+    // GET /admin/users/{username}/license
+    userLicenseResource.addMethod(
+      'GET',
+      new LambdaIntegration(getUserLicenseFunction),
+      commonAuthorizerProps
+    );
+
+    // PUT /admin/users/{username}/license
+    userLicenseResource.addMethod(
+      'PUT',
+      new LambdaIntegration(assignUserLicenseFunction),
+      commonAuthorizerProps
+    );
+
     // /admin/password-policy
     const passwordPolicyResource = adminResource.addResource('password-policy');
 
@@ -269,6 +371,41 @@ export class AdminApi extends Construct {
     passwordPolicyResource.addMethod(
       'PUT',
       new LambdaIntegration(updatePasswordPolicyFunction),
+      commonAuthorizerProps
+    );
+
+    // /admin/license/plans
+    const licenseResource = adminResource.addResource('license');
+    const licensePlansResource = licenseResource.addResource('plans');
+
+    // GET /admin/license/plans
+    licensePlansResource.addMethod(
+      'GET',
+      new LambdaIntegration(listLicensePlansFunction),
+      commonAuthorizerProps
+    );
+
+    // POST /admin/license/plans
+    licensePlansResource.addMethod(
+      'POST',
+      new LambdaIntegration(createLicensePlanFunction),
+      commonAuthorizerProps
+    );
+
+    // /admin/license/plans/{planId}
+    const licensePlanResource = licensePlansResource.addResource('{planId}');
+
+    // PUT /admin/license/plans/{planId}
+    licensePlanResource.addMethod(
+      'PUT',
+      new LambdaIntegration(updateLicensePlanFunction),
+      commonAuthorizerProps
+    );
+
+    // DELETE /admin/license/plans/{planId}
+    licensePlanResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteLicensePlanFunction),
       commonAuthorizerProps
     );
   }
