@@ -20,10 +20,8 @@ import {
 describe('customEmailSender', () => {
   test('unescapes one layer of HTML entities', () => {
     expect(
-      unescapeHtmlEntities(
-        'Pass&lt;&gt;&quot;&#x27;&#39;&apos;&amp;&amp;lt;'
-      )
-    ).toBe('Pass<>"\'\'\'&&lt;');
+      unescapeHtmlEntities('Pass&lt;&gt;&quot;&#x27;&#39;&apos;&amp;&amp;lt;')
+    ).toBe("Pass<>\"'''&&lt;");
   });
 
   test('unescapes AdminCreateUser temporary password before rendering', () => {

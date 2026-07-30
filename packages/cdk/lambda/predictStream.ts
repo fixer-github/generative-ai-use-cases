@@ -102,7 +102,8 @@ export const handler = awslambda.streamifyResponse(
             const u = chunk.metadata?.usage;
             if (u) {
               sawUsage = true;
-              usage.inputTokens = (usage.inputTokens ?? 0) + (u.inputTokens ?? 0);
+              usage.inputTokens =
+                (usage.inputTokens ?? 0) + (u.inputTokens ?? 0);
               usage.outputTokens =
                 (usage.outputTokens ?? 0) + (u.outputTokens ?? 0);
               usage.cacheReadInputTokens =

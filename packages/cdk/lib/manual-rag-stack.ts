@@ -55,9 +55,7 @@ export class ManualRagStack extends Stack {
       'PREPROCESS_FUNCTION_ARN',
       this.preprocess.function.functionArn
     );
-    this.preprocess.function.grantInvoke(
-      this.adminApi.reprocessManualFunction
-    );
+    this.preprocess.function.grantInvoke(this.adminApi.reprocessManualFunction);
 
     // Outputs for the (separately developed) GenU frontend to wire against.
     new CfnOutput(this, 'ManualAdminApiEndpoint', {

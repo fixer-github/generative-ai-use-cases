@@ -19,6 +19,7 @@
     "@typescript-eslint/eslint-plugin": "^7.6.0",
     "@typescript-eslint/parser": "^7.6.0",
     "aws-cdk": "^2.220.0",
+    "aws-sdk-client-mock": "^4.1.0",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
@@ -27,8 +28,8 @@
   },
   "dependencies": {
     "@aws-cdk/aws-bedrock-agentcore-alpha": "2.227.0-alpha.0",
-    "@aws-crypto/client-node": "^4.0.1",
     "@aws-cdk/aws-lambda-python-alpha": "^2.220.0-alpha.0",
+    "@aws-crypto/client-node": "^4.0.1",
     "@aws-sdk/client-bedrock-agent": "^3.755.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.755.0",
     "@aws-sdk/client-bedrock-agentcore": "^3.755.0",
