@@ -86,7 +86,12 @@ const VideoAnalyzerPage: React.FC = () => {
   }, [modelId]);
 
   useEffect(() => {
-    const _modelId = !modelId ? visionModelIds[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      visionModelIds.length > 0 &&
+      (!modelId || !visionModelIds.includes(modelId))
+        ? visionModelIds[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as VideoAnalyzerPageQueryParams;
       setContent(params.content);

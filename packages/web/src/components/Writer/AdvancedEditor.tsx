@@ -120,6 +120,14 @@ const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
   const { t } = useTranslation();
   const { write, modelId, setModelId } = useWriter();
   const { modelIds: availableModels, modelDisplayName } = useModel();
+
+  // The writer store default is unfiltered; replace the selection when it is
+  // not in the license-filtered list
+  useEffect(() => {
+    if (availableModels.length > 0 && !availableModels.includes(modelId)) {
+      setModelId(availableModels[0]);
+    }
+  }, [availableModels, modelId, setModelId]);
   const [commentManager, setCommentManager] = useState<AICommentManager | null>(
     null
   );

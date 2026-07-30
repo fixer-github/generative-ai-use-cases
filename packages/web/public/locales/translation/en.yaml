@@ -911,7 +911,9 @@ license:
     enabled_no: Disabled
     enabled_yes: Enabled
     exhausted_users: 'Limit reached: {{count}} user(s)'
+    model_unpriced: No unit price registered
     models: Available models
+    models_priced_only: Only models with a registered unit price are listed
     models_required: Select at least one model
     monthly_fee_yen: Monthly fee (JPY)
     pending_plan: 'From next month: {{name}}'

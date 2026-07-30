@@ -9,6 +9,8 @@ import ButtonCopy from '../components/ButtonCopy';
 import Select from '../components/Select';
 import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';
+import useLicense from '../hooks/useLicense';
+import LicenseBlockedNotice from '../components/LicenseBlockedNotice';
 import { create } from 'zustand';
 import { SummarizePageQueryParams } from '../@types/navigate';
 import { useModel } from '../hooks/useModel';
@@ -78,6 +80,7 @@ const SummarizePage: React.FC = () => {
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
   const { modelIds: availableModels, modelDisplayName } = useModel();
+  const { blocked } = useLicense();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -89,11 +92,21 @@ const SummarizePage: React.FC = () => {
   }, [prompter]);
 
   const disabledExec = useMemo(() => {
+    return sentence === '' || loading || blocked;
+  }, [sentence, loading, blocked]);
+
+  // Clear stays usable while the license blocks execution
+  const disabledClear = useMemo(() => {
     return sentence === '' || loading;
   }, [sentence, loading]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as SummarizePageQueryParams;
       setSentence(params.sentence ?? '');
@@ -135,10 +148,10 @@ const SummarizePage: React.FC = () => {
 
   // Execute summary
   const onClickExec = useCallback(() => {
-    if (loading) return;
+    if (loading || blocked) return;
     getSummary(sentence, additionalContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentence, additionalContext, loading]);
+  }, [sentence, additionalContext, loading, blocked]);
 
   // Reset
   const onClickClear = useCallback(() => {
@@ -179,8 +192,10 @@ const SummarizePage: React.FC = () => {
             />
           </ExpandableField>
 
+          <LicenseBlockedNotice className="mb-2" />
+
           <div className="flex justify-end gap-3">
-            <Button outlined onClick={onClickClear} disabled={disabledExec}>
+            <Button outlined onClick={onClickClear} disabled={disabledClear}>
               {t('common.clear')}
             </Button>
 

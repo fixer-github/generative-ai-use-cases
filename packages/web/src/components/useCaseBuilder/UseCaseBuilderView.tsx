@@ -200,6 +200,9 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
   }, [selectItems, values, setValue]);
 
   useEffect(() => {
+    // Keep the current state while the license-filtered list is empty
+    if (availableModels.length === 0) return;
+
     const targetModelId =
       props.fixedModelId || props.modelId || availableModels[0];
 

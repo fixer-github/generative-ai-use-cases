@@ -106,10 +106,14 @@ const AgentChatUnified: React.FC<AgentChatProps> = ({
   // File handling
   const { clear: clearFiles, uploadFiles, uploadedFiles } = useFiles(pathname);
 
-  // Initialize model ID when agent is loaded
+  // Initialize model ID when agent is loaded. Fall back to the first allowed
+  // model when the agent's model is not in the license-filtered list.
   useEffect(() => {
     if (agent && availableModels.length > 0) {
-      const agentModelId = agent.modelId || availableModels[0];
+      const agentModelId =
+        agent.modelId && availableModels.includes(agent.modelId)
+          ? agent.modelId
+          : availableModels[0];
       setModelId(agentModelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

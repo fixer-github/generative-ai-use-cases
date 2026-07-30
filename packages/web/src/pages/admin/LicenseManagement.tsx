@@ -25,11 +25,20 @@ const LicenseManagement: React.FC = () => {
     createLicensePlan,
     updateLicensePlan,
     deleteLicensePlan,
+    getPricedModelIds,
   } = useLicenseApi();
   const { data, mutate, isLoading } = listLicensePlans();
+  const { data: pricedData } = getPricedModelIds();
 
   const plans = data?.plans ?? [];
-  const availableModelIds = MODELS.textModels.map((model) => model.modelId);
+  // Only models with a registered unit price can be metered. Narrow the
+  // choices once the priced-model list is loaded; fall back to all deployed
+  // text models while loading or on error.
+  const deployedModelIds = MODELS.textModels.map((model) => model.modelId);
+  const pricedModelIds = pricedData?.modelIds;
+  const availableModelIds = pricedModelIds
+    ? deployedModelIds.filter((modelId) => pricedModelIds.includes(modelId))
+    : deployedModelIds;
 
   // Create/Edit dialog (shared form)
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -327,7 +336,33 @@ const LicenseManagement: React.FC = () => {
                   {MODELS.modelDisplayName(modelId)}
                 </label>
               ))}
+              {/* Models already on the plan but without a unit price
+                  (normally does not happen); keep them visible so the admin
+                  can uncheck them */}
+              {formModelIds
+                .filter((modelId) => !availableModelIds.includes(modelId))
+                .map((modelId) => (
+                  <label
+                    key={modelId}
+                    className="flex items-center gap-2 text-sm text-gray-500">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked
+                      onChange={() => toggleModelId(modelId)}
+                    />
+                    {MODELS.modelDisplayName(modelId)}
+                    <span className="text-xs text-amber-600">
+                      {t('license.admin.model_unpriced')}
+                    </span>
+                  </label>
+                ))}
             </div>
+            {pricedModelIds && (
+              <div className="mt-1 text-xs text-gray-500">
+                {t('license.admin.models_priced_only')}
+              </div>
+            )}
             {formModelIds.length === 0 && (
               <div className="mt-1 text-xs text-red-500">
                 {t('license.admin.models_required')}

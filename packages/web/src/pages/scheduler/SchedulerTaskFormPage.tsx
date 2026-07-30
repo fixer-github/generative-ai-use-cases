@@ -8,7 +8,7 @@ import useSchedulerApi, {
   CreateScheduledTaskRequest,
 } from '../../hooks/useSchedulerApi';
 import { useAgentCore } from '../../hooks/useAgentCore';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import InputText from '../../components/InputText';
 import Textarea from '../../components/Textarea';
 import Select from '../../components/Select';
@@ -27,6 +27,9 @@ const SchedulerTaskFormPage: React.FC = () => {
 
   const { getAllAvailableRuntimes } = useAgentCore('/scheduler-form');
   const runtimes = getAllAvailableRuntimes();
+
+  // License-filtered model list
+  const { modelIds: availableModels, modelDisplayName } = useModel();
 
   // Form state
   const [taskName, setTaskName] = useState('');
@@ -108,13 +111,16 @@ const SchedulerTaskFormPage: React.FC = () => {
     }
   }, [runtimes, agentName, isEdit]);
 
-  // Set default model (create mode only; edit mode populates from taskData)
+  // Set default model, and replace the selection when it is not in the
+  // license-filtered list (edit mode populates from taskData first)
   useEffect(() => {
-    if (isEdit) return;
-    if (!modelId && MODELS.modelIds.length > 0) {
-      setModelId(MODELS.modelIds[0]);
+    if (
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+    ) {
+      setModelId(availableModels[0]);
     }
-  }, [modelId, isEdit]);
+  }, [modelId, availableModels]);
 
   const toggleDayOfWeek = useCallback((day: number) => {
     setDaysOfWeek((prev) => {
@@ -208,9 +214,9 @@ const SchedulerTaskFormPage: React.FC = () => {
     label: r.displayName ?? r.name,
   }));
 
-  const modelOptions = MODELS.modelIds.map((id) => ({
+  const modelOptions = availableModels.map((id) => ({
     value: id,
-    label: MODELS.modelDisplayName(id),
+    label: modelDisplayName(id),
   }));
 
   return (

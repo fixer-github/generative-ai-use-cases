@@ -3,7 +3,6 @@
  * Analyzes transcript history to generate context for improved translation accuracy
  */
 
-import { MODELS } from '../../hooks/useModel';
 import { Transcript, Model } from 'generative-ai-use-cases';
 
 // Real-time segment interface (minimal subset needed for context generation)
@@ -111,6 +110,8 @@ Respond in ${targetLanguageName}.`;
  * @param segments - Array of realtime segments
  * @param targetLanguage - Target language code for context generation
  * @param predict - Prediction function from useChatApi
+ * @param modelId - Model ID to use (callers should pass the first entry of
+ *   the license-filtered list from useModel(); this module is not a hook)
  * @returns Promise resolving to generated context or null if failed
  */
 export const generateSystemContext = async (
@@ -120,7 +121,8 @@ export const generateSystemContext = async (
     model: Model;
     messages: Array<{ role: 'system' | 'user'; content: string }>;
     id: string;
-  }) => Promise<string>
+  }) => Promise<string>,
+  modelId: string | undefined
 ): Promise<string | null> => {
   try {
     // Extract and validate transcript text
@@ -130,9 +132,8 @@ export const generateSystemContext = async (
       return null;
     }
 
-    // Get first available model
-    const { modelIds } = MODELS;
-    const firstModelId = modelIds[0];
+    // Model ID is supplied by the caller (license-filtered list)
+    const firstModelId = modelId;
 
     if (!firstModelId) {
       console.error('No models available for system context generation');
@@ -181,6 +182,8 @@ export const generateSystemContext = async (
  * Create a context generation function with preset target language
  * @param targetLanguage - Target language code
  * @param predict - Prediction function
+ * @param modelId - Model ID to use (pass the first entry of the
+ *   license-filtered list from useModel())
  * @returns Configured context generation function
  */
 export const createContextGenerator = (
@@ -189,12 +192,13 @@ export const createContextGenerator = (
     model: Model;
     messages: Array<{ role: 'system' | 'user'; content: string }>;
     id: string;
-  }) => Promise<string>
+  }) => Promise<string>,
+  modelId: string | undefined
 ) => {
   return async (
     segments: RealtimeSegmentForContext[]
   ): Promise<string | null> => {
-    return generateSystemContext(segments, targetLanguage, predict);
+    return generateSystemContext(segments, targetLanguage, predict, modelId);
   };
 };
 

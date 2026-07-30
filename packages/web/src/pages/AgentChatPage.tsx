@@ -9,7 +9,7 @@ import useFollow from '../hooks/useFollow';
 import { create } from 'zustand';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { AgentPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import { v4 as uuidv4 } from 'uuid';
 import queryString from 'query-string';
@@ -89,7 +89,7 @@ const AgentChatPage: React.FC = () => {
     forceToStop,
   } = useChat(pathname);
   const { scrollableContainer, setFollowing } = useFollow();
-  const { agentNames: availableModels } = MODELS;
+  const { agentNames: availableModels } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -120,7 +120,12 @@ const AgentChatPage: React.FC = () => {
     if (agentName) {
       setModelId(agentName);
     } else {
-      const _modelId = !modelId ? availableModels[0] : modelId;
+      // Replace the current model when it is not in the available list
+      const _modelId =
+        availableModels.length > 0 &&
+        (!modelId || !availableModels.includes(modelId))
+          ? availableModels[0]
+          : modelId;
       if (search !== '') {
         const params = queryString.parse(search) as AgentPageQueryParams;
         setContent(params.content ?? '');

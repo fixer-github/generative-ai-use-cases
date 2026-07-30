@@ -14,6 +14,7 @@ import {
   StartTranscribeSessionResponse,
   ReportTranscribeSessionRequest,
   ReportTranscribeSessionResponse,
+  GetPricedModelIdsResponse,
 } from 'generative-ai-use-cases';
 
 const useLicenseApi = () => {
@@ -66,6 +67,14 @@ const useLicenseApi = () => {
         AssignUserLicenseRequest
       >(`/admin/users/${encodeURIComponent(username)}/license`, req);
       return res.data;
+    },
+
+    // --- Admin: Text models that have a unit price (usable in plans) ---
+
+    getPricedModelIds: () => {
+      return http.get<GetPricedModelIdsResponse>(
+        '/admin/license/priced-models'
+      );
     },
 
     // --- Admin: Usage summary (per-user remaining % + exhausted count) ---

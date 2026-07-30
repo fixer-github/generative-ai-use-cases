@@ -7,7 +7,7 @@ import Textarea from '../Textarea';
 import Select from '../Select';
 import MCPServerManager from './MCPServerManager';
 import ModalDialog from '../ModalDialog';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import { AgentConfiguration } from 'generative-ai-use-cases';
 import usePromptGeneration from '../../hooks/usePromptGeneration';
 import useMCPServers from '../../hooks/useMCPServers';
@@ -44,7 +44,8 @@ const AgentForm: React.FC<AgentFormProps> = ({
   isEditMode = false,
 }) => {
   const { t } = useTranslation();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // License-filtered model list
+  const { modelIds: availableModels, modelDisplayName } = useModel();
 
   // Form state
   const [formData, setFormData] = useState<AgentFormData>({
@@ -93,9 +94,13 @@ const AgentForm: React.FC<AgentFormProps> = ({
     }
   }, [suggestedMCPServers]);
 
-  // Update formData.modelId when availableModels becomes available
+  // Update formData.modelId when availableModels becomes available, and
+  // replace the selection when it is not in the license-filtered list
   useEffect(() => {
-    if (availableModels.length > 0 && !formData.modelId) {
+    if (
+      availableModels.length > 0 &&
+      (!formData.modelId || !availableModels.includes(formData.modelId))
+    ) {
       setFormData((prev) => ({
         ...prev,
         modelId: availableModels[0],

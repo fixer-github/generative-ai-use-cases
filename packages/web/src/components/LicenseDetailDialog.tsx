@@ -41,7 +41,9 @@ const LicenseDetailDialog: React.FC<Props> = (props) => {
       <div className="flex flex-col gap-4 py-2">
         {/* Current plan */}
         <div>
-          <div className="text-xs text-gray-500">{t('license.detail.plan')}</div>
+          <div className="text-xs text-gray-500">
+            {t('license.detail.plan')}
+          </div>
           <div className="text-aws-font-color text-base font-medium">
             {license.assigned
               ? license.planName

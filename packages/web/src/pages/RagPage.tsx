@@ -44,7 +44,12 @@ const RagPage: React.FC = () => {
   const modelId = getModelId();
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as RagPageQueryParams;
       setContent(params.content ?? '');

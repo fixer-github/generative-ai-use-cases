@@ -13,7 +13,9 @@ import ButtonCopy from '../ButtonCopy';
 import ButtonIcon from '../ButtonIcon';
 import Markdown from '../Markdown';
 import MeetingMinutesSettingsModal from './MeetingMinutesSettingsModal';
+import LicenseBlockedNotice from '../LicenseBlockedNotice';
 import useMeetingMinutes from '../../hooks/useMeetingMinutes';
+import useLicense from '../../hooks/useLicense';
 import { useModel } from '../../hooks/useModel';
 import { MeetingMinutesParams, DiagramOption } from '../../prompts';
 import { claudePrompter } from '../../prompts/claude';
@@ -66,6 +68,15 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
   // Model selection (filtered by the license plan)
   const { modelIds: availableModels, modelDisplayName } = useModel();
   const [modelId, setModelId] = useState(availableModels[0] || '');
+  const { blocked } = useLicense();
+
+  // The initial state is evaluated only once; replace the selection when the
+  // license-filtered list arrives later and no longer contains it
+  useEffect(() => {
+    if (availableModels.length > 0 && !availableModels.includes(modelId)) {
+      setModelId(availableModels[0]);
+    }
+  }, [availableModels, modelId]);
 
   // Meeting minutes hook
   const {
@@ -108,6 +119,8 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
     if (
       shouldGenerateRef.current &&
       autoGenerate &&
+      // Skip auto generation while the license blocks new requests
+      !blocked &&
       transcriptText.trim() !== ''
     ) {
       if (!minutesLoading) {
@@ -131,6 +144,7 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
   }, [
     countdownSeconds,
     autoGenerate,
+    blocked,
     transcriptText,
     minutesLoading,
     generateMinutes,
@@ -174,6 +188,8 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
 
   // Manual generation handler
   const handleManualGeneration = useCallback(() => {
+    if (blocked) return;
+
     if (
       minutesStyle === 'custom' &&
       (!customPrompt || customPrompt.trim() === '')
@@ -197,6 +213,7 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
       );
     }
   }, [
+    blocked,
     hasTranscriptText,
     transcriptText,
     minutesLoading,
@@ -232,6 +249,8 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      <LicenseBlockedNotice className="mb-3 shrink-0" />
+
       {/* Compact header with settings button and action buttons */}
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -253,7 +272,7 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
         </div>
         <div className="flex gap-2">
           <Button
-            disabled={!hasTranscriptText || minutesLoading}
+            disabled={!hasTranscriptText || minutesLoading || blocked}
             onClick={handleManualGeneration}
             loading={minutesLoading}>
             {t('meetingMinutes.generate')}

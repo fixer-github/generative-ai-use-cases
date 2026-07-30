@@ -754,7 +754,9 @@ license:
     enabled_no: 無効
     enabled_yes: 有効
     exhausted_users: '上限到達: {{count}}人'
+    model_unpriced: 単価未登録
     models: 使えるモデル
+    models_priced_only: 単価が登録されているモデルのみ表示しています
     models_required: 使えるモデルを1つ以上選択してください
     monthly_fee_yen: 月額料金（円）
     pending_plan: '翌月から: {{name}}'
