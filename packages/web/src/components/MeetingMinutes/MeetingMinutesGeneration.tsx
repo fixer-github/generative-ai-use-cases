@@ -14,7 +14,7 @@ import ButtonIcon from '../ButtonIcon';
 import Markdown from '../Markdown';
 import MeetingMinutesSettingsModal from './MeetingMinutesSettingsModal';
 import useMeetingMinutes from '../../hooks/useMeetingMinutes';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import { MeetingMinutesParams, DiagramOption } from '../../prompts';
 import { claudePrompter } from '../../prompts/claude';
 
@@ -63,8 +63,8 @@ const MeetingMinutesGeneration: React.FC<MeetingMinutesGenerationProps> = ({
     });
   }, []);
 
-  // Model selection
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // Model selection (filtered by the license plan)
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const [modelId, setModelId] = useState(availableModels[0] || '');
 
   // Meeting minutes hook

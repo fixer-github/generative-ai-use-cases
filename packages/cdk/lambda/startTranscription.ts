@@ -6,6 +6,7 @@ import {
   LanguageCode,
 } from '@aws-sdk/client-transcribe';
 import { StartTranscriptionRequest } from 'generative-ai-use-cases';
+import { LICENSE_ENABLED, blockMessage, checkLicense } from './utils/license';
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -14,6 +15,27 @@ export const handler = async (
     const client = new TranscribeClient({});
     const req: StartTranscriptionRequest = JSON.parse(event.body!);
     const userId = event.requestContext.authorizer!.claims.sub;
+
+    // License gate: starting a job only requires remaining > 0; the actual
+    // charge happens on completion from the measured duration (requirement 20)
+    if (LICENSE_ENABLED) {
+      const licenseUserId =
+        event.requestContext.authorizer!.claims['cognito:username'];
+      const check = await checkLicense(licenseUserId);
+      if (!check.allowed) {
+        return {
+          statusCode: 403,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: JSON.stringify({
+            message: blockMessage(check.reason),
+            reason: check.reason,
+          }),
+        };
+      }
+    }
 
     const { audioUrl, speakerLabel, maxSpeakers, languageCode } = req;
 

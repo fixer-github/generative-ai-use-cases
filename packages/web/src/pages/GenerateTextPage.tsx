@@ -11,7 +11,7 @@ import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';
 import { create } from 'zustand';
 import { GenerateTextPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 
@@ -78,7 +78,7 @@ const GenerateTextPage: React.FC = () => {
     getStopReason,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);

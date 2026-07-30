@@ -28,7 +28,7 @@ import {
 import { create } from 'zustand';
 import debounce from 'lodash.debounce';
 import { TranslatePageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 import useSpeech from '../hooks/useSpeech';
@@ -117,7 +117,7 @@ const TranslatePage: React.FC = () => {
     getStopReason,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);

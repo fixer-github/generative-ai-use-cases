@@ -9,7 +9,7 @@ import Select from '../Select';
 import Button from '../Button';
 import useChat from '../../hooks/useChat';
 import { useLocation } from 'react-router-dom';
-import { MODELS } from '../../hooks/useModel';
+import { MODELS, useModel } from '../../hooks/useModel';
 import Markdown from '../Markdown';
 import ButtonCopy from '../ButtonCopy';
 import useTyping from '../../hooks/useTyping';
@@ -143,7 +143,7 @@ const UseCaseBuilderView: React.FC<Props> = (props) => {
       return getModelId();
     }
   }, [getModelId, props.fixedModelId]);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
   const { updateRecentUseUseCase } = useMyUseCases();
   const { retrieve: retrieveKendra } = useRagApi();

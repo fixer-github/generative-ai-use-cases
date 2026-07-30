@@ -191,6 +191,9 @@ const baseStackInputSchema = z.object({
   // tasks with emailSent=false; Cognito falls back to its default email).
   sendgridApiKey: z.string().nullish(),
   mailFrom: z.string().nullish(),
+  // License (cash-based usage limit): recipient of charge-failure /
+  // fx-fetch-failure alert mails. Empty = alerts are logged only.
+  licenseAdminAlertEmail: z.string().nullish(),
   // MCP
   mcpEnabled: z.boolean().default(false),
   // Guardrail

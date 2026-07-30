@@ -13,6 +13,7 @@ admin:
     save_error: パスワードポリシーの更新に失敗しました。
     save_success: パスワードポリシーを更新しました。
   tabs:
+    license: ライセンス管理
     password_policy: パスワードポリシー
     user_management: ユーザ管理
   title: 管理者設定
@@ -734,6 +735,66 @@ language:
   th: タイ語
   vi: ベトナム語
   zh: 中国語
+license:
+  admin:
+    allocation_yen: 割当額（円/月）
+    applied_next_month: プランの変更は翌月1日から適用されます
+    assign_action: 割当を変更
+    assign_error: プランの割当に失敗しました
+    assign_title: ライセンスプランの割当
+    assigning_user: '割当対象: {{username}}'
+    column_header: ライセンス
+    create_plan: プランを作成
+    create_plan_title: プランの新規作成
+    delete_confirm: プラン「{{name}}」を無効化しますか？このプランが割り当てられているユーザは利用できなくなります。
+    delete_confirm_title: プランの無効化
+    delete_plan: 無効化
+    edit_plan_title: プランの編集
+    enabled: 有効
+    enabled_no: 無効
+    enabled_yes: 有効
+    exhausted_users: '上限到達: {{count}}人'
+    models: 使えるモデル
+    models_required: 使えるモデルを1つ以上選択してください
+    monthly_fee_yen: 月額料金（円）
+    pending_plan: '翌月から: {{name}}'
+    plan_create_error: プランの作成に失敗しました
+    plan_delete_error: プランの無効化に失敗しました
+    plan_name: プラン名
+    plan_update_error: プランの更新に失敗しました
+    plans_total: '{{count}} 件のプラン'
+    remaining: 残量
+    select_plan: プランを選択
+    unassigned: 未割当
+  badge:
+    remaining: '残り {{percent}}%'
+  banner:
+    critical: 残量が{{percent}}%を下回りました。使い切ると、次のリセット日（{{resetDate}}）まで新しい送信ができなくなります。
+  blocked:
+    body_error: 時間をおいて再度お試しください。解消しない場合は管理者にお問い合わせください。
+    body_exhausted: '{{resetDate}}の0時に全量回復し、再び利用できるようになります。過去の会話の閲覧・コピーは引き続き可能です。お急ぎの場合は、管理者に上位プランへの変更をご相談ください（翌月1日から適用されます）。'
+    body_unassigned: 管理者にプランの割当を依頼してください。割当後に利用できるようになります。
+    contact: ご不明な点は管理者にお問い合わせください。
+    title_exhausted: 今月の利用可能量を使い切りました
+    title_unassigned: ライセンスプランが割り当てられていません
+  detail:
+    breakdown: 機能別の利用内訳（割当に対する割合）
+    category:
+      agent: エージェント
+      chat: チャット
+      generation: 文章生成
+      summarize: 要約
+      transcribe: 文字起こし
+      translate: 翻訳
+    no_usage: 今月はまだ利用がありません
+    pending_plan: 翌月からのプラン
+    plan: 現在のプラン
+    remaining: 今月の残量
+    reset_date: 次回リセット日
+    title: 利用状況
+  transcribe:
+    blocked_start: ライセンスの残量がないため文字起こしを開始できません
+    stopped: 残量を使い切ったため文字起こしを停止しました
 mcp_chat:
   loading_message: MCP サーバーと接続しています。時間がかかる場合があります。そのまま待機してください...
   title: MCP チャット

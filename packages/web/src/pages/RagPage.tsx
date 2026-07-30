@@ -12,7 +12,7 @@ import BedrockIcon from '../assets/bedrock.svg?react';
 import KendraIcon from '../assets/kendra.svg?react';
 import { PiPlus } from 'react-icons/pi';
 import { RagPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import queryString from 'query-string';
 import { useTranslation } from 'react-i18next';
 
@@ -40,7 +40,7 @@ const RagPage: React.FC = () => {
   const { postMessage, clear, loading, writing, messages, isEmpty } =
     useRag(pathname);
   const { scrollableContainer, setFollowing } = useFollow();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   useEffect(() => {

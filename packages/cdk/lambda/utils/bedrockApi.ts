@@ -95,20 +95,26 @@ const createBodyVideo = (model: Model, params: GenerateVideoParams) => {
   return modelConfig.createBodyVideo(params);
 };
 
+// Non-streaming Converse call that keeps the usage metadata alongside the
+// text (needed for license metering in predict.ts).
+export const invokeWithMetadata = async (
+  model: Model,
+  messages: UnrecordedMessage[],
+  id: string
+): Promise<StreamingChunk> => {
+  const region = model.region || MODEL_REGION;
+  const client = await initBedrockRuntimeClient({ region });
+
+  const converseCommandInput = createConverseCommandInput(model, messages, id);
+  const command = new ConverseCommand(converseCommandInput);
+  const output = await client.send(command);
+
+  return extractConverseOutput(model, output);
+};
+
 const bedrockApi: Omit<ApiInterface, 'invokeFlow'> = {
   invoke: async (model, messages, id) => {
-    const region = model.region || MODEL_REGION;
-    const client = await initBedrockRuntimeClient({ region });
-
-    const converseCommandInput = createConverseCommandInput(
-      model,
-      messages,
-      id
-    );
-    const command = new ConverseCommand(converseCommandInput);
-    const output = await client.send(command);
-
-    return extractConverseOutput(model, output).text;
+    return (await invokeWithMetadata(model, messages, id)).text;
   },
   invokeStream: async function* (model, messages, id) {
     const region = model.region || MODEL_REGION;

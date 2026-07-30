@@ -15,7 +15,7 @@ import { extractBaseURL } from '../hooks/useFiles';
 import { create } from 'zustand';
 import { getPrompter } from '../prompts';
 import { VideoAnalyzerPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import Button from '../components/Button';
 import Markdown from '../components/Markdown';
 import InputChatContent from '../components/InputChatContent';
@@ -79,7 +79,7 @@ const VideoAnalyzerPage: React.FC = () => {
     clear: clearChat,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { visionModelIds, modelDisplayName } = MODELS;
+  const { visionModelIds, modelDisplayName } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);

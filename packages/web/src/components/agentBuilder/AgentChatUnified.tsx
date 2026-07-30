@@ -7,7 +7,7 @@ import ChatMessage from '../ChatMessage';
 import ScrollTopBottom from '../ScrollTopBottom';
 import useFollow from '../../hooks/useFollow';
 import { useAgentCore } from '../../hooks/useAgentCore';
-import { MODELS } from '../../hooks/useModel';
+import { MODELS, useModel } from '../../hooks/useModel';
 import useFiles from '../../hooks/useFiles';
 import { FileLimit, AgentConfiguration } from 'generative-ai-use-cases';
 import BedrockIcon from '../../assets/bedrock.svg?react';
@@ -99,8 +99,8 @@ const AgentChatUnified: React.FC<AgentChatProps> = ({
   const [initialized, setInitialized] = useState(false);
   const [isOver, setIsOver] = useState(false);
 
-  // Get models from MODELS
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // Get models (filtered by the license plan)
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   // File handling

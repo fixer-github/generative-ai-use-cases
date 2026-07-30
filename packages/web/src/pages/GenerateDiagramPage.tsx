@@ -6,7 +6,7 @@ import Textarea from '../components/Textarea';
 import Select from '../components/Select';
 import ExpandableField from '../components/ExpandableField';
 import { create } from 'zustand';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import queryString from 'query-string';
 import useDiagram from '../hooks/useDiagram';
 import { DiagramPageQueryParams } from '../@types/navigate';
@@ -127,7 +127,7 @@ const GenerateDiagramPage: React.FC = () => {
     diagramType,
   } = useDiagram(pathname);
 
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   const disabledExec = useMemo(() => {

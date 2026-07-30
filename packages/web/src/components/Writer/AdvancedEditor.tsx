@@ -33,7 +33,7 @@ import { PiTrash, PiChatText, PiSpinner } from 'react-icons/pi';
 import useWriter from '../../hooks/useWriter';
 import { Editor } from '@tiptap/react';
 import Select from '../Select';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import { AICommentManager, useComments } from './extensions/AIComments';
 import ButtonCopy from '../ButtonCopy';
 import DiffMatchPatch from 'diff-match-patch';
@@ -119,7 +119,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 const TailwindAdvancedEditor: React.FC<Props> = ({ initialSentence }) => {
   const { t } = useTranslation();
   const { write, modelId, setModelId } = useWriter();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const [commentManager, setCommentManager] = useState<AICommentManager | null>(
     null
   );

@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
 import { PiArrowClockwiseBold } from 'react-icons/pi';
-import { MODELS, findModelByModelId } from '../hooks/useModel';
+import { useModel, findModelByModelId } from '../hooks/useModel';
 import StrandsIcon from '../assets/strands.svg?react';
 import ChatMessage from '../components/ChatMessage';
 import Select from '../components/Select';
@@ -59,7 +59,7 @@ const McpChatPage: React.FC = () => {
     clear,
   } = useMcp();
   const { pathname, search } = useLocation();
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const { scrollableContainer, setFollowing } = useFollow();
   const modelId = useMemo(() => {
     return getModelId();

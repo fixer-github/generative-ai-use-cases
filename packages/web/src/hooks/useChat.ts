@@ -20,6 +20,7 @@ import { useEffect, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import useChatApi from './useChatApi';
 import useChatList from './useChatList';
+import { mutate as mutateSwr } from 'swr';
 import { SWRInfiniteKeyedMutator } from 'swr/infinite';
 import { getPrompter } from '../prompts';
 import { findModelByModelId } from './useModel';
@@ -686,6 +687,9 @@ const useChatState = create<{
     }
 
     setWriting(id, false);
+
+    // Sending a chat consumes the monthly license allocation, so refresh the remaining badge
+    mutateSwr('/license/me');
 
     // Postprocessing of messages (example: addition of footnote)
     if (postProcessOutput) {

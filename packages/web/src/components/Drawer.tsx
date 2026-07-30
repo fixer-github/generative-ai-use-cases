@@ -9,6 +9,8 @@ import Switch from './Switch';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';
 import useUserSetting from '../hooks/useUserSetting';
+import useLicense from '../hooks/useLicense';
+import LicenseDetailDialog from './LicenseDetailDialog';
 
 export type ItemProps = DrawerItemProps & {
   display: 'usecase' | 'tool' | 'none';
@@ -22,6 +24,8 @@ const Drawer: React.FC<Props> = (props) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { settingShowUseCaseBuilder } = useUserSetting();
+  const { license, warnLevel } = useLicense();
+  const [showLicenseDetail, setShowLicenseDetail] = useState(false);
 
   const usecases = useMemo(() => {
     return props.items.filter((i) => i.display === 'usecase');
@@ -40,9 +44,69 @@ const Drawer: React.FC<Props> = (props) => {
 
   const [settingVisibility, setSettingVisibility] = useState(false);
 
+  // Remaining allowance in % (0-100), clamped for the meter width.
+  const remainingPercent = license
+    ? Math.min(Math.max(license.remainingPercent, 0), 100)
+    : 0;
+  // Thresholds come from the license itself (not hardcoded).
+  const isCritical = warnLevel === 'critical';
+  const isWarn = warnLevel === 'warn';
+
   return (
     <>
       <DrawerBase>
+        {license && (
+          <div className="mx-3 my-1">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              className="bg-sidebar-accent/20 hover:bg-sidebar-accent/40 w-full rounded-md px-2.5 py-1.5 text-left"
+              onClick={() => {
+                setShowLicenseDetail(true);
+              }}>
+              <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-sidebar-text-muted truncate">
+                  {license.assigned
+                    ? license.planName
+                    : t('license.admin.unassigned')}
+                </span>
+                {license.assigned && (
+                  <span
+                    className={`shrink-0 font-medium tabular-nums ${
+                      isCritical
+                        ? 'text-red-300'
+                        : isWarn
+                          ? 'text-amber-300'
+                          : 'text-sidebar-text'
+                    }`}>
+                    {t('license.badge.remaining', {
+                      percent: license.remainingPercent,
+                    })}
+                  </span>
+                )}
+              </div>
+              {license.assigned && (
+                <div
+                  className="bg-sidebar-bg mt-1.5 h-1 overflow-hidden rounded-full"
+                  role="progressbar"
+                  aria-valuenow={license.remainingPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}>
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isCritical
+                        ? 'bg-red-400'
+                        : isWarn
+                          ? 'bg-amber-400'
+                          : 'bg-sidebar-text'
+                    }`}
+                    style={{ width: `${remainingPercent}%` }}
+                  />
+                </div>
+              )}
+            </button>
+          </div>
+        )}
         {useCaseBuilderEnabled && settingShowUseCaseBuilder && (
           <>
             <Switch
@@ -111,6 +175,12 @@ const Drawer: React.FC<Props> = (props) => {
           <ChatList className="mr-1" searchWords={searchWords} />
         </div>
       </DrawerBase>
+      <LicenseDetailDialog
+        isOpen={showLicenseDetail}
+        onClose={() => {
+          setShowLicenseDetail(false);
+        }}
+      />
     </>
   );
 };

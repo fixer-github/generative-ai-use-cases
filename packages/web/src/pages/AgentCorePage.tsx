@@ -14,7 +14,7 @@ import useFiles from '../hooks/useFiles';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
 import { useAgentCore } from '../hooks/useAgentCore';
-import { MODELS } from '../hooks/useModel';
+import { MODELS, useModel } from '../hooks/useModel';
 
 // Define file limits for the chat interface
 const fileLimit: FileLimit = {
@@ -95,8 +95,8 @@ const AgentCorePage: React.FC = () => {
   const genericRuntime = getGenericRuntime();
   const externalRuntimes = getExternalRuntimes();
 
-  // Get models from MODELS like ChatPage does
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // Get models (filtered by the license plan) like ChatPage does
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   const [selectedArn, setSelectedArn] = useState('');

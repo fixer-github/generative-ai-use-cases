@@ -63,6 +63,11 @@ export interface BackendApiProps {
   readonly allowedIpV4AddressRanges?: string[] | null;
   readonly allowedIpV6AddressRanges?: string[] | null;
   readonly additionalS3Buckets?: IBucket[];
+  // License (cash-based usage limit)
+  readonly licenseTable: Table;
+  // SendGrid (admin alert on charge failure)
+  readonly sendgridApiKey?: string | null;
+  readonly mailFrom?: string | null;
   // Web search (chat tool use)
   readonly searchApiKey?: string | null;
   readonly searchEngine?: 'Brave' | 'Tavily';
@@ -214,6 +219,9 @@ export class Api extends Construct {
         ...(props.guardrailVersion
           ? { GUARDRAIL_VERSION: props.guardrailVersion }
           : {}),
+        LICENSE_TABLE_NAME: props.licenseTable.tableName,
+        SENDGRID_API_KEY: props.sendgridApiKey ?? '',
+        MAIL_FROM: props.mailFrom ?? '',
       },
       bundling: {
         nodeModules: ['@aws-sdk/client-bedrock-runtime'],
@@ -221,6 +229,7 @@ export class Api extends Construct {
       vpc,
       securityGroups,
     });
+    props.licenseTable.grantReadWriteData(predictFunction);
 
     const predictStreamFunction = new NodejsFunction(this, 'PredictStream', {
       runtime: LAMBDA_RUNTIME_NODEJS,
@@ -255,6 +264,9 @@ export class Api extends Construct {
           : (props.searchApiKey ?? ''),
         SEARCH_API_KEY_SSM_PARAM: props.searchApiKeySsmParameterName ?? '',
         SEARCH_ENGINE: props.searchEngine ?? 'Brave',
+        LICENSE_TABLE_NAME: props.licenseTable.tableName,
+        SENDGRID_API_KEY: props.sendgridApiKey ?? '',
+        MAIL_FROM: props.mailFrom ?? '',
       },
       bundling: {
         nodeModules: [
@@ -271,6 +283,25 @@ export class Api extends Construct {
     });
     fileBucket.grantReadWrite(predictStreamFunction);
     predictStreamFunction.grantInvoke(idPool.authenticatedRole);
+    props.licenseTable.grantReadWriteData(predictStreamFunction);
+
+    // License: user-facing endpoints (own usage status + realtime
+    // transcription metering), routed in one Lambda to limit the stack's
+    // resource count
+    const licenseUserApiFunction = new NodejsFunction(this, 'LicenseUserApi', {
+      runtime: LAMBDA_RUNTIME_NODEJS,
+      entry: './lambda/licenseUserApi.ts',
+      timeout: Duration.minutes(1),
+      environment: {
+        LICENSE_TABLE_NAME: props.licenseTable.tableName,
+        SENDGRID_API_KEY: props.sendgridApiKey ?? '',
+        MAIL_FROM: props.mailFrom ?? '',
+      },
+      vpc,
+      securityGroups,
+    });
+    // Read/write: reading applies a pending plan change lazily (month rollover)
+    props.licenseTable.grantReadWriteData(licenseUserApiFunction);
 
     // Grant SSM SecureString read for the search API key when configured.
     if (props.searchApiKeySsmParameterName) {
@@ -1225,6 +1256,26 @@ export class Api extends Construct {
       new LambdaIntegration(getTokenUsageFunction),
       commonAuthorizerProps
     );
+
+    // License endpoints (single router Lambda)
+    const licenseUserApiIntegration = new LambdaIntegration(
+      licenseUserApiFunction
+    );
+    const licenseResource = api.root.addResource('license');
+
+    // GET: /license/me
+    licenseResource
+      .addResource('me')
+      .addMethod('GET', licenseUserApiIntegration, commonAuthorizerProps);
+
+    // POST: /license/transcribe/start, /license/transcribe/report
+    const licenseTranscribeResource = licenseResource.addResource('transcribe');
+    licenseTranscribeResource
+      .addResource('start')
+      .addMethod('POST', licenseUserApiIntegration, commonAuthorizerProps);
+    licenseTranscribeResource
+      .addResource('report')
+      .addMethod('POST', licenseUserApiIntegration, commonAuthorizerProps);
 
     this.api = api;
     this.predictStreamFunction = predictStreamFunction;

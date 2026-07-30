@@ -21,6 +21,7 @@ import FileCard from './FileCard';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
 import useUserSetting from '../hooks/useUserSetting';
+import useLicense from '../hooks/useLicense';
 import Tooltip from './Tooltip';
 
 type Props = {
@@ -63,6 +64,7 @@ type Props = {
 const InputChatContent: React.FC<Props> = (props) => {
   const { t } = useTranslation();
   const { settingSubmitCmdOrCtrlEnter } = useUserSetting();
+  const { blocked, blockReason, resetDate } = useLicense();
   const { pathname } = useLocation();
   const { loading: chatLoading, isEmpty: chatIsEmpty } = useChat(pathname);
   const {
@@ -123,6 +125,40 @@ const InputChatContent: React.FC<Props> = (props) => {
       errorMessages.length > 0
     );
   }, [props.content, props.disabled, uploading, errorMessages, loading]);
+
+  // While the license blocks sending (unassigned or exhausted), replace the
+  // input area with a guidance panel (requirements 28, 30, 31). Viewing and
+  // copying past conversations stays untouched.
+  if (blocked) {
+    return (
+      <div
+        className={`${
+          props.fullWidth ? 'w-full' : 'w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6'
+        }`}>
+        <div
+          role="alert"
+          className={`flex flex-col gap-1 rounded-xl border border-red-200 bg-red-50 p-4 shadow-[0_0_30px_1px] shadow-gray-400/40 ${
+            props.disableMarginBottom ? '' : 'mb-7'
+          }`}>
+          <div className="text-base font-semibold text-red-700">
+            {blockReason === 'unassigned'
+              ? t('license.blocked.title_unassigned')
+              : t('license.blocked.title_exhausted')}
+          </div>
+          <div className="text-sm text-gray-700">
+            {blockReason === 'unassigned'
+              ? t('license.blocked.body_unassigned')
+              : t('license.blocked.body_exhausted', {
+                  resetDate: resetDate ?? '',
+                })}
+          </div>
+          <div className="text-xs text-gray-500">
+            {t('license.blocked.contact')}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
