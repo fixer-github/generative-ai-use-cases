@@ -75,7 +75,10 @@ const startTranscribeSession = async (
   if (!check.allowed) {
     const body: StartTranscribeSessionResponse = {
       allowed: false,
-      reason: check.reason === 'model_not_allowed' ? 'error' : check.reason,
+      reason:
+        check.reason === 'unassigned' || check.reason === 'exhausted'
+          ? check.reason
+          : 'error',
       remainingPercent: 0,
       reportIntervalSeconds: settings.rtReportIntervalSeconds,
     };

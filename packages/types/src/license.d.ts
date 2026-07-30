@@ -117,6 +117,12 @@ export type GetLicenseUsageSummaryResponse = {
   exhaustedCount: number;
 };
 
+// Deployed text models that have a unit price registered — the only models
+// a plan may reference (plan editor choices are narrowed to these).
+export type GetPricedModelIdsResponse = {
+  modelIds: string[];
+};
+
 // ----- Realtime transcription metering -----
 
 export type StartTranscribeSessionRequest = {

@@ -202,6 +202,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       api: api.api,
       licenseTable: database.licenseTable,
+      modelIds: params.modelIds,
       vpc: props.vpc,
       securityGroups,
     });

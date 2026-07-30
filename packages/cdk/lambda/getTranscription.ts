@@ -1,4 +1,3 @@
-/* eslint-disable i18nhelper/no-jp-string */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   TranscribeClient,

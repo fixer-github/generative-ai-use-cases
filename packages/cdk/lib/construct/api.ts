@@ -47,6 +47,7 @@ import {
   IVpc,
   ISecurityGroup,
 } from 'aws-cdk-lib/aws-ec2';
+import { findSeedPrice } from '../../lambda/utils/modelPrices';
 
 export interface BackendApiProps {
   // Context Params
@@ -137,6 +138,16 @@ export class Api extends Construct {
     for (const model of modelIds) {
       if (!BEDROCK_TEXT_MODELS.includes(model.modelId)) {
         throw new Error(`Unsupported Model Name: ${model.modelId}`);
+      }
+      // License: every deployable text model must have a registered unit
+      // price. A model without a price would be billed as 0 JPY and become
+      // effectively unmetered, so the deploy is stopped here (review
+      // 2026-07-30, note 1). Add the price to lambda/utils/modelPrices.ts.
+      if (!findSeedPrice(model.modelId)) {
+        throw new Error(
+          `No license unit price registered for model: ${model.modelId} ` +
+            '(add it to packages/cdk/lambda/utils/modelPrices.ts)'
+        );
       }
     }
     for (const model of imageGenerationModelIds) {

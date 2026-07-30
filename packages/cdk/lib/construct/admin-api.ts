@@ -12,12 +12,14 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { IVpc, ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { ModelConfiguration } from 'generative-ai-use-cases';
 
 export interface AdminApiProps {
   readonly userPool: UserPool;
   readonly api: RestApi;
   // License (cash-based usage limit)
   readonly licenseTable: ITable;
+  readonly modelIds: ModelConfiguration[];
   readonly vpc?: IVpc;
   readonly securityGroups?: ISecurityGroup[];
 }
@@ -199,6 +201,7 @@ export class AdminApi extends Construct {
         timeout: Duration.minutes(1),
         environment: {
           LICENSE_TABLE_NAME: props.licenseTable.tableName,
+          MODEL_IDS: JSON.stringify(props.modelIds),
         },
         vpc,
         securityGroups,
@@ -333,6 +336,11 @@ export class AdminApi extends Construct {
       licenseAdminApiIntegration,
       commonAuthorizerProps
     );
+
+    // GET /admin/license/priced-models
+    licenseResource
+      .addResource('priced-models')
+      .addMethod('GET', licenseAdminApiIntegration, commonAuthorizerProps);
 
     // GET /admin/license/usage-summary
     licenseResource

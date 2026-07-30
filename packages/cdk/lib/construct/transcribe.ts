@@ -17,6 +17,8 @@ import {
 } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { Rule } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { allowS3AccessWithSourceIpCondition } from '../utils/s3-access-policy';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
@@ -137,6 +139,47 @@ export class Transcribe extends Construct {
     );
     transcriptBucket.grantRead(getTranscriptionFunction);
     props.licenseTable.grantReadWriteData(getTranscriptionFunction);
+
+    // License: charge batch jobs on the Transcribe completion event so the
+    // charge does not depend on the browser polling for the result (design
+    // change 2026-07-30; the polling charge stays as a second, idempotent
+    // path). The rule sees every Transcribe job in the account — the handler
+    // skips jobs whose output is not in this stack's transcript bucket.
+    const jobCompletedFunction = new NodejsFunction(
+      this,
+      'TranscribeJobCompleted',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/transcribeJobCompleted.ts',
+        timeout: Duration.minutes(5),
+        environment: {
+          TRANSCRIPT_BUCKET_NAME: transcriptBucket.bucketName,
+          LICENSE_TABLE_NAME: props.licenseTable.tableName,
+          SENDGRID_API_KEY: props.sendgridApiKey ?? '',
+          MAIL_FROM: props.mailFrom ?? '',
+        },
+        initialPolicy: [
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['transcribe:GetTranscriptionJob'],
+            resources: ['*'],
+          }),
+        ],
+        vpc: props.vpc,
+        securityGroups: props.securityGroups,
+      }
+    );
+    transcriptBucket.grantRead(jobCompletedFunction);
+    props.licenseTable.grantReadWriteData(jobCompletedFunction);
+
+    new Rule(this, 'TranscribeJobStateChangeRule', {
+      eventPattern: {
+        source: ['aws.transcribe'],
+        detailType: ['Transcribe Job State Change'],
+        detail: { TranscriptionJobStatus: ['COMPLETED'] },
+      },
+      targets: [new LambdaFunction(jobCompletedFunction)],
+    });
 
     // API Gateway
     const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {

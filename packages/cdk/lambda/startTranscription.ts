@@ -18,9 +18,9 @@ export const handler = async (
 
     // License gate: starting a job only requires remaining > 0; the actual
     // charge happens on completion from the measured duration (requirement 20)
+    const licenseUserId =
+      event.requestContext.authorizer!.claims['cognito:username'];
     if (LICENSE_ENABLED) {
-      const licenseUserId =
-        event.requestContext.authorizer!.claims['cognito:username'];
       const check = await checkLicense(licenseUserId);
       if (!check.allowed) {
         return {
@@ -56,6 +56,12 @@ export const handler = async (
         {
           Key: 'userId',
           Value: userId,
+        },
+        // License: lets the job-completed event handler charge the right
+        // user even when the browser never polls for the result
+        {
+          Key: 'licenseUserId',
+          Value: licenseUserId,
         },
       ],
     });

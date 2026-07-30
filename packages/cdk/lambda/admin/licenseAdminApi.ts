@@ -5,6 +5,7 @@
  *   POST   /admin/license/plans             ... create plan
  *   PUT    /admin/license/plans/{planId}    ... update plan
  *   DELETE /admin/license/plans/{planId}    ... disable plan (soft delete)
+ *   GET    /admin/license/priced-models     ... text models with a unit price
  *   GET    /admin/license/usage-summary     ... per-user remaining % summary
  *   GET    /admin/users/{username}/license  ... one user's license status
  *   PUT    /admin/users/{username}/license  ... assign / change / unassign
@@ -17,10 +18,12 @@ import {
   CreateLicensePlanRequest,
   CreateLicensePlanResponse,
   GetLicenseUsageSummaryResponse,
+  GetPricedModelIdsResponse,
   GetUserLicenseResponse,
   LicensePlan,
   LicenseUsageSummaryEntry,
   ListLicensePlansResponse,
+  ModelConfiguration,
   UpdateLicensePlanRequest,
   UpdateLicensePlanResponse,
 } from 'generative-ai-use-cases';
@@ -28,11 +31,46 @@ import { isAdmin, successResponse, errorResponse, getUserId } from './utils';
 import {
   assignPlan,
   getLicenseStatus,
+  getModelPrice,
   getPlan,
   listAssignments,
   listPlans,
   putPlan,
 } from '../utils/license';
+
+const MODEL_IDS: ModelConfiguration[] = JSON.parse(
+  process.env.MODEL_IDS ?? '[]'
+);
+
+// Model IDs a plan may reference: deployed text models that have a unit
+// price registered. Also used to reject plan writes that slipped past the
+// narrowed UI choices (review 2026-07-30, note 1 / defense line 2 of 3).
+const listPricedModelIds = async (): Promise<string[]> => {
+  const ids: string[] = [];
+  for (const { modelId } of MODEL_IDS) {
+    if (await getModelPrice(modelId)) {
+      ids.push(modelId);
+    }
+  }
+  return ids;
+};
+
+const findUnpricedModelIds = async (modelIds: string[]): Promise<string[]> => {
+  const unpriced: string[] = [];
+  for (const modelId of modelIds) {
+    if (!(await getModelPrice(modelId))) {
+      unpriced.push(modelId);
+    }
+  }
+  return unpriced;
+};
+
+const getPricedModels = async (): Promise<APIGatewayProxyResult> => {
+  const response: GetPricedModelIdsResponse = {
+    modelIds: await listPricedModelIds(),
+  };
+  return successResponse(response);
+};
 
 const listLicensePlans = async (): Promise<APIGatewayProxyResult> => {
   const plans = await listPlans();
@@ -56,6 +94,13 @@ const createLicensePlan = async (
   }
   if (!Array.isArray(req.allowedModelIds) || req.allowedModelIds.length === 0) {
     return errorResponse(400, 'allowedModelIds must be a non-empty array');
+  }
+  const unpriced = await findUnpricedModelIds(req.allowedModelIds);
+  if (unpriced.length > 0) {
+    return errorResponse(
+      400,
+      `allowedModelIds contains models without a registered unit price: ${unpriced.join(', ')}`
+    );
   }
 
   const now = new Date().toISOString();
@@ -100,6 +145,15 @@ const updateLicensePlan = async (
     (!Array.isArray(req.allowedModelIds) || req.allowedModelIds.length === 0)
   ) {
     return errorResponse(400, 'allowedModelIds must be a non-empty array');
+  }
+  if (req.allowedModelIds !== undefined) {
+    const unpriced = await findUnpricedModelIds(req.allowedModelIds);
+    if (unpriced.length > 0) {
+      return errorResponse(
+        400,
+        `allowedModelIds contains models without a registered unit price: ${unpriced.join(', ')}`
+      );
+    }
   }
 
   const plan: LicensePlan = {
@@ -212,6 +266,8 @@ export const handler = async (
         return await updateLicensePlan(event);
       case 'DELETE /admin/license/plans/{planId}':
         return await deleteLicensePlan(event);
+      case 'GET /admin/license/priced-models':
+        return await getPricedModels();
       case 'GET /admin/license/usage-summary':
         return await getLicenseUsageSummary();
       case 'GET /admin/users/{username}/license':

@@ -97,6 +97,16 @@ export const modelMetadata: Record<string, ModelMetadata> = {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
     displayName: 'Claude Opus 4',
   },
+  // Opus 4.8 / Sonnet 4.6: dateless IDs are the official form for these
+  // generations. The jp. profile keeps inference inside Tokyo/Osaka.
+  'jp.anthropic.claude-opus-4-8': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
+    displayName: 'Claude Opus 4.8',
+  },
+  'jp.anthropic.claude-sonnet-4-6': {
+    flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
+    displayName: 'Claude Sonnet 4.6',
+  },
   'global.anthropic.claude-opus-4-5-20251101-v1:0': {
     flags: MODEL_FEATURE.TEXT_DOC_IMAGE_REASONING,
     displayName: 'Claude Opus 4.5',
@@ -675,6 +685,8 @@ export const BEDROCK_SPEECH_TO_SPEECH_MODELS = Object.keys(
 // Prompt caching
 // https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
 export const SUPPORTED_CACHE_FIELDS: Record<string, PromptCacheField[]> = {
+  'anthropic.claude-opus-4-8': ['messages', 'system', 'tools'],
+  'anthropic.claude-sonnet-4-6': ['messages', 'system', 'tools'],
   'anthropic.claude-opus-4-5-20251101-v1:0': ['messages', 'system', 'tools'],
   'anthropic.claude-sonnet-4-5-20250929-v1:0': ['messages', 'system', 'tools'],
   'anthropic.claude-haiku-4-5-20251001-v1:0': ['messages', 'system', 'tools'],

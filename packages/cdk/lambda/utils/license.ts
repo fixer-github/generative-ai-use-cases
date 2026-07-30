@@ -34,6 +34,10 @@ import {
   LicenseBreakdownEntry,
 } from 'generative-ai-use-cases';
 import { isSendGridConfigured, sendMail } from './sendgrid';
+import { ModelPrice, normalizeModelKey } from './modelPrices';
+
+export { normalizeModelKey };
+export type { ModelPrice };
 
 const LICENSE_TABLE_NAME = process.env.LICENSE_TABLE_NAME ?? '';
 
@@ -87,6 +91,10 @@ export type LicenseSettings = {
   minBillableSeconds: number;
   rtReportIntervalSeconds: number;
   adminAlertEmail: string;
+  // Sanity range for the daily USD/JPY fetch; rates outside are rejected
+  // (the previous rate stays in place) and the admin is alerted
+  fxMinJpyPerUsd: number;
+  fxMaxJpyPerUsd: number;
 };
 
 export const DEFAULT_LICENSE_SETTINGS: LicenseSettings = {
@@ -97,13 +105,8 @@ export const DEFAULT_LICENSE_SETTINGS: LicenseSettings = {
   minBillableSeconds: 15,
   rtReportIntervalSeconds: 15,
   adminAlertEmail: '',
-};
-
-export type ModelPrice = {
-  inputUsdPerMTok: number;
-  outputUsdPerMTok: number;
-  cacheReadUsdPerMTok: number;
-  cacheWriteUsdPerMTok: number;
+  fxMinJpyPerUsd: 120,
+  fxMaxJpyPerUsd: 200,
 };
 
 export type FxRate = {
@@ -139,16 +142,6 @@ export const getLicenseSettings = async (): Promise<LicenseSettings> => {
 
 export const getFxRate = async (): Promise<FxRate | undefined> => {
   return await getConfigItem<FxRate>('fxRate');
-};
-
-// Normalize a Bedrock model ID to the price table key.
-// 'jp.anthropic.claude-sonnet-4-5-20250929-v1:0' -> 'claude-sonnet-4-5'
-// Falls back to the full model ID when the pattern does not match.
-export const normalizeModelKey = (modelId: string): string => {
-  const idx = modelId.indexOf('anthropic.');
-  const base = idx >= 0 ? modelId.slice(idx + 'anthropic.'.length) : modelId;
-  const m = base.match(/^(.*?)-\d{8}-v\d+(?::\d+)?$/);
-  return m ? m[1] : modelId;
 };
 
 export const getModelPrice = async (
@@ -589,12 +582,16 @@ export const getLicenseStatus = async (
 // Enforcement (entry gate; fail-closed by construction — requirement 38)
 // ---------------------------------------------------------------------------
 
+export type LicenseBlockReason =
+  | 'unassigned'
+  | 'exhausted'
+  | 'model_not_allowed'
+  | 'price_unavailable'
+  | 'error';
+
 export type LicenseCheckResult =
   | { allowed: true }
-  | {
-      allowed: false;
-      reason: 'unassigned' | 'exhausted' | 'model_not_allowed' | 'error';
-    };
+  | { allowed: false; reason: LicenseBlockReason };
 
 export const checkLicense = async (
   userId: string,
@@ -611,6 +608,15 @@ export const checkLicense = async (
     }
     if (opts?.modelId && !plan.allowedModelIds.includes(opts.modelId)) {
       return { allowed: false, reason: 'model_not_allowed' };
+    }
+    // Fail-closed when the cost of this request could not be computed:
+    // a missing unit price or fx rate would otherwise be billed as 0 JPY,
+    // making the model effectively unmetered (review 2026-07-30, note 1).
+    if (!(await getFxRate())) {
+      return { allowed: false, reason: 'price_unavailable' };
+    }
+    if (opts?.modelId && !(await getModelPrice(opts.modelId))) {
+      return { allowed: false, reason: 'price_unavailable' };
     }
     const usage = await getUsage(userId, currentMonthKey());
     const allocationYen = usage?.allocationYen ?? plan.allocationYen;
@@ -629,9 +635,7 @@ export const checkLicense = async (
 };
 
 // User-facing message for a blocked request.
-export const blockMessage = (
-  reason: 'unassigned' | 'exhausted' | 'model_not_allowed' | 'error'
-): string => {
+export const blockMessage = (reason: LicenseBlockReason): string => {
   switch (reason) {
     case 'unassigned':
       return 'ライセンスプランが割り当てられていないため、この機能は利用できません。管理者にプランの割当を依頼してください。';
@@ -639,6 +643,8 @@ export const blockMessage = (
       return `今月の利用可能量を使い切りました。${nextResetDate().replace(/-0?(\d+)-0?(\d+)$/, '年$1月$2日')}の0時に全量回復します。過去の会話の閲覧・コピーは引き続き可能です。`;
     case 'model_not_allowed':
       return '選択中のモデルは現在のプランではご利用いただけません。別のモデルを選択してください。';
+    case 'price_unavailable':
+      return '料金計算に必要な情報(モデル単価または為替レート)が登録されていないため、送信を停止しました。管理者にお問い合わせください。';
     case 'error':
       return 'ライセンス情報の確認に失敗したため、送信を停止しました。時間をおいて再度お試しください。解消しない場合は管理者にお問い合わせください。';
   }

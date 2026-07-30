@@ -9,9 +9,14 @@
  *   - an initial fx rate (fetched live when possible; design doc ch.6, v4)
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { fetchUsdJpyRate } from './updateFxRate';
 import { DEFAULT_LICENSE_SETTINGS } from './utils/license';
+import { MODEL_PRICES } from './utils/modelPrices';
 
 const LICENSE_TABLE_NAME = process.env.LICENSE_TABLE_NAME!;
 const MODEL_IDS: { modelId: string }[] = JSON.parse(
@@ -23,37 +28,6 @@ const INITIAL_FX_RATE = Number(process.env.INITIAL_FX_RATE ?? '150');
 const dynamoDbDocument = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
-
-// JP-region (jp.) unit prices in USD per 1M tokens = Anthropic list x 1.1.
-// Keyed by normalized model name (see normalizeModelKey in utils/license.ts).
-const MODEL_PRICES: Record<
-  string,
-  {
-    inputUsdPerMTok: number;
-    outputUsdPerMTok: number;
-    cacheReadUsdPerMTok: number;
-    cacheWriteUsdPerMTok: number;
-  }
-> = {
-  'claude-haiku-4-5': {
-    inputUsdPerMTok: 1.1,
-    outputUsdPerMTok: 5.5,
-    cacheReadUsdPerMTok: 0.11,
-    cacheWriteUsdPerMTok: 1.375,
-  },
-  'claude-sonnet-4-5': {
-    inputUsdPerMTok: 3.3,
-    outputUsdPerMTok: 16.5,
-    cacheReadUsdPerMTok: 0.33,
-    cacheWriteUsdPerMTok: 4.125,
-  },
-  'claude-opus-4-5': {
-    inputUsdPerMTok: 5.5,
-    outputUsdPerMTok: 27.5,
-    cacheReadUsdPerMTok: 0.55,
-    cacheWriteUsdPerMTok: 6.875,
-  },
-};
 
 const putIfAbsent = async (item: Record<string, unknown>): Promise<void> => {
   try {
@@ -135,13 +109,39 @@ export const handler = async (): Promise<void> => {
     adminAlertEmail: ADMIN_ALERT_EMAIL,
   });
 
+  // The alert address follows the cdk config on every deploy (not only the
+  // first): without this, a settings item seeded before the address was
+  // configured would keep alerts log-only forever (review 2026-07-30).
+  if (ADMIN_ALERT_EMAIL) {
+    await dynamoDbDocument.send(
+      new UpdateCommand({
+        TableName: LICENSE_TABLE_NAME,
+        Key: { pk: 'config', sk: 'settings' },
+        UpdateExpression: 'SET adminAlertEmail = :email',
+        ExpressionAttributeValues: { ':email': ADMIN_ALERT_EMAIL },
+      })
+    );
+    console.log('[license] adminAlertEmail synced from cdk config');
+  }
+
   // Initial fx rate: try a live fetch first, fall back to a fixed default.
   // The daily updater overwrites this from the next scheduled run onwards.
+  // The same sanity range as the daily updater applies to the live fetch.
   let rate = INITIAL_FX_RATE;
   let source = 'initial-default';
   try {
-    rate = await fetchUsdJpyRate();
-    source = 'initial-live-fetch';
+    const fetched = await fetchUsdJpyRate();
+    if (
+      fetched >= DEFAULT_LICENSE_SETTINGS.fxMinJpyPerUsd &&
+      fetched <= DEFAULT_LICENSE_SETTINGS.fxMaxJpyPerUsd
+    ) {
+      rate = fetched;
+      source = 'initial-live-fetch';
+    } else {
+      console.warn(
+        `[license] initial live fx rate ${fetched} is outside the sanity range, using default`
+      );
+    }
   } catch (e) {
     console.warn('[license] initial live fx fetch failed, using default', e);
   }

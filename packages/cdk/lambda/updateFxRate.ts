@@ -5,6 +5,10 @@
  * Fetches the latest rate from a public FX API (default: Frankfurter, ECB
  * reference rates, no API key required) and stores it in the license table.
  * On failure the previous rate simply stays in place (design doc ch.6).
+ * A fetched rate outside the sanity range (settings fxMinJpyPerUsd /
+ * fxMaxJpyPerUsd, default 120-200 JPY) is treated the same as a failure:
+ * rejected, previous rate kept, admin alerted (review 2026-07-30, decision:
+ * reject-and-alert rather than adopt-and-alert).
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -12,7 +16,7 @@ import {
   GetCommand,
   PutCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { alertAdmin } from './utils/license';
+import { alertAdmin, getLicenseSettings } from './utils/license';
 
 const LICENSE_TABLE_NAME = process.env.LICENSE_TABLE_NAME!;
 const FX_API_URL =
@@ -39,6 +43,23 @@ export const fetchUsdJpyRate = async (): Promise<number> => {
 export const handler = async (): Promise<void> => {
   try {
     const rate = await fetchUsdJpyRate();
+
+    const { fxMinJpyPerUsd, fxMaxJpyPerUsd } = await getLicenseSettings();
+    if (rate < fxMinJpyPerUsd || rate > fxMaxJpyPerUsd) {
+      console.error(
+        `[license] fx rate ${rate} is outside the sanity range ` +
+          `${fxMinJpyPerUsd}-${fxMaxJpyPerUsd}; keeping the previous rate`
+      );
+      await alertAdmin(
+        '【GenU版GaiXer】為替レートが想定レンジ外のため採用しませんでした',
+        `取得した為替レート(1 USD = ${rate} 円)が想定レンジ(${fxMinJpyPerUsd}〜${fxMaxJpyPerUsd}円)の外でした。\n` +
+          `このレートは採用せず、前回取得済みのレートを使い続けます。\n\n` +
+          `実勢レートが本当にレンジ外に達している場合は、ライセンステーブルの設定` +
+          `(config/settings の fxMinJpyPerUsd / fxMaxJpyPerUsd)を見直してください。\n` +
+          `取得元: ${FX_API_URL}`
+      );
+      return;
+    }
 
     const existing = await dynamoDbDocument.send(
       new GetCommand({
