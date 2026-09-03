@@ -14,7 +14,7 @@ import useChatApi from '../hooks/useChatApi';
 import useTyping from '../hooks/useTyping';
 import { create } from 'zustand';
 import { WebContentPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 import InputText from '../components/InputText';
@@ -106,7 +106,7 @@ const WebContent: React.FC = () => {
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
   const { getWebText } = useChatApi();
   const [showError, setShowError] = useState(false);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -123,7 +123,12 @@ const WebContent: React.FC = () => {
   }, [url, loading, fetching]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as WebContentPageQueryParams;
       setUrl(params.url ?? '');

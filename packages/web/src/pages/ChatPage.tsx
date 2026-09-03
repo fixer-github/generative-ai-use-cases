@@ -19,7 +19,7 @@ import useFollow from '../hooks/useFollow';
 import { PiArrowClockwiseBold, PiShareFatFill } from 'react-icons/pi';
 import { create } from 'zustand';
 import { ChatPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { MODELS, useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 import useFiles from '../hooks/useFiles';
@@ -30,6 +30,7 @@ import {
 } from 'generative-ai-use-cases';
 import ModelParameters from '../components/ModelParameters';
 import WebSearchUnsupportedBanner from '../components/WebSearchUnsupportedBanner';
+import LicenseWarningBanner from '../components/LicenseWarningBanner';
 import { AcceptedDotExtensions } from '../utils/MediaUtils';
 import { supportsToolUse } from '../utils/toolUseSupport';
 import { useTranslation } from 'react-i18next';
@@ -138,7 +139,7 @@ const ChatPage: React.FC = () => {
   const { createSystemContext } = useSystemContextApi();
   const { scrollableContainer, setFollowing } = useFollow();
   const { getChatTitle } = useChatList();
-  const { allModelIds: availableModels, modelDisplayName } = MODELS;
+  const { allModelIds: availableModels, modelDisplayName } = useModel();
   const { data: share, mutate: reloadShare } = findShareId(chatId);
   const modelId = getModelId();
   const prompter = useMemo(() => {
@@ -208,7 +209,12 @@ const ChatPage: React.FC = () => {
   }, [webSearchSupported]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
 
     if (search !== '') {
       const params = queryString.parse(search) as ChatPageQueryParams;
@@ -499,6 +505,10 @@ const ChatPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        <div className="print:hidden">
+          <LicenseWarningBanner />
+        </div>
 
         <div className="mt-2 flex w-full items-end justify-center lg:mt-0 print:hidden">
           <Select

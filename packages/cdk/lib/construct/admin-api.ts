@@ -11,10 +11,15 @@ import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LAMBDA_RUNTIME_NODEJS } from '../../consts';
 import { IVpc, ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { ModelConfiguration } from 'generative-ai-use-cases';
 
 export interface AdminApiProps {
   readonly userPool: UserPool;
   readonly api: RestApi;
+  // License (cash-based usage limit)
+  readonly licenseTable: ITable;
+  readonly modelIds: ModelConfiguration[];
   readonly vpc?: IVpc;
   readonly securityGroups?: ISecurityGroup[];
 }
@@ -184,6 +189,29 @@ export class AdminApi extends Construct {
     );
     updatePasswordPolicyFunction.addToRolePolicy(cognitoAdminPolicy);
 
+    // --- License management Lambda (single router to limit the stack's
+    // CloudFormation resource count) ---
+
+    const licenseAdminApiFunction = new NodejsFunction(
+      this,
+      'LicenseAdminApi',
+      {
+        runtime: LAMBDA_RUNTIME_NODEJS,
+        entry: './lambda/admin/licenseAdminApi.ts',
+        timeout: Duration.minutes(1),
+        environment: {
+          LICENSE_TABLE_NAME: props.licenseTable.tableName,
+          MODEL_IDS: JSON.stringify(props.modelIds),
+        },
+        vpc,
+        securityGroups,
+      }
+    );
+    props.licenseTable.grantReadWriteData(licenseAdminApiFunction);
+    const licenseAdminApiIntegration = new LambdaIntegration(
+      licenseAdminApiFunction
+    );
+
     // --- API Gateway Resources ---
 
     const adminResource = api.root.addResource('admin');
@@ -254,6 +282,70 @@ export class AdminApi extends Construct {
       new LambdaIntegration(updateUserGroupsFunction),
       commonAuthorizerProps
     );
+
+    // /admin/users/{username}/license
+    const userLicenseResource = userResource.addResource('license');
+
+    // GET /admin/users/{username}/license
+    userLicenseResource.addMethod(
+      'GET',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // PUT /admin/users/{username}/license
+    userLicenseResource.addMethod(
+      'PUT',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // /admin/license
+    const licenseResource = adminResource.addResource('license');
+
+    // /admin/license/plans
+    const licensePlansResource = licenseResource.addResource('plans');
+
+    // GET /admin/license/plans
+    licensePlansResource.addMethod(
+      'GET',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // POST /admin/license/plans
+    licensePlansResource.addMethod(
+      'POST',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // /admin/license/plans/{planId}
+    const licensePlanResource = licensePlansResource.addResource('{planId}');
+
+    // PUT /admin/license/plans/{planId}
+    licensePlanResource.addMethod(
+      'PUT',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // DELETE /admin/license/plans/{planId}
+    licensePlanResource.addMethod(
+      'DELETE',
+      licenseAdminApiIntegration,
+      commonAuthorizerProps
+    );
+
+    // GET /admin/license/priced-models
+    licenseResource
+      .addResource('priced-models')
+      .addMethod('GET', licenseAdminApiIntegration, commonAuthorizerProps);
+
+    // GET /admin/license/usage-summary
+    licenseResource
+      .addResource('usage-summary')
+      .addMethod('GET', licenseAdminApiIntegration, commonAuthorizerProps);
 
     // /admin/password-policy
     const passwordPolicyResource = adminResource.addResource('password-policy');

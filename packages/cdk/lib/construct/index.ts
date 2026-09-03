@@ -20,3 +20,4 @@ export * from './ddb-pitr-export';
 export * from './s3-replication';
 export * from './restore-role';
 export * from './admin-api';
+export * from './license-ops';

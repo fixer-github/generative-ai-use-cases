@@ -18,6 +18,8 @@ import Switch from '../components/Switch';
 import useChat from '../hooks/useChat';
 import useMicrophone from '../hooks/useMicrophone';
 import useTyping from '../hooks/useTyping';
+import useLicense from '../hooks/useLicense';
+import LicenseBlockedNotice from '../components/LicenseBlockedNotice';
 import useLocalStorageBoolean from '../hooks/useLocalStorageBoolean';
 import {
   PiMicrophoneBold,
@@ -28,7 +30,7 @@ import {
 import { create } from 'zustand';
 import debounce from 'lodash.debounce';
 import { TranslatePageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 import useSpeech from '../hooks/useSpeech';
@@ -117,7 +119,8 @@ const TranslatePage: React.FC = () => {
     getStopReason,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
+  const { blocked } = useLicense();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -134,11 +137,21 @@ const TranslatePage: React.FC = () => {
 
   // Memo variable
   const disabledExec = useMemo(() => {
+    return sentence === '' || loading || blocked;
+  }, [sentence, loading, blocked]);
+
+  // Clear stays usable while the license blocks execution
+  const disabledClear = useMemo(() => {
     return sentence === '' || loading;
   }, [sentence, loading]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as TranslatePageQueryParams;
       setSentence(params.sentence ?? '');
@@ -168,7 +181,8 @@ const TranslatePage: React.FC = () => {
 
   // Update the comment when the article is updated
   useEffect(() => {
-    if (auto) {
+    // Skip auto translation while the license blocks new requests
+    if (auto && !blocked) {
       // Translate after debounce
       onSentenceChange(sentence, additionalContext, language, loading);
     }
@@ -243,10 +257,10 @@ const TranslatePage: React.FC = () => {
 
   // Execute translation
   const onClickExec = useCallback(() => {
-    if (loading) return;
+    if (loading || blocked) return;
     getTranslation(sentence, language, additionalContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentence, additionalContext, loading, prompter, language]);
+  }, [sentence, additionalContext, loading, prompter, language, blocked]);
 
   // Reset
   const onClickClear = useCallback(() => {
@@ -393,14 +407,19 @@ const TranslatePage: React.FC = () => {
                     interUseCasesKey="translatedSentence"></ButtonCopy>
                 </div>
               </div>
+              <LicenseBlockedNotice className="mt-3" />
+
               <div className="mt-3 flex justify-end gap-3">
                 {stopReason === 'max_tokens' && (
-                  <Button onClick={continueGeneration}>
+                  <Button disabled={blocked} onClick={continueGeneration}>
                     {t('translate.continue_output')}
                   </Button>
                 )}
 
-                <Button outlined onClick={onClickClear} disabled={disabledExec}>
+                <Button
+                  outlined
+                  onClick={onClickClear}
+                  disabled={disabledClear}>
                   {t('common.clear')}
                 </Button>
 

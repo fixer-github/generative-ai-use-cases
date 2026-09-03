@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PiUsers, PiLock } from 'react-icons/pi';
+import { PiUsers, PiLock, PiCreditCard } from 'react-icons/pi';
 import useAdmin from '../../hooks/useAdmin';
 import Alert from '../../components/Alert';
 import UserManagement from './UserManagement';
 import PasswordPolicySettings from './PasswordPolicySettings';
+import LicenseManagement from './LicenseManagement';
 
-type Tab = 'users' | 'passwordPolicy';
+type Tab = 'users' | 'passwordPolicy' | 'license';
 
 const AdminPage: React.FC = () => {
   const { t } = useTranslation();
@@ -34,6 +35,11 @@ const AdminPage: React.FC = () => {
       label: t('admin.tabs.password_policy'),
       icon: <PiLock className="mr-1.5" />,
     },
+    {
+      key: 'license',
+      label: t('admin.tabs.license'),
+      icon: <PiCreditCard className="mr-1.5" />,
+    },
   ];
 
   return (
@@ -60,6 +66,7 @@ const AdminPage: React.FC = () => {
 
       {activeTab === 'users' && <UserManagement />}
       {activeTab === 'passwordPolicy' && <PasswordPolicySettings />}
+      {activeTab === 'license' && <LicenseManagement />}
     </div>
   );
 };

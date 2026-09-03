@@ -18,7 +18,7 @@ import useMicrophone from '../../hooks/useMicrophone';
 import useScreenAudio from '../../hooks/useScreenAudio';
 import useRealtimeTranslation from '../../hooks/useRealtimeTranslation';
 import useChatApi from '../../hooks/useChatApi';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import {
   updateTranslationSegments,
   type TranslationSegment,
@@ -164,6 +164,9 @@ const MeetingMinutesRealtimeTranslation: React.FC<
   // Translation hook
   const { availableModels, translate, translationInterval } =
     useRealtimeTranslation();
+
+  // License-filtered text model list (for context generation and labels)
+  const { modelIds: allowedModelIds, modelDisplayName } = useModel();
 
   // Helper function to translate individual sentences
   const translateSentence = useCallback(
@@ -321,7 +324,8 @@ const MeetingMinutesRealtimeTranslation: React.FC<
     const result = await generateSystemContext(
       realtimeSegments,
       secondaryLanguage,
-      predict
+      predict,
+      allowedModelIds[0]
     );
 
     if (result) {
@@ -334,6 +338,7 @@ const MeetingMinutesRealtimeTranslation: React.FC<
     realtimeSegments,
     secondaryLanguage,
     predict,
+    allowedModelIds,
   ]);
 
   // Update ref with latest function
@@ -366,9 +371,14 @@ const MeetingMinutesRealtimeTranslation: React.FC<
     };
   }, [realtimeTranslationEnabled, micRecording, screenRecording]);
 
-  // Set default translation model on mount
+  // Set default translation model on mount, and replace the selection when
+  // it is not in the license-filtered list
   useEffect(() => {
-    if (!selectedTranslationModel && availableModels.length > 0) {
+    if (
+      availableModels.length > 0 &&
+      (!selectedTranslationModel ||
+        !availableModels.includes(selectedTranslationModel))
+    ) {
       setSelectedTranslationModel(availableModels[0]);
     }
   }, [availableModels, selectedTranslationModel]);
@@ -835,7 +845,7 @@ const MeetingMinutesRealtimeTranslation: React.FC<
               onChange={setSelectedTranslationModel}
               options={availableModels.map((modelId) => ({
                 value: modelId,
-                label: MODELS.modelDisplayName(modelId),
+                label: modelDisplayName(modelId),
               }))}
               fullWidth
               notItem

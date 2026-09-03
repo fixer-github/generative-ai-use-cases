@@ -6,7 +6,9 @@ import Textarea from '../components/Textarea';
 import Select from '../components/Select';
 import ExpandableField from '../components/ExpandableField';
 import { create } from 'zustand';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
+import useLicense from '../hooks/useLicense';
+import LicenseBlockedNotice from '../components/LicenseBlockedNotice';
 import queryString from 'query-string';
 import useDiagram from '../hooks/useDiagram';
 import { DiagramPageQueryParams } from '../@types/navigate';
@@ -127,10 +129,16 @@ const GenerateDiagramPage: React.FC = () => {
     diagramType,
   } = useDiagram(pathname);
 
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
+  const { blocked } = useLicense();
   const modelId = getModelId();
 
   const disabledExec = useMemo(() => {
+    return content === '' || loading || blocked;
+  }, [content, loading, blocked]);
+
+  // Clear stays usable while the license blocks execution
+  const disabledClear = useMemo(() => {
     return content === '' || loading;
   }, [content, loading]);
 
@@ -191,7 +199,7 @@ const GenerateDiagramPage: React.FC = () => {
   }, [messages, setDiagramCode, setDiagramSentence, t]);
 
   const onClickExec = useCallback(async () => {
-    if (loading) return;
+    if (loading || blocked) return;
     setLoading(true);
     // I want to clear the previous result, so clear content except
     setDiagramGenerationError(null);
@@ -207,6 +215,7 @@ const GenerateDiagramPage: React.FC = () => {
   }, [
     content,
     loading,
+    blocked,
     postDiagram,
     selectedType,
     setDiagramCode,
@@ -549,6 +558,8 @@ const GenerateDiagramPage: React.FC = () => {
                 />
               </div>
 
+              <LicenseBlockedNotice className="mb-2" />
+
               {/* Place the input example and buttons */}
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
                 {/* Input example */}
@@ -573,7 +584,7 @@ const GenerateDiagramPage: React.FC = () => {
                   <Button
                     outlined
                     onClick={onClickClear}
-                    disabled={disabledExec}>
+                    disabled={disabledClear}>
                     {t('diagram.clear')}
                   </Button>
                   <Button disabled={disabledExec} onClick={onClickExec}>

@@ -15,6 +15,12 @@ import { Transcript } from 'generative-ai-use-cases';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { withRetry } from '../utils/retry';
+import useLicenseApi from './useLicenseApi';
+
+// Sample rate of the PCM audio sent to Transcribe (MediaSampleRateHertz).
+// Also used to convert the number of sent samples into seconds for
+// license metering.
+const TRANSCRIBE_SAMPLE_RATE = 48000;
 
 const pcmEncodeChunk = (chunk: Buffer) => {
   const input = MicrophoneStream.toRaw(chunk);
@@ -43,6 +49,7 @@ const providerName = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
 
 const useScreenAudio = () => {
   const { t } = useTranslation();
+  const { startTranscribeSession, reportTranscribeSession } = useLicenseApi();
   const [screenStream, setScreenStream] = useState<
     MicrophoneStream | undefined
   >();
@@ -154,6 +161,29 @@ const useScreenAudio = () => {
   ) => {
     if (!transcribeClient) return;
 
+    // --- License metering: start a transcription session ---
+    // If the license is unassigned/exhausted (or the check fails),
+    // do not start streaming at all.
+    const sessionId = crypto.randomUUID();
+    let reportIntervalSeconds = 15;
+    try {
+      const session = await startTranscribeSession({
+        sessionId,
+        mode: 'screen',
+      });
+      if (!session.allowed) {
+        toast.error(t('license.transcribe.blocked_start'));
+        return;
+      }
+      if (session.reportIntervalSeconds > 0) {
+        reportIntervalSeconds = session.reportIntervalSeconds;
+      }
+    } catch (error) {
+      console.error('Failed to start license transcribe session:', error);
+      toast.error(t('license.transcribe.blocked_start'));
+      return;
+    }
+
     // Update Language
     if (languageCode) {
       setLanguage(languageCode);
@@ -192,12 +222,21 @@ const useScreenAudio = () => {
       };
     }
 
+    // Cumulative number of PCM samples actually sent to Transcribe.
+    // Wall-clock time is NOT used: paused/unsent audio must not be counted.
+    let sentSamples = 0;
+    const cumulativeSeconds = () =>
+      Math.round((sentSamples / TRANSCRIBE_SAMPLE_RATE) * 10) / 10;
+
     const createCommand = () => {
       const audioStream = async function* () {
         for await (const chunk of stream as unknown as Buffer[]) {
+          const audioChunk = pcmEncodeChunk(chunk);
+          // 2 bytes per 16-bit PCM sample
+          sentSamples += audioChunk.length / 2;
           yield {
             AudioEvent: {
-              AudioChunk: pcmEncodeChunk(chunk),
+              AudioChunk: audioChunk,
             },
           };
         }
@@ -205,11 +244,35 @@ const useScreenAudio = () => {
       return new StartStreamTranscriptionCommand({
         ...commandParams,
         MediaEncoding: 'pcm',
-        MediaSampleRateHertz: 48000,
+        MediaSampleRateHertz: TRANSCRIBE_SAMPLE_RATE,
         AudioStream: audioStream(),
         ShowSpeakerLabel: speakerLabel,
       });
     };
+
+    // --- License metering: periodic usage reports ---
+    // The server may respond with stop === true when the allocation is
+    // used up; in that case the streaming session is shut down.
+    let stoppedByLicense = false;
+    const reportTimer = setInterval(() => {
+      reportTranscribeSession({
+        sessionId,
+        cumulativeSeconds: cumulativeSeconds(),
+      })
+        .then((res) => {
+          if (res.stop && !stoppedByLicense) {
+            stoppedByLicense = true;
+            toast.error(t('license.transcribe.stopped'));
+            // Stopping the source stream ends the audio generator and
+            // winds down the Transcribe streaming session.
+            stream.stop();
+          }
+        })
+        .catch((error) => {
+          // Missing interim reports are absorbed server-side
+          console.error('Failed to report transcribe usage:', error);
+        });
+    }, reportIntervalSeconds * 1000);
 
     try {
       const response = await withRetry(
@@ -302,6 +365,16 @@ const useScreenAudio = () => {
       console.error('Screen audio transcription error:', error);
       toast.error(t('meetingMinutes.error.screen_transcription_failed'));
     } finally {
+      clearInterval(reportTimer);
+      // --- License metering: final report (fire-and-forget so the UI
+      // stops normally even if the report fails) ---
+      reportTranscribeSession({
+        sessionId,
+        cumulativeSeconds: cumulativeSeconds(),
+        final: true,
+      }).catch((error) => {
+        console.error('Failed to send final transcribe report:', error);
+      });
       stopTranscription();
       transcribeClient.destroy();
       setTranscribeClient(undefined);

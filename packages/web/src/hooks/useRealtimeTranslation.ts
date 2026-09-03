@@ -1,10 +1,11 @@
 import { useMemo, useCallback, useState } from 'react';
-import { MODELS } from './useModel';
+import { useModel } from './useModel';
 import useTranslationCore from './useTranslationCore';
 
 const useRealtimeTranslation = () => {
   const { translate } = useTranslationCore();
-  const { modelIds, lightModelIds } = MODELS;
+  // License-filtered model lists
+  const { modelIds, lightModelIds } = useModel();
 
   // Interval for real-time translation (in milliseconds)
   const [translationInterval, setTranslationInterval] = useState<number>(2000);

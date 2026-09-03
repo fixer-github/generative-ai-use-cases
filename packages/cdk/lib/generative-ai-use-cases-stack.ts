@@ -14,6 +14,7 @@ import {
   McpApi,
   AgentCore,
   Scheduler,
+  LicenseOps,
   BackupLockedBuckets,
   CognitoExportConstruct,
   DdbPitrExportConstruct,
@@ -180,6 +181,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       table: database.table,
       statsTable: database.statsTable,
       agentObservabilityTable: database.agentObservabilityTable,
+      licenseTable: database.licenseTable,
+      sendgridApiKey: params.sendgridApiKey,
+      mailFrom: params.mailFrom,
       knowledgeBaseId: params.ragKnowledgeBaseId || props.knowledgeBaseId,
       agents: agentsJson,
       guardrailIdentify: props.guardrailIdentifier,
@@ -197,6 +201,19 @@ export class GenerativeAiUseCasesStack extends Stack {
     new AdminApi(this, 'AdminApi', {
       userPool: auth.userPool,
       api: api.api,
+      licenseTable: database.licenseTable,
+      modelIds: params.modelIds,
+      vpc: props.vpc,
+      securityGroups,
+    });
+
+    // License operations (daily fx rate refresh + initial data seeding)
+    new LicenseOps(this, 'LicenseOps', {
+      licenseTable: database.licenseTable,
+      modelIds: params.modelIds,
+      sendgridApiKey: params.sendgridApiKey,
+      mailFrom: params.mailFrom,
+      licenseAdminAlertEmail: params.licenseAdminAlertEmail,
       vpc: props.vpc,
       securityGroups,
     });
@@ -491,6 +508,9 @@ export class GenerativeAiUseCasesStack extends Stack {
       userPool: auth.userPool,
       idPool: auth.idPool,
       api: api.api,
+      licenseTable: database.licenseTable,
+      sendgridApiKey: params.sendgridApiKey,
+      mailFrom: params.mailFrom,
       allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
       allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
       vpc: props.vpc,
@@ -514,6 +534,7 @@ export class GenerativeAiUseCasesStack extends Stack {
       database.table,
       database.statsTable,
       database.agentObservabilityTable,
+      database.licenseTable,
     ];
     if (useCaseBuilder) {
       ddbTables.push(useCaseBuilder.useCaseBuilderTable);

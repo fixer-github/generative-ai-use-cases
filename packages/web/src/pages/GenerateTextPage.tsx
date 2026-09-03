@@ -9,9 +9,11 @@ import ButtonCopy from '../components/ButtonCopy';
 import Select from '../components/Select';
 import useChat from '../hooks/useChat';
 import useTyping from '../hooks/useTyping';
+import useLicense from '../hooks/useLicense';
+import LicenseBlockedNotice from '../components/LicenseBlockedNotice';
 import { create } from 'zustand';
 import { GenerateTextPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import { getPrompter } from '../prompts';
 import queryString from 'query-string';
 
@@ -78,7 +80,8 @@ const GenerateTextPage: React.FC = () => {
     getStopReason,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  const { modelIds: availableModels, modelDisplayName } = useModel();
+  const { blocked } = useLicense();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -91,11 +94,21 @@ const GenerateTextPage: React.FC = () => {
   }, [prompter]);
 
   const disabledExec = useMemo(() => {
+    return information === '' || loading || blocked;
+  }, [information, loading, blocked]);
+
+  // Clear stays usable while the license blocks execution
+  const disabledClear = useMemo(() => {
     return information === '' || loading;
   }, [information, loading]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as GenerateTextPageQueryParams;
       setInformation(params.information ?? '');
@@ -138,10 +151,10 @@ const GenerateTextPage: React.FC = () => {
 
   // Execute summary
   const onClickExec = useCallback(() => {
-    if (loading) return;
+    if (loading || blocked) return;
     getGeneratedText(information, context);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [information, context, loading]);
+  }, [information, context, loading, blocked]);
 
   // Reset
   const onClickClear = useCallback(() => {
@@ -180,14 +193,16 @@ const GenerateTextPage: React.FC = () => {
             onChange={setContext}
           />
 
+          <LicenseBlockedNotice className="mb-2" />
+
           <div className="flex justify-end gap-3">
             {stopReason === 'max_tokens' && (
-              <Button onClick={continueGeneration}>
+              <Button disabled={blocked} onClick={continueGeneration}>
                 {t('generateText.continue_output')}
               </Button>
             )}
 
-            <Button outlined onClick={onClickClear} disabled={disabledExec}>
+            <Button outlined onClick={onClickClear} disabled={disabledClear}>
               {t('generateText.clear')}
             </Button>
 

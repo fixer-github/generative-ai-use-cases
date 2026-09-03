@@ -35,9 +35,11 @@ describe('GenerativeAiUseCases', () => {
     samlCognitoDomainName: '',
     samlCognitoFederatedIdentityProviderName: '',
     modelRegion: 'us-east-1',
+    // Text models must have a license unit price registered (deploy-time
+    // validation in construct/api.ts)
     modelIds: [
       {
-        modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        modelId: 'jp.anthropic.claude-sonnet-4-6',
         region: 'us-east-1',
       },
     ],

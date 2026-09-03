@@ -64,9 +64,12 @@ export class ManualPreprocess extends Construct {
       // so it matches the X86_64 Lambda architecture below. Same pattern as
       // closed-web.ts. Without this, fromImageAsset builds for the host arch and
       // an arm64 Mac would produce an image that mismatches the function.
-      code: DockerImageCode.fromImageAsset('./lambda-python/manual-preprocess', {
-        platform: Platform.LINUX_AMD64,
-      }),
+      code: DockerImageCode.fromImageAsset(
+        './lambda-python/manual-preprocess',
+        {
+          platform: Platform.LINUX_AMD64,
+        }
+      ),
       memorySize: 2048,
       ephemeralStorageSize: Size.mebibytes(2048),
       timeout: Duration.minutes(15),

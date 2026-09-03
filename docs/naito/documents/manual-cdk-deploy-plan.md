@@ -11,16 +11,16 @@
 
 実装方針を GenU の既存パターンに揃えるため、以下を実コードで確認した（2026-05-29 時点）。
 
-| 確認対象 | パス | 要点 |
-|---|---|---|
-| エントリポイント | `packages/cdk/bin/generative-ai-use-cases.ts` | `getParams(app)` で全パラメータを得て `createStacks(app, params)` を呼ぶだけの薄い層 |
-| パラメータ定義 | `packages/cdk/lib/stack-input.ts` | zod スキーマ `baseStackInputSchema`。機能フラグは `xxxEnabled: z.boolean().default(false)` の形で定義（例：`ragKnowledgeBaseEnabled`・`agentBuilderEnabled`・`createGenericAgentCoreRuntime`） |
-| パラメータ解決 | `packages/cdk/parameter.ts` | CDK Context / `envs` から取得し `ProcessedStackInput` へ整形。`agentCoreRegion: params.agentCoreRegion || params.modelRegion` のような既定値補完を行う |
-| スタック配線 | `packages/cdk/lib/create-stacks.ts` | フラグが立つときだけ各スタックを `new` する分岐がある（例：`ragKnowledgeBaseEnabled && !ragKnowledgeBaseId ? new RagKnowledgeBaseStack(...) : null`、`createGenericAgentCoreRuntime || agentBuilderEnabled ? new AgentCoreStack(...) : null`）。本体スタックへ依存を `addDependency` で明示している |
-| AgentCore スタック | `packages/cdk/lib/agent-core-stack.ts` | `params` を受け、`GenericAgentCore` Construct を生成。Runtime ARN・ファイルバケット名を `CfnOutput`（`REMOTE_OUTPUT_KEYS`）で出力し、クロスリージョン参照（`cdk-remote-stack` の `RemoteOutputs`）で本体スタックへ渡す |
-| AgentCore Construct | `packages/cdk/lib/construct/generic-agent-core.ts` | `@aws-cdk/aws-bedrock-agentcore-alpha` の `Runtime` を使用。`AgentRuntimeArtifact.fromAsset(dockerPath)` で Docker イメージをアセット化。実行ロールへ `bedrock:InvokeModel` 等を付与し、`fileBucket.grantWrite(role)` でS3書き込みを許可。`environmentVariables` で `FILE_BUCKET` 等をコンテナへ注入 |
-| DynamoDB Construct | `packages/cdk/lib/construct/database.ts` | `ddb.Table`（`billingMode: PAY_PER_REQUEST`）。パーティションキー＋必要に応じソートキー・GSI。最小限の素直な定義 |
-| 削除ポリシー | `create-stacks.ts` の `DeletionPolicySetter` アスペクト | 本体スタックに `RemovalPolicy.DESTROY` を一括適用するアスペクトがある |
+| 確認対象            | パス                                                    | 要点                                                                                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------ |
+| エントリポイント    | `packages/cdk/bin/generative-ai-use-cases.ts`           | `getParams(app)` で全パラメータを得て `createStacks(app, params)` を呼ぶだけの薄い層                                                                                                                                                                                                                 |
+| パラメータ定義      | `packages/cdk/lib/stack-input.ts`                       | zod スキーマ `baseStackInputSchema`。機能フラグは `xxxEnabled: z.boolean().default(false)` の形で定義（例：`ragKnowledgeBaseEnabled`・`agentBuilderEnabled`・`createGenericAgentCoreRuntime`）                                                                                                       |
+| パラメータ解決      | `packages/cdk/parameter.ts`                             | CDK Context / `envs` から取得し `ProcessedStackInput` へ整形。`agentCoreRegion: params.agentCoreRegion                                                                                                                                                                                               |     | params.modelRegion` のような既定値補完を行う                                                                 |
+| スタック配線        | `packages/cdk/lib/create-stacks.ts`                     | フラグが立つときだけ各スタックを `new` する分岐がある（例：`ragKnowledgeBaseEnabled && !ragKnowledgeBaseId ? new RagKnowledgeBaseStack(...) : null`、`createGenericAgentCoreRuntime                                                                                                                  |     | agentBuilderEnabled ? new AgentCoreStack(...) : null`）。本体スタックへ依存を `addDependency` で明示している |
+| AgentCore スタック  | `packages/cdk/lib/agent-core-stack.ts`                  | `params` を受け、`GenericAgentCore` Construct を生成。Runtime ARN・ファイルバケット名を `CfnOutput`（`REMOTE_OUTPUT_KEYS`）で出力し、クロスリージョン参照（`cdk-remote-stack` の `RemoteOutputs`）で本体スタックへ渡す                                                                               |
+| AgentCore Construct | `packages/cdk/lib/construct/generic-agent-core.ts`      | `@aws-cdk/aws-bedrock-agentcore-alpha` の `Runtime` を使用。`AgentRuntimeArtifact.fromAsset(dockerPath)` で Docker イメージをアセット化。実行ロールへ `bedrock:InvokeModel` 等を付与し、`fileBucket.grantWrite(role)` でS3書き込みを許可。`environmentVariables` で `FILE_BUCKET` 等をコンテナへ注入 |
+| DynamoDB Construct  | `packages/cdk/lib/construct/database.ts`                | `ddb.Table`（`billingMode: PAY_PER_REQUEST`）。パーティションキー＋必要に応じソートキー・GSI。最小限の素直な定義                                                                                                                                                                                     |
+| 削除ポリシー        | `create-stacks.ts` の `DeletionPolicySetter` アスペクト | 本体スタックに `RemovalPolicy.DESTROY` を一括適用するアスペクトがある                                                                                                                                                                                                                                |
 
 > 注：本体計画書 第10章は改修対象3ファイルを `bin/generative-ai-use-cases.ts` / `lib/stack-input.ts` / `parameter.ts` と短縮表記しているが、GenU 実体での正確なパスはいずれも `packages/cdk/` 配下である。
 
@@ -32,16 +32,17 @@
 
 本体計画書 第2.1章「構成要素7つ」のうち、**インフラ実体**は GenU 側 CDK で定義する。
 
-| # | 構成要素（本体計画書） | GenU CDK での実装 |
-|---|---|---|
-| 1 | API（API Gateway） | 新スタック内に REST API + Cognito オーサライザ |
-| 2 | マニュアル管理 Lambda | 新スタック内の関数（Node.js or Python） |
-| 3 | チャット中継 Lambda | 新スタック内の関数。AgentCore Runtime を呼ぶ |
-| 4 | 前処理 Lambda（Docker Image） | 新スタック内の Docker イメージ関数（poppler-utils 同梱） |
-| 6 | S3（ファイル保管庫） | 新スタック内のバケット |
-| 7 | DynamoDB（設定保管庫） | 新スタック内の1テーブル |
+| #   | 構成要素（本体計画書）        | GenU CDK での実装                                        |
+| --- | ----------------------------- | -------------------------------------------------------- |
+| 1   | API（API Gateway）            | 新スタック内に REST API + Cognito オーサライザ           |
+| 2   | マニュアル管理 Lambda         | 新スタック内の関数（Node.js or Python）                  |
+| 3   | チャット中継 Lambda           | 新スタック内の関数。AgentCore Runtime を呼ぶ             |
+| 4   | 前処理 Lambda（Docker Image） | 新スタック内の Docker イメージ関数（poppler-utils 同梱） |
+| 6   | S3（ファイル保管庫）          | 新スタック内のバケット                                   |
+| 7   | DynamoDB（設定保管庫）        | 新スタック内の1テーブル                                  |
 
 加えて：
+
 - IAM ロール／ポリシー（最小権限。各 Lambda・AgentCore 実行ロール）
 - S3 → 前処理 Lambda の起動イベント配線
 - 機能フラグ `manualRagEnabled` の追加（zod スキーマ・既定値・分岐）
@@ -72,10 +73,10 @@
 
 既存パターン（`RagKnowledgeBaseStack`・`AgentCoreStack` 等が `lib/*.ts` に1ファイル1スタック）に倣い、次を新設する。
 
-| 種別 | ファイル（案） | 内容 |
-|---|---|---|
-| スタック | `packages/cdk/lib/manual-rag-stack.ts` | `ManualRagStack`（仮称）。本機能のインフラを束ねる |
-| Construct 群 | `packages/cdk/lib/construct/manual-rag/` 配下 | リソースを責務単位の Construct に分割（下記 2.2） |
+| 種別         | ファイル（案）                                | 内容                                               |
+| ------------ | --------------------------------------------- | -------------------------------------------------- |
+| スタック     | `packages/cdk/lib/manual-rag-stack.ts`        | `ManualRagStack`（仮称）。本機能のインフラを束ねる |
+| Construct 群 | `packages/cdk/lib/construct/manual-rag/` 配下 | リソースを責務単位の Construct に分割（下記 2.2）  |
 
 > 命名は実装時に最終決定する（残課題ではなく実装細目）。本書では `ManualRag*` を仮の接頭辞として用いる。
 
@@ -83,13 +84,13 @@
 
 責務ごとに Construct を分けて見通しを保つ（既存 `construct/` の粒度に合わせる）。
 
-| Construct（案） | 責務 | 主なリソース |
-|---|---|---|
-| `ManualStorage` | 保管庫 | S3 バケット1、DynamoDB テーブル1 |
-| `ManualPreprocess` | 前処理 | 前処理 Lambda（Docker Image）、S3→Lambda イベント、Textract 権限 |
-| `ManualAdminApi` | 管理API | マニュアル管理 Lambda、API Gateway リソース（管理者スコープ） |
-| `ManualChatRelay` | チャット中継 | チャット中継 Lambda、API Gateway リソース（利用者スコープ）、AgentCore 呼び出し権限 |
-| （`ManualRuntime`） | AI実行環境 | 残課題G の判断次第で AgentCore `Runtime` を宣言（1.3 参照） |
+| Construct（案）     | 責務         | 主なリソース                                                                        |
+| ------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| `ManualStorage`     | 保管庫       | S3 バケット1、DynamoDB テーブル1                                                    |
+| `ManualPreprocess`  | 前処理       | 前処理 Lambda（Docker Image）、S3→Lambda イベント、Textract 権限                    |
+| `ManualAdminApi`    | 管理API      | マニュアル管理 Lambda、API Gateway リソース（管理者スコープ）                       |
+| `ManualChatRelay`   | チャット中継 | チャット中継 Lambda、API Gateway リソース（利用者スコープ）、AgentCore 呼び出し権限 |
+| （`ManualRuntime`） | AI実行環境   | 残課題G の判断次第で AgentCore `Runtime` を宣言（1.3 参照）                         |
 
 ### 2.3 スタックの配置リージョン
 
@@ -150,11 +151,11 @@
 
 本体計画書 第2.2章の依存関係に厳密に従い、各ロールに必要最小限のみ付与する。
 
-| 主体 | 許可する操作（要点） |
-|---|---|
-| 前処理 Lambda | S3 当該バケット R/W、DynamoDB 当該テーブル更新、Textract OCR |
-| マニュアル管理 Lambda | S3 当該バケット R/W・削除、DynamoDB 当該テーブル R/W |
-| チャット中継 Lambda | DynamoDB 当該テーブル読み取り、AgentCore Runtime の Invoke |
+| 主体                                | 許可する操作（要点）                                                                                                                                                                                     |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 前処理 Lambda                       | S3 当該バケット R/W、DynamoDB 当該テーブル更新、Textract OCR                                                                                                                                             |
+| マニュアル管理 Lambda               | S3 当該バケット R/W・削除、DynamoDB 当該テーブル R/W                                                                                                                                                     |
+| チャット中継 Lambda                 | DynamoDB 当該テーブル読み取り、AgentCore Runtime の Invoke                                                                                                                                               |
 | AI 実行環境（AgentCore 実行ロール） | S3 当該バケット **読み取りのみ**、DynamoDB 当該テーブル **読み取りのみ**（本体計画書 第2.2章「書き込みは行わない」を厳守。既存 `generic-agent-core.ts` は `grantWrite` だが本機能は `grantRead` に絞る） |
 
 ---
@@ -163,11 +164,11 @@
 
 本体計画書 第10章の通り、改修は既存3ファイルのみ。**フラグ false で従来挙動を完全維持**する。
 
-| ファイル（GenU 実体パス） | 変更内容 | 既存パターンの参考 |
-|---|---|---|
-| `packages/cdk/lib/stack-input.ts` | `baseStackInputSchema` に `manualRagEnabled: z.boolean().default(false)` を追加 | 既存 `ragKnowledgeBaseEnabled` 等と同形 |
-| `packages/cdk/parameter.ts` | 既定値 `false`（zod の default で吸収されるため、明示追記は任意。`envs` で環境別に上書き可能にする方針のみ確認） | 既存フラグと同様、CDK Context / `envs` 経由 |
-| `packages/cdk/bin/generative-ai-use-cases.ts` | 直接の分岐は不要（薄い層のため）。実際の分岐は `create-stacks.ts` に置く | 既存も `createStacks` 側で分岐 |
+| ファイル（GenU 実体パス）                                                                             | 変更内容                                                                                                                                              | 既存パターンの参考                                          |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `packages/cdk/lib/stack-input.ts`                                                                     | `baseStackInputSchema` に `manualRagEnabled: z.boolean().default(false)` を追加                                                                       | 既存 `ragKnowledgeBaseEnabled` 等と同形                     |
+| `packages/cdk/parameter.ts`                                                                           | 既定値 `false`（zod の default で吸収されるため、明示追記は任意。`envs` で環境別に上書き可能にする方針のみ確認）                                      | 既存フラグと同様、CDK Context / `envs` 経由                 |
+| `packages/cdk/bin/generative-ai-use-cases.ts`                                                         | 直接の分岐は不要（薄い層のため）。実際の分岐は `create-stacks.ts` に置く                                                                              | 既存も `createStacks` 側で分岐                              |
 | `packages/cdk/lib/create-stacks.ts`（※本体計画書の3ファイルには明記されないが実務上ここに分岐が必要） | `params.manualRagEnabled ? new ManualRagStack(...) : null` を追加し、本体スタックへ必要な値（API エンドポイント等）を受け渡し、`addDependency` を張る | 既存 `AgentCoreStack`・`RagKnowledgeBaseStack` の分岐と同形 |
 
 > 注意：本体計画書 第10章は改修対象を3ファイルとするが、GenU の実構造ではスタックを実際に `new` する箇所は `create-stacks.ts` である。3ファイル（zod スキーマ／既定値／エントリ）に加え `create-stacks.ts` への分岐追加が技術的に必須になる。この差異は B1 着手時にユーザーへ報告し、本体計画書 第10章へ追記する（本体計画書 14.2 の手順）。
@@ -196,18 +197,18 @@ B1 では `ManualRagStack` を `GenerativeAiUseCasesStack`（UserPool を所有�
 
 ## 6. フェーズ対応（本体計画書 B1〜B10 のうち GenU CDK 側の作業）
 
-| フェーズ | GenU CDK 側で行う作業 | 残課題（本体計画書 14.1） |
-|---|---|---|
-| B1 | `ManualRagStack` 骨組み、S3、DynamoDB（1テーブル）、IAM の土台、`manualRagEnabled` フラグ追加、`create-stacks.ts` 分岐 | 残課題A（確定済）＋ S3/DDB の removalPolicy・GSI 要否（本書 3.1/3.2） |
-| B2 | 管理 API（API Gateway + マニュアル管理 Lambda）、presigned URL、CORS、再処理時のクリア順序 | 残課題B（管理者ロール判定）・C（URL発行方式・クリア順序） |
-| B3 | （フロント。CDK 対象外。フラグ連携の整合のみ確認） | なし |
-| B4 | 前処理 Lambda（Docker Image・poppler 同梱）の関数定義、S3 イベント配線、メモリ/タイムアウト確定 | 残課題D（TXT/MD のページ分割値） |
-| B5 | （前処理 PDF 対応は Lambda 内ロジック。CDK 側は B4 で定義済の関数を使用） | 残課題E（page_map 生成方法） |
-| B6 | Textract 権限の付与（**B6 で追加**＝`textract:DetectDocumentText`）。OCR 振り分けは Lambda 内ロジック | 残課題F 確定済み（OCR 閾値=500・空白除外・無条件置換） |
-| B7 | AgentCore Runtime の宣言／ARN 受け渡し配線（残課題G 次第。本書 1.3/5） | 残課題G（ツール供給方式） |
-| B8 | （ツール実装は AgentCore 側リポジトリ。CDK 対象外） | 残課題G（B7 と共通） |
-| B9 | チャット中継 Lambda の定義、AgentCore Invoke 権限、ストリーミング配線 | なし |
-| B10 | 全体動作確認・権限境界試験・削除整合試験（CDK のデプロイ確認を含む） | なし |
+| フェーズ | GenU CDK 側で行う作業                                                                                                  | 残課題（本体計画書 14.1）                                             |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| B1       | `ManualRagStack` 骨組み、S3、DynamoDB（1テーブル）、IAM の土台、`manualRagEnabled` フラグ追加、`create-stacks.ts` 分岐 | 残課題A（確定済）＋ S3/DDB の removalPolicy・GSI 要否（本書 3.1/3.2） |
+| B2       | 管理 API（API Gateway + マニュアル管理 Lambda）、presigned URL、CORS、再処理時のクリア順序                             | 残課題B（管理者ロール判定）・C（URL発行方式・クリア順序）             |
+| B3       | （フロント。CDK 対象外。フラグ連携の整合のみ確認）                                                                     | なし                                                                  |
+| B4       | 前処理 Lambda（Docker Image・poppler 同梱）の関数定義、S3 イベント配線、メモリ/タイムアウト確定                        | 残課題D（TXT/MD のページ分割値）                                      |
+| B5       | （前処理 PDF 対応は Lambda 内ロジック。CDK 側は B4 で定義済の関数を使用）                                              | 残課題E（page_map 生成方法）                                          |
+| B6       | Textract 権限の付与（**B6 で追加**＝`textract:DetectDocumentText`）。OCR 振り分けは Lambda 内ロジック                  | 残課題F 確定済み（OCR 閾値=500・空白除外・無条件置換）                |
+| B7       | AgentCore Runtime の宣言／ARN 受け渡し配線（残課題G 次第。本書 1.3/5）                                                 | 残課題G（ツール供給方式）                                             |
+| B8       | （ツール実装は AgentCore 側リポジトリ。CDK 対象外）                                                                    | 残課題G（B7 と共通）                                                  |
+| B9       | チャット中継 Lambda の定義、AgentCore Invoke 権限、ストリーミング配線                                                  | なし                                                                  |
+| B10      | 全体動作確認・権限境界試験・削除整合試験（CDK のデプロイ確認を含む）                                                   | なし                                                                  |
 
 ---
 
@@ -223,70 +224,70 @@ B1 では `ManualRagStack` を `GenerativeAiUseCasesStack`（UserPool を所有�
 
 設計方針は確定済み。以下は「方式の範囲内で値・手段を1つ選ぶ」レベルの実装仕様。B1 着手時（2026-05-29）にユーザー確認のうえ確定した。
 
-| # | 項目 | 確定値（2026-05-29） |
-|---|---|---|
-| 1 | 新スタック名・Construct 名 | 仮称のまま確定：スタック `ManualRagStack`、Construct は `construct/manual-rag/` 配下（`ManualStorage` 等） |
-| 2 | S3・DynamoDB の `removalPolicy` | **`RETAIN`**（マニュアル原本・メタ情報はユーザー資産。誤削除回避を優先。`autoDeleteObjects` は付けない） |
-| 3 | DynamoDB の GSI 要否 | **なし**（一覧取得は `Scan`。環境内マニュアルは小規模想定） |
-| 4 | 本体計画書 第10章へ `create-stacks.ts` を加える追記 | **追記する**（本体計画書 第10章を更新済み） |
-| 5 | AgentCore Runtime：CDK 宣言（a）か外部 ARN 参照（b）か | **B7 着手時に残課題G とあわせて確定**（B1 では確定不要。ARN を環境変数で受け取る配線のみ前提とする） |
+| #   | 項目                                                   | 確定値（2026-05-29）                                                                                       |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 1   | 新スタック名・Construct 名                             | 仮称のまま確定：スタック `ManualRagStack`、Construct は `construct/manual-rag/` 配下（`ManualStorage` 等） |
+| 2   | S3・DynamoDB の `removalPolicy`                        | **`RETAIN`**（マニュアル原本・メタ情報はユーザー資産。誤削除回避を優先。`autoDeleteObjects` は付けない）   |
+| 3   | DynamoDB の GSI 要否                                   | **なし**（一覧取得は `Scan`。環境内マニュアルは小規模想定）                                                |
+| 4   | 本体計画書 第10章へ `create-stacks.ts` を加える追記    | **追記する**（本体計画書 第10章を更新済み）                                                                |
+| 5   | AgentCore Runtime：CDK 宣言（a）か外部 ARN 参照（b）か | **B7 着手時に残課題G とあわせて確定**（B1 では確定不要。ARN を環境変数で受け取る配線のみ前提とする）       |
 
 B2 着手時（2026-06-01）に次を確定した。
 
-| # | 項目 | 確定値（2026-06-01） |
-|---|---|---|
-| 6 | 管理者ロール判定（残課題B） | 既存 `admin` グループを流用。Cognito オーソライザで認証 + 管理 Lambda 内で `cognito:groups` に `admin` を含むか検査。`CfnUserPoolGroup` の新設なし、`auth.ts` 非改変 |
-| 7 | アップロード URL（残課題C） | presigned PUT URL、有効期限 **15 分**、許可形式 PDF/TXT/MD のみ、キー `{manual_id}/original.{ext}` |
-| 8 | 再処理の起動経路・クリア順序（残課題C） | 管理 Lambda から前処理 Lambda を非同期 invoke。①status=processing → ②`pages/`・`toc.*`・`page_map.json` 削除 → ③invoke。B2 では invoke 先 ARN は環境変数の器のみ（実体は B4） |
-| 9 | 管理 Lambda 実装言語・配置 | Node.js/TypeScript、ハンドラは `packages/cdk/lambda/manual/` 配下に新規。`NodejsFunction` で定義（既存 GenU 慣習） |
-| 10 | API Gateway | 新スタック内に新規 `RestApi` を作成（既存 `construct/api.ts` は非改変）。Cognito オーソライザは既存 UserPool を参照 |
-| 11 | Construct 分割 | `construct/manual-rag/admin-api.ts` に `ManualAdminApi`（管理 Lambda 5種 + REST API）を新設 |
-| 12 | ManualRagStack 生成順序 | 案A：`generativeAiUseCasesStack` の後ろへ移動し `userPool`/`userPoolClient` を props 受け渡し（第4.1章） |
+| #   | 項目                                    | 確定値（2026-06-01）                                                                                                                                                          |
+| --- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6   | 管理者ロール判定（残課題B）             | 既存 `admin` グループを流用。Cognito オーソライザで認証 + 管理 Lambda 内で `cognito:groups` に `admin` を含むか検査。`CfnUserPoolGroup` の新設なし、`auth.ts` 非改変          |
+| 7   | アップロード URL（残課題C）             | presigned PUT URL、有効期限 **15 分**、許可形式 PDF/TXT/MD のみ、キー `{manual_id}/original.{ext}`                                                                            |
+| 8   | 再処理の起動経路・クリア順序（残課題C） | 管理 Lambda から前処理 Lambda を非同期 invoke。①status=processing → ②`pages/`・`toc.*`・`page_map.json` 削除 → ③invoke。B2 では invoke 先 ARN は環境変数の器のみ（実体は B4） |
+| 9   | 管理 Lambda 実装言語・配置              | Node.js/TypeScript、ハンドラは `packages/cdk/lambda/manual/` 配下に新規。`NodejsFunction` で定義（既存 GenU 慣習）                                                            |
+| 10  | API Gateway                             | 新スタック内に新規 `RestApi` を作成（既存 `construct/api.ts` は非改変）。Cognito オーソライザは既存 UserPool を参照                                                           |
+| 11  | Construct 分割                          | `construct/manual-rag/admin-api.ts` に `ManualAdminApi`（管理 Lambda 5種 + REST API）を新設                                                                                   |
+| 12  | ManualRagStack 生成順序                 | 案A：`generativeAiUseCasesStack` の後ろへ移動し `userPool`/`userPoolClient` を props 受け渡し（第4.1章）                                                                      |
 
 B4 着手時（2026-06-01）に次を確定した（前処理 Lambda 骨組み・TXT/MD のページ分割）。
 
-| # | 項目 | 確定値（2026-06-01） |
-|---|---|---|
-| 13 | 残課題D（TXT 上限文字数・Markdown 例外） | D-1=**2,000 文字**／D-2=見出し無し・最初の見出し前は固定文字数分割、見出し分割後の上限超過は固定文字数で再分割／D-3=TXT・MD の `page_map.json` は印刷番号「なし(null)」で生成・`toc.*` 非生成（本体計画書 第4章ステップ3） |
-| 14 | 前処理 Lambda 実装言語・配置 | **Python 3.13 / Docker Image**。ベースは **AWS 公式 Lambda イメージ `public.ecr.aws/lambda/python:3.13`**（Lambda Runtime Interface 同梱）。前処理はイベント駆動（S3 イベント／直接 invoke）であり HTTP 常駐ではないため、`mcp-api` の Lambda Web Adapter＋`uv run` 方式は採らず、`CMD ["app.handler"]` のイベントハンドラ構成とする。依存は **pip**（B4 は標準ライブラリ＋同梱 boto3。pypdf 等は B5 で追記）、`poppler-utils` は **dnf** で同梱（別プロセス呼び出し＝GPL 非伝播は維持）。配置 `packages/cdk/lambda-python/manual-preprocess/`、Construct は `construct/manual-rag/preprocess.ts` |
-| 15 | コンテナ実行条件 | **x86_64 / memorySize 2048MB / timeout 15分**（イベント駆動 Lambda。B5 の画像化を見越した余裕値）。ephemeral storage は PDF 画像化を行う B5 で見直す |
-| 16 | 起動経路 | 1ハンドラで2系統を受ける：(あ) S3 イベント（通常アップロード）／(い) 直接 invoke `{manual_id}`（再処理。既存 `reprocessManual.ts` が送る形式） |
-| 17 | S3 通知フィルタ（自己ループ防止） | suffix フィルタで **`original.txt` / `original.md` のみ**発火（B4 範囲）。`pages/page_0001.md` 等の派生物は後方一致せず再発火しない。ハンドラ側でも `original.` 以外を無視（多重防御）。`original.pdf` の配線は B5 で追加 |
-| 18 | `PREPROCESS_FUNCTION_ARN` 配線 | `ManualAdminApi` から再処理 Lambda を公開し、スタックで前処理 Lambda の ARN を env 注入＋`grantInvoke`（B2 のプレースホルダを実体化） |
-| 19 | CfnOutput（フロント繋ぎ込み用） | `ManualRagStack` に **管理 API URL／バケット名／テーブル名** を出力 |
+| #   | 項目                                     | 確定値（2026-06-01）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13  | 残課題D（TXT 上限文字数・Markdown 例外） | D-1=**2,000 文字**／D-2=見出し無し・最初の見出し前は固定文字数分割、見出し分割後の上限超過は固定文字数で再分割／D-3=TXT・MD の `page_map.json` は印刷番号「なし(null)」で生成・`toc.*` 非生成（本体計画書 第4章ステップ3）                                                                                                                                                                                                                                                                                                                                                                        |
+| 14  | 前処理 Lambda 実装言語・配置             | **Python 3.13 / Docker Image**。ベースは **AWS 公式 Lambda イメージ `public.ecr.aws/lambda/python:3.13`**（Lambda Runtime Interface 同梱）。前処理はイベント駆動（S3 イベント／直接 invoke）であり HTTP 常駐ではないため、`mcp-api` の Lambda Web Adapter＋`uv run` 方式は採らず、`CMD ["app.handler"]` のイベントハンドラ構成とする。依存は **pip**（B4 は標準ライブラリ＋同梱 boto3。pypdf 等は B5 で追記）、`poppler-utils` は **dnf** で同梱（別プロセス呼び出し＝GPL 非伝播は維持）。配置 `packages/cdk/lambda-python/manual-preprocess/`、Construct は `construct/manual-rag/preprocess.ts` |
+| 15  | コンテナ実行条件                         | **x86_64 / memorySize 2048MB / timeout 15分**（イベント駆動 Lambda。B5 の画像化を見越した余裕値）。ephemeral storage は PDF 画像化を行う B5 で見直す                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 16  | 起動経路                                 | 1ハンドラで2系統を受ける：(あ) S3 イベント（通常アップロード）／(い) 直接 invoke `{manual_id}`（再処理。既存 `reprocessManual.ts` が送る形式）                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 17  | S3 通知フィルタ（自己ループ防止）        | suffix フィルタで **`original.txt` / `original.md` のみ**発火（B4 範囲）。`pages/page_0001.md` 等の派生物は後方一致せず再発火しない。ハンドラ側でも `original.` 以外を無視（多重防御）。`original.pdf` の配線は B5 で追加                                                                                                                                                                                                                                                                                                                                                                         |
+| 18  | `PREPROCESS_FUNCTION_ARN` 配線           | `ManualAdminApi` から再処理 Lambda を公開し、スタックで前処理 Lambda の ARN を env 注入＋`grantInvoke`（B2 のプレースホルダを実体化）                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 19  | CfnOutput（フロント繋ぎ込み用）          | `ManualRagStack` に **管理 API URL／バケット名／テーブル名** を出力                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 B5 着手時（2026-06-01）に次を確定した（前処理 Lambda の PDF 対応）。CDK 側はほぼ B4 で定義済みの関数を流用し、変更は依存追加・S3 トリガ追加に限られる。
 
-| # | 項目 | 確定値（2026-06-01） |
-|---|---|---|
-| 20 | 残課題E（`page_map.json` 生成方法） | **案ア＝フッター読み取り方式**。pdfplumber で各物理ページ下部のテキストから印刷番号（アラビア数字・ローマ数字）を読み、読めなければ `null`。PDF のみ適用、TXT・MD は全ページ `null`（本体計画書 第4章ステップ4）。案イ（一定ずれ量検出）は途中リセット等に弱く不採用 |
-| 21 | ページ画像生成 | `pdftoppm -png -r 150`（**150 DPI / PNG**）で `pages/page_0001.png` 連番。/tmp へ生成→S3 アップロード→/tmp から削除し ephemeral storage を逐次解放 |
-| 22 | テキスト抽出ライブラリ | **pypdf**（各ページ本文抽出＋しおり/outline 取得）、**pdfplumber**（フッター数字の位置読み取り＝案ア）。PyMuPDF は不使用（本体計画書 第9章） |
-| 23 | OCR 振り分け | **B5 では行わない**。全ページを画像化し、抽出テキストで `page_0001.md` を書く。テキストが取れない／極小ページは短い・空の `.md` のまま。閾値判定と Textract 呼び出しは **B6**（残課題F） |
-| 24 | toc 生成 | pypdf でしおり（outline）があれば `toc.json`/`toc.md` 生成、無ければ生成しない（本体計画書 第4章ステップ5） |
-| 25 | コンテナ実行条件（B5 据え置き） | **memory 2048MB / ephemeral 2048MB / timeout 15分** を維持。ページ単位で画像を逐次 S3 アップロード後に /tmp 削除するため据え置きで足りる |
-| 26 | S3 通知フィルタ追加 | `original.pdf` の suffix 通知を**追加**配線（B4 で保留した分）。これで PDF アップロードが前処理を起動 |
-| 27 | 依存追加 | `requirements.txt` に **pypdf・pdfplumber** を追加 |
-| 28 | Textract IAM | **B5 では付与しない**。OCR 実装は B6 のため、`textract:*` 権限も B6 で追加（最小権限） |
+| #   | 項目                                | 確定値（2026-06-01）                                                                                                                                                                                                                                                 |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 20  | 残課題E（`page_map.json` 生成方法） | **案ア＝フッター読み取り方式**。pdfplumber で各物理ページ下部のテキストから印刷番号（アラビア数字・ローマ数字）を読み、読めなければ `null`。PDF のみ適用、TXT・MD は全ページ `null`（本体計画書 第4章ステップ4）。案イ（一定ずれ量検出）は途中リセット等に弱く不採用 |
+| 21  | ページ画像生成                      | `pdftoppm -png -r 150`（**150 DPI / PNG**）で `pages/page_0001.png` 連番。/tmp へ生成→S3 アップロード→/tmp から削除し ephemeral storage を逐次解放                                                                                                                   |
+| 22  | テキスト抽出ライブラリ              | **pypdf**（各ページ本文抽出＋しおり/outline 取得）、**pdfplumber**（フッター数字の位置読み取り＝案ア）。PyMuPDF は不使用（本体計画書 第9章）                                                                                                                         |
+| 23  | OCR 振り分け                        | **B5 では行わない**。全ページを画像化し、抽出テキストで `page_0001.md` を書く。テキストが取れない／極小ページは短い・空の `.md` のまま。閾値判定と Textract 呼び出しは **B6**（残課題F）                                                                             |
+| 24  | toc 生成                            | pypdf でしおり（outline）があれば `toc.json`/`toc.md` 生成、無ければ生成しない（本体計画書 第4章ステップ5）                                                                                                                                                          |
+| 25  | コンテナ実行条件（B5 据え置き）     | **memory 2048MB / ephemeral 2048MB / timeout 15分** を維持。ページ単位で画像を逐次 S3 アップロード後に /tmp 削除するため据え置きで足りる                                                                                                                             |
+| 26  | S3 通知フィルタ追加                 | `original.pdf` の suffix 通知を**追加**配線（B4 で保留した分）。これで PDF アップロードが前処理を起動                                                                                                                                                                |
+| 27  | 依存追加                            | `requirements.txt` に **pypdf・pdfplumber** を追加                                                                                                                                                                                                                   |
+| 28  | Textract IAM                        | **B5 では付与しない**。OCR 実装は B6 のため、`textract:*` 権限も B6 で追加（最小権限）                                                                                                                                                                               |
 
 B6 着手時（2026-06-01）に次を確定した（スキャン／画像のみページの OCR 対応）。CDK 側の変更は前処理 Lambda への Textract 権限追加に限られ、振り分けロジックは Lambda 内に実装する。
 
-| # | 項目 | 確定値（2026-06-01） |
-|---|---|---|
-| 29 | 残課題F（OCR 閾値・数え方） | F-1=**500 文字**／F-2=**空白・改行を除いた文字数**（`len(re.sub(r"\s", "", text))`）。改行だけ・スペースだけのページを「テキストあり」と誤判定しないため（本体計画書 第4章ステップ3） |
-| 30 | 振り分け処理（F-3） | 閾値未満のページは OCR を実行し、結果で当該ページのテキストを**無条件に置換**（案③-b）。born-digital の正テキストが OCR 結果で上書きされうる点は了承のうえ確定 |
-| 31 | OCR 方式（F-4） | Amazon Textract **`DetectDocumentText`（同期）**。入力は S3 保存済みの `{manual_id}/pages/page_NNNN.png` を **S3Object 参照**で渡す。**PDF のみ**対象（TXT/MD は対象外）、リージョン `us-east-1`。新規 Python ライブラリ追加なし（boto3 同梱） |
-| 32 | 失敗時の扱い（F-5） | 1ページの OCR 失敗はログを残して抽出済みテキストのまま継続し、マニュアル全体を `failed` にしない |
-| 33 | Textract IAM（F-6） | 前処理 Lambda に **`textract:DetectDocumentText`** を追加（`AnalyzeDocument` は付与しない）。S3Object 参照のための当該バケット read は既存 grant で充足 |
+| #   | 項目                        | 確定値（2026-06-01）                                                                                                                                                                                                                           |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 29  | 残課題F（OCR 閾値・数え方） | F-1=**500 文字**／F-2=**空白・改行を除いた文字数**（`len(re.sub(r"\s", "", text))`）。改行だけ・スペースだけのページを「テキストあり」と誤判定しないため（本体計画書 第4章ステップ3）                                                          |
+| 30  | 振り分け処理（F-3）         | 閾値未満のページは OCR を実行し、結果で当該ページのテキストを**無条件に置換**（案③-b）。born-digital の正テキストが OCR 結果で上書きされうる点は了承のうえ確定                                                                                 |
+| 31  | OCR 方式（F-4）             | Amazon Textract **`DetectDocumentText`（同期）**。入力は S3 保存済みの `{manual_id}/pages/page_NNNN.png` を **S3Object 参照**で渡す。**PDF のみ**対象（TXT/MD は対象外）、リージョン `us-east-1`。新規 Python ライブラリ追加なし（boto3 同梱） |
+| 32  | 失敗時の扱い（F-5）         | 1ページの OCR 失敗はログを残して抽出済みテキストのまま継続し、マニュアル全体を `failed` にしない                                                                                                                                               |
+| 33  | Textract IAM（F-6）         | 前処理 Lambda に **`textract:DetectDocumentText`** を追加（`AnalyzeDocument` は付与しない）。S3Object 参照のための当該バケット read は既存 grant で充足                                                                                        |
 
 B7 着手時（2026-06-01）に次を確定した（AgentCore Runtime コンテナ）。**実体は AgentCore 側リポジトリ `agents/manual-agent/`** にあり、GenU CDK 側の作業は B9（中継 Lambda）まで発生しない。本表は接続点の確定事項を記録する。
 
-| # | 項目 | 確定値（2026-06-01） |
-|---|---|---|
-| 34 | 残課題G（ツール供給方式） | G-1=実装言語（Python）へ **Strands `@tool` で直接組み込み**（MCP 等の外部プロトコルは不採用）。G-2=Runtime は `agents/manual-agent/deploy.py` でデプロイ（**案b**）、GenU CDK は ARN を参照するのみ（`Runtime` Construct 宣言＝案a は不採用） |
-| 35 | 説明文の動的併合 | 中継 Lambda（B9）が DynamoDB から `status=completed` の全マニュアルの `title`/`description` を取得し、質問とあわせてリクエスト payload で Runtime へ渡す。Runtime は固定システムプロンプトへ説明文を併合し**リクエストごとに**プロンプトを組み立てる。AI 実行環境は DynamoDB への直接アクセス権限を持たない（説明文は payload 受領のみ） |
-| 36 | Runtime ARN の GenU への供給 | GenU CDK は CDK パラメータ（`stack-input.ts` の `manualAgentRuntimeArn` 等、具体名は B9 で確定）でデプロイ済み ARN を受け取り、中継 Lambda の環境変数へ渡す。既存 `agentCoreExternalRuntimes` の考え方に整合 |
-| 37 | S3／DynamoDB のキー規約（AI 実行環境が読む対象） | manual-rag の前処理出力に整合：`{manual_id}/pages/page_NNNN.png`・`.md`／`{manual_id}/toc.md`・`toc.json`／`{manual_id}/page_map.json`（既存 infection の `documents/` 接頭辞・`catalog.json` 方式は使わない）。ツールのスコープ確認は DynamoDB を参照（B8） |
+| #   | 項目                                             | 確定値（2026-06-01）                                                                                                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 34  | 残課題G（ツール供給方式）                        | G-1=実装言語（Python）へ **Strands `@tool` で直接組み込み**（MCP 等の外部プロトコルは不採用）。G-2=Runtime は `agents/manual-agent/deploy.py` でデプロイ（**案b**）、GenU CDK は ARN を参照するのみ（`Runtime` Construct 宣言＝案a は不採用）                                                                                            |
+| 35  | 説明文の動的併合                                 | 中継 Lambda（B9）が DynamoDB から `status=completed` の全マニュアルの `title`/`description` を取得し、質問とあわせてリクエスト payload で Runtime へ渡す。Runtime は固定システムプロンプトへ説明文を併合し**リクエストごとに**プロンプトを組み立てる。AI 実行環境は DynamoDB への直接アクセス権限を持たない（説明文は payload 受領のみ） |
+| 36  | Runtime ARN の GenU への供給                     | GenU CDK は CDK パラメータ（`stack-input.ts` の `manualAgentRuntimeArn` 等、具体名は B9 で確定）でデプロイ済み ARN を受け取り、中継 Lambda の環境変数へ渡す。既存 `agentCoreExternalRuntimes` の考え方に整合                                                                                                                             |
+| 37  | S3／DynamoDB のキー規約（AI 実行環境が読む対象） | manual-rag の前処理出力に整合：`{manual_id}/pages/page_NNNN.png`・`.md`／`{manual_id}/toc.md`・`toc.json`／`{manual_id}/page_map.json`（既存 infection の `documents/` 接頭辞・`catalog.json` 方式は使わない）。ツールのスコープ確認は DynamoDB を参照（B8）                                                                             |
 
 ---
 

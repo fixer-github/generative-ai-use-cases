@@ -5,6 +5,10 @@ import {
 } from '@aws-sdk/client-transcribe';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetTranscriptionResponse, Transcript } from 'generative-ai-use-cases';
+import {
+  LICENSE_ENABLED,
+  chargeTranscribeJobOnceSafely,
+} from './utils/license';
 
 function parseS3Url(s3Url: string) {
   const url = new URL(s3Url);
@@ -57,6 +61,25 @@ export const handler = async (
         })
       );
       const output = JSON.parse(await s3Result.Body!.transformToString());
+
+      // License: charge the measured audio duration once per job (a marker
+      // item prevents double charging across the client's polling requests).
+      // The duration is the largest segment end time in the result JSON.
+      if (LICENSE_ENABLED) {
+        const licenseUserId =
+          event.requestContext.authorizer!.claims['cognito:username'];
+        const durationSeconds = (
+          (output.results.audio_segments ?? []) as { end_time?: string }[]
+        ).reduce((max, seg) => {
+          const end = parseFloat(seg.end_time ?? '0');
+          return Number.isFinite(end) && end > max ? end : max;
+        }, 0);
+        await chargeTranscribeJobOnceSafely(
+          licenseUserId,
+          jobName!,
+          durationSeconds
+        );
+      }
 
       // Format the transcription
       const rawTranscripts: Transcript[] = output.results.audio_segments.map(

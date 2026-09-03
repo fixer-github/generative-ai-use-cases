@@ -15,7 +15,7 @@ import { extractBaseURL } from '../hooks/useFiles';
 import { create } from 'zustand';
 import { getPrompter } from '../prompts';
 import { VideoAnalyzerPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import Button from '../components/Button';
 import Markdown from '../components/Markdown';
 import InputChatContent from '../components/InputChatContent';
@@ -79,14 +79,19 @@ const VideoAnalyzerPage: React.FC = () => {
     clear: clearChat,
   } = useChat(pathname);
   const { setTypingTextInput, typingTextOutput } = useTyping(loading);
-  const { visionModelIds, modelDisplayName } = MODELS;
+  const { visionModelIds, modelDisplayName } = useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
   }, [modelId]);
 
   useEffect(() => {
-    const _modelId = !modelId ? visionModelIds[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      visionModelIds.length > 0 &&
+      (!modelId || !visionModelIds.includes(modelId))
+        ? visionModelIds[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as VideoAnalyzerPageQueryParams;
       setContent(params.content);

@@ -7,7 +7,7 @@ import ChatMessage from '../ChatMessage';
 import ScrollTopBottom from '../ScrollTopBottom';
 import useFollow from '../../hooks/useFollow';
 import { useAgentCore } from '../../hooks/useAgentCore';
-import { MODELS } from '../../hooks/useModel';
+import { MODELS, useModel } from '../../hooks/useModel';
 import useFiles from '../../hooks/useFiles';
 import { FileLimit, AgentConfiguration } from 'generative-ai-use-cases';
 import BedrockIcon from '../../assets/bedrock.svg?react';
@@ -99,17 +99,21 @@ const AgentChatUnified: React.FC<AgentChatProps> = ({
   const [initialized, setInitialized] = useState(false);
   const [isOver, setIsOver] = useState(false);
 
-  // Get models from MODELS
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // Get models (filtered by the license plan)
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   // File handling
   const { clear: clearFiles, uploadFiles, uploadedFiles } = useFiles(pathname);
 
-  // Initialize model ID when agent is loaded
+  // Initialize model ID when agent is loaded. Fall back to the first allowed
+  // model when the agent's model is not in the license-filtered list.
   useEffect(() => {
     if (agent && availableModels.length > 0) {
-      const agentModelId = agent.modelId || availableModels[0];
+      const agentModelId =
+        agent.modelId && availableModels.includes(agent.modelId)
+          ? agent.modelId
+          : availableModels[0];
       setModelId(agentModelId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

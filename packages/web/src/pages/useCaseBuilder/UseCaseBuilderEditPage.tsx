@@ -39,7 +39,7 @@ import {
 import usePageTitle from '../../hooks/usePageTitle';
 import Select from '../../components/Select';
 import Switch from '../../components/Switch';
-import { MODELS } from '../../hooks/useModel';
+import { useModel } from '../../hooks/useModel';
 import { useTranslation } from 'react-i18next';
 
 type ErrorWithMenu = {
@@ -219,7 +219,7 @@ const UseCaseBuilderEditPage: React.FC = () => {
     ErrorWithMenu[]
   >([]);
 
-  const { modelIds: availableModels } = MODELS;
+  const { modelIds: availableModels } = useModel();
 
   useEffect(() => {
     // Set the ID when the initial display is set

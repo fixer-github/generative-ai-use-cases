@@ -9,7 +9,7 @@ import useFollow from '../hooks/useFollow';
 import ScrollTopBottom from '../components/ScrollTopBottom';
 import BedrockIcon from '../assets/bedrock.svg?react';
 import { RagPageQueryParams } from '../@types/navigate';
-import { MODELS } from '../hooks/useModel';
+import { useModel } from '../hooks/useModel';
 import queryString from 'query-string';
 import { getPrompter } from '../prompts';
 import ExpandableField from '../components/ExpandableField';
@@ -78,7 +78,8 @@ const RagKnowledgeBasePage: React.FC = () => {
     forceToStop,
   } = useChat(pathname);
   const { scrollableContainer, setFollowing } = useFollow();
-  const { modelIdsInModelRegion: availableModels, modelDisplayName } = MODELS;
+  const { modelIdsInModelRegion: availableModels, modelDisplayName } =
+    useModel();
   const modelId = getModelId();
   const prompter = useMemo(() => {
     return getPrompter(modelId);
@@ -126,7 +127,12 @@ const RagKnowledgeBasePage: React.FC = () => {
   }, [prompter]);
 
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     if (search !== '') {
       const params = queryString.parse(search) as RagPageQueryParams;
       setContent(params.content ?? '');

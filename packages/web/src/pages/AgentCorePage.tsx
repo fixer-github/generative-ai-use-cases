@@ -14,7 +14,7 @@ import useFiles from '../hooks/useFiles';
 import { FileLimit } from 'generative-ai-use-cases';
 import { useTranslation } from 'react-i18next';
 import { useAgentCore } from '../hooks/useAgentCore';
-import { MODELS } from '../hooks/useModel';
+import { MODELS, useModel } from '../hooks/useModel';
 
 // Define file limits for the chat interface
 const fileLimit: FileLimit = {
@@ -95,8 +95,8 @@ const AgentCorePage: React.FC = () => {
   const genericRuntime = getGenericRuntime();
   const externalRuntimes = getExternalRuntimes();
 
-  // Get models from MODELS like ChatPage does
-  const { modelIds: availableModels, modelDisplayName } = MODELS;
+  // Get models (filtered by the license plan) like ChatPage does
+  const { modelIds: availableModels, modelDisplayName } = useModel();
   const modelId = getModelId();
 
   const [selectedArn, setSelectedArn] = useState('');
@@ -144,7 +144,12 @@ const AgentCorePage: React.FC = () => {
 
   // Initialize system context and model ID only once on mount
   useEffect(() => {
-    const _modelId = !modelId ? availableModels[0] : modelId;
+    // Replace the current model when it is not in the license-filtered list
+    const _modelId =
+      availableModels.length > 0 &&
+      (!modelId || !availableModels.includes(modelId))
+        ? availableModels[0]
+        : modelId;
     setModelId(_modelId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableModels]);

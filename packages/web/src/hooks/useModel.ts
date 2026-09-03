@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { Model, ModelConfiguration, AgentInfo } from 'generative-ai-use-cases';
 import {
   CRI_PREFIX_PATTERN,
   modelMetadata,
 } from '@generative-ai-use-cases/common';
+import useLicense from './useLicense';
 
 const modelRegion = import.meta.env.VITE_APP_MODEL_REGION;
 
@@ -238,4 +240,35 @@ export const MODELS = {
   flowChatEnabled: flows.length > 0,
   speechToSpeechModelIds: speechToSpeechModelIds,
   speechToSpeechModels: speechToSpeechModels,
+};
+
+// Hook that returns MODELS with the text model choices narrowed down to the
+// models allowed by the user's license plan (requirement 8).
+// - Applies only after the license is loaded AND a plan is assigned.
+//   While loading (or unassigned), the unfiltered lists are returned; the
+//   server-side gate is authoritative either way.
+// - Lookup helpers (findModelByModelId / getModelMetadata etc.) are NOT
+//   filtered so that history entries of no-longer-allowed models still render.
+export const useModel = () => {
+  const { license } = useLicense();
+
+  return useMemo(() => {
+    if (!license || !license.assigned) {
+      return MODELS;
+    }
+
+    const allowed = new Set(license.allowedModelIds);
+    const filterIds = (ids: string[]) => ids.filter((id) => allowed.has(id));
+
+    return {
+      ...MODELS,
+      // Text model lists supplied to selection UIs
+      modelIds: filterIds(MODELS.modelIds),
+      allModelIds: filterIds(MODELS.allModelIds),
+      modelIdsInModelRegion: filterIds(MODELS.modelIdsInModelRegion),
+      lightModelIds: filterIds(MODELS.lightModelIds),
+      visionModelIds: filterIds(MODELS.visionModelIds),
+      textModels: MODELS.textModels.filter((m) => allowed.has(m.modelId)),
+    };
+  }, [license]);
 };

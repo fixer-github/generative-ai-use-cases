@@ -13,6 +13,7 @@ admin:
     save_error: Failed to update password policy.
     save_success: Password policy updated successfully.
   tabs:
+    license: License Management
     password_policy: Password Policy
     user_management: User Management
   title: Admin Settings
@@ -891,6 +892,68 @@ language:
   th: Thai
   vi: Vietnamese
   zh: Chinese
+license:
+  admin:
+    allocation_yen: Allocation (JPY/month)
+    applied_next_month: The plan change will take effect on the 1st of next month
+    assign_action: Change assignment
+    assign_error: Failed to assign the plan
+    assign_title: Assign License Plan
+    assigning_user: 'Assigning to: {{username}}'
+    column_header: License
+    create_plan: Create Plan
+    create_plan_title: Create New Plan
+    delete_confirm: Disable plan "{{name}}"? Users assigned to this plan will no longer be able to use the service.
+    delete_confirm_title: Disable Plan
+    delete_plan: Disable
+    edit_plan_title: Edit Plan
+    enabled: Enabled
+    enabled_no: Disabled
+    enabled_yes: Enabled
+    exhausted_users: 'Limit reached: {{count}} user(s)'
+    model_unpriced: No unit price registered
+    models: Available models
+    models_priced_only: Only models with a registered unit price are listed
+    models_required: Select at least one model
+    monthly_fee_yen: Monthly fee (JPY)
+    pending_plan: 'From next month: {{name}}'
+    plan_create_error: Failed to create the plan
+    plan_delete_error: Failed to disable the plan
+    plan_name: Plan name
+    plan_update_error: Failed to update the plan
+    plans_total: '{{count}} plan(s)'
+    remaining: Remaining
+    select_plan: Select a plan
+    unassigned: Unassigned
+  badge:
+    remaining: '{{percent}}% left'
+  banner:
+    critical: Your remaining allowance is below {{percent}}%. Once used up, you cannot send new requests until the next reset date ({{resetDate}}).
+  blocked:
+    body_error: Please try again later. If the problem persists, contact your administrator.
+    body_exhausted: 'Your allowance fully recovers at 0:00 on {{resetDate}}. You can still view and copy past conversations. If urgent, ask your administrator about upgrading to a higher plan (applied from the 1st of next month).'
+    body_unassigned: Ask your administrator to assign a license plan. You can use the service once a plan is assigned.
+    contact: Contact your administrator if you have any questions.
+    title_exhausted: You have used up this month's allowance
+    title_unassigned: No license plan is assigned
+  detail:
+    breakdown: Usage by feature (as % of allocation)
+    category:
+      agent: Agent
+      chat: Chat
+      generation: Text generation
+      summarize: Summarize
+      transcribe: Transcription
+      translate: Translation
+    no_usage: No usage yet this month
+    pending_plan: Plan from next month
+    plan: Current plan
+    remaining: Remaining this month
+    reset_date: Next reset date
+    title: Usage
+  transcribe:
+    blocked_start: Cannot start transcription because no license allowance remains
+    stopped: Transcription stopped because the allowance has been used up
 mcp_chat:
   loading_message: Connecting to MCP server. This may take some time. Please wait...
   title: MCP Chat
